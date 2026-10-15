@@ -127,7 +127,18 @@ def check_collector():
             run([output, 'wrap'])
             run([output, 'wrap-large'])
             run([output, 'boundaries'])
-    print('PASS exact reference-only tracing, weak cleanup and Immix hole reuse', flush=True)
+    output = BUILD / 'growing-gc'
+    run([CLANG, '-O2', '-I', ROOT / 'src', ROOT / 'src/precise-gc.c', ROOT / 'tests/growing-gc.c',
+         '-Wl,--wrap=malloc,--wrap=calloc,--wrap=free,--wrap=mmap', '-o', output])
+    for mode in ['growth', 'failure']:
+        run([output, mode], SNAIL_GC_INITIAL_BYTES='32768')
+    run([output, 'bump'], SNAIL_GC_INITIAL_BYTES='131072')
+    run([output, 'cap'], SNAIL_GC_INITIAL_BYTES='32896', SNAIL_GC_HEAP_BYTES='327809')
+    run([output, 'sizes'], SNAIL_GC_INITIAL_BYTES='32768', SNAIL_GC_MIN_BYTES='32768')
+    for mode in ['headroom', 'headroom-low', 'headroom-failure', 'headroom-large']:
+        run([output, mode], SNAIL_GC_INITIAL_BYTES='131072')
+    run([output, 'headroom-cap'], SNAIL_GC_HEAP_BYTES='131072')
+    print('PASS exact tracing, weak cleanup, Immix reuse, automatic growth, capped/failing growth and size bounds', flush=True)
 
 
 # ---- Typed C signatures and current strict frontend output ----
@@ -221,6 +232,9 @@ def check_io():
     assert (directory / 'released').read_text() == '2\n'
     assert (directory / 'second.txt').read_text() == 'second'
     observed(executable, 'initialization-failure', releases=0, failure=True, SNAIL_GC_HEAP_BYTES='1')
+    observed(executable, 'initial-reservation-failure', releases=0, failure=True, SNAIL_GC_INITIAL_BYTES='1')
+    observed(executable, 'initial-over-cap', releases=0, failure=True,
+             SNAIL_GC_INITIAL_BYTES='65536', SNAIL_GC_HEAP_BYTES='32768')
     exhaust = build('tests/native-exhaust.scm', 'exhaust', '--strict', '--export', 'read-huge',
                     '--entry-c', ROOT / 'tests/native-lifecycle.c')
     directory = observed(exhaust, 'exhaust', releases=1, failure=True, SNAIL_GC_HEAP_BYTES='32768')

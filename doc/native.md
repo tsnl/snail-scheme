@@ -150,14 +150,50 @@ asynchronous collector observes the transfer. Tests force collection immediately
 before unlink and after callee entry and execute changing-arity tail calls with a
 256-KiB stack and bounded root depth.
 
-The arena reserves 256 MiB of virtual address space by default. Startup does not
-prefault the entire arena. `SNAIL_GC_HEAP_BYTES` sets the checked fixed reservation,
-rounded down to 32-KiB blocks; at least one block is required.
+The heap initially reserves 256 MiB of virtual address space. An allocation
+that cannot fit collects, then normally reuses reclaimed space. If more than
+75% of capacity remains occupied, it first tries to add a region, normally
+doubling total capacity, to avoid repeated tracing for tiny reclaimed holes.
+Occupancy counts retained 128-byte lines and entire large-object block
+reservations, including headers and unusable tails. At or below 75%, at least
+one quarter of total allocation space is reusable, though fragmentation can
+still prevent a particular contiguous fit. Such a miss also requests growth.
+A larger object can request a larger region. This headroom rule is a simple
+capacity policy, not a measured optimum; it does not grow after every budget
+collection. Each region owns its block, line and exact-start maps; live objects
+keep their addresses, and a contiguous object stays entirely inside one region.
+Growth publishes a region only after its mapping and metadata both succeed.
+If the preferred addition fails, the collector tries the minimum complete
+block-rounded extent. Failed growth still permits allocation in any fitting
+reclaimed hole, including when the explicit cap prevents growth. Mappings are
+retained for reuse, and startup does not prefault their pages.
+
+`SNAIL_GC_HEAP_BYTES` remains an explicit hard cap on total managed mapped bytes,
+including headers and unused space, excluding C metadata and roots. Setting
+only this variable preserves the earlier fixed initial reservation.
+`SNAIL_GC_INITIAL_BYTES` optionally selects a smaller initial reservation for
+tuning or growth tests. With no explicit cap, it replaces the 256 MiB initial
+size and growth continues subject to checked size limits and OS availability.
+Both settings round down to 32-KiB blocks, require at least one block, and reject
+sizes above `SIZE_MAX / 4` or an initial size above the cap. Requests instead
+round up to include their header and alignment. The last addition can consume
+a smaller cap remainder; the cap is never rounded upward. Free space across
+separate regions cannot satisfy one contiguous object, even when adjacent in
+the virtual address space.
+
 `SNAIL_GC_MIN_BYTES` sets the minimum allocation budget between collections
-(default 8 MiB). Reservation and allocation exhaustion terminate through the
-normal cleanup path. `SNAIL_GC_STATS=1` reports collector counters on stderr.
+(default 8 MiB). After collection the budget is the larger of that minimum and
+twice the live payload bytes; a capacity miss can collect sooner. Reservation
+and allocation exhaustion terminate through the normal cleanup path.
+`SNAIL_GC_STATS=1` reports collector counters on stderr.
+`heap_bytes` is current total capacity, `initial_heap_bytes` records the initial
+mapping, `heap_limit=0` means no explicit cap, and `regions`/`growths` count
+successful mappings/additions. `arena_used` sums each region's used-block
+high-water mark; these are virtual managed extents, not resident memory.
+`last_occupied` reports the retained line/block capacity at the last collection;
+`last_live` counts only its live payload bytes.
 `SNAIL_NATIVE_GC_INTERVAL=1` forces collection before every allocation for testing.
-There is no growing arena, moving compaction, multithreaded guest execution, or
+There is no moving compaction, multithreaded guest execution, or
 reusable native-instance lifecycle yet.
 
 ## Failure and resource lifetime

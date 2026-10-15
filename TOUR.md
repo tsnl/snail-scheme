@@ -258,11 +258,21 @@ defines nominal applications of resolved declaration identities and substitutes
 their field types; recursive fields retain identities instead of expanding a tree.
 [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
 supplies complete concrete primitive signatures and opcodes, including unary
-conversions. [`(snail strict)`](src/snail/strict.sld) provides numeric overload
+conversions, fixed-width bitwise intersection/exclusive-or, and logical right shifts.
+[`(snail strict)`](src/snail/strict.sld) provides numeric overload
 families with explicit I64/F64 promotion bodies, hygienic binding and control forms
 and ordinary vector and Unicode string functions. Append, substring, copying,
 content comparison and list conversions use the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
+
+[`(snail text)`](src/snail/text.sld) adds Unicode character classification and
+simple lowercase through explicit scalar services, plus ordinary Scheme
+lexicographic String ordering. [`strict_text.rs`](src/strict_text.rs) validates
+raw scalars and reuses the existing casing/decimal data and Alphabetic property;
+whitespace calls the strict reader's existing provider directly. No String or
+Scheme root crosses this boundary. [`scripts/test-strict-text`](scripts/test-strict-text)
+checks exact scalar fields, mutable String ordering and terminal cleanup on
+linked raw/optimized Wasm and native64. See [the text contract](doc/strict-text.md).
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
@@ -327,16 +337,20 @@ Native foreign declarations retain their resolved identity in IR.
 validates the concrete scalar boundary shared by imports and selected worker
 exports; the emitter adapts Unit results without introducing an object carrier.
 [`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
-passes without process effects. The build wrapper reuses the shared Binaryen
-assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
+passes without process effects. Its `strict.infer`, `strict.specialize`, and
+`strict.emit-wasm` trace spans expose each completed phase separately from source
+expansion, serialization, and optimization. The build wrapper reuses the shared
+Binaryen assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
 executes native exports and checks located source rejections.
 [`scripts/test-strict-extern`](scripts/test-strict-extern) links real Wasm
 providers, checks mismatched signatures and exercises reusable worker captures
 and one-shot initialization through raw and optimized modules.
 
 [`(snail io)`](src/snail/io.sld) provides strict text files with concrete
-`InputPort` and `OutputPort` wrappers, explicit close, Scheme character loops and
-I64 decimal formatting. Its `LineResult` distinguishes EOF from empty lines;
+`InputPort` and `OutputPort` wrappers, explicit close, stable borrowed stdout,
+Scheme character loops and I64 decimal formatting. Default output overloads call
+the same explicit-port implementations; stdout never enters the owned-file
+registry. Its `LineResult` distinguishes EOF from empty lines;
 Scheme constructs lines using a geometrically growing String buffer while Rust's
 existing text reader owns UTF-8 decoding and one-character lookahead.
 [`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
@@ -349,18 +363,74 @@ Scheme and invokes the retained cleanup export after traps. See
 [strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
 [`scripts/test-strict-io`](scripts/test-strict-io).
 
+[`(snail write)`](src/snail/write.sld) formats every concrete Datum variant using
+those scalar output operations and the existing Number formatter. A query-local
+storage-identity scan separates sharing from cycles; explicit render continuations
+emit proper/dotted lists and vectors without consuming the machine stack.
+Acyclic sharing expands normally, while cyclic graphs use first-output-order
+`#n=`/`#n#` labels, including repeated strings and bytevectors. `display` recursively
+emits direct strings, characters and symbol names. This graph output extension
+does not add graph input to the strict reader. See [typed datum output](doc/strict-write.md)
+and [`scripts/test-strict-write`](scripts/test-strict-write) for exact linked
+Wasm/native output and observed port lifetime checks.
+
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
-datums, interned symbols, exact I64/inexact F64/complex numeric variants and
-structural equality. [`(snail read)`](src/snail/read.sld) consumes Unicode input
+datums, interned symbols, the shared Number domain, structural equality and
+proper-list operations. Mutable datum identity names
+backing storage; pair identity compares both explicit Ref fields. Equality
+follows finite cyclic graphs with explicit continuations and a query-local
+table of private recursive-view IDs. Those IDs do not replace storage identity
+or add fields to Ref/vector storage; the scalar counter retains no objects.
+The public constructors and read-only projections keep the private IDs
+unforgeable. The module owns the shared `ReadResult` data and interprets each
+ordinary atom through one staged text handle, closing it or consuming it into
+a symbol before returning. Exact lexical fields become normalized Scheme-owned
+Integers/Rationals before that handle closes.
+[`(snail read)`](src/snail/read.sld) re-exports the unchanged result API and consumes Unicode input
 incrementally, owns token buffers and parsing in Scheme, and distinguishes a
 datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
-owned scalar token handles, checked numeric conversion and a root-free strict
-symbol identity domain. It shares the legacy numeric parser and symbol storage
-implementation without importing legacy Scheme roots. Terminal file cleanup
+owned scalar token handles and a root-free strict symbol identity domain.
+[`strict_number.rs`](src/strict_number.rs) validates complete numeric tokens and
+retains exact digits, radix and decimal scale without introducing a Rust bigint.
+The strict interner shares the existing symbol storage implementation without
+importing legacy Scheme roots. Terminal file cleanup
 also releases unfinished token handles. [The reader contract](doc/strict-reader.md)
 states exactness, signed-zero/NaN equality, resource lifetimes and unsupported
 syntax; [`scripts/test-strict-reader`](scripts/test-strict-reader) compares complete
 datum streams with Chez on linked raw/optimized Wasm and native.
+
+[`(snail integer)`](src/snail/integer.sld) implements immutable arbitrary-precision
+exact integers in ordinary strict Scheme. Private I32 WasmGC arrays hold 30-bit
+limbs; I64 intermediates bound carries, products and quotient estimates. Static
+numeric methods add exact arithmetic without changing existing I64 semantics.
+The same module owns checked radix and machine conversions, normalized long
+division, exponentiation and floor square root. Binary64 conversion distinguishes
+exact integral input from explicit truncation; exact ratios choose the final
+binary64 spacing and round once using their integer remainder. No managed number
+crosses the Rust ABI. [`scripts/test-strict-integer`](scripts/test-strict-integer) checks
+independent arithmetic and ownership oracles on raw/optimized Wasm and native64,
+including an exhaustive small-radix copy of its module-local tests. See
+[the integer contracts](doc/strict-integer.md).
+
+[`(snail rational)`](src/snail/rational.sld) builds immutable reduced fractions
+from Integers. Its private constructor guarantees a positive denominator and
+canonical zero; named arithmetic and existing static overloads share that
+normalization rule. Exact conversion from binary64 exposes the finite dyadic
+value, while conversion back rounds the exact ratio once. The independent
+Fraction oracle in [`scripts/test-strict-numbers`](scripts/test-strict-numbers)
+checks complete values on raw/optimized Wasm and native64. See
+[the rational contracts](doc/strict-rational.md).
+
+[`(snail number)`](src/snail/number.sld) owns the explicit numeric boundary:
+small I64 exact values, arbitrary Rational values, F64 values and rectangular
+complex components. Exact arithmetic promotes beyond I64 through the same
+Integer/Rational operations; finite mixed comparisons preserve the exact dyadic
+float value. Static overloads, named conversions, projections and decimal
+formatting share these concrete representations. Rust formats only scalar F64
+text through an owned temporary handle. The `--domain` mode of
+[`scripts/test-strict-numbers`](scripts/test-strict-numbers) checks full values,
+round trips, signed zeros and rejected conversions on linked raw/optimized Wasm
+and native64. See [the Number contracts](doc/strict-number.md).
 
 [`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
 one-argument `atan` as ordinary typed externs. Their scalar C signatures call
@@ -570,8 +640,12 @@ The restored native path is validated by [`scripts/test-native`](scripts/test-na
 terminal cleanup. Array operations receive their constant element stride from
 [`llvm.sld`](src/snail-scheme/llvm.sld); references retain eight-byte storage,
 while numeric arrays use their declared widths, including static initializers.
-[`precise-gc.c`](src/precise-gc.c) traces only declared references
-and reuses Immix line holes. [`native.rs`](src/native.rs) closes the shared Rust
+[`precise-gc.c`](src/precise-gc.c) traces only declared references,
+reuses Immix line holes and grows through additional nonmoving regions when
+collection cannot satisfy an allocation or leaves little headroom. Each region
+owns its exact-start, block and line maps; an explicit heap-size setting remains
+a hard total cap.
+[`native.rs`](src/native.rs) closes the shared Rust
 resources exactly once. [`abi.rs`](src/abi.rs) binds owned Rust roots directly to
 generated native C adapters; it uses test stubs only in standalone Rust tests.
 
@@ -732,6 +806,108 @@ concrete. Original/adapted Chez, raw/optimized Wasm and native probes compare
 full results, callback order and mutable aliases; independent small models
 check finite-field spans and signed-permutation maximality. The existing Rust
 reference is validated as a separate algorithm and layout control.
+
+[`integer_ports.py`](benchmarks/strict-suite/integer_ports.py) preserves the
+three complete pi algorithms and Chudnovsky binary splitting using `(snail
+integer)`. Reversible source edits lift bounded constants explicitly and keep
+scalar digit/count controls separate from arbitrary-precision arithmetic. The
+preparation compares complete original-sized outputs on raw/optimized Wasm,
+native64, original/adapted Chez and the identical limb Scheme body on Chez with
+checked I64/I32 intermediates. Its scalar providers transport expected decimal
+text and observed characters; all numerical work remains in Scheme.
+
+[`integer_controls.py`](benchmarks/strict-suite/integer_controls.py) prepares the
+eight comparison controls, including the exact native-final module on V8 and
+separate native-bigint and same-limb Chez programs. It places input preparation
+before the optional clock, the complete numerical predicate inside it, and
+serialization afterward. Count and wrong-result controls exercise the production
+artifacts; separate probes observe every complete repetition without changing
+the measured kernels. Preparation never starts a measurement.
+
+[`reader_ports.py`](benchmarks/strict-suite/reader_ports.py) preserves the complete
+Sum1 and Read1 file-reading kernels. Reversible edits expose typed read results,
+numeric conversion and the initial false datum. The Chez control uses the exact
+Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
+observe full per-worker file lifecycles and time the unchanged count loops;
+complete stream/result probes and the distinct Rust reader controls remain
+separate from clean measurement.
+[`chez-number.scm`](benchmarks/strict-suite/chez-number.scm) supplies that control's
+scalar numeric-token boundary: owned handles retain one lexical classification,
+while the unchanged Integer, Rational, Number, Datum and reader library bodies
+run in private scopes. Exact arithmetic stays in those Scheme libraries;
+binary64 text compatibility is checked against the Rust target's exact bytes.
+The separate output-program scope adds
+[`chez-io.scm`](benchmarks/strict-suite/chez-io.scm): binary scalar reads, borrowed
+stdout, owned file IDs and invocation cleanup. It runs the unchanged typed I/O
+and Datum writer bodies, preserving the earlier reader controls' generated text.
+
+[`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
+Browse database and backtracking matcher through counted reversible source edits.
+It keeps the association lists, copied cyclic pattern ring, destructive shuffle,
+and all three matcher return classes. The empty-list result remains truthy.
+Separate probes compare every recursive operand and return with original Chez;
+the clean builds retain the original 2,000-invocation loop and complete predicate.
+The datum library owns reusable list/identity operations, while the adapter owns
+the workload's typed boundaries and its original-source compatibility controls.
+
+[`boyer_port.py`](benchmarks/strict-suite/boyer_port.py) preserves the complete
+NBoyer and SBoyer provers, including their post-harness definitions and numeric
+rewrite-count predicates. Reversible edits expose existing `Datum` and `Ref`
+types while retaining constructor-record cycles, association lists and SBoyer's
+pair reuse rule. It prepares original/adapted Chez, linked raw/optimized Wasm,
+native64 and the independent Rust controls. Separate structural and work-count
+programs keep counter instrumentation out of constructor-order observations.
+Native heap reservations and capacity failures remain explicit evidence, and
+preparation starts no clean measurement.
+
+[`conform_port.py`](benchmarks/strict-suite/conform_port.py) preserves Conform's
+functional sort and sets, cyclic type graph, shared mutable memo tables, and
+temporary red conformity assumptions through concrete records and Ref fields.
+Its reversible ledger produces the same adapted kernel for strict and Chez.
+The [probe fixture](tests/strict-conform/probe.scm) observes graph/table structure,
+alias mutations, ordering, and every invocation's algorithmic work separately
+from the original 500-invocation benchmark. Preparation freezes optimized Wasm,
+its mechanical native translation, both Chez sources, and distinct Rust controls.
+
+[`maze_port.py`](benchmarks/strict-suite/maze_port.py) retains Shivers's complete
+hexagonal Maze workload, its recursive integer helpers, union-find compression,
+wall order, DFS/rerooting, and full character-list output. Concrete records and
+Refs replace mutable pairs and heterogeneous vectors. Its sole lexical escape
+becomes a callback completion test that stops the reverse wall traversal at the
+same point; it adds no general continuation support. Counted edits reverse to
+the pinned source, and a separate observation program compares ordered walls,
+mutations, identities, every output character, and full-count source operations.
+The module prepares original/adapted Chez, raw/optimized linked Wasm, native64,
+the exact native-final Wasm on V8, and the unchanged indexed Rust reference.
+
+[`parsing_port.py`](benchmarks/strict-suite/parsing_port.py) keeps Parsing's
+complete generated scanner and LL(1) parser. Counted reversible edits expose
+the existing `Datum`, Symbol and eight `Ref` bindings without replacing the
+grammar or character-list file loader. The full 2,500-parse worker retains its
+actual timed file load, simultaneous updates, EOF quirks and complete result
+predicate. Preparation compares original/adapted Chez, raw/optimized Wasm,
+native and the independent Rust control. Separate token/datum streams, named
+procedure counters and alias/reset checks remain outside clean timing. The
+[observation fixture](tests/strict-parsing/probe.scm) and its native entry live
+under `tests/`; preparation records them as driver inputs separately from the
+historical compiler-source basis.
+
+[`compiler_port.py`](benchmarks/strict-suite/compiler_port.py) inventories every
+top-level form of the complete compiler workload and removes only its import
+and harness. [`compiler-data.scm`](benchmarks/strict-suite/compiler-data.scm)
+establishes mutable list, located syntax, lexical and parse-tree representations;
+[`compiler-result.scm`](benchmarks/strict-suite/compiler-result.scm) makes the
+source's error-only escape explicit through typed results and scoped handler
+state. The [foundation checker](tests/strict-compiler/check.py) runs identity,
+mutation, ordering and abort probes on Chez, linked Wasm and actual native64.
+[`compiler-collections.scm`](benchmarks/strict-suite/compiler-collections.scm)
+supplies concrete signatures and storage operations for the original sort,
+ordered occurrence sets, dependency graphs and queues. The adapter retains each
+complete source algorithm in a reversible ledger, including its sharing and
+mutation order. Separate complete-source Chez controls isolate the chosen map
+order without treating those controls as typed compiler coverage.
+The [port contract](benchmarks/strict-suite/compiler-port.md) distinguishes these
+checked foundations from the still-pending complete compiler adaptation.
 
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)

@@ -6,6 +6,7 @@
           (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme expand)
           (snail-scheme strict-infer) (snail-scheme strict-primitives)
           (snail-scheme strict-specialize) (snail-scheme strict-wasm)
+          (snail-scheme chromium-trace)
           (only (snail-scheme strict-types) strict-error) (only (snail-scheme source) loc?)
           (only (snail-scheme wasm) write-wasm)
           (prefix (snail-scheme library) library:) (prefix (snail-scheme ir) ir:))
@@ -39,9 +40,15 @@
         (let* ((core (make-core-library '(snail-scheme core) primitive-names))
                (program (syntax-list->ir-library (read-forms path) (library-loader root) (list core)))
                (items (apply append (map library:library-body (library:library-dependency-order program)))))
-          (infer-program items (primitive-bindings core) (library:library-loc program)))))
+          ((chromium-trace "strict.infer" infer-program)
+           items (primitive-bindings core) (library:library-loc program)))))
+
+    ;; ---- Concrete specialization and Wasm emission ----
+
     (define (strict-source-file->wasm root path . exports)
-      (strict-core->wasm (apply monomorphize (strict-source-file->core root path) exports)))
+      (let* ((core (strict-source-file->core root path))
+             (concrete (apply (chromium-trace "strict.specialize" monomorphize) core exports)))
+        ((chromium-trace "strict.emit-wasm" strict-core->wasm) concrete)))
     (define (strict-source-file->wat-file root path output . exports)
       (let ((module (apply strict-source-file->wasm root path exports)))
         (call-with-output-file output (lambda (port) (write-wasm module port)))))))

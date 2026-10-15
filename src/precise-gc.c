@@ -21,14 +21,22 @@
 #define START_WORDS (BLOCK_SIZE / ALIGNMENT / 64)
 #define ALLOCATED 1u
 #define MARKED 2u
-#define CONTINUATION UINT32_MAX
+#define CONTINUATION SIZE_MAX
 
 typedef struct {
     uint64_t starts[START_WORDS];
     uint8_t lines[LINES];
-    uint32_t span, live_lines;
+    size_t span;
+    uint32_t live_lines;
     uint16_t available_lines, next_line;
 } Block;
+_Static_assert(sizeof(Block) < BLOCK_SIZE, "block metadata size must fit checked region sizing");
+typedef struct Region {
+    uint8_t *arena;
+    Block *blocks;
+    size_t block_count, used_blocks, search_block, search_large;
+    struct Region *next;
+} Region;
 typedef struct { uint32_t kind, count; const uint32_t *offsets; } Layout;
 typedef struct Watch {
     void *object, *data;
@@ -43,14 +51,15 @@ extern NativeTable *const native_gc_tables[];
 extern const uint64_t native_gc_tables_count;
 extern _Noreturn void native_trap(void);
 
-// A bump range reserves its entire line hole. If a larger request abandons
-// the remaining tail, that reserved space becomes reusable only after GC.
-static uint8_t *arena, *cursor, *limit;
-static Block *blocks;
-static size_t heap_bytes = 256 * 1024 * 1024, block_count, used_blocks, search_block, search_large;
+// Each region owns its maps and never moves. Objects cannot cross regions.
+// A bump range reserves its entire line hole until GC, with its own owner:
+// allocating a large object elsewhere must not change the small bump's maps.
+static Region *regions, *search_region, *bump_region;
+static uint8_t *cursor, *limit;
+static size_t heap_bytes, heap_limit, maximum_heap_bytes, initial_heap_bytes, region_count;
 static size_t since_collection, budget = 8 * 1024 * 1024, minimum_budget = 8 * 1024 * 1024;
 static uint64_t **work;
-static size_t work_count, work_capacity, collections, live_bytes, live_objects;
+static size_t work_count, work_capacity, collections, live_bytes, live_objects, occupied_bytes;
 static size_t allocated_bytes, allocated_objects, peak_live, root_visits, field_visits;
 static size_t reused_holes, large_objects;
 static double mark_seconds, sweep_seconds;
@@ -67,35 +76,71 @@ static size_t aligned_size(size_t bytes) {
     return (bytes + 8 + ALIGNMENT - 1) & ~(size_t)(ALIGNMENT - 1);
 }
 
-static void record_start(uint64_t *header) {
-    size_t offset = (uint8_t *)header - arena;
+static void record_start(Region *region, uint64_t *header) {
+    size_t offset = (uint8_t *)header - region->arena;
     size_t index = offset % BLOCK_SIZE / ALIGNMENT;
-    blocks[offset / BLOCK_SIZE].starts[index / 64] |= UINT64_C(1) << (index % 64);
+    region->blocks[offset / BLOCK_SIZE].starts[index / 64] |= UINT64_C(1) << (index % 64);
 }
+
+// ---- Region growth ----
+
+// Prepare every resource before publication. A failed addition leaves the
+// existing regions, search cursors and capacity intact. Metadata is outside
+// the managed-byte cap; its size cannot overflow because sizeof(Block) < BLOCK_SIZE.
+static bool add_region(size_t bytes) {
+    Region *region = malloc(sizeof(*region));
+    if (!region) return false;
+    Block *blocks = calloc(bytes / BLOCK_SIZE, sizeof(*blocks));
+    uint8_t *arena = blocks ? mmap(NULL, bytes, PROT_READ | PROT_WRITE,
+                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) : MAP_FAILED;
+    if (arena == MAP_FAILED) { free(blocks); free(region); return false; }
+    *region = (Region){.arena = arena, .blocks = blocks,
+                       .block_count = bytes / BLOCK_SIZE, .next = regions};
+    regions = search_region = region;
+    heap_bytes += bytes;
+    region_count++;
+    return true;
+}
+
+// Called only under capacity pressure after a complete collection. Double
+// total capacity where possible, but obtain a larger region for a larger object.
+// The final addition may consume a smaller cap remainder. If the preferred
+// reservation fails, try just the complete block-rounded object extent.
+static bool grow_heap(size_t bytes) {
+    size_t needed = (bytes + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE;
+    size_t remaining = maximum_heap_bytes - heap_bytes;
+    if (needed > remaining) return false;
+    size_t preferred = heap_bytes > needed ? heap_bytes : needed;
+    if (preferred > remaining) preferred = remaining;
+    return add_region(preferred) || (preferred != needed && add_region(needed));
+}
+
+// ---- Block and line allocation ----
 
 // Search cursors reset after GC. Between collections allocation only consumes
 // holes, so full blocks can be skipped without reading their line maps again.
-static void claim_hole(size_t index, size_t first, size_t end) {
-    Block *block = &blocks[index];
+static void claim_hole(Region *region, size_t index, size_t first, size_t end) {
+    Block *block = &region->blocks[index];
     if (block->live_lines) reused_holes++;
     memset(block->lines + first, 1, end - first);
     block->span = 1;
     block->available_lines -= end - first;
     block->next_line = end;
-    cursor = arena + index * BLOCK_SIZE + first * LINE_SIZE;
-    limit = arena + index * BLOCK_SIZE + end * LINE_SIZE;
-    search_block = index;
-    if (index + 1 > used_blocks) used_blocks = index + 1;
+    bump_region = region;
+    cursor = region->arena + index * BLOCK_SIZE + first * LINE_SIZE;
+    limit = region->arena + index * BLOCK_SIZE + end * LINE_SIZE;
+    region->search_block = index;
+    if (index + 1 > region->used_blocks) region->used_blocks = index + 1;
 }
 
-static bool find_hole(size_t index, size_t first, size_t stop, size_t bytes) {
-    Block *block = &blocks[index];
+static bool find_hole(Region *region, size_t index, size_t first, size_t stop, size_t bytes) {
+    Block *block = &region->blocks[index];
     while (first < stop) {
         while (first < stop && block->lines[first]) first++;
         size_t end = first;
         while (end < stop && !block->lines[end]) end++;
         if ((end - first) * LINE_SIZE >= bytes) {
-            claim_hole(index, first, end);
+            claim_hole(region, index, first, end);
             return true;
         }
         first = end;
@@ -103,22 +148,23 @@ static bool find_hole(size_t index, size_t first, size_t stop, size_t bytes) {
     return false;
 }
 
-static bool acquire_hole(size_t bytes) {
-    size_t index = search_block;
-    for (size_t checked = 0; checked < block_count; checked++) {
-        Block *block = &blocks[index];
+static bool acquire_hole(Region *region, size_t bytes) {
+    size_t index = region->search_block;
+    for (size_t checked = 0; checked < region->block_count; checked++) {
+        Block *block = &region->blocks[index];
         if (!block->span) {
             block->available_lines = LINES;
-            claim_hole(index, 0, LINES);
+            claim_hole(region, index, 0, LINES);
             return true;
         }
         if (block->span == 1 && (size_t)block->available_lines * LINE_SIZE >= bytes) {
             // The boundary follows a consumed hole, so no free run crosses it.
             size_t next = block->next_line;
-            if (find_hole(index, next, LINES, bytes) || find_hole(index, 0, next, bytes))
+            if (find_hole(region, index, next, LINES, bytes)
+                || find_hole(region, index, 0, next, bytes))
                 return true;
         }
-        if (++index == block_count) index = 0;
+        if (++index == region->block_count) index = 0;
     }
     return false;
 }
@@ -126,17 +172,20 @@ static bool acquire_hole(size_t bytes) {
 // Next-fit begins after the last reservation. A second range search includes
 // all earlier holes before failure; the split follows an occupied reservation.
 // Differing request sizes therefore cannot strand a free run across the split.
-static uint64_t *find_large(size_t first, size_t stop, size_t span) {
+static uint64_t *find_large(Region *region, size_t first, size_t stop, size_t span) {
+    Block *blocks = region->blocks;
     while (first + span <= stop) {
         size_t end = first;
         while (end < first + span && !blocks[end].span) end++;
         if (end == first + span) {
             blocks[first].span = span;
             for (size_t i = first + 1; i < end; i++) blocks[i].span = CONTINUATION;
-            if (end > used_blocks) used_blocks = end;
-            search_large = end;
+            if (end > region->used_blocks) region->used_blocks = end;
+            region->search_large = end;
             large_objects++;
-            return (uint64_t *)(arena + first * BLOCK_SIZE);
+            uint64_t *header = (uint64_t *)(region->arena + first * BLOCK_SIZE);
+            record_start(region, header);
+            return header;
         }
         size_t occupied = blocks[end].span;
         first = end + (occupied == CONTINUATION ? 1 : occupied);
@@ -144,38 +193,63 @@ static uint64_t *find_large(size_t first, size_t stop, size_t span) {
     return NULL;
 }
 
-static uint64_t *allocate_large(size_t bytes) {
+static uint64_t *allocate_large(Region *region, size_t bytes) {
     size_t span = (bytes + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    uint64_t *header = find_large(search_large, block_count, span);
-    return header ? header : find_large(0, search_large, span);
+    uint64_t *header = find_large(region, region->search_large, region->block_count, span);
+    return header ? header : find_large(region, 0, region->search_large, span);
+}
+
+static uint64_t *allocate_bump(size_t bytes) {
+    uint64_t *header = (uint64_t *)cursor;
+    cursor += bytes;
+    record_start(bump_region, header);
+    return header;
 }
 
 static __attribute__((noinline)) uint64_t *allocate_slow(size_t bytes) {
-    if (bytes > BLOCK_SIZE) return allocate_large(bytes);
-    if (!acquire_hole(bytes)) return NULL;
-    uint64_t *header = (uint64_t *)cursor;
-    cursor += bytes;
-    return header;
+    Region *first = search_region;
+    do {
+        if (bytes > BLOCK_SIZE) {
+            uint64_t *header = allocate_large(search_region, bytes);
+            if (header) return header;
+        } else if (acquire_hole(search_region, bytes)) return allocate_bump(bytes);
+        search_region = search_region->next ? search_region->next : regions;
+    } while (search_region != first);
+    return NULL;
 }
 
 static uint64_t *allocate_header(size_t bytes) {
     // Each bump range stays inside one block, so large requests always miss.
     if (!cursor || (size_t)(limit - cursor) < bytes) return allocate_slow(bytes);
-    uint64_t *header = (uint64_t *)cursor;
-    cursor += bytes;
+    return allocate_bump(bytes);
+}
+
+static __attribute__((noinline)) uint64_t *retry_allocation(size_t bytes, bool collected) {
+    if (!collected) native_gc_collect();
+    // A nearly full heap can reclaim a tiny hole on every miss and repeatedly
+    // trace the same live graph. Grow before reuse above 75% occupied capacity.
+    // This is allocation space, including headers and unusable large tails,
+    // not marked payload bytes. Failed optional growth still permits reuse.
+    bool crowded = occupied_bytes > heap_bytes - heap_bytes / 4;
+    if (crowded) grow_heap(bytes);
+    uint64_t *header = allocate_header(bytes);
+    if (!header && !crowded && grow_heap(bytes)) header = allocate_header(bytes);
     return header;
 }
 
 __attribute__((always_inline)) void *native_gc_alloc(size_t bytes) {
-    if (bytes > heap_bytes - 8 - ALIGNMENT) return NULL;
-    if (since_collection >= budget) native_gc_collect();
-    uint64_t *header = allocate_header(aligned_size(bytes));
-    if (!header) { native_gc_collect(); header = allocate_header(aligned_size(bytes)); }
+    // Two low header bits hold flags. This bound also makes header, alignment,
+    // block rounding and collection-budget arithmetic safe before any mutation.
+    if (bytes > SIZE_MAX / 4 || aligned_size(bytes) > maximum_heap_bytes) return NULL;
+    bool collected = since_collection >= budget;
+    if (collected) native_gc_collect();
+    size_t extent = aligned_size(bytes);
+    uint64_t *header = allocate_header(extent);
+    if (!header) header = retry_allocation(extent, collected);
     if (!header) return NULL;
-    record_start(header);
     *header = ((uint64_t)bytes << 2) | ALLOCATED;
     memset(header + 1, 0, bytes);
-    since_collection += aligned_size(bytes);
+    since_collection += extent;
     allocated_bytes += bytes;
     allocated_objects++;
     return header + 1;
@@ -184,28 +258,40 @@ __attribute__((always_inline)) void *native_gc_alloc(size_t bytes) {
 // ---- Explicit roots and tracing ----
 
 // Validate published reference words before following them. Null, odd i31
-// immediates and static literal objects are outside the managed arena.
-static uint64_t *candidate(uint64_t value) {
-    uintptr_t offset = (uintptr_t)value - (uintptr_t)arena;
-    if (offset >= used_blocks * BLOCK_SIZE || offset % ALIGNMENT != 8) return NULL;
+// immediates and static literal objects are outside the managed regions.
+static Region *containing_region(uint64_t value) {
+    // Mappings are page aligned; payloads start eight bytes past a 16-byte
+    // aligned header. Reject null and immediate values before searching maps.
+    if (value % ALIGNMENT != 8) return NULL;
+    for (Region *region = regions; region; region = region->next)
+        if ((uintptr_t)value - (uintptr_t)region->arena < region->used_blocks * BLOCK_SIZE)
+            return region;
+    return NULL;
+}
+
+static uint64_t *candidate(Region *region, uint64_t value) {
+    if (!region) return NULL;
+    uintptr_t offset = (uintptr_t)value - (uintptr_t)region->arena;
     size_t index = (offset - 8) % BLOCK_SIZE / ALIGNMENT;
-    if (!(blocks[offset / BLOCK_SIZE].starts[index / 64] & (UINT64_C(1) << (index % 64)))) return NULL;
+    if (!(region->blocks[offset / BLOCK_SIZE].starts[index / 64] & (UINT64_C(1) << (index % 64)))) return NULL;
     uint64_t *header = (uint64_t *)(uintptr_t)value - 1;
     return (*header & ALLOCATED) ? header : NULL;
 }
 
-static void mark_lines(uint64_t *header) {
-    size_t first = ((uint8_t *)header - arena) / LINE_SIZE;
-    size_t end = (((uint8_t *)header - arena) + aligned_size(*header >> 2) + LINE_SIZE - 1) / LINE_SIZE;
+static void mark_lines(Region *region, uint64_t *header) {
+    size_t offset = (uint8_t *)header - region->arena;
+    size_t first = offset / LINE_SIZE;
+    size_t end = (offset + aligned_size(*header >> 2) + LINE_SIZE - 1) / LINE_SIZE;
     for (size_t line = first; line < end; line++)
-        blocks[line / LINES].lines[line % LINES] = 1;
+        region->blocks[line / LINES].lines[line % LINES] = 1;
 }
 
 static void mark(uint64_t value) {
-    uint64_t *header = candidate(value);
+    Region *region = containing_region(value);
+    uint64_t *header = candidate(region, value);
     if (!header || (*header & MARKED)) return;
     *header |= MARKED;
-    mark_lines(header);
+    mark_lines(region, header);
     if (work_count == work_capacity) {
         work_capacity = work_capacity ? work_capacity * 2 : 1024;
         void *grown = realloc(work, work_capacity * sizeof(*work));
@@ -269,7 +355,8 @@ static void queue_finalizers(void) {
     Watch **link = &watches;
     while (*link) {
         Watch *watch = *link;
-        uint64_t *header = candidate((uintptr_t)watch->object);
+        uint64_t value = (uintptr_t)watch->object;
+        uint64_t *header = candidate(containing_region(value), value);
         if (header && !(*header & MARKED)) {
             *link = watch->next;
             // Only queues scalar IDs; it must not allocate or reenter.
@@ -279,13 +366,13 @@ static void queue_finalizers(void) {
     }
 }
 
-static void sweep_starts(size_t index) {
-    Block *block = &blocks[index];
+static void sweep_starts(Region *region, size_t index) {
+    Block *block = &region->blocks[index];
     for (size_t word = 0; word < START_WORDS; word++) {
         uint64_t starts = block->starts[word];
         while (starts) {
             unsigned bit = __builtin_ctzll(starts);
-            uint64_t *header = (uint64_t *)(arena + index * BLOCK_SIZE + (word * 64 + bit) * ALIGNMENT);
+            uint64_t *header = (uint64_t *)(region->arena + index * BLOCK_SIZE + (word * 64 + bit) * ALIGNMENT);
             if (*header & MARKED) {
                 *header &= ~MARKED;
                 live_bytes += *header >> 2;
@@ -299,24 +386,33 @@ static void sweep_starts(size_t index) {
     }
 }
 
-static void sweep(void) {
-    live_bytes = live_objects = 0;
-    for (size_t index = 0; index < used_blocks; index++) {
-        Block *block = &blocks[index];
-        sweep_starts(index);
+static void sweep_region(Region *region) {
+    for (size_t index = 0; index < region->used_blocks; index++) {
+        Block *block = &region->blocks[index];
+        sweep_starts(region, index);
         block->live_lines = 0;
         for (size_t line = 0; line < LINES; line++) block->live_lines += block->lines[line] != 0;
         if (!block->live_lines) block->span = 0;
+        // A live large object's continuation and tail blocks remain reserved.
+        occupied_bytes += block->span > 1 ? BLOCK_SIZE : block->live_lines * LINE_SIZE;
         block->available_lines = LINES - block->live_lines;
         block->next_line = 0;
     }
+    region->search_block = region->search_large = 0;
+}
+
+static void sweep(void) {
+    live_bytes = live_objects = occupied_bytes = 0;
+    for (Region *region = regions; region; region = region->next) sweep_region(region);
     cursor = limit = NULL;
-    search_block = search_large = 0;
+    bump_region = NULL;
+    search_region = regions;
 }
 
 void native_gc_collect(void) {
     double start = statistics ? seconds() : 0;
-    for (size_t i = 0; i < used_blocks; i++) memset(blocks[i].lines, 0, LINES);
+    for (Region *region = regions; region; region = region->next)
+        for (size_t i = 0; i < region->used_blocks; i++) memset(region->blocks[i].lines, 0, LINES);
     mark_roots();
     while (work_count) trace_object(work[--work_count]);
     double marked = statistics ? seconds() : 0;
@@ -334,11 +430,14 @@ size_t native_gc_collections(void) { return collections; }
 // ---- Initialization and opt-in measurements ----
 
 static void report_statistics(void) {
-    fprintf(stderr, "immix-gc allocation_search=tuned evacuation=0 heap_bytes=%zu collections=%zu allocations=%zu bytes=%zu "
-            "arena_used=%zu last_live=%zu peak_live=%zu live_objects=%zu roots=%zu fields=%zu "
+    size_t arena_used = 0;
+    for (Region *region = regions; region; region = region->next) arena_used += region->used_blocks * BLOCK_SIZE;
+    fprintf(stderr, "immix-gc allocation_search=tuned evacuation=0 heap_bytes=%zu initial_heap_bytes=%zu "
+            "heap_limit=%zu regions=%zu growths=%zu collections=%zu allocations=%zu bytes=%zu "
+            "arena_used=%zu last_live=%zu last_occupied=%zu peak_live=%zu live_objects=%zu roots=%zu fields=%zu "
             "holes_reused=%zu large_allocations=%zu mark_s=%.6f sweep_s=%.6f\n",
-            heap_bytes, collections, allocated_objects,
-            allocated_bytes, used_blocks * BLOCK_SIZE, live_bytes, peak_live, live_objects,
+            heap_bytes, initial_heap_bytes, heap_limit, region_count, region_count - 1, collections, allocated_objects,
+            allocated_bytes, arena_used, live_bytes, occupied_bytes, peak_live, live_objects,
             root_visits, field_visits, reused_holes, large_objects, mark_seconds, sweep_seconds);
 }
 
@@ -353,16 +452,23 @@ static size_t configured_bytes(const char *name, size_t fallback) {
     return (size_t)bytes;
 }
 
+static size_t configured_heap_bytes(const char *name, size_t fallback) {
+    size_t bytes = configured_bytes(name, fallback);
+    if (bytes < BLOCK_SIZE || bytes > SIZE_MAX / 4) native_trap();
+    return bytes / BLOCK_SIZE * BLOCK_SIZE;
+}
+
 void native_gc_init(void) {
-    heap_bytes = configured_bytes("SNAIL_GC_HEAP_BYTES", heap_bytes) / BLOCK_SIZE * BLOCK_SIZE;
-    if (heap_bytes < BLOCK_SIZE || heap_bytes > SIZE_MAX / 4) native_trap();
+    // Preserve the historical cap-only fixed reservation. Configured sizes
+    // round down, so neither the initial mapping nor later growth exceeds it.
+    heap_limit = getenv("SNAIL_GC_HEAP_BYTES") ? configured_heap_bytes("SNAIL_GC_HEAP_BYTES", 0) : 0;
+    maximum_heap_bytes = heap_limit ? heap_limit : SIZE_MAX / 4 / BLOCK_SIZE * BLOCK_SIZE;
+    size_t fallback = heap_limit ? heap_limit : 256 * 1024 * 1024;
+    initial_heap_bytes = configured_heap_bytes("SNAIL_GC_INITIAL_BYTES", fallback);
+    if (initial_heap_bytes > maximum_heap_bytes) native_trap();
     minimum_budget = budget = configured_bytes("SNAIL_GC_MIN_BYTES", minimum_budget);
-    block_count = heap_bytes / BLOCK_SIZE;
-    arena = mmap(NULL, heap_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    blocks = calloc(block_count, sizeof(*blocks));
-    if (arena == MAP_FAILED || !blocks) native_trap();
-    // Reserve virtual address space. Pages become resident as objects are used;
-    // startup does not prefault the entire configurable arena.
+    if (!add_region(initial_heap_bytes)) native_trap();
+    // Mappings reserve virtual space; pages become resident as objects are used.
     statistics = getenv("SNAIL_GC_STATS") != NULL;
     if (statistics) atexit(report_statistics);
 }

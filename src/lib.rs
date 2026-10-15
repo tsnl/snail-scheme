@@ -23,6 +23,8 @@ mod platform;
 mod strict_datum;
 mod strict_io;
 mod strict_math;
+mod strict_number;
+mod strict_text;
 mod symbols;
 mod text;
 mod unicode;

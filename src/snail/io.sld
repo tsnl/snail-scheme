@@ -1,13 +1,14 @@
-;; Concrete text-file input and output. Rust owns file payloads; each wrapper's
+;; Concrete text input and output. Rust owns file payloads; each wrapper's
 ;; shared Ref makes explicit close idempotent across aliases. No GC finalizer
-;; owns these files. The invocation host closes outstanding files after traps.
+;; owns these files. Stdout is borrowed; invocation cleanup only closes files.
 (define-library (snail io)
   (export InputPort OutputPort LineResult end-of-file line line-text eof-object?
           CharacterResult character-end character-value character-text character-end?
           read-char peek-char
           file-exists? delete-file open-input-file close-input-port
           call-with-input-file read-line open-output-file close-output-port
-          call-with-output-file write-char write-string write-i64 newline)
+          call-with-output-file current-output-port output-port=?
+          write-char write-string write-i64 newline)
   (import (snail strict))
   (begin
 
@@ -30,6 +31,17 @@
     (define-extern port-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
     (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
     (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
+    (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
+    (define-extern port-check-output "snail.library" "snail:io/check-output" (-> I32 Unit))
+
+    ;; This singleton borrows stdout. Its reserved scalar ID never names an
+    ;; owned file, and neither explicit close nor trap cleanup closes the stream.
+    ;; Current output is fixed here; dynamic rebinding is not implemented.
+    (define standard-output (output-port (ref (standard-output-handle))))
+    (: current-output-port (-> OutputPort))
+    (define (current-output-port) standard-output)
+    (: output-port=? (-> OutputPort OutputPort Bool))
+    (define (output-port=? left right) (ref-eq? (output-handle left) (output-handle right)))
 
     ;; No user callback occurs between begin and the consuming file operation.
     ;; UTF-8 encoding happens in Rust; String traversal stays in Scheme.
@@ -67,7 +79,7 @@
     (: close-handle (-> (Ref I32) Unit))
     (define (close-handle cell)
       (let ((handle (ref-get cell)))
-        (unless (i32-eq handle (ann -1 I32))
+        (unless (or (i32-eq handle (ann -1 I32)) (i32-eq handle (ann -2 I32)))
           (ref-set! cell (ann -1 I32))
           (port-close handle))))
     (: call-with-output-file (All (T) (-> String (-> OutputPort T) T)))
@@ -135,18 +147,28 @@
 
     ;; ---- Character iteration and decimal integer formatting ----
 
-    (: write-char (-> Char OutputPort Unit))
-    (define (write-char character port)
+    (: write-char-to (-> Char OutputPort Unit))
+    (define (write-char-to character port)
       (port-write (ref-get (output-handle port)) character))
-    (: write-string (-> String OutputPort Unit))
-    (define (write-string text port)
+    (: write-string-to (-> String OutputPort Unit))
+    (define (write-string-to text port)
+      ;; Even an empty write checks direction and lifetime without emitting text.
+      (port-check-output (ref-get (output-handle port)))
       (let ((count (string-length text)))
         (let loop ((index 0))
           (unless (= index count)
             (write-char (string-ref text index) port)
             (loop (+ index 1))))))
-    (: newline (-> OutputPort Unit))
-    (define (newline port) (write-char #\newline port))
+    (: newline-to (-> OutputPort Unit))
+    (define (newline-to port) (write-char #\newline port))
+    (define-overload write-char (-> Char OutputPort Unit) write-char-to)
+    (define-overload write-char (-> Char Unit)
+      (lambda (character) (write-char-to character (current-output-port))))
+    (define-overload write-string (-> String OutputPort Unit) write-string-to)
+    (define-overload write-string (-> String Unit)
+      (lambda (text) (write-string-to text (current-output-port))))
+    (define-overload newline (-> OutputPort Unit) newline-to)
+    (define-overload newline (-> Unit) (lambda () (newline-to (current-output-port))))
     (: write-i64 (-> I64 OutputPort Unit))
     (define (write-i64 number port)
       (when (< number 0) (write-char #\- port))

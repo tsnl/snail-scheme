@@ -14,9 +14,6 @@
 
     ;; ---- A datum, normal EOF and malformed input are distinct results ----
 
-    (define-data ReadResult (read-end)
-      (read-value (datum Datum read-value-datum))
-      (read-error (message String read-error-message)))
     (define-data Token (value-token (datum Datum)) (end-token) (close-token) (dot-token)
       (open-token (kind I64)) (prefix-token (name String)) (error-token (message String)))
     (define-data TextResult (text-value (text String)) (text-error (message String)))
@@ -53,10 +50,10 @@
     (: delimiter? (-> I64 Bool))
     (define (delimiter? code)
       (or (< code 0) (whitespace? code)
-          (let ((delimiters "()\";|'`,[]{}"))
-            (let loop ((index 0))
-              (and (< index (string-length delimiters))
-                   (or (code=? code (string-ref delimiters index)) (loop (+ index 1))))))))
+          (code=? code #\() (code=? code #\)) (code=? code #\")
+          (code=? code #\;) (code=? code #\|) (code=? code #\')
+          (code=? code #\`) (code=? code #\,) (code=? code #\[)
+          (code=? code #\]) (code=? code #\{) (code=? code #\})))
 
     ;; ---- A geometrically growing Unicode token buffer ----
 
@@ -170,12 +167,9 @@
     (: atom-token (-> String Token))
     (define (atom-token text)
       (if (string=? text ".") (dot-token)
-          (match (string->number text)
-            ((parsed-number number) (value-token (datum-number number)))
-            ((number-error message) (error-token message))
-            ((not-a-number)
-             (if (identifier? text) (value-token (datum-symbol (string->symbol text)))
-                 (error-token "invalid numeric token or identifier; rational numbers are not supported"))))))
+          (match (string->atom text)
+            ((read-value value) (value-token value))
+            ((read-error message) (error-token message)) ((read-end) (unreachable)))))
 
     ;; ---- Strings and escaped symbols share scalar escapes ----
 
@@ -361,11 +355,30 @@
     (define (byte-value value)
       (if (datum-number? value)
           (match (datum-number-value value) ((exact-number value) value)
-                 ((inexact-number value) -1) ((complex-number real imaginary) -1)) -1))
+                 ((rational-number value) -1) ((inexact-number value) -1) ((complex-number real imaginary) -1)) -1))
     (: fill-bytes (-> (List Datum) Bytevector I64 ReadResult))
     (define (fill-bytes reversed result index)
       (if (null? reversed) (read-value (datum-bytevector result))
           (let ((value (byte-value (car reversed))))
             (if (or (< value 0) (> value 255)) (read-error "bytevector requires exact bytes in [0,255]")
                 (begin (bytevector-u8-set! result (- index 1) value)
-                       (fill-bytes (cdr reversed) result (- index 1)))))))))
+                       (fill-bytes (cdr reversed) result (- index 1))))))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-read)
+    (begin
+      (: test-delimiter-members (-> (List I64) Bool))
+      (define (test-delimiter-members codes)
+        (or (null? codes)
+            (and (delimiter? (car codes)) (test-delimiter-members (cdr codes)))))
+      (: test-read (-> I64))
+      (define (test-read)
+        (if (and (test-delimiter-members '(40 41 34 59 124 39 96 44 91 93 123 125))
+                 (delimiter? -1) (delimiter? 9) (delimiter? 10) (delimiter? 32)
+                 (delimiter? 160) (delimiter? 8195)
+                 (not (delimiter? 46)) (not (delimiter? 48)) (not (delimiter? 65))
+                 (not (delimiter? 233)) (not (delimiter? 128512)))
+            42 0))))))
