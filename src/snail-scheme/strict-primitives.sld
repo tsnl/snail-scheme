@@ -72,7 +72,13 @@
         (string-ref (String I64) Char string-ref)
         (string-set! (String I64 Char) Unit string-set!)
         (string-eq? (String String) Bool ref.eq)
-        (string-copy! (String I64 String I64 I64) Unit string-copy!)))
+        (string-copy! (String I64 String I64 I64) Unit string-copy!)
+        (make-bytevector (I64 I64) Bytevector make-bytevector)
+        (bytevector-length (Bytevector) I64 bytevector-length)
+        (bytevector-u8-ref (Bytevector I64) I64 bytevector-u8-ref)
+        (bytevector-u8-set! (Bytevector I64 I64) Unit bytevector-u8-set!)
+        (bytevector-eq? (Bytevector Bytevector) Bool ref.eq)
+        (bytevector-copy! (Bytevector I64 Bytevector I64 I64) Unit bytevector-copy!)))
     (define primitive-names
       (append (map car concrete-primitives)
               '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable
