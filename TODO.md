@@ -5,7 +5,8 @@ this list contains work that has not landed.
 
 - [ ] Complete the strict native compiler and measure the entire benchmark suite
   - Preserve the language contracts in [the strict core guide](doc/strict-core.md)
-  - Extend the [measured subset](benchmarks/results/2026-10-13-strict-kernels/README.md)
+  - Extend the [arithmetic/list measurements](benchmarks/results/2026-10-13-strict-kernels/README.md)
+    and [vector measurements](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
     without shortening inputs, hiding failures, or claiming unmeasured gains
   - Hold the entire project to an educational standard: each module explains
     its data, inputs, outputs, decisions, and required invariants
