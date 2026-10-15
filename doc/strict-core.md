@@ -505,6 +505,9 @@ private, once-initialized concrete cells when necessary to tie recursive closure
 references. Those cells carry readiness state; capturing the cell does not read
 an uninitialized value. They are separate from user-visible Ref cells. Global
 bindings likewise check readiness, preserving failure before an early read.
+Reads of immutable scalar literal bindings expose their constant payload to
+Wasm optimization after the same readiness check. This does not move their
+initialization, propagate through mutable Ref contents, or change alias identity.
 An unused polymorphic name initializer still performs its source read. A lazily
 created Unit readiness token preserves that check when no payload copy is needed;
 erasing a concrete payload never erases a required early-binding failure.
