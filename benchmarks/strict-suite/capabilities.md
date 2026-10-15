@@ -60,8 +60,15 @@ Earley adds a [five-system comparison](../results/2026-10-14-strict-earley-compa
 production V8 takes 2.644450 s, 1.484× original Chez time and 0.754× adapted
 Chez time. Native takes 1.458× V8 on the identical final Wasm, using an explicit
 1 GiB arena. All 30 processes passed; the adapter's extra append spines and
-optimized payload removal remain disclosed. Historical coverage is now
-36 of 57 measured workloads, 35 with paired Chez controls.
+optimized payload removal remain disclosed. Matrix adds a
+[seven-system comparison](../results/2026-10-14-strict-matrix-comparison/README.md):
+production V8 takes 0.705711 s, 1.483× original Chez time and 0.435× Rust/Wasm
+time. Native takes 2.713× V8 time on the identical final Wasm. All 56 full-count
+runs pass; Rust's different algorithms and layouts remain explicit.
+Historical coverage is now **37 of 57 measured workloads**, **36 with paired
+Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann's
+default-stack failure and gcbench's unmeasured retention case are excluded;
+`cat` has strict measurements without a same-window Chez control.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -99,7 +106,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
 | earley | Measured complete canonical count 1, length 15 and result 2674440: production V8 2.644450 s, common-artifact V8 2.663772 s, native 3.882573 s, original Chez 1.781515 s and adapted Chez 3.505472 s. Production V8 takes 1.484× original Chez time; native takes 1.458× same-Wasm V8 time with an explicit 1 GiB reservation after default arena exhaustion. All 30 clean processes and 161 identities pass. Complete ordered trees, mutable state/configuration identity and stored lexer/query functions are validated. Finite atom/user-info scope, I64 arithmetic, temporary append spines and legal unused payload removal remain explicit. See the [five-system report](../results/2026-10-14-strict-earley-comparison/README.md). |
 | lattice | Measured original count 10, input 44 and result 120549: 1.647× original Chez time, 1.504× adapted Chez and 1.815× Rust/Wasm. Raw/optimized Wasm and untouched/adapted Chez correctness checks pass. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and Rust vector/enum/Rc layout/control differences are disclosed; the timed Rust artifact has limited complete-payload checks. No compiler changes or dynamic fallback. |
-| matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
+| matrix | Measured all 2,500 complete modular searches with the five ordered 6-by-5 answers: production V8 0.705711 s, 1.483× original Chez time and 0.435× this Rust/Wasm control's time. The exact native-final Wasm takes 0.700726 s on V8 versus native 1.901276 s (2.713×). All 56 clean processes, 70 full observation checks and 60 predicate checks pass. Closed cursor/reply/GCD/answer variants and mutable prime-tail refs preserve full enumeration, callbacks and search; independent small models and a separate Chez spine audit bound the claims. Rust Rc/vector/deque algorithms and lifetimes differ; numeric and symbol support remain explicitly bounded. No compiler change. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
 | mazefun | Measured original 10,000 × make-maze(11,11): 1.619× faster than original Chez, 1.425× faster than adapted Chez and 3.691× faster than this Rust/Wasm reference. Concrete coordinate/dimension products, wall/coordinate and result variants, and persistent nested lists preserve deterministic shuffle, ordered flooding, copied prefixes/shared suffixes and complete 121-cell equality. Original/adapted Chez and raw/optimized Wasm correctness probes plus separate retained-work observers pass. Rust Rc, inline values, temporary vectors and destruction schedules differ; no equal-allocation or isolated collector claim. |
 | paraffins | Measured canonical source program. Closed `H`/`C` and `BCP`/`CCP` variants preserve the source algorithm. Canonical optimized code legally removes unused product payloads and radical child edges; this is not a same-allocation GC comparison. Separate modules check complete ordered structures. |
