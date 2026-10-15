@@ -18,12 +18,76 @@ and self-hosting are later projects, after SFIR is robust.
 
 ## Language
 
-### Evaluation
+### Values and expressions
 
-For this part, assume imported bindings are already available in the lexical
-environment. The next part explains how they get there.
+An SFIR program computes values. A number such as `42`, a string such as
+`"hello"`, and the Boolean values `#t` and `#f` can be written directly. An
+expression describes a computation that produces a value.
 
-Inside an instance, values are evaluated eagerly. Call operands run left to right,
+To call a function, put its name first inside parentheses, followed by its
+arguments: `(+ 40 2)` adds two numbers and produces `42`. Expressions can be
+nested: `(+ (* 6 7) 1)` first computes `42`, then adds `1` to produce `43`.
+Whitespace separates the parts; the parentheses determine how they fit together.
+The examples here assume standard functions such as `+` are available. The next
+part explains how imports make them available.
+
+`define` gives a name to a value. In `(define answer (+ 40 2))`, the initializer
+`(+ 40 2)` runs when the definition is evaluated. Later uses of `answer` read its
+result without computing it again.
+Names follow lexical scope: a reference uses the binding in the surrounding code,
+even when a function containing that reference is called from somewhere else.
+
+### Functions and local names
+
+Functions are values too. `(lambda (x) (+ x 1))` creates a function with one
+parameter, `x`, and one body expression, `(+ x 1)`. Creating the function does
+not run its body. Calling it with `41` runs that body with `x` bound to `41`
+and returns `42`.
+
+Give that function a name with `(define increment (lambda (x) (+ x 1)))`.
+Then `(increment 41)` produces `42`. Function bodies are written with explicit
+lambdas; `define` has no separate shorthand for functions. Functions can be passed
+as arguments and returned as results. A returned function keeps access to the
+surrounding bindings it uses; this combination of code and captured bindings is
+called a closure.
+
+`let` introduces names for one body expression.
+For example, `(let ((x 40) (y 2)) (+ x y))` produces `42`; `x` and `y` are
+available in the body but do not escape that scope. To perform several steps,
+use `begin`. In `(begin (define value 41) (+ value 1))`, the definition runs
+first, and the final expression gives the block its result, `42`.
+
+`if` chooses a value: `(if (< 1 2) 40 0)` produces `40`. Its first expression
+must produce a Boolean, and only the selected branch runs. Both branches are
+required and must have compatible types. `lambda` and `let` each have one body
+expression, which can itself be a `begin`, `if`, or another compound expression.
+
+### Types and mutable state
+
+A type describes which values and operations fit together. `I64` is a signed
+64-bit integer type, `F64` is a floating-point type, and `Bool` is the Boolean
+type. The compiler infers types from definitions and uses, so many definitions
+need no annotation. For example, `(define answer 42)` gives `answer` type I64.
+Passing a string to a function that requires an integer is a type error, reported
+before the program runs.
+
+A function type lists its argument types followed by its result type.
+`(-> I64 I64)` means one I64 argument and an I64 result. To state that signature
+explicitly, write
+`(define increment (-> I64 I64) (lambda (x) (+ x 1)))`.
+The compiler checks the body against the signature. More general functions can
+work at several types; the rules below explain how their uses are checked and
+specialized into concrete code.
+
+A binding always refers to the value it was given. To keep changing state, put
+it in an explicit cell: `(define counter (ref 0))` binds `counter` to a cell
+containing `0`. `(ref-set! counter 1)` changes its contents, and
+`(ref-get counter)` then returns `1`. The binding still refers to the same cell.
+Cells and mutable containers retain their element types through updates.
+
+### Evaluation order and initialization
+
+During execution, values are evaluated eagerly. Call operands run left to right,
 then the operator runs, then the function is invoked. Lambda evaluation creates a
 closure; its body runs only when called. `let` initializers run left to right in
 the enclosing scope. `if` evaluates its Boolean condition and only the selected
@@ -34,14 +98,14 @@ Definitions in a lexical block share scope and can be recursive. Their storage i
 reserved before initialization; initializers run in source order. A closure can
 capture a reserved binding, but reading it before initialization traps.
 
-### Syntax and typing
+### Formal core
 
-The notation follows the presentation style of
-[Simply Easy!](https://www.andres-loeh.de/LambdaPi/SimplyEasy.pdf): define syntax,
-judgments and execution explicitly. The rules below specify the unrestricted,
-fixed-arity functional core. They are not a complete calculus for nominal data,
-rest parameters, classes or affine ownership; those extensions are described
-below and need their own rules. No dependent types are introduced here.
+The following grammar and rules make the preceding explanation precise for the
+unrestricted, fixed-arity functional core. Each typing judgment states either
+what type an expression produces or what type it is required to produce. The
+rules explain how those facts follow from the expression's parts. Nominal data,
+rest parameters, classes and affine ownership need additional rules, described
+separately below.
 
 `x` denotes a resolved binding, `a` a bound type variable, and `D` a resolved
 nominal type constructor of declared arity. Inference uses fresh solver holes,
@@ -309,3 +373,19 @@ produce its library. The driver supplies those values separately from the SFIR
 libraries needed by the generated application. SFIR does not interpret macros
 or require every library to expose a macro interface. Scheme elaboration, macro
 persistence, hygiene transport and frontend-specific interfaces remain deferred.
+
+## References
+
+- Andres Löh, Conor McBride and Wouter Swierstra,
+  [Simply Easy! An Implementation of a Dependently Typed Lambda Calculus][simply-easy].
+  Background on presenting a small language through evaluation and typing rules.
+- R. Kent Dybvig, [Three Implementation Models for Scheme][three-implementations].
+  Background on implementing lexical scope, closures and execution.
+- Alex Shinn, John Cowan and Arthur A. Gleckler, editors,
+  [Revised⁷ Report on the Algorithmic Language Scheme (R7RS-Small)][r7rs-small].
+  Background on Scheme expressions, procedures and libraries. SFIR's own rules
+  are specified in this document.
+
+[simply-easy]: https://www.andres-loeh.de/LambdaPi/SimplyEasy.pdf
+[three-implementations]: https://legacy.cs.indiana.edu/~dyb/papers/3imp.pdf
+[r7rs-small]: https://small.r7rs.org/attachment/r7rs.pdf
