@@ -1,6 +1,6 @@
 ;; Concrete text input and output. Rust owns file payloads; each wrapper's
-;; shared Ref makes explicit close idempotent across aliases. No GC finalizer
-;; owns these files. Standard streams are borrowed; cleanup only closes files.
+;; shared Refs preserve pending input and explicit close across aliases. No GC
+;; finalizer owns these files. Standard streams are borrowed; cleanup closes files.
 (define-library (sfir io)
   (export InputPort OutputPort LineResult end-of-file line line-text eof-object?
           CharacterResult character-end character-value character-text character-end?
@@ -17,7 +17,8 @@
     (def OutputPort (datatype ()
                               (output-port (handle (Ref I32) output-handle))))
     (def InputPort (datatype ()
-                             (input-port (handle (Ref I32) input-handle))))
+                             (input-port (handle (Ref I32) input-handle)
+                                         (packet (Ref I64) input-packet))))
     (def LineResult (datatype () (end-of-file) (line (text String line-text))))
     (def CharacterResult (datatype ()
                                    (character-end) (character-value (text Char character-text))))
@@ -29,6 +30,7 @@
     (define-extern path-open-input "snail.library" "snail:io/open-input-file" (-> I32))
     (define-extern port-read "snail.library" "snail:io/read-character" (-> I32 I32))
     (define-extern port-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
+    (define-extern port-packet "snail.library" "snail:io/read-packet" (-> I32 I64))
     (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
     (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
     (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
@@ -47,7 +49,7 @@
     ;; All aliases share the native reader and its peek buffer. Explicit close
     ;; preserves the borrowed handle, just as it does for standard output.
     (def standard-input
-         (input-port (ref (standard-input-handle))))
+         (input-port (ref (standard-input-handle)) (ref (ann 0 I64))))
 
     (def current-input-port (-> InputPort)
          (lambda () standard-input))
@@ -94,7 +96,7 @@
          (lambda (pathname)
            (begin
              (stage-path pathname)
-             (input-port (ref (path-open-input))))))
+             (input-port (ref (path-open-input)) (ref (ann 0 I64))))))
 
     ;; ---- Explicit close and a normally returning callback ----
 
@@ -104,7 +106,9 @@
 
     (def close-input-port (-> InputPort Unit)
          (lambda (port)
-           (close-handle (input-handle port))))
+           (begin
+             (ref-set! (input-packet port) (ann 0 I64))
+             (close-handle (input-handle port)))))
 
     (def close-handle (-> (Ref I32) Unit)
          (lambda (cell)
@@ -133,7 +137,56 @@
                            (close-input-port port)
                            result)))))
 
-    ;; ---- Complete lines distinguish an empty line from end of file ----
+    ;; ---- One owned-file cursor serves character, line and datum readers ----
+
+    ;; Rust constructs nonzero packets: up to seven ASCII code+1 byte lanes,
+    ;; -1 for EOF, or one validated Unicode scalar as -code-2. Seven lanes fit
+    ;; below the sign bit, and code+1 distinguishes NUL from exhausted lanes.
+    ;; Only private owned-file handles have pending guest input. Borrowed stdin
+    ;; keeps the scalar Rust cursor so direct foreign reads share its lookahead.
+
+    (def pending-input (-> InputPort I64)
+         (lambda (port)
+           (begin
+             (let packet (ref-get (input-packet port)))
+             (if (= packet (ann 0 I64))
+                 (begin
+                   (let filled (port-packet (ref-get (input-handle port))))
+                   (ref-set! (input-packet port) filled)
+                   filled)
+                 packet))))
+
+    (def packet-code (-> I64 I32)
+         (lambda (packet)
+           (if (< packet (ann 0 I64))
+               (if (= packet (ann -1 I64)) (ann -1 I32)
+                   (i64->i32 (- (ann -2 I64) packet)))
+               (i64->i32 (- (i64-bitwise-and packet (ann 255 I64)) (ann 1 I64))))))
+
+    ;; Check the shared handle before consulting pending input: close must make
+    ;; cached characters and EOF inaccessible. Reading EOF clears it just like
+    ;; scalar read; a later read can observe a file that has grown since EOF.
+
+    (def read-input-code (-> InputPort I32)
+         (lambda (port)
+           (begin
+             (let handle (ref-get (input-handle port)))
+             (if (i32-lt handle (ann 0 I32))
+                 (port-read handle)
+                 (begin
+                   (let packet (pending-input port))
+                   (ref-set! (input-packet port)
+                             (if (> packet (ann 0 I64))
+                                 (i64-shift-right/logical packet (ann 8 I64)) (ann 0 I64)))
+                   (packet-code packet))))))
+
+    (def peek-input-code (-> InputPort I32)
+         (lambda (port)
+           (begin
+             (let handle (ref-get (input-handle port)))
+             (if (i32-lt handle (ann 0 I32))
+                 (port-peek handle)
+                 (packet-code (pending-input port))))))
 
     (def character-end? (-> CharacterResult Bool)
          (lambda (result)
@@ -147,11 +200,13 @@
 
     (def read-char (-> InputPort CharacterResult)
          (lambda (port)
-           (character-result (port-read (ref-get (input-handle port))))))
+           (character-result (read-input-code port))))
 
     (def peek-char (-> InputPort CharacterResult)
          (lambda (port)
-           (character-result (port-peek (ref-get (input-handle port))))))
+           (character-result (peek-input-code port))))
+
+    ;; ---- Complete lines distinguish an empty line from end of file ----
 
     (def eof-object? (-> LineResult Bool)
          (lambda (result)
@@ -159,33 +214,33 @@
 
     (def read-line (-> InputPort LineResult)
          (lambda (port)
-           (begin (let handle (ref-get (input-handle port)))
-                  (begin (let code (port-read handle))
-                         (if (i32-eq code (ann -1 I32))
-                             (end-of-file)
-                             (line (read-line-text handle code (make-string (ann 0 I64)) (ann 0 I64))))))))
-    ;; Rust validates UTF-8 and keeps one lookahead in the input port. CR, LF,
+           (begin
+             (let code (read-input-code port))
+             (if (i32-eq code (ann -1 I32))
+                 (end-of-file)
+                 (line (read-line-text port code (make-string (ann 0 I64)) (ann 0 I64)))))))
+    ;; Rust validates UTF-8; the shared input cursor owns lookahead. CR, LF,
     ;; and CRLF terminate one line. A non-LF lookahead belongs to the next read.
 
-    (def consume-line-feed (-> I32 Unit)
-         (lambda (handle)
-           (if (i32-eq (port-peek handle) (ann 10 I32)) (begin (port-read handle) (unit)) (unit))))
+    (def consume-line-feed (-> InputPort Unit)
+         (lambda (port)
+           (if (i32-eq (peek-input-code port) (ann 10 I32))
+               (begin (read-input-code port) (unit)) (unit))))
 
-    (def read-line-text (-> I32 I32 String I64 String)
-         (lambda (handle code buffer count)
+    (def read-line-text (-> InputPort I32 String I64 String)
+         (lambda (port code buffer count)
            (if (if (i32-eq code (ann -1 I32))
                    #t
                    (if (i32-eq code (ann 10 I32)) #t (i32-eq code (ann 13 I32))))
                (begin
                  (if (i32-eq code (ann 13 I32))
-                     (begin (consume-line-feed handle)
-                            (unit))
+                     (begin (consume-line-feed port) (unit))
                      (unit))
                  (if (= count (string-length buffer)) buffer (substring buffer (ann 0 I64) count)))
-               (begin (let buffer (line-capacity buffer count))
-                      (begin
-                        (string-set! buffer count (integer->char (i32->i64 code)))
-                        (read-line-text handle (port-read handle) buffer (+ count (ann 1 I64))))))))
+               (begin
+                 (let buffer (line-capacity buffer count))
+                 (string-set! buffer count (integer->char (i32->i64 code)))
+                 (read-line-text port (read-input-code port) buffer (+ count (ann 1 I64)))))))
     ;; Only the first count characters are initialized text. Doubling capacity
     ;; bounds total copying by a geometric series; no character needs a GC node.
     ;; The final substring trims spare capacity once, and exact fits reuse it.

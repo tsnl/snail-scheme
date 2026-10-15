@@ -33,8 +33,9 @@ The initial extraction started from `src/snail/{strict,io,math,text,bytes,intege
 at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 `core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
 nominal data declarations, 126 overload signatures and 44 typed foreign
-declarations are retained. Foreign module/provider strings and scalar signatures
-are unchanged, so the same Rust implementations serve Wasm and native execution.
+declarations were retained by the initial extraction. It preserved foreign
+module/provider strings and scalar signatures. Rust scalar services continue to
+serve both Wasm and native execution; the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
@@ -82,6 +83,43 @@ multi-step numeric transitions, exhaustive data dispatch and the final tests can
 exceed the ten-line target when their explicit binding and sequencing make the
 whole operation easier to follow. They retain their original cohesive operations
 instead of introducing helpers solely to reduce a line count.
+
+## Text input cursor
+
+An owned `InputPort` contains shared mutable cells for its native handle and
+pending input packet. All aliases share both cells. Character, line and datum
+readers consume that cursor, including CR/LF/CRLF lookahead. The handle is
+checked before pending input: explicit close clears the packet and detaches
+the handle before closing the native resource, so cached characters and cached
+EOF cannot be read after close. Callback cleanup still occurs on normal return;
+terminal trap cleanup releases owned Rust resources.
+
+The private `snail:io/read-packet` scalar service demands one character through
+the existing UTF-8 reader. If that character is ASCII, it may consume up to six
+more ASCII bytes already in the Rust buffer. It never refills the buffer or
+decodes a non-ASCII suffix to enlarge a packet. Thus a valid prefix remains
+observable before a later UTF-8 error, and batching does not wait for additional
+input. A positive I64 holds up to seven nonzero byte lanes, each `ASCII code + 1`;
+zero marks exhausted lanes and leaves NUL distinct. `-1` represents EOF, and
+`-code - 2` represents one validated non-ASCII scalar. The bounded encoding fits
+in I64; SFIR uses checked arithmetic and conversions while consuming it.
+
+Peek retains the pending character or EOF. Read consumes one character and
+clears an EOF packet, preserving the previous behavior if a file later grows.
+Borrowed stdin uses the existing Rust scalar read/peek cursor on every operation,
+so its aliases and direct foreign scalar reads share lookahead. Closing stdin
+remains a no-op. Owned file handles remain private to their SFIR wrappers; no
+public operation exposes a raw handle that could bypass pending input.
+
+`scripts/test-sfir-input-packets` exercises raw linked Wasm, optimized linked
+Wasm, and native execution with collection forced at allocation opportunities.
+It checks that native lowering consumes exactly the same mandatory-Binaryen
+guest bytes, retains all command attempts and source/tool/artifact identities,
+and verifies packet boundaries, Unicode buffer splits, aliases, mixed readers,
+borrowed scalar interoperation, closed cached input, file growth after EOF,
+valid output before malformed input, and resource release. These are correctness
+checks; no current performance result is implied. The historical character-buffer
+prototype and its timing artifacts are separate from this implementation.
 
 ## Tests and current validation
 
