@@ -25,6 +25,8 @@ extern uint64_t native_finalizer_count(void);
 int snail_native_cleanup(void) { return 0; }
 void drop_resource(uint32_t, uint32_t) __asm__("snail:drop-resource");
 void drop_resource(uint32_t kind, uint32_t id) { (void)kind; (void)id; abort(); }
+void drop_array(uint32_t) __asm__("snail:drop-array");
+void drop_array(uint32_t id) { (void)id; abort(); }
 
 extern uint32_t check(void) __asm__("wasm.check");
 extern uint64_t tail(uint32_t) __asm__("wasm.tail");
