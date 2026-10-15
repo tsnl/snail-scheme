@@ -744,6 +744,15 @@ full results, callback order and mutable aliases; independent small models
 check finite-field spans and signed-permutation maximality. The existing Rust
 reference is validated as a separate algorithm and layout control.
 
+[`integer_ports.py`](benchmarks/strict-suite/integer_ports.py) preserves the
+three complete pi algorithms and Chudnovsky binary splitting using `(snail
+integer)`. Reversible source edits lift bounded constants explicitly and keep
+scalar digit/count controls separate from arbitrary-precision arithmetic. The
+preparation compares complete original-sized outputs on raw/optimized Wasm,
+native64, original/adapted Chez and the identical limb Scheme body on Chez with
+checked I64/I32 intermediates. Its scalar providers transport expected decimal
+text and observed characters; all numerical work remains in Scheme.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its

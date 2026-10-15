@@ -57,3 +57,99 @@ and normalized division are deliberate quadratic algorithms for this tested
 precision range. Their bounds and corrections remain beside the code. The
 cohesive subtraction/normalization transitions and exhaustive test loop are the
 small number of functions longer than the ten-line target.
+
+## Complete pi and Chudnovsky ports
+
+Both full original workloads pass the following controls, each comparing the
+entire numerical result rather than a checksum or selected digits:
+
+| Workload | Original repetitions | Digit arguments | Complete output |
+| --- | --- | --- | --- |
+| pi | 100 | 50 through 500, step 50 | All ten rows, each containing Borwein2 and the two original difference columns |
+| Chudnovsky | 1,000 | 50 through 500, step 50 | All ten arbitrary-precision results |
+
+Every row was checked on untouched-algorithm Chez, source-adapted Chez using
+native big integers, the same limb Scheme body on Chez with checked I64/I32
+arithmetic, raw Wasm, mandatory Binaryen-optimized Wasm, and actual native64.
+The full original Brent–Salamin, quadratic Borwein, quartic Borwein, and
+Chudnovsky binary-split algorithms remain in the adapters. Pi's original
+rounding differences are preserved exactly.
+
+The [pi source ledger](pi/edits.json) and
+[Chudnovsky source ledger](chudnovsky/edits.json) restore the original files
+byte-for-byte, including the replaced multiple-value square-root wrappers.
+Bounded source constants are lifted explicitly; arbitrary-precision calculations
+never narrow to I64. The adapter associates three exact n-ary products into
+binary products and supplies the original floating term-count expression using
+explicit F64 conversion and floor. Repetition/digit controls retain I64 types.
+The tested canonical inputs and full precisions are unchanged.
+
+The native-bigint Chez adapter is a source-equivalence control. The separate
+same-limb Chez control executes the exact library algorithm body, translating
+only typed records, declarations, vector-copy argument conventions and bounded
+scalar operations. Its scalar arithmetic traps outside I64/I32; it cannot mask
+an unintended fixed-width overflow with Chez big integers. Native Chez number
+reading/writing is used for the independent expected data and final serialization,
+after all limb computation finishes.
+
+The frozen [pi archive](pi.tar.gz) and [Chudnovsky archive](chudnovsky.tar.gz)
+contain all three Chez programs and outputs, strict source, complete inputs and
+expected tables, raw/optimized Wasm, native binaries/LLVM, command records and
+build metadata. The reviewable complete outputs are
+[pi/complete.output](pi/complete.output) and
+[chudnovsky/complete.output](chudnovsky/complete.output).
+
+Optimized modules are 19,458 bytes (pi) and 18,558 bytes (Chudnovsky), including
+full result comparison and observation. Their six remaining imports transport
+bounded inputs, expected decimal characters, opacity calls and output characters.
+They contain direct I32 GC arrays and no legacy value-ABI imports or `i31`
+number operations. The [representation records](pi/representation.json) and
+[Chudnovsky counterpart](chudnovsky/representation.json) preserve that inspection.
+These sizes describe preparation artifacts; they are not performance results.
+
+Reproduce with
+`python3 benchmarks/strict-suite/integer_ports.py pi chudnovsky`.
+The dedicated runner verifies the clean pinned corpus, completes all preparation
+before any later timing, and preserves failures. Its public scalar providers do
+no numerical work. These two workloads are prepared for later suite integration
+and coordinated clean measurement; the suite's measured-coverage count is not
+changed by this report.
+
+## Review follow-up
+
+The [follow-up manifest](followup/manifest.json) records 2,904 oracle cases:
+2,861 complete answers and 43 required traps on raw Wasm, Binaryen-optimized
+Wasm, and native64. Forty-two ownership/interface/exponent cases also passed
+with native collection at every allocation. Eight added long-division cases
+cover all sign combinations with normalization scale one, including an addback
+witness. They retain both input values, their negations and absolute values,
+then check both division equations and every retained alias after division.
+
+Small direct interface assertions now call `integer-power`, `root-value`, unary
+`-`, all four ordered comparison overloads, and sign predicates. Static checks
+also reject the private `integer-limbs` accessor. The first ownership run and
+the final interface run have separate source snapshots and command archives.
+The library changed only one proof comment: `B^2 = 2^60` replaces the incorrect
+strict inequality; arithmetic code is byte-for-byte unchanged.
+
+The runner now records only groups executed in its current invocation and
+removes an older summary before starting. A focused synthetic runner check
+confirms stale unit/oracle files cannot credit an omitted group, and a failed
+invocation cannot leave a successful summary. The final follow-up used
+`--only oracle`; the exhaustive radix checks remain the earlier recorded
+evidence. No timing was taken.
+
+The [independent integration run](integration-validation.json) then rebuilt the
+final source above the typed reader and both allocator-inlining annotations.
+All three groups passed in this fresh output directory: both 64,512-pair radix
+checks and the 2,904-case production oracle on raw/optimized Wasm and native,
+including forced collection and the source rejections. The record retains every
+test command and its output, plus compiler/runtime source identities. Required
+source errors leave three incomplete compiler trace files; those are recorded
+separately and are not used as test outcomes. `make test` and `make check` also
+passed during integration.
+
+The [preparation review](integration-preparation-review.json) independently
+verifies the three initial archive hashes, reversible source ledgers and
+unchanged canonical inputs. All six archived complete outputs match for each
+numeric workload. These checks add correctness evidence, not timing samples.

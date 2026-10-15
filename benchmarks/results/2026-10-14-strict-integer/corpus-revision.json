@@ -1,0 +1,16 @@
+{
+  "command": [
+    "git",
+    "-C",
+    "/tmp/snail-strict-big-integer-20261014/benchmarks/r7rs-benchmarks",
+    "rev-parse",
+    "HEAD"
+  ],
+  "returncode": 0,
+  "stdout": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1\n",
+  "stderr": "",
+  "timeout": false,
+  "process_group": 4,
+  "diagnostic_only": true,
+  "executing_descendants": []
+}

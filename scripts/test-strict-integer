@@ -116,6 +116,19 @@ def fixtures():
     for index, (a, b) in enumerate([(0,0),(0,100),(1,2**128),(-1,2**128+1),(-1,2**128),
                                    (-3,97),(2,2048),(10,500),(31,100),(-17,0)]):
         add(f'power-{index}', 7, a, b, pow(a,b))
+    base = 2**30
+    for index, (a,b) in enumerate([(base**3, (base//2)*base**2+1),
+                                  (base**7+base**3+1, base**3-1)]):
+        for left_sign in [-1,1]:
+            for right_sign in [-1,1]:
+                add(f'owned-long-division-{index}-{left_sign}-{right_sign}',
+                    12, left_sign*a, right_sign*b, left_sign*a)
+    for index, (a,b) in enumerate([(0,0),(0,1),(1,0),(-1,1),(1,-1),(-1,-1),
+                                  (base**3,base**3+1),(base**3+1,base**3),(-10**300,-10**300)]):
+        add(f'interface-{index}', 13, a, b)
+    add('machine-power-zero', 14, 0, 0, 1)
+    add('machine-power-negative-base', 14, -2, 63, -2**63)
+    add('machine-power-negative-exponent', 14, 2, -1, error=True)
     add('negative-sqrt', 6, -1, error=True)
     add('negative-power', 7, 2, -1, error=True)
     return cases
@@ -128,7 +141,7 @@ def write_cases(output):
     def row(case):
         return '\t'.join(str(case[key]) for key in ['operation', 'a', 'b', 'expected']) + '\n'
     (output / 'valid.tsv').write_text(''.join(map(row, valid)))
-    stress = [case for case in valid if case['label'].startswith(('owned-', 'power-'))]
+    stress = [case for case in valid if case['label'].startswith(('owned-', 'power-', 'interface-'))]
     (output / 'stress.tsv').write_text(''.join(map(row, stress)))
     failures = []
     for index, case in enumerate(case for case in cases if case['error']):
@@ -173,7 +186,7 @@ def check_units(output, environment):
         print(f'PASS exhaustive 64,512 operand pairs at radix {radix}: raw, optimized, native64',flush=True)
 
 
-# ---- Every production-radix public API executes on all three targets ----
+# ---- Production-radix arithmetic and public interface checks on three targets ----
 
 
 def check_oracle(output, environment, failures):
@@ -201,7 +214,8 @@ def check_oracle(output, environment, failures):
 def check_rejections(output, environment):
     for label, expression, diagnostic in [
             ('mixed', '(+ (integer-from-i64 1) 1)', 'no compatible overload signature'),
-            ('private', '(integer #f (vector (ann 1 I32)))', 'unbound')]:
+            ('private', '(integer #f (vector (ann 1 I32)))', 'unbound'),
+            ('limbs', '(integer-limbs (integer-from-i64 1))', 'unbound')]:
         source = output / f'reject-{label}.scm'
         source.write_text('(import (snail strict) (snail integer))\n' + expression + '\n')
         record = execute([ROOT/'scripts/build-strict', source, output/f'reject-{label}.wasm'],
@@ -215,15 +229,19 @@ def main():
     parser.add_argument('--only',choices=['units','oracle'])
     options=parser.parse_args(); output=options.output.resolve(); output.mkdir(parents=True,exist_ok=True)
     environment={**os.environ,'BINARYEN_CORES':'1'}
+    (output/'summary.json').unlink(missing_ok=True)
     cases,failures=write_cases(output)
-    if options.only != 'oracle': check_units(output,environment)
-    if options.only != 'units': check_oracle(output,environment,failures)
+    completed = []
+    if options.only != 'oracle':
+        check_units(output,environment)
+        completed.extend(['small-radix','production-radix'])
+    if options.only != 'units':
+        check_oracle(output,environment,failures)
+        completed.append('oracle')
     source=ROOT/'src/snail/integer.sld'
     save(output/'summary.json',dict(passed=True,cases=len(cases),diagnostic_only=True,
          library_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),python=sys.version,
-         completed_groups=[name for name,log in [('oracle','oracle-native.json'),
-             ('small-radix','unit-4-native.json'),('production-radix','unit-1073741824-native.json')]
-             if (output/log).is_file()]))
+         completed_groups=completed))
 
 
 if __name__ == '__main__':

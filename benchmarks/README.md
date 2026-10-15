@@ -53,7 +53,11 @@ rerun on the current compiler. The
 checks the complete `sum1` and `read1` input streams against Chez on linked raw
 Wasm, optimized Wasm and native. Full workload preparation is still underway;
 these library checks add no measured coverage. The
-[Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
+[exact-integer preparation](results/2026-10-14-strict-integer/README.md)
+also passes complete pi and Chudnovsky counts and outputs using a reusable
+Scheme library over I32 limbs. Original/adapted Chez and the same limb library
+on Chez provide distinct controls. Their clean timings remain in preparation.
+The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
 retained-file work checks pass; line I/O, storage and reclamation differences
