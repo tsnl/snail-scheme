@@ -536,15 +536,24 @@ class TimingTests(unittest.TestCase):
         spec['expected'] = [1, 2, 3]
         self.assertEqual(elapsed_seconds('sfir-wasm', '{"result":"1","seconds":0.1}', spec), 0.1)
 
-    def test_array1_and_equal_keep_the_controls_actual_timer_names(self):
-        for name in ('array1', 'equal'):
+    def test_control_timer_names_keep_canonical_count_and_parameters(self):
+        cases = [('array1', 'array1:1000000:500', 'array1:500'),
+                 ('equal', 'equal:100:100:8:1000:2000:5000', 'equal:1'),
+                 ('mperm', 'mperm:20:10:2:1', 'mperm:20')]
+        for name, chez, rust in cases:
             spec = runner.load(runner.CORPUS / name / 'spec.json')
-            for route in ('chez-original', 'rust-native', 'rust-wasm'):
-                identity = spec['timer_names'][route.split('-')[0]]
+            for route in ('chez-original', 'chez-adapted', 'rust-native', 'rust-wasm'):
+                identity = chez if route.startswith('chez-') else rust
                 output = f'+!CSVLINE!+control,{identity},0.1\n'
                 self.assertEqual(elapsed_seconds(route, output, spec), 0.1)
                 with self.assertRaises(ValueError):
                     elapsed_seconds(route, output.replace(identity, identity + ':1'), spec)
+                parts = identity.split(':')
+                for index in range(1, len(parts)):
+                    changed = parts.copy()
+                    changed[index] = str(int(changed[index]) + 1)
+                    with self.assertRaises(ValueError):
+                        elapsed_seconds(route, output.replace(identity, ':'.join(changed)), spec)
 
     def test_decimal_routes_require_every_output_byte(self):
         spec = dict(name='pi', count=2, expected=['123', '-4'], output='(123 -4)\n')
