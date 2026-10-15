@@ -132,8 +132,9 @@ opens retained evidence in Perfetto.
 The source CLI keeps its existing script behavior and `--export` selector for
 unique flattened binding names. The library API uses public Entry selection.
 There are no SFIR-accessible compiler functions or cross-context library
-transport, nor public `load`, `instantiate`, typed invocation or
-`generate-library` execution APIs yet.
+transport or `generate-library` execution APIs yet. The Wasm execution adapter
+below provides loading, independent instances and checked scalar invocation to
+JavaScript hosts; these operations are not yet Chibi or SFIR library functions.
 
 ## Targets and runtime
 
@@ -144,9 +145,13 @@ work. [`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) requires Binarye
 and optimizes program Wasm on every target.
 
 [`snail-sfir/artifact.sld`](src/snail-sfir/artifact.sld) implements the Chibi
-Target and Artifact boundary. `wasm-target` returns optimized, unlinked Wasm
-bytes. `(native64-target imports)` returns an unlinked x86-64 Linux relocatable
-object, using the existing Wasm-to-LLVM route followed by Clang. Its explicit
+Entry, Target and Artifact boundary. `wasm-target` returns optimized, unlinked
+Wasm bytes with a versioned `sfir.entry` custom section containing the public
+Entry description and semantic scalar signature. The section is appended after
+Binaryen optimization; loading verifies its schema and execution verifies the
+actual exported signatures. `(native64-target imports)` returns an unlinked
+x86-64 Linux relocatable object, using the existing Wasm-to-LLVM route followed
+by Clang. Its explicit
 provider declarations are `(make-native-import module name c-symbol parameters
 result)`: string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a
 scalar or `void` result. Missing declarations and signature mismatches fail.
@@ -159,9 +164,47 @@ and result types, and bytes. The fixed ABI exports `entry` for the selected
 function and `main` for one-shot library initialization; native symbols are
 `wasm.entry` and `wasm.main`, after `native_module_init`. Calling `entry` before
 successful initialization traps. A public SFIR export named `main` is therefore
-unambiguous. These are existing low-level adapter operations, not the book's
-future loading, instantiation and typed invocation APIs. Native object bytes do
-not themselves represent a running instance.
+unambiguous. Native object bytes do not themselves represent a running instance.
+
+[`snail-sfir/execute.mjs`](src/snail-sfir/execute.mjs) is the explicit JavaScript
+Wasm execution adapter. `loadWasm(bytes)` snapshots a `Uint8Array`, validates the
+module and saved scalar metadata, and returns loaded code with read-only
+`entry`, `parameters` and `result` descriptions. It performs no library
+initialization. It rejects automatic Wasm start functions and non-function
+imports, which could otherwise execute or share mutable state before checking.
+
+`instantiate(code, providers)` accepts a `Map` from import module names to
+already instantiated `WebAssembly.Instance` providers. Their actual Wasm function
+exports supply typed imports; plain JavaScript functions are not accepted as
+provider values. The engine checks provider signatures during linking. A tiny
+module containing only typed imports then checks the actual `entry` and `main`
+exports against the saved ABI without calling them. Only then does the adapter
+run `main`, once, and return an opaque instance. Each call creates fresh program
+globals and managed state, including across separate loads of the same bytes.
+Reusing a provider instance explicitly shares that provider's state. Mutating
+the provider map later does not change already bound imports.
+
+Initialization failure throws `InitializationError` with its cause and returns
+no instance handle. Completed external effects remain, while dependent
+initializers do not run. `invokeEntry(instance, arguments)` checks arity and
+semantic scalar values before calling the saved entry. I32 uses integral
+JavaScript numbers in signed 32-bit range; I64 uses signed 64-bit `BigInt` values
+without a floating conversion. Bool uses booleans, encoded as canonical 0/1.
+Char uses one Unicode scalar string, excluding surrogates. F32 uses numbers
+rounded with `Math.fround`, rejecting finite values that round to infinity;
+underflow and explicit infinities remain supported. F64 uses numbers directly.
+Both preserve signed zero and NaN. Results receive the corresponding checks and
+conversions; Unit returns `undefined`. Managed-reference parameters and results
+remain unsupported.
+
+Calls are synchronous; reentrant invocation or closing an executing instance
+is rejected. An invocation trap retains prior effects and does not poison a
+successfully initialized instance. `closeInstance` is idempotent, rejects future
+calls and drops the adapter's reference to the program instance. Shared providers
+and their external resources remain owned by the caller, including cleanup. The
+adapter discovers no files, constructs no WASI or Rust providers, and does not
+load native64 objects. Native loading still needs an isolation model that gives
+each instance fresh native globals, such as a persistent process per instance.
 
 [`link-sfir-runtime`](scripts/link-sfir-runtime) links the Rust scalar externs
 into a WASI reactor, drops unused runtime exports and optimizes the result.
@@ -201,6 +244,8 @@ syntax, typing, module identity and actual V8 execution. `scripts/test-build`
 checks the public command, cleanup and publication on Wasm and native.
 `scripts/test-sfir-entry` compiles supplied library maps, links public Entry
 artifacts to foreign providers, and executes both Wasm and native64 aliases.
+`scripts/test-sfir-execution` exercises the Wasm adapter with typed providers,
+independent state, failed initialization and checked scalar transport.
 `scripts/test-sfir-integration` executes 307 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises
