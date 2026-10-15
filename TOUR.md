@@ -515,6 +515,12 @@ mutable scalar bindings explicit and gives its three result forms a closed
 nominal type. Separate probes compare the complete result, tableau and ordered
 matrix stores. A small rational LP oracle distinguishes source equivalence from
 mathematical correctness, including a preserved upstream equality-case failure.
+[`deriv_port.py`](benchmarks/strict-suite/deriv_port.py) gives deriv's finite
+atoms and recursive pairs a closed datum type while preserving its list spines,
+input sharing and original quotient rule. It owns exact source edits and
+separate complete-expression/failure probes; the runner also checks Chez
+identity and the original current-result loop. Its scalar-only hiding boundary
+requires separate optimized-work inspection before timing.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
