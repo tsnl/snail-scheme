@@ -496,14 +496,20 @@ impl Collector {
 
     unsafe fn trace_object(&mut self, words: *mut u64) {
         let count = (unsafe { *words.sub(1) } >> 5) as usize;
+        // Exact-base membership authorizes the header, not an arbitrary payload
+        // read. Even an invalid guest layout must fail before leaving its extent.
+        if count == 0 {
+            native_trap();
+        }
         let type_id = (unsafe { *words } >> 2) as usize;
         if type_id == 0 || type_id > self.metadata.layouts.len() {
             native_trap();
         }
         match &self.metadata.layouts[type_id - 1] {
             Layout::ReferenceArray => {
+                assert!(count >= 2);
                 let length = unsafe { *words.add(1) } as usize;
-                assert!(count >= 2 && length <= count - 2);
+                assert!(length <= count - 2);
                 self.stats.field_visits += length;
                 for index in 0..length {
                     unsafe { self.mark(*words.add(index + 2)) };

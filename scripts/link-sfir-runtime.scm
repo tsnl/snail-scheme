@@ -1,6 +1,7 @@
 ;; Link SFIR scalar imports to the same Cargo runtime used by native builds.
 (import (scheme base) (scheme cxr) (scheme file) (chibi filesystem)
-        (chibi string) (chibi regexp) (snail-tools process) (snail-scheme wasm-optimize))
+        (chibi string) (chibi regexp) (only (srfi 1) any)
+        (snail-tools process) (snail-scheme wasm-optimize))
 
 ;; ---- Link request and explicit runtime ABI ----
 
@@ -29,14 +30,23 @@
   (run-command! (list (tool-name "WASM_DIS" "wasm-dis") input "-o" output))
   (read-text output))
 (define (check-exports text)
-  (let loop ((offset 0))
-    (let ((match (regexp-search (rx "(export \"" ($ (+ (~ #\"))) "\"") text offset)))
-      (when match
-        (let ((name (regexp-match-submatch match 1)))
-          (when (or (member name '("memory" "_initialize" "close-resources"))
-                    (string-prefix? "snail:" name) (string-prefix? "diagnostics/" name))
-            (error "SFIR program uses a reserved runtime export name" name)))
-        (loop (regexp-match-submatch-end match 0))))))
+  ;; Binaryen emits top-level declarations on their own indented lines. Avoid
+  ;; repeatedly searching the entire module with a character-indexed regexp.
+  (for-each
+   (lambda (line)
+     (when (string-prefix? " (export \"" line)
+       (let* ((match (regexp-search (rx "(export \"" ($ (+ (~ #\"))) "\"") line))
+              (name (and match (regexp-match-submatch match 1))))
+         (when (or (not name) (member name '("memory" "_initialize" "close-resources"))
+                   (string-prefix? "snail:" name) (string-prefix? "diagnostics/" name))
+           (error "SFIR program uses a reserved runtime export name" name)))))
+   (string-split text #\newline)))
+
+(define (unresolved-runtime-import? text)
+  (any (lambda (line)
+         (any (lambda (module) (string-prefix? (string-append " (import \"snail." module "\"") line))
+              '("abi" "library" "platform")))
+       (string-split text #\newline)))
 
 ;; ---- Retained merge and optimization ----
 
@@ -59,8 +69,7 @@
                             (if (option-ref options 'diagnostic #f) '("--remove-unused-module-elements")
                                 '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge"))
                             (list linked "-o" output)))
-      (when (regexp-search (rx "(import \"snail." (or "abi" "library" "platform") "\"")
-                           (disassemble output (string-append output ".wat")))
+      (when (unresolved-runtime-import? (disassemble output (string-append output ".wat")))
         (error "linked SFIR program retains an unresolved runtime import")))
     0))
 (command-line-main (lambda (arguments) (link-runtime (car arguments) (request (cdr arguments)))))

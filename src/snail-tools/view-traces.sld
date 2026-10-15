@@ -61,7 +61,7 @@
     (define (url-name text)
       (let ((bytes (string->utf8 text)))
         (apply string-append (map (lambda (index) (url-byte (bytevector-u8-ref bytes index)))
-                                 (iota (bytevector-length bytes))))))
+                                  (iota (bytevector-length bytes))))))
     (define (decode-path target)
       (let* ((path (car (string-split (car (string-split target #\?)) #\#)))
              (bytes (string->utf8 path)) (out (open-output-bytevector)))
@@ -77,9 +77,9 @@
       (let* ((page (read-text (path-join directory "index.html"))) (head (string-contains page "</head>"))
              (route (string-append "/trace/" (url-name (path-strip-directory trace))))
              (bootstrap (string-append "<script>\nlet settings = {};\n"
-               "try { settings = JSON.parse(localStorage.getItem('perfettoSettings')) || {}; } catch {}\n"
-               "localStorage.setItem('perfettoSettings', JSON.stringify({...settings, theme: 'dark'}));\n"
-               "location.replace('/#!/?url=' + encodeURIComponent(location.origin + " (json->string route) "));\n</script>\n")))
+                                       "try { settings = JSON.parse(localStorage.getItem('perfettoSettings')) || {}; } catch {}\n"
+                                       "localStorage.setItem('perfettoSettings', JSON.stringify({...settings, theme: 'dark'}));\n"
+                                       "location.replace('/#!/?url=' + encodeURIComponent(location.origin + " (json->string route) "));\n</script>\n")))
         (if head (string-append (substring-cursor page (string-cursor-start page) head)
                                 bootstrap (substring-cursor page head)) page)))
 
@@ -146,6 +146,6 @@
         (execute helper command) (error "could not start loopback listener")))
     (define (view-traces-main root arguments)
       (guard (failure (else (display "view-traces: " (current-error-port)) (write failure (current-error-port))
-                           (newline (current-error-port)) 1))
+                            (newline (current-error-port)) 1))
         (if (and (= 3 (length arguments)) (string=? (car arguments) "--serve"))
             (serve (cadr arguments) (caddr arguments)) (start-viewer root arguments)) 0))))

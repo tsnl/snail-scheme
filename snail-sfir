@@ -1,3 +1,6 @@
 #!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case ${1:-} in
+  -h|--help) cat "$root/scripts/snail-sfir-help.txt"; exit 0 ;;
+esac
 exec "${CHIBI:-chibi-scheme}" -I "$root/src" "$root/scripts/snail-sfir.scm" "$root" "$@"
