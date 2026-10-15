@@ -13,7 +13,8 @@
           number=? number<? number<=? number>? number>=? number-equivalent?
           + - * / = < <= > >= truncate
           test-number)
-  (import (sfir base) (sfir integer) (sfir rational) (sfir math))
+  (import (sfir base) (sfir integer) (sfir rational) (sfir math)
+          (only (sfir primitive) f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
 
   ;; ---- Concrete numeric values and canonical exact packing ----
 
@@ -80,8 +81,8 @@
                    (begin (let sfir-migration-let-1 (scalar->f64 radius)) (let sfir-migration-let-2 (scalar->f64 angle))
                           (let radius sfir-migration-let-1)
                           (let angle sfir-migration-let-2)
-                          (complex-number (inexact-scalar (* radius (cos angle)))
-                                          (inexact-scalar (* radius (sin angle)))))))))
+                          (complex-number (inexact-scalar (f64-ieee-mul radius (cos angle)))
+                                          (inexact-scalar (f64-ieee-mul radius (sin angle)))))))))
 
     ;; ---- Real/imaginary projections keep exact zero for scalar input ----
 
@@ -199,11 +200,14 @@
 
     ;; ---- Scalar arithmetic promotes only at an inexact boundary ----
 
+    ;; Number's inexact branches retain IEEE overflow as infinity. Ordinary
+    ;; fixed-width SFIR arithmetic remains checked; these calls opt in explicitly.
+
     (def scalar-add (-> Scalar Scalar Scalar)
          (lambda (left right)
            (if (if (scalar-exact? left) (scalar-exact? right) #f)
                (scalar-from-rational (rational-add (scalar->rational left) (scalar->rational right)))
-               (inexact-scalar (+ (scalar->f64 left) (scalar->f64 right))))))
+               (inexact-scalar (f64-ieee-add (scalar->f64 left) (scalar->f64 right))))))
 
     (def scalar-negate (-> Scalar Scalar)
          (lambda (value)
@@ -215,19 +219,19 @@
          (lambda (left right)
            (if (if (scalar-exact? left) (scalar-exact? right) #f)
                (scalar-from-rational (rational-subtract (scalar->rational left) (scalar->rational right)))
-               (inexact-scalar (- (scalar->f64 left) (scalar->f64 right))))))
+               (inexact-scalar (f64-ieee-sub (scalar->f64 left) (scalar->f64 right))))))
 
     (def scalar-multiply (-> Scalar Scalar Scalar)
          (lambda (left right)
            (if (if (scalar-exact? left) (scalar-exact? right) #f)
                (scalar-from-rational (rational-multiply (scalar->rational left) (scalar->rational right)))
-               (inexact-scalar (* (scalar->f64 left) (scalar->f64 right))))))
+               (inexact-scalar (f64-ieee-mul (scalar->f64 left) (scalar->f64 right))))))
 
     (def scalar-divide (-> Scalar Scalar Scalar)
          (lambda (left right)
            (if (if (scalar-exact? left) (scalar-exact? right) #f)
                (scalar-from-rational (rational-divide (scalar->rational left) (scalar->rational right)))
-               (inexact-scalar (/ (scalar->f64 left) (scalar->f64 right))))))
+               (inexact-scalar (f64-ieee-div (scalar->f64 left) (scalar->f64 right))))))
 
     (def number-add (-> Number Number Number)
          (lambda (left right)

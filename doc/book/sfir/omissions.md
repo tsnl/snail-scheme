@@ -35,9 +35,10 @@ records current compiler behavior; this specification's surface changes and
 library APIs require implementation work. They are not compatibility aliases
 silently accepted by the existing compiler.
 
-Literal defaults are I32 and F64 in this design, with explicit annotations for
-other widths. Diagnosing representation overflow is required behavior, but the
-compiler MVP may not yet enforce every runtime overflow check.
+Literal defaults are I32 and F64, with explicit annotations for other widths.
+Ordinary primitive arithmetic and conversions check representation overflow;
+the [extensions](extensions.md) document explicitly named wrapping and IEEE
+library operations.
 
 The [earlier ownership proposal][ownership] develops affine values and cleanup rules.
 The present chapters describe the unrestricted core and reserve `many(T)` for
