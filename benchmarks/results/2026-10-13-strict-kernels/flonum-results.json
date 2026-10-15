@@ -1,0 +1,396 @@
+{
+  "cpu": 5,
+  "cases": [
+    {
+      "name": "fibfp",
+      "artifact_sha256": "2dcfa639e1513c8efb213274251ae9da91cf7be13be28a84b67fd4257b520614",
+      "source_sha256": "5a266bbb21b2f549277400fed4c5938f110626cc6f7abb771e625239b22b6941"
+    },
+    {
+      "name": "sumfp",
+      "artifact_sha256": "5e6e6a3ad127747f0903d84857abcbccedf4c7f5e961cee44ceff99eb235b801",
+      "source_sha256": "7122b37019342fee9ee286a50cdda941b71cfd561c8a38578e20a64dc3bc4427"
+    }
+  ],
+  "samples": [
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.389150961,\"result\":\"9227465\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.41130742500536144,
+      "valid": true,
+      "workload_seconds": 0.389150961,
+      "checked_result": {
+        "seconds": 0.389150961,
+        "result": "9227465",
+        "barriers": null
+      },
+      "name": "fibfp",
+      "system": "strict",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:10\nElapsed time: 0.399022298 seconds (0.399) for fibfp:35.0:10\n+!CSVLINE!+chez,fibfp:35.0:10,0.399022298\n",
+      "stderr": "",
+      "process_seconds": 0.42952237295685336,
+      "valid": true,
+      "workload_seconds": 0.399022298,
+      "name": "fibfp",
+      "system": "chez-flonum",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:500\nElapsed time: 1.152932796 seconds (1.153) for sumfp:1000000.0:500\n+!CSVLINE!+chez,sumfp:1000000.0:500,1.152932796\n",
+      "stderr": "",
+      "process_seconds": 1.1826820399728604,
+      "valid": true,
+      "workload_seconds": 1.152932796,
+      "name": "sumfp",
+      "system": "chez-flonum",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.113398975,\"result\":\"500000500000\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.1347723050275818,
+      "valid": true,
+      "workload_seconds": 1.113398975,
+      "checked_result": {
+        "seconds": 1.113398975,
+        "result": "500000500000",
+        "barriers": null
+      },
+      "name": "sumfp",
+      "system": "strict",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.113788462,\"result\":\"500000500000\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.1359851050074212,
+      "valid": true,
+      "workload_seconds": 1.113788462,
+      "checked_result": {
+        "seconds": 1.113788462,
+        "result": "500000500000",
+        "barriers": null
+      },
+      "name": "sumfp",
+      "system": "strict",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:500\nElapsed time: 1.152399912 seconds (1.152) for sumfp:1000000.0:500\n+!CSVLINE!+chez,sumfp:1000000.0:500,1.152399912\n",
+      "stderr": "",
+      "process_seconds": 1.182971736008767,
+      "valid": true,
+      "workload_seconds": 1.152399912,
+      "name": "sumfp",
+      "system": "chez-flonum",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:10\nElapsed time: 0.397889141 seconds (0.398) for fibfp:35.0:10\n+!CSVLINE!+chez,fibfp:35.0:10,0.397889141\n",
+      "stderr": "",
+      "process_seconds": 0.42788132501300424,
+      "valid": true,
+      "workload_seconds": 0.397889141,
+      "name": "fibfp",
+      "system": "chez-flonum",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.387402888,\"result\":\"9227465\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.4103620710084215,
+      "valid": true,
+      "workload_seconds": 0.387402888,
+      "checked_result": {
+        "seconds": 0.387402888,
+        "result": "9227465",
+        "barriers": null
+      },
+      "name": "fibfp",
+      "system": "strict",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.387379784,\"result\":\"9227465\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.41014701302628964,
+      "valid": true,
+      "workload_seconds": 0.387379784,
+      "checked_result": {
+        "seconds": 0.387379784,
+        "result": "9227465",
+        "barriers": null
+      },
+      "name": "fibfp",
+      "system": "strict",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:10\nElapsed time: 0.412017764 seconds (0.412) for fibfp:35.0:10\n+!CSVLINE!+chez,fibfp:35.0:10,0.412017764\n",
+      "stderr": "",
+      "process_seconds": 0.44449937902390957,
+      "valid": true,
+      "workload_seconds": 0.412017764,
+      "name": "fibfp",
+      "system": "chez-flonum",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:500\nElapsed time: 1.153009387 seconds (1.153) for sumfp:1000000.0:500\n+!CSVLINE!+chez,sumfp:1000000.0:500,1.153009387\n",
+      "stderr": "",
+      "process_seconds": 1.182549596996978,
+      "valid": true,
+      "workload_seconds": 1.153009387,
+      "name": "sumfp",
+      "system": "chez-flonum",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.116679703,\"result\":\"500000500000\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.1416704750154167,
+      "valid": true,
+      "workload_seconds": 1.116679703,
+      "checked_result": {
+        "seconds": 1.116679703,
+        "result": "500000500000",
+        "barriers": null
+      },
+      "name": "sumfp",
+      "system": "strict",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/sumfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.113267995,\"result\":\"500000500000\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.1357244540122338,
+      "valid": true,
+      "workload_seconds": 1.113267995,
+      "checked_result": {
+        "seconds": 1.113267995,
+        "result": "500000500000",
+        "barriers": null
+      },
+      "name": "sumfp",
+      "system": "strict",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/sumfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running sumfp:1000000.0:500\nElapsed time: 1.151528909 seconds (1.152) for sumfp:1000000.0:500\n+!CSVLINE!+chez,sumfp:1000000.0:500,1.151528909\n",
+      "stderr": "",
+      "process_seconds": 1.1829644999816082,
+      "valid": true,
+      "workload_seconds": 1.151528909,
+      "name": "sumfp",
+      "system": "chez-flonum",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/flonum-controls/fibfp/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fibfp:35.0:10\nElapsed time: 0.396947482 seconds (0.397) for fibfp:35.0:10\n+!CSVLINE!+chez,fibfp:35.0:10,0.396947482\n",
+      "stderr": "",
+      "process_seconds": 0.42819689598400146,
+      "valid": true,
+      "workload_seconds": 0.396947482,
+      "name": "fibfp",
+      "system": "chez-flonum",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/host.mjs",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/strict.wasm",
+        "/tmp/snail-strict-benchmarks-20261013/build/strict-suite-final/fibfp/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.388095165,\"result\":\"9227465\",\"barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.412181609950494,
+      "valid": true,
+      "workload_seconds": 0.388095165,
+      "checked_result": {
+        "seconds": 0.388095165,
+        "result": "9227465",
+        "barriers": null
+      },
+      "name": "fibfp",
+      "system": "strict",
+      "round": 2,
+      "retained": true
+    }
+  ],
+  "complete": true,
+  "medians": {
+    "fibfp": {
+      "strict": 0.387402888,
+      "chez-flonum": 0.397889141
+    },
+    "sumfp": {
+      "strict": 1.113788462,
+      "chez-flonum": 1.152399912
+    }
+  }
+}
