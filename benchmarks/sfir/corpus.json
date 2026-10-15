@@ -22,7 +22,8 @@
       "provenance": "browse/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "deriv",
@@ -41,7 +42,8 @@
       "provenance": "deriv/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "destruc",
@@ -60,7 +62,8 @@
       "provenance": "destruc/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "diviter",
@@ -79,7 +82,8 @@
       "provenance": "diviter/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "divrec",
@@ -98,7 +102,8 @@
       "provenance": "divrec/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "puzzle",
@@ -117,7 +122,8 @@
       "provenance": "puzzle/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "triangl",
@@ -136,7 +142,8 @@
       "provenance": "triangl/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "tak",
@@ -155,7 +162,8 @@
       "provenance": "tak/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "takl",
@@ -174,7 +182,8 @@
       "provenance": "takl/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "ntakl",
@@ -193,7 +202,8 @@
       "provenance": "ntakl/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "cpstak",
@@ -212,7 +222,8 @@
       "provenance": "cpstak/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "ctak",
@@ -251,7 +262,8 @@
       "provenance": "fib/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "fibc",
@@ -280,17 +292,20 @@
       "sfir": "fibfp/main.sfir",
       "host": "scalar",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "fibfp/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/fibfp.rs",
       "input": "fibfp/input.txt",
       "provenance": "fibfp/migration.json",
-      "chez_validation": "pending",
-      "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "source_resolution": "passed",
+      "chez_adapted_validation": "unavailable",
+      "validation_evidence": "evidence/20261015-canonical.json"
     },
     {
       "name": "sum",
@@ -309,7 +324,8 @@
       "provenance": "sum/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "sumfp",
@@ -328,7 +344,8 @@
       "provenance": "sumfp/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "fft",
@@ -347,7 +364,8 @@
       "provenance": "fft/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "mbrot",
@@ -366,7 +384,8 @@
       "provenance": "mbrot/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "mbrotZ",
@@ -385,7 +404,8 @@
       "provenance": "mbrotZ/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "nucleic",
@@ -404,7 +424,8 @@
       "provenance": "nucleic/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "pi",
@@ -423,7 +444,8 @@
       "provenance": "pi/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "pnpoly",
@@ -442,7 +464,8 @@
       "provenance": "pnpoly/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "ray",
@@ -461,7 +484,8 @@
       "provenance": "ray/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "simplex",
@@ -480,7 +504,8 @@
       "provenance": "simplex/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "ack",
@@ -489,17 +514,20 @@
       "sfir": "ack/main.sfir",
       "host": "scalar",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "ack/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/ack.rs",
       "input": "ack/input.txt",
       "provenance": "ack/migration.json",
-      "chez_validation": "pending",
-      "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "chez_validation": "passed",
+      "rust_wasm_validation": "failed",
+      "rust_native_validation": "passed",
+      "source_resolution": "passed",
+      "chez_adapted_validation": "unavailable",
+      "validation_evidence": "evidence/20261015-canonical.json"
     },
     {
       "name": "array1",
@@ -518,7 +546,8 @@
       "provenance": "array1/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "string",
@@ -537,7 +566,8 @@
       "provenance": "string/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "sum1",
@@ -556,7 +586,8 @@
       "provenance": "sum1/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "cat",
@@ -565,17 +596,20 @@
       "sfir": "cat/main.sfir",
       "host": "datum-io",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "cat/chez-original.scm",
       "chez_adapted": "cat/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/cat.rs",
       "input": "cat/input.txt",
       "provenance": "cat/migration.json",
-      "chez_validation": "pending",
-      "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "validation_evidence": "evidence/20261015-canonical.json"
     },
     {
       "name": "tail",
@@ -594,7 +628,8 @@
       "provenance": "tail/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "wc",
@@ -603,17 +638,20 @@
       "sfir": "wc/main.sfir",
       "host": "datum-io",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "wc/chez-original.scm",
       "chez_adapted": "wc/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/wc.rs",
       "input": "wc/input.txt",
       "provenance": "wc/migration.json",
-      "chez_validation": "pending",
-      "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "validation_evidence": "evidence/20261015-canonical.json"
     },
     {
       "name": "read1",
@@ -632,7 +670,8 @@
       "provenance": "read1/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "compiler",
@@ -671,7 +710,8 @@
       "provenance": "conform/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "dynamic",
@@ -710,7 +750,8 @@
       "provenance": "earley/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "graphs",
@@ -729,7 +770,8 @@
       "provenance": "graphs/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "lattice",
@@ -748,7 +790,8 @@
       "provenance": "lattice/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "matrix",
@@ -767,7 +810,8 @@
       "provenance": "matrix/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "maze",
@@ -786,7 +830,8 @@
       "provenance": "maze/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "mazefun",
@@ -805,7 +850,8 @@
       "provenance": "mazefun/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "nqueens",
@@ -824,7 +870,8 @@
       "provenance": "nqueens/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "paraffins",
@@ -843,7 +890,8 @@
       "provenance": "paraffins/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "parsing",
@@ -862,7 +910,8 @@
       "provenance": "parsing/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "peval",
@@ -881,7 +930,8 @@
       "provenance": "peval/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "primes",
@@ -900,7 +950,8 @@
       "provenance": "primes/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "quicksort",
@@ -919,7 +970,8 @@
       "provenance": "quicksort/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "scheme",
@@ -978,7 +1030,8 @@
       "provenance": "chudnovsky/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "nboyer",
@@ -997,7 +1050,8 @@
       "provenance": "nboyer/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "sboyer",
@@ -1016,7 +1070,8 @@
       "provenance": "sboyer/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "gcbench",
@@ -1035,7 +1090,8 @@
       "provenance": "gcbench/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "mperm",
@@ -1054,7 +1110,8 @@
       "provenance": "mperm/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "equal",
@@ -1073,7 +1130,8 @@
       "provenance": "equal/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     },
     {
       "name": "bv2string",
@@ -1092,7 +1150,8 @@
       "provenance": "bv2string/migration.json",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "source_resolution": "passed"
     }
   ]
 }

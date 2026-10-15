@@ -1,4 +1,4 @@
-(import (chezscheme))
+(import (except (chezscheme) string-copy! vector-copy!))
 (define report-string display)
 (define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define-syntax ann (syntax-rules () ((_ value type) value)))

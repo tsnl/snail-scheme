@@ -10,6 +10,7 @@ const module = new WebAssembly.Module(fs.readFileSync(artifact));
 assert(WebAssembly.Module.imports(module).every(item => ['benchmark', 'reader.test', 'wasi_snapshot_preview1', 'snail.library'].includes(item.module)));
 const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {'.': process.cwd()}, returnOnExit: true});
 const live = new Map(), phases = {setup: [], worker: [], cleanup: []};
+const cycles = {setup: [], worker: [], cleanup: []}, deleted = [];
 let memory, phase = 'setup', barriers = 0;
 const trace = [], floating = new DataView(new ArrayBuffer(8));
 const observer = {
@@ -24,21 +25,45 @@ const imports = {...wasi.wasiImport};
 imports.path_open = (...args) => {
   const path = new TextDecoder().decode(new Uint8Array(memory.buffer, args[2], args[3]));
   const status = wasi.wasiImport.path_open(...args);
-  if (status === 0) live.set(new DataView(memory.buffer).getUint32(args.at(-1), true), path);
+  if (status === 0) live.set(new DataView(memory.buffer).getUint32(args.at(-1), true),
+                            {path, read: 0, written: 0, eof: false});
   phases[phase].push(['open', path, status]);
   return status;
 };
 imports.fd_read = (...args) => {
   const status = wasi.wasiImport.fd_read(...args);
   if (status === 0 && live.has(args[0])) {
-    phases[phase].push(['read', live.get(args[0]), new DataView(memory.buffer).getUint32(args.at(-1), true)]);
+    const file = live.get(args[0]), bytes = new DataView(memory.buffer).getUint32(args.at(-1), true);
+    assert(!file.eof, 'read continued after EOF');
+    file.read += bytes;
+    file.eof = bytes === 0;
+    phases[phase].push(['read', file.path, bytes]);
+  }
+  return status;
+};
+imports.fd_write = (...args) => {
+  const status = wasi.wasiImport.fd_write(...args);
+  if (status === 0 && live.has(args[0])) {
+    const file = live.get(args[0]), bytes = new DataView(memory.buffer).getUint32(args.at(-1), true);
+    file.written += bytes;
+    phases[phase].push(['write', file.path, bytes]);
   }
   return status;
 };
 imports.fd_close = descriptor => {
+  const file = live.get(descriptor);
   const status = wasi.wasiImport.fd_close(descriptor);
-  phases[phase].push(['close', live.get(descriptor), status]);
-  if (status === 0) live.delete(descriptor);
+  phases[phase].push(['close', file?.path, status]);
+  if (status === 0) {
+    if (file) cycles[phase].push(file);
+    live.delete(descriptor);
+  }
+  return status;
+};
+imports.path_unlink_file = (...args) => {
+  const path = new TextDecoder().decode(new Uint8Array(memory.buffer, args[1], args[2]));
+  const status = wasi.wasiImport.path_unlink_file(...args);
+  deleted.push({phase, path, status});
   return status;
 };
 let provider;
@@ -70,6 +95,11 @@ try {
     }
   } else result = instance.exports.bench(BigInt(config.count));
   assert.equal(live.size, 0);
+  if (!config.observe) {
+    assert.equal(result, BigInt(config.expected), 'complete benchmark predicate');
+    assert.equal(barriers, (config.barriers_per_iteration ?? config.worker_barriers) * config.count);
+    validateFileCycles();
+  }
 } catch (error) { failure = error; }
 finally {
   phase = 'cleanup';
@@ -79,8 +109,36 @@ finally {
 const closed = name => phases[name].filter(event => event[0] === 'close').length;
 if (failure) {
   console.log(JSON.stringify({failed: true, barriers, setup_closed: closed('setup'),
-                             worker_closed: closed('worker'), cleanup_closed: closed('cleanup'), phases}));
+                             worker_closed: closed('worker'), cleanup_closed: closed('cleanup'), phases, cycles, deleted}));
   throw failure;
 }
 console.log(JSON.stringify({result: Number(result), barriers, setup_closed: closed('setup'),
-                           worker_closed: closed('worker'), phases, ...(config.observe ? {trace} : {})}));
+                           worker_closed: closed('worker'), phases, cycles, deleted, ...(config.observe ? {trace} : {})}));
+
+// ---- Each input cycle consumes its whole file; output cycles retain their bytes ----
+
+function validateFileCycles() {
+  assert.equal(cycles.setup.length, 1);
+  assert.equal(cycles.setup[0].path, 'input.txt');
+  assert.equal(cycles.setup[0].read, fs.statSync('input.txt').size);
+  const paths = config.pathnames ?? [];
+  assert.equal(cycles.worker.length, paths.length * config.count);
+  for (const path of paths) validatePathCycles(path);
+  if (config.name === 'cat') {
+    assert.deepEqual(fs.readFileSync(paths[0]), fs.readFileSync(paths[1]));
+    assert.equal(deleted.length, Math.max(0, config.count - 1));
+    assert(deleted.every(item => item.phase === 'worker' && item.path === paths[1] && item.status === 0));
+  }
+}
+
+function validatePathCycles(path) {
+  const matching = cycles.worker.filter(item => item.path === path);
+  assert.equal(matching.length, config.count);
+  for (const cycle of matching) {
+    if (path.startsWith('outputs/')) assert.equal(cycle.written, fs.statSync(path).size);
+    else {
+      assert.equal(cycle.read, fs.statSync(path).size);
+      assert(cycle.eof, 'input cycle did not reach EOF');
+    }
+  }
+}

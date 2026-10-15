@@ -10,8 +10,12 @@
   "equivalence_status": "Target and identically adapted Chez validation pending.",
   "controls": {
     "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
-    "chez-adapted.scm": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2"
+    "chez-adapted.scm": "b9cccc87d8374f57c83f861195c6b7f9a2b52a81e9aea3f30fe4b12a397c1158"
   },
   "sfir_sha256": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
-  "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services."
+  "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services.",
+  "adapted_control_import_correction": {
+    "before_sha256": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2",
+    "change": "Exclude Chez string-copy! and vector-copy! imports because the identical typed-library control defines both operations; benchmark and library bodies unchanged."
+  }
 }

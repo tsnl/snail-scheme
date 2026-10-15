@@ -10,7 +10,7 @@ representation changes separately. Rust implementations remain in
 There are currently 51 static SFIR programs. Forty-nine were serialized once
 from the resolved IR of reviewed complete ports, including Peval, Pi and
 Chudnovsky. Cat and WC have complete direct SFIR character loops and file
-lifecycles and matching adapted Chez controls; target validation is pending. Compiler,
+lifecycles and matching adapted Chez controls. Compiler,
 CTak, Fibc, Dynamic, Scheme and SLaTeX still need complete SFIR sources. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
@@ -47,10 +47,14 @@ Validation invokes the SFIR compiler, whose build contract always runs Binaryen,
 and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills
 and drains the process group. A successful compile does not establish successful
-execution. The first integrated host route handles scalar/typed-container
-kernels with their complete predicates. Other host routes and native lowering
-remain visible as pending while they are integrated. Native must lower the
-exact optimized Wasm used for Wasm validation.
+execution. The integrated routes handle scalar/typed-container kernels and Datum/I/O
+programs with their complete predicates. Native lowering consumes the exact
+optimized SFIR Wasm used in V8. Runtime-backed Wasm supplies concrete scalar
+services from a separately pruned Rust provider; the retained provider imports
+exclude the legacy Root ABI. Each target and external control runs in a fresh
+working directory. Per-stage records preserve successful Wasm evidence if a
+later native or comparison step fails. FFT, Tail, Ray, Nucleic and large-integer
+host routes remain pending.
 
 There is no timing command yet. Clean timing requires a frozen comparison plan
 covering SFIR, Chez and Rust, with host/target differences recorded, and must
@@ -68,3 +72,28 @@ dependencies and explicit unsupported host routes. Tests exercise source
 tampering, checkout independence, escaping/symlinked dependencies, timeout
 configuration, and a process with a live child. No generic callback or plugin
 framework was introduced.
+
+## Executed checkpoint
+
+Canonical Ack and Fibfp pass SFIR optimized V8, native64, and original Chez.
+Fibfp passes both Rust targets; Ack passes Rust native while its default Rust
+Wasm stack overflows. Canonical Cat and WC pass both SFIR targets, original
+and adapted Chez, and both Rust targets. Cat additionally checks the complete
+output bytes; the Wasm host observes every input/output cycle, deletion and
+close. The first Cat/WC adapted-control compilation failures remain retained;
+excluding the two Chez copy-operation imports fixes that control boundary
+without changing any benchmark or library body.
+
+[Checkpoint evidence](evidence/20261015-canonical.json) identifies these exact
+source hashes, frozen attempts, artifacts, outcomes and diagnostic records. All
+51 authored main programs have also passed the direct SFIR frontend's source
+resolution. Resolution alone does not establish inference or target correctness.
+No SFIR performance coverage is claimed.
+
+The focused review kept process launch, waiting, group termination and terminal
+recording together despite that function exceeding the ten-line guideline: one
+exception boundary owns the child group. Reversible export selection and staged
+build publication likewise keep their complete validation decisions visible.
+The remaining helpers separate concrete freeze, build, execution and result
+checks. Tests also cover stale outputs, a parent exiting while its child holds
+stdout, mandatory adapted controls, and exact provider export selection.

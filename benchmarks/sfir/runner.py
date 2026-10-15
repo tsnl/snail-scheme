@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -21,9 +22,16 @@ CORPUS = ROOT / 'benchmarks/sfir'
 DEFAULT_COMPILE_TIMEOUT = 1200
 COMPILER_ROOTS = ('src/', 'lib/', 'runtime/', 'scripts/')
 COMPILER_FILES = ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'build.rs')
-TOOLS = {'CHIBI': 'chibi-scheme', 'WASM_OPT': 'wasm-opt', 'WASM_AS': 'wasm-as',
+TOOLS = {'CHIBI': 'chibi-scheme', 'WASM_OPT': 'wasm-opt', 'WASM_AS': 'wasm-as', 'WASM_DIS': 'wasm-dis',
          'NODE': 'node', 'CHEZ': 'scheme', 'RUSTC': 'rustc', 'CARGO': 'cargo',
          'CLANG': 'clang', 'LLD': 'ld.lld', 'WASM_MERGE': 'wasm-merge', 'PYTHON': 'python3'}
+RUNTIME_FEATURES = ['--mvp-features', '--enable-mutable-globals', '--enable-nontrapping-float-to-int',
+                    '--enable-bulk-memory', '--enable-sign-ext', '--enable-reference-types',
+                    '--enable-multivalue', '--enable-extended-const', '--enable-bulk-memory-opt',
+                    '--enable-call-indirect-overlong']
+EXECUTION_ENVIRONMENT = ('BINARYEN_CORES', 'RUSTUP_TOOLCHAIN', 'RUSTUP_HOME', 'CARGO_HOME',
+                         'NODE_OPTIONS', 'NODE_V8_COVERAGE', 'LD_PRELOAD', 'SNAIL_NATIVE_GC_INTERVAL',
+                         'SNAIL_GC_STATS', 'SNAIL_GC_HEAP_BYTES', 'SNAIL_GC_MIN_BYTES')
 
 
 def load(path):
@@ -31,7 +39,10 @@ def load(path):
 
 
 def save(path, value):
-    Path(path).write_text(json.dumps(value, indent=2) + '\n')
+    path = Path(path)
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(value, indent=2) + '\n')
+    temporary.replace(path)
 
 
 def digest(path):
@@ -147,7 +158,8 @@ def prepare(root, destination, names, compile_timeout, run_timeout):
     files = freeze_files(root, destination / 'source', compiler_files(root) + corpus_files(root) + rust_files(root))
     inputs = canonical_data(root, destination / 'data', corpus)
     manifest = dict(format=1, kind='sfir-preparation', config=config, files=files, inputs=inputs,
-                    tools=immutable_tools(os.environ), cases=cases, measurement='not-measured')
+                    tools=immutable_tools(os.environ), cases=cases, measurement='not-measured',
+                    execution_environment={name: os.environ.get(name) for name in EXECUTION_ENVIRONMENT})
     save(destination / 'manifest.json', manifest)
     return manifest
 
@@ -217,12 +229,17 @@ def record(directory, label, command, environment, cwd, timeout, stdin=None):
     folder = directory / 'commands' / relative_path(label)
     folder.mkdir(parents=True)
     result = dict(command=list(map(str, command)), cwd=str(cwd), timeout_seconds=timeout, status='started')
+    result['environment'] = {name: environment.get(name) for name in EXECUTION_ENVIRONMENT}
     save(folder / 'record.json', result)
     start = time.monotonic()
     try:
         process = subprocess.Popen(result['command'], cwd=cwd, env=environment, text=True,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         result.update(terminal_record(process, timeout, stdin), status='finished')
+    except OSError as error:
+        if 'process' in locals():
+            stop_group(process.pid)
+        result.update(status='failed-to-start', exception=repr(error))
     except BaseException as error:
         if 'process' in locals():
             stop_group(process.pid)
@@ -243,6 +260,11 @@ def succeeded(result):
 
 def frozen_environment(manifest):
     environment = dict(os.environ)
+    for name, value in manifest['execution_environment'].items():
+        if value is None:
+            environment.pop(name, None)
+        else:
+            environment[name] = value
     environment.update({name: tool['path'] for name, tool in manifest['tools'].items()})
     environment['PATH'] = os.pathsep.join(sorted({str(Path(tool['path']).parent) for tool in manifest['tools'].values()}))
     return environment
@@ -255,9 +277,16 @@ def case_directory(directory, case):
     for name in ('input.txt', 'spec.json'):
         if (source / name).exists():
             shutil.copy2(source / name, target / name)
-    shutil.copytree(directory / 'data/inputs', target / 'inputs')
-    (target / 'outputs').mkdir()
     return source, target
+
+
+def execution_directory(directory, target, route):
+    working = target / 'runs' / route
+    working.mkdir(parents=True)
+    shutil.copy2(target / 'input.txt', working / 'input.txt')
+    shutil.copytree(directory / 'data/inputs', working / 'inputs')
+    (working / 'outputs').mkdir()
+    return working
 
 
 def sfir_build(directory, case, source, target, manifest, environment):
@@ -272,37 +301,322 @@ def sfir_build(directory, case, source, target, manifest, environment):
 def scalar_validation(directory, target, manifest, environment):
     command = [manifest['tools']['NODE']['path'], directory / 'source/benchmarks/sfir/support/scalar-host.mjs',
                target / 'program.wasm', target / 'spec.json', '--validate']
-    result = record(target, 'sfir-wasm', command, environment, target, manifest['config']['run_timeout'])
+    working = execution_directory(directory, target, 'sfir-wasm')
+    result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
     return 'passed' if succeeded(result) else 'failed'
+
+
+# ---- Concrete Rust scalar services leave the optimized SFIR module unchanged ----
+
+def module_interface(path, target, label, manifest, environment):
+    script = '''const fs=require('fs'), m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
+      console.log(JSON.stringify({imports:WebAssembly.Module.imports(m),exports:WebAssembly.Module.exports(m)}));'''
+    result = record(target, label, [manifest['tools']['NODE']['path'], '-e', script, path], environment,
+                    target, manifest['config']['compile_timeout'])
+    if not succeeded(result):
+        raise RuntimeError(f'{label}: cannot inspect the Wasm interface')
+    return json.loads(result['stdout'])
+
+
+def select_runtime_exports(text, expected, keep):
+    lines, selected, removed, found = text.splitlines(keepends=True), [], [], set()
+    for index, line in enumerate(lines):
+        match = re.fullmatch(r'\s*\(export "([^"]+)" \(.*\)\)\s*', line)
+        if match:
+            found.add(match[1])
+        if match and match[1] not in keep:
+            removed.append(dict(index=index, line=line))
+        else:
+            selected.append(line)
+    restored = list(selected)
+    for edit in removed:
+        restored.insert(edit['index'], edit['line'])
+    if found != expected or restored != lines or not keep <= found:
+        raise ValueError('runtime export selection did not reverse exactly')
+    return ''.join(selected), dict(removed=removed, complete_reverse_verified=True)
+
+
+def build_wasm_runtime(directory, target, manifest, environment):
+    command = [manifest['tools']['CARGO']['path'], 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
+               '--locked', '--release', '--target', 'wasm32-wasip1', '--manifest-path', directory / 'source/Cargo.toml',
+               '--target-dir', directory / 'runtime-target']
+    result = record(target, 'runtime-build', command, environment, directory / 'source', manifest['config']['compile_timeout'])
+    if not succeeded(result):
+        raise RuntimeError('Rust scalar runtime build failed')
+    runtime = directory / 'runtime-target/wasm32-wasip1/release/snail_runtime.wasm'
+    shutil.copy2(runtime, target / 'runtime.wasm')
+
+
+def optimize_provider(target, manifest, environment, keep, names):
+    tools, timeout = manifest['tools'], manifest['config']['compile_timeout']
+    result = record(target, 'runtime-disassemble', [tools['WASM_DIS']['path'], target / 'runtime.wasm', '-o', target / 'runtime.wat'],
+                    environment, target, timeout)
+    if not succeeded(result):
+        raise RuntimeError('Rust scalar runtime disassembly failed')
+    text, edits = select_runtime_exports((target / 'runtime.wat').read_text(), names, keep)
+    (target / 'provider.wat').write_text(text)
+    save(target / 'provider-export-edits.json', edits)
+    for label, command in provider_commands(target, tools):
+        if not succeeded(record(target, label, command, environment, target, timeout)):
+            raise RuntimeError(f'{label}: failed to construct the scalar provider')
+
+
+def provider_commands(target, tools):
+    return [('runtime-assemble', [tools['WASM_AS']['path'], *RUNTIME_FEATURES, target / 'provider.wat', '-o', target / 'provider.raw.wasm']),
+            ('runtime-optimize', [tools['WASM_OPT']['path'], '-g', *RUNTIME_FEATURES, '--remove-unused-module-elements', '-O3',
+                                  target / 'provider.raw.wasm', '-o', target / 'provider.wasm'])]
+
+
+def runtime_provider(directory, target, manifest, environment):
+    build_wasm_runtime(directory, target, manifest, environment)
+    program = module_interface(target / 'program.wasm', target, 'program-interface', manifest, environment)
+    provider = module_interface(target / 'runtime.wasm', target, 'runtime-interface', manifest, environment)
+    required = {item['name'] for item in program['imports'] if item['module'] == 'snail.library'}
+    keep = required | {'memory', '_initialize', 'snail:io/close-all', 'snail:report-error'}
+    optimize_provider(target, manifest, environment, keep, {item['name'] for item in provider['exports']})
+    check_runtime_provider(target, manifest, environment, required, keep)
+
+
+def check_runtime_provider(target, manifest, environment, required, keep):
+    final = module_interface(target / 'provider.wasm', target, 'provider-interface', manifest, environment)
+    if any(item['module'] not in ('wasi_snapshot_preview1', 'snail.platform') for item in final['imports']):
+        raise ValueError('scalar provider retained an unsupported runtime dependency')
+    if {item['name'] for item in final['exports']} != keep:
+        raise ValueError('scalar provider export set changed')
+    save(target / 'provider.json', dict(required=sorted(required), retained=sorted(keep), interface=final,
+         program_sha256=digest(target / 'program.wasm'), runtime_sha256=digest(target / 'runtime.wasm'),
+         provider_sha256=digest(target / 'provider.wasm')))
+
+
+def datum_validation(directory, target, manifest, environment):
+    runtime_provider(directory, target, manifest, environment)
+    working = execution_directory(directory, target, 'sfir-wasm')
+    command = [manifest['tools']['NODE']['path'], '--no-warnings', directory / 'source/benchmarks/sfir/support/reader-host.mjs',
+               target / 'program.wasm', target / 'spec.json', target / 'provider.wasm']
+    result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
+    return 'passed' if succeeded(result) else 'failed'
+
+
+def c_array(name, kind, values):
+    values = values or [0]
+    return f'static const {kind} {name}[] = {{' + ', '.join(map(str, values)) + '};\n'
+
+
+def numeric_arrays(name, values):
+    if any(not isinstance(value, (int, float)) for value in values):
+        raise ValueError('native scalar host requires flat numeric inputs and expected values')
+    if any(isinstance(value, float) and not math.isfinite(value) for value in values):
+        raise ValueError('native scalar host requires finite numeric configuration')
+    integers = [int(value) if isinstance(value, int) else 0 for value in values]
+    if any(value < -(2 ** 63) or value >= 2 ** 63 for value in integers):
+        raise ValueError('native scalar input is outside I64')
+    return c_array(name + '_integers', 'int64_t', integers) + c_array(name + '_reals', 'double', [int(v) if isinstance(v, bool) else v for v in values])
+
+
+def c_strings(name, values):
+    return f'static const char *{name}[] = {{' + ', '.join(json.dumps(value) for value in values or ['']) + '};\n'
+
+
+def native_configuration(spec):
+    inputs = spec['inputs']
+    vectors = [value if isinstance(value, list) else [] for value in inputs]
+    expected = spec['expected'] if isinstance(spec['expected'], list) else [spec['expected']]
+    header = '#include <stdint.h>\n'
+    header += numeric_arrays('input', [0 if isinstance(value, list) else value for value in inputs])
+    header += numeric_arrays('vector', [value for vector in vectors for value in vector])
+    header += numeric_arrays('expected', expected)
+    header += c_array('vector_sizes', 'int64_t', list(map(len, vectors)))
+    header += c_array('vector_offsets', 'int64_t', [sum(map(len, vectors[:index])) for index in range(len(vectors))])
+    return header + native_expectations(spec, len(expected)) + native_diagnostics(spec)
+
+
+def native_expectations(spec, expected_size):
+    result = 1 if isinstance(spec['expected'], list) else spec['expected']
+    floating = spec['name'] in ('fibfp', 'sumfp', 'fft')
+    values = dict(configured_count=spec['count'], expected_size=expected_size,
+                  expected_setup=spec.get('setup_barriers', -1),
+                  expected_barriers=spec.get('barriers_per_iteration', spec.get('worker_barriers', 0)) * max(0, spec['count']))
+    reader = spec.get('runtime') == 'scalar-datum-reader'
+    values.update(expected_setup_closed=1 if reader else -1,
+                  expected_worker_closed=len(spec.get('pathnames', [])) * spec['count'] if reader else -1)
+    text = ''.join(f'static const int64_t {key} = {value};\n' for key, value in values.items())
+    text += f'static const {"double" if floating else "int64_t"} expected_result = {result};\n'
+    return (text + f'static const double expected_tolerance = {spec.get("tolerance", 0)};\n#define FLOAT_RESULT {int(floating)}\n'
+            + f'#define CONFIGURED_COUNT {int("configured-count" in spec.get("additional_exports", []))}\n')
+
+
+def native_diagnostics(spec):
+    sizes = spec.get('diagnostic_sizes', [])
+    return (c_strings('diagnostic_text', spec.get('diagnostic_text', []))
+            + c_strings('diagnostic_prefix', [row[0] for row in sizes])
+            + c_strings('diagnostic_suffix', [row[1] for row in sizes]))
+
+
+def native_sources(directory, source, target):
+    for name in ('scalar-provider.c', 'scalar-provider.h', 'scalar-entry.c'):
+        shutil.copy2(directory / 'source/benchmarks/sfir/support' / name, target / name)
+    (target / 'case-config.h').write_text(native_configuration(load(source / 'spec.json')))
+
+
+def native_validation(directory, source, target, manifest, environment):
+    try:
+        native_sources(directory, source, target)
+    except ValueError as error:
+        save(target / 'native-unavailable.json', dict(reason=str(error)))
+        return 'unsupported-configuration'
+    command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
+               '--entry-c', target / 'scalar-entry.c', '--c-provider', 'benchmark',
+               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm', target / 'program.native']
+    built = record(target, 'native-build', command, environment, target, manifest['config']['compile_timeout'])
+    if not succeeded(built):
+        return 'failed-build'
+    return native_execution(directory, source, target, manifest, environment)
+
+
+def native_execution(directory, source, target, manifest, environment):
+    working = execution_directory(directory, target, 'sfir-native')
+    active = dict(environment)
+    spec = load(source / 'spec.json')
+    if 'native_heap_bytes' in spec:
+        active['SNAIL_GC_HEAP_BYTES'] = str(spec['native_heap_bytes'])
+    result = record(target, 'sfir-native', [target / 'program.native'], active, working, manifest['config']['run_timeout'])
+    return 'passed' if succeeded(result) and output_files_match(source, working, target, 'sfir-native') else 'failed'
+
+
+def output_files_match(source, working, target, route):
+    if source.name != 'cat':
+        return True
+    paths = load(source / 'spec.json')['pathnames']
+    observed = {name: digest(working / name) if (working / name).is_file() else None for name in paths}
+    save(target / (route + '-outputs.json'), observed)
+    return observed[paths[0]] == observed[paths[1]] and observed[paths[0]] is not None
+
+
+def compile_chez_control(source, target, manifest, environment, mode):
+    program = source / f'chez-{mode}.scm'
+    artifact = target / f'chez-{mode}.so'
+    script = target / f'compile-chez-{mode}.scm'
+    script.write_text('(import (chezscheme))\n(parameterize ((optimize-level 2)) (compile-program '
+                      + json.dumps(str(program)) + ' ' + json.dumps(str(artifact)) + '))\n')
+    return record(target, f'chez-{mode}-build', [manifest['tools']['CHEZ']['path'], '--script', script], environment, target, manifest['config']['compile_timeout'])
+
+
+def chez_validation(directory, source, target, manifest, environment, mode):
+    if not (source / f'chez-{mode}.scm').exists():
+        return 'unavailable'
+    built = compile_chez_control(source, target, manifest, environment, mode)
+    if not succeeded(built):
+        return 'failed-build'
+    working = execution_directory(directory, target, f'chez-{mode}')
+    result = record(target, f'chez-{mode}', [manifest['tools']['CHEZ']['path'], '--program', target / f'chez-{mode}.so'], environment,
+                    working, manifest['config']['run_timeout'], (target / 'input.txt').read_text())
+    passed = succeeded(result) and '+!CSVLINE!+' in result['stdout'] and 'INCORRECT' not in result['stdout']
+    return 'passed' if passed and output_files_match(source, working, target, f'chez-{mode}') else 'failed'
+
+
+def rust_validation(directory, case, target, manifest, environment, wasm):
+    route = 'rust-wasm' if wasm else 'rust-native'
+    artifact_root = directory / 'rust-target'
+    command = [manifest['tools']['CARGO']['path'], 'build', '--offline', '--locked', '--release',
+               '--manifest-path', directory / 'source/benchmarks/wasm-reference/Cargo.toml',
+               '--target-dir', artifact_root, '--bin', case['name']]
+    if wasm:
+        command += ['--target', 'wasm32-wasip1']
+    built = record(target, route + '-build', command, environment, directory / 'source', manifest['config']['compile_timeout'])
+    return rust_execution(directory, case, target, manifest, environment, wasm) if succeeded(built) else 'failed-build'
+
+
+def rust_execution(directory, case, target, manifest, environment, wasm):
+    route = 'rust-wasm' if wasm else 'rust-native'
+    binary = directory / 'rust-target' / ('wasm32-wasip1/release' if wasm else 'release') / (case['name'] + ('.wasm' if wasm else ''))
+    command = ([manifest['tools']['NODE']['path'], '--no-warnings',
+                directory / 'source/benchmarks/wasm-reference/run-wasi.mjs', binary] if wasm else [binary])
+    working = execution_directory(directory, target, route)
+    result = record(target, route, command, environment, working, manifest['config']['run_timeout'], (target / 'input.txt').read_text())
+    save(target / (route + '-artifact.json'), dict(sha256=digest(binary), path=str(binary)))
+    source = directory / 'source/benchmarks/sfir' / case['name']
+    passed = succeeded(result) and '+!CSVLINE!+' in result['stdout'] and 'INCORRECT' not in result['stdout']
+    return 'passed' if passed and output_files_match(source, working, target, route) else 'failed'
+
+
+def rust_toolchain_evidence(directory, manifest, environment):
+    for name, arguments in [('RUSTC', ['--version', '--verbose']), ('RUSTC', ['--print', 'sysroot']), ('CARGO', ['--version'])]:
+        label = name.lower() + '-' + arguments[0].removeprefix('--')
+        record(directory, label, [manifest['tools'][name]['path'], *arguments], environment,
+               directory / 'source', manifest['config']['compile_timeout'])
+
+
+def stage_result(target, status, key, value):
+    status[key] = value
+    save(target / 'status.json', status)
+
+
+def sfir_artifacts(directory, case, source, target, manifest, environment, status):
+    if not (directory / 'source/scripts/build-sfir').exists():
+        stage_result(target, status, 'unavailable', 'frozen compiler lacks scripts/build-sfir')
+        return False
+    result = sfir_build(directory, case, source, target, manifest, environment)
+    stage_result(target, status, 'build', 'passed' if succeeded(result) else 'failed')
+    if not succeeded(result):
+        return False
+    if not (target / 'program.wasm.raw.wasm').is_file():
+        stage_result(target, status, 'unavailable', 'build did not retain the mandatory raw/Binaryen artifact pair')
+        return False
+    status.update(optimized='passed', optimized_sha256=digest(target / 'program.wasm'),
+                  raw_sha256=digest(target / 'program.wasm.raw.wasm'))
+    save(target / 'status.json', status)
+    return True
+
+
+def wasm_validation(directory, case, target, manifest, environment):
+    try:
+        if case['host'] == 'datum-io':
+            return datum_validation(directory, target, manifest, environment)
+        return scalar_validation(directory, target, manifest, environment)
+    except (OSError, RuntimeError, ValueError) as error:
+        save(target / 'wasm-failure.json', dict(reason=str(error)))
+        return 'failed'
+
+
+def sfir_validation(directory, case, source, target, manifest, environment, status):
+    if case['source'] != 'present':
+        stage_result(target, status, 'unavailable', 'complete SFIR source has not been ported')
+        return
+    if not sfir_artifacts(directory, case, source, target, manifest, environment, status):
+        return
+    if case['host'] not in ('scalar', 'datum-io') or case['name'] == 'fft':
+        stage_result(target, status, 'unavailable', f'{case["host"]} execution route has not been integrated')
+        return
+    stage_result(target, status, 'wasm_validation', wasm_validation(directory, case, target, manifest, environment))
+    stage_result(target, status, 'native_validation', native_validation(directory, source, target, manifest, environment))
+
+
+def comparison_validation(directory, case, source, target, manifest, environment, status):
+    for mode in ('original', 'adapted'):
+        key = 'chez_validation' if mode == 'original' else 'chez_adapted_validation'
+        stage_result(target, status, key, chez_validation(directory, source, target, manifest, environment, mode))
+    stage_result(target, status, 'rust_wasm_validation', rust_validation(directory, case, target, manifest, environment, True))
+    stage_result(target, status, 'rust_native_validation', rust_validation(directory, case, target, manifest, environment, False))
 
 
 def validate_case(directory, case, manifest, environment):
     status = dict(name=case['name'], source=case['source'], build='not-attempted', optimized='not-established',
                   wasm_validation='pending', native_validation='pending', chez_validation='pending',
-                  rust_wasm_validation='pending', rust_native_validation='pending', measurement='not-measured')
-    if case['source'] != 'present':
-        return dict(status, unavailable='complete SFIR source has not been ported')
+                  rust_wasm_validation='pending', rust_native_validation='pending', measurement='not-measured',
+                  adapted_control_required=case.get('chez_adapted') is not None)
     source, target = case_directory(directory, case)
-    if not (directory / 'source/scripts/build-sfir').exists():
-        return dict(status, unavailable='frozen compiler lacks scripts/build-sfir')
-    result = sfir_build(directory, case, source, target, manifest, environment)
-    status['build'] = 'passed' if succeeded(result) else 'failed'
-    if not succeeded(result):
-        return status
-    if not (target / 'program.wasm.raw.wasm').is_file():
-        return dict(status, unavailable='build did not retain the mandatory raw/Binaryen artifact pair')
-    status.update(optimized='passed', optimized_sha256=digest(target / 'program.wasm'),
-                  raw_sha256=digest(target / 'program.wasm.raw.wasm'))
-    if case['host'] == 'scalar' and case['name'] != 'fft':
-        status['wasm_validation'] = scalar_validation(directory, target, manifest, environment)
-    else:
-        status['unavailable'] = f'{case["host"]} execution route has not been integrated'
+    try:
+        sfir_validation(directory, case, source, target, manifest, environment, status)
+    except (OSError, RuntimeError, ValueError) as error:
+        stage_result(target, status, 'sfir_failure', str(error))
+    comparison_validation(directory, case, source, target, manifest, environment, status)
     return status
 
 
 def validate(directory):
     manifest = verify_preparation(directory)
     environment = frozen_environment(manifest)
+    rust_toolchain_evidence(directory, manifest, environment)
     report = dict(kind='sfir-target-validation', performance_samples=False, cases=[])
     for case in manifest['cases']:
         verify_preparation(directory)
@@ -311,7 +625,7 @@ def validate(directory):
     return report
 
 
-def main():
+def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('inventory', 'prepare', 'verify', 'validate'))
     parser.add_argument('--output', type=Path)
@@ -319,11 +633,23 @@ def main():
     parser.add_argument('--compile-timeout', type=positive_timeout, default=DEFAULT_COMPILE_TIMEOUT)
     parser.add_argument('--run-timeout', type=positive_timeout, default=1200)
     args = parser.parse_args()
+    if args.action != 'inventory' and args.output is None:
+        parser.error('--output is required')
+    return args
+
+
+def all_routes_passed(report):
+    required = ('wasm_validation', 'native_validation', 'chez_validation', 'rust_wasm_validation', 'rust_native_validation')
+    return all(all(case.get(key) == 'passed' for key in required)
+               and (not case['adapted_control_required'] or case.get('chez_adapted_validation') == 'passed')
+               for case in report['cases'])
+
+
+def main():
+    args = arguments()
     if args.action == 'inventory':
         print(json.dumps(selected_cases(load(CORPUS / 'corpus.json'), args.benchmarks), indent=2))
         return
-    if args.output is None:
-        parser.error('--output is required')
     directory = args.output.resolve()
     if args.action == 'prepare':
         prepare(ROOT, directory, args.benchmarks, args.compile_timeout, args.run_timeout)
@@ -332,7 +658,7 @@ def main():
     else:
         report = validate(directory)
         print(json.dumps(report, indent=2))
-        if any(case['wasm_validation'] != 'passed' for case in report['cases']):
+        if not all_routes_passed(report):
             raise SystemExit(1)
 
 
@@ -373,6 +699,11 @@ class FrozenInputTests(unittest.TestCase):
                 positive_timeout(value)
         self.assertEqual(positive_timeout('1800.5'), 1800.5)
 
+    def test_native_configuration_rejects_values_outside_the_host_abi(self):
+        for values in ([2 ** 63], [-(2 ** 63) - 1], [float('nan')], [[1, 2]], ['answer']):
+            with self.assertRaises(ValueError):
+                numeric_arrays('input', values)
+
     def test_timeout_records_failure_and_drains_child_group(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -383,6 +714,45 @@ class FrozenInputTests(unittest.TestCase):
             self.assertEqual(result['executing_descendants'], [])
             self.assertFalse(succeeded(result))
             self.assertEqual(load(root / 'commands/timeout/record.json'), result)
+
+    def test_execution_routes_cannot_reuse_an_earlier_output_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'data/inputs').mkdir(parents=True)
+            (root / 'input.txt').write_text('canonical input')
+            first = execution_directory(root, root, 'first')
+            (first / 'outputs/stale').write_text('incorrect old answer')
+            second = execution_directory(root, root, 'second')
+            self.assertEqual(list((second / 'outputs').iterdir()), [])
+            self.assertEqual((second / 'input.txt').read_text(), 'canonical input')
+            with self.assertRaises(FileExistsError):
+                execution_directory(root, root, 'first')
+
+    def test_failed_adapted_control_prevents_complete_validation(self):
+        case = dict(wasm_validation='passed', native_validation='passed', chez_validation='passed',
+                    rust_wasm_validation='passed', rust_native_validation='passed',
+                    adapted_control_required=True, chez_adapted_validation='failed-build')
+        self.assertFalse(all_routes_passed(dict(cases=[case])))
+        case['chez_adapted_validation'] = 'passed'
+        self.assertTrue(all_routes_passed(dict(cases=[case])))
+
+    def test_exited_parent_does_not_leave_a_child_holding_the_output_pipe(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            code = 'import subprocess; subprocess.Popen(["sleep","30"]); print("parent exited",flush=True)'
+            result = record(root, 'orphan-pipe', [sys.executable, '-c', code], os.environ, root, 0.2)
+            self.assertEqual(result['returncode'], 0)
+            self.assertTrue(result['timeout'])
+            self.assertEqual(result['executing_descendants'], [])
+            self.assertFalse(succeeded(result))
+
+    def test_provider_export_edit_is_exactly_reversible_and_requires_every_name(self):
+        text = '(module\n (export "keep" (func $f))\n (export "drop" (func $f))\n)\n'
+        selected, edits = select_runtime_exports(text, {'keep', 'drop'}, {'keep'})
+        self.assertNotIn('"drop"', selected)
+        self.assertTrue(edits['complete_reverse_verified'])
+        with self.assertRaises(ValueError):
+            select_runtime_exports(text, {'keep', 'drop'}, {'absent'})
 
 
 if __name__ == '__main__':
