@@ -1,6 +1,6 @@
 # SFIR integration contracts
 
-`../../scripts/test-sfir-integration` checks all 307 retained compiler cases in
+`../../scripts/test-sfir-integration` checks all 315 retained compiler cases in
 `cases.json`. Each case names one authored `.sfir` fixture. The runner verifies
 that the two inventories agree, compiles with the direct SFIR frontend, and
 executes both the raw diagnostic module and mandatory-Binaryen optimized module.

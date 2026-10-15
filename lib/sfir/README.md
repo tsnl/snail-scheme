@@ -24,7 +24,8 @@ overload families.
 | `datum` | Interned symbols, numeric token interpretation, explicit heterogeneous data and finite graph equality. |
 | `read` | Incremental datum input with explicit token, container and error results. |
 | `write` | Datum write/display, finite graph analysis, labels and explicit output continuations. |
-| `compiler-builder` | Constructive nominal library syntax and scalar transfer handles for an explicit compiled-producer invocation. |
+| `compiler-builder` | Complete library syntax, typed inspection and owned transfer handles. |
+| `compiler` | Explicit maps, parsing, compilation and checked Wasm execution services. |
 
 ## Source and representation contracts
 
@@ -140,8 +141,13 @@ retaining native bulk copies, initialized vector storage, CR/LF/CRLF behavior,
 empty-write lifetime checks and the existing minimum-I64 formatting algorithm.
 
 The former `artifacts.sld` belonged to the removed Scheme build machinery.
-`compiler-builder.sfir` now offers constructive nominal syntax values for a
-limited library subset. A compiled Wasm producer transfers those values into
-the Chibi compiler through an explicit checked builder protocol; it has no
-implicit filesystem or compiler service. See the [builder API](../../doc/sfir-builder.md)
-for the executable example and remaining full-AST and generation-recipe work.
+`compiler-builder.sfir` constructs and inspects complete SFIR library syntax.
+Compiled producers transfer owned values into Chibi through the checked
+[builder protocol](../../doc/sfir-builder.md). The
+[source driver](../../doc/sfir-generation.md) executes explicit `generate-library`
+recipes. `compiler.sfir` provides first-class parsing, explicit library maps,
+compilation, loading, independent instances and checked scalar invocation through
+the Chibi-hosted [compiler service](../../doc/sfir-compiler-service.md). That service
+currently targets Wasm; [native loading](../../doc/sfir-native-loading.md) uses its
+separate host adapter. Source discovery and provider installation remain explicit
+driver operations.
