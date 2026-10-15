@@ -29,16 +29,17 @@ import puzzle_port
 import lattice_port
 import destruc_port
 import ray_port
+import mazefun_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray') + DATA_PORTS + ENUMERATION_PORTS
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -89,6 +90,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'mazefun':
+        return mazefun_port.specification(data)
     if name == 'destruc':
         return destruc_port.specification(data)
     if name == 'ray':
@@ -203,6 +206,8 @@ def kernel_source(name, source):
         source = lattice_port.kernel(source)
     elif name == 'ray':
         source = ray_port.kernel(source)
+    elif name == 'mazefun':
+        source = mazefun_port.kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -419,6 +424,8 @@ def quicksort_input_bindings():
 
 
 def input_bindings(name, spec):
+    if name == 'mazefun':
+        return mazefun_port.INPUTS
     if name == 'destruc':
         return destruc_port.INPUTS
     if name == 'ray':
@@ -465,6 +472,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'mazefun':
+        return mazefun_port.WORKER
     if name == 'destruc':
         return destruc_port.WORKER
     if name == 'ray':
@@ -525,6 +534,8 @@ def strict_program(name, spec, upstream):
         prelude += lattice_port.STRICT_TYPES + lattice_port.COMMON
     if name == 'ray':
         prelude = ray_port.control_prelude(prelude) + ray_port.STRICT_TYPES + ray_port.COMMON
+    if name == 'mazefun':
+        prelude += mazefun_port.STRICT_TYPES + mazefun_port.COMMON
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -727,7 +738,7 @@ def quicksort_validation_specifications(spec):
 def validation_specifications(spec):
     if spec['name'] in ENUMERATION_PORTS:
         return [('canonical-count', spec)]
-    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray'):
+    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun'):
         return [(str(count), dict(spec, count=count)) for count in (1, 2, spec['count'])]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
@@ -775,6 +786,7 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
 CHEZ_HELPERS = dict(destruc=destruc_port.CHEZ_TYPES + destruc_port.COMMON + destruc_port.CHEZ_BOUNDARY,
+                   mazefun=mazefun_port.CHEZ_TYPES + mazefun_port.COMMON + mazefun_port.CHEZ_BOUNDARY,
                    puzzle=CHEZ_REF_HELPERS + puzzle_port.CHEZ_RESULTS + puzzle_port.COMMON,
                    ray=ray_port.CHEZ_TYPES + ray_port.CHEZ_FORMAT + ray_port.COMMON,
                    lattice=lattice_port.CHEZ_TYPES + lattice_port.COMMON,
@@ -828,6 +840,8 @@ def matched_chez_source(name, directory):
         adapted = replace_exact(adapted, '(equal? result output)', '(equal? (simplex-original-value result) output)')
     if name == 'destruc':
         adapted = destruc_port.adapt_harness(adapted)
+    if name == 'mazefun':
+        adapted = mazefun_port.adapt_harness(adapted)
     if name == 'deriv':
         adapted = deriv_port.adapt_chez_harness(adapted)
     if name == 'string':
@@ -842,6 +856,8 @@ def matched_chez_source(name, directory):
         restored = replace_exact(restored, '(equal? (simplex-original-value result) output)', '(equal? result output)')
     if name == 'destruc':
         restored = destruc_port.adapt_harness(restored, reverse=True)
+    if name == 'mazefun':
+        restored = mazefun_port.adapt_harness(restored, reverse=True)
     if name == 'deriv':
         restored = deriv_port.adapt_chez_harness(restored, reverse=True)
     if name == 'string':
@@ -885,7 +901,7 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray'):
+    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun'):
         patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
                                      fromfile='original-program', tofile='adapted-program')
         (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
@@ -898,9 +914,9 @@ def prepare_adapted_chez(name, directory, runner, environment):
     else:
         build_chez(control, runner, environment, 'build.json')
     save(directory / 'source-proof.json', dict(kernel_exact_match=True,
-         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string', 'puzzle', 'destruc', 'ray'),
-         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string', 'puzzle', 'destruc', 'ray'),
-         expected_datum_setup_adapter=name == 'destruc',
+         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string', 'puzzle', 'destruc', 'ray', 'mazefun'),
+         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string', 'puzzle', 'destruc', 'ray', 'mazefun'),
+         expected_datum_setup_adapter=name in ('destruc', 'mazefun'),
          explicit_splice_operand_order=name == 'destruc',
          input_datum_and_initial_false_adapters=name == 'deriv',
          scalar_initial_false_adapter=name == 'string',
@@ -925,7 +941,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray'):
+    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -1893,6 +1909,72 @@ def validate_destruc_outputs(directory, runner, tools, environment):
     validate_destruc_harness(directory, runner, tools, environment)
 
 
+def build_mazefun_probes(directory, runner, tools, environment):
+    for adapted in (False, True):
+        target = directory / ('probe-adapted-chez' if adapted else 'probe-original-chez')
+        target.mkdir()
+        source = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+        (target / 'program.scm').write_text(mazefun_port.chez_probe(source, adapted))
+        build_chez(target, runner, environment, 'build.json')
+    target = directory / 'probe-strict'
+    target.mkdir()
+    source = mazefun_port.strict_probe((directory / 'adapted-kernel.scm').read_text(), PRELUDE)
+    (target / 'strict.scm').write_text(source)
+    (target / 'host.mjs').write_text(mazefun_port.PROBE_HOST)
+    save(target / 'spec.json', dict(name='mazefun-probe', export='probe'))
+    build_strict(target, tools, environment)
+
+
+def mazefun_observations(directory, tools, environment, command, n, m):
+    label, observations = f'{command}-{n}-{m}', []
+    for system in ('original', 'adapted'):
+        target = directory / ('probe-' + system + '-chez')
+        record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment,
+                         stdin=f'{command} {n} {m}')
+        save(target / f'case-{label}.json', record)
+        require_success(record)
+        observations.append(list(map(int, record['stdout'].split())))
+    target = directory / 'probe-strict'
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], target / 'host.mjs', target / ('strict.wasm' + suffix), command, n, m], target, environment)
+        save(target / f'case-{label}{suffix or ".optimized"}.json', record)
+        require_success(record)
+        observations.append(json.loads(record['stdout']))
+    if any(value != observations[0] for value in observations):
+        raise ValueError('maze complete result or ordered cavity updates differ: ' + label)
+    return observations[0]
+
+
+def validate_mazefun_harness(directory, runner, tools, environment, grids):
+    for label, data, accepted in mazefun_port.harness_fixtures(grids):
+        spec = mazefun_port.specification(data.encode())
+        validate_data_wasm_probe(directory, tools, environment, spec, label, accepted)
+        for target in (directory, directory / 'same-source-chez'):
+            record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
+            save(target / f'chez-validation-{label}.json', dict(record, stdin=data, accepted=accepted))
+            require_success(record)
+            if record['stderr'] or (runner.parse_result(record['stdout'], 'chez', 'mazefun')['status'] == 'ok') != accepted:
+                raise ValueError('maze complete predicate or initial false differs: ' + label)
+
+
+def validate_mazefun_outputs(directory, runner, tools, environment):
+    build_mazefun_probes(directory, runner, tools, environment)
+    grids = {(n, m): mazefun_observations(directory, tools, environment, 0, n, m)
+             for n, m in mazefun_port.output_fixtures()}
+    if grids[11, 11] != load(directory / 'spec.json')['expected']:
+        raise ValueError('complete original maze differs from the original input expectation')
+    for n, m in ((3, 3), (3, 5), (5, 3)):
+        mazefun_observations(directory, tools, environment, 1, n, m)
+    for system in ('original', 'adapted'):
+        target = directory / ('probe-' + system + '-chez')
+        record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin='2 3 3')
+        save(target / 'sharing.json', record)
+        require_success(record)
+        if record['stderr'] or list(map(int, record['stdout'].split())) != [1] * 15:
+            raise ValueError('maze persistent sharing differs in ' + system)
+    validate_mazefun_harness(directory, runner, tools, environment, grids)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1934,9 +2016,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_destruc_outputs(directory, runner, tools, environment)
     if name == 'ray':
         ray_port.validate_outputs(directory, runner, tools, environment, sys.modules[__name__])
+    if name == 'mazefun':
+        validate_mazefun_outputs(directory, runner, tools, environment)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1975,6 +2059,7 @@ def prepare(options):
     shutil.copy2(HERE / 'destruc_port.py', options.output / 'destruc_port.py')
     shutil.copy2(HERE / 'ray_port.py', options.output / 'ray_port.py')
     shutil.copy2(HERE / 'ray-host.mjs', options.output / 'ray-host.mjs')
+    shutil.copy2(HERE / 'mazefun_port.py', options.output / 'mazefun_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     if 'ray' in options.benchmarks:
@@ -2000,6 +2085,7 @@ def prepare(options):
                   destruc_port_sha256=digest(HERE / 'destruc_port.py'),
                   ray_port_sha256=digest(HERE / 'ray_port.py'),
                   ray_host_sha256=digest(HERE / 'ray-host.mjs'),
+                  mazefun_port_sha256=digest(HERE / 'mazefun_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -2085,6 +2171,8 @@ def checked_preparation(output):
         raise ValueError('Ray source adapter changed')
     if 'ray_host_sha256' in prepared and prepared['ray_host_sha256'] != digest(output / 'ray-host.mjs'):
         raise ValueError('Ray host changed')
+    if prepared.get('mazefun_port_sha256', digest(HERE / 'mazefun_port.py')) != digest(HERE / 'mazefun_port.py'):
+        raise ValueError('mazefun port source adapter changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')
