@@ -1,0 +1,48 @@
+{
+  "round": 5,
+  "position": 0,
+  "system": "strict-native-baseline",
+  "retained": true,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/baseline/bv2string",
+    "100"
+  ],
+  "cwd": "/tmp/snail-native-allocation-inline-20261014/build/allocator-inline/attempt-1792002038760455375/inputs/bv2string",
+  "status": "valid",
+  "started": "2026-10-14T18:29:29.652308+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 153,
+  "process_group": 153,
+  "returncode": 0,
+  "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":0.905550659}\n",
+  "stderr": "",
+  "timeout": false,
+  "process_seconds": 0.9085392339620739,
+  "cleanup": {
+    "process_group": 153,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "capture_and_signal_seconds": 0.908228252956178,
+  "workload_seconds": 0.905550659
+}
