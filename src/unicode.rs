@@ -718,11 +718,6 @@ pub(crate) fn full_fold(character: char) -> Folded {
     collect_folded(exception.chars())
 }
 
-pub(crate) fn fold_into(character: char, output: &mut String) {
-    let folded = full_fold(character);
-    output.extend(&folded.scalars[..folded.len]);
-}
-
 // ---- Decimal digits ----
 
 pub(crate) fn digit_value(character: char) -> Option<u8> {
@@ -757,7 +752,8 @@ mod tests {
         assert_eq!(fold_character('ᾼ'), 'ᾳ');
         let mut text = String::new();
         for character in "StraßeΣςİ".chars() {
-            fold_into(character, &mut text);
+            let folded = full_fold(character);
+            text.extend(&folded.scalars[..folded.len]);
         }
         assert_eq!(text, "strasseσσi\u{307}");
         assert_eq!(digit_value('٣'), Some(3));

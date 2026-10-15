@@ -6,7 +6,7 @@
 (define (option name) (cadr (assq name options)))
 (with-chromium-trace-to (string-append (option 'directory) "/compile.trace.json")
                         (lambda ()
-                          (parameterize ((current-native-imports (native-platform-bindings (option 'bindings)))
+                          (parameterize ((current-native-imports (option 'bindings))
                                          (library-directories (option 'libraries))
                                          (command-program? (option 'command)))
                             (if (eq? (option 'mode) 'wasm)

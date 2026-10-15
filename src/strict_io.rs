@@ -1,7 +1,7 @@
 //! Scalar text-file services for the SFIR library.
 //!
-//! Rust owns files, never Scheme values. IDs are issued once and never reused.
-//! Scheme closes explicitly; the invocation host calls close-all after a trap.
+//! Rust owns files, never managed values. IDs are issued once and never reused.
+//! SFIR closes explicitly; the invocation host calls close-all after a trap.
 //! A trapped instance is terminal. There is no GC finalization of these files.
 //! Standard streams have reserved borrowed IDs, outside the owned-file registry.
 
@@ -58,7 +58,7 @@ fn append_character(text: &mut String, code: u32) -> Result<(), String> {
 }
 
 // One instance runs one invocation at a time. These private transfer operations
-// never call Scheme, and the Scheme loop performs no user callbacks. Reentry or
+// never call guest code, and the SFIR loop performs no user callbacks. Reentry or
 // concurrent invocation during a transfer is outside this provider's contract.
 #[unsafe(export_name = "snail:io/path-begin")]
 pub extern "C" fn path_begin() {
@@ -234,8 +234,8 @@ fn checked<T>(result: Result<T, String>) -> T {
     })
 }
 
-// The host uses this nontrapping cleanup after arbitrary Scheme traps. It must
-// preserve an earlier failure, and must not resume Scheme in that instance.
+// The host uses this nontrapping cleanup after arbitrary guest traps. It must
+// preserve an earlier failure, and must not resume guest code in that instance.
 // Returned close errors do not prevent later closes; a trapping host import can.
 #[unsafe(export_name = "snail:io/close-all")]
 pub extern "C" fn close_all() -> i32 {

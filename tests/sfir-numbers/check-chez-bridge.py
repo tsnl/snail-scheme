@@ -56,7 +56,7 @@ def formatting_bits():
 
 def check_formatting(libraries, output):
     source = (libraries / 'src/lib.rs').read_text()
-    body = source[source.index('fn float_text('):source.index('// ---- Inexact mathematics ----')]
+    body = source[source.index('fn float_text('):source.index('// ---- Tests ----')]
     rust = FIXTURES / 'format-reference.rs'
     assert rust.read_text().startswith(body + 'fn main()'), 'static Rust formatter reference drifted'
     bits = formatting_bits(); data = output / 'format-input.txt'
