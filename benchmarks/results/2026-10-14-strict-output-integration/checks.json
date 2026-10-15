@@ -1,0 +1,134 @@
+{
+  "tested_head": "0a92160cc264bb6eef22dc37bec4e3440856132b",
+  "commands": [
+    {
+      "name": "cargo-fmt",
+      "record": "build/output-integration/checks-v1/commands/cargo-fmt/record.json",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "cargo-test",
+      "record": "build/output-integration/checks-v1/commands/cargo-test/record.json",
+      "command": [
+        "cargo",
+        "test",
+        "--offline"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "make-check",
+      "record": "build/output-integration/checks-v1/commands/make-check/record.json",
+      "command": [
+        "make",
+        "check"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "make-test",
+      "record": "build/output-integration/checks-v1/commands/make-test/record.json",
+      "command": [
+        "make",
+        "test"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "strict-io",
+      "record": "build/output-integration/checks-v1/commands/strict-io/record.json",
+      "command": [
+        "scripts/test-strict-io"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "strict-text",
+      "record": "build/output-integration/checks-v1/commands/strict-text/record.json",
+      "command": [
+        "scripts/test-strict-text"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "strict-write",
+      "record": "build/output-integration/checks-v1/commands/strict-write/record.json",
+      "command": [
+        "scripts/test-strict-write"
+      ],
+      "returncode": 0
+    }
+  ],
+  "source_sha256": {
+    "TOUR.md": "8c88a5e064df26bbc4da851126cb12bdfc71d40355ccb1666169fd6eeae221e2",
+    "benchmarks/results/2026-10-14-strict-datum-output/README.md": "229de4e08f82bdf557258191d0e15391d6456deb239ab10f75c3d022b4dc762c",
+    "benchmarks/results/2026-10-14-strict-datum-output/archive.json": "e2a8a971d2cf38cf25a22b6f6098c129ea14e56408ff5014bd9c5a67326fcea8",
+    "benchmarks/results/2026-10-14-strict-datum-output/checks.json": "df3fc6c8c856c0272d8eaed244ae92d0f91ca2bfb64a98731e4bc5a6d36a4b7d",
+    "benchmarks/results/2026-10-14-strict-datum-output/diagnostics.tar.gz": "cb83c23b0839b0d274455375f072c38b96385f93af12b76aa7a2f68d12a1010c",
+    "benchmarks/results/2026-10-14-strict-unicode-text/README.md": "9e737b0de5d33ff9e6725e4793b9f8a5cc88ad0d91993d51c2aa2f7ed3f17cf4",
+    "benchmarks/results/2026-10-14-strict-unicode-text/archive.json": "667657d17f580017fb99cf2054c4967ab900ece2d9e16c8615ff74afc36aacea",
+    "benchmarks/results/2026-10-14-strict-unicode-text/checks.json": "a7daff1a4baa6508af2c665de7cabe569fdc5db6eda9fd6ceb7371f8e49daeaf",
+    "benchmarks/results/2026-10-14-strict-unicode-text/diagnostics.tar.gz": "fbe654b77e8fee16b1b71872996906d354b5f9f028f7a12ccb97cf10a16604ec",
+    "benchmarks/results/2026-10-14-strict-unicode-text/review.json": "9b2734064da299f8c1d9a18644831143f2c57dab922d9bee5c94d2811ac6753e",
+    "doc/strict-core.md": "589e0b8d0de94eec82d304949d5c9e78553081188aecc335695fb08d932b22ef",
+    "doc/strict-io.md": "88c5988372b3e8b55a26465161c20756d5b240d06d2471c7f5d929b1ce8055de",
+    "doc/strict-text.md": "add26ea6e7ac3cfce380985a745dfa7e469ca7cac08abe01f5bd62e8af2dc02e",
+    "doc/strict-write.md": "15f17d44b2b427c52df42513c39d37354969cbc99118a8020652ec2b265c77af",
+    "scripts/test-strict-text": "b8d57056fb26a92b9f98c7057fb026f9b4b748f9dca2ff0d0e1ec3e3eda205f4",
+    "scripts/test-strict-write": "ca61d0d1d84eb6e13938765e262b0d2ea91ec4c969712d3e895e0f616cc3e4c9",
+    "src/lib.rs": "067e561478d1da55a84fce2c3221c802db9a1f37cc327f8228658dcf1432131a",
+    "src/snail/io.sld": "a77783118d3c6c4949aec8a532f3763284f84f20b89fa0491d62f4ce33b9962d",
+    "src/snail/text.sld": "e027be03a2dd33c1f3c52c283225761cab2ab51f51ddf46c6785b4fac1523e5c",
+    "src/snail/write.sld": "066b54e665877a2bb3d9039a85dbd35de8aa137000ade8af4bfc45437ed11ae3",
+    "src/strict_io.rs": "895d04e5c2c450dc4ea62f0e9551fb0cdb1485d8957f4ec195b0bfa7663e87c6",
+    "src/strict_text.rs": "2f5b7bf41789750519ca7d554f364247f3d30ab9d929fac9169fec94369e2199",
+    "tests/strict-text/entry.c": "667c6e9fddaa80efef1e5d7c8a50e494e80baa73d7e30f36cd8644762a6b013f",
+    "tests/strict-text/run.mjs": "7c885ec52866d9f47a4e44bd840810e0baa7bd6d413da419a3170b5c882886b9",
+    "tests/strict-text/text.scm": "91bb8a9ea34edd85674aa6794bcc0526c508c06508340a1d92abd97b20e22427",
+    "tests/strict-write/entry.c": "02b7fb2cc25097d52dab51aee54756cea607a66d1957e8b5f19298840536ca1b",
+    "tests/strict-write/oracle.scm": "d444ac2d2e157f807378d6c518889f924799daa27ea0d2d2b32b89942d009868",
+    "tests/strict-write/output.scm": "f49ca30ce1401a7dee510bf9f8726e93fbab85982d21ec193cfef48ac17ec8cc",
+    "tests/strict-write/run.mjs": "108d0aa33adce4b3c08d6cf51423144b5d3bac628bf05609b8e4083f35d2408a"
+  },
+  "outer_terminal": {
+    "session_id": 54142,
+    "chunk": "2e3655",
+    "returncode": 0
+  },
+  "scope": "Fresh combined writer/Unicode Rust runtime and full existing target checks; no timings, compiler feature changes or reused standalone feature caches.",
+  "writer": {
+    "systems": [
+      "raw linked Wasm",
+      "optimized linked Wasm",
+      "native64"
+    ],
+    "datum_cases": 68,
+    "graph_cases": 8,
+    "depth": 8192,
+    "terminal_failures": 6,
+    "stdout_ownership": "borrowed; close is a no-op; standard descriptors never closed"
+  },
+  "text": {
+    "systems": [
+      "raw linked Wasm",
+      "optimized linked Wasm",
+      "native64"
+    ],
+    "scalar_cases": 3390,
+    "comparison_cases": 148,
+    "malformed_cases_per_system": 16,
+    "python_unicode": "16.0.0",
+    "oracle": "Unicode16 full lowercase plus explicit simple U+0130; decimal category Nd; fixed Alphabetic/White_Space cases",
+    "mutation_checks": 4,
+    "complete_scalar_fields_equal_across_targets": true
+  },
+  "io_forms": 8,
+  "source_unchanged_through_checks": true
+}
