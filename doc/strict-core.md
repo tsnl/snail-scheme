@@ -86,8 +86,8 @@ and specialization path. There are no runtime dictionaries or tagged arithmetic.
 (ann (convert 42) F64) ; 42.0
 ```
 
-Families currently require module scope. Each row owns its declared signature and
-its lambda or stable named implementation. Detached `(: family ...)` declarations
+Families currently require module scope. Each row owns its declared signature or
+inference hole and its lambda or stable named implementation. Detached `(: family ...)` declarations
 are rejected rather than assigned to a row by source order. Rows may have different
 fixed arities and rank-one generic signatures. Rest signatures are unsupported.
 All bodies are checked, including unused rows. Declarations may extend an imported
@@ -430,11 +430,41 @@ separate one initializer event from the storage and code it needs. Generic
 templates retain their obligations, and every emitted instance must have fully
 concrete types and resolved operations.
 
-## Planned inferred overload signatures
+## Inferred overload signatures
 
-Inferred overload signatures are a separate follow-up: each omitted row
-signature will own a fresh hole and independent implementation identity. All
-candidate rows must be considered before selection; unresolved competing rows
-cannot be ignored. Dependency groups must infer coherent row schemes or request
-a signature when recursive selection cannot settle them. These APIs are not yet
-implemented by the explicit-signature prototype described above.
+A row may omit its signature. Expansion still only resolves names and gives the
+member a fresh hole. Checking infers a lambda's scheme or uses a stable named
+implementation's completed scheme, including its class prerequisites:
+
+```scheme
+(define-overload increment (lambda (value) (i64-add value 1)))
+(define-overload increment (lambda (value) (f64-add value 1.0)))
+(define-overload select (lambda (value) value)) ; All (T), T -> T
+(define-overload convert i64->f64)
+```
+
+Each scheme is determined before callers select that row. Ordinary recursive
+binding groups share provisional monotypes and generalize together. Dependencies
+through helpers, named aliases and family prerequisites must settle before an
+inferred row's scheme becomes available. An unfinished family row remains a
+possible candidate; only a known different fixed arity excludes it. Once the
+relevant signatures are complete, ordinary generic wrappers can retain unresolved
+family obligations as before. Prerequisites never filter or rank candidates.
+
+A cycle that requires an unfinished family signature reports a located request
+for an explicit signature. This includes directly recursive omitted rows; the
+checker does not speculate about candidate bodies to break the cycle. An explicit
+row signature or a declared helper scheme can break the dependency, but every
+body still checks, including unused definitions. An inferred scheme must be a
+fixed-arity function and have no free captured type holes. Other independent
+binding initializers may settle shared storage types before publication, in either
+source order. This scheduler does not use bare executable module expressions to
+settle row signatures: a `ref-set!` expression before or after the row cannot fix
+an otherwise unresolved captured cell type. Annotate the captured storage or the
+row in that case. The signature must settle before executable expressions can use
+the family. Inferred and declared rows obey the same duplicate and ambiguity rules.
+Changing the declaration order cannot select a different row.
+
+Signature checking does not move runtime initialization. A named row still uses
+its original implementation binding, including its effectful initializer and
+forward-read guard; it creates no early alias or extra initialization event.

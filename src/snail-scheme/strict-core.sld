@@ -3,8 +3,8 @@
 (define-library (snail-scheme strict-core)
   (export make-program program? program-body program-globals program-classes program-instances
           make-class class? class-definition class-variables class-methods class-overload?
-          make-instance instance? instance-class instance-types instance-members instance-scheme)
-  (import (scheme base))
+          make-instance instance? instance-class instance-types instance-members instance-scheme set-instance-scheme! instance-row)
+  (import (scheme base) (only (snail-scheme strict-types) scheme-type))
   (begin
 
     ;; ---- Checked compilation roots ----
@@ -20,7 +20,13 @@
       (make-class definition variables methods overload?) class?
       (definition class-definition) (variables class-variables) (methods class-methods)
       (overload? class-overload?))
+    ;; Ordinary instances have a concrete head. An overload row has one full
+    ;; function scheme, initially absent for an inferred row. Its source row
+    ;; retains member identity and location separately from runtime bindings.
     (define-record-type <instance>
-      (make-instance class types members scheme) instance?
-      (class instance-class) (types instance-types) (members instance-members)
-      (scheme instance-scheme))))
+      (make-instance class head members scheme row) instance?
+      (class instance-class) (head instance-head) (members instance-members)
+      (scheme instance-scheme set-instance-scheme!) (row instance-row))
+    (define (instance-types instance)
+      (if (instance-scheme instance) (list (scheme-type (instance-scheme instance)))
+          (instance-head instance)))))
