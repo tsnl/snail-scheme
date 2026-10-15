@@ -521,6 +521,12 @@ input sharing and original quotient rule. It owns exact source edits and
 separate complete-expression/failure probes; the runner also checks Chez
 identity and the original current-result loop. Its scalar-only hiding boundary
 requires separate optimized-work inspection before timing.
+[`mbrotz_port.py`](benchmarks/strict-suite/mbrotz_port.py) expresses the original
+complex Mandelbrot operations as a closed pair of F64 components while keeping
+the complex escape and matrix loops intact. Separate probes expose every pixel
+and ordered store, exact component bits and escape boundaries. Its scalar size
+uses the value-returning hiding import; its source allocation structure and
+optimized retained objects are documented separately.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
