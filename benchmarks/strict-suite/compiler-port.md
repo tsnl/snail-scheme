@@ -110,17 +110,74 @@ not a claim that the original Chez order was preserved. Explicit `begin` and
 `let*` sequencing must remain unchanged.
 
 The current foundation probes use Boolean literal data and bounded position
-indices. They establish no numeric-domain coverage. Existing `(snail integer)`
-provides arbitrary exact integers, but the base Datum reader accepts only I64
-exact scalars, F64 inexact scalars and their rectangular combinations. Separate
-numeric-library work is supplying arbitrary integer/F64 conversion, normalized
-rationals and the expanded Number/Datum reader domain.
+indices. They establish no numeric-domain coverage. The separate numeric-library
+prerequisite `6925f1c` supplies arbitrary integer/F64 conversion, normalized
+rationals and the expanded Number/Datum reader domain. The checks below exercise
+its shared bodies under Chez; adapting every compiler numeric call is still
+part of the unfinished complete port.
 
 The full port must preserve `dump-bignum`'s base-16384 algorithm, rational
 numerator/denominator dumping, complex components, the original floating
 exponential-format algorithm and its exact mantissa conversion. In particular,
 `flonum-sign-bit` is the exact integer 9223372036854775808. Replacing these paths
 with bounded integers or precomputed bit output is not an accepted adaptation.
+
+## Adapted Chez numeric boundary
+
+The expanded reader control in `reader_ports.py` and `chez-number.scm` depends
+on numeric-library commit `6925f1c`. It places the
+unchanged Integer, Rational, Number, Datum and reader bodies in separate lexical
+scopes, exposing each library's concrete public operations. Static annotations
+and overload declarations are erased. The one- and two-argument string-to-number
+entry points call the same named radix parser. Other adapted kernel operations
+must call the named numeric functions when Chez cannot resolve a static overload.
+
+Only the scalar service boundary differs. Chez stages text in an owned handle,
+classifies it once, and exposes the corresponding machine integer, binary64,
+exact digit fields, rectangular components, polar components, or diagnostic.
+Invalid syntax is distinct from a numeric diagnostic. A left diagnostic stops
+component parsing; an invalid left component still allows the right component's
+diagnostic to win. The Scheme bodies retain exact normalization, promotion,
+complex shape rules and every arbitrary-precision arithmetic operation.
+
+Exact decimal syntax is checked completely before zero normalization or scale
+conversion. The effective decimal scale, exponent minus fractional places, must
+fit `[-I64_MAX, I64_MAX]`. An exponent just above I64_MAX can therefore succeed
+when fractional places bring the scale into range. Chez bounds the digit scan
+using that final range; its bounded index intermediates are not substituted for
+Scheme Integer or Rational values. The matching Rust parser uses an i128 index
+intermediate and checks the same final scale.
+
+Closing and interning consume their handles. Repeated parsing also consumes the
+handle before rejecting it, matching the scalar runtime. Accessors check the
+requested component kind. The source representation is explicit: Chez uses host
+vectors for temporary handles and the typed Scheme records, while Snail uses
+runtime IDs for scalar tokens and its own concrete storage for Scheme data.
+
+The fresh simplify explanation and subsequent critique were performed by a
+no-history, no-files Astra/max agent. They retained lexical descriptors, one
+cached classification, owned token state and private library scopes; rejected
+host arbitrary-precision arithmetic as a replacement for the shared Scheme
+bodies; and replaced exact-decimal float validation with a direct grammar check.
+The review also rejected a premature claim that Chez and Rust choose identical
+shortest binary64 digits. Formatting uses the target's decimal/exponent layout.
+An exact byte comparison of 20,084 binary64 patterns now passes, including signed
+zero, subnormal and normal boundaries, exponent-layout transitions, neighbors
+of selected powers of ten, infinities, NaNs and 20,000 seeded random bit patterns.
+That corpus supports compatibility on those cases; it is not an exhaustive
+proof for every binary64 value. Chez's subnormal precision suffix is removed
+before interpreting the decimal exponent.
+
+The [numeric bridge evidence](../results/2026-10-14-chez-numeric-bridge/README.md)
+retains 278 shared Number contracts and 20,135 scalar ABI cases under Chez,
+linked raw diagnostic Wasm, mandatory-Binaryen linked Wasm and actual native64.
+Thirteen invalid operations each run in a fresh guest process because Rust ABI
+failures terminate the process. Separate Chez-only checks observe handle
+consumption after locally caught errors; they make no guest recovery claim.
+All 36 complete reader streams match the independent Chez reader. Regenerated
+original/adapted Chez controls also pass complete canonical Sum1 (25), Read1
+(2,500) and Parsing (2,500) with their original result predicates. These are
+correctness diagnostics, with no clean timing or compiler-workload coverage.
 
 ## Checks and remaining work
 
