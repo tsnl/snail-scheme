@@ -21,6 +21,10 @@ Pure programs have no runtime imports. The API is
 `strict-source-file->core`, `strict-source-file->wasm`, and
 `strict-source-file->wat-file` in `(snail-scheme strict-compiler)`; callers supply
 the repository root and source path inside a trace scope.
+The build trace records `strict.infer`, `strict.specialize`, and
+`strict.emit-wasm` separately, followed by Wasm serialization and the mandatory
+Binaryen stages. Like the other trace spans, each appears only after its phase
+returns successfully; a failed or interrupted phase has no completed span.
 
 ## Types, inference and immutable bindings
 
