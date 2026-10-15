@@ -269,5 +269,27 @@
   {"name": "data-never-argument", "result": "trap"},
   {"name": "data-explicit-tree", "result": "11"},
   {"name": "reject-data-constructor-overload", "error": "overload name already"},
-  {"name": "data-top-arguments-trap", "result": "trap"}
+  {"name": "data-top-arguments-trap", "result": "trap"},
+  {"name": "string-literals", "result": "42"},
+  {"name": "string-builtins", "result": "42"},
+  {"name": "string-mutation", "result": "42"},
+  {"name": "string-first-class", "result": "42"},
+  {"name": "string-top", "result": "42"},
+  {"name": "string-top-vector-trap", "result": "trap"},
+  {"name": "string-top-string-trap", "result": "trap"},
+  {"name": "reject-string-vector", "error": "type mismatch"},
+  {"name": "reject-string-character", "error": "type mismatch"},
+  {"name": "string-range-errors", "result": "42", "exports": {
+    "negative-length": "trap", "overflow-length": "trap", "huge-length": "trap",
+    "negative-index": "trap", "endpoint-index": "trap", "wrapped-index": "trap",
+    "empty-index": "trap", "reversed-range": "trap", "negative-range": "trap",
+    "long-source": "trap", "short-target": "trap", "empty-target-overflow": "trap",
+    "empty-source-overflow": "trap", "empty-source-bounds": "trap", "empty-target-bounds": "trap",
+    "negative-substring": "trap", "reversed-substring": "trap", "long-substring": "trap",
+    "unchanged": "1"}},
+  {"name": "string-readonly-errors", "result": "42", "exports": {
+    "set-literal": "trap", "set-effects": "123", "copy-literal": "trap", "copy-effects": "12345",
+    "empty-literal-copy": "trap", "literal-endpoint-copy": "trap", "unchanged": "1"}},
+  {"name": "character-conversions", "result": "42", "exports": {
+    "negative": "trap", "surrogate-low": "trap", "surrogate-high": "trap", "too-large": "trap", "huge": "trap"}}
 ]
