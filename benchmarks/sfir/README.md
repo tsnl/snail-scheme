@@ -79,7 +79,7 @@ timing preparation copy the selected Rust sysroot and vendor the exact locked
 crates for the runtime and Rust controls. Builds invoke that copied Cargo and
 Rust compiler with the frozen vendor configuration. Preparation records content
 digests and explicit positive finite build/run timeouts. The default compile
-timeout remains 1200 seconds. Mutable checkout files are never referenced by
+timeout is 1800 seconds. Mutable checkout files are never referenced by
 the frozen driver; immutable Nix tools are identified by invocation path and
 digest. The manifest also retains the original Rustup dispatcher identities and
 selected installation path as provenance; subsequent builds use the copied
