@@ -26,17 +26,21 @@ written in Scheme; Chibi reads their own source.
 [`frontend.sld`](src/snail-sfir/frontend.sld) resolves the small SFIR grammar.
 It reserves each block's bindings before resolving initializers. Every reference
 names a binding identity; imports and aliases retain that identity. Library
-cycles and conflicting imports are errors. `let` becomes direct lambda
-application with its initializers in the outer scope. `begin` keeps a lexical
-scope and ordered initialization events. No step performs inference or executes
-user source.
+cycles and conflicting imports are errors. `def` reserves a block-wide identity;
+each sequential `let` introduces its identity after resolving its initializer.
+Both become ordinary binding nodes in source order. Value and type scopes are
+separate, so an argument name cannot hide an enclosing quantified type variable.
+Library `begin` clauses concatenate before resolution; expression `begin` keeps
+its own lexical scope. No step performs inference or executes user source.
 
 [`library.sld`](src/snail-scheme/library.sld) records resolved imports and
 exports. Dependency traversal initializes each imported library once before its
 users. [`ir.sld`](src/snail-scheme/ir.sld) holds the shared expression and binding
 records, initially with type holes and attached declared signatures.
 [`signatures.sld`](src/snail-sfir/signatures.sld) retains quantified source type
-identities. A hole is missing compile-time information, never an implicit Top.
+identities. A hole is missing compile-time information, never an implicit Any.
+The internal solver and Wasm emitter still spell the universal type `Top`;
+the source surface uses `Any`.
 
 ## Type evidence
 
@@ -58,7 +62,7 @@ argument/result constraints with coherent class requirements.
 [`strict-data.sld`](src/snail-scheme/strict-data.sld) prepares nominal data,
 constructors and fields. Matching checks exhaustiveness and lowers to ordinary
 bindings and branches. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
-assigns concrete operation signatures. Explicit Top conversions preserve the
+assigns concrete operation signatures. Explicit Any conversions preserve the
 checks required at dynamic boundaries.
 
 ## Concrete code and storage

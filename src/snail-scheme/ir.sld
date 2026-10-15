@@ -71,6 +71,7 @@
    class-declaration-methods
    class-declaration-loc
    make-instance-declaration instance-declaration?
+   instance-declaration-definition
    instance-declaration-class
    instance-declaration-types
    instance-declaration-methods
@@ -233,12 +234,13 @@
     (define (class-declaration-methods node) (caddr (node-data node)))
     (define class-declaration-loc node-loc)
 
-    (define (make-instance-declaration class types methods loc)
-      (source-node 'instance-declaration loc (list class types methods)))
+    (define (make-instance-declaration definition class types methods loc)
+      (source-node 'instance-declaration loc (list definition class types methods)))
     (define (instance-declaration? node) (kind? node 'instance-declaration))
-    (define (instance-declaration-class node) (car (node-data node)))
-    (define (instance-declaration-types node) (cadr (node-data node)))
-    (define (instance-declaration-methods node) (caddr (node-data node)))
+    (define (instance-declaration-definition node) (car (node-data node)))
+    (define (instance-declaration-class node) (cadr (node-data node)))
+    (define (instance-declaration-types node) (caddr (node-data node)))
+    (define (instance-declaration-methods node) (cadddr (node-data node)))
     (define instance-declaration-loc node-loc)
 
     ;; Each row has its own member identity. A named implementation still names
