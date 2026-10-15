@@ -829,6 +829,29 @@
                                            (local.get $args) (ref.null $result_context))
                                     '(ref.i31 (i32.const 0)))))))
 
+    ;; Actor roots never cross an instance boundary. The host borrows the
+    ;; argument vector and owns exactly one returned root, as in the Rust ABI.
+    (define (library-export binding module)
+      `(func (export ,(string-append "scheme:" (symbol->string (library:named-binding-name binding))))
+             (param $arguments i32) (result i32)
+             (if (i32.eqz (global.get $actor_initialized)) (then unreachable))
+             (call $abi_root
+                   (call $single
+                         (call $apply
+                               ,(read-binding (library:named-binding-definition binding)
+                                              (make-function module '() '()))
+                               (ref.cast (ref $vector) (call $abi_get (local.get $arguments)))
+                               (ref.null $result_context))))))
+
+    (define (actor-exports root module)
+      (append '((global $actor_initialized (mut i32) (i32.const 0))
+                (func (export "actor_initialize")
+                      (if (global.get $actor_initialized) (then unreachable))
+                      (global.set $actor_initialized (i32.const 1))
+                      (drop (call $program))))
+              (map (lambda (binding) (library-export binding module))
+                   (library:library-exports root))))
+
     (define (find-definition name definitions)
       (cond ((null? definitions) #f)
             ((eq? name (ir:value-definition-name (car definitions))) (car definitions))
@@ -977,8 +1000,11 @@
                                                            (map rust-import (numbered (module-services module)))
                                                            runtime-definitions abi-definitions
                                                            (module-definitions libraries module procedures (car visited) output program)
-                                                           (if (and (pair? options) (pair? (cdr options)))
-                                                               (list (cli-entry root module (cadr options))) '())))))))
+                                                           (cond ((and (>= (length options) 3) (caddr options))
+                                                                  (actor-exports root module))
+                                                                 ((>= (length options) 2)
+                                                                  (list (cli-entry root module (cadr options))))
+                                                                 (else '()))))))))
 
     (define (module-definitions libraries module procedures entries output program)
       (append (map (lambda (entry) `(global ,(identifier "g" (cdr entry)) (mut eqref) (ref.null eq)))
