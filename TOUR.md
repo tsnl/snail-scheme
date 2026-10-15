@@ -305,8 +305,8 @@ globals; mutable constructors and copies retain fresh identity. The ordinary
 Scheme library [`(snail bytes)`](src/snail/bytes.sld) implements constructors,
 copy/append helpers and strict UTF-8 conversions with scalar loops. It translates
 between bytes and Unicode scalars without passing managed references to Rust or
-allocating a product for each character. The native executor's existing
-eight-byte array slots preserve semantics but do not yet provide packed storage.
+allocating a product for each character. The native executor uses the declared
+Wasm array storage widths, including packed bytes and four-byte character scalars.
 Unicode scalar conversions reject surrogate and out-of-range values. Nominal records use immutable native fields;
 closed sums add a constructor tag and typed case subtypes. The layout registry
 reserves applications before following recursive fields, and accessors explicitly
@@ -546,7 +546,10 @@ failure. [The migration report](benchmarks/results/2026-10-12-native-v8/README.m
 compares the archived native path with V8 on identical optimized Scheme modules.
 The restored native path is validated by [`scripts/test-native`](scripts/test-native).
 [`native.c`](src/native.c) implements checked Wasm operations, root frames and
-terminal cleanup; [`precise-gc.c`](src/precise-gc.c) traces only declared references
+terminal cleanup. Array operations receive their constant element stride from
+[`llvm.sld`](src/snail-scheme/llvm.sld); references retain eight-byte storage,
+while numeric arrays use their declared widths, including static initializers.
+[`precise-gc.c`](src/precise-gc.c) traces only declared references
 and reuses Immix line holes. [`native.rs`](src/native.rs) closes the shared Rust
 resources exactly once. [`abi.rs`](src/abi.rs) binds owned Rust roots directly to
 generated native C adapters; it uses test stubs only in standalone Rust tests.

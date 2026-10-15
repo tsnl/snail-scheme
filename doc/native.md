@@ -117,11 +117,12 @@ direct scalar C linkage; it does not install a Vulkan API or infer pointer types
 The in-house collector is synchronous, single-threaded, nonmoving Immix with
 32-KiB blocks and 128-byte lines. It traces only declared reference fields and
 explicit roots. Null, tagged i31 values and aligned object addresses are disjoint.
-I64 fields that happen to resemble addresses are never roots. Native fields and
-array elements initially use eight-byte slots; Wasm i32 and packed i8/i16 accesses
-still truncate and extend at their declared widths. This baseline costs more
-storage for narrow scalar fields than compact Wasm layouts; compact native
-storage is future work.
+I64 fields that happen to resemble addresses are never roots. Struct fields use
+eight-byte slots. Arrays store elements at their declared Wasm width: i8 uses
+one byte, i16 two, i32/f32 four, and i64/f64/references eight. The lowering passes
+this constant stride to checked allocation, indexing and overlapping copies.
+Static arrays use the same payload layout. Reference-array layout and permanent
+static reference roots remain unchanged; numeric payloads are never scanned.
 
 Roots include live reference locals/operands, globals, tables, mutable static
 literal reference slots and Rust-owned ABI table entries. A collection excludes

@@ -4,6 +4,8 @@ const { instance } = await WebAssembly.instantiate(await readFile(process.argv[2
 const wasm = instance.exports;
 if (wasm.check() !== 0 || wasm.tail(2000000) !== 42n || wasm.root(500) !== 99n)
   throw new Error('Wasm reference result differs');
+if (wasm['storage-identity']() !== 1 || wasm['storage-roots']() !== 77n || wasm['storage-check'](0x12345) !== 1)
+  throw new Error('Wasm array storage result differs');
 if (wasm['i31-s'](-2147483648) !== 0 || wasm['i31-s'](1073741824) !== -1073741824 ||
     wasm['i31-s'](-1) !== -1 || wasm['i31-u'](-1) !== 2147483647)
   throw new Error('Wasm i31 result differs');
@@ -56,4 +58,14 @@ for (let kind = 0; kind < 13; kind++) {
     trapped = true;
   }
   if (!trapped) throw new Error(`expected Wasm trap ${kind}`);
+}
+
+for (let kind = 0; kind < 5; kind++) {
+  const { instance: fresh } = await WebAssembly.instantiate(await readFile(process.argv[2]));
+  let trapped = false;
+  try { fresh.exports['storage-trap'](kind); } catch (error) {
+    if (!(error instanceof WebAssembly.RuntimeError)) throw error;
+    trapped = true;
+  }
+  if (!trapped) throw new Error(`expected Wasm array storage trap ${kind}`);
 }
