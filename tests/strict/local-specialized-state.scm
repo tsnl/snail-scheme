@@ -1,0 +1,8 @@
+(import (snail strict))
+(define (exercise seed)
+  (let ((cell (ref seed)))
+    (let ((counted (lambda (x) (ref-set! cell (+ (ref-get cell) 1)) x)))
+      (counted 42)
+      (counted #t)
+      (ref-get cell))))
+(exercise 40)
