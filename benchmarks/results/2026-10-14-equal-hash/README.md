@@ -131,5 +131,21 @@ and unfrozen regenerable caches are omitted while their identity records remain.
 Explicitly audited local dependencies are retained even when they are bytecode.
 The first archive preparation stopped before compression because its cache
 exclusion omitted one such dependency; that terminal failure is preserved.
-Member
-paths are relative to `/tmp`; execution records retain original absolute paths.
+Member paths are relative to `/tmp`; execution records retain original absolute paths.
+
+## Integration and focused source review
+
+The hash source commit was integrated above the growing native collector and
+completed Maze/Conform preparation. Fresh builds pass the complete original
+Equal input and all Datum tests on raw linked Wasm, optimized linked Wasm, and
+native64. The optimized production Wasm is byte-identical to the measured
+candidate. The [integration record](integration-review.json) preserves actual
+tool completion and artifact identities; these correctness runs supply no
+additional performance samples.
+
+A fresh Astra explanation without repository access separated bucket selection
+from exact ordered-pair membership. Informed review retained the asymmetric
+full-word mixer, the local mask-range invariant, independently computed golden
+words, and deliberate collision/growth tests. Changing which key is mixed first
+or adding a statistical distribution threshold had no demonstrated benefit.
+No further source refactor was warranted within this pure hash operation.
