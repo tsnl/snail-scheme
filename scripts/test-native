@@ -139,7 +139,7 @@ def check_scalar_providers():
     options = [arg for name in ['worker', 'round32', 'view64', 'view32'] for arg in ['--export', name]]
     rounding = build('tests/strict-extern/round.scm', 'round', '--strict', '--entry-c', ROOT / 'tests/native-round.c', *options)
     run([rounding])
-    for source, result in [('data-native-fields', 12), ('data-tree', 14), ('data-gcbench', 62),
+    for source, result in [('data-native-fields', 12), ('data-tree', 14), ('data-gcbench', 62), ('data-empty-cases', 42),
                            ('string-literals', 42), ('string-block-literal', 42)]:
         executable = build(f'tests/strict/{source}.scm', source, '--strict')
         run([executable], status=result, SNAIL_NATIVE_GC_INTERVAL='1')

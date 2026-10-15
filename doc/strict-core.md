@@ -128,6 +128,16 @@ uninhabited reference type and cannot supply a constructor argument by returning
 normally. Wasm may canonicalize structurally identical layouts, so accessor tag
 checks and explicit `Top` projection tags preserve nominal and case distinctions.
 
+Zero-field constructors share one immutable value per concrete case, rooted in
+a private module global. The existing layout registry supplies its identity;
+no runtime cache or alternate representation is involved. Constructor aliases
+and effectful operator expressions keep their original initialization checks
+and evaluation. Constructors with fields continue to evaluate their arguments
+and allocate normally, including wrappers around mutable cells.
+Immutable data does not promise fresh reference identity or prompt collection.
+Imports and selected worker exports remain scalar-only; the generated `main`
+itself enforces one-shot execution, including reentrant calls.
+
 Recursive and mutually recursive declarations may refer through records, sums,
 lists, vectors, cells and fixed-signature functions. The registry reserves each
 concrete nominal application before following its fields, terminating exact

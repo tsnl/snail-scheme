@@ -126,13 +126,33 @@
     ;; Match checks the same tag when selecting an arm, then reads its fields.
     ;; Fields are immutable: mutation and its separate allocation remain Ref's
     ;; responsibility. Engine-owned reference fields trace recursive cycles.
+    ;; Empty constructors share one private global per concrete case. Its layout
+    ;; identity precedes Wasm structural canonicalization. Source readiness and
+    ;; operator evaluation still occur at the original call, outside this step.
+    (define (emit-data-construction type index arguments state)
+      (let ((layout (layout! (data-case-layout type index) state)))
+        (if (null? arguments) `(global.get ,(identifier "empty" (cdr layout)))
+            `(struct.new ,(layout-name (car layout) state)
+                         ,@(if (data-tagged? type) `((i32.const ,index)) '()) ,@arguments))))
     (define (emit-data-operation operation signature arguments state)
       (let ((index (caddr operation)))
         (if (eq? (car operation) 'construct)
-            (let ((type (function-result signature)))
-              `(struct.new ,(layout-name (data-case-layout type index) state)
-                           ,@(if (data-tagged? type) `((i32.const ,index)) '()) ,@arguments))
+            (emit-data-construction (function-result signature) index arguments state)
             (emit-data-access signature index (cadddr operation) (car arguments) state))))
+    (define (empty-data-layout? type)
+      (case (if (pair? type) (car type) type)
+        ((Data) (and (not (data-tagged? type)) (null? (data-case-fields type 0))))
+        ((Data-case) (null? (data-case-fields (cadr type) (caddr type))))
+        (else #f)))
+    ;; Emit after all bodies and first-class workers have discovered layouts.
+    ;; Globals root these immutable values for the module's lifetime; they do
+    ;; not initialize any source binding or run any source constructor function.
+    (define (empty-data-definition entry state)
+      (let ((type (car entry)) (name (layout-name (car entry) state)))
+        (if (not (empty-data-layout? type)) '()
+            `((global ,(identifier "empty" (cdr entry)) (ref ,name)
+                      (struct.new ,name ,@(if (eq? (car type) 'Data-case)
+                                              `((i32.const ,(caddr type))) '())))))))
     (define (emit-data-access signature index field value state)
       (let* ((type (car (function-domains signature)))
              (payload (emit-data-field type index field value state))
@@ -795,11 +815,12 @@
              (environments (map (lambda (function) (environment-definition function state)) closures))
              (strings (map (lambda (entry) (string-definition entry state)) (state-strings state)))
              (string-functions (string-runtime-definitions state))
-             (layouts (apply append (map (lambda (entry) (layout-definitions entry state)) (state-layouts state)))))
+             (layouts (apply append (map (lambda (entry) (layout-definitions entry state)) (state-layouts state))))
+             (empty-values (apply append (map (lambda (entry) (empty-data-definition entry state)) (state-layouts state)))))
         `(module (rec (type $top-scalar (struct (field i32) (field i64)))
                       (type $top-reference (struct (field i32) (field eqref))) ,@layouts ,@environments)
                  ,@(map (lambda (entry) (extern-wasm-import (car entry) (cdr entry))) (state-imports state))
-                 (global $execution (mut i32) (i32.const 0)) ,@strings ,@globals ,@string-functions ,@bodies ,@workers ,@exports
+                 (global $execution (mut i32) (i32.const 0)) ,@strings ,@empty-values ,@globals ,@string-functions ,@bodies ,@workers ,@exports
                  (func $main (export "main") ,@(if (eq? (node-type (mono-program-body program)) 'Unit) '()
                                                    (result-declaration (node-type (mono-program-body program)) state))
                        ,@(context-locals context) ,main))))))
