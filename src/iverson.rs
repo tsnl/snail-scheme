@@ -182,7 +182,25 @@ fn publish(array: Array) -> Result<Root, String> {
 // Array cleanup belongs to this library, independently of platform port handlers.
 #[unsafe(export_name = "snail:drop-array")]
 pub extern "C" fn drop_array(id: u32) {
-    ARRAYS.with_borrow_mut(|arrays| arrays.live.remove(&id));
+    let array = ARRAYS.with_borrow_mut(|arrays| arrays.live.remove(&id));
+    #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+    let released = array.is_some();
+    drop(array);
+    #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+    if released {
+        crate::native::array_released();
+    }
+}
+
+#[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+pub(crate) fn close_all_native() {
+    // The registry never crosses a Scheme callback or allocation with a borrow.
+    // Terminal cleanup drops numeric storage without touching its GC wrappers.
+    let arrays = ARRAYS.with_borrow_mut(|arrays| std::mem::take(&mut arrays.live));
+    for (_, array) in arrays {
+        drop(array);
+        crate::native::array_released();
+    }
 }
 
 fn concrete(value: &Root) -> Result<Array, String> {
