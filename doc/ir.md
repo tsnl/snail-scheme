@@ -35,6 +35,7 @@ an expression `begin` remains a nested scope.
 | --- | --- |
 | Binding | Identity, source location, initializer, attached declaration and inferred scheme |
 | Expression | Source location, operation and type slot |
+| Source literal | Decoded value and original numeric spelling; checking selects and rounds its representation once |
 | Reference | The resolved binding being read |
 | Lambda | Positional parameters, optional rest parameter and body |
 | Application | Operator and ordered argument expressions |
