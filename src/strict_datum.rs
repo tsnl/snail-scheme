@@ -48,6 +48,19 @@ impl Tokens {
             .ok_or_else(|| "invalid or closed token handle".into())
     }
 
+    // Removal consumes the handle on both success and rejection. Only a
+    // nonnumber parse may reuse its retained text; numbers/errors stay invalid.
+    fn take_symbol_text(&mut self, id: u32) -> Result<String, String> {
+        match self.take(id)? {
+            Token::Text(text)
+            | Token::Parsed {
+                text,
+                result: Ok(None),
+            } => Ok(text),
+            Token::Parsed { .. } => Err("symbol interning requires an unparsed text handle".into()),
+        }
+    }
+
     fn append(&mut self, id: u32, code: u32) -> Result<(), String> {
         let character = char::from_u32(code).ok_or("invalid Unicode scalar")?;
         match self.live.get_mut(&id) {
@@ -330,10 +343,7 @@ fn with_symbols<T>(operation: impl FnOnce(&mut Symbols) -> Result<T, String>) ->
 
 #[unsafe(export_name = "snail:datum/token-intern")]
 pub extern "C" fn token_intern(id: u32) -> u32 {
-    let text = checked(TOKENS.with_borrow_mut(|tokens| match tokens.take(id)? {
-        Token::Text(text) => Ok(text),
-        Token::Parsed { .. } => Err("symbol interning requires an unparsed text handle".into()),
-    }));
+    let text = checked(TOKENS.with_borrow_mut(|tokens| tokens.take_symbol_text(id)));
     checked(with_symbols(|symbols| symbols.intern(text)))
 }
 
@@ -377,6 +387,46 @@ mod tests {
         tokens.take(first).unwrap();
         assert!(tokens.get(first).is_err());
         assert!(tokens.open().unwrap() > second);
+    }
+
+    #[test]
+    fn symbol_text_consumes_unparsed_or_nonnumeric_handles_once() {
+        let mut tokens = Tokens::default();
+        let mut symbols = Symbols::default();
+        let quoted = staged(&mut tokens, "123abc");
+        assert_eq!(tokens.take_symbol_text(quoted).unwrap(), "123abc");
+        let mut identities = Vec::new();
+        for _ in 0..2 {
+            let id = staged(&mut tokens, "same");
+            assert_eq!(tokens.parse(id).unwrap(), 0);
+            identities.push(
+                symbols
+                    .intern(tokens.take_symbol_text(id).unwrap())
+                    .unwrap(),
+            );
+            assert!(tokens.get(id).is_err());
+            assert!(tokens.take_symbol_text(id).is_err());
+        }
+        assert_eq!(identities[0], identities[1]);
+        assert!(tokens.live.is_empty());
+    }
+
+    #[test]
+    fn symbol_text_rejects_and_consumes_numeric_and_error_handles() {
+        let mut tokens = Tokens::default();
+        let survivor = staged(&mut tokens, "still owned");
+        for (text, kind) in [("42", 1), ("1.0", 2), ("1+2i", 3), ("1/2", 4), ("#e1.5", 4)] {
+            let id = staged(&mut tokens, text);
+            assert_eq!(tokens.parse(id).unwrap(), kind);
+            assert_eq!(
+                tokens.take_symbol_text(id).unwrap_err(),
+                "symbol interning requires an unparsed text handle"
+            );
+            assert!(tokens.get(id).is_err());
+            assert!(tokens.get(survivor).is_ok());
+        }
+        assert_eq!(tokens.take_symbol_text(survivor).unwrap(), "still owned");
+        assert!(tokens.live.is_empty());
     }
 
     #[test]

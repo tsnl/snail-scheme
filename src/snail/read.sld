@@ -14,9 +14,6 @@
 
     ;; ---- A datum, normal EOF and malformed input are distinct results ----
 
-    (define-data ReadResult (read-end)
-      (read-value (datum Datum read-value-datum))
-      (read-error (message String read-error-message)))
     (define-data Token (value-token (datum Datum)) (end-token) (close-token) (dot-token)
       (open-token (kind I64)) (prefix-token (name String)) (error-token (message String)))
     (define-data TextResult (text-value (text String)) (text-error (message String)))
@@ -170,12 +167,9 @@
     (: atom-token (-> String Token))
     (define (atom-token text)
       (if (string=? text ".") (dot-token)
-          (match (string->number text)
-            ((parsed-number number) (value-token (datum-number number)))
-            ((number-error message) (error-token message))
-            ((not-a-number)
-             (if (identifier? text) (value-token (datum-symbol (string->symbol text)))
-                 (error-token "invalid numeric token or identifier; rational numbers are not supported"))))))
+          (match (string->atom text)
+            ((read-value value) (value-token value))
+            ((read-error message) (error-token message)) ((read-end) (unreachable)))))
 
     ;; ---- Strings and escaped symbols share scalar escapes ----
 
