@@ -294,6 +294,17 @@ Conversions are explicit native unary functions:
 The explicitly named `i32-*`, `i64-*`, `f32-*`, and `f64-*` primitives remain
 available for code that requires a fixed representation.
 
+`i32-bitwise-and` and `i64-bitwise-and` intersect all bits of their two operands.
+`i32-shift-right/logical` and `i64-shift-right/logical` shift the first operand
+right and fill high bits with zero. Both arguments and the result have the named
+width; there is no coercion or overloaded numeric family for these operations.
+The shift count uses only its low 5 bits for I32 or low 6 bits for I64, following
+Wasm `shr_u`, even when the count is negative. A count equal to the width shifts
+by zero, and a count of `-1` shifts by width minus one. Results remain signed
+two's-complement words: shifting `-1` by zero returns `-1`, while shifting it by
+one returns the largest positive value of that width. These operations never
+trap and do not change signed `quotient` or `remainder` semantics.
+
 ## Concrete mutable vectors
 
 `Vector T` has fixed length, mutable identity, and native T element storage.
