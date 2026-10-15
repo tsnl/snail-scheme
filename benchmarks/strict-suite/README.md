@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts seventeen original R7RS kernels to the strict compiler:
+This diagnostic adapts nineteen original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`. It records failures alongside successful cases. It is
+`pnpoly`, `fft`, and `quicksort`. It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
@@ -118,6 +118,37 @@ rejected by both implementations. These probes use a separate `fft-probe`
 export or Chez validation wrapper. The source-matched Chez program and binary
 are exact copies of the compiled original program; measurement uses two
 systems and the same original counts. FFT alone also requires `RUSTC`.
+
+Select `--benchmarks quicksort` for its complete canonical workload: 2,500
+iterations sorting separately mapped copies of a 10,000-element vector, with
+random values below 1,000,000. The six-state F64 RNG generates that base vector
+before timing. The full input retains its final unused `ignored` symbol.
+`quick-1`, `partition`, the RNG arithmetic and the six state transitions stay
+byte-identical. Concrete procedure refs start with typed trap stubs and receive
+all three real closures before any RNG call; an explicit vector ref preserves
+seed replacement. Native `inexact`/`exact` bindings sit outside the RNG equations.
+
+An ordinary element mapper calls the identity procedure once per element and
+allocates a separate vector; it does not call `vector-copy!`. The strict timer
+covers all 2,500 maps/sorts and the final complete adjacent-pair predicate. The
+original three hide sites, vector allocation and RNG generation occur before
+the timer. A short-circuit predicate preserves the canonical continuation's
+early false return for its positive input length. Its empty-vector behavior is
+only a supplemental extension. The original Chez source stays intact; the
+adapted control shares the mapper, predicate, ref adapters and sorting/RNG
+kernel. Its complete source patch records both wrapper edits explicitly.
+
+Preparation checks counts 1, 2 and 2,500 in both Wasm artifacts and both Chez
+controls. Small cases compare every sorted value, multiplicity, length and
+source preservation. Nonempty cases also check fresh copy identity. The full
+10,000 generated input values are checked against an independent binary64 RNG
+reference; seed reset/read and first/middle/last inversions receive separate
+checks. Changed, short and long expected sorting/RNG outputs must be rejected
+by both systems. Expected-vector length never determines generation length.
+These correctness runtimes are not performance samples. The
+[quicksort report](../results/2026-10-13-strict-quicksort/README.md)
+preserves the corrected checks and earlier probe failures. Its completed timing batch uses one
+discarded trio and three rotating retained trios in a coordinated quiet window.
 
 ## What the timer includes
 
