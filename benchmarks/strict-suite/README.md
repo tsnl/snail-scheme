@@ -3,7 +3,7 @@
 This diagnostic adapts twenty-six original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, and `mbrotZ`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, and `string`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -412,3 +412,59 @@ results and invalid counts/sizes. The canonical modules export only `bench` and
 `main`; complete-output diagnostics do not add observability to those artifacts.
 Preparation passes all four systems at counts 1, 2 and 1,000. No clean mbrotZ
 timing has been collected.
+
+Select `--benchmarks string --compiler-basis 2def994` for the full original
+string workload: 100 repetitions, ten reset-and-grow trials per repetition,
+threshold 500,000 and final length 524,278. `string_port.py` changes only the
+mutable global binding to an explicit `Ref`: six counted source-edit groups
+preserve every append, both substrings, all constants and all three loops.
+Each grow still constructs the five-segment first append, copies its right and
+left halves (including the shared midpoint), then appends those copies.
+
+The compiler's concrete Unicode `String` uses one WasmGC I32 array: a private
+mutability word followed by Unicode scalar values. Ordinary Scheme functions
+implement append and substring over checked native allocation and `array.copy`.
+The adapter adds no string wrapper. Original Chez remains untouched; the second
+Chez control uses the exact adapted kernel and portable one-field vector Ref
+helpers. Three counted surrounding-harness edits give that control the same
+numeric result initializer, reconstructing the original initial `#f` from the
+loop counter for both the unchanged `equal?` predicate and failure printing.
+Reversing these edits, helpers and kernel changes must recover the complete
+original source exactly.
+
+Strict exports an I64 acceptance flag. Expected `#f`, `#t` and I64 inputs have
+explicit scalar tags: zero or negative repetitions accept only `#f`; positive
+repetitions compare the final length only with an I64 expected value. This
+checks the original predicate inside the workload timer without allocating a
+result wrapper. Native failure output reports the rejected flag rather than
+printing the original actual value; both Chez controls retain that diagnostic.
+Inputs are restricted to I64 count/threshold and Boolean-or-I64 expectations.
+Out-of-safe-range JSON integers travel as decimal strings into the host's
+`BigInt` conversion. Finite storage limits still apply to large thresholds.
+
+Each invoked trial group receives the actual value returned by `hide_i64`;
+validation checks one hiding call per positive outer repetition and none for
+nonpositive counts. The threshold's opacity does not by itself make string
+payload contents observable. The canonical predicate observes only length, so
+its retained payload work must be inspected separately from result correctness.
+
+Separate probe modules compare all characters, including the complete canonical
+524,278-character output, against an independent character oracle. Small cases
+include empty, NUL, non-ASCII, supplementary and combining-character seeds;
+ordered replacement traces check both growth stores and all ten resets.
+Independent-copy probes retain old, first-append, both substring and final
+strings across allocation, mutate each in turn, and check the other four.
+Harness probes distinguish false from integer zero, test zero/negative counts,
+signed I64 boundaries and incorrect expected lengths. These extra observations
+are absent from the canonical timing module. Copy/constructor completion counts
+and uninstrumented native-code inspection are separate evidence, not physical
+allocation totals or performance samples. No clean timing is recorded here.
+
+The [string preparation report](../results/2026-10-14-strict-string/README.md)
+records all 144 four-system checks and the frozen compiler's 283 strict
+contracts. Canonical count-100 diagnostics complete 60,000 String constructors,
+135,000 copy spans covering 3,145,167,000 Unicode scalars and 31,000 global Ref
+stores after setup. The unchanged optimized binary retains both growth stores,
+array allocation/zero-fill paths and scalar/bulk copying in V8 native code.
+These observations support retained payload work without equating WasmGC and
+Chez physical representations or claiming an exact engine allocation total.

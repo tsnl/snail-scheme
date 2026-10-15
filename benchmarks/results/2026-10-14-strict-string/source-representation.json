@@ -1,0 +1,27 @@
+{
+  "strict_string": "One WasmGC I32 array: private mutability word plus Unicode scalar payload; no adapter wrapper.",
+  "global_binding": "One Ref String, initialized before timing; every source read/write becomes ref-get/ref-set!.",
+  "adapted_chez": "Exact same kernel and three ordinary vector Ref helpers; native Chez string operations.",
+  "edits": [
+    "Wrap global s initializer in Ref.",
+    "Replace all three assignments.",
+    "Read both first-append occurrences through Ref.",
+    "Read both substring sources through Ref.",
+    "Read all six string-length arguments through Ref.",
+    "Read final grow result through Ref."
+  ],
+  "harness_edits": [
+    "Numeric initial result in adapted Chez.",
+    "Reconstruct initial false from i==0 at unchanged predicate.",
+    "Reconstruct initial false for adapted Chez error printing."
+  ],
+  "source_reversal_exact": true,
+  "original_chez_untouched": true,
+  "input_domain": "Decimal I64 count/threshold and Boolean-or-I64 expectation; feasible storage limits apply.",
+  "integer_transport": "JSON decimal strings outside the exact JavaScript Number range, then BigInt.",
+  "canonical_predicate": "Original equal? over initial false or final integer length, evaluated inside strict bench.",
+  "failure_text_difference": "Native host reports acceptance 0; Chez preserves printing of the actual result.",
+  "hiding": "The actual returned I64 threshold is used once per invoked my-try; no calls for nonpositive counts.",
+  "append_support": "Ordinary variadic append uses homogeneous List String argument spines (five and two arguments).",
+  "representation_limit": "WasmGC Unicode scalar arrays differ from Chez native strings and Rust ASCII/UTF-8."
+}

@@ -2,7 +2,7 @@
   "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "experiment_numeric_commit": "320987e",
   "experiment_numeric_cherry_pick": "a23fbdc",
-  "compiler_status": "Unmerged 0cf2240: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants, direct calls through nonescaping local procedures and structured operators, and initialized let captures implemented; explicit Ref mutation.",
+  "compiler_status": "Unmerged fbb3972: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants, direct calls through nonescaping local procedures and structured operators, and initialized let captures implemented; native Unicode strings with checked mutable storage and Scheme append/copy helpers; explicit Ref mutation.",
   "prior_passing_measured": 13,
   "prior_default_stack_failure": [
     "ack"
@@ -161,12 +161,16 @@
     },
     {
       "name": "string",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 36,
       "files": {
         "src/string.scm": "7bda79f59eda5dccbd770c560a3f6908c16f52ee10aedeb4d8f9904d9b6d3d7d",
         "inputs/string.input": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-string/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
+      "representation_note": "Original 100 by ten-trial grow/copy/rotation workload, literals, stores, count and final predicate retained. Explicit Ref String; native four-byte Unicode-scalar GC arrays. Rust UTF-8 storage, reuse and lifetime differences disclosed.",
+      "note": "5.024121 seconds; 3.110 times original Chez, 3.472 times adapted Chez and 86.661 times Rust/Wasm. Chez ranges vary widely. Separate instrumented full-run resource bracket records 0.833 s user CPU, 3.857 s system CPU and 2.896 million minor page faults; not clean samples or an isolated explanation of all differences."
     },
     {
       "name": "sum1",
@@ -422,13 +426,13 @@
       }
     }
   ],
-  "compiler_basis": "0cf2240f081088b68de15ec6648d594f72093351",
+  "compiler_basis": "fbb397218d5abeeed7efa9e08348ad6c9c54f03d",
   "counts_scope": "Original 43-workload inspection after array1; prior_passing_measured and selection counts are historical, not current coverage.",
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 26,
-  "historical_paired_chez_count": 25,
+  "historical_measured_strict_count": 27,
+  "historical_paired_chez_count": 26,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -445,5 +449,6 @@
     "deriv",
     "mbrotZ"
   ],
-  "runtime_ablation_report": "benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md"
+  "runtime_ablation_report": "benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md",
+  "string_measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md"
 }
