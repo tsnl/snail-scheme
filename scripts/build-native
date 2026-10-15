@@ -141,6 +141,7 @@ def configuration(options, directory, bindings):
               'mode': mode, 'bindings': binding_text(bindings),
               'exports': scheme(options.exports),
               'libraries': scheme([str(path.resolve()) for path in options.library]),
+              'generation-provider': scheme(str(options.generation_provider.resolve())) if options.generation_provider else '#f',
               'command': '#f' if options.entry_c else '#t'}
     path = directory / 'build.scm'
     path.write_text('(' + '\n'.join(f'({key} {value})' for key, value in fields.items()) + ')\n')
@@ -200,6 +201,8 @@ def compile_program(options, directory, tools, records):
 
 def protected_inputs(options):
     inputs = [options.source, *([options.entry_c] if options.entry_c else [])]
+    if options.generation_provider:
+        inputs.append(options.generation_provider)
     inputs += [Path(item) for provider in options.c_provider for item in provider[1:]]
     inputs += [path for path in (ROOT / 'src').rglob('*') if path.is_file()]
     inputs += [path for library in [ROOT / 'lib', *options.library] for path in library.rglob('*.sfir')]
@@ -245,6 +248,8 @@ def main():
     parser.add_argument('--wasm', action='store_true', help='consume an unlinked Wasm binary')
     parser.add_argument('--export', dest='exports', action='append', default=[])
     parser.add_argument('-I', dest='library', type=Path, action='append', default=[])
+    parser.add_argument('--generation-provider', type=Path, metavar='MODULE',
+                        help='ES module providing createProviders(sourceContext) for library generators')
     parser.add_argument('--c-provider', nargs=3, action='append', default=[], metavar=('MODULE', 'HEADER', 'SOURCE_OR_ARCHIVE'))
     parser.add_argument('--entry-c', type=Path, help='C invocation host with an explicit entry contract')
     parser.add_argument('source', type=Path)
