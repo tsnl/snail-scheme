@@ -1,0 +1,16 @@
+[book]
+title = "SFIR"
+authors = ["SFIR contributors"]
+language = "en"
+src = "doc/book"
+
+[build]
+build-dir = "build/book"
+create-missing = false
+
+[output.html]
+git-repository-url = "https://github.com/tsnl/snail-scheme"
+edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"
+
+[output.html.playground]
+runnable = false
