@@ -911,6 +911,11 @@ records all 112 planned fresh processes at the original counts. Production V8
 takes 2.621× original Chez time for Sum1 and 8.450× for Read1; the corresponding
 adapted-Chez ratios are 1.074× and 1.850×. The report keeps the earlier native
 allocator basis, scalar-provider differences and narrower Rust readers explicit.
+Subsequent [independent reader ablations](../results/2026-10-14-strict-reader-ablations/README.md)
+replace fixed delimiter scanning and repeated ordinary-atom staging. A separate
+[combined campaign](../results/2026-10-14-strict-reader-combined/README.md) measures
+22.6% less Read1 time and a 9.2% lower Sum1 median, whose baseline is variable.
+Those comparisons use the current Snail baseline, without fresh Chez timings.
 The generic `measure` command rejects these reader cases: their separately frozen
 plan preserves file I/O, setup and cleanup boundaries and requires a coordinated
 quiet window. The initial zero-sample dependency failure remains archived.
