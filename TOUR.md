@@ -618,6 +618,15 @@ untouched and adapted Chez controls, and checks complete images, floating bit
 patterns, tie order and file lifecycle. Its dedicated
 [`ray-host.mjs`](benchmarks/strict-suite/ray-host.mjs) brackets initialization and
 the timed worker with resource cleanup; runtime input decoding precedes timing.
+
+[`mazefun_port.py`](benchmarks/strict-suite/mazefun_port.py) retains the functional
+maze's persistent nested lists, deterministic shuffle and ordered cavity floods.
+Coordinates are cavity labels in one closed variant; dimension products and
+finite result variants keep the remaining pair/symbol roles concrete. A Chez
+reader preserves complete expected mark lists before timing, and the timed
+predicate checks their full shape and contents. Separate output and cavity-trace
+probes cover both Chez forms and raw/optimized Wasm; persistent spine identity
+is additionally checked in Chez.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
