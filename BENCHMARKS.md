@@ -40,8 +40,12 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records measurements for 28 of 57 workloads at their respective compiler
-checkpoints, including 27 paired Chez comparisons. The latest
+records measurements for 29 of 57 workloads at their respective compiler
+checkpoints, including 28 paired Chez comparisons. The latest
+[Lattice comparison](benchmarks/results/2026-10-14-strict-lattice-comparison/README.md)
+takes 1.647× original Chez time and 1.815× Rust/Wasm time on all ten original
+`run(44)` invocations. Its mutable-list and Rust vector/Rc representations have
+different allocation and call costs. The
 [Puzzle comparison](benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md)
 takes 1.157× original Chez time and 2.434× Rust/Wasm time. The
 [String storage controls](benchmarks/results/2026-10-14-string-storage/README.md)
