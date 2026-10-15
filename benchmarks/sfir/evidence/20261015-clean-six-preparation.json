@@ -1,0 +1,984 @@
+{
+  "kind": "sfir-clean-six-preparation",
+  "performance_samples": false,
+  "frozen_directory": "/tmp/snail-sfir-clean-six-20261015",
+  "manifest_sha256": "7aacb458e10fc99267e1e790ed32c82acc0d29b5f72f8dc73e7969437a150876",
+  "plan_sha256": "a64a7c474ab0ac235176852646cf3aa4a97f3b28099de236b58d317eaadb75f1",
+  "protocol": {
+    "cpu": 2,
+    "warmups": 1,
+    "repeats": 5,
+    "fresh_processes": true,
+    "timer": "guest monotonic seconds; repeated workload plus complete final predicate",
+    "excluded": "input/setup, result formatting and final resource cleanup",
+    "rotation": "rotate cases by round; rotate six route positions by round plus case position",
+    "failure_policy": "retain all attempts; no retries; any failed warmup/sample withholds route comparisons"
+  },
+  "schedule_entries": 198,
+  "ready_routes": 33,
+  "compiler_file_manifest_sha256": "264d1a378bd2691bd6537b6ad0c35ffd5459cdcec2bff97ce24c043492da92b8",
+  "tools": {
+    "node-v8": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "-p",
+        "JSON.stringify(process.versions)"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.025450146000366658
+    },
+    "chez": {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--version"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "10.4.1\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.0013832569820806384
+    },
+    "rustc": {
+      "command": [
+        "/tmp/snail-sfir-clean-six-20261015/toolchain/rust/bin/rustc",
+        "--version",
+        "--verbose"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.0070858150138519704
+    },
+    "cargo": {
+      "command": [
+        "/tmp/snail-sfir-clean-six-20261015/toolchain/rust/bin/cargo",
+        "--version"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.002723103971220553
+    },
+    "binaryen": {
+      "command": [
+        "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+        "--version"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "wasm-opt version 132\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.0032693169778212905
+    },
+    "clang": {
+      "command": [
+        "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/clang",
+        "--version"
+      ],
+      "cwd": "/tmp/snail-sfir-clean-six-20261015/source",
+      "timeout_seconds": 1800.0,
+      "status": "finished",
+      "environment": {
+        "BINARYEN_CORES": null,
+        "RUSTUP_TOOLCHAIN": null,
+        "RUSTUP_HOME": null,
+        "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "RUSTFLAGS": null,
+        "CARGO_ENCODED_RUSTFLAGS": null,
+        "CARGO_BUILD_TARGET": null,
+        "CC": "gcc",
+        "CXX": "g++",
+        "AR": "ar",
+        "LD_LIBRARY_PATH": null,
+        "LIBRARY_PATH": null,
+        "C_INCLUDE_PATH": null,
+        "CPATH": null,
+        "CHIBI_MODULE_PATH": null,
+        "SCHEMEHEAPDIRS": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "returncode": 0,
+      "stdout": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin\n",
+      "stderr": "",
+      "timeout": false,
+      "unexpected_descendants": [],
+      "executing_descendants": [],
+      "wall_seconds": 0.018232921021990478
+    }
+  },
+  "selected_rust": {
+    "source": "/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu",
+    "dispatchers": {
+      "RUSTC": {
+        "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/rustc",
+        "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "dispatcher": true
+      },
+      "CARGO": {
+        "path": "/nix/store/dlhnzkygd34z7mavq8c6pnag4kjafbjn-system-path/bin/cargo",
+        "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "dispatcher": true
+      }
+    }
+  },
+  "frozen_build_dependency_files": 54817,
+  "routes": [
+    {
+      "case": "ack",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/ack/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 1.117486578,
+        "record": "timing/clean-validation/ack/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ack/program.wasm": "25da1d3dcafe2ae60c2a1b97343a328a82bcbe9d46f2e5df799a0b4172e15694",
+        "timing/artifacts/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5",
+        "timing/artifacts/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c"
+      },
+      "validation_record_sha256": "e7a8ea0caf5ba8d99f9ce17a0c6f753ca3524c61e2b5e42e80e20c013623a911"
+    },
+    {
+      "case": "ack",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/ack/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.753270541,
+        "record": "timing/clean-validation/ack/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ack/program.native": "966f40c9ee27e38326c5e354d4b181ddcca0ba9d5abd580ebe6bce3d645146a3",
+        "timing/artifacts/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c",
+        "timing/artifacts/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5"
+      },
+      "validation_record_sha256": "2a713608b425c91e2f331b02ca3e80083df87b69e3a886d58a79feba850be855"
+    },
+    {
+      "case": "ack",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/ack/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.822938357,
+        "record": "timing/clean-validation/ack/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ack/chez-original.so": "650c431aad4234304bf2659d8a57212ebd833f08f99995412d4cb6580c05037e",
+        "timing/artifacts/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c",
+        "timing/artifacts/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5"
+      },
+      "validation_record_sha256": "e1ceec85307b2588ff4338e618f30b9b3961632415f9c929cacf42b68bb4a918"
+    },
+    {
+      "case": "ack",
+      "route": "chez-adapted",
+      "eligibility": "unavailable",
+      "correctness_record": "validation/ack/status.json",
+      "artifacts": {}
+    },
+    {
+      "case": "ack",
+      "route": "rust-wasm",
+      "eligibility": "failed",
+      "correctness_record": "validation/ack/status.json",
+      "artifacts": {}
+    },
+    {
+      "case": "ack",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/ack/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.863494332,
+        "record": "timing/clean-validation/ack/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ack/rust-native": "ec44f594ce4e86cfddb16f1dc5045dea9eebb4bfc93eaa23a0be03e13c3262d9",
+        "timing/artifacts/ack/input.txt": "048eeeb21989f7681aa945bf1585e24ade93a0e0cd0a657cee7a9371037c3e4c",
+        "timing/artifacts/ack/spec.json": "c877d1819eaf06761b2d145ff96e674e91bdf45fd20090b077c88010658afac5"
+      },
+      "validation_record_sha256": "5ab1685e65ce26c432c2c28880d49f8698e0414bd73ff4c9ca27a212656cfbfa"
+    },
+    {
+      "case": "fibfp",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibfp/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.248694803,
+        "record": "timing/clean-validation/fibfp/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibfp/program.wasm": "ce1b6ce7122f0731a16d2c72c59bed6e8919c8d069d4e06950ef6c89db0f988a",
+        "timing/artifacts/fibfp/spec.json": "ee5b361bead3fcf690cee23e095f6dd5f120f175097cd497a8704b62146b6f83",
+        "timing/artifacts/fibfp/input.txt": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5"
+      },
+      "validation_record_sha256": "7cd9a0243c33ee263ec47a06f78184562597141426699d6429be5144d668116b"
+    },
+    {
+      "case": "fibfp",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibfp/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.232651443,
+        "record": "timing/clean-validation/fibfp/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibfp/program.native": "00294cea037a93da527f7b4d29781d82ae0e8620420dc2631f5f2f8d1b2fe352",
+        "timing/artifacts/fibfp/input.txt": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5",
+        "timing/artifacts/fibfp/spec.json": "ee5b361bead3fcf690cee23e095f6dd5f120f175097cd497a8704b62146b6f83"
+      },
+      "validation_record_sha256": "2814d110f908153092f3dc2c9870b14822b44347d1233eba172b028c24ce35c3"
+    },
+    {
+      "case": "fibfp",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibfp/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.849592772,
+        "record": "timing/clean-validation/fibfp/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibfp/chez-original.so": "a83fcc5e9d5240b0f3251002712d4c9848d64e398db6879dc6098c17db4d3940",
+        "timing/artifacts/fibfp/input.txt": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5",
+        "timing/artifacts/fibfp/spec.json": "ee5b361bead3fcf690cee23e095f6dd5f120f175097cd497a8704b62146b6f83"
+      },
+      "validation_record_sha256": "2df35ad192e31fde48cac2d86a380eba4ea42dfbcdcf7988a19b9a2afff576d1"
+    },
+    {
+      "case": "fibfp",
+      "route": "chez-adapted",
+      "eligibility": "unavailable",
+      "correctness_record": "validation/fibfp/status.json",
+      "artifacts": {}
+    },
+    {
+      "case": "fibfp",
+      "route": "rust-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibfp/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.229143183,
+        "record": "timing/clean-validation/fibfp/rust-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibfp/rust-wasm.wasm": "200c4d81f37c16692e3372aa6b2605f59e42d45a14f851736be0c220f789b9a0",
+        "timing/artifacts/fibfp/input.txt": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5",
+        "timing/artifacts/fibfp/spec.json": "ee5b361bead3fcf690cee23e095f6dd5f120f175097cd497a8704b62146b6f83"
+      },
+      "validation_record_sha256": "73a33d9a902cd8fb07fef4f3d665ca3e1666f4e865fde8be98747eca03288408"
+    },
+    {
+      "case": "fibfp",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibfp/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.233896681,
+        "record": "timing/clean-validation/fibfp/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibfp/rust-native": "14f9cb04d869b8f2d1d59f6bfdb7c4b2c8b785705ff071996d12f55827067d9e",
+        "timing/artifacts/fibfp/input.txt": "cae39523c803339591ddf99b4c362c265991e652b72a5f5620418aabb00823f5",
+        "timing/artifacts/fibfp/spec.json": "ee5b361bead3fcf690cee23e095f6dd5f120f175097cd497a8704b62146b6f83"
+      },
+      "validation_record_sha256": "d47cdc0d6d527c78512d0077f8ac4fa7c6c09421d753ae0aeba4e488a6cbb118"
+    },
+    {
+      "case": "cat",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 4.192192334,
+        "record": "timing/clean-validation/cat/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/program.wasm": "94bf7ff525e192a9127ebc571addc965df7b03ac273b0186399589cff4b06f83",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc",
+        "timing/artifacts/cat/provider.wasm": "dd70ccad81636ed1e025e6bddee838cb29f0a0fd301831e8b880d7752036ce58",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a"
+      },
+      "validation_record_sha256": "9e4dcaa88e926131de0d66504d526daad92ab5834074c9e2ede15a2aa230b0cf"
+    },
+    {
+      "case": "cat",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 3.547585827,
+        "record": "timing/clean-validation/cat/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/program.native": "b39e547272cdea4e423df9417c924f1679f802cf7d976f2916084c0f46ef7b11",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc"
+      },
+      "validation_record_sha256": "bf3c6157cc05d4db57b935b3fbdb5d0779c1e7dd631b87ca498881d919813f0a"
+    },
+    {
+      "case": "cat",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.696848171,
+        "record": "timing/clean-validation/cat/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/chez-original.so": "2c5bd32ef374e74be9c13b90b996d4852243e7b40929d8bdf7a5b63cd333d55f",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc"
+      },
+      "validation_record_sha256": "bfbac106205870c43908124b524410e8680038f002a86740948a3ce84b43ef0a"
+    },
+    {
+      "case": "cat",
+      "route": "chez-adapted",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 3.88169697,
+        "record": "timing/clean-validation/cat/chez-adapted/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/chez-adapted.so": "8bb2315f5fd66f3e17713309f2368fb641b6a694f610e258f3a49431c536fbde",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc"
+      },
+      "validation_record_sha256": "d2ea2f04d2977694f51d6f8ad7b3e2af87da938133d6b54f18c5b16922b0f921"
+    },
+    {
+      "case": "cat",
+      "route": "rust-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 1.887026177,
+        "record": "timing/clean-validation/cat/rust-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/rust-wasm.wasm": "1baa9103c8b6c002cbcd88e1c1f6fa0fa1e0ce5a922e1a0d0b6e823cb6851180",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc"
+      },
+      "validation_record_sha256": "630bef8a10eb63ee59d0cd7ca9a6618185befba57e334f9506b5c610e023b138"
+    },
+    {
+      "case": "cat",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/cat/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 1.167936586,
+        "record": "timing/clean-validation/cat/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/cat/rust-native": "31a679b4fe70afaf390a969142205678009d41cbda6db71aa10b5ffd81c724c6",
+        "timing/artifacts/cat/input.txt": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+        "timing/artifacts/cat/spec.json": "2a1e3bb5205e678e6fc4333826eb7f391ef923b8d440a6c764f18d99fa6380bc"
+      },
+      "validation_record_sha256": "473d70a542b3052634b320a98b473d10f6826cc9a81f25cb8b6c8e7d61de8882"
+    },
+    {
+      "case": "wc",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 3.30257327,
+        "record": "timing/clean-validation/wc/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/program.wasm": "84eaffe70a44e4509dbf9c44ef557636b3c28542bb80f4344242697d506a3e3b",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a",
+        "timing/artifacts/wc/provider.wasm": "daf301286fc1100a14c00cc863627b174b432ce5f24cbf875c61d333c44aa317",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6"
+      },
+      "validation_record_sha256": "72c08fdbb9cecc4db0ba0d500cf5aacf57db4a42d2ae57ad5769ba54278377d6"
+    },
+    {
+      "case": "wc",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 3.097801954,
+        "record": "timing/clean-validation/wc/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/program.native": "9928e7f3ab5b48533f062c68b6e465788c5c2522c38645a126756ce0cb842ae9",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a"
+      },
+      "validation_record_sha256": "aef50712b123f27e9d13155f25dc83c252f550187518d1a60f1fac5017e96ee5"
+    },
+    {
+      "case": "wc",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.641561716,
+        "record": "timing/clean-validation/wc/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/chez-original.so": "e9f01c5378679b1b529618e668a12076ca15533e18422172f074c97e0f975821",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a"
+      },
+      "validation_record_sha256": "5285ccd1e56ce259924ce0905aecca4b0c9a9d519d8f030caf913a5c73c21f8a"
+    },
+    {
+      "case": "wc",
+      "route": "chez-adapted",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 1.849838995,
+        "record": "timing/clean-validation/wc/chez-adapted/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/chez-adapted.so": "5fb74ce6cf1229ad649130e77a091751b9f81445525aff0023064f879b688517",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a"
+      },
+      "validation_record_sha256": "026e6f728f82665fc849809a04891b595b973fb91d3b4598715668260d7a6a7b"
+    },
+    {
+      "case": "wc",
+      "route": "rust-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 1.362238772,
+        "record": "timing/clean-validation/wc/rust-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/rust-wasm.wasm": "cbe444c41c4ca01f2fbbdb52a2c90c2198c2fd006aa0101b91c993f1c4251bb2",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a"
+      },
+      "validation_record_sha256": "428743162946c5077c746fdca022610a45f592cf52faccfa98e366cd053c1ee7"
+    },
+    {
+      "case": "wc",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/wc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.993463551,
+        "record": "timing/clean-validation/wc/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/wc/rust-native": "73631d24664629d4db3335b9e6efdcd0ca0bd965e77bb0860a9185d3576d5d62",
+        "timing/artifacts/wc/input.txt": "48e6ce09aca04365fad71d4ee613552fa8f72d01f7c34e98feb4d7001a7adaf6",
+        "timing/artifacts/wc/spec.json": "df521cc4ee4add4f52259e3789dfb733fb65d911860b9c6ed48b709c55f32f6a"
+      },
+      "validation_record_sha256": "687a84a4ec66954358c31411189ead6ee2c8812aa97c1792b9871bd7948d02f9"
+    },
+    {
+      "case": "ctak",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.157051743,
+        "record": "timing/clean-validation/ctak/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/program.wasm": "c6c283353ad997683abfff03e1904076af66dbaeed482028ba6148d99f8eee4e",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395"
+      },
+      "validation_record_sha256": "677f245c2ba4505bcd2c68c4c9b925b9a21b1cd62903233667cede648702e19b"
+    },
+    {
+      "case": "ctak",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.239608863,
+        "record": "timing/clean-validation/ctak/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/program.native": "d6edff0a5c8b009dcf26ff72f2d0c29339a555b9ae7ac768c3f9a6de83197342",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a"
+      },
+      "validation_record_sha256": "3d46df60523c098f6aec42df6ae415a55ae08dacf1c63a9730c6f0370821fa6f"
+    },
+    {
+      "case": "ctak",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.247436893,
+        "record": "timing/clean-validation/ctak/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/chez-original.so": "cfbaf126a78f09f78d867514aad178a6c82ae14aed4110f80fbe89426fe099b5",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a"
+      },
+      "validation_record_sha256": "a752e46a1cae725cb37a5e2ece31626ec21742da3f630e5f725ab1b3ef3881b1"
+    },
+    {
+      "case": "ctak",
+      "route": "chez-adapted",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.079427313,
+        "record": "timing/clean-validation/ctak/chez-adapted/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/chez-adapted.so": "076c28f54cad3cccc23d952e12ac1741a5473eb2a566f9900e7154132a1a48d0",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a"
+      },
+      "validation_record_sha256": "3043cb6f721566c097a652e04cfa3aed3d0b758cc57847da62ba82ecd1ce735e"
+    },
+    {
+      "case": "ctak",
+      "route": "rust-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.390182012,
+        "record": "timing/clean-validation/ctak/rust-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/rust-wasm.wasm": "aee317277730132064b50854ef9354ff803b73b94a0aa2397c5b0452bae451bf",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a"
+      },
+      "validation_record_sha256": "5feac2e51e4bdc7b47be291ed51465a029d3f83c31c25933535c979ec40d4dc1"
+    },
+    {
+      "case": "ctak",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/ctak/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.279248781,
+        "record": "timing/clean-validation/ctak/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/ctak/rust-native": "76067c1880d55442c8e2fad4e63c38c2b4cea4e1c7252f48108cb96e14521ec9",
+        "timing/artifacts/ctak/input.txt": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+        "timing/artifacts/ctak/spec.json": "0d36a23416218250c12dc6cd5e62ff3f63a395f1f0741a272b2b6914de9a267a"
+      },
+      "validation_record_sha256": "f3b653a5fd270dc84ceca9532d24bc48d458cc2d2abee84afd20934c30c93c86"
+    },
+    {
+      "case": "fibc",
+      "route": "sfir-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.125785471,
+        "record": "timing/clean-validation/fibc/sfir-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/program.wasm": "0194339bf4529ad0a2859b63ccd97930bbb35864a214f80ddbe5bd819e480791",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720"
+      },
+      "validation_record_sha256": "f793127298f8771333f38d404fb9c4bb6c5afcbf16685820da46967c758aa300"
+    },
+    {
+      "case": "fibc",
+      "route": "sfir-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.227433662,
+        "record": "timing/clean-validation/fibc/sfir-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/program.native": "35fa9eae0d8765844c39c9b037c5f4082eaeac87e837f72f082c1d77932c0b1b",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918"
+      },
+      "validation_record_sha256": "15a1ea1093bf0bb38c0da12ae0d134953227794ee7aff6cb3ad62e5fe76a1ca4"
+    },
+    {
+      "case": "fibc",
+      "route": "chez-original",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.176663137,
+        "record": "timing/clean-validation/fibc/chez-original/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/chez-original.so": "a4e37027f7a7151673835e8362b464b7720de05fc3ccfc205749c534706813a9",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918"
+      },
+      "validation_record_sha256": "e731fb403d6d452bda17ffb12bd52e3abd87ae9244da0700ef374d1ba7647f62"
+    },
+    {
+      "case": "fibc",
+      "route": "chez-adapted",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.12330927,
+        "record": "timing/clean-validation/fibc/chez-adapted/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/chez-adapted.so": "b162cee7189823ee47d50e1638a874525070705bc41752b089faa74921fcd9b3",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918"
+      },
+      "validation_record_sha256": "b18130628d2c4754e58f28da25c83d1a2ca81f364a8c9b12b08845540afdcecd"
+    },
+    {
+      "case": "fibc",
+      "route": "rust-wasm",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.313600463,
+        "record": "timing/clean-validation/fibc/rust-wasm/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/rust-wasm.wasm": "fe0c01ad8bc87da169a83a1474391ef3ee958243e73d4d5640e869d46c0e34ec",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918"
+      },
+      "validation_record_sha256": "ebcf965f708d95b6691d3a6edb2cccbddd0074942206d0ee8ae5267d207dbccf"
+    },
+    {
+      "case": "fibc",
+      "route": "rust-native",
+      "eligibility": "ready",
+      "correctness_record": "validation/fibc/status.json",
+      "validation": {
+        "status": "passed",
+        "seconds": 0.130753617,
+        "record": "timing/clean-validation/fibc/rust-native/commands/execute/record.json"
+      },
+      "artifacts": {
+        "timing/artifacts/fibc/rust-native": "93c606123cd8968a8c45cdd05c0c9565d6538925e9f6797eacdce5dd088286d5",
+        "timing/artifacts/fibc/input.txt": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+        "timing/artifacts/fibc/spec.json": "91c5037d43ec11c1e04eee885506886f38edf8fbe4b30b0bb0b2ecb395c9d918"
+      },
+      "validation_record_sha256": "dbf517ab6dc4e61652bbd2610402a3a0022095f545fba405ebdc9f24a98adfe2"
+    }
+  ],
+  "retained_ack_rust_wasm_failure": {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-sfir-clean-six-20261015/source/benchmarks/wasm-reference/run-wasi.mjs",
+      "/tmp/snail-sfir-clean-six-20261015/rust-target/wasm32-wasip1/release/ack.wasm"
+    ],
+    "cwd": "/tmp/snail-sfir-clean-six-20261015/validation/ack/runs/rust-wasm",
+    "timeout_seconds": 1200.0,
+    "status": "finished",
+    "environment": {
+      "BINARYEN_CORES": null,
+      "RUSTUP_TOOLCHAIN": null,
+      "RUSTUP_HOME": null,
+      "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+      "NODE_OPTIONS": null,
+      "NODE_V8_COVERAGE": null,
+      "LD_PRELOAD": null,
+      "SNAIL_NATIVE_GC_INTERVAL": null,
+      "SNAIL_GC_STATS": null,
+      "SNAIL_GC_HEAP_BYTES": null,
+      "SNAIL_GC_MIN_BYTES": null,
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "CC": "gcc",
+      "CXX": "g++",
+      "AR": "ar",
+      "LD_LIBRARY_PATH": null,
+      "LIBRARY_PATH": null,
+      "C_INCLUDE_PATH": null,
+      "CPATH": null,
+      "CHIBI_MODULE_PATH": null,
+      "SCHEMEHEAPDIRS": null,
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "TZ": null
+    },
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:1\n\n\nRangeError: Maximum call stack size exceeded\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3b5)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n    at ack-6c938f0936e3fb44.wasm._ZN3ack3ack17h7ffd5056d33e1562E (wasm://wasm/ack-6c938f0936e3fb44.wasm-00075756:wasm-function[10]:0x3d7)\n\nNode.js v24.19.0\n",
+    "timeout": false,
+    "unexpected_descendants": [],
+    "executing_descendants": [],
+    "wall_seconds": 0.3927862929995172
+  },
+  "negative_clean_host_predicate": {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-sfir-clean-six-20261015/source/benchmarks/sfir/support/reader-timing.mjs",
+      "/tmp/snail-sfir-clean-six-20261015/validation/wc/program.wasm",
+      "/tmp/snail-sfir-timing-negatives-20261015/wrong-spec.json",
+      "/tmp/snail-sfir-clean-six-20261015/validation/wc/provider.wasm"
+    ],
+    "cwd": "/tmp/snail-sfir-timing-negatives-20261015/runs/incorrect-expected",
+    "timeout_seconds": 1200.0,
+    "status": "finished",
+    "environment": {
+      "BINARYEN_CORES": null,
+      "RUSTUP_TOOLCHAIN": null,
+      "RUSTUP_HOME": null,
+      "CARGO_HOME": "/tmp/snail-sfir-clean-six-20261015/toolchain/cargo-home",
+      "NODE_OPTIONS": null,
+      "NODE_V8_COVERAGE": null,
+      "LD_PRELOAD": null,
+      "SNAIL_NATIVE_GC_INTERVAL": null,
+      "SNAIL_GC_STATS": null,
+      "SNAIL_GC_HEAP_BYTES": null,
+      "SNAIL_GC_MIN_BYTES": null,
+      "RUSTFLAGS": null,
+      "CARGO_ENCODED_RUSTFLAGS": null,
+      "CARGO_BUILD_TARGET": null,
+      "CC": "gcc",
+      "CXX": "g++",
+      "AR": "ar",
+      "LD_LIBRARY_PATH": null,
+      "LIBRARY_PATH": null,
+      "C_INCLUDE_PATH": null,
+      "CPATH": null,
+      "CHIBI_MODULE_PATH": null,
+      "SCHEMEHEAPDIRS": null,
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "TZ": null
+    },
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1n !== 0n\n\n    at file:///tmp/snail-sfir-clean-six-20261015/source/benchmarks/sfir/support/reader-timing.mjs:37:10\n    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async node:internal/modules/esm/loader:643:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: 1n,\n  expected: 0n,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+    "timeout": false,
+    "unexpected_descendants": [],
+    "executing_descendants": [],
+    "wall_seconds": 3.3682789899758063
+  }
+}

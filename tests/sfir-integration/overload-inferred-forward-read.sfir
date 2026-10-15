@@ -1,0 +1,7 @@
+(import (sfir core))
+(define-overload add-two implementation)
+(define answer
+  (add-two 40))
+(define implementation
+  (lambda (value) (i64-add value 2)))
+answer

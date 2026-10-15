@@ -1,5 +1,0 @@
-(import (snail strict))
-(: flip (-> Bool Bool))
-(define (flip x) (not x))
-(define erased (ann flip Top))
-((ann erased (-> I32 I32)) (ann 42 I32))

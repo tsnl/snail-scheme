@@ -1,0 +1,39 @@
+(import (sfir core))
+
+(define state
+  (ref 0))
+(ann (unit) Unit)
+(ann (ann (unit) Top) Unit)
+(if #t
+    (begin (ref-set! state 40)
+           (unit))
+    (unit))
+(if #f
+    (begin (unreachable)
+           (unit))
+    (unit))
+(if #f
+    (unit)
+    (begin (ref-set! state (+ (ref-get state) 2))
+           (unit)))
+(if #t
+    (unit)
+    (begin (unreachable)
+           (unit)))
+(if #t
+    (begin
+      (unit))
+    (unit))
+(if #f
+    (begin
+      (unit))
+    (unit))
+(if #t
+    (unit)
+    (begin
+      (unit)))
+(if #f
+    (unit)
+    (begin
+      (unit)))
+(ref-get state)

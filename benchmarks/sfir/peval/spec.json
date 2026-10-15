@@ -1,0 +1,14 @@
+{
+  "name": "peval",
+  "count": 2000,
+  "inputs": [],
+  "expected": 1,
+  "setup_barriers": 0,
+  "barriers_per_iteration": 2,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader",
+  "canonical_cases_per_iteration": 10,
+  "source_input_sha256": "28e8a5fcdd67e7cd48bcebcff0a05677c3fb5a1ff20b796c80a2f5998a508810"
+}

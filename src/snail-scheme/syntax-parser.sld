@@ -443,7 +443,7 @@
        s-number
        s-symbol))
 
-    ;; ---- Expressions, lists, vectors, and quote abbreviations ----
+    ;; ---- Expressions, lists and vectors ----
 
     (define s-expr
       (chain
@@ -452,7 +452,6 @@
          (choice
           s-list
           s-vector
-          s-quote
           s-atom))))
 
     (define improper-tail
@@ -507,23 +506,6 @@
        (lambda (fields)
          (make-vector-syntax (cdr (assq 'elements fields)) (cdr (assq 'loc fields))))))
 
-    (define s-quote
-      (pmap
-       (named-tuple
-        `(loc . ,(location))
-        `(name . ,(choice
-                   (tag-val "'" 'quote)
-                   (tag-val "`" 'quasiquote)
-                   (tag-val ",@" 'unquote-splicing)
-                   (tag-val "," 'unquote)))
-        `(value . ,s-expr))
-       (lambda (fields)
-         (let ((loc (cdr (assq 'loc fields))))
-           (make-list-syntax
-            (list (make-atom-syntax (cdr (assq 'name fields)) loc)
-                  (cdr (assq 'value fields)))
-            '() loc)))))
-
     ;; ---- Complete files ----
 
     (define s-file
@@ -541,8 +523,7 @@
        (lambda (reader)
          (let ((result (s-file reader)))
            (if (parse-result-err? result)
-               (error "cannot parse Scheme source" (reader-filename reader)
-                      (reader-loc (parse-result-input result))))
+               (error "cannot parse SFIR source" (reader-loc (parse-result-input result))))
            (parse-result-value result)))))
     )
 
@@ -609,7 +590,7 @@
           (check-fail parser "(")
           (for-each
            (lambda (filename)
-             (let* ((result (parser (string->reader filename "\n'x")))
+             (let* ((result (parser (string->reader filename "\n(quote x)")))
                     (form (parse-result-value result)))
                (expect (parse-result-ok? result) #t)
                (expect (syntax->datum form) '(quote x))
@@ -898,7 +879,7 @@
 
       (define (test-syntax->datum)
         (let ((forms (pmap s-file (lambda (forms) (map syntax->datum forms)))))
-          (check-ok forms "'#(a (b . c) #() #u8(1))"
+          (check-ok forms "(quote #(a (b . c) #() #u8(1)))"
                     '((quote #(a (b . c) #() #u8(1)))))
           (check-ok forms "(a . #(b #()))" '((a . #(b #()))))))
 
@@ -922,25 +903,9 @@
          (lambda (text) (check-fail s-file text))
          '("(a .#t)" "(a .#(b))" "(a .#u8(1))" "(a .'b)" "(a .#|comment|# b)")))
 
-      (define (test-s-quote)
-        (for-each
-         (lambda (case)
-           (let ((prefix (car case)) (name (cadr case)))
-             (check-ok s-quote (string-append prefix "x")
-                       (make-list-syntax (list (atom name 1 1) (atom 'x 1 (+ 1 (string-length prefix))))
-                                         '()
-                                         (at 1 1)))))
-         '(("'" quote) ("`" quasiquote) ("," unquote) (",@" unquote-splicing)))
-        (check-ok s-quote "'\nx"
-                  (make-list-syntax (list (atom 'quote 1 1) (atom 'x 2 1)) '() (at 1 1)))
-        (check-ok s-quote "''x"
-                  (make-list-syntax
-                   (list (atom 'quote 1 1)
-                         (make-list-syntax (list (atom 'quote 1 2) (atom 'x 1 3)) '() (at 1 2)))
-                   '()
-                   (at 1 1)))
-        (check-fail s-quote "'" "")
-        (check-fail s-quote ",@)" ")"))
+      (define (test-reader-abbreviations)
+        (for-each (lambda (text) (check-fail s-file text))
+                  '("'x" "`x" ",x" ",@x" "''x" "'\nx")))
 
       (define (test-expr-and-file)
         (check-ok s-expr " \n12 " (atom 12 2 1) " ")
@@ -957,14 +922,14 @@
         (let ((result (s-file (string->reader "empty.scm" ""))))
           (expect (parse-result-ok? result) #t)
           (expect (parse-result-value result) '()))
-        (let ((result (s-file (string->reader "example.scm" "\n'x "))))
+        (let ((result (s-file (string->reader "example.scm" "\n(quote x) "))))
           (expect (parse-result-ok? result) #t)
           (expect
            (syntax-value (parse-result-value result))
            (syntax-value
             (list (make-list-syntax
-                   (list (make-atom-syntax 'quote (make-loc "example.scm" 2 1))
-                         (make-atom-syntax 'x (make-loc "example.scm" 2 2)))
+                   (list (make-atom-syntax 'quote (make-loc "example.scm" 2 2))
+                         (make-atom-syntax 'x (make-loc "example.scm" 2 8)))
                    '()
                    (make-loc "example.scm" 2 1))))))
         (let ((result (s-file (string->reader "broken.scm" "("))))
@@ -992,7 +957,7 @@
         (run-test test-s-list)
         (run-test test-syntax->datum)
         (run-test test-improper-tail)
-        (run-test test-s-quote)
+        (run-test test-reader-abbreviations)
         (run-test test-expr-and-file)
         (run-test test-s-file-result))
       ))))

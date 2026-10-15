@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,7 +20,6 @@ CLANG = os.environ.get('CLANG', 'clang')
 FEATURES = ['--mvp-features', '--enable-gc', '--enable-reference-types', '--enable-tail-call',
             '--enable-mutable-globals', '--enable-sign-ext', '--enable-bulk-memory',
             '--enable-nontrapping-float-to-int']
-FOREIGN = ['rust-triple', 'rust-remember', 'rust-recalled', 'rust-call', 'rust-forget', 'rust-root-stress']
 IO_EXPORTS = ['format-number', 'unicode', 'callback-result', 'exists', 'remove', 'callback-trap',
               'close-failure', 'missing-directory', 'invalid-character', 'invalid-handle', 'escaped-alias', 'close-alias']
 INPUT_EXPORTS = ['copy-lines', 'line-storage', 'close-input-alias', 'input-callback-close',
@@ -141,25 +139,25 @@ def check_collector():
     print('PASS exact tracing, weak cleanup, Immix reuse, automatic growth, capped/failing growth and size bounds', flush=True)
 
 
-# ---- Typed C signatures and current strict frontend output ----
+# ---- Typed C signatures and SFIR output ----
 
 
 def check_scalar_providers():
     provider = ['--c-provider', 'fixture', ROOT / 'tests/native-mixed.h', ROOT / 'tests/native-mixed.c']
-    run([build('tests/native-mixed.scm', 'mixed', '--strict', *provider)])
-    bad = BUILD / 'wrong-signature.scm'
-    bad.write_text('(import (snail strict))\n(define-extern f "fixture" "scalar_i32" (-> I64 I64))\n(f 1)\n')
-    run([ROOT / 'scripts/build-native', '--strict', *provider, bad, BUILD / 'wrong-signature'],
+    run([build('tests/native-mixed.sfir', 'mixed', *provider)])
+    bad = BUILD / 'wrong-signature.sfir'
+    bad.write_text('(import (sfir primitive))\n(define-extern f "fixture" "scalar_i32" (-> I64 I64))\n(f 1)\n')
+    run([ROOT / 'scripts/build-native', *provider, bad, BUILD / 'wrong-signature'],
         status=1, error='native provider signature does not match Wasm import')
     assert not (BUILD / 'wrong-signature').exists()
     check_rejected_c_contracts()
     options = [arg for name in ['worker', 'round32', 'view64', 'view32'] for arg in ['--export', name]]
-    rounding = build('tests/strict-extern/round.scm', 'round', '--strict', '--entry-c', ROOT / 'tests/native-round.c', *options)
+    rounding = build('tests/sfir-extern/round.sfir', 'round', '--entry-c', ROOT / 'tests/native-round.c', *options)
     run([rounding])
     for source, result in [('data-native-fields', 12), ('data-tree', 14), ('data-gcbench', 62), ('data-empty-cases', 42),
                            ('string-literals', 42), ('string-block-literal', 42),
                            ('bytevector-builtins', 42), ('bytevector-utf8', 42)]:
-        executable = build(f'tests/strict/{source}.scm', source, '--strict')
+        executable = build(f'tests/sfir-integration/{source}.sfir', source)
         run([executable], status=result, SNAIL_NATIVE_GC_INTERVAL='1')
     print('PASS real mixed C ABI, mismatched-signature rejection, rounding, variants and string blocks', flush=True)
 
@@ -167,7 +165,7 @@ def check_scalar_providers():
 def bytevector_trap_entry(source, names):
     # The fixtures declare zero-argument scalar observers. Match their real C
     # result types even though trap probes must never return a result.
-    signatures = dict(re.findall(r'\(: ([\w!?-]+) \(-> (I64|Bool|Unit)\)\)', source))
+    signatures = dict(re.findall(r'\(define\s+([\w!?-]+)\s+\(->\s+(I64|Bool|Unit)\s*\)', source))
     types = {'I64': 'int64_t', 'Bool': 'int32_t', 'Unit': 'void'}
     declarations = [f'extern {types[signatures[name]]} probe{i}(void) __asm__("wasm.{name}");'
                     for i, name in enumerate(names)]
@@ -182,16 +180,16 @@ def bytevector_trap_entry(source, names):
 
 
 def check_bytevector_traps():
-    cases = json.loads((ROOT / 'tests/strict/cases.json').read_text())
+    cases = json.loads((ROOT / 'tests/sfir-integration/cases.json').read_text())
     for case in cases:
         if case['name'] not in ('bytevector-errors', 'bytevector-utf8-errors'):
             continue
         names = [name for name, result in case['exports'].items() if result == 'trap']
-        source = f'tests/strict/{case["name"]}.scm'
+        source = f'tests/sfir-integration/{case["name"]}.sfir'
         entry = BUILD / (case['name'] + '-entry.c')
         entry.write_text(bytevector_trap_entry((ROOT / source).read_text(), names))
         options = [arg for name in names for arg in ['--export', name]]
-        program = build(source, case['name'], '--strict', '--entry-c', entry, *options)
+        program = build(source, case['name'], '--entry-c', entry, *options)
         for name in names:
             run([program, name], status=1, error='WebAssembly trap', SNAIL_NATIVE_GC_INTERVAL='1')
     print('PASS native bytevector permissions, byte/range checks and strict UTF-8 traps', flush=True)
@@ -204,8 +202,8 @@ def check_rejected_c_contracts():
                                      ('int __attribute__((vectorcall)) f(float);', 'calling convention')]:
         header = BUILD / 'unsupported-provider.h'
         header.write_text(declaration + '\n')
-        run([ROOT / 'scripts/build-native', '--strict', '--c-provider', 'bad', header,
-             ROOT / 'tests/native-mixed.c', ROOT / 'tests/native-mixed.scm', BUILD / 'bad-provider'],
+        run([ROOT / 'scripts/build-native', '--c-provider', 'bad', header,
+             ROOT / 'tests/native-mixed.c', ROOT / 'tests/native-mixed.sfir', BUILD / 'bad-provider'],
             status=1, error=diagnostic)
 
 
@@ -214,7 +212,7 @@ def check_rejected_c_contracts():
 
 def check_io():
     options = [arg for name in IO_EXPORTS for arg in ['--export', name]]
-    executable = build('tests/strict-io/output.scm', 'io', '--strict', '--entry-c', ROOT / 'tests/native-io-runner.c', *options)
+    executable = build('tests/sfir-io/output.sfir', 'io', '--entry-c', ROOT / 'tests/native-io-runner.c', *options)
     observed(executable, 'normal', releases=3)
     directory = observed(executable, 'unicode', ['unicode'], releases=1)
     assert (directory / 'λ😀.txt').read_bytes() == '\0λ😀\U0010ffff\n'.encode()
@@ -235,7 +233,7 @@ def check_io():
     observed(executable, 'initial-reservation-failure', releases=0, failure=True, SNAIL_GC_INITIAL_BYTES='1')
     observed(executable, 'initial-over-cap', releases=0, failure=True,
              SNAIL_GC_INITIAL_BYTES='65536', SNAIL_GC_HEAP_BYTES='32768')
-    exhaust = build('tests/native-exhaust.scm', 'exhaust', '--strict', '--export', 'read-huge',
+    exhaust = build('tests/native-exhaust.sfir', 'exhaust', '--export', 'read-huge',
                     '--entry-c', ROOT / 'tests/native-lifecycle.c')
     directory = observed(exhaust, 'exhaust', releases=1, failure=True, SNAIL_GC_HEAP_BYTES='32768')
     assert (directory / 'exhaust.txt').read_text() == 'buffered before exhaustion'
@@ -279,45 +277,15 @@ def check_input_failures(program):
 
 def check_input():
     options = [arg for name in INPUT_EXPORTS for arg in ['--export', name]]
-    executable = build('tests/strict-io/input.scm', 'input', '--strict',
+    executable = build('tests/sfir-io/input.sfir', 'input',
                        '--entry-c', ROOT / 'tests/native-input-runner.c', *options)
     check_input_values(executable)
     check_input_failures(executable)
-    trapped = build('tests/strict-io/input-main-trap.scm', 'input-main-trap', '--strict',
+    trapped = build('tests/sfir-io/input-main-trap.sfir', 'input-main-trap',
                     '--entry-c', ROOT / 'tests/native-lifecycle.c')
     input_observed(trapped, 'main-trap', b'line\n', [], 1, failure=True)
-    print('PASS native strict line input, Unicode, buffer growth, aliases and terminal cleanup', flush=True)
+    print('PASS native SFIR line input, Unicode, buffer growth, aliases and terminal cleanup', flush=True)
 
-
-def check_legacy_runtime():
-    options = [arg for name in FOREIGN for arg in ['--foreign', name, 'snail.library']]
-    interop = build('examples/rust-interop/main.scm', 'interop', *options)
-    run([interop], '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n', SNAIL_NATIVE_GC_INTERVAL='1')
-    resources = build('tests/programs/backend-native-resources.scm', 'resources',
-                      '--entry-c', ROOT / 'tests/native-legacy-runner.c')
-    run([resources, 'finalizers'], 'native resource checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
-    literals = build('tests/native-literals.scm', 'literals')
-    run([literals], 'native literal checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
-    callback = build('tests/native-callback-trap.scm', 'callback-trap', *options,
-                     '--entry-c', ROOT / 'tests/native-legacy-runner.c')
-    directory = Path(tempfile.mkdtemp(prefix='callback-trap-', dir=BUILD))
-    run([callback], cwd=directory, status=1, error='native callback failure',
-        SNAIL_NATIVE_GC_INTERVAL='1', SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'))
-    assert int((directory / 'released').read_text()) >= 1
-    assert (directory / 'callback.txt').read_text() == 'buffered before callback failure'
-    check_native_arrays(options)
-    print('PASS shared Rust ABI roots, reentrant callbacks, deferred finalizers and literal graphs', flush=True)
-
-
-def check_native_arrays(options):
-    executable = build('tests/native-arrays.scm', 'arrays', *options,
-                       '--entry-c', ROOT / 'tests/native-legacy-runner.c')
-    run([executable, 'arrays'], 'native numeric resource checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
-    observer = BUILD / 'array-releases'
-    observer.unlink(missing_ok=True)
-    run([executable, 'arrays-trap'], status=1, error='native numeric resource failure',
-        SNAIL_NATIVE_GC_INTERVAL='1', SNAIL_NATIVE_ARRAY_LOG=str(observer))
-    assert observer.read_text() == '65\n'
 
 
 # ---- Publication and dependency ownership ----
@@ -325,44 +293,16 @@ def check_native_arrays(options):
 
 def check_build_ownership():
     directory = Path(tempfile.mkdtemp(prefix='ownership-', dir=BUILD))
-    source, output = directory / 'main.scm', directory / 'application'
-    source.write_text('(import (scheme write)) (display "kept")\n')
+    source, output = directory / 'main.sfir', directory / 'application'
+    source.write_text('42\n')
     output.write_text('previous executable')
     run([ROOT / 'scripts/build-native', source, output], status=1, error='missing or unusable', WASM_OPT='/missing/wasm-opt')
     assert output.read_text() == 'previous executable'
     alias = directory / 'source-alias'
     alias.symlink_to(source)
     run([ROOT / 'scripts/build-native', source, alias], status=1, error='must not replace an input')
-    check_native_artifacts(directory, source, output)
-    print('PASS native input protection, failure preservation and relocated artifact generations', flush=True)
+    print('PASS native input protection and failed-publication preservation', flush=True)
 
-
-def check_native_artifacts(directory, source, output):
-    project = directory / 'project'
-    project.mkdir()
-    (project / 'value.txt').write_text('42')
-    (project / 'answer.sld').write_text('''(generate-library (project answer)
-      (export answer) (import (scheme base) (snail-scheme generation) (snail-scheme artifacts))
-      (begin (generated-library
-        '((import (scheme base) (scheme file) (snail artifacts))
-          (begin (define (answer) (call-with-input-file (artifact-path "answer λ.txt")
-                                   (lambda (port) (read-string 100 port))))))
-        (list (make-artifact "answer λ.txt" (generation-source-path "value.txt") '())))))''')
-    source.write_text('(import (scheme base) (scheme write) (project answer)) (display (answer)) (newline)\n')
-    command = [ROOT / 'scripts/build-native', '-I', directory, source]
-    run([*command, output])
-    run([output], '42\n', cwd='/tmp')
-    original = output.resolve()
-    assert output.is_symlink()
-    (project / 'value.txt').write_text('43')
-    run([*command, output])
-    run([output], '43\n', cwd='/tmp')
-    run([original], '42\n', cwd='/tmp')
-    moved = directory / 'relocated'
-    shutil.copytree(output.resolve().parent, moved)
-    run([moved / 'program'], '43\n', cwd='/tmp')
-    run([*command, project / 'value.txt'], status=1, error='must not replace an input')
-    assert (project / 'value.txt').read_text() == '43'
 
 
 def main():
@@ -374,9 +314,8 @@ def main():
     check_bytevector_traps()
     check_io()
     check_input()
-    check_legacy_runtime()
     check_build_ownership()
-    files = [path for directory in ['src', 'tests'] for path in (ROOT / directory).rglob('*') if path.is_file()]
+    files = [path for directory in ['src', 'lib', 'tests'] for path in (ROOT / directory).rglob('*') if path.is_file()]
     files += [ROOT / 'scripts/build-native', ROOT / 'scripts/test-native', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock']
     (BUILD / 'source-hashes.json').write_text(json.dumps({str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                                                        for path in files}, indent=2) + '\n')

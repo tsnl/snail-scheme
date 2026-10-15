@@ -1,0 +1,370 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import (sfir core))
+
+(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(define length
+  (lambda (xs)
+    (((lambda () (begin (define loop.8 (lambda (xs.1 n) (if (null? xs.1) n (loop.8 (cdr xs.1) (+ n 1))))) loop.8)))
+      xs
+      0)))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(define-overload - (-> I64 I64) (lambda (value.31) (i64-sub 0 value.31)))
+
+(define-data (Permutation T)
+  (no-permutation)
+  (permutation (dispatch (-> I64 (PermutationReply T)) permutation-dispatch)))
+
+(define-data (PermutationReply T)
+  (current-object (value T current-value))
+  (next-permutation (value (Permutation T) next-value))
+  (remaining-objects (value (List T) remaining-values)))
+
+(define-data (GcdResult T)
+  (gcd-value (value T gcd-result-value))
+  (gcd-negative (sign I64 gcd-sign) (magnitude I64 gcd-magnitude)))
+
+(define-data PrimeList
+  (no-primes)
+  (prime-node (value I64 prime-value) (tail (Ref PrimeList) prime-tail)))
+
+(define-data Answer
+  (matrix-answer (value (List (List I64)) answer-matrix))
+  (marker-answer (value String answer-marker)))
+
+(define-data Best
+  (best (size I64 best-size) (count I64 best-count) (answers (List Answer) best-answers)))
+
+(define permutation? (All (T) (-> (Permutation T) Bool))
+  (lambda (value.30) (match value.30 ((no-permutation) #f) ((permutation dispatch) #t))))
+
+(define prime-null?
+  (lambda (value.29) (match value.29 ((no-primes) #t) ((prime-node head.6 tail.6) #f))))
+
+(define matrix-answer?
+  (lambda (value.28) (match value.28 ((matrix-answer matrix) #t) ((marker-answer text.1) #f))))
+
+(define caar (lambda (values.3) (car (car values.3))))
+
+(define list (All (T) (-> (Rest T) (List T))) (lambda values.2 values.2))
+
+(define reverse (All (T) (-> (List T) (List T)))
+  (lambda (values.1)
+    (((lambda () (begin (define loop.7 (lambda (tail.5 result.1) (if (null? tail.5) result.1 (loop.7 (cdr tail.5) (cons (car tail.5) result.1))))) loop.7)))
+      values.1
+      (quote ()))))
+
+(define map-one (All (A B) (-> (-> A B) (List A) (List B)))
+  (lambda (procedure.1 values)
+    (if (null? values)
+      (quote ())
+      ((lambda (head.5) (cons head.5 (map-one procedure.1 (cdr values))))
+        (procedure.1 (car values))))))
+
+(define map-two (All (A B C) (-> (-> A B C) (List A) (List B) (List C)))
+  (lambda (procedure first.2 second)
+    (if (null? first.2)
+      (quote ())
+      ((lambda (head.4) (cons head.4 (map-two procedure (cdr first.2) (cdr second))))
+        (procedure (car first.2) (car second))))))
+
+(define exact-integer? (-> I64 Bool) (lambda (value.27) #t))
+
+(define zero? (lambda (value.26) (= value.26 0)))
+
+(define even? (lambda (value.25) (= (remainder value.25 2) 0)))
+
+(define expt (-> I64 I64 I64)
+  (lambda (base exponent)
+    (if (< exponent 0)
+      (unreachable)
+      (((lambda () (begin (define loop.6 (lambda (left.4 value.24) (if (= left.4 0) value.24 (loop.6 (- left.4 1) (* value.24 base))))) loop.6)))
+        exponent
+        1))))
+
+(define perm-now (All (T) (-> (Permutation T) T))
+  (lambda (value.23) (current-value ((permutation-dispatch value.23) 0))))
+
+(define perm-brother (All (T) (-> (Permutation T) (Permutation T)))
+  (lambda (value.22) (next-value ((permutation-dispatch value.22) 1))))
+
+(define perm-child (All (T) (-> (Permutation T) (Permutation T)))
+  (lambda (value.21) (next-value ((permutation-dispatch value.21) 2))))
+
+(define perm-puke (All (T) (-> (Permutation T) (List T)))
+  (lambda (value.20) (remaining-values ((permutation-dispatch value.20) 3))))
+
+(define prime-cons (lambda (head.3 tail.4) (prime-node head.3 (ref tail.4))))
+
+(define prime-cdr (lambda (value.19) (ref-get (prime-tail value.19))))
+
+(define prime-set-cdr! (lambda (value.18 tail.3) (ref-set! (prime-tail value.18) tail.3)))
+
+(define same-row? (-> (List I64) (List I64) Bool)
+  (lambda (left.3 right.3)
+    (if (null? left.3)
+      (null? right.3)
+      (if (not (null? right.3))
+        (if (= (car left.3) (car right.3)) (same-row? (cdr left.3) (cdr right.3)) #f)
+        #f))))
+
+(define same-matrix? (-> (List (List I64)) (List (List I64)) Bool)
+  (lambda (left.2 right.2)
+    (if (null? left.2)
+      (null? right.2)
+      (if (not (null? right.2))
+        (if (same-row? (car left.2) (car right.2)) (same-matrix? (cdr left.2) (cdr right.2)) #f)
+        #f))))
+
+(define same-answer?
+  (lambda (left.1 right.1)
+    (if (matrix-answer? left.1)
+      (if (matrix-answer? right.1) (same-matrix? (answer-matrix left.1) (answer-matrix right.1)) #f)
+      (if (not (matrix-answer? right.1))
+        (string=? (answer-marker left.1) (answer-marker right.1))
+        #f))))
+
+(define same-answers?
+  (lambda (left right)
+    (if (null? left)
+      (null? right)
+      (if (not (null? right))
+        (if (same-answer? (car left) (car right)) (same-answers? (cdr left) (cdr right)) #f)
+        #f))))
+
+(define-extern write-character "benchmark" "write_character" (-> Char Unit))
+
+(define matrix-write-text
+  (lambda (text)
+    (((lambda () (begin (define loop.5 (lambda (index.1) (if (= index.1 (string-length text)) (unit) (begin (write-character (string-ref text index.1)) (loop.5 (+ index.1 1)) (unit))))) loop.5)))
+      0)))
+
+(define matrix-write-natural
+  (lambda (value.17)
+    (begin
+      (if (< value.17 10) (unit) (begin (matrix-write-natural (quotient value.17 10)) (unit)))
+      (write-character (integer->char (+ 48 (remainder value.17 10)))))))
+
+(define permutation-error
+  (lambda (code)
+    (begin
+      (matrix-write-text "gen-perms: Bad msg: ~a; message code ")
+      (if (< code 0)
+        (begin (write-character #\-) (matrix-write-natural (- code)))
+        (matrix-write-natural code))
+      (write-character #\newline)
+      (unreachable))))
+
+(define hide (lambda (count.5 x.16) (hide-i64 x.16)))
+
+(define div (-> I64 I64 I64)
+  (lambda (x.15 y.4)
+    (if (if (exact-integer? x.15) (if (exact-integer? y.4) (>= x.15 0) #f) #f)
+      (quotient x.15 y.4)
+      (if (< y.4 0)
+        ((lambda (q.5) ((lambda (r.4) ((lambda () (if (= r.4 0) q.5 (+ q.5 1))))) (- x.15 (* q.5 y.4))))
+          (quotient x.15 y.4))
+        ((lambda (q.4) ((lambda (r.3) ((lambda () (if (= r.3 0) q.4 (- q.4 1))))) (- x.15 (* q.4 y.4))))
+          (quotient x.15 y.4))))))
+
+(define mod (-> I64 I64 I64)
+  (lambda (x.14 y.3)
+    (if (if (exact-integer? x.14) (if (exact-integer? y.3) (>= x.14 0) #f) #f)
+      (remainder x.14 y.3)
+      (if (< y.3 0)
+        ((lambda (q.3) ((lambda (r.2) ((lambda () (if (= r.2 0) 0 (- r.2 y.3))))) (- x.14 (* q.3 y.3))))
+          (quotient x.14 y.3))
+        ((lambda (q.2) ((lambda (r.1) ((lambda () (if (= r.1 0) 0 (+ r.1 y.3))))) (- x.14 (* q.2 y.3))))
+          (quotient x.14 y.3))))))
+
+(define chez-box (lambda (x.13) (ref x.13)))
+
+(define chez-unbox (lambda (x.12) (ref-get x.12)))
+
+(define chez-set-box! (lambda (x.11 y.2) (ref-set! x.11 y.2)))
+
+(define maximal? (-> (List (List I64)) Bool)
+  (lambda (mat.13)
+    (((lambda () (begin (define pick-first-row (lambda (first-row-perm.1) (if (permutation? first-row-perm.1) (if (zunda first-row-perm.1 mat.13) (pick-first-row (perm-brother first-row-perm.1)) #f) #t))) pick-first-row)))
+      (gen-perms mat.13))))
+
+(define zunda (-> (Permutation (List I64)) (List (List I64)) Bool)
+  (lambda (first-row-perm mat.11)
+    ((lambda (first-row) ((lambda (number-of-cols.4) ((lambda (make-row->func) ((lambda (mat.12) ((lambda () (zebra (perm-child first-row-perm) (make-row->func 1 -1) (make-row->func -1 1) mat.12 number-of-cols.4)))) (cdr mat.11))) (lambda (if-equal if-different) (lambda (row.5) ((lambda (vec) (begin (((lambda () (begin (define loop.4 (lambda (i.6 first.1 row.6) (if (= i.6 number-of-cols.4) (unit) (begin (vector-set! vec i.6 (if (= (car first.1) (car row.6)) if-equal if-different)) (loop.4 (+ i.6 1) (cdr first.1) (cdr row.6)))))) loop.4))) 0 first-row row.5) (lambda (i.5) (vector-ref vec i.5)))) (make-vector number-of-cols.4)))))) (length first-row)))
+      (perm-now first-row-perm))))
+
+(define zebra (-> (Permutation (List I64)) (-> (List I64) (-> I64 I64)) (-> (List I64) (-> I64 I64)) (List (List I64)) I64 Bool)
+  (lambda (row-perm row->func+ row->func- mat.9 number-of-cols.3)
+    (((lambda () (begin (define _-*-.13 (lambda (row-perm.1 mat.10 partitions.1) ((lambda (value.16) (if value.16 value.16 (if (zulu (car mat.10) (row->func+ (perm-now row-perm.1)) partitions.1 (lambda (new-partitions.1) (_-*-.13 (perm-child row-perm.1) (cdr mat.10) new-partitions.1))) (if (zulu (car mat.10) (row->func- (perm-now row-perm.1)) partitions.1 (lambda (new-partitions) (_-*-.13 (perm-child row-perm.1) (cdr mat.10) new-partitions))) ((lambda (new-row-perm) ((lambda (value.15) (if value.15 value.15 (_-*-.13 new-row-perm mat.10 partitions.1))) (not (permutation? new-row-perm)))) (perm-brother row-perm.1)) #f) #f))) (not (permutation? row-perm.1))))) _-*-.13)))
+      row-perm
+      mat.9
+      (list (miota number-of-cols.3)))))
+
+(define zulu (-> (List I64) (-> I64 I64) (List (List I64)) (-> (List (List I64)) Bool) Bool)
+  ((lambda (cons-if-not-null) (lambda (old-row new-row-func partitions equal-cont) (((lambda () (begin (define _-*-.12 (lambda (p-in old-row.1 rev-p-out) (((lambda () (begin (define _-split- (lambda (partition old-row.2 plus minus) (if (null? partition) (((lambda () (begin (define _-minus- (lambda (old-row.3 m) (if (null? m) ((lambda (rev-p-out.1 p-in.1) (if (null? p-in.1) (equal-cont (reverse rev-p-out.1)) (_-*-.12 p-in.1 old-row.3 rev-p-out.1))) (cons-if-not-null minus (cons-if-not-null plus rev-p-out)) (cdr p-in)) ((lambda (value.14) (if value.14 value.14 (_-minus- (cdr old-row.3) (cdr m)))) (= 1 (car old-row.3)))))) _-minus-))) old-row.2 minus) ((lambda (next) ((lambda (value.12) (if (= value.12 1) (if (= 1 (car old-row.2)) (_-split- (cdr partition) (cdr old-row.2) (cons next plus) minus) #f) ((lambda (value.13) (if (= value.13 -1) (_-split- (cdr partition) old-row.2 plus (cons next minus)) (unreachable))) value.12))) (new-row-func next))) (car partition))))) _-split-))) (car p-in) old-row.1 (quote ()) (quote ())))) _-*-.12))) partitions old-row (quote ()))))
+    (lambda (lhs rhs) (if (null? lhs) rhs (cons lhs rhs)))))
+
+(define all? (All (T) (-> (-> T Bool) (List T) Bool))
+  (lambda (ok? lst.4)
+    (((lambda () (begin (define _-*-.11 (lambda (lst.5) ((lambda (value.11) (if value.11 value.11 (if (ok? (car lst.5)) (_-*-.11 (cdr lst.5)) #f))) (null? lst.5)))) _-*-.11)))
+      lst.4)))
+
+(define gen-perms (All (T) (-> (List T) (Permutation T)))
+  (lambda (objects)
+    (((lambda () (begin (define _-*-.10 (lambda (zulu-future.2 past) (if (null? zulu-future.2) (no-permutation) (permutation (lambda (msg) ((lambda (value.7) (if (= value.7 0) (current-object (car zulu-future.2)) ((lambda (value.8) (if (= value.8 1) (next-permutation (_-*-.10 (cdr zulu-future.2) (cons (car zulu-future.2) past))) ((lambda (value.9) (if (= value.9 2) (next-permutation (gen-perms (fold past cons (cdr zulu-future.2)))) ((lambda (value.10) (if (= value.10 3) (remaining-objects (cons (car zulu-future.2) (fold past cons (cdr zulu-future.2)))) (permutation-error msg))) value.9))) value.8))) value.7))) msg)))))) _-*-.10)))
+      objects
+      (quote ()))))
+
+(define fold (All (A S) (-> (List A) (-> A S S) S S))
+  (lambda (lst.2 folder.4 state.9)
+    (((lambda () (begin (define _-*-.9 (lambda (lst.3 state.10) (if (null? lst.3) state.10 (_-*-.9 (cdr lst.3) (folder.4 (car lst.3) state.10))))) _-*-.9)))
+      lst.2
+      state.9)))
+
+(define miota (-> I64 (List I64))
+  (lambda (len)
+    (((lambda () (begin (define _-*-.8 (lambda (i.4) (if (= i.4 len) (quote ()) (cons i.4 (_-*-.8 (+ i.4 1)))))) _-*-.8)))
+      0)))
+
+(define proc->vector (-> I64 (-> I64 I64) (Vector I64))
+  (lambda (size.4 proc)
+    ((lambda (res) (begin (((lambda () (begin (define loop.3 (lambda (i.3) (if (= i.3 size.4) (unit) (begin (vector-set! res i.3 (proc i.3)) (loop.3 (+ i.3 1)))))) loop.3))) 0) res))
+      (make-vector size.4))))
+
+(define make-modular (All (T) (-> I64 (-> (-> I64 I64 (-> I64 Bool) (-> I64 I64 I64) (-> I64 I64) (-> I64 I64 I64) (-> I64 I64) T) T)))
+  (lambda (modulus.2)
+    ((lambda (reduce) ((lambda (coef-zero?.2) ((lambda (coef-+.2) ((lambda (coef-negate.2) ((lambda (coef-*.2) ((lambda (coef-recip.2) ((lambda () (lambda (maker) (maker 0 1 coef-zero?.2 coef-+.2 coef-negate.2 coef-*.2 coef-recip.2))))) ((lambda (inverses) (lambda (x.9) ((lambda (x.10) (vector-ref inverses (- x.10 1))) (reduce x.9)))) (proc->vector (- modulus.2 1) (lambda (i.2) (gcd-result-value (extended-gcd (+ i.2 1) modulus.2 (lambda (gcd inverse ignore) inverse)))))))) (lambda (x.8 y.1) (reduce (* x.8 y.1))))) (lambda (x.7) (reduce (- x.7))))) (lambda (x.6 y) (reduce (+ x.6 y))))) (lambda (x.5) (zero? (reduce x.5)))))
+      (lambda (x.4) (mod x.4 modulus.2)))))
+
+(define extended-gcd (All (T) (-> I64 I64 (-> I64 I64 I64 T) (GcdResult T)))
+  (lambda (a b cont.1)
+    ((lambda (n->sgn/abs) (n->sgn/abs a (lambda (p-a p.1) (n->sgn/abs b (lambda (q-b q) (((lambda () (begin (define _-*-.7 (lambda (p.2 p-a.1 p-b q.1 q-a q-b.1) (if (zero? q.1) (gcd-value (cont.1 p.2 p-a.1 p-b)) ((lambda (mult.3) (_-*-.7 q.1 q-a q-b.1 (- p.2 (* mult.3 q.1)) (- p-a.1 (* mult.3 q-a)) (- p-b (* mult.3 q-b.1)))) (div p.2 q.1))))) _-*-.7))) p.1 p-a 0 q 0 q-b))))))
+      (lambda (x.3 cont) (if (>= x.3 0) (cont 1 x.3) (gcd-negative -1 (- x.3)))))))
+
+(define make-row-reduce (-> I64 I64 (-> I64 Bool) (-> I64 I64 I64) (-> I64 I64) (-> I64 I64 I64) (-> I64 I64) (-> (List (List I64)) (List (List I64))))
+  (lambda (coef-zero.1 coef-one.1 coef-zero?.1 coef-+.1 coef-negate.1 coef-*.1 coef-recip.1)
+    (lambda (mat.6)
+      (((lambda () (begin (define _-*-.6 (lambda (mat.7) (if ((lambda (value.6) (if value.6 value.6 (null? (car mat.7)))) (null? mat.7)) (quote ()) (((lambda () (begin (define _-**-.1 (lambda (in out) (if (null? in) (map-one (lambda (x.2) (cons coef-zero.1 x.2)) (_-*-.6 out)) ((lambda (prow) ((lambda (pivot) ((lambda (prest) ((lambda (in.1) ((lambda () (if (coef-zero?.1 pivot) (_-**-.1 in.1 (cons prest out)) ((lambda (zap-row.1) (cons (cons coef-one.1 zap-row.1) (map-one (lambda (x.1) (cons coef-zero.1 x.1)) (_-*-.6 (fold in.1 (lambda (row.4 mat.8) (cons ((lambda (first-col rest-row) (if (coef-zero?.1 first-col) rest-row (map-two ((lambda (mult.2) (lambda (f z.1) (coef-+.1 f (coef-*.1 mult.2 z.1)))) (coef-negate.1 first-col)) rest-row zap-row.1))) (car row.4) (cdr row.4)) mat.8)) out))))) (map-one ((lambda (mult.1) (lambda (x) (coef-*.1 mult.1 x))) (coef-recip.1 pivot)) prest)))))) (cdr in))) (cdr prow))) (car prow))) (car in))))) _-**-.1))) mat.7 (quote ()))))) _-*-.6)))
+        mat.6))))
+
+(define make-in-row-space? (-> I64 I64 (-> I64 Bool) (-> I64 I64 I64) (-> I64 I64) (-> I64 I64 I64) (-> I64 I64) (-> (List (List I64)) (-> (List I64) Bool)))
+  (lambda (coef-zero coef-one coef-zero? coef-+ coef-negate coef-* coef-recip)
+    ((lambda (row-reduce) (lambda (mat.2) ((lambda (mat.3) (lambda (row.2) (((lambda () (begin (define _-*-.5 (lambda (row.3 mat.4) (if (null? row.3) #t ((lambda (r-first r-rest) (if (coef-zero? r-first) (_-*-.5 r-rest (map-one cdr (if ((lambda (value.5) (if value.5 value.5 (coef-zero? (caar mat.4)))) (null? mat.4)) mat.4 (cdr mat.4)))) (if (null? mat.4) #f ((lambda (zap-row) ((lambda (z-first) ((lambda (z-rest) ((lambda (mat.5) ((lambda () (if (coef-zero? z-first) #f (_-*-.5 (map-two ((lambda (mult) (lambda (r z) (coef-+ r (coef-* mult z)))) (coef-negate r-first)) r-rest z-rest) (map-one cdr mat.5)))))) (cdr mat.4))) (cdr zap-row))) (car zap-row))) (car mat.4))))) (car row.3) (cdr row.3))))) _-*-.5))) row.2 mat.3))) (row-reduce mat.2))))
+      (make-row-reduce coef-zero coef-one coef-zero? coef-+ coef-negate coef-* coef-recip))))
+
+(define make-modular-row-reduce (-> I64 (-> (List (List I64)) (List (List I64))))
+  (lambda (modulus.1) ((make-modular modulus.1) make-row-reduce)))
+
+(define make-modular-in-row-space? (-> I64 (-> (List (List I64)) (-> (List I64) Bool)))
+  (lambda (modulus) ((make-modular modulus) make-in-row-space?)))
+
+(define find-prime (-> I64 I64)
+  (lambda (bound)
+    ((lambda (primes) ((lambda (last) ((lambda (is-next-prime?) ((lambda () (if (> 2 bound) 2 (((lambda () (begin (define _-*-.4 (lambda (trial.1) (if (is-next-prime? trial.1) ((lambda (entry) (begin (prime-set-cdr! (chez-unbox last) entry) (chez-set-box! last entry) (if (> trial.1 bound) trial.1 (_-*-.4 (+ trial.1 2))))) (prime-cons trial.1 (no-primes))) (_-*-.4 (+ trial.1 2))))) _-*-.4))) 3))))) (lambda (trial) (((lambda () (begin (define _-*-.3 (lambda (primes.1) ((lambda (value.4) (if value.4 value.4 ((lambda (p) ((lambda (value.3) (if value.3 value.3 (if (not (zero? (mod trial p))) (_-*-.3 (prime-cdr primes.1)) #f))) (< trial (* p p)))) (prime-value primes.1)))) (prime-null? primes.1)))) _-*-.3))) primes)))) (chez-box primes)))
+      (prime-cons 2 (no-primes)))))
+
+(define det-upper-bound (-> I64 I64)
+  (lambda (size.3)
+    ((lambda (main-part) (if (even? size.3) main-part (* main-part (((lambda () (begin (define loop.2 (lambda (i.1) (if (>= (* i.1 i.1) size.3) i.1 (loop.2 (+ i.1 1))))) loop.2))) 0))))
+      (expt size.3 (div size.3 2)))))
+
+(define go (All (S) (-> I64 I64 (-> (List (List I64)) S S) S S))
+  (lambda (number-of-cols.2 inv-size.1 folder.3 state.6)
+    ((lambda (in-row-space?) ((lambda (make-tester) ((lambda (all-rows) ((lambda () (((lambda () (begin (define _-*-.2 (lambda (number-of-rows rev-mat possible-future state.7) ((lambda (zulu-future) (if (null? zulu-future) (folder.3 (reverse rev-mat) state.7) (((lambda () (begin (define _-**- (lambda (zulu-future.1 state.8) (if (null? zulu-future.1) state.8 ((lambda (rest-of-future) (_-**- rest-of-future ((lambda (first) ((lambda (new-rev-mat) ((lambda () (if (maximal? (reverse new-rev-mat)) (_-*-.2 (+ number-of-rows 1) new-rev-mat rest-of-future state.8) state.8)))) (cons first rev-mat))) (car zulu-future.1)))) (cdr zulu-future.1))))) _-**-))) zulu-future state.7))) (remove-in-order (if (< number-of-rows inv-size.1) (in-row-space? rev-mat) (make-tester rev-mat)) possible-future)))) _-*-.2))) 1 (list (car all-rows)) (cdr all-rows) state.6)))) (fold (fold-over-rows (- number-of-cols.2 1) cons (quote ())) (lambda (row.1 rows) (cons (cons 1 row.1) rows)) (quote ())))) (lambda (mat.1) ((lambda (tests.1) (lambda (row) (((lambda () (begin (define _-*-.1 (lambda (tests.2) (if (not (null? tests.2)) ((lambda (value.2) (if value.2 value.2 (_-*-.1 (cdr tests.2)))) ((car tests.2) row)) #f))) _-*-.1))) tests.1))) ((lambda (old-mat new-row) (fold-over-subs-of-size old-mat (- inv-size.1 2) (lambda (sub tests) (cons (in-row-space? (cons new-row sub)) tests)) (quote ()))) (cdr mat.1) (car mat.1))))))
+      (make-modular-in-row-space? (find-prime (det-upper-bound inv-size.1))))))
+
+(define go-folder (-> (List (List I64)) Best Best)
+  (lambda (mat bsize.blen.blist)
+    ((lambda (bsize size.2) (if (< size.2 bsize) bsize.blen.blist ((lambda (blen blist) (if (= size.2 bsize) ((lambda (blen.1) (best bsize blen.1 (if (< blen.1 3000) (cons (matrix-answer mat) blist) (if (= blen.1 3000) (cons (marker-answer "...") blist) blist)))) (+ blen 1)) (best size.2 1 (list (matrix-answer mat))))) (best-count bsize.blen.blist) (best-answers bsize.blen.blist))))
+      (best-size bsize.blen.blist)
+      (length mat))))
+
+(define really-go (-> I64 I64 (List Answer))
+  (lambda (number-of-cols.1 inv-size)
+    (best-answers (go number-of-cols.1 inv-size go-folder (best -1 -1 (quote ()))))))
+
+(define remove-in-order (All (T) (-> (-> T Bool) (List T) (List T)))
+  (lambda (remove? lst)
+    (reverse (fold lst (lambda (e lst.1) (if (remove? e) lst.1 (cons e lst.1))) (quote ())))))
+
+(define fold-over-rows (All (S) (-> I64 (-> (List I64) S S) S S))
+  (lambda (number-of-cols folder.2 state.5)
+    (if (zero? number-of-cols)
+      (folder.2 (quote ()) state.5)
+      (fold-over-rows
+        (- number-of-cols 1)
+        (lambda (tail.1 state.3) (folder.2 (cons -1 tail.1) state.3))
+        (fold-over-rows
+          (- number-of-cols 1)
+          (lambda (tail.2 state.4) (folder.2 (cons 1 tail.2) state.4))
+          state.5)))))
+
+(define fold-over-subs-of-size (All (T S) (-> (List T) I64 (-> (List T) S S) S S))
+  (lambda (universe size folder state)
+    ((lambda (usize) (if (< usize size) state (((lambda () (begin (define _-*- (lambda (size.1 universe.1 folder.1 csize state.2) (if (zero? csize) (folder.1 universe.1 state.2) (if (zero? size.1) (folder.1 (quote ()) state.2) ((lambda (first-u rest-u) (_-*- size.1 rest-u folder.1 (- csize 1) (_-*- (- size.1 1) rest-u (lambda (tail state.1) (folder.1 (cons first-u tail) state.1)) csize state.2))) (car universe.1) (cdr universe.1)))))) _-*-))) size universe folder (- usize size) state)))
+      (length universe))))
+
+(define-extern native-expected-i64 "benchmark" "expected_i64" (-> I64 I64))
+
+(define expected-cursor (ref 0))
+
+(define read-expected-integer
+  (lambda ()
+    ((lambda (value.1) (begin (ref-set! expected-cursor (+ 1 (ref-get expected-cursor))) value.1))
+      (native-expected-i64 (ref-get expected-cursor)))))
+
+(define read-expected-row
+  (lambda (count.4)
+    (if (= count.4 0)
+      (quote ())
+      ((lambda (head.2) (cons head.2 (read-expected-row (- count.4 1)))) (read-expected-integer)))))
+
+(define read-expected-matrix
+  (lambda (count.3)
+    (if (= count.3 0)
+      (quote ())
+      ((lambda (head.1) (cons head.1 (read-expected-matrix (- count.3 1))))
+        (read-expected-row (read-expected-integer))))))
+
+(define read-expected-answers
+  (lambda (count.2)
+    (if (= count.2 0)
+      (quote ())
+      ((lambda (head) (cons head (read-expected-answers (- count.2 1))))
+        (if (= (read-expected-integer) 0)
+          (matrix-answer (read-expected-matrix (read-expected-integer)))
+          (marker-answer (read-expected-string (read-expected-integer))))))))
+
+(define read-expected-string
+  (lambda (count.1)
+    ((lambda (value) (((lambda () (begin (define loop.1 (lambda (index) (if (= index count.1) value (begin (string-set! value index (integer->char (read-expected-integer))) (loop.1 (+ index 1)))))) loop.1))) 0))
+      (make-string count.1))))
+
+(define input0 (native-input-i64 (ann 0 I32)))
+
+(define input1 (native-input-i64 (ann 1 I32)))
+
+(define expected-false? (= (native-input-i64 (ann 2 I32)) 1))
+
+(define expected (read-expected-answers (read-expected-integer)))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (if (<= count 0)
+      (if expected-false? 1 0)
+      (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (really-go (hide count input0) (hide count input1))) (if (if (not expected-false?) (same-answers? result expected) #f) 1 0)))) loop)))
+        1
+        (really-go (hide count input0) (hide count input1))))))
+
+(unit)

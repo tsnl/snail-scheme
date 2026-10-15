@@ -1,0 +1,16 @@
+{
+  "name": "sum1",
+  "count": 25,
+  "pathnames": [
+    "inputs/sum1.data"
+  ],
+  "expected": 1,
+  "expected_datum": "15794.975",
+  "inputs": [],
+  "barriers_per_iteration": 1,
+  "setup_barriers": 0,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader"
+}

@@ -12,7 +12,7 @@ import sys
 REFERENCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REFERENCE))
 from audit_alpha import alpha_equivalent
-from suite import pinned_sources, tools
+from suite import pinned_sources, tools, chez_source
 
 # ---- Original compiler diagnostics ----
 
@@ -22,8 +22,8 @@ def digest(path):
 
 def prepare_oracles(output):
     upstream = REFERENCE.parent / "r7rs-benchmarks"
-    module, files = pinned_sources(upstream)
-    source = module.source_text(files, "compiler", "chez").rstrip()
+    files = pinned_sources(upstream)
+    source = chez_source("compiler").rstrip()
     assert source.endswith("(run-benchmark)")
     source = source[:-len("(run-benchmark)")]
     # Serialization controls are private oracle imports, not algorithm edits.

@@ -1,0 +1,14 @@
+{
+  "name": "earley",
+  "count": 1,
+  "inputs": [
+    15,
+    1,
+    2674440
+  ],
+  "expected": 1,
+  "result_kind": "i64-list-values",
+  "barriers_per_iteration": 1,
+  "setup_barriers": 0,
+  "native_heap_bytes": 1073741824
+}

@@ -1,0 +1,5 @@
+(import (sfir core))
+(define-overload f (lambda (value) (helper value)))
+(define helper
+  (lambda (value) (f value)))
+42

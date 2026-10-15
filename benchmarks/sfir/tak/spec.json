@@ -1,0 +1,11 @@
+{
+  "name": "tak",
+  "count": 1,
+  "inputs": [
+    40,
+    20,
+    11
+  ],
+  "expected": 12,
+  "barriers_per_iteration": 3
+}

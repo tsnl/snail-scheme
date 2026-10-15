@@ -1,0 +1,3284 @@
+{
+  "source_revision": "78734dd1103f450dfe2969a39dc2268358730792",
+  "one_time_converter_sha256": "056421de1dd03c214a78aad8994f24b07cb8ac227097938316b9f8dd94fa95ac",
+  "original_case_count": 307,
+  "cases": [
+    {
+      "case": "annotated-polymorphism",
+      "old_path": "tests/strict/annotated-polymorphism.scm",
+      "old_sha256": "2a83db5428324cd5f97731cfc3c3f4cb1cf1858598cfdd7abea1b69fe86d7669",
+      "path": "tests/sfir-integration/annotated-polymorphism.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "3a6b718e18e876ec1fe315ec0fd17cc64b9302531d0008bbe5729234be348b92"
+    },
+    {
+      "case": "bitwise-words",
+      "old_path": "tests/strict/bitwise-words.scm",
+      "old_sha256": "9a13c720d3ba4ead3799b5286c3314bb03e4c14edc56f585cf73a7f1c3df1cdc",
+      "path": "tests/sfir-integration/bitwise-words.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 3,
+        "explicit-lambdas": 2
+      },
+      "sha256": "d2e8c977b446a3cf4316b5cbe64de92855afc4cf0fdd1b22681b67af48a9d367"
+    },
+    {
+      "case": "bytevector-builtins",
+      "old_path": "tests/strict/bytevector-builtins.scm",
+      "old_sha256": "fef5693c4ac869a2b92163bfe6ff24b4cbe07adf4f53b760100e1cf8c4082b2c",
+      "path": "tests/sfir-integration/bytevector-builtins.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 3,
+        "explicit-or": 1,
+        "recursive-loop-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "9321ce73ab76cbc52c8212831d92e3314c65a44f34aaabed928719019c69cb42"
+    },
+    {
+      "case": "bytevector-errors",
+      "old_path": "tests/strict/bytevector-errors.scm",
+      "old_sha256": "4fa40161ef09a94ddd3a980b41b7e42f44acb944d231ce5c651e3b1d517eec4a",
+      "path": "tests/sfir-integration/bytevector-errors.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 22,
+        "attached-signatures": 21,
+        "explicit-and": 1
+      },
+      "sha256": "14d2190b65ef29533c77ab71c1343309a19a4bfd41fd919d1b5fe99f1a54bdbb"
+    },
+    {
+      "case": "bytevector-utf8-errors",
+      "old_path": "tests/strict/bytevector-utf8-errors.scm",
+      "old_sha256": "94f2577b9a7c95ef706660826fc67d2a24014dbcc0c1ded0bd1d8d334ba4c580",
+      "path": "tests/sfir-integration/bytevector-utf8-errors.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 18,
+        "explicit-lambdas": 18
+      },
+      "sha256": "4bf7fefb35cd0dadc7ce37777f74d9bd2d024dbd9850c6f6d6733d5f7e0cad2a"
+    },
+    {
+      "case": "bytevector-utf8",
+      "old_path": "tests/strict/bytevector-utf8.scm",
+      "old_sha256": "bdfc93ba91e84ff5e43ff408e6088b8ec24e6a370b31300b5086fddaa1e20581",
+      "path": "tests/sfir-integration/bytevector-utf8.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 4,
+        "explicit-or": 1,
+        "recursive-loop-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "a106d119f5b8112c027a02b79677a7afdf68c590db012497b6270a7161c2fbc8"
+    },
+    {
+      "case": "capture-in-operator-initializer",
+      "old_path": "tests/strict/capture-in-operator-initializer.scm",
+      "old_sha256": "d7291024254e86e62b59944f745f3884b37691865b4c9a357f5aa44a90c32e22",
+      "path": "tests/sfir-integration/capture-in-operator-initializer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "3c00d954165a4d669f407a1e122bd6fc94c0485d2bb1381b13fe77e9a00f4734"
+    },
+    {
+      "case": "capture-initialized-let",
+      "old_path": "tests/strict/capture-initialized-let.scm",
+      "old_sha256": "5c8d5cc903719ff31f281558945224599cd72222aabe6e408373040d663ceb3a",
+      "path": "tests/sfir-integration/capture-initialized-let.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 2
+      },
+      "sha256": "0c0d160669280c637ef1bb1506702426156fa6ef020d4131e4cb7fbe11cc2401"
+    },
+    {
+      "case": "capture-initializer-scope",
+      "old_path": "tests/strict/capture-initializer-scope.scm",
+      "old_sha256": "50ff2e00e7cc2afd401666567b054198dc3eea151b2ea2d40427b2df43aaaa92",
+      "path": "tests/sfir-integration/capture-initializer-scope.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "371b3d3bf97e4f6d22947ab42ffcc50cf07019a55cced41454ff52501c77bccf"
+    },
+    {
+      "case": "capture-let-alias-initialization",
+      "old_path": "tests/strict/capture-let-alias-initialization.scm",
+      "old_sha256": "51590659821c4d55bd245e35b66e39f396277a8416323cecec037fbba93c035d",
+      "path": "tests/sfir-integration/capture-let-alias-initialization.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 4
+      },
+      "sha256": "4eba60ff5f08df155a2fc944077488763aab4fe5ebde11d34c8b90f6f41f882e"
+    },
+    {
+      "case": "capture-recursive-alias",
+      "old_path": "tests/strict/capture-recursive-alias.scm",
+      "old_sha256": "81732ce7467d1e3c8980c8bfca3babf081ca721fd758ec4a0889b860b1ba5ecf",
+      "path": "tests/sfir-integration/capture-recursive-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 3
+      },
+      "sha256": "06c25047437ac11d27673c6a6dc26c5f0137ec8719acd0f5c63a022c55fd2ab8"
+    },
+    {
+      "case": "character-conversions",
+      "old_path": "tests/strict/character-conversions.scm",
+      "old_sha256": "ab339e15c1d225a82587f760b0c27cafd358a00698c71a4a275f282451c0c8fe",
+      "path": "tests/sfir-integration/character-conversions.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 6,
+        "attached-signatures": 5,
+        "explicit-and": 1
+      },
+      "sha256": "3ac3ed25ba9aac2609b60634ecd9730420efe59e12978e9c2b1f5267def30048"
+    },
+    {
+      "case": "character",
+      "old_path": "tests/strict/character.scm",
+      "old_sha256": "7e9b75680f1acfd8379fcb8d5d0bd9a49631c7276c5c4f486d9f65b5f43616b8",
+      "path": "tests/sfir-integration/character.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "6c1e24bb9422446892e9f14cb94b99eae4ea5910c775826b62c3e0b1ee55f1b5"
+    },
+    {
+      "case": "closure",
+      "old_path": "tests/strict/closure.scm",
+      "old_sha256": "d901e43e7c6cca6cdaf0ab926336f20ba23d3d12b99be7080f6f6d775f24f0c3",
+      "path": "tests/sfir-integration/closure.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "85d09166e0aae285438bbb8307652045e654c6abee98c9e36a50a22e2e0339aa"
+    },
+    {
+      "case": "constant-capture-readiness",
+      "old_path": "tests/strict/constant-capture-readiness.scm",
+      "old_sha256": "d5b09d56b2743f7008166b24742db319c64b7a51307ac4c2599568ed66b03865",
+      "path": "tests/sfir-integration/constant-capture-readiness.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 2
+      },
+      "sha256": "f7aaab08b65f6b42c50de2e050b3f394aa5c09a76f010f93b5b816298395ae7a"
+    },
+    {
+      "case": "constant-capture",
+      "old_path": "tests/strict/constant-capture.scm",
+      "old_sha256": "993e07156713b17cf38d656efe7b6fbaaf99c28f875c995619b0aa6f9e62c3ce",
+      "path": "tests/sfir-integration/constant-capture.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 2
+      },
+      "sha256": "1f8909e0fcf385354b0799bb823d45442207822f83aa871835e3d175fccb5d05"
+    },
+    {
+      "case": "constant-forward-read",
+      "old_path": "tests/strict/constant-forward-read.scm",
+      "old_sha256": "e2b83af5f2e8553a8e86ce1ba33d0b820dc044fc71fcdf0100cdef99159f2ac8",
+      "path": "tests/sfir-integration/constant-forward-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "24d409f65a5a949b88f8e58267d78e90b93ae25ef49c7797b1d57c5f12612f47"
+    },
+    {
+      "case": "data-accessor-case",
+      "old_path": "tests/strict/data-accessor-case.scm",
+      "old_sha256": "e198ea2f448de16630079f4fc39cfa563b21d2e86dd9b524b55ea3270888b90a",
+      "path": "tests/sfir-integration/data-accessor-case.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "61e1d9187467150b23c2f6203f7d70ba18cf35f0ee5e5e5da3bdc52461af63ac"
+    },
+    {
+      "case": "data-accessor-trap",
+      "old_path": "tests/strict/data-accessor-trap.scm",
+      "old_sha256": "b4bde356481bcffd153d8f64ded13889753e09c88cb9466c54109fc27178247e",
+      "path": "tests/sfir-integration/data-accessor-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "f8ed86dddfbb9c279cecf995e3a93218dff75648df15a35780c7aa72ac7a6988"
+    },
+    {
+      "case": "data-alias-initializer",
+      "old_path": "tests/strict/data-alias-initializer.scm",
+      "old_sha256": "a4e653775de4cc84b62504db0573dddd467a0848848ad1040c6cd5904e5feccd",
+      "path": "tests/sfir-integration/data-alias-initializer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9b5e2863e903e6bfe3ca84f7e852a13279e9567ce203da39c2012be00f1df3fc"
+    },
+    {
+      "case": "data-alias-readiness",
+      "old_path": "tests/strict/data-alias-readiness.scm",
+      "old_sha256": "7aed1cd4cda2a50e1132e5952130816ee7deb9354ff6b87e26f2cbd086617d0b",
+      "path": "tests/sfir-integration/data-alias-readiness.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "a0f8cf1485d44ccf1c36748159b1c1435ca798719db6354c8ea6f981a8339024"
+    },
+    {
+      "case": "data-callables",
+      "old_path": "tests/strict/data-callables.scm",
+      "old_sha256": "a9f83a0bde865a8b0a712d0744d739a7aca185ee3c5e7234151c1890d583e7f1",
+      "path": "tests/sfir-integration/data-callables.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "724209daf712e699a9f851de2e6a458f630825845501bac965acf4d7269ad7b5"
+    },
+    {
+      "case": "data-default-constructor",
+      "old_path": "tests/strict/data-default-constructor.scm",
+      "old_sha256": "58d32fd88715d8d08833ce09b8a77c36dba20ef59f6712c424e5b83750039494",
+      "path": "tests/sfir-integration/data-default-constructor.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ddad4288028eae5a77cf332f99d1205315261d43393d1599145e9e741e370f16"
+    },
+    {
+      "case": "data-default",
+      "old_path": "tests/strict/data-default.scm",
+      "old_sha256": "dce77d9bcde50af5a44337ed93affe48593b8f4a01bbcfacb330365130550678",
+      "path": "tests/sfir-integration/data-default.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "6bf992f00d65402f5d5f4e48cec9b8553e5686eb6b1879fd8756c0b0d062cc5b"
+    },
+    {
+      "case": "data-empty-alias-readiness",
+      "old_path": "tests/strict/data-empty-alias-readiness.scm",
+      "old_sha256": "8eaabfaa647d28a2d187da6814225b1d7019c7afec0ba648d6466870260bb4c2",
+      "path": "tests/sfir-integration/data-empty-alias-readiness.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "d5679d6e610d3dbe4227959958fcaa86500656c4bbe0a14e349504a090399267"
+    },
+    {
+      "case": "data-empty-cases",
+      "old_path": "tests/strict/data-empty-cases.scm",
+      "old_sha256": "c804f7c5a42989b459789ccfba568b9b23169ece87ca5dd68143344186e2bb8e",
+      "path": "tests/sfir-integration/data-empty-cases.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "6e9e67da9360fc2ef7a3c4dc65072fbbfab675fcdd8427b0d6e806a17477a7a5"
+    },
+    {
+      "case": "data-empty-top",
+      "old_path": "tests/strict/data-empty-top.scm",
+      "old_sha256": "6adc1ea52615f637ee4f9c547b93d0e8846e7e3427bf8168d61d6a5b48ebda5b",
+      "path": "tests/sfir-integration/data-empty-top.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 3,
+        "explicit-lambdas": 3
+      },
+      "sha256": "3119fb06046b75c485f9220249f33df269d17bb9c44254a0a4b645d69b9de933"
+    },
+    {
+      "case": "data-explicit-tree",
+      "old_path": "tests/strict/data-explicit-tree.scm",
+      "old_sha256": "943a1f80b625ef04f8b48f6cba5dfc785fc4a0cd8e02f9fb2a4fc36ad90e5522",
+      "path": "tests/sfir-integration/data-explicit-tree.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "ba665cd2bb805ea90c54b5d8d5a80d0ce1b9232d4a19600327ae2b4c02c330cf"
+    },
+    {
+      "case": "data-finite-arguments",
+      "old_path": "tests/strict/data-finite-arguments.scm",
+      "old_sha256": "4bc48fad806b8f47ea8062d869c0d52e612e6df17a1dc58ca2303e3a3f7320d4",
+      "path": "tests/sfir-integration/data-finite-arguments.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "8910f4b80ee0ca7103f0db578e29e893dc06e65e23fde080c326d1e972001336"
+    },
+    {
+      "case": "data-forward-constructor",
+      "old_path": "tests/strict/data-forward-constructor.scm",
+      "old_sha256": "208fd7df2fc1e1d6f6ff08c74fda3309ecaef52dfa8762a64fa2004deb8088da",
+      "path": "tests/sfir-integration/data-forward-constructor.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "72610ee08c903c1e609eab91893affa28368e00964f318eaaa26f1d841b6e4da"
+    },
+    {
+      "case": "data-gcbench",
+      "old_path": "tests/strict/data-gcbench.scm",
+      "old_sha256": "0d8a1b8f02c0e2ba5a99bc644924b15137e26765e452adebc2eab19665f46f23",
+      "path": "tests/sfir-integration/data-gcbench.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 5,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "0c7e087efe1d40519912e47d1cd106010b5a0529c780d864b492c635f47b1c75"
+    },
+    {
+      "case": "data-hygiene",
+      "old_path": "tests/strict/data-hygiene.scm",
+      "old_sha256": "0c4258fca87461741296e765671bc605c30f16e6c3478a66c336f5a72ff15061",
+      "path": "tests/sfir-integration/data-hygiene.sfir",
+      "conversion": "Former macro-generated behavior is authored directly with explicit lexical/overload identities.",
+      "transformations": {},
+      "sha256": "77377000f41a2a729a504db9bafaabd5561d0c3b3056c9b00f5e118b27da72ca"
+    },
+    {
+      "case": "data-initialization-trap",
+      "old_path": "tests/strict/data-initialization-trap.scm",
+      "old_sha256": "73b75d151b3e329797ab4d8f7baf5eac433b4b5c2e6f83c891c14c514a40a644",
+      "path": "tests/sfir-integration/data-initialization-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "775f1917dec4759eba537991b315220f0bc404738c5f289f44ecc0fac42a2a85"
+    },
+    {
+      "case": "data-match-capture",
+      "old_path": "tests/strict/data-match-capture.scm",
+      "old_sha256": "fbe387fd3f0765b69e8b1fe21098da8093612d2c00a0047687f26d0b9a176907",
+      "path": "tests/sfir-integration/data-match-capture.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "b4f63f8d2314ddbed7199ea798a035f303a0f66454cad57b92439e2e20bed09d"
+    },
+    {
+      "case": "data-match-once",
+      "old_path": "tests/strict/data-match-once.scm",
+      "old_sha256": "eb21773dfcb57e668508a9ab286a66ca4af794dd0ab694201ead6899e6374555",
+      "path": "tests/sfir-integration/data-match-once.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "50a93b7831fa2118452f89496db834468b5701895a8acdc0c859f8db1af618f2"
+    },
+    {
+      "case": "data-mutual-containers",
+      "old_path": "tests/strict/data-mutual-containers.scm",
+      "old_sha256": "84e509139801d0947f9939cc0a670911af50d09c5cfd90203b2301f05e22561c",
+      "path": "tests/sfir-integration/data-mutual-containers.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-quotes": 3
+      },
+      "sha256": "5f48bebd642f355e32fae718d8e2c31b93ccac38ed15ae54d1364745d845a2a6"
+    },
+    {
+      "case": "data-native-fields",
+      "old_path": "tests/strict/data-native-fields.scm",
+      "old_sha256": "d1b6efd5553e5e80e5ef531970fb192b245dff2b9a60521384a5c2746823344f",
+      "path": "tests/sfir-integration/data-native-fields.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "60974a4e236c14eeb896eb673fdbf042ca916a876ff059dd41f78fa9802b8eed"
+    },
+    {
+      "case": "data-never-accessor",
+      "old_path": "tests/strict/data-never-accessor.scm",
+      "old_sha256": "02b642962b3ca9e75e9e744883d43960eef8bdd5fc1a5de499a20343caedb8d2",
+      "path": "tests/sfir-integration/data-never-accessor.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e8501c9d8555c4a05c133bcb3e42b271b93f2b039b8fad3d70c8dee1b15f7e51"
+    },
+    {
+      "case": "data-never-argument",
+      "old_path": "tests/strict/data-never-argument.scm",
+      "old_sha256": "200b8459dc882bac166340f60861b82b722629af2fc6bc912e4ee3cabfe939fb",
+      "path": "tests/sfir-integration/data-never-argument.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "f369953baf57c8fdb1db73e4b580db805aaab6d9711540132eb672f816d91805"
+    },
+    {
+      "case": "data-never-arm",
+      "old_path": "tests/strict/data-never-arm.scm",
+      "old_sha256": "4a03dd8c9df0e581e253aa52bc19cd6aae980de0a37402c7a0b0632a2fd391c5",
+      "path": "tests/sfir-integration/data-never-arm.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "25b6a285cb0e220ef9679d01c81ce027138d4b21349a16d6ff8f85b62f04f90b"
+    },
+    {
+      "case": "data-never-effects",
+      "old_path": "tests/strict/data-never-effects.scm",
+      "old_sha256": "003889d6c2f210db6923cf369b7a41c38debf7ea235b7c7d03ee4395684d21a6",
+      "path": "tests/sfir-integration/data-never-effects.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "bc278d941fc7c9a7f8afbf734f3643f3db359f0c60dd5b7cf8a7e912cdb451d0"
+    },
+    {
+      "case": "data-never-field",
+      "old_path": "tests/strict/data-never-field.scm",
+      "old_sha256": "c990a0dde4cfc6059887da8cac05a1714456d9f27fc23866542b01e940ef7484",
+      "path": "tests/sfir-integration/data-never-field.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "11f576a2b206b9d37fc12f19d29459548a988c4d0aceae3f501d6dee02072f2a"
+    },
+    {
+      "case": "data-never-match",
+      "old_path": "tests/strict/data-never-match.scm",
+      "old_sha256": "4ccd56e184f08184a4880e4075d641aafb8950f048f0c56e3d5bf6045858ebf8",
+      "path": "tests/sfir-integration/data-never-match.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "065ed1c1b51316bc042cbed464256901eaa4b1245b1ed397152d070c29457c04"
+    },
+    {
+      "case": "data-paraffins",
+      "old_path": "tests/strict/data-paraffins.scm",
+      "old_sha256": "e28dbf13b44b4f27c278c8ba725faf7e103f6b0cd01ed05be9fc58856547ce9d",
+      "path": "tests/sfir-integration/data-paraffins.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 9,
+        "explicit-quotes": 7,
+        "recursive-loop-blocks": 17,
+        "nested-sequential-lets": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "a870d730675ceffcb592af75fb2c684c45aeb4f694df1e1c1bf1c3fd448a9376"
+    },
+    {
+      "case": "data-record",
+      "old_path": "tests/strict/data-record.scm",
+      "old_sha256": "1beac6bee4a19232942a8ec6238ae6e05e5b4ecfd39f635e40285d400f7ab7bd",
+      "path": "tests/sfir-integration/data-record.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ef70b3fb889f8d956dfa9d015cec0fefbaeb2396315bca9fc77ca1e927c5e286"
+    },
+    {
+      "case": "data-ref-alias",
+      "old_path": "tests/strict/data-ref-alias.scm",
+      "old_sha256": "0c485ef151510cb79b2d58a05ea3de73dc21f60720a6b0b7f4cfd631317e65fe",
+      "path": "tests/sfir-integration/data-ref-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "1889671af604f53a049e8aed2788d340a640a49ca1bbb01d3c91575fabc95ff8"
+    },
+    {
+      "case": "data-scope",
+      "old_path": "tests/strict/data-scope.scm",
+      "old_sha256": "e5787bb22e574e0dc7b42ecde4ac178d8ddd20171a7ce465915fdd824c0c8a6a",
+      "path": "tests/sfir-integration/data-scope.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "ed9907481ed9d3ed1c4443bf5dc20d2a5fff56e4d5588de3fb0d8a3bf3299c57"
+    },
+    {
+      "case": "data-top-arguments-trap",
+      "old_path": "tests/strict/data-top-arguments-trap.scm",
+      "old_sha256": "ebe7202e92bd5db8248d0eb944b760f5ac9084024312805b9f411871b58429de",
+      "path": "tests/sfir-integration/data-top-arguments-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "445789b682178a831718bda2e6fcc5bbb0968651a59b4d885a27219c9f6d0529"
+    },
+    {
+      "case": "data-top-nested-trap",
+      "old_path": "tests/strict/data-top-nested-trap.scm",
+      "old_sha256": "549e443c4d8d7452315b73997c47d82ec790847543ae249615a863536b1d41b7",
+      "path": "tests/sfir-integration/data-top-nested-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ec9950665d14ca5b895d88c39a185f8dde1c7e70b39863f8549d08da1796bce3"
+    },
+    {
+      "case": "data-top-nominal-trap",
+      "old_path": "tests/strict/data-top-nominal-trap.scm",
+      "old_sha256": "6cea910925d339ff469c53604edd91216daedb6df5c5ec49fe843958c6383780",
+      "path": "tests/sfir-integration/data-top-nominal-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "56e3acd3d90a717237b4d2d778437e6c130624ef8b93df6b5ceefafa69345b4e"
+    },
+    {
+      "case": "data-top-roundtrip",
+      "old_path": "tests/strict/data-top-roundtrip.scm",
+      "old_sha256": "e890f98e6f20ecb14949756bce15d750d5cac5cdb9532eff6e7d4a51194e24ef",
+      "path": "tests/sfir-integration/data-top-roundtrip.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ac0a563961750bc4b1fc4654fd4f447a13560b40be0b37f5c7e15c642f4722ed"
+    },
+    {
+      "case": "data-tree",
+      "old_path": "tests/strict/data-tree.scm",
+      "old_sha256": "7f129959b422397c3c7d1f14a81358cc91fc4c0a0cb48504967df248c486d058",
+      "path": "tests/sfir-integration/data-tree.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "58bedf8f664cbb3356dbf4b87748616e22f338e3e12bf42ba5a393fc7db43b0d"
+    },
+    {
+      "case": "delayed-forward-read",
+      "old_path": "tests/strict/delayed-forward-read.scm",
+      "old_sha256": "6b66edee8d59ef888bb2516faec7200ecc2c2f4cf1ea55cca8059e8e8ad26096",
+      "path": "tests/sfir-integration/delayed-forward-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "591608807317cee05a24c9dc9665d41adaea0850175375786ce59e9607d59831"
+    },
+    {
+      "case": "dependency-diamond",
+      "old_path": "tests/strict/dependency-diamond.scm",
+      "old_sha256": "044b9e4dc0ff7ede792407bada9c32391c3b0abfaf3d63456880f4d3a4f4da3a",
+      "path": "tests/sfir-integration/dependency-diamond.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "7087b9736a6c1a031198b286d45120f94d5cd5763f596d3b5aec6771b7862eeb"
+    },
+    {
+      "case": "direct-activation-cells",
+      "old_path": "tests/strict/direct-activation-cells.scm",
+      "old_sha256": "d2d89bc7a74405db41622d24a2b07739c629955a76e8cfb54c0e2ddc47b8176c",
+      "path": "tests/sfir-integration/direct-activation-cells.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "5737e7fb63d823781a40ce72f78fbc0826dd110a3a7e2bfd9640c7fcf16ac775"
+    },
+    {
+      "case": "direct-deferred-captures",
+      "old_path": "tests/strict/direct-deferred-captures.scm",
+      "old_sha256": "f676b64893183b33ccb58486a721aa74ee740251f198bbebe502eac6522ac092",
+      "path": "tests/sfir-integration/direct-deferred-captures.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "40d7ebacc9ded07a2319374d6d5c113250064aab3a8eec659d1c4fdc358a929f"
+    },
+    {
+      "case": "direct-early-call-order",
+      "old_path": "tests/strict/direct-early-call-order.scm",
+      "old_sha256": "d65f7597590a1667e461f82360f16229b3666b932673f7b7d6816f3470d4a4b4",
+      "path": "tests/sfir-integration/direct-early-call-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 4,
+        "attached-signatures": 2
+      },
+      "sha256": "418ad430037c0a438c504f90eeb182225cd736b20bb5de7607aa33de8e96d20c"
+    },
+    {
+      "case": "direct-early-read-order",
+      "old_path": "tests/strict/direct-early-read-order.scm",
+      "old_sha256": "6ac0697a5a2be1503ac0cab2b883cae3685e0015eaf64a5d8bce3f628e982971",
+      "path": "tests/sfir-integration/direct-early-read-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 3
+      },
+      "sha256": "61ac68ccad4c0b6b32eac17799978052167e2deb07094f21556b9a9b80505a90"
+    },
+    {
+      "case": "direct-escaping-alias",
+      "old_path": "tests/strict/direct-escaping-alias.scm",
+      "old_sha256": "95ae662d2ea6c7c39080e72a257cbcc3a87cd3640e3e70cfc4d401455126898b",
+      "path": "tests/sfir-integration/direct-escaping-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "cceb1ed7082f95afca2d1a5a78e94835519bf2f3d0bdeb2db41694ed8a8b1c2f"
+    },
+    {
+      "case": "direct-escaping-chain",
+      "old_path": "tests/strict/direct-escaping-chain.scm",
+      "old_sha256": "c7e13e2421bc06d31f73b46e7d1f22037d62442ce01c425b6ea64871d7d1ad0c",
+      "path": "tests/sfir-integration/direct-escaping-chain.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "28bda13c66270ad433318f836c83b7a853fd824b66e308ca3ad51ff7e8cfb585"
+    },
+    {
+      "case": "direct-escaping-readiness",
+      "old_path": "tests/strict/direct-escaping-readiness.scm",
+      "old_sha256": "b9f55b0b52270f9fd6a5e8d11bb6840f78b61ef95fd13968a2b09adcc1a199dc",
+      "path": "tests/sfir-integration/direct-escaping-readiness.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 6,
+        "attached-signatures": 4
+      },
+      "sha256": "6b9964f531061275149daa6a4687f51b4b8ad90c8224cb0f002786e26ea2ef07"
+    },
+    {
+      "case": "direct-shadowed-reference",
+      "old_path": "tests/strict/direct-shadowed-reference.scm",
+      "old_sha256": "c97c5a5ef3e293d6a7ebaf013d173f7950f515c207d0904aa0982422e80cf8cd",
+      "path": "tests/sfir-integration/direct-shadowed-reference.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 3,
+        "explicit-lambdas": 4
+      },
+      "sha256": "6d4724cbed807c3f13a540ad7ab0da81ab057c8edef7687ca779ebef7e162f58"
+    },
+    {
+      "case": "direct-structured-alias-read",
+      "old_path": "tests/strict/direct-structured-alias-read.scm",
+      "old_sha256": "d223f8ad9add5e7f90e420e3d098a2c6a4a0f286fee612b86b8723f7b9e6bf0b",
+      "path": "tests/sfir-integration/direct-structured-alias-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 3,
+        "explicit-lambdas": 4,
+        "attached-signatures": 2
+      },
+      "sha256": "3c9ab7e43b9e04232deecf5a38373a9aa7f4bb31af43f0ca94f9a7799dbf37a5"
+    },
+    {
+      "case": "direct-structured-early-read",
+      "old_path": "tests/strict/direct-structured-early-read.scm",
+      "old_sha256": "5e3c0205a9bb418b48a99868b854e3e0a77bfce7624a4bd5ff2cc206459cf6e3",
+      "path": "tests/sfir-integration/direct-structured-early-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 4,
+        "attached-signatures": 2
+      },
+      "sha256": "3ea413f29bc2d32e2846a20ef0aa1504d112ab54f92101a1637b7a795d8c561f"
+    },
+    {
+      "case": "direct-structured-escaping",
+      "old_path": "tests/strict/direct-structured-escaping.scm",
+      "old_sha256": "3d37b95a370fd3fdb612794bab164957c6f16ff76df62b53d80b6560200fd61d",
+      "path": "tests/sfir-integration/direct-structured-escaping.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 6,
+        "explicit-lambdas": 8,
+        "attached-signatures": 2,
+        "explicit-and": 1
+      },
+      "sha256": "466b84feee7080487b2f5efe36b03ad52c6edf505aac7e5b62e4690bf9dbc264"
+    },
+    {
+      "case": "direct-structured-order",
+      "old_path": "tests/strict/direct-structured-order.scm",
+      "old_sha256": "bcc1e40e9396f557b440ff94fced58fc773080dedfa6f62cf57450e671d68043",
+      "path": "tests/sfir-integration/direct-structured-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 3,
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "d2b5a7662039da0882a4c353408a8706d426cc0647a9b4060dfacb3f2f6ff898"
+    },
+    {
+      "case": "direct-structured-scope",
+      "old_path": "tests/strict/direct-structured-scope.scm",
+      "old_sha256": "38e5f24ebf1367fbac28f48d8caa9ac80c90b7f16afcdfca317c63f15fb70124",
+      "path": "tests/sfir-integration/direct-structured-scope.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "7a7a8dc5b570464ee988b8e017bdf55b34efa8aa9958332cbe7533d8cbf0a5e0"
+    },
+    {
+      "case": "direct-structured-tail",
+      "old_path": "tests/strict/direct-structured-tail.scm",
+      "old_sha256": "9bd68029c66298805735a17a89c26a9d9de3e17304b3f4022a418641efec4724",
+      "path": "tests/sfir-integration/direct-structured-tail.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-when": 1,
+        "explicit-body-blocks": 4,
+        "explicit-lambdas": 4,
+        "recursive-loop-blocks": 1
+      },
+      "sha256": "08589b28c75d81b7934ff979c33f0309e344414d2058e213d73402da4ed9cfd7"
+    },
+    {
+      "case": "direct-structured-value-uses",
+      "old_path": "tests/strict/direct-structured-value-uses.scm",
+      "old_sha256": "83ad8dd13d27d9d5d2a1ba367c667a00f9683dc328950fc4191ef3cc5381b3cf",
+      "path": "tests/sfir-integration/direct-structured-value-uses.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 4,
+        "explicit-body-blocks": 2,
+        "explicit-and": 1
+      },
+      "sha256": "701e2d90ae404dbb0f4f2f76768b737647ef323724a97fe141037d6fa7870334"
+    },
+    {
+      "case": "direct-tail-rest",
+      "old_path": "tests/strict/direct-tail-rest.scm",
+      "old_sha256": "c2ef74009b389a66ebdbb6242cdb9800bde31a0a544e3ee126d0cb48a839ba90",
+      "path": "tests/sfir-integration/direct-tail-rest.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 3,
+        "explicit-when": 1,
+        "explicit-body-blocks": 3,
+        "explicit-lambdas": 5,
+        "explicit-unless": 1
+      },
+      "sha256": "b2497158d4528370a152142a2e62aae7f366de98d047b5332f0b6521175341f4"
+    },
+    {
+      "case": "explicit-instantiation",
+      "old_path": "tests/strict/explicit-instantiation.scm",
+      "old_sha256": "8da62836957398c76b064bd49bb98296cbb600c2c00defdab9abaf86ab949d19",
+      "path": "tests/sfir-integration/explicit-instantiation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "a23d1ca725c5f361edd72d92e1b6bbffdbfdc161c9705834709df8753667164f"
+    },
+    {
+      "case": "explicit-ref-annotation",
+      "old_path": "tests/strict/explicit-ref-annotation.scm",
+      "old_sha256": "e7d9384256071e6952e471d51b558e39a873ef8fa249d1a39ff6a387e6946637",
+      "path": "tests/sfir-integration/explicit-ref-annotation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "c00ef256e89d06019c7839f35242ec52439270c5feefe3cc80c65f4a9344db62"
+    },
+    {
+      "case": "float32",
+      "old_path": "tests/strict/float32.scm",
+      "old_sha256": "b6812cb23483e91db597ef894be474ad1e2cb7ffed1acea2726fde5438843409",
+      "path": "tests/sfir-integration/float32.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "cff752afad03b81b48ed3c9dff9b5bb2ce75e40f28a6fc3915d4731f1b8b4959"
+    },
+    {
+      "case": "float64",
+      "old_path": "tests/strict/float64.scm",
+      "old_sha256": "6e7cd75cc70a82d259f37bbb29dfb34a14fb5aa55d971377e3fc254b81791858",
+      "path": "tests/sfir-integration/float64.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "579420fc2d2dad44ce6b86db2735e8f86f5be07a00cd5b1921fba13864f4f1f3"
+    },
+    {
+      "case": "global-creation-owner",
+      "old_path": "tests/strict/global-creation-owner.scm",
+      "old_sha256": "9da9ab6247cf31d213bfe282d9bf11860ba23349278c71395aa3bad64772c37c",
+      "path": "tests/sfir-integration/global-creation-owner.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "fe4174bfa71696b376e5391524e22d6d162f39fe92b4ca8bb2b27802ebb7457d"
+    },
+    {
+      "case": "higher-order",
+      "old_path": "tests/strict/higher-order.scm",
+      "old_sha256": "1225c660e93c27742e61f86fa1a0cbe109f29f26cbf36faf185c2ca63b26e894",
+      "path": "tests/sfir-integration/higher-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2
+      },
+      "sha256": "37f9bcb9e9d00b89d9a7e4242b1e60fe83cbf497f3499d58bca7c6d8e3265f8e"
+    },
+    {
+      "case": "inferred-polymorphism",
+      "old_path": "tests/strict/inferred-polymorphism.scm",
+      "old_sha256": "6d7e1d3f4c26cffe675ffab8ca0e295513d3054ae322b5c5a6dfa6d6c47f7ecc",
+      "path": "tests/sfir-integration/inferred-polymorphism.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "6315282e64c2fa9d748d573afd5eefc15fcbb392ad52491dff9e1ed3bd1de6ec"
+    },
+    {
+      "case": "inferred-typeclass",
+      "old_path": "tests/strict/inferred-typeclass.scm",
+      "old_sha256": "381d6acd96ce0cfae5f787b58274aa3ab8fe234c2e701bad4fe0fb3fbab721f1",
+      "path": "tests/sfir-integration/inferred-typeclass.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "e619f3fa0f7af49b250bffdf572f556527f36d0aec98aaf2a8420a65b012fa54"
+    },
+    {
+      "case": "let-caller-scope",
+      "old_path": "tests/strict/let-caller-scope.scm",
+      "old_sha256": "0b62eca89e0ac2019f240d7d3af7b304aad90f10d816c6169e4390898fd3a75a",
+      "path": "tests/sfir-integration/let-caller-scope.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "6f8a2230e412555534952234a7434bd9326864d3e10f2712bf8f42d00e3b6ed3"
+    },
+    {
+      "case": "let-initializer-order",
+      "old_path": "tests/strict/let-initializer-order.scm",
+      "old_sha256": "bf835e941cadba72a260c734725f121426149baf60f0b525bd5a59bff3b25e04",
+      "path": "tests/sfir-integration/let-initializer-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "d06cd5f555e9cb9a3221d518949c2a15573ddc69d1c51c7680dd37e04f7d8428"
+    },
+    {
+      "case": "let-polymorphism",
+      "old_path": "tests/strict/let-polymorphism.scm",
+      "old_sha256": "eef4cfb2a2bad127f3434bbdf756d8ed697f07c883006d2f92429e686df51342",
+      "path": "tests/sfir-integration/let-polymorphism.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "04010cc1d17ea60d323ad97e25aae14440d8707d095f11926a254e9a5d196323"
+    },
+    {
+      "case": "local-specialized-state",
+      "old_path": "tests/strict/local-specialized-state.scm",
+      "old_sha256": "16decd36b24bc025bbc3a72dcd4f1b38399e9c0ced2e81ca9173558f06d302f4",
+      "path": "tests/sfir-integration/local-specialized-state.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 1
+      },
+      "sha256": "1d6d79f063776177659ffd059cb55c71826fa2be9c261335da089288a51d64d7"
+    },
+    {
+      "case": "mutual-recursion",
+      "old_path": "tests/strict/mutual-recursion.scm",
+      "old_sha256": "2463ee0cb2bdd5d4879c5f09e677e65940b7efd519cf68cebb6121c92c91adce",
+      "path": "tests/sfir-integration/mutual-recursion.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2
+      },
+      "sha256": "d991e38aac95ec01ff41d794568b4fa92c722c6a015557e9f5c5364f6d0da16e"
+    },
+    {
+      "case": "mutual-recursive-capture",
+      "old_path": "tests/strict/mutual-recursive-capture.scm",
+      "old_sha256": "f1af10b3cca7fa3e7da0454916ce811c63a26a470c0ceacbfbf13de033c15e57",
+      "path": "tests/sfir-integration/mutual-recursive-capture.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "8522a0fd492d30860742d97a7cf69f0fcab4083ba9d1df82d2ddef0467fba136"
+    },
+    {
+      "case": "never-branch",
+      "old_path": "tests/strict/never-branch.scm",
+      "old_sha256": "d8d38ffe1c74ba8cecaeb9f19339ffd2f612ae1ec151b36f0ad9e5d887b9e38f",
+      "path": "tests/sfir-integration/never-branch.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "adb60480f14364d03bfb84415ea45144437396a7f272174432c4c6ec786fd971"
+    },
+    {
+      "case": "never-call",
+      "old_path": "tests/strict/never-call.scm",
+      "old_sha256": "3deee16db8930c6691790b536324fb855fa79ff9c7d40c34672a72d377288b49",
+      "path": "tests/sfir-integration/never-call.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "496168c58926c779d60ce5767fc639dd58a0a31844767e05ba983688f68b888c"
+    },
+    {
+      "case": "never-list",
+      "old_path": "tests/strict/never-list.scm",
+      "old_sha256": "87f184eeb23611e8619ffe98d74f73674429e90e5dfac78be2cf140d3ea680c6",
+      "path": "tests/sfir-integration/never-list.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-quotes": 1
+      },
+      "sha256": "397fe2683b576893e2a60332d17d641158e95a097d2a9c06f7213bddf70134bc"
+    },
+    {
+      "case": "numeric-classes",
+      "old_path": "tests/strict/numeric-classes.scm",
+      "old_sha256": "d67f0562669b482f7e4aa907268e019c772eda72aac2be0ffe63a65ec1cc3a25",
+      "path": "tests/sfir-integration/numeric-classes.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 3,
+        "explicit-and": 1
+      },
+      "sha256": "1c920d243e6badf60e27fb8eed915866f07d055e769a65de76fb3f54e02c749d"
+    },
+    {
+      "case": "numeric-conversion-trap",
+      "old_path": "tests/strict/numeric-conversion-trap.scm",
+      "old_sha256": "15b1280348e839db6b4815f5d9a5c2c8d5dc433e602531fc49eeac7c3cfffe71",
+      "path": "tests/sfir-integration/numeric-conversion-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "3c8f65ebe27ada7686da55c39fbb6e268bd912297a40a2907627c940ef4cc46b"
+    },
+    {
+      "case": "numeric-conversions",
+      "old_path": "tests/strict/numeric-conversions.scm",
+      "old_sha256": "0c20b8fed34f269f3e038835a09b32df98671c62327aaefbcb77e04b70731454",
+      "path": "tests/sfir-integration/numeric-conversions.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "4d01287e1cf62b7d03f8dfaab7dd9e667d9d7b52134d1ac17c9a7039d39fd2ce"
+    },
+    {
+      "case": "numeric-division-overflow",
+      "old_path": "tests/strict/numeric-division-overflow.scm",
+      "old_sha256": "5cf7665f37cff51661ca2d8cac0da8df8f3d9296ceddd182550d37b30a985454",
+      "path": "tests/sfir-integration/numeric-division-overflow.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "0df0c31b305af9c53edcff07be639f2509d9d77277e59521142bbd515a93d922"
+    },
+    {
+      "case": "numeric-float-edges",
+      "old_path": "tests/strict/numeric-float-edges.scm",
+      "old_sha256": "a3baf57b5e69bbaddc4dc4fa45094d7cf85b7bcf8704469670c62577d5828e44",
+      "path": "tests/sfir-integration/numeric-float-edges.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 2,
+        "explicit-lambdas": 1
+      },
+      "sha256": "37fced53ff83025457a4874b2d338eeb79b0be4d75884d2462ac742c7e13c46f"
+    },
+    {
+      "case": "numeric-integer-edges",
+      "old_path": "tests/strict/numeric-integer-edges.scm",
+      "old_sha256": "a6dd515fd7e78f92efac13ab2f91edc981d98dda1e6059291cc7ebfd9297b387",
+      "path": "tests/sfir-integration/numeric-integer-edges.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "cae119fd836e2da8e9a7d28073ff885b7754c0ca288018b1abe56789709641c7"
+    },
+    {
+      "case": "numeric-method-values",
+      "old_path": "tests/strict/numeric-method-values.scm",
+      "old_sha256": "3e4275f85700ab2d229a770811dbacba970d46a7660227759bdbb8879d54946b",
+      "path": "tests/sfir-integration/numeric-method-values.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-and": 1
+      },
+      "sha256": "d69e9cd4c92c116a20de81b4d3079e676ed93dd9c0912338e4cce17ed427b70e"
+    },
+    {
+      "case": "numeric-operand-order",
+      "old_path": "tests/strict/numeric-operand-order.scm",
+      "old_sha256": "2ffc8749e1f0a92089842104be01766c8b0f3c48b14088b9ae6c44b0c25d4c3e",
+      "path": "tests/sfir-integration/numeric-operand-order.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 2,
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "cc0bb06a48a0a90dff03e4e514150a528866f9736ced2e0b5edf0c6c0a81b721"
+    },
+    {
+      "case": "numeric-truncate",
+      "old_path": "tests/strict/numeric-truncate.scm",
+      "old_sha256": "ec0845ad679440b7d81d029aa43caa4c1c319230fbe8592db41ed25c8d1d89e2",
+      "path": "tests/sfir-integration/numeric-truncate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "3747df106ae6b406719a8b57435acac0ff0de45632f662e7aa0ca6b213293ac1"
+    },
+    {
+      "case": "overload-abstract-premise",
+      "old_path": "tests/strict/overload-abstract-premise.scm",
+      "old_sha256": "ffa47d286db53e7837da4f2cee86295b585a057b7373afadb03dec0fc56611fd",
+      "path": "tests/sfir-integration/overload-abstract-premise.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "2020feab4a36b14026ba0252930e1b6c1ebf349ee71f8e97936e18f7b315d1da"
+    },
+    {
+      "case": "overload-arities",
+      "old_path": "tests/strict/overload-arities.scm",
+      "old_sha256": "5a0f0ddb5814165093e30b6e79275e406d65b76c6d6c4b313bf3452ff948944d",
+      "path": "tests/sfir-integration/overload-arities.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "d8295a80045686a875ef9ca32f089ada228b4f916800aaef14d9d2450de5f03d"
+    },
+    {
+      "case": "overload-explicit-view",
+      "old_path": "tests/strict/overload-explicit-view.scm",
+      "old_sha256": "05429eebe2892d048d2739a588caf6436d50b3fdaad6f70019e8a25d28a5216f",
+      "path": "tests/sfir-integration/overload-explicit-view.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "f1ffcb72a6d1aad5b599a8ad818d963a5ab8d7384cedb31e2d93a08300fc768e"
+    },
+    {
+      "case": "overload-first-class",
+      "old_path": "tests/strict/overload-first-class.scm",
+      "old_sha256": "bd589a691d28e207d95c12a8fe86074c7bd0b31919bc5af76df303b2858e37c5",
+      "path": "tests/sfir-integration/overload-first-class.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "af151f32fa2d47859ab98c892a09a543292cda547cc0b509a6d49da0470d8e02"
+    },
+    {
+      "case": "overload-forward-read",
+      "old_path": "tests/strict/overload-forward-read.scm",
+      "old_sha256": "c3e98aa024a17dc8575e24771dcee1a30dd7943413d83cff41de838074abfd66",
+      "path": "tests/sfir-integration/overload-forward-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "a051a00195d3c7f63e35d928cf94fa05abd3f826fb70f7370d5adc82900a2a51"
+    },
+    {
+      "case": "overload-generic-named",
+      "old_path": "tests/strict/overload-generic-named.scm",
+      "old_sha256": "80bcca7062e8579616b73d92a186fe6e48bb75b0768a6338af624e855a9cad48",
+      "path": "tests/sfir-integration/overload-generic-named.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "956071e49ab524c185e8eadbd933afe8248d854eac29a642eb4f09b7b0787030"
+    },
+    {
+      "case": "overload-generic-row",
+      "old_path": "tests/strict/overload-generic-row.scm",
+      "old_sha256": "6d8e874f82908fa5deeffef5731060f253ceaf8b3835c2f5e70fdc52cdc03f61",
+      "path": "tests/sfir-integration/overload-generic-row.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "e14de4ae47b7f12680229d5289dc82a1e9b636a652787911cf433cb39dee9a11"
+    },
+    {
+      "case": "overload-generic",
+      "old_path": "tests/strict/overload-generic.scm",
+      "old_sha256": "5bf9f0c965fb66d01be727bea6e1b345196cb2ef956f1ab2c1854bc5d5bc6968",
+      "path": "tests/sfir-integration/overload-generic.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 3,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "49e78d701d58ba4634e2a83dc39a32a19a938f35a5c40c254446e3781b0573af"
+    },
+    {
+      "case": "overload-import-extension",
+      "old_path": "tests/strict/overload-import-extension.scm",
+      "old_sha256": "abf2d7e3de677bbbc020aca771dbb78fec86330a6f61998dd7188a7c474d865b",
+      "path": "tests/sfir-integration/overload-import-extension.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "a343d60b811de1170603f3258905c2f5a6480fd73a0f9f1c658a3be877f3d462"
+    },
+    {
+      "case": "overload-inferred-arities",
+      "old_path": "tests/strict/overload-inferred-arities.scm",
+      "old_sha256": "c328f2980c0e212e70e4031e6d82821962c715f2db66c9025731be83c8488d54",
+      "path": "tests/sfir-integration/overload-inferred-arities.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "f7446d24f52f8c161783c82670d705af33d6d883d7717d63aa5ceb04486df8a9"
+    },
+    {
+      "case": "overload-inferred-concrete",
+      "old_path": "tests/strict/overload-inferred-concrete.scm",
+      "old_sha256": "65af1b754c82a0ab61334fe26111cd1fe4b516ed0312ec8b3dfa125ed6101dd9",
+      "path": "tests/sfir-integration/overload-inferred-concrete.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "465940b407234135defbb6fa06caadac699926598edae4d44cba0caf531d37a8"
+    },
+    {
+      "case": "overload-inferred-cycle-annotation",
+      "old_path": "tests/strict/overload-inferred-cycle-annotation.scm",
+      "old_sha256": "b518b838d38256b79a24afa7a0132964a74622713b342aac89afbebb9dbe71b2",
+      "path": "tests/sfir-integration/overload-inferred-cycle-annotation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "bf2fd8f5d945bc19a17f8f43132b47a15cdeee25c99c265afe57982c983e6db8"
+    },
+    {
+      "case": "overload-inferred-dependencies-reversed",
+      "old_path": "tests/strict/overload-inferred-dependencies-reversed.scm",
+      "old_sha256": "d45baebdd8528d97d903cba0892c4e925999e5d49740017baa6968a46c8e51b1",
+      "path": "tests/sfir-integration/overload-inferred-dependencies-reversed.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "baebdb85e26e7e5b1751cee739000b89f2ed07eb4e8390d2d3f6e2f974547a26"
+    },
+    {
+      "case": "overload-inferred-dependencies",
+      "old_path": "tests/strict/overload-inferred-dependencies.scm",
+      "old_sha256": "cc957a8fcdd89967b4ded2b141eb6a61c74829d9464941f41c05a8930ceddb69",
+      "path": "tests/sfir-integration/overload-inferred-dependencies.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "6960836d0a0eb612343d0dd6ac4f64c87a0e26fe29df5e081d917f2f6e2062e0"
+    },
+    {
+      "case": "overload-inferred-forward-read",
+      "old_path": "tests/strict/overload-inferred-forward-read.scm",
+      "old_sha256": "0cace77ac07223df4c0723a7e5df207dba4078e9fa86706f425f357e9cb242c3",
+      "path": "tests/sfir-integration/overload-inferred-forward-read.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "fa0dd70b0dd73e6787124f5e16e1d38d07529be213af56f47eb1d7e080210ffa"
+    },
+    {
+      "case": "overload-inferred-generic",
+      "old_path": "tests/strict/overload-inferred-generic.scm",
+      "old_sha256": "207d2dd80c9b56af3fd8661d527733d82c1d9c5564deb61f71c65f39f627577f",
+      "path": "tests/sfir-integration/overload-inferred-generic.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "attached-signatures": 1,
+        "explicit-and": 1
+      },
+      "sha256": "fedddedcb38ff4176ae110ffc144fd0d2bb0406c3bc2d11ba6164c9ca7f42db8"
+    },
+    {
+      "case": "overload-inferred-import-extension",
+      "old_path": "tests/strict/overload-inferred-import-extension.scm",
+      "old_sha256": "bbf288c03feaac26f6a24ae5c58802af92acff84689346f6d17db98997c6013a",
+      "path": "tests/sfir-integration/overload-inferred-import-extension.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "5d592ff832e83635e42a01e919d01bbeaebfd37e9951e0a0f9b0b2c23db4f44f"
+    },
+    {
+      "case": "overload-inferred-initializer",
+      "old_path": "tests/strict/overload-inferred-initializer.scm",
+      "old_sha256": "e8f91f1712db717c578c5609bbf6177630a552ce6aa690432af2945ff2689f76",
+      "path": "tests/sfir-integration/overload-inferred-initializer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "05f42e1dfffe8f5a0738c274d970f7854fcef4b2182ca3d70901d8e7f2ec46e8"
+    },
+    {
+      "case": "overload-inferred-prerequisite-dependency",
+      "old_path": "tests/strict/overload-inferred-prerequisite-dependency.scm",
+      "old_sha256": "e98da746cc027959da9f54816c2975f1ff0bbc0b74f8c66a6953eae7a63f3106",
+      "path": "tests/sfir-integration/overload-inferred-prerequisite-dependency.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e4ae32125fd4f6f8b40e5e5dc1b1d9c9b191d5a0db43ff82de778cd340385020"
+    },
+    {
+      "case": "overload-inferred-qualified",
+      "old_path": "tests/strict/overload-inferred-qualified.scm",
+      "old_sha256": "00234eec920e044cbe66900b919321d0ce74ff5b962b6953ebc3bc9b45b60762",
+      "path": "tests/sfir-integration/overload-inferred-qualified.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "d52ce667688623c43901bd13ef0854f310930f3b6194436cadb5069f140a51e3"
+    },
+    {
+      "case": "overload-inferred-result-context",
+      "old_path": "tests/strict/overload-inferred-result-context.scm",
+      "old_sha256": "8d1ad97f1133baa033ff3eee68cc5095bce3f146549ea71abfda591dfac2e944",
+      "path": "tests/sfir-integration/overload-inferred-result-context.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "6249834bcc00851f84f239e72428df63ad22346d45322d2b5c049f8fb5450c21"
+    },
+    {
+      "case": "overload-inferred-storage-after",
+      "old_path": "tests/strict/overload-inferred-storage-after.scm",
+      "old_sha256": "3c10e371572cdf947799d08618cd1984232660968bfbd88b20ec5c3a05521b14",
+      "path": "tests/sfir-integration/overload-inferred-storage-after.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ce5addaab60a302fb76323d9bb3584dbd778ca2800a5b7f049d4a6c9cd516670"
+    },
+    {
+      "case": "overload-inferred-storage-annotation",
+      "old_path": "tests/strict/overload-inferred-storage-annotation.scm",
+      "old_sha256": "4756409c440e6a9eccfe13cebf361a4ff153eb8a97ba9e5a44c0874b9f30681b",
+      "path": "tests/sfir-integration/overload-inferred-storage-annotation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "34e59edcb3e37f4adcb2557c4ae6b8c6a0d316965ca724c47da84daf708fc5ec"
+    },
+    {
+      "case": "overload-inferred-storage-before",
+      "old_path": "tests/strict/overload-inferred-storage-before.scm",
+      "old_sha256": "4e1c28672b87e99508261b082c4234aaa504c5793f316d8acae8edba84c132f5",
+      "path": "tests/sfir-integration/overload-inferred-storage-before.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "fa4822ff8403be70e706b13e5f839a4197070faf564305ae54a7c62e159407a9"
+    },
+    {
+      "case": "overload-initializer",
+      "old_path": "tests/strict/overload-initializer.scm",
+      "old_sha256": "f53a800619352675c121b8f4429389d3d1d4c08fb5faf68ae6d8434db49f488d",
+      "path": "tests/sfir-integration/overload-initializer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "25f19a308c554564b27e560d85844fc78b827baed6dec44f91748797a9370a3f"
+    },
+    {
+      "case": "overload-lambda-readiness",
+      "old_path": "tests/strict/overload-lambda-readiness.scm",
+      "old_sha256": "a694018a2c55650fb80da4599eafd31639dd89625dd7a055547a1ef14c68ad33",
+      "path": "tests/sfir-integration/overload-lambda-readiness.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "2140b12fdeb74ac86d4e63c611f84f1310282de3c4591fd0ca7be5b2a5161c0a"
+    },
+    {
+      "case": "overload-late-overlap",
+      "old_path": "tests/strict/overload-late-overlap.scm",
+      "old_sha256": "08caceeed5c027c3ac30190676d543675c52e5255bba4385eb268f0371ed7468",
+      "path": "tests/sfir-integration/overload-late-overlap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "174175765ada6f158c63ac899c8ba3f760b0f3350ac70e16dd19913ece3cbca7"
+    },
+    {
+      "case": "overload-local-generalization",
+      "old_path": "tests/strict/overload-local-generalization.scm",
+      "old_sha256": "4839d112e830c2c985294a6dd3c7bb2130f6f715f2898867c354fda221f58034",
+      "path": "tests/sfir-integration/overload-local-generalization.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "01983a47ef34eabd6b80f500c816b08c0126dc4d244e32c064b1f3d0d04fbe81"
+    },
+    {
+      "case": "overload-macro",
+      "old_path": "tests/strict/overload-macro.scm",
+      "old_sha256": "14af16f0a93f4a9ff8eada8bb566339a1df239f0a296920d942895bce7775849",
+      "path": "tests/sfir-integration/overload-macro.sfir",
+      "conversion": "Former macro-generated behavior is authored directly with explicit lexical/overload identities.",
+      "transformations": {},
+      "sha256": "17e5984374ba8e2ec2816597f06024d45e38ddf55eb98c3e0f3de094e6395341"
+    },
+    {
+      "case": "overload-overlap-unused",
+      "old_path": "tests/strict/overload-overlap-unused.scm",
+      "old_sha256": "1f6d562ab5d2062e486c6f8abacdada671493a6bb0e44a2632702bab781abc3e",
+      "path": "tests/sfir-integration/overload-overlap-unused.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "0697c38bfe566ffa7a3ff6d0bd84c8c5fdccf9f8ab360061322bc965c1b68b21"
+    },
+    {
+      "case": "overload-promotion",
+      "old_path": "tests/strict/overload-promotion.scm",
+      "old_sha256": "14fc38b9e959909055b10b68d5cacf485603355619cb8d23b0de589ee4cda89c",
+      "path": "tests/sfir-integration/overload-promotion.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "6e331531846c97c447678a698f437cef9ecf463c3ce863aa9d4d239eaaaa97b4"
+    },
+    {
+      "case": "overload-proof-sharing",
+      "old_path": "tests/strict/overload-proof-sharing.scm",
+      "old_sha256": "5620834ee364c8de2578eb3c39edc67bda7584ea5850427c792f779a2c532c8f",
+      "path": "tests/sfir-integration/overload-proof-sharing.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "nested-sequential-lets": 1
+      },
+      "sha256": "2b583d0fd123d8e82baf8534f1c7d2a16642eec3c114349b764d66989f7734b5"
+    },
+    {
+      "case": "overload-qualified-results",
+      "old_path": "tests/strict/overload-qualified-results.scm",
+      "old_sha256": "e9c66d94b337a9427271aefabecec9824969a189f8044620e798389e01f3435c",
+      "path": "tests/sfir-integration/overload-qualified-results.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "f8ed5b65207dc7599cac09e996097087266bf80a45744eb7ba758ec479bfe6fc"
+    },
+    {
+      "case": "overload-result-context",
+      "old_path": "tests/strict/overload-result-context.scm",
+      "old_sha256": "df0aea145c101d4f4f0f4eda82d59664af20472625b4391bf8fd0d82100a12e1",
+      "path": "tests/sfir-integration/overload-result-context.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "dc49d30f17317679110315f422b3cd2be5a862f4d0285b822f0369fdd7204d17"
+    },
+    {
+      "case": "overload-returned-closure",
+      "old_path": "tests/strict/overload-returned-closure.scm",
+      "old_sha256": "92a6fc9aab420478fa76b5e3df7a3b745053a026785bfac52de0f01844607f95",
+      "path": "tests/sfir-integration/overload-returned-closure.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "777cbea0e43030d1ef4a56c979102a33d0c97053d9ce8b259b203cf70ef9df6c"
+    },
+    {
+      "case": "overload-semantic-types",
+      "old_path": "tests/strict/overload-semantic-types.scm",
+      "old_sha256": "d28f0372b26f6874c503d737f24b18814e5ce5d0825ab1d7e8a7db732287a188",
+      "path": "tests/sfir-integration/overload-semantic-types.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "d94af96e517b6973415264f3bca2a8fbea3d372497c3b5a98087e2c4a74bceeb"
+    },
+    {
+      "case": "overload-sibling-prerequisites",
+      "old_path": "tests/strict/overload-sibling-prerequisites.scm",
+      "old_sha256": "3e5a910fb62b5e2feb5351a2fc981c60017b943bed3d48c4cb94729f7ebd3456",
+      "path": "tests/sfir-integration/overload-sibling-prerequisites.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-and": 1
+      },
+      "sha256": "5d40efb33b65a1c1eaf394a064baf9071c390ec329c67ab73444a779b26dbd3f"
+    },
+    {
+      "case": "overload-truncate",
+      "old_path": "tests/strict/overload-truncate.scm",
+      "old_sha256": "88665b02dc4f4be2c33c7875c5c35f78e844add7728bd2b0577bc21eca8c3403",
+      "path": "tests/sfir-integration/overload-truncate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "7ee70c69f016e868d440bba6ca906006607756fac8c28e2fa702c5356c8f7515"
+    },
+    {
+      "case": "parameter-relations",
+      "old_path": "tests/strict/parameter-relations.scm",
+      "old_sha256": "f6d501631c0bd007dbefb1ff57bd85a501b8c6fe769f511c59482dab409e4859",
+      "path": "tests/sfir-integration/parameter-relations.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "dc8d3c7b7974d04c18d5b5cf43444dd5f3a10ba86a31904e8e0e06cd66fe1304"
+    },
+    {
+      "case": "recursive-capture",
+      "old_path": "tests/strict/recursive-capture.scm",
+      "old_sha256": "92419796d251935aaa96802dcad427d8e321ae3ee5233e82efde2b647be99bd9",
+      "path": "tests/sfir-integration/recursive-capture.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "d1ba3566a787d969154e277a724e8c7c5f24ee7fa743b39ba779bede185be52f"
+    },
+    {
+      "case": "reference-alias",
+      "old_path": "tests/strict/reference-alias.scm",
+      "old_sha256": "5d31a5ddf4a515314a9ad61702d8095e8a2f282fe1a03c7b69ef2ad458f78087",
+      "path": "tests/sfir-integration/reference-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9967649051977641fdfc2bfb079fab1168a32cc8b3116697adbc69eaf54c3822"
+    },
+    {
+      "case": "reference-float",
+      "old_path": "tests/strict/reference-float.scm",
+      "old_sha256": "a45c0305eb10af092909c56e2a83a82dfc00726c4628f6b99f887f6638522ea9",
+      "path": "tests/sfir-integration/reference-float.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "63dd73a2d3a4efc34316f25538767fff5e979b8719e480c2d8962abc5297cb34"
+    },
+    {
+      "case": "reject-arity",
+      "old_path": "tests/strict/reject-arity.scm",
+      "old_sha256": "fd67a9b7ae0ec46e5a13a2b6bb7b70c2035ccc26c3073bca844a3c9bd32513b4",
+      "path": "tests/sfir-integration/reject-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "6c01c117336de72d01538b08bce0304263adcda1865c7fb1954e722db66b1589"
+    },
+    {
+      "case": "reject-bitwise-float",
+      "old_path": "tests/strict/reject-bitwise-float.scm",
+      "old_sha256": "3b0d40828f4decdbbb638a507389b2bf980f0ea13a3c23a0a04630903addd71c",
+      "path": "tests/sfir-integration/reject-bitwise-float.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "8d68bf74a6e1605d533b10ad7849cf2658830c1f9d8eb73a4d73abb86fa640a2"
+    },
+    {
+      "case": "reject-bitwise-mixed-width",
+      "old_path": "tests/strict/reject-bitwise-mixed-width.scm",
+      "old_sha256": "cffa00bed0e7473187831ae5fbc49733cea967d7690a0d4cad66cde3a057dadc",
+      "path": "tests/sfir-integration/reject-bitwise-mixed-width.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "735134eedb229535af9d140f2279d8c5624c00ef0e96ae0c1d8e9df647a7f8ce"
+    },
+    {
+      "case": "reject-bitwise-shift-width",
+      "old_path": "tests/strict/reject-bitwise-shift-width.scm",
+      "old_sha256": "62c66a49cfad8a3b96605505fc6aa1ff5a799e9fff5acc6fbe067dfa31349887",
+      "path": "tests/sfir-integration/reject-bitwise-shift-width.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "1326b08e3a262f4037c3516684a25ad8058b5549b5e137bbc2f9d63eef3fadd6"
+    },
+    {
+      "case": "reject-branch-widening",
+      "old_path": "tests/strict/reject-branch-widening.scm",
+      "old_sha256": "656341d67a9e9edbc5114da5e1c07e4f74de6e0da17ce096333a519729d097b8",
+      "path": "tests/sfir-integration/reject-branch-widening.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "b8c2de215b97bc2367bf9272e9664f001d24d29b0129c5db20f365ca7e842af6"
+    },
+    {
+      "case": "reject-captured-generalization",
+      "old_path": "tests/strict/reject-captured-generalization.scm",
+      "old_sha256": "7339a6302f89fc2c1913842cc1347ff976f7eed5dddcd4ec238273274a9d760d",
+      "path": "tests/sfir-integration/reject-captured-generalization.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "30693234d0211956665707049c66fcf3f7c136c90a9584f7ab63e39a37870632"
+    },
+    {
+      "case": "reject-class-constraint",
+      "old_path": "tests/strict/reject-class-constraint.scm",
+      "old_sha256": "ffe0676f0e178560aa457e1493724cfcb462e4e82566eb4b98283733bfa978ac",
+      "path": "tests/sfir-integration/reject-class-constraint.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "18e182439ef1198cfc56bb7d7d01e5354c142e95eeb1d02b47bfe08a4d26877d"
+    },
+    {
+      "case": "reject-class-duplicate",
+      "old_path": "tests/strict/reject-class-duplicate.scm",
+      "old_sha256": "734afaadf7ad611844c3ac25f68b91841d3a32b17268772dfe0abb38ef424434",
+      "path": "tests/sfir-integration/reject-class-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "c9a23fdecb939751cd1c9320e00ea3908b971e084ef27306ab89157f5afaa655"
+    },
+    {
+      "case": "reject-class-member",
+      "old_path": "tests/strict/reject-class-member.scm",
+      "old_sha256": "62a40822e24ab361c8961f265f88e651d991f4e475eff4a21a179dd208fc57c5",
+      "path": "tests/sfir-integration/reject-class-member.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "02b0e3e86853844908ab135784ae8fc05fe4fe1f1121d40780bb7dbd6b28f770"
+    },
+    {
+      "case": "reject-class-missing-instance",
+      "old_path": "tests/strict/reject-class-missing-instance.scm",
+      "old_sha256": "0c58ad1c9ae320f374024d8ae3786f17e36eaad302beb2020ed4f71fad142831",
+      "path": "tests/sfir-integration/reject-class-missing-instance.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "c3166d8a95a1b14e550dc20fea6b46c24408f5969a74f0a07c5acc924e769178"
+    },
+    {
+      "case": "reject-data-alias-generalization",
+      "old_path": "tests/strict/reject-data-alias-generalization.scm",
+      "old_sha256": "6122d23c4a50efbf3e31b129ce9563f9c9151877a7936f711eeab4340a0fdcad",
+      "path": "tests/sfir-integration/reject-data-alias-generalization.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "d9944e5799d28dc156bc8219f6b5fd74950079c6e2e34d1a13366c5f2ad45f18"
+    },
+    {
+      "case": "reject-data-constructor-overload",
+      "old_path": "tests/strict/reject-data-constructor-overload.scm",
+      "old_sha256": "b9debfe057c8e7bb4ad2ed4cce0e9a9c092888717512655389c3642373804a4b",
+      "path": "tests/sfir-integration/reject-data-constructor-overload.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "52e806216eae00ede4b45c100d2d240c926c367415bf733af4bfcebfc07b9c71"
+    },
+    {
+      "case": "reject-data-field-all",
+      "old_path": "tests/strict/reject-data-field-all.scm",
+      "old_sha256": "e05a516485621eba5e223d72859f4f28e79718f18005fd363d2379bfd987df6e",
+      "path": "tests/sfir-integration/reject-data-field-all.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "3509456c978329ac659cbd728de42f64694805a847fc611f8939ed9a8b293d62"
+    },
+    {
+      "case": "reject-data-layout-growth",
+      "old_path": "tests/strict/reject-data-layout-growth.scm",
+      "old_sha256": "f4aea16e8b5b9f129ba2f0dc3f17f85259a3ec97ffb93e12a35cc71adc758a52",
+      "path": "tests/sfir-integration/reject-data-layout-growth.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "067f297bb42b95340222075fac0773e875820e706e8c5bbfea007b6fe1246748"
+    },
+    {
+      "case": "reject-data-match-arity",
+      "old_path": "tests/strict/reject-data-match-arity.scm",
+      "old_sha256": "070c6bbe1bf5cfac5d58de88e9c4c0c9ca4721f20a634718b8718f526101b10f",
+      "path": "tests/sfir-integration/reject-data-match-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "827179f728f2d7f81493b7c42560ed13aecda299f3209412d49001c6b1be5c75"
+    },
+    {
+      "case": "reject-data-match-duplicate",
+      "old_path": "tests/strict/reject-data-match-duplicate.scm",
+      "old_sha256": "33cc5578a25c69f281f9bdf863432d32340c140cec2ce19961c2fb0515c78833",
+      "path": "tests/sfir-integration/reject-data-match-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "887e733bb3e08859d21aa4ce4d49cc63c2fb10e259dea8d3037850c303a9ae7f"
+    },
+    {
+      "case": "reject-data-match-incomplete",
+      "old_path": "tests/strict/reject-data-match-incomplete.scm",
+      "old_sha256": "5b216ea595bbd2ec1427dde81ca98acf0186b416cd441b0a118ad0e167d0e901",
+      "path": "tests/sfir-integration/reject-data-match-incomplete.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "101b9a1f92b62e8e677d54022b1f75cbc17dc9fe8c3d843d86226b273a1451c6"
+    },
+    {
+      "case": "reject-data-match-mixed",
+      "old_path": "tests/strict/reject-data-match-mixed.scm",
+      "old_sha256": "9a55aba40692ed3c76bbc01d558d8ae212b624c7b2ce4177c39b0e04f45598e8",
+      "path": "tests/sfir-integration/reject-data-match-mixed.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "3e9c361ee1421750911a3f9997c6e9d11b4bb92c5850c12a045fac436b05fe1b"
+    },
+    {
+      "case": "reject-data-match-nested",
+      "old_path": "tests/strict/reject-data-match-nested.scm",
+      "old_sha256": "90701f0454d3eeccb4fd938b4199793fe4ed4292a92740ebf63314f0b1181524",
+      "path": "tests/sfir-integration/reject-data-match-nested.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "d97eecb4ed07af475b406a84900fb8ed7973abb5dc87ea33be7e08fac11c7858"
+    },
+    {
+      "case": "reject-data-nominal",
+      "old_path": "tests/strict/reject-data-nominal.scm",
+      "old_sha256": "b025b39cf053847a3a2c42f59f556ae1cefb3f46a4fe27117d5f7569404c73a1",
+      "path": "tests/sfir-integration/reject-data-nominal.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ce1c6aa0725b34dd1af07b1e1bb6cf8086a733e32cbc17c592b49423a79bb123"
+    },
+    {
+      "case": "reject-data-ref-invariant",
+      "old_path": "tests/strict/reject-data-ref-invariant.scm",
+      "old_sha256": "59d0a4d7b8e776496ff58e3cf24553f80812ae353702034a98c813a57ef31a09",
+      "path": "tests/sfir-integration/reject-data-ref-invariant.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ce431c5ac9317acfd4b8cd4971f8dd02eef0c52bb3ceaff0b068310e276a9cad"
+    },
+    {
+      "case": "reject-data-scope",
+      "old_path": "tests/strict/reject-data-scope.scm",
+      "old_sha256": "a1441d81a5e8d7622fe747743cd00e0105225c9841f59ab0fc08e0d440d2f432",
+      "path": "tests/sfir-integration/reject-data-scope.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1
+      },
+      "sha256": "4373f5bff35605ab33f14524ab1d561b4fa6fd405a60f3b5fe7e268f697eb408"
+    },
+    {
+      "case": "reject-data-type-arity",
+      "old_path": "tests/strict/reject-data-type-arity.scm",
+      "old_sha256": "15b5051f1cc62b48ad3af46a640b093ac269c888d40ee9e290a4b7f4eca06d87",
+      "path": "tests/sfir-integration/reject-data-type-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "da43dc423b79cec31d8f37f8c071e66e29128d1335867ef81e9a36fbfa9a3b02"
+    },
+    {
+      "case": "reject-duplicate-declaration",
+      "old_path": "tests/strict/reject-duplicate-declaration.scm",
+      "old_sha256": "f8654f52d710b01d75463f03319e722327376a5f953cebcd41866bc43dffc2d9",
+      "path": "tests/sfir-integration/reject-duplicate-declaration.sfir",
+      "conversion": "Detached signatures are absent from SFIR; retained as located syntax rejection, not the former local-binding declaration rule.",
+      "transformations": {},
+      "sha256": "e1f323c86e303f8703cb56c82420c75043374b19aa322e37c3d8df1a954abae9"
+    },
+    {
+      "case": "reject-i32-overflow",
+      "old_path": "tests/strict/reject-i32-overflow.scm",
+      "old_sha256": "46f315c8ef58d110a5191b7baa2802ba90fbcbcf73feeaa1560e319cae05a97d",
+      "path": "tests/sfir-integration/reject-i32-overflow.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "836909ed35cda085b29136ebc5d25fba33d21f355a1d684edfc7fea71f1bc715"
+    },
+    {
+      "case": "reject-imported-declaration",
+      "old_path": "tests/strict/reject-imported-declaration.scm",
+      "old_sha256": "64c54ce165c00fbdf1ab61f41c434f2579fea8476b1dd07a60c0b965133ee334",
+      "path": "tests/sfir-integration/reject-imported-declaration.sfir",
+      "conversion": "Detached signatures are absent from SFIR; retained as located syntax rejection, not the former local-binding declaration rule.",
+      "transformations": {},
+      "sha256": "92b79560a62f07c56a721f49fdefea9dcf5c03117983fe0e51b6d09d617c5e30"
+    },
+    {
+      "case": "reject-nested-all-parameter",
+      "old_path": "tests/strict/reject-nested-all-parameter.scm",
+      "old_sha256": "1218e82df07a1bcfb1af830bc69245955f2d9a3fcdd85e5f7103fadd12bb1ef2",
+      "path": "tests/sfir-integration/reject-nested-all-parameter.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "b8b02ebc7e387ef7afaeb6d63273e71d9d1e88d9193ac05271ef7f9192312bb9"
+    },
+    {
+      "case": "reject-nested-all-result",
+      "old_path": "tests/strict/reject-nested-all-result.scm",
+      "old_sha256": "f9a788c5b7ca2330fe094bac9d620c6bd6a5b89abe23ea95f3a53aa7255d95c0",
+      "path": "tests/sfir-integration/reject-nested-all-result.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "dcf1254b048a158a2eb659e7fd60cbd3230c67f499ba8a6bde4ed8735d3c4c8d"
+    },
+    {
+      "case": "reject-nested-all-storage",
+      "old_path": "tests/strict/reject-nested-all-storage.scm",
+      "old_sha256": "e014f26c57b46064281086147c70dcc492ba447a124a421f7a6178e6bb8b1486",
+      "path": "tests/sfir-integration/reject-nested-all-storage.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "9f10526dee2cded8a038d7ef8bdd49f1430cab960388545ed8cf132c1240b5d9"
+    },
+    {
+      "case": "reject-nonboolean",
+      "old_path": "tests/strict/reject-nonboolean.scm",
+      "old_sha256": "745e667eaf1292a2fdb4b734540f09e3a8ebcbcf29475c1d3e55d7a17bb72284",
+      "path": "tests/sfir-integration/reject-nonboolean.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "20c7ef216ee6f20d471da0606d1a236c05111af4e70d3864c0235ae1bf3b92e4"
+    },
+    {
+      "case": "reject-numeric-bool",
+      "old_path": "tests/strict/reject-numeric-bool.scm",
+      "old_sha256": "5b530e86d459fc032d90fe9d5cbc87967708adb88841104c230b82074b618f55",
+      "path": "tests/sfir-integration/reject-numeric-bool.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "2aa0142432bf3e7356a8b211ecc45c08a280a6b27d1e6fd09a5e6bb6ed6f4a1f"
+    },
+    {
+      "case": "reject-numeric-char",
+      "old_path": "tests/strict/reject-numeric-char.scm",
+      "old_sha256": "bd32170b40dcb8f3b627b93330adc631db1e8af1a3e33f1f939cf50aad5087de",
+      "path": "tests/sfir-integration/reject-numeric-char.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "b91d62b8f57a5d6eb075d05ae0f6aed7f25736a2f5ae45089ce231ea65300c7e"
+    },
+    {
+      "case": "reject-numeric-coercion",
+      "old_path": "tests/strict/reject-numeric-coercion.scm",
+      "old_sha256": "0353791dae478444b6215fee6652b208d6a865ed4103eff05c67e32dd86b3846",
+      "path": "tests/sfir-integration/reject-numeric-coercion.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "42a3d173f6db4da3895bfb3e8d7f09e2432615b3e0d29d2edf6e2b9ebe6616f1"
+    },
+    {
+      "case": "reject-numeric-constraint",
+      "old_path": "tests/strict/reject-numeric-constraint.scm",
+      "old_sha256": "7174c503ec8ae0379ba04dfcc30aea0ae234686e7380f3f76d468e31d2c34d1c",
+      "path": "tests/sfir-integration/reject-numeric-constraint.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "0c988f67bf7b76c679b9dd9f1bbb2c1ecb67f436613dbd0dcd19d961ebd4790e"
+    },
+    {
+      "case": "reject-numeric-float-quotient",
+      "old_path": "tests/strict/reject-numeric-float-quotient.scm",
+      "old_sha256": "e70ab1c670c6e4847cb310a33b177d627a169ec4dd576004db60086ba7aab657",
+      "path": "tests/sfir-integration/reject-numeric-float-quotient.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "c395b04f66c8455b3e3d29394f7e889ac6b12b2cbe835e2bc8fde555cdf5f827"
+    },
+    {
+      "case": "reject-numeric-integer-division",
+      "old_path": "tests/strict/reject-numeric-integer-division.scm",
+      "old_sha256": "e754fc03225310d697307d7e80a35ead55ee7608304fa1baa3c1ca41edede7d0",
+      "path": "tests/sfir-integration/reject-numeric-integer-division.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "a7e4f037e05be61ea17011aca2ea478275cff8dd367b8a26f5e4be090a1b3a06"
+    },
+    {
+      "case": "reject-numeric-integer-sqrt",
+      "old_path": "tests/strict/reject-numeric-integer-sqrt.scm",
+      "old_sha256": "ce7573d660f07879c22e0e4611d8e82e7896afb12054d804d2932806b13383ab",
+      "path": "tests/sfir-integration/reject-numeric-integer-sqrt.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e630bf269c0f5108af6906de95d5c4b05588e9c924598edd7e674b1e8594c1bf"
+    },
+    {
+      "case": "reject-numeric-literal-first",
+      "old_path": "tests/strict/reject-numeric-literal-first.scm",
+      "old_sha256": "382c0de8b85390360ebd1419b197d0311528b7ff53d6bf192d18aa9c57f7b332",
+      "path": "tests/sfir-integration/reject-numeric-literal-first.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9332efff0d53d92652821db32133a06eac8b270e599299ca3fb04dfe8fed3e98"
+    },
+    {
+      "case": "reject-numeric-literal-last",
+      "old_path": "tests/strict/reject-numeric-literal-last.scm",
+      "old_sha256": "65a10686c0ccd1ab5f817be55e210eebd173560cf7173ff4cf1ee540f1f50ada",
+      "path": "tests/sfir-integration/reject-numeric-literal-last.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "56716b6eff0f93d86f79eca84b317bcf50c2608b5875566b14343f32665ab6ef"
+    },
+    {
+      "case": "reject-numeric-mixed-float",
+      "old_path": "tests/strict/reject-numeric-mixed-float.scm",
+      "old_sha256": "5399c4034b325e6009c488666de461085299db2b585ddb14e7d7dad6fa1b6430",
+      "path": "tests/sfir-integration/reject-numeric-mixed-float.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e32cd7a533e2095b549e715fd929a3bb817f66d204ecacf7c212afdab234e430"
+    },
+    {
+      "case": "reject-numeric-round-arity",
+      "old_path": "tests/strict/reject-numeric-round-arity.scm",
+      "old_sha256": "44abe522925f1006ac682c5d2f9ba176442a90811ba10865cb7c74d053f0faa2",
+      "path": "tests/sfir-integration/reject-numeric-round-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "5d066a5851a88b09ffbf79045e79314d14bef123efba303c9be9e709620253f4"
+    },
+    {
+      "case": "reject-numeric-round-integer",
+      "old_path": "tests/strict/reject-numeric-round-integer.scm",
+      "old_sha256": "bfca8c0c81b668b5bc2a2d0ed9be48f8f0cd49fe555e6a81e987a092efab3fcf",
+      "path": "tests/sfir-integration/reject-numeric-round-integer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "01ac15d0626d8c5e9bbab97b45aad1503d9503083c342d44d02a253f8cb145dd"
+    },
+    {
+      "case": "reject-numeric-truncate-arity",
+      "old_path": "tests/strict/reject-numeric-truncate-arity.scm",
+      "old_sha256": "958952e9e80ed072b293ccbae9379a2198786b3983f105de14ef0581e2bddfee",
+      "path": "tests/sfir-integration/reject-numeric-truncate-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "44db323ee6a96ad977fa1236636f693208b2003444c015222ff339a30f956ba6"
+    },
+    {
+      "case": "reject-numeric-truncate-integer",
+      "old_path": "tests/strict/reject-numeric-truncate-integer.scm",
+      "old_sha256": "902a64bcbb5365ced4cdd221b8f93082563fa1004c5cb8c152d7f96208d76204",
+      "path": "tests/sfir-integration/reject-numeric-truncate-integer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "1dfea701d5ac53503ead6478771fbb8a9c1b71391319c81655ac4999ac91cbd1"
+    },
+    {
+      "case": "reject-occurs",
+      "old_path": "tests/strict/reject-occurs.scm",
+      "old_sha256": "ad5fb54af5825574e9a4590b3edc2d4e5dfa0189c066fd639d5272e539ed6f56",
+      "path": "tests/sfir-integration/reject-occurs.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "d01106a9a99d324d59cceb1538f901b71430fdbc3d9f398f3cae5cd476975f79"
+    },
+    {
+      "case": "reject-outer-declaration",
+      "old_path": "tests/strict/reject-outer-declaration.scm",
+      "old_sha256": "9374a17c62533c1fca2ee8c933ed95fb99afbea7e12888b9eaa0a79bc3212612",
+      "path": "tests/sfir-integration/reject-outer-declaration.sfir",
+      "conversion": "Detached signatures are absent from SFIR; retained as located syntax rejection, not the former local-binding declaration rule.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "53494ad015662a29bc483ce50ac9192aa5c35023de93964aeb0b0b366545a447"
+    },
+    {
+      "case": "reject-overload-abstract-premise-use",
+      "old_path": "tests/strict/reject-overload-abstract-premise-use.scm",
+      "old_sha256": "7907f0660e209ee94431be407048bd2d678de93eb18a7ee7014e5310a245eb8c",
+      "path": "tests/sfir-integration/reject-overload-abstract-premise-use.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "550078d399a51e1ab8fb3fa1f21fc5bf7b0de1e3cf1fc75b96f9b83cf53699fa"
+    },
+    {
+      "case": "reject-overload-ambiguous-givens",
+      "old_path": "tests/strict/reject-overload-ambiguous-givens.scm",
+      "old_sha256": "d9602692ef0cf2c9d67cc48a09f26b7fc7d8256c35d7e639399dd7aade7d4d7d",
+      "path": "tests/sfir-integration/reject-overload-ambiguous-givens.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "e8541ea2e91ff304bc893a8426a19b9b84d66b07cc66ddb56dbf5215ef302da9"
+    },
+    {
+      "case": "reject-overload-class-method",
+      "old_path": "tests/strict/reject-overload-class-method.scm",
+      "old_sha256": "fa4aae6e388b1d79939a296653449bf9bfad7c6663516aa9ad39e80deca33561",
+      "path": "tests/sfir-integration/reject-overload-class-method.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "c88975d62753d54866348fd6246de896fd4fdbe83cb98d99b916ca7eaecf1e05"
+    },
+    {
+      "case": "reject-overload-detached-signature",
+      "old_path": "tests/strict/reject-overload-detached-signature.scm",
+      "old_sha256": "1554c5fda1fdeff15e592150765ab309eb6b27d66cfb3b49221fc363b5871fc7",
+      "path": "tests/sfir-integration/reject-overload-detached-signature.sfir",
+      "conversion": "Detached signatures are absent from SFIR; retained as located syntax rejection, not the former local-binding declaration rule.",
+      "transformations": {},
+      "sha256": "80c5b486cd14344376b4c2ac912fc410891a8b9ea555439ef6f6da8490b558bf"
+    },
+    {
+      "case": "reject-overload-duplicate",
+      "old_path": "tests/strict/reject-overload-duplicate.scm",
+      "old_sha256": "0eb132dcd58c617586f0d4016747529c7f7f2f7dc9caf87ccb3cc754675d4d9a",
+      "path": "tests/sfir-integration/reject-overload-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "1e9a3693a4440ef232cc21000a5145bd25bd275762dd3cdec066378ed7198774"
+    },
+    {
+      "case": "reject-overload-explicit-result",
+      "old_path": "tests/strict/reject-overload-explicit-result.scm",
+      "old_sha256": "0823ccadf351d1580f8ea5b5034243a9f9fafee447a530e7d97ba32882a80d7f",
+      "path": "tests/sfir-integration/reject-overload-explicit-result.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "b432616b2cd3ab30ba4741b029267d0be035b886b9d436210915dba4a56afc5a"
+    },
+    {
+      "case": "reject-overload-first-class-result",
+      "old_path": "tests/strict/reject-overload-first-class-result.scm",
+      "old_sha256": "24c035467eb95ed1ca76a396b6b840b4a07c073904ab1dfac8c4184419919157",
+      "path": "tests/sfir-integration/reject-overload-first-class-result.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "ea47438d51617f1529a7b6a9498d0d099df8b21d53caa8d50580defeac471991"
+    },
+    {
+      "case": "reject-overload-generic-duplicate",
+      "old_path": "tests/strict/reject-overload-generic-duplicate.scm",
+      "old_sha256": "fa30c7e8b026df6f1d3f13aa324d0a2ccf9041072fc851c95f12aef39a0b60b9",
+      "path": "tests/sfir-integration/reject-overload-generic-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "334d88c27e356ca1c5a466a0e4d2ed080740d6cae6f5744c8ba507bd6e6e698d"
+    },
+    {
+      "case": "reject-overload-generic-obligation",
+      "old_path": "tests/strict/reject-overload-generic-obligation.scm",
+      "old_sha256": "964653893d82741cfec7dc009f4b3b59cf227477e3631eaafe4d4f51274aaf5e",
+      "path": "tests/sfir-integration/reject-overload-generic-obligation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "48bec839753c24931c519aa78ff103eeb8cb2dc23e9a2426ad109e777c66650a"
+    },
+    {
+      "case": "reject-overload-generic-reordered",
+      "old_path": "tests/strict/reject-overload-generic-reordered.scm",
+      "old_sha256": "e8b13aa2d1b300e4321aed155dcf43afc4a726b38571715f80e6557a2a7d0bb2",
+      "path": "tests/sfir-integration/reject-overload-generic-reordered.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "523d647d6ac989560fa43e0afc9e1c0f5fe3a1768a71830673cc3bb11433fbfa"
+    },
+    {
+      "case": "reject-overload-inferred-arity",
+      "old_path": "tests/strict/reject-overload-inferred-arity.scm",
+      "old_sha256": "2e04c89249ded7f0d5e8efd50dd096e1dae744de5753bfc6f5d639eea0251480",
+      "path": "tests/sfir-integration/reject-overload-inferred-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "520f63dbd382fe97a6d6db85c02531de83f369d99bf77e788cfc40e27c63e8fc"
+    },
+    {
+      "case": "reject-overload-inferred-capture",
+      "old_path": "tests/strict/reject-overload-inferred-capture.scm",
+      "old_sha256": "7ce72e68efc161f4e1ba47f422b9c93df67497bc42a44063592c447235743746",
+      "path": "tests/sfir-integration/reject-overload-inferred-capture.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "be42050af599e656288e5018dd18094cff660d3331c13656879e04681d8b87ac"
+    },
+    {
+      "case": "reject-overload-inferred-cycle",
+      "old_path": "tests/strict/reject-overload-inferred-cycle.scm",
+      "old_sha256": "90e8e6a4d4374783d71a608c5b4c05cc809eb1efb70579a70fadcd92be0fb0ae",
+      "path": "tests/sfir-integration/reject-overload-inferred-cycle.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "9524fd95a5db5e5c27ce2a796a5c049d73861a1d4d1a455477c8764f1126c3dc"
+    },
+    {
+      "case": "reject-overload-inferred-declared-body",
+      "old_path": "tests/strict/reject-overload-inferred-declared-body.scm",
+      "old_sha256": "e7e18f643f0d5edcc5c594add7a4909c0a65474294d1904e3417cc2c5762f510",
+      "path": "tests/sfir-integration/reject-overload-inferred-declared-body.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "1f2bfad819fef96bfcabb617a55ad20fba48fdd41230dd688b8ff3704b147206"
+    },
+    {
+      "case": "reject-overload-inferred-duplicate",
+      "old_path": "tests/strict/reject-overload-inferred-duplicate.scm",
+      "old_sha256": "afb34453eafefc82bff397497485d560323ded029eda7dd3ea3c9bd99461e3fb",
+      "path": "tests/sfir-integration/reject-overload-inferred-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "bab0bc4148d94c971f3e719aa0cf018bd0adceb7a175b9395762250a4094ff1f"
+    },
+    {
+      "case": "reject-overload-inferred-expression-after",
+      "old_path": "tests/strict/reject-overload-inferred-expression-after.scm",
+      "old_sha256": "f60b1b63d538bfa08aaebcc3c349ae46293f2d69d37754e04c897e74ff81c0ed",
+      "path": "tests/sfir-integration/reject-overload-inferred-expression-after.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "fdae799ba53f74b3f98198adad6f5e8e1d29eb840fd170d9d44a74568b1c2a87"
+    },
+    {
+      "case": "reject-overload-inferred-expression-before",
+      "old_path": "tests/strict/reject-overload-inferred-expression-before.scm",
+      "old_sha256": "4414b021c38e4b9e302e9befbb1ce46028a955dfdfae1b5f51b4ad4b864b99c9",
+      "path": "tests/sfir-integration/reject-overload-inferred-expression-before.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "efa6be1de5c433250b46ed5b10378a6898d6dafb4459c6ebe9ccda3d319f1fd3"
+    },
+    {
+      "case": "reject-overload-inferred-generic-duplicate",
+      "old_path": "tests/strict/reject-overload-inferred-generic-duplicate.scm",
+      "old_sha256": "892a533fb78003888b639fb83fafaff80e4b291ea8b88b5cf60d7a9b25f3ca7c",
+      "path": "tests/sfir-integration/reject-overload-inferred-generic-duplicate.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "4df58c6ed37dc710758243eb0ac292640b0b9e2cac0bba82e82d3c7f53d50245"
+    },
+    {
+      "case": "reject-overload-inferred-method",
+      "old_path": "tests/strict/reject-overload-inferred-method.scm",
+      "old_sha256": "bde492df77454f9310bf295cc97ae6ef3632e802a3babaae21ee387c9b77ae25",
+      "path": "tests/sfir-integration/reject-overload-inferred-method.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "fee2108ca737b435f04ef74d050401f921ae399a723db681c14b35751df51529"
+    },
+    {
+      "case": "reject-overload-inferred-nonfunction",
+      "old_path": "tests/strict/reject-overload-inferred-nonfunction.scm",
+      "old_sha256": "7aee83d92a69a0ec4fb9b469f59a13699c199f914d85798559dac58cad6f69dc",
+      "path": "tests/sfir-integration/reject-overload-inferred-nonfunction.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "64f987f78e6d781d81630a2d61226310cf4bf39fb74bbd3baf7e849248c7a052"
+    },
+    {
+      "case": "reject-overload-inferred-overlap",
+      "old_path": "tests/strict/reject-overload-inferred-overlap.scm",
+      "old_sha256": "a2ab6d48d59be7e2c0b15274f46e97714fc80498adef857e9820f3a21fe95f2a",
+      "path": "tests/sfir-integration/reject-overload-inferred-overlap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "58b6b58a82d1abb3a0a607790a22a7b9a10fe4ee9e8a917c10523cfe6f1126f8"
+    },
+    {
+      "case": "reject-overload-inferred-prerequisite-ranking",
+      "old_path": "tests/strict/reject-overload-inferred-prerequisite-ranking.scm",
+      "old_sha256": "f730c31e524d2198d08619ffca03c7e9a4ba08706ba39c15fa32b6028c077cdb",
+      "path": "tests/sfir-integration/reject-overload-inferred-prerequisite-ranking.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "2d8d12d99ab1388f06fff841cb7b6049545b463f076c3b30fb6f8c0a9946f65a"
+    },
+    {
+      "case": "reject-overload-inferred-rest",
+      "old_path": "tests/strict/reject-overload-inferred-rest.scm",
+      "old_sha256": "f60d3ce4d3196fd6786eec4f385a5b954587b2dcaad4b181638281c19f802c1e",
+      "path": "tests/sfir-integration/reject-overload-inferred-rest.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "6c1c3b80fb4186c289cd08c4762dda2c50d7847e436387ae452c2cbebafd37fa"
+    },
+    {
+      "case": "reject-overload-inferred-result-ambiguity",
+      "old_path": "tests/strict/reject-overload-inferred-result-ambiguity.scm",
+      "old_sha256": "0c164fe527ac98c6a3253a1446c50485e449b55962d7ca086a6bd4034c23934e",
+      "path": "tests/sfir-integration/reject-overload-inferred-result-ambiguity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "270cdb6dc8286217b8b7a9f920c661dfb06dd2b1b88978b70e27a2c7423afb46"
+    },
+    {
+      "case": "reject-overload-inferred-rigid",
+      "old_path": "tests/strict/reject-overload-inferred-rigid.scm",
+      "old_sha256": "1c9f75bbc71b312986de3107daee6418b129312210f2a4ade947117ef9dec7cd",
+      "path": "tests/sfir-integration/reject-overload-inferred-rigid.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "9afad648bec0572af51e5aba5d7c8414bc64b09b60c6d8f5217d646fb06516d9"
+    },
+    {
+      "case": "reject-overload-inferred-unused",
+      "old_path": "tests/strict/reject-overload-inferred-unused.scm",
+      "old_sha256": "fa5c482753ccb5fb13535ee40ec8636886acead53cb2d8a0fd7f8f35af9b324e",
+      "path": "tests/sfir-integration/reject-overload-inferred-unused.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9c3b1093a16ad713a8898d4937e1a142bc3c523b21a2732da29ef73bab9dfc28"
+    },
+    {
+      "case": "reject-overload-instance-form",
+      "old_path": "tests/strict/reject-overload-instance-form.scm",
+      "old_sha256": "3ab0125f5a1eda3c89d6236bcc3587e60817bfd4570a598d55aef85b4ee99b61",
+      "path": "tests/sfir-integration/reject-overload-instance-form.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "3c22f6ec93474049769258f2700f35324587b9ef24afd07b5b5e74a3ca14fc2e"
+    },
+    {
+      "case": "reject-overload-late-overlap",
+      "old_path": "tests/strict/reject-overload-late-overlap.scm",
+      "old_sha256": "0919903fc90cf9853b8ebffa1f8693098f969891b6d3215709c17f9a96fbed5c",
+      "path": "tests/sfir-integration/reject-overload-late-overlap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "7ea0ea9ade2013748e7b4f11a147666f2020a5e429423ae66c989c2802af6c52"
+    },
+    {
+      "case": "reject-overload-local",
+      "old_path": "tests/strict/reject-overload-local.scm",
+      "old_sha256": "26f0d1dcd2b321ef1cf1ba282f94f647d926dbd1f10469f713b53c88614fec83",
+      "path": "tests/sfir-integration/reject-overload-local.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "e26b61d1106cb0a0b12063ad745be455ac1461bad58906c892dc67b2b19ef595"
+    },
+    {
+      "case": "reject-overload-missing",
+      "old_path": "tests/strict/reject-overload-missing.scm",
+      "old_sha256": "c20f4de8f0ad3d5dde3f56e5899f60b28a4a869039ace720acbecf4c2292cce0",
+      "path": "tests/sfir-integration/reject-overload-missing.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e8ad61e67b38554cebd6ad16516879eceaf27b5afab6d48b2f02b83e8434c524"
+    },
+    {
+      "case": "reject-overload-no-class-guess",
+      "old_path": "tests/strict/reject-overload-no-class-guess.scm",
+      "old_sha256": "eebbeae7913077072e8b7f896808967c511b9817c55a976dcbc7cd3f5b5dbd11",
+      "path": "tests/sfir-integration/reject-overload-no-class-guess.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "5e269e9be3d7857a9c3d4c8f6d602b756743d1e1d1c893027830be4b69f972e6"
+    },
+    {
+      "case": "reject-overload-overlap",
+      "old_path": "tests/strict/reject-overload-overlap.scm",
+      "old_sha256": "e5267963425f84b2821589cb0e7fefa82f27b2bc768c8374da12a0f09c97fd2c",
+      "path": "tests/sfir-integration/reject-overload-overlap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "98253769054d74253032df4c5e4a06605e8b924d0a0b91817e50677820cafeef"
+    },
+    {
+      "case": "reject-overload-prerequisite-ranking",
+      "old_path": "tests/strict/reject-overload-prerequisite-ranking.scm",
+      "old_sha256": "2084b2dd23ce1955b829d115ed4df1b45395e0f49cf7c76a42149017a80e8d93",
+      "path": "tests/sfir-integration/reject-overload-prerequisite-ranking.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "db2b578e8e4eee639b75b83b8415f461c4160f7831e51af3d2524e8d40632954"
+    },
+    {
+      "case": "reject-overload-rest",
+      "old_path": "tests/strict/reject-overload-rest.scm",
+      "old_sha256": "cf162253cc88b776b47421ae6489af5875bb56455b817402aca7beff768b74e4",
+      "path": "tests/sfir-integration/reject-overload-rest.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "2389fcd641956a5a8fa13bc6cdc20541e3ef644a0c90339583d8cca6cd13cc70"
+    },
+    {
+      "case": "reject-overload-result-ambiguity",
+      "old_path": "tests/strict/reject-overload-result-ambiguity.scm",
+      "old_sha256": "7be3c838a45e76f06854513df90cc26cd5e048c7a865430bf4dd8c72d9028afc",
+      "path": "tests/sfir-integration/reject-overload-result-ambiguity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ded9fd71df32492f0a424414cdce2d56d51a579cdcee83dc913375729b9a1775"
+    },
+    {
+      "case": "reject-overload-result-conflict",
+      "old_path": "tests/strict/reject-overload-result-conflict.scm",
+      "old_sha256": "fb805494b19a2adeb725664e4061671dd6a6afcf8437a0bead089962eb244420",
+      "path": "tests/sfir-integration/reject-overload-result-conflict.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "cc172ede57ae356d42dd97c495fdb097f85641b3a11b3976557f2b48364cf7b6"
+    },
+    {
+      "case": "reject-overload-rigid",
+      "old_path": "tests/strict/reject-overload-rigid.scm",
+      "old_sha256": "9e136950821a425ca977827b77c8138e1d42f3479e4f128e6a1bbe23f400d044",
+      "path": "tests/sfir-integration/reject-overload-rigid.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "4ff5871b23039467265f4cd6cf54e86f788193ab0d27aadff82ac0ff180ca6b3"
+    },
+    {
+      "case": "reject-overload-round-arity",
+      "old_path": "tests/strict/reject-overload-round-arity.scm",
+      "old_sha256": "83ebbf6eff19fe39d9858662971c74a077bb906913897b21ecb9ae38324368fb",
+      "path": "tests/sfir-integration/reject-overload-round-arity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9573d67c8dfeeb5d46402a8c0996fe070d6f60ef7ed9ab908fc8d0ef01ccb3b7"
+    },
+    {
+      "case": "reject-overload-round-integer",
+      "old_path": "tests/strict/reject-overload-round-integer.scm",
+      "old_sha256": "fcd8645b1d8548f17c0fdca4c72c9f8f4670526f9beb2844be7f42c0cc474a0f",
+      "path": "tests/sfir-integration/reject-overload-round-integer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "262c965afc519956fae59f4f4720293cd9592c145615e85ae3d417f446149860"
+    },
+    {
+      "case": "reject-overload-round-view",
+      "old_path": "tests/strict/reject-overload-round-view.scm",
+      "old_sha256": "27a9d6f29a3d07de648671994084850103896bee209fae6f0aace1406829ccae",
+      "path": "tests/sfir-integration/reject-overload-round-view.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e7467b84e896ab4680721979c6a871b1365529145ecc2a4c44a70f76e66be6b5"
+    },
+    {
+      "case": "reject-overload-short-constraint",
+      "old_path": "tests/strict/reject-overload-short-constraint.scm",
+      "old_sha256": "e87b5fa82e964fbf46037922653a4e57d064e6b981631ba20f5fda4b23073640",
+      "path": "tests/sfir-integration/reject-overload-short-constraint.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "c282461c5c7dfdc9f9e048336a4f126d1010200aebd8bfa6de3a20eef1492dc4"
+    },
+    {
+      "case": "reject-overload-unused-body",
+      "old_path": "tests/strict/reject-overload-unused-body.scm",
+      "old_sha256": "7eb4760003f76d825c58df7039407b0be4e3c4caec0911bbb1daca139f1f09c8",
+      "path": "tests/sfir-integration/reject-overload-unused-body.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "18dc3458512df85c301084282a7fbbe11c0fc1d121eb8c29be23e1d592e4eda8"
+    },
+    {
+      "case": "reject-overload-value-name",
+      "old_path": "tests/strict/reject-overload-value-name.scm",
+      "old_sha256": "ca303a83cb13ad4550e37f6cc828a9dac8fa06c34f37ff8a7da61f5977a4de03",
+      "path": "tests/sfir-integration/reject-overload-value-name.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "d9f3637a53fae2c8f2506eee45d5d9d46bff20aacd98b42df651df553f280037"
+    },
+    {
+      "case": "reject-primitive-declaration",
+      "old_path": "tests/strict/reject-primitive-declaration.scm",
+      "old_sha256": "db1a0af3332ef336025037aa39c264dbdbc7883cd66d71b7c43f8a1d3252f306",
+      "path": "tests/sfir-integration/reject-primitive-declaration.sfir",
+      "conversion": "Detached signatures are absent from SFIR; retained as located syntax rejection, not the former local-binding declaration rule.",
+      "transformations": {},
+      "sha256": "ff2e709d9e8f8007451b78bc3bb4031a5ae1e3fd28600bc4769fd263a44dbd47"
+    },
+    {
+      "case": "reject-reference-covariance",
+      "old_path": "tests/strict/reject-reference-covariance.scm",
+      "old_sha256": "967f25d9b4d9d8568cc6f5519deec7e6edc693d3ba59c4a55f59014c4a961766",
+      "path": "tests/sfir-integration/reject-reference-covariance.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1
+      },
+      "sha256": "b8163e842a79b4a8fe7c33d6c5bb62f649f171f125dbfd12c155177ee00a3c29"
+    },
+    {
+      "case": "reject-reference-polymorphism",
+      "old_path": "tests/strict/reject-reference-polymorphism.scm",
+      "old_sha256": "af01dc719c0c35d5a7cee94268d46ebf28b578b122936e8aa913856750614f0d",
+      "path": "tests/sfir-integration/reject-reference-polymorphism.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "27d192818e2b18fee16b666d6d2f82be7b1b89b55e8fbbfe228f570f4a968e9a"
+    },
+    {
+      "case": "reject-reference-write",
+      "old_path": "tests/strict/reject-reference-write.scm",
+      "old_sha256": "83833ec4b91edd360892656db3793a5a1da1c637897e9a897a8bbe2de173dd8d",
+      "path": "tests/sfir-integration/reject-reference-write.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ff481611648cf27ef43936c946dac9e81b0ed85ef52424eab2122e909a3a1fb0"
+    },
+    {
+      "case": "reject-rest-element",
+      "old_path": "tests/strict/reject-rest-element.scm",
+      "old_sha256": "6d7d21cf5fec36b0bf4a1bf06758f7a9b2bd7db557390222993e6da001bc7b9f",
+      "path": "tests/sfir-integration/reject-rest-element.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "4f94715792ded7f21cbad1a3364563f85e94cd36e968c638956991071d0e59d3"
+    },
+    {
+      "case": "reject-rigid-all",
+      "old_path": "tests/strict/reject-rigid-all.scm",
+      "old_sha256": "a71090028b966129c5c55ea540ffe214ec16d9d6f45a49df01b28b14559f0ba8",
+      "path": "tests/sfir-integration/reject-rigid-all.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "49a7e8c730e21d9259c4c204e19e32b12b26fc1736a4ae74f1bcb81eb88dfa8e"
+    },
+    {
+      "case": "reject-set",
+      "old_path": "tests/strict/reject-set.scm",
+      "old_sha256": "44b718cd7a7a0d55a36167246f737058dec74665a00fd66400a7aaa5e1984863",
+      "path": "tests/sfir-integration/reject-set.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "bf32d4c62486d406f52ba22c42b5667fbf7ff62668ecdbc2ed4180b95234df2f"
+    },
+    {
+      "case": "reject-string-character",
+      "old_path": "tests/strict/reject-string-character.scm",
+      "old_sha256": "49872a5a92a01877147fb224a2ddd714eef9ffd9065d21fdc934f98d7723ab18",
+      "path": "tests/sfir-integration/reject-string-character.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "de9a4e75b783a8722a69d0b2f344ccffd0b27cee3ef96c96abc906bcd9b8df6a"
+    },
+    {
+      "case": "reject-string-vector",
+      "old_path": "tests/strict/reject-string-vector.scm",
+      "old_sha256": "c0715d6bd19306a9d104308b4ec8bbf71b7e215077693e0cb15d65f63e3d8684",
+      "path": "tests/sfir-integration/reject-string-vector.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "05673cf5e5900c31b637b786e2e2c98624f5d2959b3dba7ed90e2f9d44902de3"
+    },
+    {
+      "case": "reject-unused-body",
+      "old_path": "tests/strict/reject-unused-body.scm",
+      "old_sha256": "03ac286210b684f62c236d345d34aeb4f10bae8628947086fcb5e6985a1279c3",
+      "path": "tests/sfir-integration/reject-unused-body.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "903f1dbe6ad24e8509ce7add90214dfdb8a6e026ff6d0ac1318640f8be12c420"
+    },
+    {
+      "case": "reject-vector-covariance",
+      "old_path": "tests/strict/reject-vector-covariance.scm",
+      "old_sha256": "c10dd5c05151cb5cce2a8d92bf0a20f4fe8a84f92056230fe779ba3ff8b20c99",
+      "path": "tests/sfir-integration/reject-vector-covariance.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "0f5d04da9bf00691bcc823859c81e7c95a52b407de8c858c76d8612349a67001"
+    },
+    {
+      "case": "reject-vector-default-missing",
+      "old_path": "tests/strict/reject-vector-default-missing.scm",
+      "old_sha256": "2e4d2625b71369d90b9f9d1fc72b783bf04a9b9045fb7bd687eb25439fcabd90",
+      "path": "tests/sfir-integration/reject-vector-default-missing.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "99ffa4b07959942e1206385c3820a0773f1ef748eac6029bd5bb73c74b3d06d9"
+    },
+    {
+      "case": "reject-vector-default-unresolved",
+      "old_path": "tests/strict/reject-vector-default-unresolved.scm",
+      "old_sha256": "d4abbfbef4811f837f0872bac8b20da8d7b49865ea7ffb2b6a32287a4a2d140e",
+      "path": "tests/sfir-integration/reject-vector-default-unresolved.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "402fb80b9b75b7c0a7cd653b89df3f36cd8acf391ea282e0e54345f93621887d"
+    },
+    {
+      "case": "reject-vector-mixed-append",
+      "old_path": "tests/strict/reject-vector-mixed-append.scm",
+      "old_sha256": "37c764378430b839e36b05e0751c3832ac92cf3ad59b69bd66f4160df5360bae",
+      "path": "tests/sfir-integration/reject-vector-mixed-append.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "0737fd03021ebb5e4242422388925637119fc3a26c8619f2356c8fd7061ac0bf"
+    },
+    {
+      "case": "reject-vector-polymorphism",
+      "old_path": "tests/strict/reject-vector-polymorphism.scm",
+      "old_sha256": "668ef520aafaeb0a0470f957c47d3ec179528c8ee6315382cafc81b94100db09",
+      "path": "tests/sfir-integration/reject-vector-polymorphism.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2
+      },
+      "sha256": "371ba481cfc9f4a5863df0efe7b4c069b18fd2dbe5ba9eaa1d57a306480ed681"
+    },
+    {
+      "case": "reject-vector-unresolved-empty",
+      "old_path": "tests/strict/reject-vector-unresolved-empty.scm",
+      "old_sha256": "f0f42818d730eef18c1060f0944a00d0569de7f1bfc4e9ad4fdf0405b056b978",
+      "path": "tests/sfir-integration/reject-vector-unresolved-empty.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "ea5cb2d34a23b296e2e30c8403c15e110af805e88b0adc3e81b91a0c15c9552a"
+    },
+    {
+      "case": "reject-vector-write",
+      "old_path": "tests/strict/reject-vector-write.scm",
+      "old_sha256": "79d7f25eecc9b75985b31a824347ff5646aa44fd9a28deaa3310387610abaccf",
+      "path": "tests/sfir-integration/reject-vector-write.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "81da16b801cd27c43a755cfffb8916290bff8aa806146448df0dbff61318def0"
+    },
+    {
+      "case": "scalar",
+      "old_path": "tests/strict/scalar.scm",
+      "old_sha256": "e6b47b64f5c1b2b4495aa04565f4f699982d8e2f004a7a37149cf8ebc15f5bb2",
+      "path": "tests/sfir-integration/scalar.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "3b03aafb19ac017e8d3a49fc2fc9472aa5efaa3bc666c2c9b771ae0cdbef625a"
+    },
+    {
+      "case": "specialized-shared-state",
+      "old_path": "tests/strict/specialized-shared-state.scm",
+      "old_sha256": "fbafe12d7ee86f4355871b0188ddca75e4e248e33b576b39a2da9b9ccd079aba",
+      "path": "tests/sfir-integration/specialized-shared-state.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "5bdab009c4b7f89e18468cdd894c540163f3d0f1fbe6d826162ead5578e095c2"
+    },
+    {
+      "case": "string-block-literal",
+      "old_path": "tests/strict/string-block-literal.scm",
+      "old_sha256": "7e84c1d60f420b49158d98798ad605e1f1adaf80df2352821103c429b10fd912",
+      "path": "tests/sfir-integration/string-block-literal.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 5,
+        "explicit-lambdas": 7,
+        "explicit-and": 3,
+        "explicit-or": 1,
+        "recursive-loop-blocks": 1
+      },
+      "sha256": "5c1747e220ceba8908d69aad7324e9f157d408a79f990dac02079d701a2526cf"
+    },
+    {
+      "case": "string-block-range-errors",
+      "old_path": "tests/strict/string-block-range-errors.scm",
+      "old_sha256": "f9285c3a0fe57beffc9f28e03cc049ea3d92987b0fec2eafac85b9c0fc6a9342",
+      "path": "tests/sfir-integration/string-block-range-errors.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 10,
+        "explicit-lambdas": 10
+      },
+      "sha256": "757ca83f0fb73920ea5edce66d68ef5615360f16a07ef83ecd7208996c665468"
+    },
+    {
+      "case": "string-blocks",
+      "old_path": "tests/strict/string-blocks.scm",
+      "old_sha256": "27d4ea8b0c85de808105a4060b4cb0adca3aa4f7f8ea47b8ad2a2bea208002a0",
+      "path": "tests/sfir-integration/string-blocks.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-unless": 2,
+        "recursive-loop-blocks": 2,
+        "explicit-body-blocks": 2,
+        "nested-sequential-lets": 1,
+        "explicit-and": 1
+      },
+      "sha256": "bdc5899c8ec03e89aa31ab00dc87690b228b009bf30d7dc0e8d4a5a5a4954b8c"
+    },
+    {
+      "case": "string-builtins",
+      "old_path": "tests/strict/string-builtins.scm",
+      "old_sha256": "a4542bf2392b2c552bc18f0d38743a730f761712ca99a181a2cfde16febb70f1",
+      "path": "tests/sfir-integration/string-builtins.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1,
+        "explicit-quotes": 1
+      },
+      "sha256": "06f9c3a97aa828f428c220a8ebc03bd35aecf3f19f2ec760459ae2baa3b6de5c"
+    },
+    {
+      "case": "string-first-class",
+      "old_path": "tests/strict/string-first-class.scm",
+      "old_sha256": "da46574dee4385f1027fc6f5a75fd80d74ae48d97daccfc01b32b42d58743b61",
+      "path": "tests/sfir-integration/string-first-class.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 3,
+        "explicit-and": 1
+      },
+      "sha256": "21f5eb56660d5bcfdc5ed9a07087c0091038c23243ca92ae0abfb4c6e4010cfe"
+    },
+    {
+      "case": "string-literals",
+      "old_path": "tests/strict/string-literals.scm",
+      "old_sha256": "dff2e5db70db727197e6ddd0000a95c486066f16042bca4df65503057e0d3f8f",
+      "path": "tests/sfir-integration/string-literals.sfir",
+      "conversion": "String is fixed type syntax; former imported Text alias becomes String. All literal/storage assertions are unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "a1624fb29a256a79b7109626d91bbd5b6744672bef723f77f9406c437d8c24fe"
+    },
+    {
+      "case": "string-mutation",
+      "old_path": "tests/strict/string-mutation.scm",
+      "old_sha256": "219b2107cfdbcf858f051ae4e9d6b9fba0b2fc7e47003de19c20db1fd041ebce",
+      "path": "tests/sfir-integration/string-mutation.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "75b87afb358ee8911a12609f090db182fbaa9e38cc86903b10f7084f9f6da0e1"
+    },
+    {
+      "case": "string-range-errors",
+      "old_path": "tests/strict/string-range-errors.scm",
+      "old_sha256": "0915c6066aef7904fd6f48a8d6ba9a23d2833100d81cfdb1d0d181296b7eb26f",
+      "path": "tests/sfir-integration/string-range-errors.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 19,
+        "explicit-lambdas": 19,
+        "explicit-and": 1,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "bc98bf4bb3fcaba172f8df4abf760e4c01e2b0b4b60b4f55c945e5c4ba3599c8"
+    },
+    {
+      "case": "string-readonly-errors",
+      "old_path": "tests/strict/string-readonly-errors.scm",
+      "old_sha256": "67ad9c275f57762377cd66b178ec704933596ff678acca6d4fefb637dcfc4f93",
+      "path": "tests/sfir-integration/string-readonly-errors.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 3,
+        "explicit-lambdas": 8,
+        "attached-signatures": 7
+      },
+      "sha256": "38a7a584fb185953b6db3ce049e4e04247ff9ab6ee50cd16055ad0ee6469466b"
+    },
+    {
+      "case": "string-top-string-trap",
+      "old_path": "tests/strict/string-top-string-trap.scm",
+      "old_sha256": "445e4cba8344d202a2f9b3719f6bcd475ac3d31d924ba1bc41a0013846e4ad67",
+      "path": "tests/sfir-integration/string-top-string-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "35fa8d4487bdb3ce44c18081627d81bbbcd2d998f15a57eff0d4a27ff0c07e80"
+    },
+    {
+      "case": "string-top-vector-trap",
+      "old_path": "tests/strict/string-top-vector-trap.scm",
+      "old_sha256": "9e91af1a32b5ce37dadd4978a20d32790561149a8806375ee0369431e1f97222",
+      "path": "tests/sfir-integration/string-top-vector-trap.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "28829c98b1abb0452a7831c84faeebbd27b0c4d8d75593fee08ef1657c35a55a"
+    },
+    {
+      "case": "string-top",
+      "old_path": "tests/strict/string-top.scm",
+      "old_sha256": "4a8181a894e19cc4dba1d108fb33c302085725a4594af40107256045becad184",
+      "path": "tests/sfir-integration/string-top.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "a3de136496cdd17c7639719e88487c1e1d71d4c7e0db901fe944a427830a96a8"
+    },
+    {
+      "case": "tail-recursion",
+      "old_path": "tests/strict/tail-recursion.scm",
+      "old_sha256": "2d304082de300995fae00372dc800424de0989c65f317909441d59e61d4cbc9a",
+      "path": "tests/sfir-integration/tail-recursion.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "c43b358a9e3637fe75c8195cf7e21088c1cffcf8c49016036213c50b41ff23f1"
+    },
+    {
+      "case": "top-character",
+      "old_path": "tests/strict/top-character.scm",
+      "old_sha256": "3055fd64605f696adfdb69538553c9b86ed8e0975fa03b9443daf5acefe893b9",
+      "path": "tests/sfir-integration/top-character.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "7b0a406a091ce0dfd67279fb1375c0e211b4165efb18fde33382a72228c09c68"
+    },
+    {
+      "case": "top-float",
+      "old_path": "tests/strict/top-float.scm",
+      "old_sha256": "e5bedac2f75c3564c85078b1687a9f4a38a24fc7328c346bbc901cfa4cc49e42",
+      "path": "tests/sfir-integration/top-float.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "396c67e6f038459c76b903c66104dc50c1229e4c01e0ceecdcf492dd51ec582f"
+    },
+    {
+      "case": "top-integer-boundaries",
+      "old_path": "tests/strict/top-integer-boundaries.scm",
+      "old_sha256": "1f3c5fe18aabe7b7f9c1e0f7a6da6f9d95cd616c974e9007d31392cab6079cec",
+      "path": "tests/sfir-integration/top-integer-boundaries.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "653e7510afddcf508d1576f4b402c689178193d3d6cb60a3b19c3f1849653903"
+    },
+    {
+      "case": "top-integer",
+      "old_path": "tests/strict/top-integer.scm",
+      "old_sha256": "67757763c4ea703e726f66b937ea85f7d4f14755f8526667a157d71fffae06c0",
+      "path": "tests/sfir-integration/top-integer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "9ede83b9f9cdd3ecca9efc975195775e2a87deb652b2b2760aebfe37449af27b"
+    },
+    {
+      "case": "top-never",
+      "old_path": "tests/strict/top-never.scm",
+      "old_sha256": "03257bac42bb669921ff062dcafb44775504e072e6bb9c3673336e61f9d04c5a",
+      "path": "tests/sfir-integration/top-never.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "e3eac5b998b09cae542617af33e555f06073ceaf1b2b2bcdb76ab99d01c5b448"
+    },
+    {
+      "case": "top-procedure-wrong-tag",
+      "old_path": "tests/strict/top-procedure-wrong-tag.scm",
+      "old_sha256": "b365947ce4536a920608a56f75db309a109a0c64adb80e657607e031d55c1e5e",
+      "path": "tests/sfir-integration/top-procedure-wrong-tag.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "b75dbea660c4c7f788ca47158486a4a587acb9ba69cb8f5640ccc9b947f0cd74"
+    },
+    {
+      "case": "top-procedure",
+      "old_path": "tests/strict/top-procedure.scm",
+      "old_sha256": "7d971e7b5d181188972df8d08f96494a1b9eb500c21f517df30f134ab51889fb",
+      "path": "tests/sfir-integration/top-procedure.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "ce7838eb7243575873c59285c0a95b1fe7d983b293ae4de5881ec11f4e414144"
+    },
+    {
+      "case": "top-reference-wrong-tag",
+      "old_path": "tests/strict/top-reference-wrong-tag.scm",
+      "old_sha256": "3fd755bdc5ebbd7f857e5c928f45b4a3fa65605551bd70d88e39fcfdcfbb14b8",
+      "path": "tests/sfir-integration/top-reference-wrong-tag.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "09a93cf907f4f7e17340b244ed89fda120ff197a516469b351344e5014b66803"
+    },
+    {
+      "case": "top-reference",
+      "old_path": "tests/strict/top-reference.scm",
+      "old_sha256": "c5cd4cb4fc44a9dc0c0c6faf2851baab79a1c7140ea81123d552092a043d4707",
+      "path": "tests/sfir-integration/top-reference.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "37302b3907fb76a92d4b63283f7e48b77fd91648456ed9a5f5695b76999ca1bb"
+    },
+    {
+      "case": "top-wrong-tag",
+      "old_path": "tests/strict/top-wrong-tag.scm",
+      "old_sha256": "23c7914e66e7beeb92378f68d990c102f60edaa976e209885ba3f0cb915f2512",
+      "path": "tests/sfir-integration/top-wrong-tag.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "65b267557d1f0d930ad0188ee61da92b9990f5ffabbfb4da1aea80b9161ad790"
+    },
+    {
+      "case": "typeclass-member-initializer",
+      "old_path": "tests/strict/typeclass-member-initializer.scm",
+      "old_sha256": "dfb0aecb6a33f299dceaac09690f0f5996645694490d5fa65ac80389cac2b7ae",
+      "path": "tests/sfir-integration/typeclass-member-initializer.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "1c5a781893ded1ae719ff9ae0ee708a754fd23c92b13f94facaeb911d88e7412"
+    },
+    {
+      "case": "typeclass-method-value",
+      "old_path": "tests/strict/typeclass-method-value.scm",
+      "old_sha256": "23a12c7eec9d4a02bdc14d8a40388a35c0b8f06a19a71301ee125d22851cca0e",
+      "path": "tests/sfir-integration/typeclass-method-value.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "e478f7f15fdc66294f48bd1f72e42601b72a49f50599a2fbcae6a1f6631261da"
+    },
+    {
+      "case": "typeclass-multiple-parameters",
+      "old_path": "tests/strict/typeclass-multiple-parameters.scm",
+      "old_sha256": "f36540c2af1179a2ad69feb1f315362fabba3764a2c5325c8f248cd92f9c9ad3",
+      "path": "tests/sfir-integration/typeclass-multiple-parameters.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-and": 1
+      },
+      "sha256": "29c4209ad7ec29ba0c6ded839e734ee99f3eeb55fb935b7a18be824af49ee7ae"
+    },
+    {
+      "case": "typeclass-phantom",
+      "old_path": "tests/strict/typeclass-phantom.scm",
+      "old_sha256": "4d3d758a503237f5ecdb36170e067d62529c6845f509c0bfc3ab1a6ff2455f92",
+      "path": "tests/sfir-integration/typeclass-phantom.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "b31da82ded2b07b3ddf6d39003f8d74cae6a615769ff2839dce904324c42e7a6"
+    },
+    {
+      "case": "typeclass-rest",
+      "old_path": "tests/strict/typeclass-rest.scm",
+      "old_sha256": "6c98160119e335a59cee52d1762b56725787d13a0a378d147edc3f5206831d41",
+      "path": "tests/sfir-integration/typeclass-rest.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9bb896542c0b2338794bf3118fa17355cb5decd0f6e38a1f0d339b9ae48c355b"
+    },
+    {
+      "case": "typeclass-result-selection",
+      "old_path": "tests/strict/typeclass-result-selection.scm",
+      "old_sha256": "c7d43da64596b423cb087fb13911e45378bc3a0c379e69ea37e23871c6be5208",
+      "path": "tests/sfir-integration/typeclass-result-selection.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-and": 1
+      },
+      "sha256": "8e8a0becb5a3202c815cf04f726bae4de29383352ec78ba99558a3c8de3d37fe"
+    },
+    {
+      "case": "typeclass",
+      "old_path": "tests/strict/typeclass.scm",
+      "old_sha256": "5070fd9b3c39476d1fc01039bfd2a8540400b9891facb85e9cef53ab8d7e2ea1",
+      "path": "tests/sfir-integration/typeclass.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "5bc879c5953234861037698e487b74dc664614f36415d2ca98bdf7d98d992a86"
+    },
+    {
+      "case": "typed-rest",
+      "old_path": "tests/strict/typed-rest.scm",
+      "old_sha256": "d4dcefc4de17be7b6d622957b5149b80e66a2c12b298b067a273f3ed905e0920",
+      "path": "tests/sfir-integration/typed-rest.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "564ab8feb863fea1119d29ebc4ecc51fb73f5a1665745e6fefcb5afa9596d191"
+    },
+    {
+      "case": "unit-control",
+      "old_path": "tests/strict/unit-control.scm",
+      "old_sha256": "b2890af4e7ea8e7974e9b39d60969f38525a089790dbaf8d61938e7a9ca7a0df",
+      "path": "tests/sfir-integration/unit-control.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-when": 4,
+        "explicit-unless": 4
+      },
+      "sha256": "1f1e7ece3a540b702c18deadab597d0ce8123018b55f54ac4344b8aa12288bfa"
+    },
+    {
+      "case": "unit-tail-discard",
+      "old_path": "tests/strict/unit-tail-discard.scm",
+      "old_sha256": "57c2da3a3512d61b0d7483ac14ebb3b59e63d805c5986fc2fd7c68af05095ef5",
+      "path": "tests/sfir-integration/unit-tail-discard.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 4,
+        "explicit-lambdas": 6,
+        "explicit-when": 1,
+        "explicit-unless": 1
+      },
+      "sha256": "72e4174e659627738457bc758bf8c108bafb1bc2853f891349ce8bd7d02dde8d"
+    },
+    {
+      "case": "unit-tail-effects",
+      "old_path": "tests/strict/unit-tail-effects.scm",
+      "old_sha256": "b780ca51573e18103ce0374655f133cedc704a55528729a229770655c3b3cb92",
+      "path": "tests/sfir-integration/unit-tail-effects.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-when": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "94b62267c0b3113cb72b0c8d4a97db9e10694ec447a374436bdc82085eb4f128"
+    },
+    {
+      "case": "unit-tail-recursion",
+      "old_path": "tests/strict/unit-tail-recursion.scm",
+      "old_sha256": "134145a033604c7d5b7e611763768a5c549e2316c1bbc541cc3151edef4859df",
+      "path": "tests/sfir-integration/unit-tail-recursion.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 3,
+        "explicit-body-blocks": 1,
+        "explicit-lambdas": 3,
+        "explicit-when": 1,
+        "explicit-unless": 1
+      },
+      "sha256": "aad7efbba8530abb86ad3b0df6982676dad0d83f362c79ac1a3d7a7ee0a9dd9a"
+    },
+    {
+      "case": "unit-tail-traps",
+      "old_path": "tests/strict/unit-tail-traps.scm",
+      "old_sha256": "45caddde37ecbabf801e6e10661f8525210ae106c9c5296de7460f8df1d4e26d",
+      "path": "tests/sfir-integration/unit-tail-traps.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 4,
+        "explicit-lambdas": 4,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "9e7e7d02f72f27340b8ef2a228dcb79e5b5331a2e3e430b0eb593a48b53a47b5"
+    },
+    {
+      "case": "unused-annotated-forward-alias",
+      "old_path": "tests/strict/unused-annotated-forward-alias.scm",
+      "old_sha256": "03dbdb31441dc97617c3d382a60766aa5a2e4e8a89005da1c9cfe895510e2886",
+      "path": "tests/sfir-integration/unused-annotated-forward-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "11899bf0ea1c48e686e97bb4bf925ba90a19eca291e32aef8a9fa41376b04456"
+    },
+    {
+      "case": "unused-forward-alias",
+      "old_path": "tests/strict/unused-forward-alias.scm",
+      "old_sha256": "e8316560b9a9a84f4ed92e1a42cd107a158bbae65b5f92885835fd76d6c46649",
+      "path": "tests/sfir-integration/unused-forward-alias.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "49f5eb6aee290c18881392dc967334b791d2f27f6b7902bede02c7001163ecb5"
+    },
+    {
+      "case": "vector-builtins",
+      "old_path": "tests/strict/vector-builtins.scm",
+      "old_sha256": "231d400fa42d0d523cc6343a5d627415ea3be7c7aa7b2543aeb6a62a4ee30510",
+      "path": "tests/sfir-integration/vector-builtins.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1,
+        "explicit-quotes": 1,
+        "explicit-and": 1
+      },
+      "sha256": "3d3dcfc94a360265c29ba2cf2bca418a1f6a9988ed78d3fba4dc6d50fbee0935"
+    },
+    {
+      "case": "vector-character",
+      "old_path": "tests/strict/vector-character.scm",
+      "old_sha256": "8ddf74d03e0786dbc9f94e7bf066bd7e7c40da90f48ee55102ec1813504513d6",
+      "path": "tests/sfir-integration/vector-character.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "57eef045319399be49317acaf2d7a03bf5e0fad0c39694ddfee8c42cb55e5db0"
+    },
+    {
+      "case": "vector-conversion-large",
+      "old_path": "tests/strict/vector-conversion-large.scm",
+      "old_sha256": "df0086b19c92a6bb85eacdef1adb959bcaf360e171069e62e2f400a825a894af",
+      "path": "tests/sfir-integration/vector-conversion-large.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-quotes": 1,
+        "recursive-loop-blocks": 1,
+        "explicit-and": 1
+      },
+      "sha256": "0b99292f5b66be095db5153df623899c5005c445d858681e206b6cdb0c0e16a1"
+    },
+    {
+      "case": "vector-default-fill",
+      "old_path": "tests/strict/vector-default-fill.scm",
+      "old_sha256": "f6c99d464677f6b529e6f47d0eb01eec6140283999902f8b7d013f22f8916401",
+      "path": "tests/sfir-integration/vector-default-fill.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "739a86a63fc85a937a3c9f6012ce38b5896fdc4ea669d4e93a5a7b5569a523ce"
+    },
+    {
+      "case": "vector-default-identity",
+      "old_path": "tests/strict/vector-default-identity.scm",
+      "old_sha256": "30b398a4d0a88b55e5931ab4c6d04e01ec1a9ed7cb0fcf8ff6c3e613b1da4ea1",
+      "path": "tests/sfir-integration/vector-default-identity.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-and": 1
+      },
+      "sha256": "ef98837b25217ed33b5ab93f539b380cfc433d879034cf11345872db9e4d49df"
+    },
+    {
+      "case": "vector-default-large",
+      "old_path": "tests/strict/vector-default-large.scm",
+      "old_sha256": "ee26ee43d0f9f1b099b839e314beec0b22688b77db38723f14a745437e51bd6b",
+      "path": "tests/sfir-integration/vector-default-large.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "00c5e6866b5e32a26bd7d3dcc259aff9a98834cc868d922618febfb93086a997"
+    },
+    {
+      "case": "vector-default-negative",
+      "old_path": "tests/strict/vector-default-negative.scm",
+      "old_sha256": "21466c0f01ffe36b30ecfe533fb5d323d9f3204ab7c77c13548f3886cb7b3f36",
+      "path": "tests/sfir-integration/vector-default-negative.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "2a228acf92f8a26cdf9a0c0207d187f9fbd5d397aae4bd7fceeb60c5314578ca"
+    },
+    {
+      "case": "vector-default-overflow",
+      "old_path": "tests/strict/vector-default-overflow.scm",
+      "old_sha256": "ce441e5aa1a9cbba3c5ae6f9ddf679846ce76bc6cb3e01f5f573d7908fcf2ba1",
+      "path": "tests/sfir-integration/vector-default-overflow.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "d954a825dd3c11a3048d169cfae44be3b086eac454fb680e12483c6997b742d7"
+    },
+    {
+      "case": "vector-default-shared",
+      "old_path": "tests/strict/vector-default-shared.scm",
+      "old_sha256": "e8e0b447f98c746009ddb2e2c2c625b0cdb5799e832429b6e074167adb3ee158",
+      "path": "tests/sfir-integration/vector-default-shared.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-body-blocks": 1,
+        "explicit-and": 1
+      },
+      "sha256": "f77628b10ebb10af587ea6373c0df529dbc4dff154e24a6da43442b85818f69b"
+    },
+    {
+      "case": "vector-default-trap-effects",
+      "old_path": "tests/strict/vector-default-trap-effects.scm",
+      "old_sha256": "d055050c025fd9ccfba5b5ec7a9f96d8f7e52df416c7cef3280780f57d1d0cb7",
+      "path": "tests/sfir-integration/vector-default-trap-effects.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "567d0e73ba94e3e5acc9cff38928f565d138678b157a6530b7f86cc231aa0b6e"
+    },
+    {
+      "case": "vector-default",
+      "old_path": "tests/strict/vector-default.scm",
+      "old_sha256": "e6bf666f084e5224db6c41c07be7faca543c4f11cc9cf0d88c336621d79182f5",
+      "path": "tests/sfir-integration/vector-default.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1,
+        "explicit-and": 1
+      },
+      "sha256": "e3e61fac2e712ae2f6c98cfa1b4dfce3f3f539a6a02f1d99901db7ed04b42e31"
+    },
+    {
+      "case": "vector-float32",
+      "old_path": "tests/strict/vector-float32.scm",
+      "old_sha256": "c9abd00e8f3a478d4072b45df117d0f06dfab8182859c391b025da610252d082",
+      "path": "tests/sfir-integration/vector-float32.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "deb99820183a28fe2896a5f15a6e1aa5f02f91a40563d4d1e9152d8694f7cfdd"
+    },
+    {
+      "case": "vector-float64",
+      "old_path": "tests/strict/vector-float64.scm",
+      "old_sha256": "fdbff9cef38b0ca5a3863bda6ed2fb471f3d953ca960455fdf530352751fdb78",
+      "path": "tests/sfir-integration/vector-float64.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "a766fcba02b500db9513c8d162310f1dd4917163b646a8ab2cdc65b7ad78c296"
+    },
+    {
+      "case": "vector-i32-bool",
+      "old_path": "tests/strict/vector-i32-bool.scm",
+      "old_sha256": "f1a9aa93749c168fb6420ef89cc26a756d012ef6cbd926645f229ec1c4baa094",
+      "path": "tests/sfir-integration/vector-i32-bool.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "c8384a94cab0e144ebecd7d9af914c70fdcecff0b876efda2692fa53a7045486"
+    },
+    {
+      "case": "vector-nested",
+      "old_path": "tests/strict/vector-nested.scm",
+      "old_sha256": "8dd29f6f2902b08b69ac37d0a00a5e5c235fab9d95414ff5d6af4a9f6bf00ae2",
+      "path": "tests/sfir-integration/vector-nested.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "10cd16ac4a3977fcbcb7694435302103c43b0350d5b840860bcec513a7c8493a"
+    },
+    {
+      "case": "vector-never",
+      "old_path": "tests/strict/vector-never.scm",
+      "old_sha256": "b901733957f95e94d451f4e4e394f6738487e53e46348112c5be921410c71c9b",
+      "path": "tests/sfir-integration/vector-never.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "9528d0bd77168dd8d01c5c38233a59233ae0248cab892abbcb495d26c9f4136c"
+    },
+    {
+      "case": "vector-procedure",
+      "old_path": "tests/strict/vector-procedure.scm",
+      "old_sha256": "cbf165a943b1c4469bc99fff84a4492dd6bf2221e1dddc845732ca0b91bc72c0",
+      "path": "tests/sfir-integration/vector-procedure.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "177cd71220daec404320fc00780002c1e314ab9d3a694267abcde6b90ef28672"
+    },
+    {
+      "case": "vector-reference",
+      "old_path": "tests/strict/vector-reference.scm",
+      "old_sha256": "d6a5031c8b5138c438bf71ed572af73ba1495b0ef0981807114037a6409184e6",
+      "path": "tests/sfir-integration/vector-reference.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "9e23ac343ace668302909d58e467a21312a8c53a6838737b6ad2280642222a2e"
+    },
+    {
+      "case": "vector-state",
+      "old_path": "tests/strict/vector-state.scm",
+      "old_sha256": "cedea68e1c32697a0a9aaeeb53a5d14647ddf60c0a647bf62be8c9f7ce9c55a2",
+      "path": "tests/sfir-integration/vector-state.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-and": 1
+      },
+      "sha256": "8f5cb8f0c9978acec1b6c3cbfc88933a2b3ad37198bb0b2ed829e330420f049d"
+    },
+    {
+      "case": "vector-top-elements",
+      "old_path": "tests/strict/vector-top-elements.scm",
+      "old_sha256": "75f6ddff5a7e071091343a162fed10207dd39d25d80f6b77307d6deb8c9ce5eb",
+      "path": "tests/sfir-integration/vector-top-elements.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "7724033a14627aed0f47c9112370c2bda1f5e7280a36cc620e888c0dcc880386"
+    },
+    {
+      "case": "vector-top-wrong-tag",
+      "old_path": "tests/strict/vector-top-wrong-tag.scm",
+      "old_sha256": "08b41a594dd97b31ba10c222e503f68ad814b507b4bd5f567d080d97f26654bf",
+      "path": "tests/sfir-integration/vector-top-wrong-tag.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "a22933d04456746dc68863157ddccbc60a387e778b62ed411ca689b67ebdfb0e"
+    },
+    {
+      "case": "vector-top",
+      "old_path": "tests/strict/vector-top.scm",
+      "old_sha256": "ab44c16ae7a89935e67b4f20d0e2fd75bad1a9c680722e263d1eec27f5b6dfca",
+      "path": "tests/sfir-integration/vector-top.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {},
+      "sha256": "b33ea2d19116ddbca479c80a3a597d3b1bf63d37021c9d33307b17f0b0863fbb"
+    },
+    {
+      "case": "vector-typeclass",
+      "old_path": "tests/strict/vector-typeclass.scm",
+      "old_sha256": "d9bf8a1d3d394a084efc4af8a44217efb52a1500ff493bab56be1d96eb3dd9e9",
+      "path": "tests/sfir-integration/vector-typeclass.sfir",
+      "conversion": "Explicit syntax migration; runtime assertions unchanged.",
+      "transformations": {
+        "explicit-lambdas": 2,
+        "explicit-and": 1
+      },
+      "sha256": "1f141ce73807807af6a12cd3cecdeea53645ea71cda30d9e726d1f14d2eba3c5"
+    }
+  ],
+  "review": "Focused simplify explanation and informed critique completed; scope, initializer order, trap observers, process completion and removed-syntax coverage audited.",
+  "validation": "All 307 contracts validated: 304 passed in the full run; three exact collision-diagnostic wording corrections passed in a focused retry. Initial failures are retained.",
+  "diagnostic_updates": {
+    "reject-overload-value-name": "overload collides with an ordinary binding",
+    "reject-overload-class-method": "overload collides with an ordinary binding",
+    "reject-data-constructor-overload": "overload collides with an ordinary binding"
+  }
+}

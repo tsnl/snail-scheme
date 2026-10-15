@@ -1,0 +1,7 @@
+{
+  "name": "fibc",
+  "count": 10,
+  "inputs": [30],
+  "expected": 832040,
+  "barriers_per_iteration": 2
+}

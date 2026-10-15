@@ -1,0 +1,652 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import
+  (sfir core)
+  (rename
+    (sfir datum)
+    (string->symbol conform-string->symbol)
+    (symbol->string conform-symbol->string)
+    (symbol=? conform-symbol=?))
+  (sfir read)
+  (sfir io))
+
+(define-extern print-character "benchmark" "write_char" (-> Char Unit))
+
+(define-data (Optional T) (absent) (present (value T optional-value)))
+
+(define present? (All (T) (-> (Optional T) Bool))
+  (lambda (value.20) (match value.20 ((absent) #f) ((present item) #t))))
+
+(define-data Name (symbol-name (value Symbol name-symbol)) (text-name (value String name-text)))
+
+(define-data BlueState
+  (blue-unresolved)
+  (blue-none)
+  (blue-ready (edges (List BlueEdge) blue-state-edges)))
+
+(define-data Node
+  (node-record
+    (name (Ref String) node-name-cell)
+    (green (Ref (List Node)) node-green-cell)
+    (red (Ref (List Node)) node-red-cell)
+    (blue (Ref BlueState) node-blue-cell)))
+
+(define-data BlueEdge
+  (edge-record
+    (operation (Ref Symbol) edge-operation-cell)
+    (argument (Ref Node) edge-argument-cell)
+    (result (Ref Node) edge-result-cell)))
+
+(define-data Signature
+  (signature (argument Node signature-argument) (result Node signature-result)))
+
+(define-data Entry (table-entry (key Node entry-key) (value Node entry-value)))
+
+(define-data Row (row-record (key Node row-key) (entries (Ref (List Entry)) row-entry-cell)))
+
+(define-data Table (table-record (rows (Ref (List Row)) table-row-cell)))
+
+(define-data Graph
+  (graph-record
+    (nodes (Ref (List Node)) graph-node-cell)
+    (met Table graph-met)
+    (joined Table graph-joined)))
+
+(define-class (ConformIdentity T) (: conform-eq? (-> T T Bool)))
+
+(define-instance
+  (ConformIdentity Node)
+  (conform-eq? (lambda (left right) (ref-eq? (node-name-cell left) (node-name-cell right)))))
+
+(define-instance (ConformIdentity Symbol) (conform-eq? conform-symbol=?))
+
+(define phi-operation (conform-string->symbol "phi"))
+
+(define theta-operation (conform-string->symbol "theta"))
+
+(define name-string
+  (lambda (value.19)
+    (match value.19
+      ((symbol-name name.4) (conform-symbol->string name.4))
+      ((text-name text.1) text.1))))
+
+(define table-rows (lambda (table.4) (ref-get (table-row-cell table.4))))
+
+(define set-table-rows! (lambda (table.3 rows.1) (ref-set! (table-row-cell table.3) rows.1)))
+
+(define row-entries (lambda (row.1) (ref-get (row-entry-cell row.1))))
+
+(define set-row-entries! (lambda (row entries.1) (ref-set! (row-entry-cell row) entries.1)))
+
+(define find-row
+  (lambda (key.1 rows)
+    (if (null? rows)
+      (absent)
+      (if (conform-eq? key.1 (row-key (car rows))) (present (car rows)) (find-row key.1 (cdr rows))))))
+
+(define find-entry
+  (lambda (key entries)
+    (if (null? entries)
+      (absent)
+      (if (conform-eq? key (entry-key (car entries)))
+        (present (car entries))
+        (find-entry key (cdr entries))))))
+
+(define conform-member? (All (T) (=> ((ConformIdentity T)) (-> T (List T) Bool)))
+  (lambda (value.17 values.6)
+    (if (not (null? values.6))
+      ((lambda (value.18) (if value.18 value.18 (conform-member? value.17 (cdr values.6))))
+        (conform-eq? value.17 (car values.6)))
+      #f)))
+
+(define conform-list (All (T) (-> (Rest T) (List T))) (lambda values.5 values.5))
+
+(define conform-map (All (A B) (-> (-> A B) (List A) (List B)))
+  (lambda (procedure.1 values.4)
+    (if (null? values.4)
+      (quote ())
+      ((lambda (head) (cons head (conform-map procedure.1 (cdr values.4))))
+        (procedure.1 (car values.4))))))
+
+(define conform-for-each (All (A B) (-> (-> A B) (List A) Unit))
+  (lambda (procedure values.3)
+    (if (null? values.3)
+      (unit)
+      (begin (procedure (car values.3)) (conform-for-each procedure (cdr values.3)) (unit)))))
+
+(define conform-append (All (T) (-> (List T) (List T) (List T)))
+  (lambda (first.1 last)
+    (if (null? first.1) last (cons (car first.1) (conform-append (cdr first.1) last)))))
+
+(define conform-length (All (T) (-> (List T) I64))
+  (lambda (values.1)
+    (((lambda () (begin (define loop.9 (lambda (values.2 count.4) (if (null? values.2) count.4 (loop.9 (cdr values.2) (+ count.4 1))))) loop.9)))
+      values.1
+      0)))
+
+(define conform-pair? (All (T) (-> (List T) Bool)) (lambda (value.16) (not (null? value.16))))
+
+(define conform-caar (lambda (values) (car (car values))))
+
+(define copy-graph-arguments
+  (lambda (nodes.8)
+    (if (null? nodes.8) (quote ()) (cons (car nodes.8) (copy-graph-arguments (cdr nodes.8))))))
+
+(define make-graph-list (-> (List Node) Graph)
+  (lambda (nodes.7)
+    (make-internal-graph (copy-graph-arguments nodes.7) (make-empty-table) (make-empty-table))))
+
+(define display-text
+  (lambda (text)
+    (((lambda () (begin (define loop.8 (lambda (index.1) (if (= index.1 (string-length text)) (unit) (begin (print-character (string-ref text index.1)) (loop.8 (+ index.1 1)) (unit))))) loop.8)))
+      0)))
+
+(define display-number (lambda (number.2) (display-text (i64->string number.2))))
+
+(define conform-newline (lambda () (print-character #\newline)))
+
+(define sort-list (All (T) (-> (List T) (-> T T Bool) (List T)))
+  (lambda (obj pred)
+    (begin
+      (define loop.7
+        (lambda (l.3)
+          (if (if (conform-pair? l.3) (conform-pair? (cdr l.3)) #f)
+            (split-list l.3 (quote ()) (quote ()))
+            l.3)))
+      (define split-list
+        (lambda (l.2 one.3 two.2)
+          (if (conform-pair? l.2)
+            (split-list (cdr l.2) two.2 (cons (car l.2) one.3))
+            (merge (loop.7 one.3) (loop.7 two.2)))))
+      (define merge
+        (lambda (one.2 two.1)
+          (if (null? one.2)
+            two.1
+            (if (pred (car two.1) (car one.2))
+              (cons (car two.1) (merge (cdr two.1) one.2))
+              (cons (car one.2) (merge (cdr one.2) two.1))))))
+      (loop.7 obj))))
+
+(define adjoin (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T))))
+  (lambda (element.2 set.1) (if (conform-member? element.2 set.1) set.1 (cons element.2 set.1))))
+
+(define eliminate (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T))))
+  (lambda (element.1 set)
+    (if (null? set)
+      set
+      (if (conform-eq? element.1 (car set))
+        (cdr set)
+        (cons (car set) (eliminate element.1 (cdr set)))))))
+
+(define intersect (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T))))
+  (lambda (list1.1 list2.1)
+    (((lambda () (begin (define loop.6 (lambda (l.1) (if (null? l.1) (quote ()) (if (conform-member? (car l.1) list2.1) (cons (car l.1) (loop.6 (cdr l.1))) (loop.6 (cdr l.1)))))) loop.6)))
+      list1.1)))
+
+(define union (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T))))
+  (lambda (list1 list2) (if (null? list1) list2 (union (cdr list1) (adjoin (car list1) list2)))))
+
+(define make-internal-node (-> String (List Node) (List Node) BlueState Node)
+  (lambda (name.3 green red blue) (node-record (ref name.3) (ref green) (ref red) (ref blue))))
+
+(define internal-node-name (lambda (node.21) (ref-get (node-name-cell node.21))))
+
+(define internal-node-green-edges (lambda (node.20) (ref-get (node-green-cell node.20))))
+
+(define internal-node-red-edges (lambda (node.19) (ref-get (node-red-cell node.19))))
+
+(define internal-node-blue-edges (lambda (node.18) (ref-get (node-blue-cell node.18))))
+
+(define set-internal-node-name!
+  (lambda (node.17 name.2) (ref-set! (node-name-cell node.17) name.2)))
+
+(define set-internal-node-green-edges!
+  (lambda (node.16 edges.4) (ref-set! (node-green-cell node.16) edges.4)))
+
+(define set-internal-node-red-edges!
+  (lambda (node.15 edges.3) (ref-set! (node-red-cell node.15) edges.3)))
+
+(define set-internal-node-blue-edges!
+  (lambda (node.14 edges.2) (ref-set! (node-blue-cell node.14) edges.2)))
+
+(define make-node (-> Name (Rest BlueState) Node)
+  (lambda (name . blue-edges.1)
+    ((lambda (name.1 blue-edges.2) (make-internal-node name.1 (quote ()) (quote ()) blue-edges.2))
+      (name-string name)
+      (if (null? blue-edges.1) (blue-unresolved) (car blue-edges.1)))))
+
+(define copy-node (-> Node Node)
+  (lambda (node.13)
+    (make-internal-node
+      (internal-node-name node.13)
+      (quote ())
+      (quote ())
+      (blue-ready (blue-edges node.13)))))
+
+(define make-edge-getter (All (T) (-> (-> Node T) (-> Node T)))
+  (lambda (selector.1)
+    (lambda (node.12)
+      (if ((lambda (value.15) (if value.15 value.15 (any-node? node.12))) (none-node? node.12))
+        (datum-fail "Can't get edges from the ANY or NONE nodes")
+        (selector.1 node.12)))))
+
+(define red-edges (make-edge-getter internal-node-red-edges))
+
+(define green-edges (make-edge-getter internal-node-green-edges))
+
+(define blue-edges
+  (make-edge-getter (lambda (node.11) (blue-state-edges (internal-node-blue-edges node.11)))))
+
+(define make-edge-setter (All (T) (-> (-> Node T Unit) (-> Node T Unit)))
+  (lambda (mutator!)
+    (lambda (node.10 value.14)
+      (if (any-node? node.10)
+        (datum-fail "Can't set edges from the ANY node")
+        (if (none-node? node.10) (unit) (mutator! node.10 value.14))))))
+
+(define set-red-edges! (make-edge-setter set-internal-node-red-edges!))
+
+(define set-green-edges! (make-edge-setter set-internal-node-green-edges!))
+
+(define set-blue-edges!
+  (make-edge-setter
+    (lambda (node.9 edges.1) (set-internal-node-blue-edges! node.9 (blue-ready edges.1)))))
+
+(define make-blue-edge
+  (lambda (operation.1 argument result.6)
+    (edge-record (ref operation.1) (ref argument) (ref result.6))))
+
+(define blue-edge-operation (lambda (edge.5) (ref-get (edge-operation-cell edge.5))))
+
+(define blue-edge-arg-node (lambda (edge.4) (ref-get (edge-argument-cell edge.4))))
+
+(define blue-edge-res-node (lambda (edge.3) (ref-get (edge-result-cell edge.3))))
+
+(define set-blue-edge-operation!
+  (lambda (edge.2 value.13) (ref-set! (edge-operation-cell edge.2) value.13)))
+
+(define set-blue-edge-arg-node!
+  (lambda (edge.1 value.12) (ref-set! (edge-argument-cell edge.1) value.12)))
+
+(define set-blue-edge-res-node!
+  (lambda (edge value.11) (ref-set! (edge-result-cell edge) value.11)))
+
+(define operation blue-edge-operation)
+
+(define arg-node blue-edge-arg-node)
+
+(define res-node blue-edge-res-node)
+
+(define set-arg-node! set-blue-edge-arg-node!)
+
+(define set-res-node! set-blue-edge-res-node!)
+
+(define lookup-op (-> Symbol Node (Optional BlueEdge))
+  (lambda (op.5 node.8)
+    (((lambda () (begin (define loop.5 (lambda (edges) (if (null? edges) (absent) (if (conform-eq? op.5 (operation (car edges))) (present (car edges)) (loop.5 (cdr edges)))))) loop.5)))
+      (blue-edges node.8))))
+
+(define has-op? (lambda (op.4 node.7) (present? (lookup-op op.4 node.7))))
+
+(define make-internal-graph (lambda (nodes.6 met joined) (graph-record (ref nodes.6) met joined)))
+
+(define internal-graph-nodes (lambda (graph.10) (ref-get (graph-node-cell graph.10))))
+
+(define internal-graph-already-met (lambda (graph.9) (graph-met graph.9)))
+
+(define internal-graph-already-joined (lambda (graph.8) (graph-joined graph.8)))
+
+(define set-internal-graph-nodes!
+  (lambda (graph.7 nodes.5) (ref-set! (graph-node-cell graph.7) nodes.5)))
+
+(define make-graph (-> (Rest Node) Graph)
+  (lambda nodes.4 (make-internal-graph nodes.4 (make-empty-table) (make-empty-table))))
+
+(define graph-nodes internal-graph-nodes)
+
+(define already-met internal-graph-already-met)
+
+(define already-joined internal-graph-already-joined)
+
+(define add-graph-nodes! (-> Graph Node Unit)
+  (lambda (graph.6 nodes.3)
+    (set-internal-graph-nodes! graph.6 (cons nodes.3 (graph-nodes graph.6)))))
+
+(define copy-graph (-> Graph Graph)
+  (lambda (g.4)
+    (begin
+      (define copy-list (lambda (l) (vector->list (list->vector l))))
+      (make-internal-graph (copy-list (graph-nodes g.4)) (already-met g.4) (already-joined g.4)))))
+
+(define clean-graph
+  (lambda (g.3)
+    (begin
+      (define clean-node
+        (lambda (node.6)
+          (if ((lambda (value.10) (if value.10 value.10 (none-node? node.6))) (any-node? node.6))
+            (unit)
+            (begin (set-green-edges! node.6 (quote ())) (set-red-edges! node.6 (quote ())) (unit)))))
+      (conform-for-each clean-node (graph-nodes g.3))
+      g.3)))
+
+(define canonicalize-graph (-> Graph (List (List Node)) Graph)
+  (lambda (graph.5 classes.4)
+    (begin
+      (define fix
+        (lambda (node.4)
+          (begin
+            (define fix-set
+              (lambda (object selector mutator)
+                (mutator
+                  object
+                  (conform-map
+                    (lambda (node.5) (find-canonical-representative node.5 classes.4))
+                    (selector object)))))
+            (if ((lambda (value.9) (if value.9 value.9 (any-node? node.4))) (none-node? node.4))
+              (unit)
+              (begin
+                (fix-set node.4 green-edges set-green-edges!)
+                (fix-set node.4 red-edges set-red-edges!)
+                (conform-for-each
+                  (lambda (blue-edge)
+                    (begin
+                      (set-arg-node!
+                        blue-edge
+                        (find-canonical-representative (arg-node blue-edge) classes.4))
+                      (set-res-node!
+                        blue-edge
+                        (find-canonical-representative (res-node blue-edge) classes.4))))
+                  (blue-edges node.4))
+                (unit)))
+            node.4)))
+      (define fix-table
+        (lambda (table.2)
+          (begin
+            (define canonical?
+              (lambda (node.3)
+                (conform-eq? node.3 (find-canonical-representative node.3 classes.4))))
+            (define filter-and-fix (All (A B) (-> (-> A Bool) (-> A B) (List A) (List B)))
+              (lambda (predicate-fn update-fn conform-list.1)
+                (((lambda () (begin (define loop.4 (lambda (conform-list.2) (if (null? conform-list.2) (quote ()) (if (predicate-fn (car conform-list.2)) (cons (update-fn (car conform-list.2)) (loop.4 (cdr conform-list.2))) (loop.4 (cdr conform-list.2)))))) loop.4)))
+                  conform-list.1)))
+            (define fix-line
+              (lambda (line.1)
+                (filter-and-fix
+                  (lambda (entry.2) (canonical? (entry-key entry.2)))
+                  (lambda (entry.3)
+                    (table-entry
+                      (entry-key entry.3)
+                      (find-canonical-representative (entry-value entry.3) classes.4)))
+                  line.1)))
+            (table-record
+              (ref
+                (filter-and-fix
+                  (lambda (entry) (canonical? (row-key entry)))
+                  (lambda (entry.1)
+                    (row-record (row-key entry.1) (ref (fix-line (row-entries entry.1)))))
+                  (table-rows table.2)))))))
+      (make-internal-graph
+        (conform-map (lambda (class.1) (fix (car class.1))) classes.4)
+        (fix-table (already-met graph.5))
+        (fix-table (already-joined graph.5))))))
+
+(define none-node (make-node (symbol-name (conform-string->symbol "none")) (blue-none)))
+
+(define none-node? (lambda (node.2) (conform-eq? node.2 none-node)))
+
+(define any-node (make-node (symbol-name (conform-string->symbol "any")) (blue-ready (quote ()))))
+
+(define any-node? (lambda (node.1) (conform-eq? node.1 any-node)))
+
+(define green-edge?
+  (lambda (from-node.4 to-node.2)
+    (if (any-node? from-node.4)
+      #f
+      (if (none-node? from-node.4)
+        #t
+        (if (conform-member? to-node.2 (green-edges from-node.4)) #t #f)))))
+
+(define red-edge?
+  (lambda (from-node.3 to-node.1)
+    (if (any-node? from-node.3)
+      #f
+      (if (none-node? from-node.3)
+        #t
+        (if (conform-member? to-node.1 (red-edges from-node.3)) #t #f)))))
+
+(define sig
+  ((lambda (none-comma-any) (lambda (op.3 node) ((lambda (the-edge) (if (present? the-edge) (signature (arg-node (optional-value the-edge)) (res-node (optional-value the-edge))) none-comma-any)) (lookup-op op.3 node))))
+    (signature none-node any-node)))
+
+(define arg (lambda (pair.1) (signature-argument pair.1)))
+
+(define res (lambda (pair) (signature-result pair)))
+
+(define conforms? (-> Node Node Bool)
+  (lambda (t1 t2)
+    (begin
+      (define nodes-with-red-edges-out (ref (ann (quote ()) (List Node))))
+      (define add-red-edge!
+        (lambda (from-node.2 to-node)
+          (begin
+            (set-red-edges! from-node.2 (adjoin to-node (red-edges from-node.2)))
+            (ref-set!
+              nodes-with-red-edges-out
+              (adjoin from-node.2 (ref-get nodes-with-red-edges-out))))))
+      (define greenify-red-edges!
+        (lambda (from-node.1)
+          (begin
+            (set-green-edges!
+              from-node.1
+              (conform-append (red-edges from-node.1) (green-edges from-node.1)))
+            (set-red-edges! from-node.1 (quote ())))))
+      (define delete-red-edges! (lambda (from-node) (set-red-edges! from-node (quote ()))))
+      (define does-conform
+        (lambda (t1.1 t2.1)
+          (if ((lambda (value.8) (if value.8 value.8 (any-node? t2.1))) (none-node? t1.1))
+            #t
+            (if ((lambda (value.7) (if value.7 value.7 (none-node? t2.1))) (any-node? t1.1))
+              #f
+              (if (green-edge? t1.1 t2.1)
+                #t
+                (if (red-edge? t1.1 t2.1)
+                  #t
+                  (begin
+                    (add-red-edge! t1.1 t2.1)
+                    (((lambda () (begin (define loop.3 (lambda (blues) (if (null? blues) #t ((lambda (current-edge) ((lambda (phi) ((lambda () (if (has-op? phi t1.1) (if (does-conform (res (sig phi t1.1)) (res (sig phi t2.1))) (if (does-conform (arg (sig phi t2.1)) (arg (sig phi t1.1))) (loop.3 (cdr blues)) #f) #f) #f)))) (operation current-edge))) (car blues))))) loop.3)))
+                      (blue-edges t2.1)))))))))
+      ((lambda (result.5) (begin (conform-for-each (if result.5 greenify-red-edges! delete-red-edges!) (ref-get nodes-with-red-edges-out)) result.5))
+        (does-conform t1 t2)))))
+
+(define equivalent? (lambda (a b) (if (conforms? a b) (conforms? b a) #f)))
+
+(define classify (-> (List Node) (List (List Node)))
+  (lambda (nodes.1)
+    (((lambda () (begin (define node-loop (lambda (classes.2 nodes.2) (if (null? nodes.2) (conform-map (lambda (class) (sort-list class (lambda (node1.2 node2.2) (< (string-length (internal-node-name node1.2)) (string-length (internal-node-name node2.2)))))) classes.2) ((lambda (this-node) (begin (define add-node (lambda (classes.3) (if (null? classes.3) (conform-list (conform-list this-node)) (if (equivalent? this-node (conform-caar classes.3)) (cons (cons this-node (car classes.3)) (cdr classes.3)) (cons (car classes.3) (add-node (cdr classes.3))))))) (node-loop (add-node classes.2) (cdr nodes.2)))) (car nodes.2))))) node-loop)))
+      (quote ())
+      nodes.1)))
+
+(define find-canonical-representative (-> Node (List (List Node)) Node)
+  (lambda (element classification)
+    (((lambda () (begin (define loop.2 (lambda (classes.1) (if (null? classes.1) (datum-fail "Can't classify") (if (conform-member? element (car classes.1)) (car (car classes.1)) (loop.2 (cdr classes.1)))))) loop.2)))
+      classification)))
+
+(define xreduce
+  (lambda (graph.4)
+    ((lambda (classes) (canonicalize-graph graph.4 classes)) (classify (graph-nodes graph.4)))))
+
+(define make-empty-table (lambda () (table-record (ref (quote ())))))
+
+(define lookup (-> Table Node Node (Optional Node))
+  (lambda (table.1 x.2 y.2)
+    ((lambda (one.1) (if (present? one.1) ((lambda (two) (if (present? two) (present (entry-value (optional-value two))) (absent))) (find-entry y.2 (row-entries (optional-value one.1)))) (absent)))
+      (find-row x.2 (table-rows table.1)))))
+
+(define insert! (-> Table Node Node Node Unit)
+  (lambda (table x y value.6)
+    (begin
+      (define make-singleton-table (lambda (x.1 y.1) (conform-list (table-entry x.1 y.1))))
+      ((lambda (one) (if (present? one) (set-row-entries! (optional-value one) (cons (table-entry y value.6) (row-entries (optional-value one)))) (set-table-rows! table (cons (row-record x (ref (make-singleton-table y value.6))) (table-rows table)))))
+        (find-row x (table-rows table))))))
+
+(define blue-edge-operate (-> (-> Graph Node Node Node) (-> Graph Node Node Node) Graph Symbol Signature Signature BlueEdge)
+  (lambda (arg-fn res-fn graph.3 op.2 sig1 sig2)
+    (make-blue-edge
+      op.2
+      (arg-fn graph.3 (arg sig1) (arg sig2))
+      (res-fn graph.3 (res sig1) (res sig2)))))
+
+(define meet (-> Graph Node Node Node)
+  (lambda (graph.2 node1.1 node2.1)
+    (if (conform-eq? node1.1 node2.1)
+      node1.1
+      (if ((lambda (value.5) (if value.5 value.5 (any-node? node2.1))) (any-node? node1.1))
+        any-node
+        (if (none-node? node1.1)
+          node2.1
+          (if (none-node? node2.1)
+            node1.1
+            ((lambda (result.4) (if (present? result.4) (optional-value result.4) (if (conforms? node1.1 node2.1) node2.1 (if (conforms? node2.1 node1.1) node1.1 ((lambda (result.3) (begin (add-graph-nodes! graph.2 result.3) (insert! (already-met graph.2) node1.1 node2.1 result.3) (set-blue-edges! result.3 (conform-map (lambda (op.1) (blue-edge-operate join meet graph.2 op.1 (sig op.1 node1.1) (sig op.1 node2.1))) (intersect (conform-map operation (blue-edges node1.1)) (conform-map operation (blue-edges node2.1))))) result.3)) (make-node (text-name (string-append "(" (internal-node-name node1.1) " ^ " (internal-node-name node2.1) ")"))))))))
+              (lookup (already-met graph.2) node1.1 node2.1))))))))
+
+(define join (-> Graph Node Node Node)
+  (lambda (graph.1 node1 node2)
+    (if (conform-eq? node1 node2)
+      node1
+      (if (any-node? node1)
+        node2
+        (if (any-node? node2)
+          node1
+          (if ((lambda (value.4) (if value.4 value.4 (none-node? node2))) (none-node? node1))
+            none-node
+            ((lambda (result.2) (if (present? result.2) (optional-value result.2) (if (conforms? node1 node2) node1 (if (conforms? node2 node1) node2 ((lambda (result.1) (begin (add-graph-nodes! graph.1 result.1) (insert! (already-joined graph.1) node1 node2 result.1) (set-blue-edges! result.1 (conform-map (lambda (op) (blue-edge-operate meet join graph.1 op (sig op node1) (sig op node2))) (union (conform-map operation (blue-edges node1)) (conform-map operation (blue-edges node2))))) result.1)) (make-node (text-name (string-append "(" (internal-node-name node1) " v " (internal-node-name node2) ")"))))))))
+              (lookup (already-joined graph.1) node1 node2))))))))
+
+(define make-lattice
+  (lambda (g print?)
+    (begin
+      (define step
+        (lambda (g.2)
+          ((lambda (copy) ((lambda (nodes) ((lambda () (begin (conform-for-each (lambda (first) (conform-for-each (lambda (second) (begin (meet copy first second) (join copy first second))) nodes)) nodes) copy)))) (graph-nodes copy)))
+            (copy-graph g.2))))
+      (define loop.1
+        (lambda (g.1 count.3)
+          (begin
+            (if print? (begin (display-number count.3) (unit)) (unit))
+            ((lambda (lattice) (begin (if print? (begin (display-text " -> ") (display-number (conform-length (graph-nodes lattice))) (unit)) (unit)) ((lambda (new-g) ((lambda (new-count) ((lambda () (if (= new-count count.3) (begin (if print? (begin (conform-newline) (unit)) (unit)) new-g) (begin (if print? (begin (display-text " -> ") (display-number new-count) (conform-newline) (unit)) (unit)) (loop.1 new-g new-count)))))) (conform-length (graph-nodes new-g)))) (xreduce lattice))))
+              (step g.1)))))
+      ((lambda (graph) (loop.1 graph (conform-length (graph-nodes graph))))
+        (make-graph-list (adjoin any-node (adjoin none-node (graph-nodes (clean-graph g)))))))))
+
+(define node-a (ref (ann (absent) (Optional Node))))
+
+(define node-b (ref (ann (absent) (Optional Node))))
+
+(define node-c (ref (ann (absent) (Optional Node))))
+
+(define node-d (ref (ann (absent) (Optional Node))))
+
+(define setup (-> Name Name Name Name Unit)
+  (lambda (a0.1 b0.1 c0.1 d0.1)
+    (begin
+      (ref-set! node-a (present (make-node a0.1)))
+      (ref-set! node-b (present (make-node b0.1)))
+      (set-blue-edges!
+        (optional-value (ref-get node-a))
+        (conform-list (make-blue-edge phi-operation any-node (optional-value (ref-get node-b)))))
+      (set-blue-edges!
+        (optional-value (ref-get node-b))
+        (conform-list
+          (make-blue-edge phi-operation any-node (optional-value (ref-get node-a)))
+          (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))
+      (ref-set! node-c (present (make-node c0.1)))
+      (ref-set! node-d (present (make-node d0.1)))
+      (set-blue-edges!
+        (optional-value (ref-get node-c))
+        (conform-list (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))
+      (set-blue-edges!
+        (optional-value (ref-get node-d))
+        (conform-list
+          (make-blue-edge phi-operation any-node (optional-value (ref-get node-c)))
+          (make-blue-edge theta-operation any-node (optional-value (ref-get node-d)))))
+      (unit))))
+
+(define test (-> Name Name Name Name (List String))
+  (lambda (a0 b0 c0 d0)
+    (begin
+      (setup a0 b0 c0 d0)
+      (conform-map
+        internal-node-name
+        (graph-nodes
+          (make-lattice
+            (make-graph
+              (optional-value (ref-get node-a))
+              (optional-value (ref-get node-b))
+              (optional-value (ref-get node-c))
+              (optional-value (ref-get node-d))
+              any-node
+              none-node)
+            #f))))))
+
+(define-data Specification
+  (specification
+    (count I64 specification-count)
+    (names (List Name) specification-names)
+    (expected (List String) specification-expected)))
+
+(define input-name
+  (lambda (value.3)
+    (if (= (datum-kind value.3) 3)
+      (text-name (datum-string-value value.3))
+      (symbol-name (datum-symbol-value value.3)))))
+
+(define input-names
+  (lambda (value.2)
+    (if (datum-null? value.2)
+      (quote ())
+      (cons (input-name (datum-car value.2)) (input-names (datum-cdr value.2))))))
+
+(define input-strings
+  (lambda (value.1)
+    (if (datum-null? value.1)
+      (quote ())
+      (cons (datum-string-value (datum-car value.1)) (input-strings (datum-cdr value.1))))))
+
+(define input-count
+  (lambda (value)
+    (match (datum-number-value value)
+      ((exact-number count.2) count.2)
+      ((rational-number number) (datum-fail "Conform count must be exact"))
+      ((inexact-number number.1) (datum-fail "Conform count must be exact"))
+      ((complex-number real imaginary) (datum-fail "Conform count must be exact")))))
+
+(define read-specification
+  (lambda (port)
+    ((lambda (count.1) ((lambda (names.1) ((lambda (expected.1) ((lambda () (if (= (conform-length names.1) 4) (specification count.1 names.1 expected.1) (datum-fail "Conform requires exactly four names"))))) (input-strings (read-value! (read port))))) (input-names (read-value! (read port)))))
+      (input-count (read-value! (read port))))))
+
+(define configured (call-with-input-file "input.txt" read-specification))
+
+(define configured-count (-> I64) (lambda () (specification-count configured)))
+
+(define run-test
+  (lambda (names)
+    (test (car names) (car (cdr names)) (car (cdr (cdr names))) (car (cdr (cdr (cdr names)))))))
+
+(define same-strings?
+  (lambda (actual expected)
+    (if (null? actual)
+      (null? expected)
+      (if (not (null? expected))
+        (if (string=? (car actual) (car expected)) (same-strings? (cdr actual) (cdr expected)) #f)
+        #f))))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (if (<= count 0)
+      0
+      (((lambda () (begin (define loop (lambda (index result) (if (< index count) (loop (+ index 1) (run-test (specification-names configured))) (if (same-strings? result (specification-expected configured)) 1 0)))) loop)))
+        1
+        (run-test (specification-names configured))))))
+
+(unit)

@@ -1,5 +1,0 @@
-(import (snail strict))
-(: add-first (-> I64 (Rest I64) I64))
-(define (add-first first . remaining)
-  (if (null? remaining) first (+ first (car remaining))))
-(+ (add-first 20 2 99) (add-first 20))

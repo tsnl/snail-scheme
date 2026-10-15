@@ -1,0 +1,144 @@
+{
+  "source_checkpoint": "c9ea1e9e665fe5a88743b329b3a8510840baff6b",
+  "compiler_revision": "6983894",
+  "diagnostic_only": true,
+  "targets": [
+    "raw Wasm (linked when the fixture uses runtime imports)",
+    "mandatory-Binaryen optimized Wasm (linked when required)",
+    "native64"
+  ],
+  "coverage": {
+    "bytes_scalars": 1112064,
+    "bytevector_literal_sizes": [
+      10000,
+      10001
+    ],
+    "integer_oracle_cases": 2912,
+    "integer_exhaustive_operand_pairs_per_radix": 64512,
+    "integer_radices": [
+      4,
+      1073741824
+    ],
+    "number_conversion_rational_cases": 586,
+    "number_domain_cases": 278,
+    "math_values": 63,
+    "reader_valid_streams": 36,
+    "reader_syntax_errors": 61,
+    "reader_utf8_errors": 3,
+    "text_scalar_cases": 3390,
+    "text_string_comparisons": 148,
+    "text_mutation_checks": 4,
+    "text_malformed_cases_per_target": 16,
+    "writer_datum_cases": 68,
+    "writer_graph_cases": 8,
+    "writer_depth": 8192,
+    "writer_terminal_failures": 6,
+    "static_chez_number_cases": 278,
+    "static_chez_formatting_cases": 20084,
+    "static_chez_scalar_cases": 20135,
+    "static_chez_complete_reader_streams": 36,
+    "static_chez_canonical_controls": [
+      "sum1 original/adapted",
+      "read1 original/adapted",
+      "parsing original/adapted"
+    ]
+  },
+  "terminals": {
+    "bytes": {
+      "session_id": 64662,
+      "chunk_id": "1f92ed",
+      "exit_code": 0,
+      "scalars": 1112064
+    },
+    "math": {
+      "session_id": 82037,
+      "chunk_id": "b13e05",
+      "exit_code": 0,
+      "cases": 63
+    },
+    "integer": {
+      "session_id": 13343,
+      "chunk_id": "ddbb40",
+      "exit_code": 0
+    },
+    "numbers": {
+      "session_id": 45804,
+      "chunk_id": "8430df",
+      "exit_code": 0,
+      "cases": 586
+    },
+    "number_domain": {
+      "session_id": 31260,
+      "chunk_id": "09aa93",
+      "exit_code": 0,
+      "cases": 278
+    },
+    "reader": {
+      "session_id": 9411,
+      "chunk_id": "a3068b",
+      "exit_code": 0,
+      "valid_streams": 36,
+      "syntax_errors": 61,
+      "utf8_errors": 3
+    },
+    "text": {
+      "session_id": 60477,
+      "chunk_id": "1b0283",
+      "exit_code": 0
+    },
+    "write": {
+      "session_id": 4105,
+      "chunk_id": "d8f3d3",
+      "exit_code": 0
+    },
+    "chez_freeze": {
+      "chunk_id": "c82d82",
+      "exit_code": 0
+    },
+    "static_chez_bridge": {
+      "session_id": 53853,
+      "chunk_id": "9e8cf5",
+      "exit_code": 0
+    },
+    "static_chez_controls_provenance": {
+      "session_id": 45723,
+      "chunk_id": "214ec0",
+      "exit_code": 0
+    },
+    "format_and_python": {
+      "chunk_id": "f3254a",
+      "exit_code": 0,
+      "formatted_fixtures": 22
+    },
+    "evidence_packaging": {
+      "session_id": 29440,
+      "chunk_id": "6a07b2",
+      "exit_code": 0
+    }
+  },
+  "owned_processes_remaining": [],
+  "evidence": {
+    "path": "tests/sfir-integration/evidence/libraries-20261015.tar.xz",
+    "sha256": "3f368a27fb60c04a14bf4aadbef17612b44cd421b439ad12911fce722a6bcdd3",
+    "members": 3019,
+    "command_records": 1031,
+    "artifact_identities": 89,
+    "scope": "Full command records/captured streams, data inputs and source snapshots where collected; compiled binaries and compiler timing traces excluded, artifact hashes retained."
+  },
+  "source_notes": [
+    "Target SFIR fixture bytes are frozen in the source checkpoint. The exercised fixtures did not change after their passing runs.",
+    "The arithmetic execute helper gained optional cwd/stdin after the full Integer run; default and explicit argument paths were exercised by the successful static scalar/reader control checks.",
+    "After the full static bridge passed, canonical reader-control provenance snapshots and a before/after source identity assertion were added. The unchanged reader/control phase was rerun successfully; target scalar source and checking bodies did not change.",
+    "The initial one-time Chez control freeze retains its old Scheme-generation source snapshot as migration provenance only. No shipped runner generates Scheme program syntax.",
+    "The optional canonical Chez controls came from the benchmark agent worktree; exact static program and input bytes are preserved in the provenance retry evidence.",
+    "The first packaging-only process audit matched its own sandbox ancestor command text. That audit failed after verifying the archive; the corrected audit excludes its own ancestor chain. This was not a guest/build failure.",
+    "No clean performance claim; correctness processes may have contended with other work."
+  ],
+  "pending_historical_tests": [
+    "tests/strict-compiler and its old runtime-generation checker",
+    "tests/strict-browse/source-map.scm host-frontend diagnostic",
+    "historical strict-maze/conform/parsing benchmark probes and strict-wc/ack measurement helpers; disposition belongs with their benchmark/host owners"
+  ],
+  "retained_unexecuted_fixture": "tests/sfir-reader/scalars.sfir is the migrated auxiliary scalar fixture; this checkpoint executes the full reader and separate numeric scalar ABI fixtures instead.",
+  "integration_note": "Parent checkpoint 409b7683 adds core/math/text services after this frozen validation. The optional static Chez bridge verifies all eleven SFIR library hashes and will require a reviewed provenance update on that combined tree; preserve this historical evidence. The ordinary library runners are not version-pinned."
+}

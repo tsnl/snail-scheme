@@ -1,0 +1,2 @@
+(import (sfir core))
+(+ (ann 40 I32) 2)

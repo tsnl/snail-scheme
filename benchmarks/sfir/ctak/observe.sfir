@@ -1,0 +1,63 @@
+;; Instrumented control; event calls are absent from main.sfir.
+;; CTAK, with the source's captured operand contexts made explicit.
+(import (sfir core))
+(define-extern trace "observation" "event" (-> I32 I64 I64 I64 Unit))
+
+;; ---- Captured return contexts ----
+
+;; Every continuation supplied to ctak-aux is its active return context.
+;; Capturing shares that immutable context; invoking it abandons the caller.
+;; These four cases describe every capture in the complete upstream workload.
+(define-data Continuation
+  (done)
+  (first-operand (x I64) (y I64) (z I64) (next Continuation))
+  (second-operand (first I64) (x I64) (y I64) (z I64) (next Continuation))
+  (third-operand (first I64) (second I64) (next Continuation)))
+
+(define capture (-> Continuation Continuation)
+  (lambda (current) (begin (trace (ann 1 I32) 0 0 0) current)))
+
+(define ctak-aux (-> Continuation I64 I64 I64 I64)
+  (lambda (next x y z)
+    (begin (trace (ann 0 I32) x y z)
+    (if (not (< y x))
+      (resume next z)
+      (let ((result (capture next)))
+        (ctak-aux (capture (first-operand x y z result)) (- x 1) y z))))))
+
+;; One invocation is an atomic control transition. The exhaustive dispatch
+;; keeps each saved environment beside the operand that consumes it.
+(define resume (-> Continuation I64 I64)
+  (lambda (continuation value)
+    (begin (trace (ann 2 I32) value 0 0)
+    (match continuation
+      ((done) value)
+      ((first-operand x y z next)
+        (ctak-aux (capture (second-operand value x y z next)) (- y 1) z x))
+      ((second-operand first x y z next)
+        (ctak-aux (capture (third-operand first value next)) (- z 1) x y))
+      ((third-operand first second next)
+        (ctak-aux next first second value))))))
+
+(define ctak (-> I64 I64 I64 I64)
+  (lambda (x y z) (ctak-aux (capture (done)) x y z)))
+
+;; ---- Canonical benchmark driver ----
+
+(define-extern input-i64 "benchmark" "input_i64" (-> I32 I64))
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+(define x (input-i64 (ann 0 I32)))
+(define y (input-i64 (ann 1 I32)))
+(define z (input-i64 (ann 2 I32)))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (begin
+      (define repeat (-> I64 I64 I64)
+        (lambda (iteration result)
+          (if (< iteration count)
+            (repeat (+ iteration 1) (ctak (hide-i64 x) (hide-i64 y) (hide-i64 z)))
+            result)))
+      (repeat 0 0))))
+
+(unit)

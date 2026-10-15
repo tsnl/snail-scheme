@@ -1,8 +1,0 @@
-(import (snail strict))
-(define-overload choose (lambda (left right) left))
-(define-overload choose identity)
-(define (identity value) value)
-(: constrained (All (T) (=> ((choose (-> T T))) (-> T T))))
-(define (constrained value) (choose value))
-(define unary (ann choose (-> Bool Bool)))
-(if (and (unary #t) (constrained #t)) (choose 42 #f) (unreachable))

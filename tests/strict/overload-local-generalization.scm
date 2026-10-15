@@ -1,5 +1,0 @@
-(import (snail strict))
-(define (outer value)
-  (define (count index) (if (= index 0) index (count (- index 1))))
-  (+ value (count 2)))
-(outer 42)
