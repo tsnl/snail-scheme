@@ -87,7 +87,8 @@
    extern-declaration-type
    extern-declaration-loc
    overload-declaration-type)
-  (import (scheme base) (scheme cxr) (snail-scheme strict-types))
+  (import (scheme base) (scheme cxr) (snail-scheme strict-types)
+          (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
   (begin
 
     ;; ---- Located expressions and declarations ----
@@ -308,14 +309,14 @@
 
     ;; ---- Compilation ownership ----
 
-    ;; A temporary identity map copies all roots together, including unused
+    ;; One identity hash table copies all roots together, including unused
     ;; initializers and primitive identities. Reserve before descending cycles.
-    ;; Nothing is shared by structural equality; aliases remain aliases only
-    ;; when their original objects are identical. Locations are immutable data.
+    ;; Lookup never scans earlier copies; table iteration never chooses traversal
+    ;; order. Distinct equal objects stay distinct. Locations are immutable data.
     (define (copy-ir-graph roots)
-      (let ((copies '()))
+      (let ((copies (make-hash-table eq?)))
         (define (reserve original copy)
-          (set! copies (cons (cons original copy) copies)) copy)
+          (hash-table-set! copies original copy) copy)
         (define (copy-node node)
           (let ((copy (reserve node (make-node (node-kind node) #f (node-loc node) '() '()))))
             (refine-node! copy (node-kind node) (walk (node-type node))
@@ -346,7 +347,8 @@
                 (vector-set! copy index (walk (vector-ref vector index)))
                 (loop (+ index 1)))) copy))
         (define (walk object)
-          (cond ((assq object copies) => cdr)
+          ;; Every stored copy is an object, so #f means no reserved copy.
+          (cond ((hash-table-ref/default copies object #f))
                 ((node? object) (copy-node object))
                 ((value-definition? object) (copy-definition object))
                 ((scheme? object) (copy-scheme object))
@@ -409,6 +411,38 @@
             (string-set! (cadr copies) 0 #\R)
             (bytevector-u8-set! (vector-ref copy 2) 0 9)
             (expect text "row") (expect (bytevector-u8-ref bytes 0) 1))))
+      (define (test-copy-pair-graph)
+        (let* ((cycle (cons 'head '())) (other (cons 3 4))
+               (tail (cons 3 4)) (root (vector cycle cycle tail other)))
+          (set-cdr! cycle cycle)
+          (let* ((copies (copy-ir-graph (list root cycle tail other)))
+                 (copy (car copies)) (pair (cadr copies)))
+            (expect (eq? (vector-ref copy 0) pair) #t)
+            (expect (eq? (vector-ref copy 1) pair) #t)
+            (expect (eq? (cdr pair) pair) #t)
+            (expect (eq? (vector-ref copy 2) (caddr copies)) #t)
+            (expect (caddr copies) '(3 . 4))
+            (expect (eq? (caddr copies) (cadddr copies)) #f)
+            (set-car! pair 'changed)
+            (expect (car cycle) 'head) (expect (cadddr copies) '(3 . 4)))))
+      (define (copy-test-graph count payload)
+        (let loop ((left count) (nodes '()))
+          (if (= left 0) nodes
+              (loop (- left 1)
+                    (cons (make-node 'probe 'I64 #f (list left payload) '()) nodes)))))
+      (define (test-copy-wide-sharing)
+        (let* ((shared (vector 'payload)) (source (copy-test-graph 2000 shared))
+               (copies (copy-ir-graph source)) (payload (cadr (node-data (car copies)))))
+          (expect (length copies) 2000)
+          (expect (eq? payload shared) #f)
+          (let loop ((source source) (copies copies) (index 1))
+            (unless (null? source)
+              (expect (eq? (car source) (car copies)) #f)
+              (expect (car (node-data (car copies))) index)
+              (expect (eq? (cadr (node-data (car copies))) payload) #t)
+              (loop (cdr source) (cdr copies) (+ index 1))))
+          (vector-set! payload 0 'changed)
+          (expect (vector-ref shared 0) 'payload)))
       (define (test-attached-declarations)
         (let* ((loc (make-loc "declaration.scm" 3 4))
                (definition (make-value-definition 'answer #f))
@@ -437,6 +471,8 @@
         (run-test test-definition-cycle)
         (run-test test-copy-proof-sharing)
         (run-test test-copy-mutable-data)
+        (run-test test-copy-pair-graph)
+        (run-test test-copy-wide-sharing)
         (run-test test-attached-declarations)
         (run-test test-overload-member-identity))))
    (else)))
