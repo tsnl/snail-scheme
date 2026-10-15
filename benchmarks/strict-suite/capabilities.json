@@ -22,13 +22,14 @@
     },
     {
       "name": "deriv",
-      "status": "additional-capabilities",
+      "status": "prepared-unmeasured",
       "source_lines": 46,
       "files": {
         "src/deriv.scm": "0fecc79684014008dc78d520f3dd3b7093d3e4a8e3ab56ec9a88827f812823ba",
         "inputs/deriv.input": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Full closed datum port preserves source pair spines, finite symbols, shared operands, original quotient-rule behavior and complete final predicate. Canonical 10M and all supplemental checks pass raw/optimized Wasm and both Chez controls. Retention inspected; no clean timing at this checkpoint.",
+      "preparation_report": "benchmarks/results/2026-10-13-strict-deriv/README.md"
     },
     {
       "name": "destruc",
