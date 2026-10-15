@@ -28,9 +28,11 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.
-- [ ] Audit class obligations, complete dynamic type identity, call ordering
-  and proper tail recursion against the book, with executable boundary and
-  rejection tests.
+- [x] Audit class obligations, value restriction, dynamic type identity, call
+  ordering and proper tail recursion with [executable contract evidence](../tests/sfir-conformance-audit/README.md).
+  Selected boundary and rejection cases pass on raw/optimized Wasm, with
+  targeted native execution. The audit records its coverage and limits;
+  numeric policy and full-corpus validation remain separate work.
 - [x] Separate parsing library data, resolving a supplied library map and
   filesystem discovery. Select an entry through its library's public interface,
   preserving private and re-exported binding identities in the Chibi-hosted API.
