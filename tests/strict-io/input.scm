@@ -1,0 +1,70 @@
+(import (snail strict) (snail io))
+
+;; ---- Observable line values, storage and normal resource lifetimes ----
+
+(: copy-lines (-> I64))
+(define (copy-lines)
+  (call-with-input-file "λ😀.txt"
+    (lambda (in)
+      (call-with-output-file "lines.txt"
+        (lambda (out)
+          (let loop ((count 0))
+            (let ((result (read-line in)))
+              (if (eof-object? result) count
+                  (begin
+                    (write-string (line-text result) out) (newline out)
+                    (loop (+ count 1)))))))))))
+(: line-storage (-> Bool))
+(define (line-storage)
+  (call-with-input-file "λ😀.txt"
+    (lambda (port)
+      (let* ((first (line-text (read-line port))) (second (line-text (read-line port))))
+        (string-set! first 0 #\x)
+        (and (not (string-eq? first second)) (string=? first "xame")
+             (string=? second "same") (eof-object? (read-line port))
+             (eof-object? (read-line port)))))))
+(: close-input-alias (-> Unit))
+(define (close-input-alias)
+  (let* ((port (open-input-file "λ😀.txt")) (alias port))
+    (read-line alias) (close-input-port port) (close-input-port alias)))
+(: input-callback-close (-> I64))
+(define (input-callback-close)
+  (call-with-input-file "λ😀.txt"
+    (lambda (port) (close-input-port port) 19)))
+
+;; ---- Every failure receives a fresh terminal instance ----
+
+(: input-escaped-alias (-> Unit))
+(define (input-escaped-alias)
+  (let ((port (call-with-input-file "λ😀.txt" (lambda (port) port))))
+    (close-input-port port) (read-line port) (unit)))
+(: input-missing (-> Unit))
+(define (input-missing)
+  (call-with-input-file "absent.txt" (lambda (port) (read-line port) (unit))))
+(: input-callback-trap (-> Unit))
+(define (input-callback-trap)
+  (call-with-input-file "λ😀.txt" (lambda (port) (read-line port) (unreachable))))
+(: read-invalid (-> Unit))
+(define (read-invalid)
+  (let ((out (open-output-file "buffered.txt")) (in (open-input-file "λ😀.txt")))
+    (write-string "released after read failure" out)
+    (read-line in) (unit)))
+
+(define-extern raw-begin "snail.library" "snail:io/path-begin" (-> Unit))
+(define-extern raw-character "snail.library" "snail:io/path-character" (-> Char Unit))
+(define-extern raw-output "snail.library" "snail:io/open-output-file" (-> I32))
+(define-extern raw-close "snail.library" "snail:io/close" (-> I32 Unit))
+(define-extern raw-read "snail.library" "snail:io/read-character" (-> I32 I32))
+(define-extern raw-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
+(: input-raw-output (-> Unit))
+(define (input-raw-output)
+  (raw-begin) (raw-character #\x) (raw-read (raw-output)) (unit))
+(: input-stale-handle (-> Unit))
+(define (input-stale-handle)
+  (raw-begin) (raw-character #\x)
+  (let ((handle (raw-output))) (raw-close handle) (raw-read handle) (unit)))
+(: input-invalid-handle (-> Unit))
+(define (input-invalid-handle) (raw-read (ann -1 I32)) (unit))
+(: input-invalid-peek (-> Unit))
+(define (input-invalid-peek) (raw-peek (ann -1 I32)) (unit))
+(unit)

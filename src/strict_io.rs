@@ -10,19 +10,19 @@ use std::{cell::RefCell, collections::BTreeMap, path::Path};
 // ---- Owned resources and synchronous pathname transfer ----
 
 #[derive(Default)]
-struct OutputFiles {
+struct Files {
     next: u32,
     live: BTreeMap<u32, Port>,
 }
 
 thread_local! {
-    static FILES: RefCell<OutputFiles> = RefCell::new(OutputFiles::default());
+    static FILES: RefCell<Files> = RefCell::new(Files::default());
     static PATHNAME: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-impl OutputFiles {
+impl Files {
     fn reserve_id(&mut self) -> Result<i32, String> {
-        let id = i32::try_from(self.next).map_err(|_| "output port IDs exhausted")?;
+        let id = i32::try_from(self.next).map_err(|_| "file port IDs exhausted")?;
         self.next += 1;
         Ok(id)
     }
@@ -30,13 +30,13 @@ impl OutputFiles {
     fn get(&mut self, id: u32) -> Result<&mut Port, String> {
         self.live
             .get_mut(&id)
-            .ok_or_else(|| "unknown or closed output port".into())
+            .ok_or_else(|| "unknown or closed file port".into())
     }
 
     fn take(&mut self, id: u32) -> Result<Port, String> {
         self.live
             .remove(&id)
-            .ok_or_else(|| "unknown or closed output port".into())
+            .ok_or_else(|| "unknown or closed file port".into())
     }
 }
 
@@ -87,10 +87,10 @@ pub extern "C" fn delete_file() {
     checked(result);
 }
 
-fn open_file(path: String) -> Result<i32, String> {
+fn open_output(path: String) -> Result<i32, String> {
     // Exhaustion is checked before creating or truncating a file. Failed opens
     // consume an ID too; no old integer can ever acquire a different resource.
-    let id = FILES.with_borrow_mut(OutputFiles::reserve_id)?;
+    let id = FILES.with_borrow_mut(Files::reserve_id)?;
     let port = Port::output_file(&path)?;
     FILES.with_borrow_mut(|files| files.live.insert(id as u32, port));
     Ok(id)
@@ -98,10 +98,36 @@ fn open_file(path: String) -> Result<i32, String> {
 
 #[unsafe(export_name = "snail:io/open-output-file")]
 pub extern "C" fn open_output_file() -> i32 {
-    checked(take_pathname().and_then(open_file))
+    checked(take_pathname().and_then(open_output))
 }
 
-// ---- Character writes and explicit resource release ----
+fn open_input(path: String) -> Result<i32, String> {
+    let id = FILES.with_borrow_mut(Files::reserve_id)?;
+    let port = Port::input_file(&path)?;
+    FILES.with_borrow_mut(|files| files.live.insert(id as u32, port));
+    Ok(id)
+}
+
+#[unsafe(export_name = "snail:io/open-input-file")]
+pub extern "C" fn open_input_file() -> i32 {
+    checked(take_pathname().and_then(open_input))
+}
+
+// ---- Scalar character reads and writes ----
+
+// Unicode scalars are nonnegative and fit in I32. Only EOF becomes -1;
+// malformed UTF-8 and read failures take the ordinary fatal cleanup path.
+#[unsafe(export_name = "snail:io/read-character")]
+pub extern "C" fn read_code(id: u32) -> i32 {
+    let result = FILES.with_borrow_mut(|files| files.get(id)?.read_char());
+    checked(result).map_or(-1, |character| character as i32)
+}
+
+#[unsafe(export_name = "snail:io/peek-character")]
+pub extern "C" fn peek_code(id: u32) -> i32 {
+    let result = FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.peek_char());
+    checked(result).map_or(-1, |character| character as i32)
+}
 
 fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
     let character = char::from_u32(code).ok_or("invalid Unicode scalar")?;
@@ -114,6 +140,8 @@ pub extern "C" fn write_code(id: u32, code: u32) {
     let result = FILES.with_borrow_mut(|files| write_character(files.get(id)?, code));
     checked(result);
 }
+
+// ---- Explicit resource release ----
 
 fn release_file(mut port: Port) -> Result<(), String> {
     let result = port.close();
@@ -185,8 +213,26 @@ mod tests {
     }
 
     #[test]
+    fn scalar_input_preserves_lookahead_and_distinguishes_unicode_from_eof() {
+        let id = FILES.with_borrow_mut(|files| {
+            let id = files.reserve_id().unwrap();
+            files
+                .live
+                .insert(id as u32, Port::input_string("\0λ😀\u{10ffff}".into()));
+            id as u32
+        });
+        for code in [0, 0x03bb, 0x1f600, 0x10ffff, -1, -1] {
+            assert_eq!(peek_code(id), code);
+            assert_eq!(peek_code(id), code);
+            assert_eq!(read_code(id), code);
+        }
+        close(id);
+        assert!(FILES.with_borrow_mut(|files| files.get(id).is_err()));
+    }
+
+    #[test]
     fn absent_and_stale_ids_never_alias_new_resources() {
-        let mut files = OutputFiles::default();
+        let mut files = Files::default();
         let first = files.reserve_id().unwrap() as u32;
         files.live.insert(first, Port::output_string());
         release_file(files.take(first).unwrap()).unwrap();
@@ -202,9 +248,9 @@ mod tests {
 
     #[test]
     fn id_exhaustion_does_not_wrap() {
-        let mut files = OutputFiles {
+        let mut files = Files {
             next: i32::MAX as u32,
-            ..OutputFiles::default()
+            ..Files::default()
         };
         assert_eq!(files.reserve_id().unwrap(), i32::MAX);
         assert!(files.reserve_id().is_err());

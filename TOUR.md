@@ -310,8 +310,11 @@ executes native exports and checks located source rejections.
 providers, checks mismatched signatures and exercises reusable worker captures
 and one-shot initialization through raw and optimized modules.
 
-[`(snail io)`](src/snail/io.sld) provides strict text-file output with a concrete
-`OutputPort`, explicit close, Scheme character loops and I64 decimal formatting.
+[`(snail io)`](src/snail/io.sld) provides strict text files with concrete
+`InputPort` and `OutputPort` wrappers, explicit close, Scheme character loops and
+I64 decimal formatting. Its `LineResult` distinguishes EOF from empty lines;
+Scheme constructs lines using a geometrically growing String buffer while Rust's
+existing text reader owns UTF-8 decoding and one-character lookahead.
 [`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
 owns a temporary UTF-8 pathname and live files, and releases resources before
 reporting fatal I/O errors. It reuses [`host.rs`](src/host.rs) buffered ports and

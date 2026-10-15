@@ -1,8 +1,10 @@
-;; Concrete text-file output. Rust owns file payloads; the Scheme wrapper's
+;; Concrete text-file input and output. Rust owns file payloads; each wrapper's
 ;; shared Ref makes explicit close idempotent across aliases. No GC finalizer
 ;; owns these files. The invocation host closes outstanding files after traps.
 (define-library (snail io)
-  (export OutputPort file-exists? delete-file open-output-file close-output-port
+  (export InputPort OutputPort LineResult end-of-file line line-text eof-object?
+          file-exists? delete-file open-input-file close-input-port
+          call-with-input-file read-line open-output-file close-output-port
           call-with-output-file write-char write-string write-i64 newline)
   (import (snail strict))
   (begin
@@ -11,11 +13,17 @@
 
     (define-data OutputPort
       (output-port (handle (Ref I32) output-handle)))
+    (define-data InputPort
+      (input-port (handle (Ref I32) input-handle)))
+    (define-data LineResult (end-of-file) (line (text String line-text)))
     (define-extern path-begin "snail.library" "snail:io/path-begin" (-> Unit))
     (define-extern path-character "snail.library" "snail:io/path-character" (-> Char Unit))
     (define-extern path-exists "snail.library" "snail:io/file-exists" (-> I32))
     (define-extern path-delete "snail.library" "snail:io/delete-file" (-> Unit))
-    (define-extern path-open "snail.library" "snail:io/open-output-file" (-> I32))
+    (define-extern path-open-output "snail.library" "snail:io/open-output-file" (-> I32))
+    (define-extern path-open-input "snail.library" "snail:io/open-input-file" (-> I32))
+    (define-extern port-read "snail.library" "snail:io/read-character" (-> I32 I32))
+    (define-extern port-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
     (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
     (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
 
@@ -38,13 +46,23 @@
     (: open-output-file (-> String OutputPort))
     (define (open-output-file pathname)
       (stage-path pathname)
-      (output-port (ref (path-open))))
+      (output-port (ref (path-open-output))))
+    (: open-input-file (-> String InputPort))
+    (define (open-input-file pathname)
+      (stage-path pathname)
+      (input-port (ref (path-open-input))))
 
     ;; ---- Explicit close and a normally returning callback ----
 
     (: close-output-port (-> OutputPort Unit))
     (define (close-output-port port)
-      (let* ((cell (output-handle port)) (handle (ref-get cell)))
+      (close-handle (output-handle port)))
+    (: close-input-port (-> InputPort Unit))
+    (define (close-input-port port)
+      (close-handle (input-handle port)))
+    (: close-handle (-> (Ref I32) Unit))
+    (define (close-handle cell)
+      (let ((handle (ref-get cell)))
         (unless (i32-eq handle (ann -1 I32))
           (ref-set! cell (ann -1 I32))
           (port-close handle))))
@@ -53,6 +71,49 @@
       (let* ((port (open-output-file pathname)) (result (procedure port)))
         (close-output-port port)
         result))
+    (: call-with-input-file (All (T) (-> String (-> InputPort T) T)))
+    (define (call-with-input-file pathname procedure)
+      (let* ((port (open-input-file pathname)) (result (procedure port)))
+        (close-input-port port)
+        result))
+
+    ;; ---- Complete lines distinguish an empty line from end of file ----
+
+    (: eof-object? (-> LineResult Bool))
+    (define (eof-object? result)
+      (match result ((end-of-file) #t) ((line text) #f)))
+    (: read-line (-> InputPort LineResult))
+    (define (read-line port)
+      (let* ((handle (ref-get (input-handle port))) (code (port-read handle)))
+        (if (i32-eq code (ann -1 I32)) (end-of-file)
+            (line (read-line-text handle code (make-string 0) 0)))))
+    ;; Rust validates UTF-8 and keeps one lookahead in the input port. CR, LF,
+    ;; and CRLF terminate one line. A non-LF lookahead belongs to the next read.
+    (: consume-line-feed (-> I32 Unit))
+    (define (consume-line-feed handle)
+      (when (i32-eq (port-peek handle) (ann 10 I32)) (port-read handle) (unit)))
+    (: read-line-text (-> I32 I32 String I64 String))
+    (define (read-line-text handle code buffer count)
+      (if (or (i32-eq code (ann -1 I32))
+              (i32-eq code (ann 10 I32)) (i32-eq code (ann 13 I32)))
+          (begin
+            (when (i32-eq code (ann 13 I32)) (consume-line-feed handle))
+            (if (= count (string-length buffer)) buffer (substring buffer 0 count)))
+          (let ((buffer (line-capacity buffer count)))
+            (string-set! buffer count (integer->char (i32->i64 code)))
+            (read-line-text handle (port-read handle) buffer (+ count 1)))))
+    ;; Only the first count characters are initialized text. Doubling capacity
+    ;; bounds total copying by a geometric series; no character needs a GC node.
+    ;; The final substring trims spare capacity once, and exact fits reuse it.
+    (: line-capacity (-> String I64 String))
+    (define (line-capacity buffer count)
+      (if (< count (string-length buffer)) buffer
+          (if (= count 4294967294) (unreachable)
+              (let* ((size (if (= count 0) 64
+                               (if (> count 2147483647) 4294967294 (* count 2))))
+                     (grown (make-string size)))
+                (string-copy! grown 0 buffer 0 count)
+                grown))))
 
     ;; ---- Character iteration and decimal integer formatting ----
 
