@@ -1,0 +1,303 @@
+{
+  "status": "passed",
+  "returncode": 0,
+  "frozen_identity_count": 111,
+  "supervisor": "/tmp/snail-strict-reader-20261014/benchmarks/results/2026-10-14-strict-reader-timing-correction/supervisor/matrix_port.py",
+  "modules": {
+    "bv2string_port.py": {
+      "sha256": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+      "local_imports": [
+        "data_ports",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "signal",
+        "struct",
+        "subprocess",
+        "sys",
+        "time",
+        "unittest"
+      ]
+    },
+    "data_ports.py": {
+      "sha256": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "local_imports": [],
+      "stdlib_imports": [
+        "re"
+      ]
+    },
+    "deriv_port.py": {
+      "sha256": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "dataclasses",
+        "re"
+      ]
+    },
+    "destruc_port.py": {
+      "sha256": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+      "local_imports": [
+        "data_ports",
+        "lattice_port",
+        "puzzle_port",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "re"
+      ]
+    },
+    "earley_port.py": {
+      "sha256": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+      "local_imports": [
+        "data_ports",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "tempfile",
+        "time"
+      ]
+    },
+    "enumeration_ports.py": {
+      "sha256": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "itertools",
+        "math",
+        "re"
+      ]
+    },
+    "lattice_port.py": {
+      "sha256": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "itertools",
+        "re"
+      ]
+    },
+    "matrix_port.py": {
+      "sha256": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+      "local_imports": [
+        "data_ports",
+        "measure"
+      ],
+      "stdlib_imports": [
+        "copy",
+        "difflib",
+        "hashlib",
+        "itertools",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "signal",
+        "subprocess",
+        "sys",
+        "time"
+      ]
+    },
+    "mazefun_port.py": {
+      "sha256": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+      "local_imports": [
+        "data_ports",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "hashlib",
+        "os",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "tempfile"
+      ]
+    },
+    "mbrotz_port.py": {
+      "sha256": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "math",
+        "struct"
+      ]
+    },
+    "measure.py": {
+      "sha256": "daac1f31f2464183d99a0820e1ffe571d93f086246fb7561416f41ad7b6b401c",
+      "local_imports": [
+        "bv2string_port",
+        "data_ports",
+        "deriv_port",
+        "destruc_port",
+        "earley_port",
+        "enumeration_ports",
+        "lattice_port",
+        "matrix_port",
+        "mazefun_port",
+        "mbrotz_port",
+        "nucleic_port",
+        "puzzle_port",
+        "ray_port",
+        "reader_ports",
+        "simplex_port",
+        "string_port",
+        "tail_port"
+      ],
+      "stdlib_imports": [
+        "argparse",
+        "datetime",
+        "difflib",
+        "hashlib",
+        "importlib",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "statistics",
+        "subprocess",
+        "sys",
+        "time"
+      ]
+    },
+    "nucleic_port.py": {
+      "sha256": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+      "local_imports": [
+        "data_ports",
+        "ray_port",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "hashlib",
+        "json",
+        "math",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "subprocess",
+        "tempfile",
+        "time"
+      ]
+    },
+    "puzzle_port.py": {
+      "sha256": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+      "local_imports": [
+        "data_ports",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "re"
+      ]
+    },
+    "ray_port.py": {
+      "sha256": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+      "local_imports": [
+        "data_ports",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "struct",
+        "subprocess",
+        "tempfile"
+      ]
+    },
+    "reader_ports.py": {
+      "sha256": "33869537222e79f73b575ca796249a962b12d485130d7dbef48d010247c9d217",
+      "local_imports": [
+        "data_ports",
+        "matrix_port",
+        "measure"
+      ],
+      "stdlib_imports": [
+        "argparse",
+        "difflib",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "signal",
+        "struct",
+        "sys"
+      ]
+    },
+    "simplex_port.py": {
+      "sha256": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "fractions",
+        "itertools",
+        "math",
+        "re"
+      ]
+    },
+    "string_port.py": {
+      "sha256": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "local_imports": [
+        "data_ports"
+      ],
+      "stdlib_imports": [
+        "re"
+      ]
+    },
+    "tail_port.py": {
+      "sha256": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+      "local_imports": [
+        "data_ports",
+        "ray_port",
+        "string_port"
+      ],
+      "stdlib_imports": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "subprocess",
+        "tempfile"
+      ]
+    }
+  },
+  "callable_contract": {
+    "finish_process": "(child, command, started, timeout, stdin)",
+    "clean_group": "(group)",
+    "group_members": "(group)"
+  },
+  "prior_samples": 0,
+  "prior_owned_groups": [],
+  "executing_prior_group_members": {},
+  "benchmark_processes_started": 0,
+  "unchanged_schedule_and_systems": true,
+  "plan_sha256": "f23d33d0620bc56698f4519aa4b2e03e9e11e5440d1c9fd4e1417e6a5eaf90f3",
+  "runner_sha256": "e2ddab6bec989227cf9b639fd98f16ad75dfced6e11b414395a2ca3d0645ccfd"
+}

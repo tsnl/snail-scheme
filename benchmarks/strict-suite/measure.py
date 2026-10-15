@@ -35,6 +35,7 @@ import nucleic_port
 import bv2string_port
 import earley_port
 import matrix_port
+import reader_ports
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -44,7 +45,7 @@ NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-NAMES += ('earley',)
+NAMES += ('earley',) + reader_ports.NAMES
 MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc', 'ray', 'mazefun', 'tail', 'nucleic', 'bv2string', 'earley', 'matrix') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
@@ -96,6 +97,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name in reader_ports.NAMES:
+        return reader_ports.specification(name, data)
     if name == 'earley':
         return earley_port.specification(data)
     if name == 'matrix':
@@ -551,6 +554,8 @@ def worker_body(name, spec):
 
 
 def strict_program(name, spec, upstream):
+    if name in reader_ports.NAMES:
+        return reader_ports.program(name, upstream, sys.modules[__name__])
     result = 'F64' if name in FLOAT_RESULTS else 'I64'
     worker = f'(: bench (-> I64 {result}))\n(define (bench count) {worker_body(name, spec)})\n(unit)\n'
     hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft', 'quicksort', 'deriv') else f'(hide-{"f64" if name in FLOATS + ("simplex",) else "i64"} x)'
@@ -631,7 +636,7 @@ def tool_paths(benchmarks=()):
         names['RUSTC'] = 'rustc'
     if any(name in benchmarks for name in ('ray', 'tail', 'nucleic')):
         names.update(RUSTC='rustc', CARGO='cargo', WASM_MERGE='wasm-merge')
-    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix')):
+    if any(name in benchmarks for name in ('bv2string', 'earley', 'matrix') + reader_ports.NAMES):
         names.update(RUSTC='rustc', CARGO='cargo', CLANG='clang', LLD='ld.lld', WASM_MERGE='wasm-merge')
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     paths['PYTHON'] = sys.executable
@@ -2077,6 +2082,8 @@ def validate_mazefun_outputs(directory, runner, tools, environment):
 
 
 def prepare_case(name, files, output, runner, tools, environment):
+    if name in reader_ports.NAMES:
+        return reader_ports.prepare_case(name, files, output, runner, tools, environment, sys.modules[__name__])
     if name == 'earley':
         return earley_port.prepare_case(files, output, runner, tools, environment, sys.modules[__name__])
     directory = output / name
@@ -2180,16 +2187,18 @@ def prepare(options):
     shutil.copy2(HERE / 'tail_port.py', options.output / 'tail_port.py')
     shutil.copy2(HERE / 'bv2string_port.py', options.output / 'bv2string_port.py')
     shutil.copy2(HERE / 'matrix_port.py', options.output / 'matrix_port.py')
+    shutil.copy2(HERE / 'reader_ports.py', options.output / 'reader_ports.py')
+    shutil.copy2(HERE / 'reader-host.mjs', options.output / 'reader-host.mjs')
     shutil.copy2(HERE / 'tail-host.mjs', options.output / 'tail-host.mjs')
     shutil.copy2(HERE / 'nucleic_port.py', options.output / 'nucleic_port.py')
     shutil.copy2(HERE / 'nucleic-host.mjs', options.output / 'nucleic-host.mjs')
     shutil.copy2(HERE / 'earley_port.py', options.output / 'earley_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
-    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley')):
+    if any(name in options.benchmarks for name in ('ray', 'tail', 'nucleic', 'earley') + reader_ports.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *(ROOT / name for name in
                     ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'scripts/link-strict-runtime'))]
-    if any(name in options.benchmarks for name in ('bv2string', 'matrix')):
+    if any(name in options.benchmarks for name in ('bv2string', 'matrix') + reader_ports.NAMES):
         sources += [*ROOT.glob('src/**/*.rs'), *ROOT.glob('src/*.c'), *ROOT.glob('src/*.h'),
                     *(ROOT / name for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
                                                'scripts/build-native', 'scripts/build-native.scm'))]
@@ -2221,6 +2230,8 @@ def prepare(options):
                   tail_port_sha256=digest(HERE / 'tail_port.py'),
                   bv2string_port_sha256=digest(HERE / 'bv2string_port.py'),
                   matrix_port_sha256=digest(HERE / 'matrix_port.py'),
+                  reader_ports_sha256=digest(HERE / 'reader_ports.py'),
+                  reader_host_sha256=digest(HERE / 'reader-host.mjs'),
                   tail_host_sha256=digest(HERE / 'tail-host.mjs'),
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
                   nucleic_host_sha256=digest(HERE / 'nucleic-host.mjs'),
@@ -2381,6 +2392,8 @@ def summarize(report):
 
 def measure(options):
     prepared = checked_preparation(options.output)
+    if any(case['name'] in reader_ports.NAMES for case in prepared['cases']):
+        raise ValueError('reader workloads require their separately frozen file-I/O timing plan')
     if options.rounds != 3 and any(len(case.get('systems', [])) == 3 for case in prepared['cases']):
         raise ValueError('the three-system controls require exactly three retained rounds')
     report = dict(prepared=prepared, cpu=options.cpu, rounds=options.rounds, samples=[], complete=False)
