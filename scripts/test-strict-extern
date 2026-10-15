@@ -35,7 +35,8 @@ def check(case, provider):
         return compiled.returncode != 0 and bool(re.search(case["error"], message)) and located
     if compiled.returncode != 0:
         return False
-    results = [invoke([os.environ.get("NODE", "node"), FIXTURES / "run.mjs", provider,
+    node = [os.environ.get("NODE", "node"), *(["--expose-gc"] if case.get("gc") else [])]
+    results = [invoke([*node, FIXTURES / "run.mjs", provider,
                        str(artifact) + suffix, case["name"]], OUTPUT / (case["name"] + suffix + "-run.json"))
                for suffix in (".raw.wasm", "")]
     return all(result.returncode == 0 for result in results)

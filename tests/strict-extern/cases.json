@@ -17,5 +17,6 @@
   {"name": "reject-export-rest", "exports": ["worker"], "error": "native export requires fixed"},
   {"name": "reject-export-main", "source": "unit-main", "exports": ["main"], "error": "main is reserved"},
   {"name": "reject-export-missing", "source": "unit-main", "exports": ["absent"], "error": "unambiguous top-level"},
-  {"name": "reject-export-duplicate", "source": "unit-main", "exports": ["worker", "worker"], "error": "export names must be distinct", "located": false}
+  {"name": "reject-export-duplicate", "source": "unit-main", "exports": ["worker", "worker"], "error": "export names must be distinct", "located": false},
+  {"name": "vectors", "gc": true, "exports": ["worker", "read", "marks", "reset", "write", "allocate", "copy", "gc-check"]}
 ]

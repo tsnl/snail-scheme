@@ -39,7 +39,7 @@
         (let* ((core (make-core-library '(snail-scheme core) primitive-names))
                (program (syntax-list->ir-library (read-forms path) (library-loader root) (list core)))
                (items (apply append (map library:library-body (library:library-dependency-order program)))))
-          (infer-program items (primitive-bindings core)))))
+          (infer-program items (primitive-bindings core) (library:library-loc program)))))
     (define (strict-source-file->wasm root path . exports)
       (strict-core->wasm (apply monomorphize (strict-source-file->core root path) exports)))
     (define (strict-source-file->wat-file root path output . exports)

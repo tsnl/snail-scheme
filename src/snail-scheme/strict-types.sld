@@ -95,7 +95,7 @@
     (define (require-concrete type loc)
       (if (concrete-type? type) (substitute type '())
           (strict-error loc "unresolved concrete representation type" type)))
-    ;; Mutable Ref is invariant. Container and function conversions are not
+    ;; Mutable Ref and Vector are invariant. Container and function conversions are not
     ;; inferred here: equality preserves their concrete physical layout.
     (define (subtype? source target)
       (or (type-equal? source target) (eq? (resolve source) 'Never) (eq? (resolve target) 'Top)))

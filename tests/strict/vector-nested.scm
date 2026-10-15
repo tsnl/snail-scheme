@@ -1,0 +1,5 @@
+(import (snail strict))
+(define row (make-vector 2 0))
+(define matrix (make-vector 2 row))
+(vector-set! (vector-ref matrix 0) 1 42)
+(vector-ref (vector-ref matrix 1) 1)
