@@ -211,13 +211,20 @@
 
     ;; ---- Concrete static evidence ----
 
+    (define (check-concrete-obligations obligations environment context loc)
+      (let ((program (compilation-program context))
+            (goals (substitute obligations (environment-substitutions environment))))
+        ;; Sibling prerequisites share fresh holes. Solve them together before
+        ;; requiring any one prerequisite's representation to be concrete.
+        (require-overloads! goals (program-classes program) (program-instances program) loc)
+        (for-each (lambda (goal) (exact-instance goal environment context loc)) goals)))
     (define (exact-instance constraint environment context loc)
       (let* ((program (compilation-program context))
              (types (map (lambda (type) (concrete type environment loc)) (cdr constraint)))
              (class (overload-class (car constraint) (program-classes program))))
         (if class
             (let ((view (select-overload-view class (car types) (program-instances program) loc #t)))
-              (for-each (lambda (goal) (exact-instance goal environment context loc)) (overload-view-constraints view))
+              (check-concrete-obligations (overload-view-constraints view) environment context loc)
               (overload-view-instance view))
             (let find ((instances (program-instances program)))
               (cond ((null? instances) (strict-error loc "no exact static typeclass instance" constraint))
@@ -231,7 +238,7 @@
                    (implementation (cdr (assq binding (instance-members instance)))))
               (let-values (((signature obligations substitutions) (instantiate (binding-scheme implementation))))
                 (unify! signature (judgment-type result) loc)
-                (for-each (lambda (goal) (exact-instance goal environment context loc)) obligations)
+                (check-concrete-obligations obligations environment context loc)
                 (list implementation substitutions))))))
     (define (concrete-judgment source environment expected context)
       (let* ((program (compilation-program context))
@@ -279,9 +286,7 @@
           ((match) (generate-match pass source result environment context tail?))
           (else (strict-error (node-loc source) "unsupported source generation arm")))))
     (define (generate-name pass source result environment context tail?)
-      (let ((program (compilation-program context)))
-        (require-overloads! (substitute (judgment-constraints result) (environment-substitutions environment))
-                            (program-classes program) (program-instances program) (node-loc source)))
+      (check-concrete-obligations (judgment-constraints result) environment context (node-loc source))
       (let* ((view (resolve-name result environment context (node-loc source))) (binding (car view)))
         (if (memq (binding-kind binding) '(primitive extern data))
             (finish-arm pass source result (list (binding-kind binding) (binding-payload binding)) '() environment tail? context)
