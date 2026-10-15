@@ -257,6 +257,9 @@ function functions(session) {
   });
   add('error-length', ['i64'], 'i64', token => BigInt(get(token, 'result').message.length));
   add('error-character', ['i64', 'i64'], 'i32', (token, index) => get(token, 'result').message[Number(index)].codePointAt(0));
+  operation('parse-library', ['i64', 'i64'], 'library', (source, text) =>
+    session.builder.receive(session.host.call(['parse', get(source, 'text'), get(text, 'text')])));
+  add('library-value', ['i64'], 'i64', token => get(token, 'library'));
   operation('map-empty', [], 'map', () => session.host.call(['empty']));
   operation('map-primitives', ['i64'], 'map', map => session.host.call(['primitives', get(map, 'map')]));
   operation('map-source', ['i64', 'i64', 'i64', 'i64'], 'map', (map, key, source, text) =>
