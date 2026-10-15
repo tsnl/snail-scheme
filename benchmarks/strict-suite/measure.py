@@ -17,13 +17,18 @@ import subprocess
 import sys
 import time
 
+from data_ports import (GC_TEXT, GC_SIZES, PARAFFINS_PRELUDE, PARAFFINS_PROBE,
+                        GCBENCH_PRELUDE, paraffins_kernel, gcbench_kernel)
+import data_ports
+
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort')
+DATA_PORTS = ('paraffins', 'gcbench')
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort') + DATA_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -32,7 +37,7 @@ KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1')
+               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -83,6 +88,10 @@ def case_specification(name, data):
         return dict(name=name, count=int(count), inputs=[int(size), int(limit)],
                     expected=1, unused_output_datum=unused,
                     barriers_per_iteration=0, setup_barriers=3)
+    if name == 'gcbench':
+        count, depth, unused = input_values(data.decode())
+        return dict(name=name, count=count, inputs=[depth], expected=1, unused_output_datum=unused,
+                    barriers_per_iteration=1, diagnostic_text=GC_TEXT, diagnostic_sizes=GC_SIZES)
     values = input_values(data.decode())
     if name == 'array1':
         repeats, size, expected = values
@@ -141,6 +150,10 @@ def kernel_source(name, source):
         source = array1_kernel(source)
     elif name == 'quicksort':
         source = quicksort_kernel(source)
+    elif name == 'paraffins':
+        source = paraffins_kernel(source)
+    elif name == 'gcbench':
+        source = gcbench_kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -391,6 +404,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'gcbench':
+        return f'(begin (let loop ((i 0)) (unless (= i count) {kernel_call(name, spec)} (loop (+ i 1)))) 1)'
     initial = 'quicksort-input' if name == 'quicksort' else "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOAT_RESULTS else '0'
     loop = f'''(let loop ((i 0) (result {initial}))
     (if (< i count) (loop (+ i 1) {kernel_call(name, spec)}) result))'''
@@ -409,6 +424,10 @@ def strict_program(name, spec, upstream):
     hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft', 'quicksort') else f'(hide-{"f64" if name in FLOATS else "i64"} x)'
     prelude = PRELUDE + (NEXT_PRELUDE if name in NEXT_PORTS else '')
     prelude += EXPECTED_PRELUDE if name in FULL_LISTS else VECTOR_PRELUDE if name == 'pnpoly' else ''
+    if name == 'paraffins':
+        prelude += PARAFFINS_PRELUDE
+    if name == 'gcbench':
+        prelude += GCBENCH_PRELUDE
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -451,7 +470,8 @@ def tool_paths(benchmarks=()):
 
 
 def build_strict(directory, tools, environment):
-    command = [ROOT / 'scripts/build-strict', '--export', 'bench',
+    spec = load(directory / 'spec.json')
+    command = [ROOT / 'scripts/build-strict', '--export', spec.get('export', 'bench'),
                directory / 'strict.scm', directory / 'strict.wasm']
     if load(directory / 'spec.json')['name'] == 'fft':
         command[3:3] = ['--export', 'fft-probe']
@@ -513,6 +533,8 @@ def validate_strict(directory, tools, environment):
             checks.append(dict(record, specification=probe, module_suffix=suffix))
             save(directory / 'validation.json', checks)
             require_success(record)
+            if spec['name'] == 'gcbench':
+                data_ports.check_gc_diagnostics(record['stdout'], probe['inputs'][0], probe['count'])
     if spec['name'] in FULL_LISTS:
         validate_sequence_failures(directory, tools, environment, spec)
     if spec['name'] == 'fft':
@@ -608,7 +630,8 @@ def validation_specifications(spec):
         return [(str(count), dict(spec, count=count)) for count in (1, 2)] + [
             ('zero-vectors', dict(spec, count=1, inputs=[[0.0] * 20, [0.0] * 20], expected=0))]
     if spec['name'] != 'array1':
-        return [(str(count), dict(spec, count=count)) for count in (1, 2)]
+        counts = (1, 2, spec['count']) if spec['name'] == 'paraffins' else (1, 2)
+        return [(str(count), dict(spec, count=count)) for count in dict.fromkeys(counts)]
     # These are behavior probes, not performance samples. The discarded full
     # pair later checks the unchanged original workload on both systems.
     return [(f'{count}-{repeats}-{size}',
@@ -639,7 +662,8 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-get cell) (vector-ref cell 0))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
-CHEZ_HELPERS = dict(primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
+CHEZ_HELPERS = dict(paraffins=data_ports.PARAFFINS_CHEZ,
+                   gcbench=CHEZ_REF_HELPERS + data_ports.gc_chez_helpers(), primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
                    triangl='''(define-syntax ann
   (syntax-rules () ((_ expression type) expression)))
 ''' + CHEZ_REF_HELPERS,
@@ -746,7 +770,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] == 'quicksort':
+    if spec['name'] in ('quicksort', 'paraffins'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -762,6 +786,8 @@ def validate_chez(directory, runner, tools, environment, spec):
             require_success(record)
             if record['stderr'] or runner.parse_result(record['stdout'], 'chez', spec['name'])['status'] != 'ok':
                 raise ValueError('Chez behavior validation failed')
+            if spec['name'] == 'gcbench':
+                data_ports.check_gc_diagnostics(record['stdout'], spec['inputs'][0], input_values(data)[0])
 
 
 CHEZ_FFT_PROBE = '''(let* ((data (read)) (expected (read)) (tolerance (read)))
@@ -881,6 +907,133 @@ def validate_fft_chez_dft(directory, runner, tools, environment, spec):
             raise ValueError('Chez must check every nonzero DFT component and reject changed expectations')
 
 
+# ---- Complete structural checks for nominal data ports ----
+
+
+def validate_data_wasm_probe(directory, tools, environment, spec, label, accepted=True):
+    path = directory / f'validation-spec-{label}.json'
+    save(path, spec)
+    checks = []
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], directory.parent / 'host.mjs',
+                          directory / ('strict.wasm' + suffix), path, '--validate'], directory, environment)
+        checks.append(dict(record, label=label, accepted=accepted, module_suffix=suffix))
+        save(directory / f'validation-{label}.json', checks)
+        rejected = record.get('returncode') != 0 and "actual: '0'" in record.get('stderr', '')
+        if (accepted and (record.get('returncode') != 0 or record.get('stderr'))) or (not accepted and not rejected):
+            raise ValueError(f'data probe did not produce the expected flag: {checks[-1]}')
+
+
+def validate_paraffins_outputs(directory, runner, tools, environment, spec):
+    oracles = {}
+    for system in ('original', 'same-source-chez'):
+        target = directory / ('chez-output-probe-' + system)
+        target.mkdir()
+        kernel = (directory / ('original-kernel.scm' if system == 'original' else 'adapted-kernel.scm')).read_text()
+        (target / 'program.scm').write_text(data_ports.paraffins_chez_probe(kernel, system != 'original'))
+        command = build_chez(target, runner, environment, 'build.json')
+        checks = []
+        for n, count in ((1, 1), (2, 1), (4, 2), (6, 5), (8, 18), (10, 75)):
+            record = execute(command, target, environment, stdin=str(n) + '\n#f\n')
+            checks.append(dict(record, carbons=n, expected_count=count))
+            save(target / 'validation.json', checks)
+            require_success(record)
+            values = input_values(record['stdout'])[0]
+            data_ports.check_paraffins_encoding(values, n, count)
+            if system == 'original':
+                oracles[n] = values
+            elif record['stderr'] or values != oracles[n]:
+                raise ValueError('adapted paraffins must preserve every product and output order')
+        validate_paraffins_chez_rejections(target, command, environment, oracles[10])
+    save(directory / 'complete-output-oracles.json', oracles)
+    target = build_paraffins_probe(directory, tools, environment, spec)
+    for n, values in oracles.items():
+        probe = dict(spec, count=1, inputs=[n], expected=values, result_kind='i64-list-values',
+                     export='paraffins-probe', barriers_per_iteration=0)
+        validate_data_wasm_probe(target, tools, environment, probe, f'products-{n}')
+    validate_sequence_failures(target, tools, environment, probe, prefix='products-')
+
+
+def validate_paraffins_chez_rejections(target, command, environment, expected):
+    changed = list(expected)
+    changed[len(changed) // 2] += 1
+    probes = [('unchanged', expected, True), ('wrong-value', changed, False),
+              ('short', expected[:-1], False), ('long', expected + [0], False)]
+    checks = []
+    for label, values, accepted in probes:
+        data = '10\n(' + ' '.join(map(str, values)) + ')\n'
+        record = execute(command, target, environment, stdin=data)
+        checks.append(dict(record, label=label, accepted=accepted, stdin=data))
+        save(target / 'expected-output-validation.json', checks)
+        require_success(record)
+        if record['stderr'] or record['stdout'].strip() != ('#t' if accepted else '#f'):
+            raise ValueError('paraffins must reject every changed complete output')
+
+
+def build_paraffins_probe(directory, tools, environment, spec):
+    target = directory / 'strict-structure-probe'
+    target.mkdir()
+    shutil.copyfile(directory.parent / 'host.mjs', directory / 'host.mjs')
+    save(target / 'spec.json', dict(spec, export='paraffins-probe'))
+    source = PRELUDE + PARAFFINS_PRELUDE + EXPECTED_PRELUDE
+    source += (directory / 'adapted-kernel.scm').read_text() + input_bindings('paraffins', spec)
+    (target / 'strict.scm').write_text(source + PARAFFINS_PROBE + '(unit)\n')
+    build_strict(target, tools, environment)
+    return target
+
+
+def gc_probe_source(directory, spec):
+    source = PRELUDE + GCBENCH_PRELUDE + VECTOR_PRELUDE + EXPECTED_PRELUDE
+    source += "(define events (ref (ann '() (List I64))))\n"
+    source += data_ports.GC_EVENT_HELPERS + '(define input0 (native-input-i64 (ann 0 I32)))\n'
+    source += '(define expected-array (input-vector (ann 1 I32)))\n'
+    source += data_ports.gc_probe_kernel((directory / 'adapted-kernel.scm').read_text(), True)
+    return source + data_ports.GC_PROBE_END
+
+
+def gc_chez_probe_source(directory, adapted):
+    kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+    original_kernel = (directory / 'original-kernel.scm').read_text()
+    prefix = (directory / 'program.scm').read_text().split(original_kernel)[0]
+    helpers = CHEZ_HELPERS['gcbench'] if adapted else CHEZ_REF_HELPERS
+    return (prefix + helpers + "(define events (ref '()))\n" + data_ports.GC_EVENT_HELPERS
+            + '(define depth (read)) (define expected-array (read))\n'
+            + data_ports.gc_probe_kernel(kernel, adapted)
+            + '(gcbench depth)\n(write (event-list)) (newline)\n')
+
+
+def validate_gc_chez_probes(directory, runner, tools, environment, probes):
+    for system in ('original', 'same-source-chez'):
+        target = directory / ('chez-structure-probe-' + system)
+        target.mkdir()
+        (target / 'program.scm').write_text(gc_chez_probe_source(directory, system != 'original'))
+        command = build_chez(target, runner, environment, 'build.json')
+        checks = []
+        for label, probe, accepted in probes:
+            data = str(probe['inputs'][0]) + '\n#(' + ' '.join(map(repr, probe['inputs'][1])) + ')\n'
+            record = execute(command, target, environment, stdin=data)
+            checks.append(dict(record, label=label, expected_flag=accepted, stdin=data))
+            save(target / 'validation.json', checks)
+            require_success(record)
+            actual = input_values(record['stdout'].splitlines()[-1])[0]
+            if record['stderr'] or (actual == probe['expected']) != accepted:
+                raise ValueError('gcbench structural probe must check every tree and array element')
+
+
+def validate_gc_outputs(directory, runner, tools, environment, spec):
+    target = directory / 'strict-structure-probe'
+    target.mkdir()
+    shutil.copyfile(directory.parent / 'host.mjs', directory / 'host.mjs')
+    probes = [(f'depth-{n}', data_ports.gc_probe_specification(spec, n), True) for n in (6, 8)]
+    probes += [(label, probe, False) for label, probe in data_ports.gc_negative_probes(probes[-1][1])]
+    save(target / 'spec.json', probes[0][1])
+    (target / 'strict.scm').write_text(gc_probe_source(directory, probes[0][1]))
+    build_strict(target, tools, environment)
+    for label, probe, accepted in probes:
+        validate_data_wasm_probe(target, tools, environment, probe, label, accepted)
+    validate_gc_chez_probes(directory, runner, tools, environment, probes)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -898,8 +1051,13 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_fft_chez_dft(directory, runner, tools, environment, spec)
     if name == 'quicksort':
         validate_quicksort_chez_outputs(directory, runner, tools, environment, spec)
-    return dict(name=name, status='ready', spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort',) else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+    if name == 'paraffins':
+        validate_paraffins_outputs(directory, runner, tools, environment, spec)
+    if name == 'gcbench':
+        validate_gc_outputs(directory, runner, tools, environment, spec)
+    status = 'retention-blocked' if name == 'gcbench' else 'ready'
+    return dict(name=name, status=status, spec=spec, chez_command=run,
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort',) + DATA_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -911,6 +1069,15 @@ def write_case_sources(name, files, directory, spec, runner):
     (directory / 'program.scm').write_text(runner.source_text(files, name, 'chez'))
 
 
+def compiler_basis(sources, revision):
+    commit = subprocess.check_output(['git', 'rev-parse', revision], cwd=ROOT, text=True).strip()
+    for source in sources:
+        original = subprocess.check_output(['git', 'show', commit + ':' + str(source.relative_to(ROOT))], cwd=ROOT)
+        if source.read_bytes() != original:
+            raise ValueError(f'compiler source differs from declared basis {commit}: {source}')
+    return commit
+
+
 def prepare(options):
     runner, tools = upstream_runner(), tool_paths(options.benchmarks)
     environment = {**os.environ, **tools, 'BINARYEN_CORES': '1'}
@@ -918,15 +1085,19 @@ def prepare(options):
     options.output.mkdir(parents=True, exist_ok=False)
     shutil.copy2(HERE / 'host.mjs', options.output / 'host.mjs')
     shutil.copy2(__file__, options.output / 'measure.py')
+    shutil.copy2(HERE / 'data_ports.py', options.output / 'data_ports.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
         target = options.output / 'compiler-source' / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    basis = compiler_basis(sources, options.compiler_basis)
     report = dict(date=datetime.now(timezone.utc).isoformat(), cases=[],
                   tools={key: dict(path=value, sha256=digest(value)) for key, value in tools.items()},
-                  compiler_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+                  compiler_commit=basis,
+                  driver_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+                  data_ports_sha256=digest(HERE / 'data_ports.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -968,7 +1139,7 @@ def run_case(case, system, output, cpu, tools):
     if result.get('returncode') != 0 or result.get('stderr'):
         return dict(result, valid=False)
     try:
-        parsed = json.loads(result['stdout']) if system == 'strict' else upstream_runner().parse_result(result['stdout'], 'chez', case['name'])
+        parsed = json.loads(result['stdout'].splitlines()[-1]) if system == 'strict' else upstream_runner().parse_result(result['stdout'], 'chez', case['name'])
         seconds = parsed['seconds']
         assert math.isfinite(seconds) and seconds > 0
         if system != 'strict' and parsed['status'] != 'ok':
@@ -984,6 +1155,8 @@ def checked_preparation(output):
     prepared = load(output / 'prepared.json')
     if prepared.get('driver_sha256', digest(__file__)) != digest(__file__):
         raise ValueError('driver changed')
+    if prepared.get('data_ports_sha256', digest(HERE / 'data_ports.py')) != digest(HERE / 'data_ports.py'):
+        raise ValueError('data port source adapters changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')
@@ -1050,6 +1223,7 @@ def main():
     parser.add_argument('action', choices=('prepare', 'measure'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--benchmarks', nargs='+', choices=NAMES, default=list(NAMES))
+    parser.add_argument('--compiler-basis', default='HEAD', help='commit whose compiler files must match preparation')
     parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--cpu', type=int, default=5)
     options = parser.parse_args()

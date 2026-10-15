@@ -1,0 +1,97 @@
+[
+  {
+    "name": "ack",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "tak",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "cpstak",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "fib",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "fibfp",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "sum",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "sumfp",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "takl",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "ntakl",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "diviter",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "divrec",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "array1",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "primes",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "nqueens",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "triangl",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "mbrot",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "pnpoly",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "fft",
+    "specification_identical": true,
+    "strict_source_identical": true
+  },
+  {
+    "name": "quicksort",
+    "specification_identical": true,
+    "strict_source_identical": true
+  }
+]
