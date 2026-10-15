@@ -1,0 +1,4 @@
+(import (snail strict))
+(define cell (ref (lambda (x) x)))
+(ref-set! cell (lambda (x) (+ x 1)))
+((ref-get cell) #t)

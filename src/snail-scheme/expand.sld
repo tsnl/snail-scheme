@@ -527,7 +527,7 @@
       (if (identifier-of syntax)
           (let ((tag (type-keyword syntax environment)) (definition (lookup syntax environment)))
             (cond ((type-variable? definition) definition)
-                  ((memq tag scalar-type-names) tag)
+                  ((memq tag (append scalar-type-names strict-type-names)) tag)
                   ((value-definition? definition) (list 'record definition))
                   (else (fail syntax "unknown type"))))
           (expand-compound-type syntax environment)))
@@ -537,6 +537,10 @@
              (tag (and (pair? parts) (type-keyword (car parts) environment))))
         (cond ((eq? tag 'All) (expand-all-type syntax environment))
               ((eq? tag '=>) (expand-qualified-type syntax environment))
+              ((memq tag '(Ref List Rest))
+               (if (not (= (length parts) 2))
+                   (fail syntax "type constructor requires one element type")
+                   (list tag (expand-type (cadr parts) environment))))
               ((memq tag '(-> U))
                (let ((types (map (lambda (part) (expand-type part environment)) (cdr parts))))
                  (if (eq? tag 'U) (apply type-union types)
@@ -1436,11 +1440,12 @@
                           primitives))
                     '() '() #f))
 
+    (define strict-type-names '(I32 I64 F32 F64 Bool Unit Top))
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U => define-class define-instance %record-schema)
-              scalar-type-names))
+                 : ann inst All -> U => define-class define-instance %record-schema Ref List Rest)
+              scalar-type-names strict-type-names))
 
     (define core-primitive-names
       '(+ - * / = < <= > >= cons car cdr list append null? pair? list?

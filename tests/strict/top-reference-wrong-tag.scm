@@ -1,0 +1,4 @@
+(import (snail strict))
+(define cell (ref #t))
+(define alias (ann (ann cell Top) (Ref I32)))
+(ref-get alias)

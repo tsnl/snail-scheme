@@ -1,0 +1,6 @@
+(import (snail strict))
+(define-class (Combine T) (: combine (-> T T T)))
+(define-instance (Combine I64) (combine (lambda (a b) (+ a b))))
+(define-instance (Combine F64) (combine (lambda (a b) (f64-add a b))))
+(define (twice x) (combine x x))
+(if (f64-eq (twice 1.5) 3.0) (twice 21) 0)

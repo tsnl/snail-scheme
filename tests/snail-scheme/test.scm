@@ -20,6 +20,7 @@
         (only (snail-scheme iverson-ghost) test-iverson-ghost)
         (only (snail-scheme wasm-i32) test-wasm-i32)
         (only (snail-scheme types) test-types)
+        (only (snail-scheme strict-types) test-strict-types)
         (only (snail-scheme type-inference) test-type-inference)
         (only (snail-scheme expand) test-expand))
 
@@ -48,6 +49,7 @@
       (test-iverson-ghost)
       (test-wasm-i32)
       (test-types)
+      (test-strict-types)
       (test-type-inference)
       (test-expand)))))
 (display-error "All tests ok\n")
