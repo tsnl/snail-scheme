@@ -759,3 +759,285 @@ Changing the declaration order cannot select a different row.
 Signature checking does not move runtime initialization. A named row still uses
 its original implementation binding, including its effectful initializer and
 forward-read guard; it creates no early alias or extra initialization event.
+
+## Proposed affine ownership
+
+This is a design plan, not implemented behavior. It extends the existing strict
+type system and shared IR. The aim is to prove ownership and representation
+invariants once, then use those proofs for predictable cleanup and lower-level
+code generation. Borrow checking, implicit borrowing, stack promotion and new
+GPU/FPGA backends are outside the first implementation.
+
+### One grade per concrete type
+
+Every fully instantiated type has one usage grade:
+
+| Grade | Contract | Examples |
+| --- | --- | --- |
+| `omega` | Values may be copied and discarded. | Scalars, existing unrestricted managed data, reusable functions. |
+| `1` | Each owning binding may be consumed at most once along an execution path. | An owned allocation, file/device ownership token, closure capturing such an owner. |
+
+The grade belongs to the type, not to an independently selectable annotation on
+each variable. A nominal type may require grade 1 even when its representation
+is a scalar. A product or closed variant containing an affine field is affine;
+otherwise its grade follows its declaration and fields. Recursive declarations
+need a terminating grade calculation over their nominal dependency graph.
+Generic types retain grade constraints until their type arguments are known.
+An unresolved grade is never silently assumed to be omega.
+Only parameters that affect owned fields influence an inferred aggregate grade;
+a phantom type parameter does not automatically make its representation affine.
+The feature is optional through the types a program uses. Once affine types are
+present, ownership checking is mandatory, including within unsafe modules.
+
+Use counts in analysis can be zero, one or repeated; zero is not a third type
+grade. Sequential expressions accumulate uses, whereas mutually exclusive arms
+are checked as alternative paths. Moving a value transfers its cleanup
+obligation to a new binding, which may itself be moved later. A later use of the
+old binding is an error. The first version tracks
+whole values and consuming destructures; arbitrary partially moved records are
+deferred.
+
+Affineness does not specify storage, allocation, uniqueness of every reachable
+object, or absence of raw aliases introduced by unsafe code. An owner can contain
+ordinary shared GC values. Conversely, a copyable raw address is not an owning
+capability. No blanket LLVM `noalias` promise follows from grade 1.
+
+### Preserve the distinction at every copying boundary
+
+The initial proposal keeps today's `Top` unrestricted and rejects injection of
+affine values. This deliberately narrows the earlier universal lattice contract:
+`Never <: T <: Top` continues to apply to unrestricted values. An affine dynamic
+container would be a distinct type with consuming projections and retained
+destructor evidence; adding it is a separate design choice. Copyable erasure
+must never erase an ownership obligation.
+
+Existing `Ref`, `Vector` and persistent `List` operations return values while
+leaving their container usable. Initially their element types must therefore be
+unrestricted. An affine element needs an owning container with consuming
+operations; merely assigning its container grade 1 does not make today's
+accessors sound. In particular, repeated `ref-get` cannot hand out the same owner
+twice. Initially reject ordinary record accessors on affine receivers, even when
+the selected field is unrestricted. A consuming replacement must transfer the
+selected field and dispose of or return the other owned fields. Pattern matching
+can consume a record and introduce each field's ownership exactly once.
+
+A function value's grade is independent of its argument grades. A reusable
+function may consume a fresh affine argument on each call. A closure that
+captures an affine value is itself affine and its invocation consumes it.
+Function type identity and specialization keys must retain that distinction.
+Initially, affine-valued initializers do not generalize, including lambdas and
+aliases. This strengthens the existing value restriction so specializing code
+cannot duplicate one captured runtime owner. Ordinary reusable functions can
+remain polymorphic over affine inputs.
+
+Duplicating an abstract argument adds an unrestricted-type requirement to its
+scheme. Identity needs no such requirement. Explicit rigid signatures must state
+the required facts; the checker cannot strengthen their contract silently.
+These requirements belong in the existing static evidence and specialization
+machinery, with no runtime grade tags or generic fallback.
+The unrestricted predicate is intrinsic: a user-written class instance cannot
+assert that an owner is copyable. Check unused generic bodies as well as demanded
+specializations. Initially reject recursive closures capturing an affine owner;
+a reusable recursive function can instead take the owner as an explicit argument.
+Account for affine globals as ownership dependencies even when the backend omits
+them from a physical closure environment. A reusable exported worker cannot
+repeatedly consume a global owner.
+This preserves unrestricted runtime behavior, but may require source migration
+for explicit generic signatures that previously assumed every type was copyable.
+For example, an explicit universally quantified duplication function must now
+declare the unrestricted requirement. Existing inference can infer that premise;
+an explicit rigid contract cannot be silently rewritten.
+
+### Useful APIs without borrowing
+
+The first APIs transfer ownership through calls. These are schematic signatures,
+not proposed surface syntax:
+
+```text
+allocate : Size -> Result<OwnedBytes, AllocationError>
+write    : OwnedBytes * Index * Byte -> Result<OwnedBytes, WriteFailure>
+read     : OwnedBytes * Index -> ReadResult<OwnedBytes, Byte>
+release  : OwnedBytes -> Unit
+```
+
+Both success and recoverable failure specify where the owner goes. A failure
+either returns it or consumes it through cleanup. No safe operation returns an
+untracked pointer or view into an owner that the caller can subsequently free.
+Library macros may hide the threading after the core rules are established.
+They must not introduce implicit borrowing or duplicate a token.
+
+There is a representation cost to address: current product results allocate
+WasmGC structs, and the native lowering does not support multivalue returns.
+Returning an owner and scalar on every read could therefore allocate. A separate
+representation milestone must scalarize such products or provide a supported
+multiple-result convention before claiming allocation-free low-level loops.
+Measure emitted allocations; do not assume Binaryen removes every wrapper.
+
+### Drop and observable cleanup
+
+`Drop` supplies a consuming destructor, conceptually `T -> Unit`. It does not
+require Rust-style mutable references. An explicit drop, move into another owner,
+or returned owner discharges the original binding's cleanup obligation. Normal
+scope exit disposes of initialized owners still held by that scope. Define local
+cleanup in reverse initialization order. Generated structural disposal cleans
+aggregate fields in declared order. Destructor effects are observable, so
+optimization must preserve them.
+
+Disposal is distinct from selecting a user-defined destructor. Scalars and other
+unrestricted values have trivial disposal. A custom consuming `Drop` replaces
+derived disposal; otherwise an affine aggregate disposes of its owned fields
+structurally. Resource-owning primitive types provide a release operation.
+A grade-1 proof token with no resource may also have trivial disposal.
+Generic checking records deferred disposal evidence, resolved for each concrete
+specialization. It must not silently infer a new ordinary `Drop T` premise for
+every unused polymorphic parameter. The exact initial class instances can cover
+`OwnedBytes`; generic instance derivation is additional work because ordinary
+class instances currently require concrete heads.
+Structural aggregate disposal is an explicit part of this proposal, not a
+property supplied by today's typeclass implementation. Affinity itself forbids
+duplication; it does not promise resource reclamation. Standard allocation owners
+must supply release, while an opaque affine type without a resource contract or
+destructor can be discarded. An unsafe implementation can therefore leak a
+resource even when its uses obey the affine rules.
+
+A custom destructor must not receive an automatically recurring obligation to
+call itself. Track its incoming ownership token through aliases and moves. Every
+normal return must discharge that token through a consuming destructure, release
+primitive or explicit consuming delegation. Falling through with the receiver
+still owned is an error. Destructured fields acquire their own normal cleanup
+obligations, including recursive fields. The compiler must not both auto-drop the
+whole receiver and release the same fields again. Resource-releasing custom
+destructors, and custom automatic destructors generally, require an affine type
+in this first version. A custom body follows its explicit operations and normal
+lexical cleanup order; it is not followed by a second structural destructor.
+
+If one branch moves an outer owner and another retains it, a later unconditional
+use is rejected. Preserve lexical cleanup timing with a conditional cleanup flag
+on the retaining path; do not move its destructor to the branch join merely to
+simplify analysis. Loops must return their carried owners or consume them on
+exit. Argument temporaries, failed construction and recoverable `Result` exits
+must follow the same rules. Follow the implemented evaluation order, including
+arguments before the operator, rather than the inference traversal order.
+
+A call with pending cleanup after its return is not a tail transfer. Moving a
+destructor before that call can change behavior. Tail transfers remain available
+when all owned values have already been moved or explicitly disposed of.
+
+The first guarantee covers normal structured execution and explicit recoverable
+errors. A Wasm trap aborts its invocation; a host may catch it and invoke an
+initialized worker again. Native fatal failure terminates the process. Neither
+path performs Scheme lexical unwinding. This plan does not promise user
+destructors on those paths: provider cleanup after a Wasm trap is an explicit
+host/runtime responsibility, with a documented resource-context reset or teardown
+contract. Keep terminal runtime cleanup separate. Destructors should use
+non-unwinding release operations; fallible close/flush belongs in an explicit API
+returning a result.
+
+### Allocation domains and the unsafe bridge
+
+| Domain | Ownership and reclamation |
+| --- | --- |
+| Existing managed graph | Engine or native Immix traces shared references. A source-level drop cannot force WasmGC storage reclamation. |
+| Explicit owned storage | An affine token owns a separately allocated payload; its destructor returns storage to its allocator. |
+| Device or external resource | A typed token records provider, address space and resource state; the provider implements release or ownership transfer. |
+
+Start owned storage with the same Rust allocation/deallocation implementation
+behind typed externs for native and Wasm hosts. Use a closed, nominal owner type
+and an explicit provider ABI; numeric handles, Wasm linear-memory offsets, native
+pointers and GC references remain distinct. The current ABI supports scalars,
+so pointer signatures or direct memory operations need their own implementation
+and tests. An initial scalar resource-handle provider can establish correctness
+without pretending a numeric ID is a dereferenceable address.
+
+Keep the first payload byte/scalar-only and outside the tracing heap. It then
+needs no hidden scan of native memory for GC references. If owned storage later
+contains managed values, it must explicitly register and release roots or expose
+a supported tracing contract. If it contains other owned values, replacement,
+initialization failure and destruction must release those elements correctly.
+
+Do not begin by adding arbitrary `free` to Immix. Its small-object lines can hold
+several objects, so clearing one object start does not make its whole line free.
+Prompt reuse would need coherent exact-start membership, occupancy, hole-search,
+weak-registration and live-root invariants. A separate owned allocator gives
+real allocation/deallocation first and a measurable reduction in traced payload.
+Integrating owned allocation into the collector is a later measured choice.
+
+An unsafe bridge establishes layout, size, alignment, bounds, initialization,
+ownership transfer and completion rules before constructing a safe typed value.
+Moving a type across a boundary does not imply matching physical layouts. For
+host-to-device data, start with explicit copies of supported scalar records or
+buffers. Shared GC objects are not implicitly device-visible. A GC-facing adapter
+may provide a checked resource object with runtime state, but must not expose its
+affine owner through an unrestricted accessor.
+
+Asynchronous submission consumes the relevant owners into a pending-operation
+token. Completion returns them. Dropping that token must have a specified safe
+policy, such as waiting or transferring ownership to a runtime completion queue;
+it must never free an in-flight resource. Affine typing alone proves neither GPU
+synchronization nor thread safety. Address spaces, layouts, target capabilities
+and allowed effects are independent constraints in the shared type system.
+
+A no-GC or device compilation profile rejects unsupported allocation, imports,
+reference representations and operations in the reachable specialized program.
+Grades make resource use checkable; they do not themselves supply shader, embedded
+or FPGA lowering. Stack promotion remains separate and may later exploit escape
+or lifetime proofs without making a full borrow checker a prerequisite.
+
+### Compiler changes and implementation order
+
+Keep one IR, with explicit proof and cleanup stages:
+
+```text
+expand and resolve
+  -> infer types, class requirements and grade constraints
+  -> check ownership while preserving binding and destructuring identities
+  -> specialize concrete types, callables and disposal evidence
+  -> elaborate moves, consuming destructures and conditional cleanup
+  -> emit Wasm, run mandatory Binaryen, optionally lower mechanically to LLVM
+```
+
+`strict-types.sld` owns grade calculation and function-type identity;
+`strict-infer.sld` records generic requirements. Its current match expansion
+introduces repeated internal field/test reads, so it must preserve a checked
+consuming destructure before those reads lose their ownership origin. A focused
+ownership module can own availability and cleanup elaboration as a substantial
+new subject. Its result remains the shared IR in `ir.sld`.
+`strict-specialize.sld` preserves ownership and resolves disposal evidence;
+`strict-wasm.sld` emits ordinary explicit calls and local state. The native
+lowerer must not infer ownership from optimized Wasm or independently invent
+destructor behavior.
+
+Build a reviewable stack in this order:
+
+1. **Type and usage contract.** Add grades, closure distinctions and generic
+   requirements. Reject duplication, use after move, unsafe erasure, container
+   copying and polymorphic duplication of a captured owner. Preserve unrestricted
+   behavior and migrate explicit generic signatures that require copying.
+2. **Deterministic disposal.** Introduce a synthetic owned resource and `Drop`,
+   with observable event logs for moves, ignored results, branch joins, loops,
+   consuming matches, closures, normal exits and destructor receiver discharge.
+   Execute linked optimized Wasm and native fixtures, not just checker tests.
+3. **Owned byte storage.** Add allocation and matching deallocation behind a
+   shared Rust provider, with allocation-failure and repeated-lifetime checks.
+   Preserve the optimized-Wasm-to-native architecture and explicit ABI contracts.
+4. **Low-level representation.** Remove measured owner/result-wrapper allocation,
+   add owning containers and supported target layouts, then establish a no-GC
+   profile with actual generated-code and allocation evidence.
+5. **Cross-domain example.** Add one explicit host/device transfer and completion
+   protocol. Test host execution first and actual device execution when a backend
+   is introduced. Keep borrowing and heap-to-stack promotion as later projects.
+
+For performance, separate uninstrumented timings from allocation/drop counters
+and traces. Compare identical logical algorithms and inputs across managed and
+owned variants, optimized Wasm and native. Record allocations, peak live bytes,
+collector work, code size and wrapper costs. A reduction in GC-managed allocation
+does not by itself establish lower elapsed time or lower process RSS.
+
+Reference points: the [Rust destructor specification](https://doc.rust-lang.org/reference/destructors.html)
+documents scoped cleanup and initialized-field behavior, while its borrowed
+destructor receiver is not part of this proposal. The
+[Wasm instruction set](https://webassembly.github.io/spec/core/syntax/instructions.html)
+provides managed allocation without an explicit GC-object free instruction.
+[Perceus](https://www.microsoft.com/en-us/research/publication/perceus-garbage-free-reference-counting-with-reuse/)
+is relevant prior work on compiler-derived ownership operations and reuse, not
+a proposal to replace the current collector with reference counting.
