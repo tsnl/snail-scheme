@@ -12,7 +12,7 @@ The source base was `78734dd`; the subsequent compiler checkpoint `6983894` chan
 inference scheduling and removes the old gradual emitter. A disposable converter
 outside the repository performed the one-time syntax migration. It is neither
 shipped nor invoked by a runner. Target fixtures contain explicit lambdas,
-attached signatures, lexical blocks, simultaneous `let`, recursive definitions,
+attached signatures, lexical blocks, sequential `let`, recursive definitions,
 and two-branch conditionals. Existing constants and mutable operations remain.
 
 Five former detached-signature tests now explicitly check rejection of syntax

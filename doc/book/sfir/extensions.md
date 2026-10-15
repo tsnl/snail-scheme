@@ -30,9 +30,10 @@ extern_declaration ::= "(" "define-extern" name string_literal string_literal fu
 ```
 
 These library-level declarations add members to one named family. Each member
-has its own initializer and optional signature. A family cannot share a name
-with an ordinary definition, datatype or class method. An imported family can
-be extended through its original identity, including after renaming.
+has its own initializer and optional signature. Its declared or inferred type
+must be a fixed-arity function type. A family cannot share a name with an
+ordinary definition, datatype or class method. An imported family can be extended
+through its original identity, including after renaming.
 
 ```text
 overload_declaration ::= "(" "define-overload" name [signature] expression ")"
