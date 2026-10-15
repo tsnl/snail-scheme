@@ -114,8 +114,8 @@ CHEZ_TYPES = r'''(define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define-syntax define-data
   (lambda (form)
     (syntax-case form ()
-      ((_ name variant ...)
-       (datum->syntax #'name
+      ((context name variant ...)
+       (datum->syntax #'context
          (cons 'begin
            (apply append
              (map (lambda (variant)
