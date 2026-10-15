@@ -3,6 +3,8 @@
 ;; owns these files. The invocation host closes outstanding files after traps.
 (define-library (snail io)
   (export InputPort OutputPort LineResult end-of-file line line-text eof-object?
+          CharacterResult character-end character-value character-text character-end?
+          read-char peek-char
           file-exists? delete-file open-input-file close-input-port
           call-with-input-file read-line open-output-file close-output-port
           call-with-output-file write-char write-string write-i64 newline)
@@ -16,6 +18,8 @@
     (define-data InputPort
       (input-port (handle (Ref I32) input-handle)))
     (define-data LineResult (end-of-file) (line (text String line-text)))
+    (define-data CharacterResult
+      (character-end) (character-value (text Char character-text)))
     (define-extern path-begin "snail.library" "snail:io/path-begin" (-> Unit))
     (define-extern path-character "snail.library" "snail:io/path-character" (-> Char Unit))
     (define-extern path-exists "snail.library" "snail:io/file-exists" (-> I32))
@@ -78,6 +82,20 @@
         result))
 
     ;; ---- Complete lines distinguish an empty line from end of file ----
+
+    (: character-end? (-> CharacterResult Bool))
+    (define (character-end? result)
+      (match result ((character-end) #t) ((character-value text) #f)))
+    (: character-result (-> I32 CharacterResult))
+    (define (character-result code)
+      (if (i32-eq code (ann -1 I32)) (character-end)
+          (character-value (integer->char (i32->i64 code)))))
+    (: read-char (-> InputPort CharacterResult))
+    (define (read-char port)
+      (character-result (port-read (ref-get (input-handle port)))))
+    (: peek-char (-> InputPort CharacterResult))
+    (define (peek-char port)
+      (character-result (port-peek (ref-get (input-handle port)))))
 
     (: eof-object? (-> LineResult Bool))
     (define (eof-object? result)

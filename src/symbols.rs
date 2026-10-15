@@ -17,7 +17,7 @@ struct Name {
 }
 
 #[derive(Default)]
-struct Symbols {
+pub(crate) struct Symbols {
     ids: HashMap<Arc<str>, u32>,
     names: Vec<Name>,
 }
@@ -30,7 +30,7 @@ fn next_id(length: usize) -> Result<u32, String> {
 }
 
 impl Symbols {
-    fn intern(&mut self, text: String) -> Result<u32, String> {
+    pub(crate) fn intern(&mut self, text: String) -> Result<u32, String> {
         if let Some(&id) = self.ids.get(text.as_str()) {
             return Ok(id);
         }
@@ -56,6 +56,18 @@ impl Symbols {
         self.names
             .get(id as usize)
             .ok_or_else(|| "invalid symbol ID".into())
+    }
+
+    pub(crate) fn length(&self, id: u32) -> Result<u32, String> {
+        u32::try_from(self.name(id)?.characters.len()).map_err(|_| "symbol is too long".into())
+    }
+
+    pub(crate) fn character(&self, id: u32, index: u32) -> Result<u32, String> {
+        self.name(id)?
+            .characters
+            .get(index as usize)
+            .copied()
+            .ok_or_else(|| "symbol character index out of range".into())
     }
 
     fn from_module() -> Result<Self, String> {

@@ -160,6 +160,7 @@ pub extern "C" fn close(id: u32) {
 }
 
 fn release_all() -> Result<(), String> {
+    crate::strict_datum::close_all();
     PATHNAME.with_borrow_mut(Option::take);
     let ports = FILES.with_borrow_mut(|files| std::mem::take(&mut files.live));
     let mut result = Ok(());

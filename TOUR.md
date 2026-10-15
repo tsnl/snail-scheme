@@ -349,6 +349,19 @@ Scheme and invokes the retained cleanup export after traps. See
 [strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
 [`scripts/test-strict-io`](scripts/test-strict-io).
 
+[`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
+datums, interned symbols, exact I64/inexact F64/complex numeric variants and
+structural equality. [`(snail read)`](src/snail/read.sld) consumes Unicode input
+incrementally, owns token buffers and parsing in Scheme, and distinguishes a
+datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
+owned scalar token handles, checked numeric conversion and a root-free strict
+symbol identity domain. It shares the legacy numeric parser and symbol storage
+implementation without importing legacy Scheme roots. Terminal file cleanup
+also releases unfinished token handles. [The reader contract](doc/strict-reader.md)
+states exactness, signed-zero/NaN equality, resource lifetimes and unsupported
+syntax; [`scripts/test-strict-reader`](scripts/test-strict-reader) compares complete
+datum streams with Chez on linked raw/optimized Wasm and native.
+
 [`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
 one-argument `atan` as ordinary typed externs. Their scalar C signatures call
 [`strict_math.rs`](src/strict_math.rs) in both the native and Wasm runtime;

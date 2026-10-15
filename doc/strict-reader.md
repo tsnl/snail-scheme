@@ -1,0 +1,107 @@
+# Strict typed datum input
+
+`(snail datum)` owns concrete `Symbol`, `Scalar`, `Number` and recursive `Datum`
+values. `(snail read)` incrementally reads one datum from a `(snail io)` input
+port. Scheme performs tokenization, syntax checking and construction; the same
+Rust scalar exports supply Unicode file input, numeric conversion and symbol
+interning on Wasm and native. No operation converts through `Top` or the legacy
+value ABI.
+
+## Results and resource ownership
+
+`read : InputPort -> ReadResult` returns `read-value`, `read-end` or `read-error`.
+Their payload accessors are `read-value-datum` and `read-error-message`.
+`read-end?` tests EOF; `read-value!` extracts a datum or reports a fatal diagnostic.
+Syntax errors consume the characters already inspected and make no recovery
+promise. Invalid UTF-8 and file errors retain the file library's fatal diagnostic
+contract. Empty lists, false, NUL characters and empty strings remain valid data.
+
+`read-char` and `peek-char` return `CharacterResult`, whose alternatives are
+`character-end` and `character-value`. Lookahead belongs to the input port and
+survives separate `read` calls. Normal file callbacks close on return, including
+a returned syntax error. Invocation hosts call terminal resource cleanup after
+traps; they must not resume the failed invocation.
+
+Rust temporary tokens have explicit, monotonically increasing scalar handles.
+Only live handles occupy the table. A handle starts as owned text and transitions
+once to a numeric result, a nonnumeric result retaining its spelling, or an
+error. Numeric getters validate both state and component type. Scheme copies the
+result and closes the handle; symbol interning consumes its text handle. No
+library operation calls user code while transferring a token. Separate handles
+can be interleaved on one execution thread. Handles are thread-local and cannot
+be transferred between threads. Terminal cleanup drops all outstanding tokens
+without resetting their ID counter. These tokens hold no Scheme values or roots.
+
+## Symbols and datums
+
+`string->symbol`, `symbol->string` and `symbol=?` use exact Unicode scalar spelling,
+without normalization or case folding. A returned string is a fresh mutable copy.
+The root-free strict interner reuses the existing symbol storage implementation
+but has its own identity domain, independent of legacy literal initialization.
+Names and identities live until runtime destruction; port closure and failed
+reads do not roll back interning. Neither strict symbols nor their IDs are
+interchangeable with legacy symbols or compiler enumeration symbols.
+
+`Datum` distinguishes null, Bool, Char, String, Symbol, Number, mutable pair,
+`Vector Datum` and Bytevector. `datum-cons` allocates fresh pair fields as explicit
+Refs; `datum-car`, `datum-cdr`, `datum-set-car!` and `datum-set-cdr!` expose their
+ordinary aliasing. Strings, vectors and bytes retain their existing mutable
+storage. The reader constructs acyclic data. Applications can create cycles via
+mutation, but the initial `datum=?` contract covers finite acyclic data only.
+
+## Numbers and equality
+
+`Number` distinguishes signed I64 exact integers, F64 inexact reals and complex
+pairs of `Scalar` values. `string->number : String -> NumberResult` returns a
+parsed value, `not-a-number`, or an explicit unsupported/range error.
+`number->f64` accepts real-valued numbers, including complex values with zero
+imaginary component, and rejects non-real values. It does not change how tokens
+are parsed. Ordinary arithmetic remains the concrete operations in `(snail strict)`.
+
+Numeric input supports binary/octal/decimal/hexadecimal integer prefixes and
+`#e`/`#i`, decimal fractions and exponents, signed infinities/NaNs, rectangular
+complex forms and inexact polar forms. Exact decimals are checked with decimal
+digit arithmetic: `#e9007199254740993.0` remains exact, while `#e1.5` fails. Exact
+integers must fit I64. Rational syntax, including `4/2`, and bignums are unsupported.
+Finite-looking inexact overflow becomes infinity and underflow becomes signed
+zero, following the selected Rust/IEEE conversion contract and tested Chez
+behavior. The strict wrapper preserves the two exact polar axes after applying
+prefix exactness: an exact zero magnitude produces exact zero, and an exact zero
+angle preserves the magnitude. Thus `0@1.0` is exact zero, `1.0@0` is an inexact
+real, and `#i1@0` remains an inexact complex value. Other polar conversion follows
+the existing Rust helper's trigonometric implementation; shared source does not
+promise identical transcendental rounding. Nontrivial exact polar forms fail.
+
+Parsing applies exactness first, then collapses an exact imaginary zero to the
+real component. Otherwise mixed exact/inexact complex components become inexact,
+matching the selected Chez reader. The public data constructors expose their
+representation directly; callers constructing numbers manually retain the given
+variants rather than invoking parser normalization.
+
+`number-equivalent?` and `datum=?` compare matching numeric variants and scalar
+exactness. Exact `1` differs from inexact `1.0`; positive and negative zero differ;
+all NaNs are equivalent; infinities keep their sign. Other binary64 values compare
+by their bits. These choices match the tested Chez `eqv?`/`equal?` boundary for
+reader-produced numbers. `datum=?` compares strings and characters by scalar
+sequence, symbols by strict identity, pairs/vectors recursively and bytes by value.
+It is structural equivalence, not the numeric `=` operation or allocation identity.
+
+## Syntax boundary
+
+The reader accepts proper/dotted lists, vectors, bytevectors, booleans, character
+literals, strings, bar-escaped symbols, quote/quasiquote/unquote abbreviations,
+Unicode whitespace, line comments, nested block comments and datum comments.
+A datum comment parses and discards one complete datum, so malformed discarded
+input is still an error. Bytevector entries must be exact integers in `[0,255]`.
+Strings support scalar escapes and line continuations; physical CR/CRLF line
+endings normalize to LF. Hexadecimal escapes reject surrogates and values above
+U+10FFFF. Bar-escaped names preserve exact spelling, including empty/numeric names.
+
+Unescaped identifiers use the existing Rust reader's affirmative grammar:
+Unicode alphabetic characters and `!$%&*/:<=>?^_~@` initially, with ASCII digits,
+`+`, `-` and `.` allowed subsequently, plus its peculiar sign/dot forms. This is
+an explicit lexical subset, not a claim to every R7RS Unicode identifier category.
+`123abc` is an error; `|123abc|` is a symbol. Datum labels/cycles, case directives,
+square/brace delimiters, bare identifier escapes and unsupported numeric forms
+are rejected. The reader does not silently reinterpret malformed numbers as
+symbols.

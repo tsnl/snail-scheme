@@ -20,6 +20,7 @@ mod iverson;
 #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
 mod native;
 mod platform;
+mod strict_datum;
 mod strict_io;
 mod strict_math;
 mod symbols;
