@@ -15,7 +15,7 @@ overload families.
 | --- | --- |
 | `core` | Static scalar overloads, `Default`, and homogeneous vector/string operations. Only primitive function values come from `(sfir primitive)`. |
 | `io` | Scalar file services, explicit shared-handle ownership, borrowed stdout, line input and text output. |
-| `math` | Binary64 trigonometry through the scalar foreign interface. |
+| `math` | Binary64 trigonometry, exponentials and logarithms through scalar externs. |
 | `text` | Unicode scalar properties and lexical string ordering. |
 | `bytes` | Packed bytes, checked copies and strict UTF-8 conversion. |
 | `integer` | Exact signed integers, arithmetic, division, roots and correctly rounded binary64 conversion. |

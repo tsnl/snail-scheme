@@ -1,13 +1,17 @@
 ;; Unicode scalar services and ordinary SFIR string ordering. Foreign calls
 ;; carry only Char/I32 scalars; strings remain in traced SFIR storage.
 (library (sfir text)
-  (export char-downcase char-alphabetic? char-numeric? char-whitespace? string<?
+  (export char-downcase char-upcase char-foldcase char-lower-case?
+          char-alphabetic? char-numeric? char-whitespace? string<?
           test-text)
   (import (sfir core))
 
   ;; ---- Existing Unicode properties through the scalar ABI ----
 
   (define-extern char-downcase "snail.library" "snail:text/downcase" (-> Char Char))
+  (define-extern char-upcase "snail.library" "snail:text/upcase" (-> Char Char))
+  (define-extern char-foldcase "snail.library" "snail:text/foldcase" (-> Char Char))
+  (define-extern raw-lowercase "snail.library" "snail:text/lowercase" (-> Char I32))
   (define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> Char I32))
   (define-extern raw-numeric "snail.library" "snail:text/numeric" (-> Char I32))
   ;; This is the reader's exact provider, including scalar validation/cleanup.
@@ -15,6 +19,9 @@
 
   (define char-alphabetic? (-> Char Bool)
     (lambda (character) (i32-eq (raw-alphabetic character) (ann 1 I32))))
+
+  (define char-lower-case? (-> Char Bool)
+    (lambda (character) (i32-eq (raw-lowercase character) (ann 1 I32))))
 
   (define char-numeric? (-> Char Bool)
     (lambda (character) (i32-eq (raw-numeric character) (ann 1 I32))))
