@@ -48,7 +48,8 @@ if (providerPath) {
   provider = new WebAssembly.Instance(scalarModule, {wasi_snapshot_preview1: imports,
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
-const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => {barriers++; return 1;}},
+const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => {barriers++; return 1;},
+                                                  write_character: value => fs.writeSync(1, String.fromCodePoint(value))},
                                                   'reader.test': observer, 'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: imports});
 memory = (provider ?? instance).exports.memory;

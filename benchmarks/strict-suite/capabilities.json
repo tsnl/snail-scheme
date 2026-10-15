@@ -359,12 +359,15 @@
     },
     {
       "name": "parsing",
-      "status": "additional-capabilities",
+      "status": "correctness-prepared",
       "source_lines": 936,
       "files": {
         "src/parsing.scm": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
         "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-parsing-preparation/README.md",
+      "note": "Complete original count 2500, 28300-byte input and full (should return this list) predicate pass on raw/optimized linked V8, native64 and original/adapted Chez. Complete token/datum order, 79 named procedure counters and sharing/reset checks pass. Unchanged Rust native/raw/optimized controls pass; clean timing pending.",
+      "representation_note": "Generated scanner and LL(1) grammar remain; existing Symbol and Datum values, eight explicit Ref bindings and the original character-list file loader preserve source control and sharing. Exact reversible source edits; nonnegative I64 counts and existing bounded numeric service. Rust retains independent Rc pairs, interned Rc symbols, LinkedList loading and its own state machine."
     },
     {
       "name": "peval",
