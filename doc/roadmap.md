@@ -28,12 +28,16 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [ ] Audit recursive groups, value restriction, class obligations, complete
   dynamic type identity, call ordering and proper tail recursion against the
   book, with executable boundary and rejection tests.
-- [ ] Separate parsing library data, resolving a supplied library map and
+- [x] Separate parsing library data, resolving a supplied library map and
   filesystem discovery. Select an entry through its library's public interface,
-  preserving private and re-exported binding identities.
-- [ ] Expose compilation, loading and independent instantiation as separate
-  operations. Implement SFIR library generation through an explicit checked
-  data-transfer protocol; Scheme elaboration and macro staging remain deferred.
+  preserving private and re-exported binding identities in the Chibi-hosted API.
+- [x] Compile a supplied map, public Entry and Target into optimized Wasm bytes
+  or an unlinked x86-64 Linux object. Retain the existing scalar entry ABI and
+  keep foreign-provider linking separate.
+- [ ] Expose loading, independent instantiation and typed invocation. Make the
+  compiler APIs available to SFIR and implement library generation through an
+  explicit checked data-transfer protocol; Scheme elaboration and macro staging
+  remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.
   Retain the existing source and artifact snapshots as historical baselines.
 

@@ -2,7 +2,7 @@
 ;; A source site owns the initialization event; a value owns one concrete
 ;; payload; a function owns code. Duplicating code never schedules initialization.
 (define-library (snail-scheme strict-specialize)
-  (export monomorphize mono-program-body mono-program-functions mono-program-globals mono-program-exports
+  (export monomorphize monomorphize-entry mono-program-body mono-program-functions mono-program-globals mono-program-exports
           site-instances site-global? site-source site-token site-check site-values
           value-binding? value-type value-site value-initializer value-index
           value-parameter? value-source value-ready-at-capture?
@@ -418,23 +418,35 @@
       (when (function-rest type) (strict-error loc "native export requires fixed scalar parameters"))
       (guard (failure (else (strict-error loc "native export requires scalar parameters and a scalar or Unit result")))
         (native-scalar-signature (function-domains type) (function-result type))))
-    (define (named-global-sites name sites)
-      (cond ((null? sites) '())
-            ((eq? name (value-definition-name (site-source (car sites))))
-             (cons (car sites) (named-global-sites name (cdr sites))))
-            (else (named-global-sites name (cdr sites)))))
-    (define (selected-export name sites loc)
+    ;; The source CLI retains its older name selector. Library Entry selection
+    ;; supplies a checked binding directly and never goes through this lookup.
+    (define (named-global-bindings name bindings)
+      (cond ((null? bindings) '())
+            ((eq? name (value-definition-name (car bindings)))
+             (cons (car bindings) (named-global-bindings name (cdr bindings))))
+            (else (named-global-bindings name (cdr bindings)))))
+    (define (legacy-export-binding name bindings loc)
       (when (eq? name 'main) (strict-error loc "main is reserved for one-shot initialization"))
-      (let ((matches (named-global-sites name sites)))
+      (let ((matches (named-global-bindings name bindings)))
         (unless (= (length matches) 1) (strict-error loc "export requires one unambiguous top-level binding" name))
-        (let* ((site (car matches)) (binding (site-source site)) (scheme (binding-scheme binding))
-               (loc (value-definition-loc binding)))
+        (let* ((binding (car matches)) (scheme (binding-scheme binding)) (loc (value-definition-loc binding)))
           (unless (and (eq? (binding-kind binding) 'value) (cadr (binding-payload binding))
                        (null? (scheme-variables scheme)) (function-type? (scheme-type scheme)))
             (strict-error loc "export requires an explicit concrete function declaration" name))
-          (require-concrete (scheme-type scheme) loc)
-          (check-export-signature (scheme-type scheme) loc)
-          (cons name (cdar (site-instances site))))))
+          (cons name binding))))
+    (define (global-site binding sites)
+      (cond ((null? sites) #f)
+            ((eq? binding (site-source (car sites))) (car sites))
+            (else (global-site binding (cdr sites)))))
+    (define (selected-export entry sites)
+      (let* ((binding (cdr entry)) (site (global-site binding sites))
+             (type (scheme-type (binding-scheme binding))) (loc (value-definition-loc binding)))
+        (unless (and site (eq? (binding-kind binding) 'value)
+                     (null? (scheme-variables (binding-scheme binding))) (function-type? type))
+          (strict-error loc "entry requires a concrete function" (car entry)))
+        (require-concrete type loc)
+        (check-export-signature type loc)
+        (cons (car entry) (cdar (site-instances site)))))
     (define (check-export-names names loc)
       (unless (null? names)
         (unless (symbol? (car names)) (strict-error loc "export name must be an identifier" (car names)))
@@ -444,14 +456,21 @@
     ;; ---- Checked templates to a concrete program ----
 
     (define (monomorphize program . export-names)
+      (check-export-names export-names (node-loc (program-body program)))
+      (monomorphize-selected program
+                             (map (lambda (name) (legacy-export-binding name (program-globals program)
+                                                                        (node-loc (program-body program)))) export-names)))
+    (define (monomorphize-entry program binding)
+      ;; The compiler's private ABI binding owns one ordinary global payload.
+      (monomorphize-selected program (list (cons 'entry binding))))
+    (define (monomorphize-selected program entries)
       (let* ((state (make-state '() 0 '() 0 (program-instances program) (program-classes program))) (context (make-context '() #f '()))
              (body (clone-block (program-body program) context #t state)))
-        (check-export-names export-names (node-loc body))
         (select-direct-procedures! body (state-functions state))
         (settle-captures! (state-functions state))
         (mark-ready-globals! body)
         (make-mono-program body (state-functions state) (state-globals state)
-                           (map (lambda (name) (selected-export name (state-globals state) (node-loc body))) export-names)))))
+                           (map (lambda (entry) (selected-export entry (state-globals state))) entries)))))
 
   ;; ---- Tests ----
 
