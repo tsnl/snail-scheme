@@ -1,0 +1,5 @@
+(import (scheme base) (scheme process-context) (sfir runner) (sfir timing) (sfir support) (string-reference-controls checks))
+(test-sfir-support)
+(test-sfir-runner (member "--execute" (cdr (command-line))))
+(test-sfir-timing (member "--execute" (cdr (command-line))))
+(test-string-controls)

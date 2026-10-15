@@ -54,7 +54,7 @@ const hook = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(join(d
   },
 }});
 const scope = openCompilerService({timeout: 3000,
-  chibi: fileURLToPath(new URL('./chibi-probe.py', import.meta.url)),
+  chibi: fileURLToPath(new URL('../target/debug/chibi-probe', import.meta.url)),
   providerSets: new Map([['hooks', new Map([['reentry', hook]])]])});
 const host = JSON.parse(readFileSync(process.env.SFIR_SERVICE_TEST_HOST, 'utf8'));
 delete process.env.SFIR_SERVICE_TEST_HOST;
@@ -90,7 +90,7 @@ function running(pid) {
 for (const mode of ['stall-start', 'noisy-start', 'stall-request', 'noisy-request', 'ignore-close']) {
   process.env.SFIR_SERVICE_TEST_HOST = join(directory, `${mode}.json`);
   process.env.SFIR_SERVICE_TEST_MODE = mode;
-  const options = {chibi: fileURLToPath(new URL('./chibi-adversary.py', import.meta.url)), timeout: 300};
+  const options = {chibi: fileURLToPath(new URL('../target/debug/chibi-adversary', import.meta.url)), timeout: 300};
   const start = Date.now();
   if (mode.endsWith('start')) {
     assert.throws(() => openCompilerService(options), /timed out\nowned host diagnostic sentinel/);

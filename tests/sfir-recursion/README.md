@@ -1,6 +1,6 @@
 # Recursive group contracts
 
-Run `python3 tests/sfir-recursion/check.py`. Each attempt retains exact commands,
+Run `chibi-scheme -I src -I tests tests/sfir-recursion/check.scm`. Each attempt retains exact commands,
 outcomes, inference traces, raw/optimized Wasm, native lowering and guest hashes
 under `build/sfir-recursion`. Native builds consume retained raw Wasm; the runner
 requires their optimized guest bytes to equal the module executed by V8. Native

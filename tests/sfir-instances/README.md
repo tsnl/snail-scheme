@@ -1,6 +1,6 @@
 # Instance initialization and ordinary-call contracts
 
-Run `python3 tests/sfir-instances/check.py`. Each attempt retains its commands,
+Run `chibi-scheme -I src -I tests tests/sfir-instances/check.scm`. Each attempt retains its commands,
 outcomes, raw and optimized Wasm, native lowering, and artifact hashes under
 `build/sfir-instances`. Native execution consumes the retained raw Wasm and must
 produce exactly the optimized guest bytes executed by V8. Native runs force GC

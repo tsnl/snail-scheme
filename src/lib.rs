@@ -6,9 +6,26 @@
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
+#[cfg(all(
+    feature = "native-runtime",
+    not(target_arch = "wasm32"),
+    not(all(target_arch = "x86_64", target_os = "linux"))
+))]
+compile_error!("the native runtime currently requires x86-64 Linux");
+
 mod host;
-#[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
-mod native;
+#[cfg(all(
+    target_arch = "x86_64",
+    target_os = "linux",
+    any(feature = "native-runtime", test)
+))]
+pub mod native;
+#[cfg(all(
+    target_arch = "x86_64",
+    target_os = "linux",
+    any(feature = "native-runtime", test)
+))]
+mod native_gc;
 mod strict_datum;
 mod strict_io;
 mod strict_math;

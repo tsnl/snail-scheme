@@ -89,7 +89,7 @@
 
   (cond-expand
    (snail-tests
-    (import (chibi json) (chibi temp-file) (snail-scheme test-utils))
+    (import (snail-tools json) (chibi temp-file) (snail-scheme test-utils))
     (export test-chromium-trace)
     (begin
       (define (trace-test-path directory name)

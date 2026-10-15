@@ -26,7 +26,7 @@ rustup target add wasm32-wasip1
 ```
 
 Binaryen is required and checked before compilation. Native builds currently
-test x86-64 Linux and use Clang, LLD and the same Rust extern implementations.
+test x86-64 Linux and use LLVM, Cargo, Rust’s bundled linker and the same Rust extern implementations.
 See [commands](doc/options.md) and [build requirements](doc/backend.md).
 
 The [language design](doc/sfir.md) defines the surface and type model.

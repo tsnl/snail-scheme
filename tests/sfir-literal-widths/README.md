@@ -1,6 +1,6 @@
 # Numeric literal representation
 
-Run `python3 tests/sfir-literal-widths/check.py`. Every attempt retains commands,
+Run `chibi-scheme -I src -I tests tests/sfir-literal-widths/check.scm`. Every attempt retains commands,
 located rejection diagnostics, inference traces and actual raw/optimized Wasm
 and native outcomes under `build/sfir-literal-widths`. Native builds consume the
 retained raw guest and must produce the same optimized guest bytes as V8. Native

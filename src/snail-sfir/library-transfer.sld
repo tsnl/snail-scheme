@@ -4,7 +4,7 @@
 (define-library (snail-sfir library-transfer)
   (export read-library-transfer write-library-transfer library-transfer?
           make-library-transfer-context receive-library-transfer)
-  (import (scheme base) (scheme cxr) (scheme write) (only (chibi json) json-read json->string)
+  (import (scheme base) (scheme cxr) (scheme write) (only (snail-tools json) json-read json->string)
           (snail-scheme source) (snail-scheme ir)
           (only (snail-scheme library) make-named-binding named-binding-name named-binding-definition)
           (snail-sfir library) (snail-sfir signatures) (snail-sfir numeric-literals)
@@ -121,6 +121,7 @@
                         (visit (cdr edge) (cons id chain))) (node-edges (vector-ref nodes id)))
             (vector-set! marks id 'complete)))
         (do ((id 0 (+ id 1))) ((= id (vector-length nodes))) (visit id '()))))
+    ;; The port contains one complete, bounded JSON transfer packet.
     (define (read-library-transfer port)
       (let ((packet (json-read port)))
         (unless (and (list? packet) (= (length packet) 3)

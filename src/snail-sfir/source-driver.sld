@@ -6,7 +6,7 @@
           library-directories generation-provider-module command-program?
           source-file->core source-file->wasm source-file->wat-file)
   (import (scheme base) (scheme cxr) (scheme file) (scheme write)
-          (only (chibi json) json->string) (only (chibi temp-file) call-with-temp-dir)
+          (only (snail-tools json) json->string) (only (chibi temp-file) call-with-temp-dir)
           (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme syntax)
           (snail-scheme source) (snail-scheme chromium-trace) (snail-scheme build-host)
           (snail-sfir frontend) (snail-sfir library) (snail-sfir library-transfer)

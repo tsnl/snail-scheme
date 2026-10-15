@@ -9,7 +9,7 @@ compilation does not search directories, read source files or run generators.
 The service currently runs in Node on Linux with Chibi, the existing Binaryen
 tools, `mkfifo` and GNU `ps` available. Its sole target constructor is `(wasm-target)`.
 Native compilation remains available through the existing Chibi API and CLI;
-independent native instances use the [Python native adapter](sfir-native-loading.md).
+independent native instances use the [Scheme native adapter](sfir-native-loading.md).
 Native target support in this SFIR service remains pending. This is a correctness
 implementation, with no claim about compile-service latency or clean benchmark
 timings.

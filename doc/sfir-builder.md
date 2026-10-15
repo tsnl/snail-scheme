@@ -186,7 +186,9 @@ follow, or authoritative origin strings in the packet.
 ## Receiving and compiling
 
 The Chibi module [`library-transfer.sld`](../src/snail-sfir/library-transfer.sld)
-accepts the packet through an explicit port:
+accepts one complete packet through an explicit, bounded port (a file or an
+already framed message). It preserves all JSON control escapes and rejects
+trailing input:
 
 ```scheme
 (define context (make-library-transfer-context))

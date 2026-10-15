@@ -3,12 +3,12 @@ recursive captures and the value restriction. The runner uses the existing SFIR
 integration harness and checks every listed source on raw and optimized Wasm:
 
 ```sh
-python3 tests/sfir-conformance-audit/check.py --output /tmp/sfir-conformance
+chibi-scheme -I src -I tests tests/sfir-conformance-audit/check.scm --output /tmp/sfir-conformance
 ```
 
 The [2026-10-15 audit index](evidence/20261015-book-contracts.json) records a
 separate executable audit against the SFIR book. Its
-[source and log bundle](evidence/20261015-book-contracts.tar.gz) preserves
+[source and log bundle](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/tests/sfir-conformance-audit/evidence/20261015-book-contracts.tar.gz) preserves
 pre-fix failures, final outcomes, commands, source hashes, build provenance and
 Wasm guests. The JSON index records the bundle's SHA-256 checksum.
 
