@@ -303,6 +303,14 @@ def execution_directory(directory, target, route):
     return working
 
 
+def workload_execution_directory(directory, source, target, route):
+    working = execution_directory(directory, target, route)
+    for name in load(source / 'spec.json').get('execution_files', []):
+        path = relative_path(name)
+        shutil.copy2(source / path, working / path)
+    return working
+
+
 def sfir_build(directory, case, source, target, manifest, environment):
     spec = load(source / 'spec.json')
     exports = [case['entry'], *spec.get('additional_exports', [])]
@@ -432,6 +440,16 @@ def slatex_validation(directory, target, manifest, environment):
     working = execution_directory(directory, target, 'sfir-wasm')
     for name in ('lifecycle.json', 'output-manifest.json'):
         shutil.copy2(source / name, working / name)
+    command = [manifest['tools']['NODE']['path'], '--no-warnings', source / 'verify.mjs',
+               target / 'program.wasm', target / 'provider.wasm']
+    result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
+    return 'passed' if succeeded(result) else 'failed'
+
+
+def workload_validation(directory, case, target, manifest, environment):
+    runtime_provider(directory, target, manifest, environment)
+    source = directory / 'source/benchmarks/sfir' / case['name']
+    working = workload_execution_directory(directory, source, target, 'sfir-wasm')
     command = [manifest['tools']['NODE']['path'], '--no-warnings', source / 'verify.mjs',
                target / 'program.wasm', target / 'provider.wasm']
     result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
@@ -611,7 +629,7 @@ def native_sources(directory, source, target):
     for name in ('scalar-provider.c', 'scalar-provider.h', 'scalar-entry.c'):
         shutil.copy2(directory / 'source/benchmarks/sfir/support' / name, target / name)
     (target / 'case-config.h').write_text(native_configuration(load(source / 'spec.json')))
-    if source.name == 'slatex':
+    if source.name in ('slatex', 'dynamic', 'scheme'):
         shutil.copy2(source / 'native-entry.c', target / 'scalar-entry.c')
 
 
@@ -635,7 +653,7 @@ def native_validation(directory, source, target, manifest, environment):
 
 
 def native_execution(directory, source, target, manifest, environment):
-    working = execution_directory(directory, target, 'sfir-native')
+    working = workload_execution_directory(directory, source, target, 'sfir-native')
     active = dict(environment)
     spec = load(source / 'spec.json')
     if 'native_heap_bytes' in spec:
@@ -777,6 +795,8 @@ def wasm_validation(directory, case, target, manifest, environment):
     try:
         if case['host'] == 'slatex':
             return slatex_validation(directory, target, manifest, environment)
+        if case['host'] in ('dynamic', 'scheme'):
+            return workload_validation(directory, case, target, manifest, environment)
         if case['host'] == 'datum-io':
             return datum_validation(directory, target, manifest, environment)
         if case['host'] in ('tail', 'ray', 'nucleic'):
@@ -796,7 +816,7 @@ def sfir_validation(directory, case, source, target, manifest, environment, stat
         return
     if not sfir_artifacts(directory, case, source, target, manifest, environment, status):
         return
-    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer', 'slatex'):
+    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer', 'slatex', 'dynamic', 'scheme'):
         stage_result(target, status, 'unavailable', f'{case["host"]} execution route has not been integrated')
         return
     stage_result(target, status, 'wasm_validation', wasm_validation(directory, case, target, manifest, environment))
@@ -943,6 +963,24 @@ class FrozenInputTests(unittest.TestCase):
             self.assertEqual((second / 'input.txt').read_text(), 'canonical input')
             with self.assertRaises(FileExistsError):
                 execution_directory(root, root, 'first')
+
+    def test_workload_fixtures_are_explicit_and_cannot_escape_the_case(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'case'
+            source.mkdir()
+            (root / 'data/inputs').mkdir(parents=True)
+            (root / 'input.txt').write_text('canonical input')
+            (source / 'probes.scm').write_text('semantic probes')
+            (source / 'private.txt').write_text('undeclared fixture')
+            save(source / 'spec.json', dict(execution_files=['probes.scm']))
+            working = workload_execution_directory(root, source, root, 'valid')
+            self.assertEqual((working / 'probes.scm').read_text(), 'semantic probes')
+            self.assertFalse((working / 'private.txt').exists())
+            for index, name in enumerate(('../private.txt', '/private.txt')):
+                save(source / 'spec.json', dict(execution_files=[name]))
+                with self.assertRaises(ValueError):
+                    workload_execution_directory(root, source, root, f'invalid-{index}')
 
     def test_failed_adapted_control_prevents_complete_validation(self):
         case = dict(wasm_validation='passed', native_validation='passed', chez_validation='passed',

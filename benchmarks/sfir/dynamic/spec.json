@@ -11,6 +11,10 @@
   "additional_exports": [
     "configured-count"
   ],
+  "execution_files": [
+    "spec.json",
+    "lifecycle.json"
+  ],
   "runtime": "scalar-datum-reader",
   "expected_datum": "((218 . 455) (6 . 1892) (2204 . 446))"
 }
