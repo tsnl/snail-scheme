@@ -530,6 +530,12 @@ the complex escape and matrix loops intact. Separate probes expose every pixel
 and ordered store, exact component bits and escape boundaries. Its scalar size
 uses the value-returning hiding import; its source allocation structure and
 optimized retained objects are documented separately.
+[`string_port.py`](benchmarks/strict-suite/string_port.py) keeps the original
+append/substring workload over the compiler's native Unicode String, changing
+only its mutable global to Ref. It preserves the initial false result and
+Boolean-or-I64 predicate through scalar inputs. Separate modules check complete
+characters, replacement order and copy independence; canonical retained payload
+work remains a separate evidence question from the original length predicate.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
