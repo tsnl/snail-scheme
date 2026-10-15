@@ -358,6 +358,8 @@
         ((define-extern) (prepare-extern-declaration form outer local reservations transformers))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
         ((define-class) (prepare-class-declaration form outer local reservations transformers))
+        ((define-overload)
+         (prepare-overload-declaration form outer local reservations transformers fuel))
         ((define-instance)
          (values (list (lambda (values transformers)
                          (expand-instance-declaration
@@ -448,6 +450,8 @@
         ((define) (reserve-value-definition form remaining local reserved macros))
         ((define-extern) (reserve-extern-declaration form remaining local reserved macros))
         ((define-class) (reserve-class-declaration form remaining local reserved macros))
+        ((define-overload)
+         (reserve-overload-declaration form remaining outer local reserved macros))
         ((define-syntax) (reserve-syntax-definition form remaining local reserved macros))
         (else (values remaining local reserved macros))))
 
@@ -512,7 +516,8 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax : %record-schema define-class define-instance define-extern)
+          ((define define-syntax : %record-schema define-class define-instance define-overload
+             define-extern)
            (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
@@ -647,6 +652,40 @@
                         (expand-expression (cadr pair) environment transformers fuel))))
               (cadr parts))
          (syntax-loc form))))
+
+    ;; An imported family may gain another concrete signature. Repeated local
+    ;; declarations reserve the same identity, including forward references.
+    (define (overload-binding form environment)
+      (let* ((name (car (fields form '(_ name type implementation))))
+             (existing (lookup name environment)))
+        (if existing
+            (cons (identifier-of name) existing)
+            (reserve-value-identifier name))))
+
+    (define (reserve-overload-declaration form remaining outer local reserved macros)
+      (let* ((binding (overload-binding form (append local outer)))
+             (next (if (lookup (car (fields form '(_ name type implementation)))
+                               (append local outer)) local
+                               (add-local-bindings local (list binding) form))))
+        (values remaining next (cons (cons form binding) reserved) macros)))
+
+    (define (prepare-overload-declaration form outer local reservations transformers fuel)
+      (let* ((reserved (assq form reservations))
+             (name (car (fields form '(_ name type implementation))))
+             (next (if (or reserved (lookup name (append local outer))) local
+                       (add-local-bindings local (list (reserve-value-identifier name)) form))))
+        (values (list (lambda (values transformers)
+                        (expand-overload-declaration
+                         form (append values (macro-bindings next) outer) transformers fuel)))
+                next transformers)))
+
+    (define (expand-overload-declaration form environment transformers fuel)
+      (let* ((parts (fields form '(_ name type implementation)))
+             (type (expand-type (cadr parts) environment)))
+        (if (not (function-type? type)) (fail form "overload requires a function signature"))
+        (make-overload-declaration
+         (name-definition (resolve-name (car parts) environment)) type
+         (expand-expression (caddr parts) environment transformers fuel) (syntax-loc form))))
 
     (define (expand-instantiation form environment transformers fuel)
       (let ((parts (fields form '(_ expression type ...))))
@@ -1369,6 +1408,7 @@
     (define (runtime-expression? item)
       (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
                (class-declaration? item) (instance-declaration? item) (extern-declaration? item)
+               (overload-declaration? item)
                (eliminated-definition? item))))
 
     (define (runtime-items items)
@@ -1469,7 +1509,7 @@
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U => define-class define-instance define-extern
+                 : ann inst All -> U => define-class define-instance define-overload define-extern
                  %record-schema Ref List Rest)
               scalar-type-names strict-type-names))
 

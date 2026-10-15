@@ -209,12 +209,20 @@ a replacement of the existing command-line compiler yet.
 [`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
 rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
 [`strict-core.sld`](src/snail-scheme/strict-core.sld) defines checked expression,
-binding and static class records. [`strict-infer.sld`](src/snail-scheme/strict-infer.sld)
-checks source groups, generalizes eligible values and retains exact class
-obligations. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
-supplies concrete primitive signatures and opcodes.
-[`(snail strict)`](src/snail/strict.sld) provides hygienic binding and control
-forms and ordinary polymorphic vector functions. `vector-append`, copying, and
+binding and static class records.
+[`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) matches complete
+function signatures with isolated candidate trials, commits unique generic row
+views, and repeats improvement as argument and result information settles.
+[`strict-infer.sld`](src/snail-scheme/strict-infer.sld) lowers free overload
+declarations to classes and instances, checks source groups, generalizes eligible
+values and retains class obligations. Abstract obligations bound by a generalized
+initializer stay in its template; concrete uses instantiate them. Call operands
+are inferred in source order without using overload candidates to choose widths.
+[`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
+supplies complete concrete primitive signatures and opcodes, including unary
+conversions. [`(snail strict)`](src/snail/strict.sld) provides numeric overload
+families with explicit I64/F64 promotion bodies, hygienic binding and control forms
+and ordinary polymorphic vector functions. `vector-append`, copying, and
 list conversions specialize through the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
 

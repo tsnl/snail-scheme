@@ -1,0 +1,6 @@
+(import (snail strict))
+(define-class (Only T) (: only (-> T)))
+(define-instance (Only I64) (only (lambda () 42)))
+(define-overload build (All (T) (=> ((Only T)) (-> I64 (Vector T))))
+  (lambda (count) (make-vector count (only))))
+(build 1)
