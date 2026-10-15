@@ -2,7 +2,7 @@
   "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "experiment_numeric_commit": "320987e",
   "experiment_numeric_cherry_pick": "a23fbdc",
-  "compiler_status": "Unmerged fbb3972: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants, direct calls through nonescaping local procedures and structured operators, and initialized let captures implemented; native Unicode strings with checked mutable storage and Scheme append/copy helpers; explicit Ref mutation.",
+  "compiler_status": "Unmerged 5abc65d: result-context overloads, Default T, rank-one specialization, concrete nominal products, closed recursive variants, direct calls through nonescaping local procedures and structured operators, and initialized let captures implemented; native Unicode strings with checked owned blocks and Scheme append/copy helpers; measured short-string overhead remains under investigation; explicit Ref mutation.",
   "prior_passing_measured": 13,
   "prior_default_stack_failure": [
     "ack"
@@ -174,9 +174,9 @@
         "inputs/string.input": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-string/README.md",
-      "measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
-      "representation_note": "Original 100 by ten-trial grow/copy/rotation workload, literals, stores, count and final predicate retained. Explicit Ref String; native four-byte Unicode-scalar GC arrays. Rust UTF-8 storage, reuse and lifetime differences disclosed.",
-      "note": "5.024121 seconds; 3.110 times original Chez, 3.472 times adapted Chez and 86.661 times Rust/Wasm. Chez ranges vary widely. Separate instrumented full-run resource bracket records 0.833 s user CPU, 3.857 s system CPU and 2.896 million minor page faults; not clean samples or an isolated explanation of all differences."
+      "measurement_report": "benchmarks/results/2026-10-14-string-block-comparison/README.md",
+      "representation_note": "Original 100 by ten-trial grow/copy/rotation workload, Unicode scalars, stores and complete final predicate retained. Owned backing arrays capped at 8192 i32 elements reduce large-allocation page churn; short strings also allocate an owner. Rust UTF-8/reuse/ownership differences remain disclosed.",
+      "note": "0.982650 seconds, 5.04 times faster than the same-source flat-storage baseline. 17.02 times idiomatic Rust/Wasm and 2.11 times Rust u32/fresh/zeroed control. Chez median ratio 0.553 is unstable: Chez range 0.949\u20132.239 seconds includes a faster sample. Separate same-Wasm matrix has V8 2.27 times faster than archived LLVM/Immix. Size controls expose 2\u201322 percent short/medium growth-copy overhead; see linked reports for original counts, ranges and limits."
     },
     {
       "name": "sum1",
@@ -435,7 +435,7 @@
       }
     }
   ],
-  "compiler_basis": "fbb397218d5abeeed7efa9e08348ad6c9c54f03d",
+  "compiler_basis": "5abc65d44925d8b36ccc0f6b79a1efb98ba8051a",
   "counts_scope": "Original 43-workload inspection after array1; prior_passing_measured and selection counts are historical, not current coverage.",
   "data_port_measurements": [
     "paraffins"
@@ -459,8 +459,11 @@
     "mbrotZ"
   ],
   "runtime_ablation_report": "benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md",
-  "string_measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
+  "string_measurement_report": "benchmarks/results/2026-10-14-string-block-comparison/README.md",
   "string_storage_report": "benchmarks/results/2026-10-14-string-storage/README.md",
   "puzzle_measurement_report": "benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md",
-  "lattice_measurement_report": "benchmarks/results/2026-10-14-strict-lattice-comparison/README.md"
+  "lattice_measurement_report": "benchmarks/results/2026-10-14-strict-lattice-comparison/README.md",
+  "string_baseline_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
+  "string_size_control_report": "benchmarks/results/2026-10-14-string-size-controls/README.md",
+  "string_native_comparison_report": "benchmarks/results/2026-10-14-string-block-native-comparison/README.md"
 }
