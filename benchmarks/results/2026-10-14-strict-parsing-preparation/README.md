@@ -13,6 +13,10 @@ to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Preparation uses Chibi 0.12,
 Node 24.19.0, Binaryen 132, Chez 10.4.1, Rust 1.95 and LLVM 22.1.8. The source
 adapter, generated programs, tool paths and hashes are retained with the
 preparation. No compiler, frontend, collector or reusable library changed.
+The immutable adapter/source commit is
+`c67ef8cc21e50c77fd0da8ca2e63b8bd78cb7fb5`; the initially uncommitted adapter
+snapshot and the final reviewed adapter are both retained, and their emitted
+canonical input bytes match.
 
 ## Source behavior and representation
 
@@ -174,8 +178,27 @@ python3 benchmarks/strict-suite/measure.py prepare \
   --compiler-basis 45214e3
 ```
 
-The retained working evidence is under
+The [author audit](author-audit.json) revalidates all 158 execution checks and
+183 terminal benchmark-preparation command records. The
+[verified archive](artifacts.tar.zst) retains 620 regular files and is
+14,774,950 bytes, with SHA-256
+`932284c6a35c287878d201d9b8c2089f7534fa071b092f7d256e31e646241181`.
+The [manifest](manifest.json) lists each file's digest, size and mode; an
+independent archive stream check verifies all of them. Cargo target caches,
+Python bytecode caches and external tool binaries are excluded. Both emitted
+Rust LLVM modules remain, along with the native Scheme module and LLVM.
+
+Extract `artifacts.tar.zst` into a fresh directory with `tar --zstd -xf`.
+Inside `parsing-preparation-1`, `prepared.json` is the untouched initial failed
+supervisor manifest, `completed.json` is the successful continuation manifest,
+and `continuation.json` explains their relationship. The native artifact is
+checked against its original build-time hashes. Linked Wasm hashes were first
+frozen at continuation; the successful linked files were reused without
+rewriting. A metadata-finalization attempt that expected a not-yet-written
+complete edit ledger is also documented; it launched no builds or workloads.
+
+The working evidence remains under
 `/tmp/snail-strict-parsing-20261014/build/parsing-preparation-1`.
-Compressed packaging and clean comparative timing are pending coordinated
-CPU windows. Absolute paths in command records describe the original
-executions; replay elsewhere requires verified path mapping and pinned tools.
+Absolute paths in command records describe the original executions; replay
+elsewhere requires verified path mapping and pinned tools. Clean comparative
+timing is pending a coordinated frozen campaign.
