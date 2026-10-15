@@ -3,7 +3,7 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `af02dac`: result-context overloads, `Default T`, rank-one
+compiler basis is `a4030ce`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products and closed recursive variants are
 implemented. Mutable fields use explicit `Ref` cells. Symbols, general mutable
 pairs, first-class continuations and a full numeric tower are still outside this
@@ -24,8 +24,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | triangl | Measured in the preceding five-port report. Existing Vector I64 backtracking and Ref(List(List I64)); construct flat integer tables with `list`, box the mutable answer binding, and make an omitted `do` step explicit. Check all 13 expected moves. Original count 50, initial move 22 and depth 1. |
 | mbrot | Measured in the preceding five-port report on numeric compiler `320987e`. Preserve all pixel and escape loops; replace `inexact` with explicit `i64->f64`, supply nested-vector/zero fills. Original count 1,000, matrix 75 by 75, predicate checks result 5. |
 | pnpoly | Measured in the preceding five-port report on numeric compiler `320987e`. Box its local integer counter. Construct both 20-element F64 input vectors from runtime values; preserve both vector-to-list-to-vector copies and all 12 point tests. Original count 1,000,000, expected 6. |
-| graphs | Later candidate; inspect and compile its entire original graph enumeration, not a substitute. Homogeneous Bool adjacency matrices and I64 edge lists fit. Three comparison symbols (`less`, `equal`, `more`) need an explicit finite integer tag encoding and `case` support; Bool identity and ordinary list helpers need typed definitions. Its CPS permutation fold and graph result types still need compiler validation. |
-| mperm | Later candidate. Homogeneous shared List(List I64), vector queue and explicit refs can represent its original grey-code permutation generator. Box two mutable list bindings; retain pre-timer queue fill, fill/flush lifetime schedule, embedded harness, full queue predicate and sum check. Variadic wrappers, helpers and exact predicate division need typed ports. Original M:N:K:L = 20:10:2:1 must stay intact. |
+| graphs | Prepared for review, unmeasured. Complete CPS enumeration, Bool matrices and I64 adjacency lists; finite I64 comparison codes and typed helpers replace symbols/`case`. Original count 3, size 7, expected 213,829. Separate complete-value and exhaustive small isomorphism-class probes. |
+| mperm | Prepared for review, unmeasured. Original grey-code generator and shared list tails, two explicit Ref bindings, vector queue, initial fill before timing, and final complete predicate. Original M:N:K:L = 20:10:2:1 retained. Separate permutation/queue/predicate probes; source representation and optimized retention recorded before timing. |
 | fft | Measured in its preceding report. The canonical F64 kernel uses a separately compiled scalar Wasm sine provider; 65,536 elements and 100 repeats remain intact. |
 | quicksort | Prepared by the preceding driver checkpoint, including canonical RNG, explicit procedure/seed refs, per-element mapping and adjacent sortedness checks. Later timing is coordinated by the parent and is outside this data-port report. |
 | simplex | F64 matrices and refs fit most operations, but original success/failure return combines Bool with a list of I64 vectors. The sum/product representation is implemented; its port still needs unary/variadic arithmetic and abs/sign helpers, plus many mechanically boxed scalar bindings. |

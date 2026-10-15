@@ -20,15 +20,17 @@ import time
 from data_ports import (GC_TEXT, GC_SIZES, PARAFFINS_PRELUDE, PARAFFINS_PROBE,
                         GCBENCH_PRELUDE, paraffins_kernel, gcbench_kernel)
 import data_ports
+import enumeration_ports
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort') + DATA_PORTS
+ENUMERATION_PORTS = ('graphs', 'mperm')
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -37,7 +39,7 @@ KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench')
+               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1', paraffins='nb', gcbench='gcbench', graphs='run')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -92,6 +94,10 @@ def case_specification(name, data):
         count, depth, unused = input_values(data.decode())
         return dict(name=name, count=count, inputs=[depth], expected=1, unused_output_datum=unused,
                     barriers_per_iteration=1, diagnostic_text=GC_TEXT, diagnostic_sizes=GC_SIZES)
+    if name == 'mperm':
+        count, n, k, ell, unused = input_values(data.decode())
+        return dict(name=name, count=count, inputs=[n, k, ell], expected=1,
+                    unused_output_datum=unused, barriers_per_iteration=0, setup_barriers=4)
     values = input_values(data.decode())
     if name == 'array1':
         repeats, size, expected = values
@@ -154,6 +160,10 @@ def kernel_source(name, source):
         source = paraffins_kernel(source)
     elif name == 'gcbench':
         source = gcbench_kernel(source)
+    elif name == 'graphs':
+        source = enumeration_ports.graphs_kernel(source)
+    elif name == 'mperm':
+        source = enumeration_ports.mperm_kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -372,6 +382,8 @@ def quicksort_input_bindings():
 def input_bindings(name, spec):
     if name == 'quicksort':
         return quicksort_input_bindings()
+    if name == 'mperm':
+        return enumeration_ports.MPERM_INPUTS
     bindings = [f'(define input{index} {input_expression(name, index)})'
                 for index in range(len(spec['inputs']))]
     if name in FULL_LISTS:
@@ -392,6 +404,8 @@ def input_expression(name, index):
 
 
 def kernel_call(name, spec):
+    if name == 'graphs':
+        return '(length (run (hide count input0)))'
     if name == 'fft':
         return '(run (hide count (make-vector input0 input1)))'
     if name == 'quicksort':
@@ -404,6 +418,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'mperm':
+        return enumeration_ports.MPERM_WORKER
     if name == 'gcbench':
         return f'(begin (let loop ((i 0)) (unless (= i count) {kernel_call(name, spec)} (loop (+ i 1)))) 1)'
     initial = 'quicksort-input' if name == 'quicksort' else "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOAT_RESULTS else '0'
@@ -428,6 +444,10 @@ def strict_program(name, spec, upstream):
         prelude += PARAFFINS_PRELUDE
     if name == 'gcbench':
         prelude += GCBENCH_PRELUDE
+    if name == 'graphs':
+        prelude += enumeration_ports.GRAPHS_COMMON
+    if name == 'mperm':
+        prelude += enumeration_ports.MPERM_COMMON + enumeration_ports.MPERM_PLAN
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -473,6 +493,7 @@ def build_strict(directory, tools, environment):
     spec = load(directory / 'spec.json')
     command = [ROOT / 'scripts/build-strict', '--export', spec.get('export', 'bench'),
                directory / 'strict.scm', directory / 'strict.wasm']
+    command[3:3] = [part for name in spec.get('additional_exports', []) for part in ('--export', name)]
     if load(directory / 'spec.json')['name'] == 'fft':
         command[3:3] = ['--export', 'fft-probe']
     if load(directory / 'spec.json')['name'] == 'quicksort':
@@ -617,6 +638,8 @@ def quicksort_validation_specifications(spec):
 
 
 def validation_specifications(spec):
+    if spec['name'] in ENUMERATION_PORTS:
+        return [('canonical-count', spec)]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
     if spec['name'] == 'fft':
@@ -663,6 +686,8 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
 CHEZ_HELPERS = dict(paraffins=data_ports.PARAFFINS_CHEZ,
+                   graphs='(define (unit) (if #f #f))\n(define (unreachable) (error \'graphs "unreachable comparison"))\n' + enumeration_ports.GRAPHS_COMMON,
+                   mperm=CHEZ_REF_HELPERS + enumeration_ports.MPERM_COMMON + enumeration_ports.MPERM_CHEZ_HARNESS + '(define (unreachable) (error \'mperm "invalid arguments"))\n',
                    gcbench=CHEZ_REF_HELPERS + data_ports.gc_chez_helpers(), primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
                    triangl='''(define-syntax ann
   (syntax-rules () ((_ expression type) expression)))
@@ -764,6 +789,8 @@ def prepare_adapted_chez(name, directory, runner, environment):
 
 def chez_validation_inputs(directory, runner, spec):
     original = (directory / 'input.txt').read_bytes()
+    if spec['name'] in ENUMERATION_PORTS:
+        return [('canonical-count', original.decode())]
     probes = [(str(count), runner.input_data(original, count).decode()) for count in (1, 2)]
     if spec['name'] == 'primes':
         probes.append(('empty', '1\n1\n()\n'))
@@ -1034,6 +1061,122 @@ def validate_gc_outputs(directory, runner, tools, environment, spec):
     validate_gc_chez_probes(directory, runner, tools, environment, probes)
 
 
+# ---- Complete enumeration and queue snapshots in separate probes ----
+
+
+def enumeration_probe_cases(name):
+    cases = [(f'values-{n}', dict(action=0, count=1, inputs=[n, 2, 1]))
+             for n in (range(1, 5) if name == 'graphs' else range(1, 7))]
+    if name == 'mperm':
+        cases += [(f'queue-{m}-{k}-{ell}', dict(action=1, count=m, inputs=[4, k, ell]))
+                  for m, k, ell in ((1, 2, 1), (3, 4, 1), (2, 4, 2), (2, 2, 0), (2, 2, 2))]
+        cases += [(f'predicate-{mode}', dict(action=2, count=mode, inputs=[4, 4, 1])) for mode in range(6)]
+    return cases
+
+
+def enumeration_probe_input(probe, expected=None):
+    n, k, ell = probe['inputs']
+    value = '#f' if expected is None else '(' + ' '.join(map(str, expected)) + ')'
+    return '\n'.join(map(str, [probe['action'], probe['count'], n, k, ell])) + '\n' + value + '\n'
+
+
+def build_enumeration_chez_probe(name, directory, adapted, runner, environment):
+    target = directory / ('chez-output-probe-adapted' if adapted else 'chez-output-probe-original')
+    target.mkdir()
+    kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+    helpers = CHEZ_HELPERS[name] if adapted else '(define (unreachable) (error \'probe "invalid probe"))\n'
+    if name == 'mperm':
+        kernel = enumeration_ports.mperm_probe_kernel(kernel, adapted)
+        helpers = helpers.replace(enumeration_ports.MPERM_CHEZ_HARNESS, '')
+        helpers += '(define (unit) (if #f #f))\n'
+        if not adapted:
+            helpers += '(define (integer-max a b) (max a b))\n'
+    (target / 'program.scm').write_text(enumeration_ports.chez_probe_source(name, kernel, helpers))
+    return target, build_chez(target, runner, environment, 'build.json')
+
+
+def enumeration_oracles(name, directory, command, target, environment):
+    cases, checks = [], []
+    for label, probe in enumeration_probe_cases(name):
+        record = execute(command, target, environment, stdin=enumeration_probe_input(probe))
+        checks.append(dict(record, label=label, specification=probe))
+        save(target / 'oracle-runs.json', checks)
+        require_success(record)
+        values = input_values(record['stdout'])[0]
+        proof = check_enumeration_oracle(name, probe, values)
+        cases.append((label, dict(probe, expected=values, proof=proof)))
+    save(directory / 'complete-output-oracles.json', dict(cases))
+    return cases
+
+
+def check_enumeration_oracle(name, probe, values):
+    if name == 'graphs':
+        return enumeration_ports.check_graphs(values, probe['inputs'][0])
+    if probe['action'] == 0:
+        return enumeration_ports.check_permutations(values, probe['inputs'][0])
+    if probe['action'] == 2:
+        if values != [int(probe['count'] == 0)]:
+            raise ValueError('canonical predicate did not reject the malformed queue')
+        return dict(canonical_predicate_accepts=values[0] == 1)
+    if values != enumeration_ports.queue_values(probe['count'], *probe['inputs']):
+        raise ValueError('incorrect complete queue lifetime schedule')
+    return dict(all_snapshots_checked=True, snapshots=probe['count'] + 1)
+
+
+def build_enumeration_wasm_probe(name, directory, spec, tools, environment):
+    target = directory / 'strict-output-probe'
+    target.mkdir()
+    shutil.copyfile(directory.parent / 'host.mjs', directory / 'host.mjs')
+    probe = dict(spec, export='enumeration-probe', additional_exports=['queue-probe', 'predicate-probe'] if name == 'mperm' else [])
+    save(target / 'spec.json', probe)
+    kernel = (directory / 'adapted-kernel.scm').read_text()
+    common = enumeration_ports.GRAPHS_COMMON if name == 'graphs' else enumeration_ports.MPERM_COMMON + enumeration_ports.MPERM_PROBE_PLAN
+    encoders = enumeration_ports.LIST_ENCODERS + (enumeration_ports.GRAPH_ENCODERS if name == 'graphs' else enumeration_ports.MPERM_QUEUE_ENCODER)
+    if name == 'mperm':
+        kernel = enumeration_ports.mperm_probe_kernel(kernel, True)
+        encoders += enumeration_ports.MPERM_PREDICATE_PROBE
+    inputs = '\n'.join(f'(define input{i} (native-input-i64 (ann {i} I32)))' for i in range(3))
+    body = enumeration_ports.GRAPH_PROBE if name == 'graphs' else enumeration_ports.MPERM_PROBE
+    (target / 'strict.scm').write_text(PRELUDE + EXPECTED_PRELUDE + common + kernel + encoders + inputs + body + '\n(unit)\n')
+    build_strict(target, tools, environment)
+    return target
+
+
+def changed_enumeration_expectations(probe):
+    values, probes = probe['expected'], []
+    for label, index in (('first', 0), ('middle', len(values) // 2), ('last', len(values) - 1)):
+        changed = list(values)
+        changed[index] += 1
+        probes.append((label, dict(probe, expected=changed), False))
+    return probes + [('short', dict(probe, expected=values[:-1]), False),
+                     ('long', dict(probe, expected=values + [0]), False)]
+
+
+def validate_enumeration_cases(name, targets, strict, cases, spec, tools, environment):
+    probes = [(label, probe, True) for label, probe in cases]
+    negative_cases = [cases[3]] if name == 'graphs' else [cases[5], cases[7]]
+    probes += [(label + '-' + failure, altered, accepted) for label, probe in negative_cases
+               for failure, altered, accepted in changed_enumeration_expectations(probe)]
+    for label, probe, accepted in probes:
+        wasm = dict(spec, **{key: probe[key] for key in ('inputs', 'count', 'expected')},
+                    result_kind='i64-list-values', setup_barriers=0, barriers_per_iteration=0,
+                    export=('enumeration-probe', 'queue-probe', 'predicate-probe')[probe['action']])
+        validate_data_wasm_probe(strict, tools, environment, wasm, label, accepted)
+        for target, command in targets:
+            record = execute(command, target, environment, stdin=enumeration_probe_input(probe, probe['expected']))
+            save(target / f'validation-{label}.json', dict(record, accepted=accepted, specification=probe))
+            require_success(record)
+            if record['stderr'] or record['stdout'].strip() != ('#t' if accepted else '#f'):
+                raise ValueError('enumeration predicate did not validate every expected value')
+
+
+def validate_enumeration_outputs(name, directory, runner, tools, environment, spec):
+    targets = [build_enumeration_chez_probe(name, directory, adapted, runner, environment) for adapted in (False, True)]
+    cases = enumeration_oracles(name, directory, targets[0][1], targets[0][0], environment)
+    strict = build_enumeration_wasm_probe(name, directory, spec, tools, environment)
+    validate_enumeration_cases(name, targets, strict, cases, spec, tools, environment)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1055,9 +1198,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_paraffins_outputs(directory, runner, tools, environment, spec)
     if name == 'gcbench':
         validate_gc_outputs(directory, runner, tools, environment, spec)
+    if name in ENUMERATION_PORTS:
+        validate_enumeration_outputs(name, directory, runner, tools, environment, spec)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort',) + DATA_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort',) + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1086,6 +1231,7 @@ def prepare(options):
     shutil.copy2(HERE / 'host.mjs', options.output / 'host.mjs')
     shutil.copy2(__file__, options.output / 'measure.py')
     shutil.copy2(HERE / 'data_ports.py', options.output / 'data_ports.py')
+    shutil.copy2(HERE / 'enumeration_ports.py', options.output / 'enumeration_ports.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
@@ -1098,6 +1244,7 @@ def prepare(options):
                   compiler_commit=basis,
                   driver_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   data_ports_sha256=digest(HERE / 'data_ports.py'),
+                  enumeration_ports_sha256=digest(HERE / 'enumeration_ports.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -1157,6 +1304,8 @@ def checked_preparation(output):
         raise ValueError('driver changed')
     if prepared.get('data_ports_sha256', digest(HERE / 'data_ports.py')) != digest(HERE / 'data_ports.py'):
         raise ValueError('data port source adapters changed')
+    if prepared.get('enumeration_ports_sha256', digest(HERE / 'enumeration_ports.py')) != digest(HERE / 'enumeration_ports.py'):
+        raise ValueError('enumeration port source adapters changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')

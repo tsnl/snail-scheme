@@ -492,7 +492,11 @@ Chez flonum controls, and artifact replay.
 and gcbench source edits, concrete representations and separate structural
 oracles. Their canonical optimized artifacts are inspected independently:
 paraffins can discard unobserved payloads; gcbench currently loses its intended
-long-lived tree root and is excluded from timing. The
+long-lived tree root and is excluded from timing.
+[`enumeration_ports.py`](benchmarks/strict-suite/enumeration_ports.py) owns the
+graphs/mperm source adaptations, complete-value encoders and independent finite
+graph/permutation oracles. Their observer modules remain separate from canonical
+workloads; mperm keeps initial queue construction before the timer. The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
 coverage table retains failed and unported workloads.

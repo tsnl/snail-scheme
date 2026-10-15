@@ -225,12 +225,13 @@
     },
     {
       "name": "graphs",
-      "status": "later-candidate-unvalidated",
+      "status": "prepared-unmeasured",
       "source_lines": 610,
       "files": {
         "src/graphs.scm": "9abde79ddc1b28dd69c5e9eb3486003149a60610df1ec0c3c7c29933b24ff968",
         "inputs/graphs.input": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5"
-      }
+      },
+      "note": "Complete CPS/matrix enumeration port with finite I64 comparison codes; canonical input and independent complete small graph oracles retained. No clean timing yet."
     },
     {
       "name": "lattice",
@@ -382,12 +383,13 @@
     },
     {
       "name": "mperm",
-      "status": "later-candidate-unvalidated",
+      "status": "prepared-unmeasured",
       "source_lines": 210,
       "files": {
         "src/mperm.scm": "651a233315d94ce36b8e07a1edb61b5b5eee4483fc14acc44a55046acaacd9f3",
         "inputs/mperm.input": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
-      }
+      },
+      "note": "Complete 20:10:2:1 permutation/queue port with two explicit Ref bindings per generation, pre-timer queue fill, original final predicate, and separate full-value/alias probes. No clean timing yet."
     },
     {
       "name": "equal",

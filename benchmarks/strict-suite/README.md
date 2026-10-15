@@ -1,9 +1,10 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts nineteen original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-three original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, and `quicksort`. It records failures alongside successful cases. It is
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, and `mperm`.
+It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
@@ -27,7 +28,8 @@ python3 benchmarks/strict-suite/measure.py measure --output build/strict-suite -
 
 Preparation records generated source, compiler sources, build commands, raw and
 optimized Wasm, disassembly, and Chez programs. It executes each strict kernel
-with one and two repetitions in raw and optimized Wasm. Errors remain in
+with one and two repetitions in raw and optimized Wasm, or the documented
+canonical/full-value checks for later ports. Errors remain in
 `prepared.json` and the individual command records; failed cases are excluded
 from timing and must be reported explicitly. `array1` instead checks small
 runtime-supplied lengths and repeat counts, including empty vectors and zero
@@ -251,3 +253,37 @@ edge-case checks; they are not traces of individual allocations or every interna
 construction step. Independent review accepted the unchanged runtime code and
 added a passing raw/optimized witness for fresh child Ref cells across distinct
 nodes. The coordinated paraffins batch is complete; gcbench remains excluded.
+
+Select `--benchmarks graphs mperm --compiler-basis a4030ce` for the complete
+enumeration ports. Their preparation preserves the complete input files and
+runs the canonical workload in raw/optimized Wasm and both Chez controls. They
+have no clean timing results at this checkpoint.
+
+Graphs retains three repetitions at seven vertices, with the original final
+count 213,829. The CPS permutation traversal, matrix mutations, reachability
+computation, backtracking and result accumulation remain. The three comparison
+symbols become I64 codes 0/1/2, with explicit tests in place of `case`. The two
+Boolean identity checks and list iteration use ordinary typed helpers. An omitted
+`do` result becomes Unit. Graphs have no self edges or edges into the last/root
+vertex, out-degree at most two, and reachability from the root. Separate probes
+check every ordered adjacency list for sizes one through four against original
+Chez and independently enumerate all required isomorphism classes.
+
+Mperm retains M:N:K:L = 20:10:2:1. Its initial K-L batches are generated before
+timing; every timed step fills [K-L,K), shifts the surviving references and clears
+the final L slots. Two explicit Ref cells replace mutable local bindings in each
+permutation generation. Prefix reversal still allocates only the reversed prefix
+and shares its unchanged tail. Binary arithmetic and typed list equality replace
+the corresponding generic operations; the exact, even predicate numerator uses
+integer quotient. N=10 and the full predicate stay within I64. The ignored input
+datum 16,329,600 is retained; the actual sum derived from N=10 is 199,584,000.
+
+The strict host captures the work and final predicate after the initial fill,
+then invokes the prepared work from `bench`. The adapted Chez control uses the
+same kernel text and its original timing harness. Label formatting remains
+outside timing. For small inputs, separate probes compare all permutation
+values/order, complete queue snapshots, and malformed queues exercising the
+first-permutation and sum checks independently. These observations do not add
+work or roots to the canonical modules. Positive M and N are the supported
+measurement inputs; invalid arguments trap in strict instead of printing the
+upstream diagnostic. The canonical predicate still rejects complete flushing.
