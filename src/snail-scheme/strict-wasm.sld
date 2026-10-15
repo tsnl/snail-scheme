@@ -143,9 +143,11 @@
 
     ;; ---- Native slots and initialization readiness ----
 
-    ;; A local observed by a surviving closure uses a once-initialized cell.
-    ;; Direct-only procedures keep binding readiness with an inert Unit payload;
-    ;; their code identity is static. These private cells are not user Refs.
+    ;; Recursive locals observed by surviving closures use once-initialized
+    ;; cells. Parameters and let values are ready before capture and travel by
+    ;; value; copying a Ref or vector reference preserves its mutable identity.
+    ;; Direct-only procedures keep readiness with an inert Unit payload. These
+    ;; private initialization cells are not user Refs.
     (define (cell-value? value state) (memq value (state-cells state)))
     (define (binding-type value)
       (if (direct-value-function value) 'Unit (value-type value)))
@@ -211,7 +213,7 @@
     ;; Parameters, snapshots and cells are native Wasm roots; Ref objects retain
     ;; their identity and mutable contents when their references are copied.
     (define (snapshot-capture? value state)
-      (not (or (value-parameter? value) (cell-value? value state))))
+      (not (or (value-ready-at-capture? value) (cell-value? value state))))
     (define (capture-arguments value context)
       (if (not (snapshot-capture? value (context-state context))) (list (capture-value value context))
           (let ((slot (value-slot value context)))
@@ -537,7 +539,7 @@
     (define (captured-locals functions)
       (let collect ((values (apply append (map function-captures functions))) (result '()))
         (cond ((null? values) (reverse result))
-              ((or (value-parameter? (car values)) (site-global? (value-site (car values))) (memq (car values) result))
+              ((or (value-ready-at-capture? (car values)) (site-global? (value-site (car values))) (memq (car values) result))
                (collect (cdr values) result))
               (else (collect (cdr values) (cons (car values) result))))))
     (define (closure-functions functions)
