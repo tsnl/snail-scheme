@@ -221,9 +221,13 @@ class and instance evidence; it defines no second expression or binding tree.
 [`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) matches complete
 function signatures with isolated candidate trials, commits unique generic row
 views, and repeats improvement as argument and result information settles.
+Unfinished rows remain possible candidates; only known arity can exclude them.
 [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) lowers free overload
 declarations to classes and instances, checks source groups, generalizes eligible
-values and retains class obligations. Abstract obligations bound by a generalized
+values and retains class obligations. Omitted row signatures wait for relevant
+family signatures and ordinary helper dependencies before their schemes become
+available. Declared schemes can break signature cycles; all bodies still check.
+Runtime initializer order stays in the original block sequence. Abstract obligations bound by a generalized
 initializer stay in its template; concrete uses instantiate them. Call operands
 are inferred in source order without using overload candidates to choose widths.
 [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)

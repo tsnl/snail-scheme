@@ -10,7 +10,10 @@ representations, infer types, or build closure environments.
 The strict compiler refines an owned copy of these same records. Expressions
 carry a type, initially a fresh `Hole`; resolved definitions own their scheme,
 declared syntax and initializer. Checking solves holes and generalizes eligible
-bindings. Specialization makes concrete copies without changing those templates.
+bindings. Each overload row owns a separate member identity and its declared
+signature or hole; omitting the signature leaves inference to checking, without
+changing expansion. Specialization makes concrete copies without changing those
+templates.
 
 The implementation currently covers a Scheme core, library declarations, and
 `syntax-rules` transformers. Derived syntax can be supplied by libraries. This is
@@ -110,7 +113,7 @@ Item           ::= Definition | Static-Decl | Expr | (begin Item*)
 Static-Decl    ::= (: Name Type)
                  | (define-class (Name Name+) (: Name Type)+)
                  | (define-instance (Name Type+) (Name Expr)+)
-                 | (define-overload Name Type Expr)
+                 | (define-overload Name Type? Expr)
                  | (define-extern Name String String Type)
 Definition     ::= (define Name Expr)
                  | (define (Name . Formals) Body)
@@ -144,9 +147,10 @@ record owns its signature and implementation expression. The family identity is
 shared across rows and imported extensions; individual implementation bindings
 retain their own initializer sites. The strict compiler's elaborator currently
 refines this same representation. Each row has a distinct private member
-definition owning its declared signature, in addition to the shared family
-identity. A named implementation still refers to its original runtime binding.
-Omitted row signatures remain a separate planned extension.
+definition owning its declared signature or fresh hole, in addition to the shared
+family identity. A named implementation still refers to its original runtime
+binding. The checker completes omitted signatures from their implementation
+schemes before they become selectable rows; expansion performs no inference.
 
 Library-level `cond-expand` selects the first matching clause and recursively
 splices its declarations before imports, exports, or bodies are expanded. Only

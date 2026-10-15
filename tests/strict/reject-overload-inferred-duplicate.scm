@@ -1,0 +1,4 @@
+(import (snail strict))
+(define-overload add i64-add)
+(define-overload add (lambda (left right) (i64-add left right)))
+42
