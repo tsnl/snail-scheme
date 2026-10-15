@@ -505,6 +505,12 @@ private, once-initialized concrete cells when necessary to tie recursive closure
 references. Those cells carry readiness state; capturing the cell does not read
 an uninitialized value. They are separate from user-visible Ref cells. Global
 bindings likewise check readiness, preserving failure before an early read.
+Function bodies may omit a global check when that global's entire source
+initialization precedes the function's creation. Nested functions inherit these
+completed sites; they do not assume globals defined later in the module are ready.
+This relies on ordinary calls reading an initialized closure, direct local calls
+checking their source binding token, and exports requiring successful `main`.
+Each concrete code copy retains the proof from its original initialization site.
 Reads of immutable scalar literal bindings expose their constant payload to
 Wasm optimization after the same readiness check. This does not move their
 initialization, propagate through mutable Ref contents, or change alias identity.
