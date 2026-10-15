@@ -23,7 +23,7 @@ def round_value(value, ceiling, narrow):
         try:
             value = struct.unpack('f', struct.pack('f', value))[0]
         except OverflowError:
-            value = math.copysign(math.inf, value)
+            return 'trap'
     if not math.isfinite(value) or value == 0.0:
         return value
     result = float(math.ceil(value) if ceiling else math.floor(value))
@@ -62,7 +62,7 @@ def cases():
 # ---- Every invocation retains its terminal result, including timeouts ----
 
 
-def run(command, label):
+def run(command, label, expected_error=None):
     command = list(map(str, command))
     process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                text=True, start_new_session=True, env={**os.environ, 'BINARYEN_CORES': '1'})
@@ -75,7 +75,11 @@ def run(command, label):
         stdout, stderr = process.communicate()
     record = dict(command=command, status=process.returncode, stdout=stdout, stderr=stderr, timed_out=timed_out)
     (OUTPUT / (label + '.json')).write_text(json.dumps(record, indent=2) + '\n')
-    assert not timed_out and process.returncode == 0 and not stderr, record
+    assert not timed_out, record
+    if expected_error is None:
+        assert process.returncode == 0 and not stderr, record
+    else:
+        assert process.returncode == 1 and expected_error in stderr, record
     return stdout
 
 
@@ -101,9 +105,21 @@ def check_wasm(source, arguments, inputs):
         check_output(result, inputs)
 
 
+def check_traps(native, inputs):
+    for index, case in enumerate(inputs):
+        arguments = list(map(str, case[:-1]))
+        for name in ('raw', 'optimized'):
+            run([os.environ.get('NODE', 'node'), '--disable-warning=ExperimentalWarning',
+                 ROOT / 'tests/sfir/scalar-services.mjs', OUTPUT / (name + '.wasm'), *arguments],
+                f'{name}-overflow-{index}', 'RuntimeError: unreachable')
+        run([native, *arguments], f'native-overflow-{index}', 'WebAssembly trap\n')
+
+
 def main():
     OUTPUT.mkdir(parents=True)
-    inputs = cases()
+    all_inputs = cases()
+    inputs = [case for case in all_inputs if case[-1] != 'trap']
+    traps = [case for case in all_inputs if case[-1] == 'trap']
     arguments = [str(value) for case in inputs for value in case[:-1]]
     source, native = OUTPUT / 'program.wasm', OUTPUT / 'native'
     exports = [value for name in ('unary', 'binary', 'character') for value in ('--export', name)]
@@ -112,7 +128,8 @@ def main():
     run([ROOT / 'scripts/build-native', '--wasm', '--entry-c', ROOT / 'tests/sfir/scalar-services.c',
          source, native], 'native-build')
     check_output(run([native, *arguments], 'native-run'), inputs)
-    print(f'PASS {len(inputs)} scalar boundary cases on raw/optimized linked Wasm and native: {OUTPUT}')
+    check_traps(native, traps)
+    print(f'PASS {len(inputs)} scalar results and {len(traps)} narrowing traps on raw/optimized linked Wasm and native: {OUTPUT}')
 
 
 if __name__ == '__main__':
