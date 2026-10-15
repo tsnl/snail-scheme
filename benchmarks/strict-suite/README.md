@@ -41,8 +41,8 @@ This separate campaign uses current source/growing-GC basis `da8519f`.
 The preparation driver records failures alongside successful cases. This
 adapted subset is separate from the complete default R7RS benchmark command.
 
-Historical strict measurements cover **47 of 57 workloads**, **46 with paired
-Chez controls**, including the complete Equal, Conform, Maze and Parsing comparisons.
+Historical strict measurements cover **49 of 57 workloads**, **48 with paired
+Chez controls**, including the complete Equal, Conform, Maze, Parsing and both Boyer comparisons.
 The explicit name sets are in [`capabilities.json`](capabilities.json). These are separate
 compiler checkpoints, not a complete-suite rerun on the current revision.
 
@@ -124,19 +124,28 @@ procedure-entry counters can change Chez inlining and operand scheduling.
 The counter programs also retain the final rewritten term for observation;
 their allocation counts and live ranges do not describe clean execution.
 
-The selected native reservations are 2 GiB for NBoyer and 1 GiB for SBoyer.
-The default 256 MiB reservation exhausted during development for both original
-workloads. Separate capacity diagnostics retain the failed runs and collector
-statistics; they are not successful correctness cases or clean timing samples.
-These are the smallest successful reservations among the tested choices, not
-proven minimum requirements. The same final module used by native lowering is
+The historical `6fd5ca4` preparation selected fixed native reservations of
+2 GiB for NBoyer and 1 GiB for SBoyer after its default 256 MiB reservation
+exhausted. Those failed capacity diagnostics and statistics remain old controls,
+not successful correctness cases or clean timing samples. They were the smallest
+successful tested reservations, not proven minimum requirements. The fresh
+`a707974` comparison uses the current default growing precise collector with
+all policy knobs unset, a 256 MiB initial region and no configured hard cap. The same final module used by native lowering is
 also executed directly on V8. The unchanged Rust controls retain their own
 `Rc` calls and argument cells, integer constructor IDs, vector symbol table,
 tail loops and destruction schedule. The source constants match, while the
 implementations and allocation behavior differ.
 
-Use `--benchmarks nboyer sboyer` for correctness/control preparation. Clean
-timing requires a separately coordinated frozen plan.
+Use `--benchmarks nboyer sboyer` for the historical correctness/control
+preparation. The [complete seven-system comparison](../results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes with both original count 1/size 5/51,507,739-rewrite
+predicates. NBoyer medians are V8 11.950027 s, native64 10.299261 s and original
+Chez 0.887105 s. SBoyer takes V8 3.504130 s, native64 4.685959 s and original
+Chez 0.372582 s. Native takes 13.52% less time for NBoyer and 33.26% more for
+SBoyer than V8 on their exact native-final Wasm. All seven controls, actual
+terminal/cleanup records and independent raw replay pass. Historical ordered
+work/alias/reset observations and separate forced-GC totals remain diagnostic;
+reused Rust binaries and implementation differences are explicit.
 
 `conform` retains the original 500 invocations with names `(a b "c" "d")`
 and the complete ordered 31-string result predicate. Concrete Node, BlueEdge,

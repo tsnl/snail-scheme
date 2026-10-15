@@ -40,9 +40,18 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records historical measurements for 47 of 57 workloads at their respective
-compiler checkpoints, including 46 paired Chez comparisons. These accumulated
-revisions do not constitute a whole-suite rerun. The complete
+records historical measurements for 49 of 57 workloads at their respective
+compiler checkpoints, including 48 paired Chez comparisons. These accumulated
+revisions do not constitute a whole-suite rerun. The
+[complete Boyer comparison](benchmarks/results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes at original count 1, size 5 and the successful
+theorem/numeric 51,507,739-rewrite predicates. NBoyer takes V8 11.950027 s,
+native64 10.299261 s and original Chez 0.887105 s; SBoyer takes 3.504130 s,
+4.685959 s and 0.372582 s respectively. Native uses the `a707974` default growing
+collector and takes 13.52% less time than identical-Wasm V8 for NBoyer, 33.26%
+more for SBoyer. All seven controls and independent raw replay pass; historical
+source/work/alias/reset and separate forced-GC observations do not isolate a
+collector or engine cause. The complete
 [Conform comparison](benchmarks/results/2026-10-14-strict-conform-comparison/README.md)
 passes all 56 planned processes at the original 500-invocation count and ordered
 31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and

@@ -1,0 +1,19 @@
+{
+  "actual_tool_chunk": "bab7a4",
+  "exit_code": 0,
+  "terminal": true,
+  "reported_passed": true,
+  "processes": 112,
+  "frozen_identities": 1014,
+  "source_files": {
+    "/tmp/snail-boyer-parent-review-20261014.py": {
+      "copy": "parent-raw-review.py",
+      "sha256": "74cbb9afeec4ce3d1d3471f93fb2ffac8e4c79036dbf341f1517b593efa6b1ab"
+    },
+    "/tmp/snail-boyer-parent-review-20261014.json": {
+      "copy": "parent-raw-review.json",
+      "sha256": "60549e5ad52a298c140478acbc2d84be334b62a30830360bb9af5d3dbd609feb"
+    }
+  },
+  "scope": "Separate parent parser imports no measurement/review script and runs no guests. Replays all raw frames/records, settings/commands/schedule, capture/terminal/cleanup identities and medians/ranges. Recorded original-group cleanup does not independently establish absence of escaped sessions. Added after archive terminal as sidecars; not inside compressed payload."
+}

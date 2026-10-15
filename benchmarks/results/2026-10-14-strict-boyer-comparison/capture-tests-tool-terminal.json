@@ -1,0 +1,19 @@
+{
+  "attempts": [
+    {
+      "actual_tool_chunk": "6c14c7",
+      "exit_code": 0,
+      "terminal": true,
+      "record_directory": "/tmp/snail-boyer-measurement-20261014/build/boyer-capture-tests-a707974",
+      "scope": "Synthetic processes only; nonzero exit7, actual SIGKILL9 timeouts/interruption, terminal0 leader with descendant cleaned; captures retained."
+    },
+    {
+      "actual_tool_chunk": "023619",
+      "exit_code": 0,
+      "terminal": true,
+      "record_directory": "/tmp/snail-boyer-measurement-20261014/build/boyer-capture-tests-a707974-attempt2",
+      "scope": "All prior capture cases plus a valid JSON frame followed by actual exit7, which must be rejected."
+    }
+  ],
+  "all_terminal": true
+}
