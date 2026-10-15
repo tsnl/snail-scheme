@@ -1,0 +1,41 @@
+{
+  "benchmark": "ack",
+  "system": "native-final-v8",
+  "retained": false,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/host.mjs",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/native-final.wasm",
+    "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014/ack/spec.json"
+  ],
+  "cwd": "/tmp/snail-general-specialization-20261012/build/strict-ack-current-20261014",
+  "stdin_path": null,
+  "status": "valid",
+  "started": "2026-10-14T20:14:47.369789+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "diagnostic_only": true,
+  "identities_before": "verified",
+  "pid": 11,
+  "process_group": 11,
+  "returncode": 0,
+  "stdout": "{\"seconds\":1.116616242,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+  "stderr": "",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 1.1412152289994992,
+  "cleanup": {
+    "process_group": 11,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "workload_seconds": 1.116616242,
+  "identities_after": "verified",
+  "stop_signal": null
+}
