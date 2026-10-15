@@ -46,11 +46,13 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 27 measured workloads,
-26 with paired Chez controls. The latest
-[String report](results/2026-10-14-strict-string-comparison/README.md) records
-a substantial remaining gap against both Chez controls and Rust/Wasm, with
-separate allocation and OS resource diagnostics. The preceding
+[coverage inventory](strict-suite/capabilities.md): 28 measured workloads,
+27 with paired Chez controls. The latest
+[Puzzle report](results/2026-10-14-strict-puzzle-comparison/README.md) records
+1.157× original Chez time and 2.434× Rust/Wasm time. The
+[String storage controls](results/2026-10-14-string-storage/README.md) compare
+element width, fresh buffers and zeroing, with separate allocation diagnostics.
+The preceding
 [runtime comparison report](results/2026-10-14-strict-runtime-comparisons/README.md)
 adds full symbolic differentiation and complex Mandelbrot, plus callback and
 collector-policy ablations.
