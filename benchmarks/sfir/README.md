@@ -81,10 +81,11 @@ controls. Preparation and clean-artifact validation are never timing samples.
 Every route gets one fresh-process warmup and five fresh-process measured runs.
 Cases and route positions rotate deterministically, all processes inherit the
 same pinned CPU, and the schedule never retries or drops failures. The guest
-clock encloses the repeated workload and its full final predicate. Input setup,
-result formatting and final resource cleanup lie outside it. Fresh-process
-warmups warm shared machine state; each V8 process still performs its own
-compilation and tiering during the canonical workload. Cat's complete output
+clock encloses the repeated workload and its full final predicate. Benchmark parameter setup,
+result formatting and final resource cleanup lie outside it. Canonical file
+reads and writes remain inside the repeated worker. Fresh-process
+warmups warm shared machine state; module loading and instantiation precede the clock in each V8 process, while
+any tiering during its canonical workload remains measured. Cat's complete output
 bytes are additionally checked outside the guest clock, matching the original
 benchmark's predicate boundary.
 
