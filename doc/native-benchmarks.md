@@ -175,7 +175,7 @@ re-entrant (multi-shot) continuations out of the intended language. Calling
 these a “1% feature” expresses a design priority, not a measured percentage
 of Scheme programs. `call/cc` is currently unsupported; single-shot delimited
 continuations and coroutines are planned. Other conformance gaps remain.
-The benchmark does not isolate the cost of continuations. See [TODO.md](../TODO.md).
+The benchmark does not isolate the cost of continuations. See [the roadmap](roadmap.md).
 
 ## Historical bounded experiment
 
