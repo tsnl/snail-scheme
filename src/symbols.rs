@@ -1,172 +1,54 @@
-//! Process-local symbol IDs. Rust owns names; Scheme carries a tagged 31-bit ID.
-//! Literal IDs are fixed by the compiler, and dynamic IDs follow them.
+//! Stable symbol IDs for the scalar datum services. Rust owns the UTF-8 names
+//! and indexed Unicode scalars; compiled SFIR carries a nonnegative I32 ID.
 
-use crate::{Kind, Root, arguments, fail_message, finish};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard, OnceLock},
-};
+use std::collections::HashMap;
 
 // ---- Names and stable identifiers ----
 
-const SYMBOL_BIT: u32 = 1 << 31;
-
-struct Name {
-    spelling: Arc<str>,
-    characters: Vec<u32>,
-}
+const ID_LIMIT: u32 = 1 << 31;
 
 #[derive(Default)]
 pub(crate) struct Symbols {
-    ids: HashMap<Arc<str>, u32>,
-    names: Vec<Name>,
+    ids: HashMap<String, u32>,
+    names: Vec<Vec<u32>>,
 }
 
 fn next_id(length: usize) -> Result<u32, String> {
     u32::try_from(length)
         .ok()
-        .filter(|&id| id < SYMBOL_BIT)
+        .filter(|&id| id < ID_LIMIT)
         .ok_or_else(|| "symbol ID space exhausted".into())
 }
 
 impl Symbols {
     pub(crate) fn intern(&mut self, text: String) -> Result<u32, String> {
-        if let Some(&id) = self.ids.get(text.as_str()) {
+        if let Some(&id) = self.ids.get(&text) {
             return Ok(id);
         }
         let id = next_id(self.names.len())?;
         let characters = text.chars().map(u32::from).collect();
-        let spelling: Arc<str> = text.into();
-        self.ids.insert(spelling.clone(), id);
-        self.names.push(Name {
-            spelling,
-            characters,
-        });
+        self.ids.insert(text, id);
+        self.names.push(characters);
         Ok(id)
     }
 
-    fn literal(&mut self, expected: u32, text: String) -> Result<(), String> {
-        if self.intern(text)? != expected {
-            return Err("duplicate name in literal symbol table".into());
-        }
-        Ok(())
-    }
-
-    fn name(&self, id: u32) -> Result<&Name, String> {
+    fn name(&self, id: u32) -> Result<&[u32], String> {
         self.names
             .get(id as usize)
+            .map(Vec::as_slice)
             .ok_or_else(|| "invalid symbol ID".into())
     }
 
     pub(crate) fn length(&self, id: u32) -> Result<u32, String> {
-        u32::try_from(self.name(id)?.characters.len()).map_err(|_| "symbol is too long".into())
+        u32::try_from(self.name(id)?.len()).map_err(|_| "symbol is too long".into())
     }
 
     pub(crate) fn character(&self, id: u32, index: u32) -> Result<u32, String> {
         self.name(id)?
-            .characters
             .get(index as usize)
             .copied()
             .ok_or_else(|| "symbol character index out of range".into())
     }
-
-    fn from_module() -> Result<Self, String> {
-        let literals = Root::literal_symbol_names();
-        if literals.kind() != Kind::Vector {
-            return Err("literal symbol names must be a vector".into());
-        }
-        let mut symbols = Self::default();
-        for index in 0..literals.len()? {
-            let name = literals.at(index)?;
-            if name.kind() != Kind::String {
-                return Err("literal symbol name must be a string".into());
-            }
-            symbols.literal(next_id(index)?, name.text()?)?;
-        }
-        Ok(symbols)
-    }
-}
-
-// One table per linked Wasm instance, never per OS thread.
-// Initialization reads only strings from the private literal vector: these
-// ABI operations cannot reenter symbol services. Copy before taking even the
-// OnceLock initialization gate, then publish only the complete, root-free table.
-// The current executable links one Scheme module; separately loaded modules
-// would need to register and relocate their literal IDs instead.
-static SYMBOLS: OnceLock<Mutex<Symbols>> = OnceLock::new();
-
-fn symbols() -> Result<MutexGuard<'static, Symbols>, String> {
-    let table = match SYMBOLS.get() {
-        Some(table) => table,
-        None => {
-            let candidate = Symbols::from_module()?;
-            SYMBOLS.get_or_init(|| Mutex::new(candidate))
-        }
-    };
-    table
-        .lock()
-        .map_err(|_| "symbol table lock poisoned".into())
-}
-
-pub(crate) fn spelling(id: u32) -> Result<Arc<str>, String> {
-    Ok(symbols()?.name(id)?.spelling.clone())
-}
-
-// ---- Scheme and ABI boundaries ----
-
-pub(crate) fn intern(text: &str) -> Result<Root, String> {
-    let id = symbols()?.intern(text.into())?;
-    // The Rust name table never holds an ABI root or crosses an allocation.
-    Ok(Root::symbol(id))
-}
-
-fn intern_string(value: Root) -> Result<Root, String> {
-    if value.kind() != Kind::String {
-        return Err("string->symbol: expected a string".into());
-    }
-    intern(&value.text()?)
-}
-
-#[unsafe(export_name = "snail:string->symbol")]
-pub extern "C" fn string_to_symbol(raw: u32) -> u32 {
-    finish(
-        arguments(raw, "string->symbol", 1, 1)
-            .get(0)
-            .and_then(intern_string),
-    )
-}
-
-#[unsafe(export_name = "snail:symbol->string")]
-pub extern "C" fn symbol_to_string(raw: u32) -> u32 {
-    finish(
-        arguments(raw, "symbol->string", 1, 1)
-            .get(0)
-            .and_then(|value| {
-                let name = spelling(value.symbol_id()?)?;
-                Ok(Root::string(&name))
-            }),
-    )
-}
-
-#[unsafe(export_name = "snail:symbol-length")]
-pub extern "C" fn symbol_length(id: u32) -> u32 {
-    symbols()
-        .and_then(|symbols| symbols.name(id).map(|name| name.characters.len() as u32))
-        .unwrap_or_else(|error| fail_message(&error))
-}
-
-#[unsafe(export_name = "snail:symbol-character")]
-pub extern "C" fn symbol_character(id: u32, index: u32) -> u32 {
-    symbols()
-        .and_then(|symbols| {
-            symbols
-                .name(id)?
-                .characters
-                .get(index as usize)
-                .copied()
-                .ok_or_else(|| "symbol character index out of range".into())
-        })
-        .unwrap_or_else(|error| fail_message(&error))
 }
 
 // ---- Tests ----
@@ -174,21 +56,19 @@ pub extern "C" fn symbol_character(id: u32, index: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Arc, Mutex};
 
     #[test]
-    fn literal_and_dynamic_names_share_ids() {
+    fn names_share_ids_and_unicode_scalar_indices() {
         let mut symbols = Symbols::default();
-        symbols.literal(0, "quoted".into()).unwrap();
-        symbols.literal(1, "λ😀".into()).unwrap();
         assert_eq!(symbols.intern("quoted".into()).unwrap(), 0);
         assert_eq!(symbols.intern("λ😀".into()).unwrap(), 1);
-        assert_eq!(symbols.intern("dynamic".into()).unwrap(), 2);
-        assert_eq!(
-            symbols.name(1).unwrap().characters,
-            ['λ' as u32, '😀' as u32]
-        );
-        assert_eq!(&*symbols.name(1).unwrap().spelling, "λ😀");
-        assert!(symbols.literal(3, "quoted".into()).is_err());
+        assert_eq!(symbols.intern("quoted".into()).unwrap(), 0);
+        assert_eq!(symbols.intern("λ😀".into()).unwrap(), 1);
+        assert_eq!(symbols.length(1).unwrap(), 2);
+        assert_eq!(symbols.character(1, 0).unwrap(), 'λ' as u32);
+        assert_eq!(symbols.character(1, 1).unwrap(), '😀' as u32);
+        assert!(symbols.character(1, 2).is_err());
     }
 
     #[test]
@@ -206,16 +86,16 @@ mod tests {
     }
 
     #[test]
-    fn identifiers_fit_the_tag_payload() {
-        assert_eq!(next_id((SYMBOL_BIT - 1) as usize).unwrap(), SYMBOL_BIT - 1);
-        assert!(next_id(SYMBOL_BIT as usize).is_err());
+    fn identifiers_fit_the_signed_scalar_boundary() {
+        assert_eq!(next_id((ID_LIMIT - 1) as usize).unwrap(), ID_LIMIT - 1);
+        assert!(next_id(ID_LIMIT as usize).is_err());
         assert!(next_id(usize::MAX).is_err());
     }
 
     #[test]
-    fn threads_share_the_literal_prefix_and_dynamic_identities() {
+    fn threads_share_symbol_identities() {
         let mut initial = Symbols::default();
-        initial.literal(0, "literal".into()).unwrap();
+        assert_eq!(initial.intern("literal".into()).unwrap(), 0);
         let table = Arc::new(Mutex::new(initial));
         let threads: Vec<_> = (0..4)
             .map(|_| {

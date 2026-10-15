@@ -1,5 +1,5 @@
-//! Root-free scalar services for strict Scheme datums. Scheme owns syntax and
-//! datum allocation. Rust owns temporary text/number handles and symbol names.
+//! Scalar services for SFIR datums. The SFIR library owns reading and allocation.
+//! Rust owns temporary text/number handles and symbol names.
 
 use crate::strict_number::{Number, Scalar};
 use crate::symbols::Symbols;
@@ -122,8 +122,8 @@ impl Token {
 thread_local! { static TOKENS: RefCell<Tokens> = RefCell::new(Tokens::default()); }
 
 // IDs are never reused, even after terminal cleanup. Each operation ends its
-// RefCell borrow before reporting a fatal error; no temporary stores Scheme
-// roots or invokes Scheme callbacks. Independent IDs may be interleaved.
+// RefCell borrow before reporting a fatal error; no temporary stores managed
+// references or invokes guest callbacks. Independent IDs may be interleaved.
 pub(crate) fn close_all() {
     TOKENS.with_borrow_mut(|tokens| tokens.live.clear());
 }
@@ -162,10 +162,33 @@ pub extern "C" fn token_parse_radix(id: u32, radix: u32) -> i32 {
 
 #[unsafe(export_name = "snail:datum/token-identifier")]
 pub extern "C" fn token_identifier(id: u32) -> i32 {
-    checked(
-        TOKENS
-            .with_borrow(|tokens| Ok(i32::from(crate::datum::identifier(tokens.get(id)?.text())))),
-    )
+    checked(TOKENS.with_borrow(|tokens| Ok(i32::from(identifier(tokens.get(id)?.text())))))
+}
+
+// ---- Identifier grammar for the SFIR datum reader ----
+
+fn identifier_initial(character: char) -> bool {
+    character.is_alphabetic() || "!$%&*/:<=>?^_~@".contains(character)
+}
+
+// The sign and dot forms are peculiar identifiers only when their next
+// character satisfies the grammar. Thus +x is a symbol, but +2oops is not.
+fn identifier(text: &str) -> bool {
+    let mut characters = text.chars();
+    let sign_next = |c| identifier_initial(c) || matches!(c, '+' | '-');
+    let dot_next = |c| sign_next(c) || c == '.';
+    let valid_start = match characters.next() {
+        Some('+' | '-') => match characters.next() {
+            None => true,
+            Some('.') => characters.next().is_some_and(dot_next),
+            Some(c) => sign_next(c),
+        },
+        Some('.') => characters.next().is_some_and(dot_next),
+        Some(c) => identifier_initial(c),
+        None => false,
+    };
+    valid_start
+        && characters.all(|c| identifier_initial(c) || c.is_ascii_digit() || "+-.".contains(c))
 }
 
 // ---- Typed scalar result access; a failed parse has no numeric fields ----
@@ -307,7 +330,7 @@ pub extern "C" fn whitespace(code: u32) -> i32 {
     )
 }
 
-// ---- Interned strict symbols have no dependency on legacy literal roots ----
+// ---- Interned symbols share one stable scalar namespace ----
 
 static SYMBOLS: OnceLock<Mutex<Symbols>> = OnceLock::new();
 
@@ -315,7 +338,7 @@ fn with_symbols<T>(operation: impl FnOnce(&mut Symbols) -> Result<T, String>) ->
     let mut symbols = SYMBOLS
         .get_or_init(|| Mutex::new(Symbols::default()))
         .lock()
-        .map_err(|_| "strict symbol table lock poisoned")?;
+        .map_err(|_| "symbol table lock poisoned")?;
     operation(&mut symbols)
 }
 
@@ -340,6 +363,16 @@ pub extern "C" fn symbol_character(id: u32, index: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn identifiers_follow_the_sign_and_dot_grammar() {
+        for text in ["+", "-", "...", "+x", "+.x", ".+", "λ-2", "@x"] {
+            assert!(identifier(text), "{text}");
+        }
+        for text in ["", ".", "+.", "+2oops", "1x", "a#b", "a\\b", "x y"] {
+            assert!(!identifier(text), "{text}");
+        }
+    }
 
     fn staged(tokens: &mut Tokens, text: &str) -> u32 {
         let id = tokens.open().unwrap();
@@ -428,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    fn strict_names_do_not_initialize_the_legacy_table() {
+    fn symbol_services_share_names_and_scalar_indices() {
         let mut symbols = Symbols::default();
         let first = symbols.intern("λ😀\0".into()).unwrap();
         assert_eq!(first, symbols.intern("λ😀\0".into()).unwrap());

@@ -219,7 +219,7 @@ def freeze_sources():
     paths = [ROOT / name for name in ['lib/sfir/datum.sfir', 'lib/sfir/read.sfir', 'lib/sfir/io.sfir',
              'lib/sfir/integer.sfir', 'lib/sfir/rational.sfir', 'lib/sfir/number.sfir',
              'src/snail-sfir/compiler.sld',
-             'src/strict_number.rs', 'src/strict_datum.rs', 'src/symbols.rs', 'src/strict_io.rs', 'src/datum.rs', 'src/lib.rs',
+             'src/strict_number.rs', 'src/strict_datum.rs', 'src/symbols.rs', 'src/strict_io.rs', 'src/lib.rs',
              'scripts/test-sfir-reader']]
     paths += sorted((ROOT / 'lib/sfir').glob('*.sfir'))
     paths += sorted((ROOT / 'src').rglob('*.sld'))
