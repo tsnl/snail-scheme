@@ -286,11 +286,11 @@
     (define (prepare-overload-instance node classes prior)
       (let* ((loc (node-loc node)) (definition (ir:overload-declaration-definition node))
              (class (find-class definition classes loc))
-             (scheme (and (ir:overload-declaration-type node) (overload-scheme node))))
+             (scheme (overload-scheme node)))
         (unless (class-overload? class) (strict-error loc "overload name belongs to an ordinary class"))
-        (when (and scheme (duplicate-overload? class scheme prior))
+        (when (duplicate-overload? class scheme prior)
           (strict-error loc "duplicate overload signature" (scheme-type scheme)))
-        (when scheme (set-binding-scheme! (ir:overload-declaration-member node) scheme))
+        (set-binding-scheme! (ir:overload-declaration-member node) scheme)
         (let ((member (prepare-overload-member node)))
           (values (make-instance class '() (list (car member)) scheme node) (cdr member)))))
     (define (prepare-overload-member node)
@@ -301,39 +301,6 @@
                (let ((definition (ir:overload-declaration-member node)))
                  (list (cons method definition) (ir:make-value-binding definition expression loc))))
               (else (strict-error loc "instance member must be a lambda or stable function binding")))))
-    ;; A row may inherit a completed implementation scheme, never an unfinished
-    ;; monotype that a later caller could specialize. Named rows keep the target's
-    ;; original runtime binding and initializer; only row evidence is published.
-    (define (implementation-scheme-ready? binding completed)
-      (or (memq binding completed) (memq (binding-kind binding) '(primitive extern))
-          (and (eq? (binding-kind binding) 'value) (binding-annotation binding))))
-    ;; A checked body may still share a captured monomorphic hole. Keep its row
-    ;; pending while independent binding groups can solve that storage type.
-    (define (complete-overload! instance instances)
-      (let* ((row (instance-row instance)) (scheme (binding-scheme (cdar (instance-members instance))))
-             (type (scheme-type scheme)) (loc (node-loc row)))
-        (unless (and (function-type? type) (not (function-rest type)))
-          (strict-error loc "inferred overload requires a fixed-arity function signature"))
-        (when (null? (free-scheme-variables scheme))
-          (when (duplicate-overload? (instance-class instance) scheme instances)
-            (strict-error loc "duplicate overload signature" type))
-          (set-binding-scheme! (ir:overload-declaration-member row) scheme)
-          (set-instance-scheme! instance scheme))))
-    (define (complete-overloads! instances completed)
-      (for-each (lambda (instance)
-                  (when (and (instance-row instance) (not (instance-scheme instance))
-                             (implementation-scheme-ready? (cdar (instance-members instance)) completed))
-                    (complete-overload! instance instances))) instances))
-
-    (define (reject-open-row-captures instances completed)
-      (for-each (lambda (instance)
-                  (when (and (instance-row instance) (not (instance-scheme instance))
-                             (memq (cdar (instance-members instance)) completed))
-                    (strict-error (node-loc (instance-row instance))
-                                  (string-append "inferred overload captures an unresolved type; "
-                                                 "annotate the captured storage or the row: "
-                                                 "its signature must settle before executable expressions use the family")))) instances))
-
     (define (occupied-definitions items classes primitives)
       (append primitives
               (apply append (map (lambda (class)
@@ -384,8 +351,8 @@
     ;; Each block owns a fixed dependency graph. Build it before inference
     ;; refines the source nodes. Binding identity, never spelling, keys its edges.
     (define-record-type <binding-plan>
-      (make-binding-plan bindings edges groups) binding-plan?
-      (bindings plan-definitions) (edges plan-edges) (groups plan-groups))
+      (make-binding-plan edges groups) binding-plan?
+      (edges plan-edges) (groups plan-groups))
     (define-record-type <binding-group>
       (make-binding-group members) binding-group?
       (members group-members set-group-members!))
@@ -450,136 +417,28 @@
       (for-each (lambda (group) (set-group-members! group (reverse (group-members group)))) components))
     (define (plan-bindings bindings)
       (let ((edges (dependency-edges bindings)))
-        (make-binding-plan bindings edges (dependency-groups bindings edges))))
+        (make-binding-plan edges (dependency-groups bindings edges))))
 
-    ;; ---- Signature dependencies for inferred overload rows ----
+    ;; ---- Check ordinary binding groups in dependency order ----
 
-    ;; An ordinary reference waits for its dependency's inferred scheme. A family
-    ;; reference also waits for every unfinished row of the relevant arity. Walk
-    ;; completed row prerequisites transitively: they can improve an inferred
-    ;; result, but never exclude or rank competing rows.
-    (define (signature-arity type)
-      (and (function-type? type) (not (function-rest type)) (length (function-domains type))))
-    (define (constraint-family-queries obligations classes)
-      (let collect ((remaining obligations))
-        (if (null? remaining) '()
-            (let ((class (overload-class (caar remaining) classes)))
-              (if class
-                  (cons (cons class (and (= (length (cdar remaining)) 1)
-                                         (signature-arity (cadar remaining)))) (collect (cdr remaining)))
-                  (collect (cdr remaining)))))))
-    (define (source-signature-arity type)
-      (let ((type (source:all-body type)))
-        (and (source:arrow-type? type)
-             (let* ((domains (source:type-arguments type)) (last (and (pair? domains) (car (reverse domains)))))
-               (and (not (and (pair? last) (eq? (car last) 'Rest))) (length domains))))))
-    (define (instantiation-arity node classes)
-      (let ((expression (ir:instantiation-expression node)) (types (ir:instantiation-types node)))
-        (and (ir:name? expression) (overload-class (ir:name-definition expression) classes)
-             (= (length types) 1) (source-signature-arity (car types)))))
-    (define (expression-family-queries node classes arity)
-      (cond ((ir:name? node)
-             (let* ((binding (ir:name-definition node)) (class (overload-class binding classes)))
-               (if class (list (cons class arity))
-                   (constraint-family-queries (scheme-constraints (binding-scheme binding)) classes))))
-            ((ir:application? node)
-             (append (expression-family-queries (ir:application-operator node) classes
-                                                (length (ir:application-operands node)))
-                     (apply append (map (lambda (child) (expression-family-queries child classes #f))
-                                        (ir:application-operands node)))))
-            ((ir:annotation? node)
-             (expression-family-queries (ir:annotation-expression node) classes
-                                        (or arity (source-signature-arity (ir:annotation-type node)))))
-            ((ir:instantiation? node)
-             (expression-family-queries (ir:instantiation-expression node) classes
-                                        (or arity (instantiation-arity node classes))))
-            (else (apply append (map (lambda (child) (expression-family-queries child classes #f)) (children node))))))
-    (define (seen-family-query? query seen)
-      (and (pair? seen)
-           (or (and (eq? (car query) (caar seen)) (eqv? (cdr query) (cdar seen)))
-               (seen-family-query? query (cdr seen)))))
-    (define (row-prerequisite-queries query instances classes)
-      (let collect ((remaining instances))
-        (if (null? remaining) '()
-            (let ((instance (car remaining)))
-              (if (and (eq? (car query) (instance-class instance)) (instance-scheme instance)
-                       (or (not (cdr query)) (= (cdr query) (overload-instance-arity instance))))
-                  (append (constraint-family-queries (scheme-constraints (instance-scheme instance)) classes)
-                          (collect (cdr remaining))) (collect (cdr remaining)))))))
-    (define (pending-query-rows queries scope)
-      (let visit ((queries queries) (seen '()) (pending '()))
-        (cond ((null? queries) pending)
-              ((seen-family-query? (car queries) seen) (visit (cdr queries) seen pending))
-              (else (visit (append (row-prerequisite-queries (car queries) (scope-instances scope) (scope-classes scope))
-                                   (cdr queries))
-                           (cons (car queries) seen)
-                           (identity-union (pending-overload-instances (caar queries) (cdar queries) (scope-instances scope))
-                                           pending))))))
-    (define (unfinished-overloads? instances)
-      (and (pair? instances)
-           (or (and (instance-row (car instances)) (not (instance-scheme (car instances))))
-               (unfinished-overloads? (cdr instances)))))
-    (define (group-pending-rows group scope)
-      (if (not (unfinished-overloads? (scope-instances scope))) '()
-          (pending-query-rows
-           (apply append (map (lambda (binding)
-                                (append (expression-family-queries (source-initializer binding) (scope-classes scope) #f)
-                                        (constraint-family-queries (scheme-constraints (binding-scheme binding)) (scope-classes scope)))) group)) scope)))
-
-    ;; Ordinary SCCs share provisional monotypes. Their schemes become available
-    ;; together after checking every body. Declared schemes are already usable,
-    ;; even when their bodies must wait for an inferred row elsewhere. These
-    ;; scheduling decisions never move an initializer in the executable block.
-    (define-record-type <binding-checks>
-      (make-binding-checks plan scope done active) binding-checks?
-      (plan checks-plan) (scope checks-scope)
-      (done checks-done set-checks-done!) (active checks-active set-checks-active!))
-    (define (checks-bindings checks) (plan-definitions (checks-plan checks)))
-    (define (group-references group plan)
-      (apply append (map (lambda (binding) (binding-edges binding plan)) group)))
-    (define (group-references-ready? group checks)
-      (let ready ((remaining (group-references group (checks-plan checks))))
-        (or (null? remaining)
-            (and (or (memq (car remaining) group) (memq (car remaining) (checks-done checks))
-                     (binding-annotation (car remaining))) (ready (cdr remaining))))))
-    (define (check-pending-row-dependencies! group checks)
-      (for-each (lambda (instance)
-                  (let ((binding (cdar (instance-members instance))))
-                    (when (memq binding (checks-bindings checks)) (try-check-binding! binding checks))))
-                (group-pending-rows group (checks-scope checks))))
-    (define (finish-binding-group! group checks)
-      (let ((scope (checks-scope checks)))
-        (if (annotated-recursive-group? group (checks-plan checks))
-            (check-annotated-group! group scope)
-            (begin
-              (for-each (lambda (binding) (check-initializer! binding scope)) group)
-              (generalize-group! group scope))))
-      (set-checks-done! checks (append group (checks-done checks)))
-      (complete-overloads! (scope-instances (checks-scope checks)) (checks-done checks)))
-    (define (try-check-binding! binding checks)
-      (unless (or (memq binding (checks-done checks)) (memq binding (checks-active checks)))
-        (let ((group (binding-group binding (checks-plan checks))) (active (checks-active checks)))
-          (set-checks-active! checks (append group active))
-          (for-each (lambda (dependency) (try-check-binding! dependency checks)) (group-references group (checks-plan checks)))
-          (check-pending-row-dependencies! group checks)
-          (when (and (group-references-ready? group checks) (null? (group-pending-rows group (checks-scope checks))))
-            (finish-binding-group! group checks))
-          (set-checks-active! checks active))))
-    (define (unfinished-binding bindings done)
-      (and (pair? bindings) (if (memq (car bindings) done) (unfinished-binding (cdr bindings) done) (car bindings))))
+    ;; Every overload scheme is already declared. Only ordinary references
+    ;; determine checking order; source order still determines initialization.
+    ;; Mark the whole SCC before visiting its dependencies so recursive members
+    ;; share provisional monotypes until every body in the group is checked.
+    (define (check-binding-group! binding plan scope visited)
+      (unless (hash-table-exists? visited binding)
+        (let ((group (binding-group binding plan)))
+          (for-each (lambda (member) (hash-table-set! visited member #t)) group)
+          (for-each (lambda (member)
+                      (for-each (lambda (dependency) (check-binding-group! dependency plan scope visited))
+                                (binding-edges member plan))) group)
+          (if (annotated-recursive-group? group plan)
+              (check-annotated-group! group scope)
+              (begin (for-each (lambda (member) (check-initializer! member scope)) group)
+                     (generalize-group! group scope))))))
     (define (check-bindings! bindings scope)
-      (let ((checks (make-binding-checks (plan-bindings bindings) scope '() '())))
-        (complete-overloads! (scope-instances scope) '())
-        (let repeat ((before '()))
-          (for-each (lambda (binding) (try-check-binding! binding checks)) bindings)
-          (let ((remaining (unfinished-binding bindings (checks-done checks))))
-            (when (or (not remaining) (eq? before (checks-done checks)))
-              (reject-open-row-captures (scope-instances scope) (checks-done checks)))
-            (when remaining
-              (when (eq? before (checks-done checks))
-                (strict-error (node-loc (source-initializer remaining))
-                              "inferred overload signature cycle; provide an explicit signature"))
-              (repeat (checks-done checks)))))))
+      (let ((plan (plan-bindings bindings)) (visited (make-hash-table eq?)))
+        (for-each (lambda (binding) (check-binding-group! binding plan scope visited)) bindings)))
     (define (annotated-recursive-group? group plan)
       (and (or (pair? (cdr group)) (memq (car group) (binding-edges (car group) plan)))
            (let quantified ((remaining group))
@@ -1069,9 +928,6 @@
           (unify! type expected loc) (check-obligations obligations checking loc #t))
         (cons (car member) binding)))
     (define (resolve-instance-members instances bindings scope)
-      (for-each (lambda (instance)
-                  (when (and (instance-row instance) (not (instance-scheme instance)))
-                    (strict-error (node-loc (instance-row instance)) "inferred overload requires a stable runtime function binding"))) instances)
       (map (lambda (instance)
              (make-instance (instance-class instance) (instance-types instance)
                             (map (lambda (member) (checked-member member instance bindings scope)) (instance-members instance))
@@ -1177,11 +1033,12 @@
                   "declaration is not an expression")
           (expect (resolve (node-type (program-body
                                        (test-infer-library (test-cached-program cache "(import (cache)) (identity #t)"))))) 'Bool)))
-      (define (test-cached-inferred-overloads)
+      (define (test-cached-overload-signatures)
         (let* ((cache (syntax->ir-library
                        (car (test-forms "(define-library (cache) (export choose)
-                         (begin (define-overload choose (lambda (value) value))))")) test-no-load '()))
+                         (begin (define-overload choose (All (T) (-> T T)) (lambda (value) value))))")) test-no-load '()))
                (row (car (library:library-body cache))) (member (ir:overload-declaration-member row))
+               (declaration (binding-declaration member))
                (hole (scheme-type (binding-scheme member)))
                (integer (test-infer-library (test-cached-program cache "(import (cache)) (choose (ann 42 I64))")))
                (boolean (test-infer-library (test-cached-program cache "(import (cache)) (choose #t)")))
@@ -1190,7 +1047,7 @@
           (expect (resolve (node-type (program-body boolean))) 'Bool)
           (expect (eq? (instance-scheme first) (instance-scheme second)) #f)
           (expect (eq? (ir:overload-declaration-member (instance-row first)) member) #f)
-          (expect (binding-declaration member) #f)
+          (expect (eq? (binding-declaration member) declaration) #t)
           (expect (hole-link hole) #f)))
       (define (test-cached-data-identities)
         (let* ((cache (syntax->ir-library
@@ -1215,6 +1072,6 @@
         (run-test test-cached-compilations)
         (run-test test-template-ownership)
         (run-test test-imported-declaration-owner)
-        (run-test test-cached-inferred-overloads)
+        (run-test test-cached-overload-signatures)
         (run-test test-cached-data-identities))))
    (else)))

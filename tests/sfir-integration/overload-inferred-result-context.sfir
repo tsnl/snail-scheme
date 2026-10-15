@@ -1,6 +1,0 @@
-(import (sfir base))
-(define-overload result (lambda (value) (i64-add value (ann 1 I64))))
-(define-overload result (lambda (value) (i64->f64 (i64-add value (ann 1 I64)))))
-(def value
-     (result (ann 41 I64)))
-(i64-add (result (ann 0 I64)) (f64->i64 (f64-sub (ann value F64) 1.0)))

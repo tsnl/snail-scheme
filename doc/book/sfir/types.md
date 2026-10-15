@@ -426,7 +426,10 @@ obligations can remain in a generalized signature. An instance body's method
 expressions still initialize in source order. Static selection never runs their
 effects early.
 
-Overloaded operations are selected by argument and result constraints together.
+Every [overload alternative](extensions.md#ad-hoc-overload-families) declares an
+explicit signature. Its implementation is checked against that signature;
+ordinary unannotated definitions retain inference. Overloaded operations are
+selected by argument and result constraints together.
 Exactly one compatible complete signature must remain. Declaration order and
 the availability of an implementation's prerequisites do not rank candidates.
 Numeric promotion, where offered, is an explicitly provided operation. Selected

@@ -29,7 +29,7 @@ SFIR lists; their contents are copied into immutable host sequences.
 | `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
 | `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
 | `ClassMethod`, `MethodImplementation`, static `Declaration` | `class-method`, `typeclass-definition`, `method-implementation`, `instance-definition`, `kind-annotated-definition` |
-| Extension `Declaration` | `extern-definition`, `overload-definition`, `inferred-overload-definition` |
+| Extension `Declaration` | `extern-definition`, `overload-definition` |
 | `ImportSelection`, `ImportRename` | `all-imports`, `only-imports`, `import-rename`, `rename-imports` |
 | `Import`, `Export`, `SfirLibrary` | `library-import`, `library-export`, `sfir-library` |
 
@@ -46,8 +46,11 @@ The signatures distinguish syntax categories explicitly. The
 original `definition` accepts a monomorphic `TypeSyntax`; `signature-definition`
 and `local-binding` accept a `Signature`. `binding-signature` wraps a monomorphic
 type, while `all-signature` supplies explicit type parameters, requirements and
-a result type. Inferred constructors omit the signature and let the ordinary
-checker infer it. Numeric scalar constructors select their width.
+a result type. `inferred-definition` and `inferred-local-binding` omit the
+signature and let the ordinary checker infer it. Every `overload-definition`
+requires an explicit `Signature`; there is no inferred overload constructor or
+inspection variant. Transferred overload declarations follow the same rule.
+Numeric scalar constructors select their width.
 `literal-number` instead accepts a copied original source spelling and returns
 unresolved numeric syntax; `view-number-literal` exposes that spelling. Its
 numeric grammar and final representation are checked in Chibi. This preserves
