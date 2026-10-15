@@ -152,7 +152,11 @@
     (define (parse-real text)
       (cond ((member text '("Infinity" "inf" "+inf.0")) +inf.0)
             ((member text '("-Infinity" "-inf" "-inf.0")) -inf.0)
-            ((member text '("NaN" "nan" "+nan.0")) +nan.0) (else (string->number text))))
+            ((member text '("NaN" "nan" "+nan.0")) +nan.0)
+            (else (let ((value (string->number text)))
+                    (assert-that (real? value) "invalid floating observation" text)
+                    ;; V8 prints -0 without a decimal point; exact parsing loses its sign.
+                    (if (zero? value) (if (starts? text "-") -0.0 0.0) (inexact value))))))
     (define (check-floats actual expected tolerance)
       (let ((values (map parse-real (lines actual))) (targets (map parse-real expected)))
         (assert-equal (length values) (length targets))
