@@ -49,8 +49,11 @@ and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills
 and drains the process group. A successful compile does not establish successful
 execution. The integrated routes handle scalar/typed-container kernels and Datum/I/O
-programs with their complete predicates. Native lowering consumes the exact
-optimized SFIR Wasm used in V8. Runtime-backed Wasm supplies concrete scalar
+programs with their complete predicates. The current runner supplies V8's
+optimized SFIR Wasm to the native helper, which runs Binaryen again before LLVM
+lowering. The effective optimized modules therefore differ; the
+[retrospective audit](evidence/20261015-native-optimization-audit.json) records
+this for all six measured workloads. Runtime-backed Wasm supplies concrete scalar
 services from a separately pruned Rust provider; the retained provider imports
 exclude the legacy Root ABI. Each target and external control runs in a fresh
 working directory. Per-stage records preserve successful Wasm evidence if a

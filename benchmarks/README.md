@@ -13,8 +13,10 @@ python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-check
 ```
 
 Preparation copies checked-in target sources; it does not elaborate Scheme or
-expand macros. The compiler always runs Binaryen. Wasm execution and mechanical
-native lowering must use the same optimized module. Missing ports and pending
+expand macros. The compiler always runs Binaryen. The current runner gives the
+optimized Wasm to the native helper, which performs another Binaryen pass before
+lowering; the [optimization audit](sfir/evidence/20261015-native-optimization-audit.json)
+records the differing effective modules. Missing ports and pending
 execution routes stay visible in the corpus manifest. The first [clean SFIR
 timing report](sfir/evidence/20261015-clean-six.md) covers Ack, Fibfp, Cat, WC,
 CTAK and FIBC on 33 available target/control routes; it retains default Rust
