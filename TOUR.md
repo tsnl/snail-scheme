@@ -845,6 +845,17 @@ procedure counters and alias/reset checks remain outside clean timing. The
 under `tests/`; preparation records them as driver inputs separately from the
 historical compiler-source basis.
 
+[`compiler_port.py`](benchmarks/strict-suite/compiler_port.py) inventories every
+top-level form of the complete compiler workload and removes only its import
+and harness. [`compiler-data.scm`](benchmarks/strict-suite/compiler-data.scm)
+establishes mutable list, located syntax, lexical and parse-tree representations;
+[`compiler-result.scm`](benchmarks/strict-suite/compiler-result.scm) makes the
+source's error-only escape explicit through typed results and scoped handler
+state. The [foundation checker](tests/strict-compiler/check.py) runs identity,
+mutation, ordering and abort probes on Chez, linked Wasm and actual native64.
+The [port contract](benchmarks/strict-suite/compiler-port.md) distinguishes these
+checked foundations from the still-pending complete compiler adaptation.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
