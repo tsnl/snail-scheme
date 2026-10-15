@@ -166,7 +166,7 @@ static uint64_t *allocate_header(size_t bytes) {
     return header;
 }
 
-void *native_gc_alloc(size_t bytes) {
+__attribute__((always_inline)) void *native_gc_alloc(size_t bytes) {
     if (bytes > heap_bytes - 8 - ALIGNMENT) return NULL;
     if (since_collection >= budget) native_gc_collect();
     uint64_t *header = allocate_header(aligned_size(bytes));
