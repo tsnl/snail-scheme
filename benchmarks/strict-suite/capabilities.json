@@ -118,13 +118,14 @@
     },
     {
       "name": "nucleic",
-      "status": "additional-capabilities",
+      "status": "prepared-canonical-source",
       "source_lines": 3485,
       "files": {
         "src/nucleic.scm": "1bf8e055ddf51d5560f7217ff95bc4c50967514d036362bff77045ab73b61fa4",
         "inputs/nucleic.input": "95b327158e27a5a9f564a7ede0300361c05d50a455bca721043b7531b4b7003a"
       },
-      "representation_note": "Nominal recursive products/variants implemented; complete typed port and remaining helpers unvalidated."
+      "representation_note": "Complete 50-search source with concrete base variants, mutable F64 geometry and shared assignment Refs. All 6719 decimal tokens, original ratio predicate and ordered solutions preserved; original/adapted Chez, raw/optimized linked Wasm and native correctness pass. Separate exact database/mutation and bounded computed-value probes; no preparation timing claim.",
+      "preparation_report": "benchmarks/results/2026-10-14-strict-nucleic/README.md"
     },
     {
       "name": "pi",

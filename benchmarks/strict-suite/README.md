@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts thirty-three original R7RS kernels to the strict compiler:
+This diagnostic adapts thirty-four original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, and `tail`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, and `nucleic`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -16,6 +16,8 @@ The allocation benchmarks annotate their list of empty
 lists as `List (List Never)`. All original inputs and repetition counts remain.
 Later ports record their library prerequisites separately. Tail adds scalar
 text-file input to the existing strict I/O library.
+Nucleic adds scalar binary64 sine, cosine and unary arctangent to `(snail math)`;
+both production targets call the same Rust implementations.
 
 ## Run
 
@@ -700,3 +702,43 @@ supplemental cases and explicitly preserves the differing original Chez bytes
 for CR fixtures. It also records Unicode, EOF, empty/unterminated lines, buffer
 boundaries, file replacement, nonpositive counts and 50-iteration lifecycle
 traces. No clean timing samples are included.
+
+## Complete Nucleic preparation
+
+Select `--benchmarks nucleic` for all 50 original searches, the empty partial
+assignment and expected value `33.797594890762724`. The complete 3,485-line
+upstream program, every coordinate and constant, and the original numeric ratio
+predicate remain in the evidence. The 46 nucleotide constants use a concrete
+base variant and mutable vectors of F64 coordinate/transform vectors. All 57
+getter/setter pairs remain; a field ledger accounts for moving the original
+symbol tag out of slot 29. Mutable assignments use a shared Ref containing an
+immutable ID/transform/nucleotide product, retaining alias-visible updates.
+This adds a wrapper allocation and a product replacement on assignment setters.
+The canonical search does not call those setters, but probes exercise each one.
+
+The source adapter records counted substitutions and verifies their reversal
+recovers the original kernel exactly. All 6,719 decimal tokens retain spelling
+and order. The original `math-atan2` branches remain Scheme code, including
+its x=0 behavior; ordinary typed externs supply only sine, cosine and unary
+arctangent. Points, transforms, list construction, linked search and maximum
+selection remain in Scheme. The original Chez program remains untouched, while
+the adapted Chez control uses the same kernel and corresponding helpers.
+
+Preparation checks counts 1, 2 and 50, then compares complete database values,
+ordered pseudoknot and anticodon solutions, every solution ID/nucleotide/transform,
+geometry outputs and retained mutation aliases in both Chez forms, raw/optimized
+linked Wasm and native execution. Separate zero/negative counts and wrong or
+near-boundary expected values check the original predicate. Computed float probes
+use relative and absolute tolerance `1e-11`, with signed zero checked explicitly;
+database and mutation probes require exact numeric agreement. The comparison
+itself rejects shortened, extended, changed and reordered observations.
+
+Nucleic preparation gives each complete compile/link/native build an explicit
+1,200-second bound. A timeout retains output and terminates that build's entire
+owned process group, including a child that ignores the initial termination
+signal. This larger bound follows retained five-minute attempts that emitted
+complete WAT/raw Wasm and then expired in mandatory Binaryen optimization.
+Compile-stage durations are diagnostic provenance, not workload measurements.
+The [preparation report](../results/2026-10-14-strict-nucleic/README.md) freezes
+complete sources, artifacts, raw failures and full-value checks separately from
+performance measurements.

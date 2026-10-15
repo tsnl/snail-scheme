@@ -158,9 +158,12 @@ sentinel. This changes allocation cost from a mutable record and is not a timing
 comparison. The `data-paraffins` fixture preserves the canonical partitions,
 loop order and accumulation, replacing H/C and BCP/CCP tagged vectors with closed
 variants. It checks the canonical count of 75 for ten carbon atoms without `Top`.
-The complete Ray port and its measured empty-constructor optimization are
-documented in the [benchmark reports](../benchmarks/README.md). The full Nucleic
-port remains in progress.
+The complete Ray and Nucleic ports now use these representations; their
+source adaptations, full-input checks and allocation differences are recorded
+in the [Ray](../benchmarks/results/2026-10-14-strict-ray/README.md) and
+[Nucleic](../benchmarks/results/2026-10-14-strict-nucleic/README.md) preparation reports.
+Ray's measured empty-constructor optimization is documented in the
+[benchmark reports](../benchmarks/README.md).
 
 ## Free overloads and numeric operations
 

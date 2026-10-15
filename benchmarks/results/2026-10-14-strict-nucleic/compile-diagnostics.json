@@ -1,0 +1,49 @@
+{
+  "kind": "diagnostic preparation, not clean compiler timings",
+  "successful": [
+    {
+      "stage": "strict-build.json",
+      "returncode": 0,
+      "process_seconds": 323.73216647998197,
+      "timeout_seconds": 1200
+    },
+    {
+      "stage": "native-build.json",
+      "returncode": 0,
+      "process_seconds": 28.611155154008884,
+      "timeout_seconds": 1200
+    },
+    {
+      "stage": "probe-strict/strict-build.json",
+      "returncode": 0,
+      "process_seconds": 557.7689815099584,
+      "timeout_seconds": 1200
+    },
+    {
+      "stage": "probe-strict/native-build.json",
+      "returncode": 0,
+      "process_seconds": 73.08033619099297,
+      "timeout_seconds": 1200
+    }
+  ],
+  "attempts": [
+    {
+      "path": "nucleic-attempt-1",
+      "outcome": "unbound list at multiline call head; corrected source adapter"
+    },
+    {
+      "path": "nucleic-attempt-2",
+      "outcome": "stopped after 1188 CPU seconds; graph-copy bottleneck",
+      "pause_seconds": 74
+    },
+    {
+      "path": "nucleic-attempt-3",
+      "outcome": "300-second timeout in repeated dependency reachability"
+    },
+    {
+      "path": "nucleic-attempt-4",
+      "outcome": "300-second timeout during Binaryen after complete WAT and raw Wasm emitted"
+    }
+  ],
+  "note": "Every failed or interrupted attempt and its diagnostic instrumentation is retained separately. Source materialization records the exact earlier compiler basis."
+}

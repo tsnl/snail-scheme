@@ -100,6 +100,12 @@ diagnostic runs. This reaches approximate parity on Ray; the independent
 [Mazefun comparison](results/2026-10-14-native64-mazefun-comparison/README.md)
 still records native at 1.869× V8's time on its frozen common program.
 
+The [complete Nucleic preparation](results/2026-10-14-strict-nucleic/README.md)
+preserves all 50 searches, the full coordinate database and original ratio
+predicate. Complete ordered-solution and mutation probes pass in both Chez
+controls, raw/optimized linked Wasm and actual native execution. Its archive
+separates diagnostic compiler work from performance measurements.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
