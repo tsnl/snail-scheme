@@ -393,6 +393,21 @@
       "name": "independent-complete-small-maze",
       "input": "1\n3\n3\n((_ _ _) (* * _) (_ _ _))\n",
       "wrong": "1\n3\n3\n()\n"
+    },
+    {
+      "name": "exact-maze-symbol-marks",
+      "input": "1\n1\n1\n((_))\n",
+      "wrong": "1\n1\n1\n((\"_\"))\n"
+    },
+    {
+      "name": "negative-maze-count-retains-false",
+      "input": "-2\n11\n11\n#f\n",
+      "wrong": "-2\n11\n11\n()\n"
+    },
+    {
+      "name": "even-maze-dimension-is-error",
+      "input": "1\n3\n2\nerror\n",
+      "wrong": "1\n3\n2\n\"error\"\n"
     }
   ],
   "browse": [
