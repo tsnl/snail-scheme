@@ -62,12 +62,16 @@ python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-check
 ```
 
 Preparation copies static source files, compiler/runtime/build support, Rust
-sources and pinned runtime inputs into a new directory. It records content
+sources and pinned runtime inputs into a new directory. Both correctness and
+timing preparation copy the selected Rust sysroot and vendor the exact locked
+crates for the runtime and Rust controls. Builds invoke that copied Cargo and
+Rust compiler with the frozen vendor configuration. Preparation records content
 digests and explicit positive finite build/run timeouts. The default compile
 timeout remains 1200 seconds. Mutable checkout files are never referenced by
 the frozen driver; immutable Nix tools are identified by invocation path and
-digest. Rustup dispatchers are identified explicitly and do not yet establish a
-frozen selected Rust toolchain.
+digest. The manifest also retains the original Rustup dispatcher identities and
+selected installation path as provenance; subsequent builds use the copied
+installation and dependency sources.
 
 Validation invokes the SFIR compiler, whose build contract always runs Binaryen,
 and retains both raw and optimized Wasm. Every process has a terminal record,
@@ -102,24 +106,46 @@ add correctness coverage while both workloads remain unmeasured.
 ## Clean timing protocol
 
 ```sh
-python3 benchmarks/sfir/timing.py prepare --output /tmp/sfir-six \
-  --benchmarks ack fibfp cat wc ctak fibc --compile-timeout 1800 --cpu 2
-python3 benchmarks/sfir/timing.py verify --output /tmp/sfir-six
+python3 benchmarks/sfir/timing.py prepare --output /tmp/sfir-full57 \
+  --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
+python3 benchmarks/sfir/timing.py verify --output /tmp/sfir-full57
 # Run only after coordinating a quiet machine with every active worker.
-python3 benchmarks/sfir/timing.py measure --output /tmp/sfir-six \
+python3 benchmarks/sfir/timing.py measure --output /tmp/sfir-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
 
-The first timing cohort contains these six cases. Preparation copies the
-selected Rust sysroot and vendors the exact locked crates, invokes the copied
-Cargo/Rust compiler, and rebuilds all available routes. It then builds a separate
-native entry/provider with observation counters disabled. Each actual clean
+The harness supports all 57 registered workloads and all six target/control
+routes; a named subset can still be selected explicitly. The plan retains
+unavailable adapted Chez controls and every failed preparation or execution.
+Support establishes no new correctness or measurement result: each frozen
+campaign earns its own route statuses. Preparation rebuilds all available
+routes, then builds a separate native entry/provider with observation counters
+disabled. Each actual clean
 executable/provider must pass its complete canonical predicate before it earns
 a place in the frozen schedule. Its native build also consumes the copied raw
 sidecar and independently verifies optimized-program parity; the plan preserves
-that proof and checks its artifacts before execution. All original validation outcomes remain visible,
-including default Rust Wasm Ack's stack overflow and unavailable adapted Chez
-controls. Preparation and clean-artifact validation are never timing samples.
+that proof and checks its artifacts before execution. All original validation
+outcomes remain visible. Preparation and clean-artifact validation are never
+timing samples.
+
+Clean Wasm hosts preserve the scalar, typed sequence, decimal Integer,
+Datum/runtime, Nucleic, Tail and Ray interfaces explicitly. Compiler, Dynamic,
+Scheme and SLaTeX use the uninstrumented runtime host and scalar native entry;
+their validation-only diagnostic probes remain outside clean execution. FFT
+retains its separate Rust sine provider on both targets. Every clean attempt
+copies declared execution fixtures, applies the specified native heap size,
+and starts in a fresh working directory. The plan hashes implicit math providers
+as well as files named directly on the command line.
+
+Sequence workers compare every existing expected element inside `bench` and
+return a success flag. Pi and Chudnovsky compare every expected decimal
+character there, then serialize the complete observed result after the clock;
+all six routes must emit the exact canonical decimal bytes. Their original
+and adapted Chez controls have untimed drivers, so preparation retains derived
+timing artifacts that replace only that driver with a monotonic clock around
+the same worker loop and complete predicate. Frozen control sources remain
+unchanged. Array1 and Equal record the actual Chez and Rust timer names in
+`spec.json`: their canonical inner counts differ from SFIR's outer count of one.
 
 Every route gets one fresh-process warmup and five fresh-process measured runs.
 Cases and route positions rotate deterministically, all processes inherit the
@@ -128,13 +154,17 @@ clock encloses the repeated workload and its full final predicate. Benchmark par
 result formatting and final resource cleanup lie outside it. Canonical file
 reads and writes remain inside the repeated worker. Fresh-process
 warmups warm shared machine state; module loading and instantiation precede the clock in each V8 process, while
-any tiering during its canonical workload remains measured. Cat's complete output
-bytes are additionally checked outside the guest clock, matching the original
-benchmark's predicate boundary.
+any tiering during its canonical workload remains measured. Cat, Tail and Ray
+output bytes and SLaTeX's complete numbered output manifest are additionally
+checked outside the guest clock, matching the original benchmark's predicate
+boundary. Every command retains exact stdout/stderr bytes beside decoded
+diagnostics; newline conversion cannot weaken decimal checks.
 
 The plan records Node/V8, Chez, Rust, compiler/source/input, executable/provider
 and immutable shared-library identities. Full preparation verification precedes
 and follows the campaign; each trial checks its executed files and inputs. The
+fixed protocol rejects nonempty `NODE_OPTIONS`, coverage, preload and GC
+observation settings; rejected values remain in the manifest and error. The
 frozen tree must have no writers. The quiet-window text is an operational
 attestation, not an automatic proof that the machine has no competing work.
 Interrupt the command if the coordinated interval is lost: partial attempts and
@@ -158,6 +188,19 @@ dependencies and explicit unsupported host routes. Tests exercise source
 tampering, checkout independence, escaping/symlinked dependencies, timeout
 configuration, and a process with a live child. No generic callback or plugin
 framework was introduced.
+
+The full-corpus timing extension used a fresh no-files explainer and informed
+critique to retain one scalar native entry and one decimal entry. Run the
+bounded harness checks with
+`PYTHONPATH=benchmarks/sfir python3 -m unittest runner timing`. Besides frozen
+dependency and scheduling tests, reduced synthetic Wasm/C/Chez probes execute
+every host category, typed sequence/decimal/math interfaces, failed predicates,
+declared fixture copies and native heap propagation. Their command records and
+artifacts remain in `build/sfir-timing-probes`; these probes establish harness
+behavior and are neither canonical corpus correctness nor timing samples.
+The [full-corpus harness checkpoint](evidence/20261015-full57-timing-harness.md)
+records all six canonical and clean-artifact routes passing for FFT, Pi, Tail
+and Equal, plus the exact frozen revision. It adds no measurements.
 
 ## Executed checkpoint
 

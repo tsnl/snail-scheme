@@ -11,6 +11,10 @@
     5000
   ],
   "expected": 1,
+  "timer_names": {
+    "chez": "equal:100:100:8:1000:2000:5000",
+    "rust": "equal:1"
+  },
   "setup_barriers": 0,
   "barriers_per_iteration": 11,
   "additional_exports": [

@@ -10,7 +10,12 @@
 
 static int64_t inputs[3], count;
 static char **expected;
+#ifndef OBSERVE_BARRIERS
+#define OBSERVE_BARRIERS 1
+#endif
+#if OBSERVE_BARRIERS
 static uint64_t barriers;
+#endif
 int64_t load_input(const char *path) {
     FILE *input = fopen(path, "r"); assert(input);
     int64_t repetitions;
@@ -37,6 +42,17 @@ uint32_t expected_character(int64_t index, int64_t at) {
     assert(index >= 0 && index < count && at >= 0 && (size_t)at < strlen(expected[index]));
     return (unsigned char)expected[index][at];
 }
-int64_t hide_i64(int64_t value) { barriers++; return value; }
-uint64_t barrier_count(void) { return barriers; }
+int64_t hide_i64(int64_t value) {
+#if OBSERVE_BARRIERS
+    barriers++;
+#endif
+    return value;
+}
+uint64_t barrier_count(void) {
+#if OBSERVE_BARRIERS
+    return barriers;
+#else
+    return 0;
+#endif
+}
 void emit_character(uint32_t scalar) { assert(scalar < 128); putchar((int)scalar); }
