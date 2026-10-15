@@ -398,11 +398,15 @@ required source read even when no concrete payload is needed. Consequently,
 unused. A payload-free readiness token preserves this behavior.
 
 After cloning discovers all demands, specialization identifies direct local
-procedures. Capture analysis follows value references and propagates the
-requirements of both direct calls and nested closures to a fixed point. It
-excludes a function's own parameters and local bindings, so recursive activations
-retain separate storage. The emitter uses the specializer's same
-site-value enumeration to assign storage, then emits source initialization in
+procedures. It follows an immediately invoked result through `let` bodies and
+the final expression of blocks. For example, `((let () (define (f x) x) f) 42)`
+calls `f` without constructing its closure. Initializers and block prefixes
+still use procedure values normally, and conditionals and other operators
+retain their ordinary closure behavior. Capture analysis follows value references
+and propagates the requirements of both direct calls and nested closures to a
+fixed point. It excludes a function's own parameters and local bindings, so
+recursive activations retain separate storage. The emitter uses the specializer's
+same site-value enumeration to assign storage, then emits source initialization in
 order. Code reservation, runtime storage allocation, and successful binding
 initialization are distinct events; only the last makes a source read legal.
 
@@ -421,6 +425,13 @@ owner is suspended. Passing that state performs no source read: an unready
 reference stays nullable until the original use checks readiness. A direct
 procedure's binding also keeps its readiness flag, checked after operand effects
 and at the original invocation.
+
+The emitter first saves every operand, from left to right, in typed Wasm locals
+that remain GC roots. A structured operator then runs its preparations,
+initializers, and prefix expressions before invoking its final result with those
+saved operands. This preserves source effect order and lexical scope while
+allowing the frontend's existing named-let expansion to use a direct local
+procedure. Tail calls remain tail calls through these final result positions.
 
 ## Explicit universal values
 
