@@ -350,8 +350,10 @@ Scheme and invokes the retained cleanup export after traps. See
 [`scripts/test-strict-io`](scripts/test-strict-io).
 
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
-datums, interned symbols, exact I64/inexact F64/complex numeric variants and
-structural equality. [`(snail read)`](src/snail/read.sld) consumes Unicode input
+datums, interned symbols, exact I64/inexact F64/complex numeric variants,
+structural equality and proper-list operations. Mutable datum identity names
+backing storage; pair identity compares both explicit Ref fields. Decimal I64
+formatting stays in Scheme. [`(snail read)`](src/snail/read.sld) consumes Unicode input
 incrementally, owns token buffers and parsing in Scheme, and distinguishes a
 datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
 owned scalar token handles, checked numeric conversion and a root-free strict
@@ -768,6 +770,15 @@ Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
 observe full per-worker file lifecycles and time the unchanged count loops;
 complete stream/result probes and the distinct Rust reader controls remain
 separate from clean measurement.
+
+[`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
+Browse database and backtracking matcher through counted reversible source edits.
+It keeps the association lists, copied cyclic pattern ring, destructive shuffle,
+and all three matcher return classes. The empty-list result remains truthy.
+Separate probes compare every recursive operand and return with original Chez;
+the clean builds retain the original 2,000-invocation loop and complete predicate.
+The datum library owns reusable list/identity operations, while the adapter owns
+the workload's typed boundaries and its original-source compatibility controls.
 
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
