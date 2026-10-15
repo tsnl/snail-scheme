@@ -1,7 +1,7 @@
 ;; Record checked numeric representations in source locations for migration
 ;; audits. This helper neither rewrites source nor participates in compilation.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context)
-        (snail-sfir compiler) (snail-scheme strict-core)
+        (snail-sfir source-driver) (snail-scheme strict-core)
         (snail-scheme ir) (snail-scheme source)
         (only (snail-scheme strict-types) resolve)
         (only (snail-scheme chromium-trace) with-chromium-trace-to)

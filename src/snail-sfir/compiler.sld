@@ -1,45 +1,25 @@
-;; Map compilation resolves supplied library values before checking. The source
-;; driver alone reads files and assembles dependencies. Later stages refine IR.
+;; Map compilation resolves supplied library values before checking. Source
+;; preparation lives in source-driver; this module never discovers dependencies.
 (define-library (snail-sfir compiler)
   (export make-entry entry? entry-library entry-export compile
           target? target-name wasm-target native64-target make-native-import native-import?
           artifact? artifact-target artifact-entry artifact-parameters artifact-result artifact-bytes
-          library-directories command-program? library-map->core
-          source-file->core source-file->wasm source-file->wat-file)
-  (import (scheme base) (scheme file) (scheme write)
-          (snail-scheme reader) (snail-scheme syntax-parser) (snail-sfir frontend) (snail-sfir library)
+          library-map->core)
+  (import (scheme base) (snail-sfir library)
           (snail-scheme strict-infer) (snail-scheme strict-primitives) (snail-sfir artifact)
           (snail-scheme strict-specialize) (snail-scheme strict-wasm)
-          (snail-scheme chromium-trace)
           (only (snail-scheme strict-types) strict-error resolve scheme-variables scheme-type
                 function-type? function-domains function-result)
-          (only (snail-scheme strict-core) program-body program-globals)
+          (only (snail-scheme strict-core) program-globals)
           (only (snail-scheme ir) node-type node-loc node-data binding-kind binding-payload
                 binding-origin binding-scheme binding-initializer value-definition-loc
                 make-value-definition make-value-binding make-name)
           (only (snail-scheme source) loc?)
-          (only (snail-scheme wasm) write-wasm)
           (prefix (snail-scheme library) library:))
   (begin
 
-    ;; ---- Source and module loading ----
+    ;; ---- Resolution and checking ----
 
-    (define library-directories (make-parameter '()))
-    (define (read-forms path) (reader->syntax-list (file->reader path)))
-    (define (library-path directory name)
-      (let join ((parts name) (path directory))
-        (if (null? parts) (string-append path ".sfir")
-            (join (cdr parts) (string-append path "/" (symbol->string (car parts)))))))
-    (define (library-loader root)
-      (lambda (name)
-        (let search ((directories (append (library-directories) (list (string-append root "/lib")))))
-          (and (pair? directories)
-               (let ((path (library-path (car directories) name)))
-                 (if (file-exists? path)
-                     (let ((forms (read-forms path)))
-                       (unless (= (length forms) 1) (error "expected one SFIR library declaration" path name))
-                       (car forms))
-                     (search (cdr directories))))))))
     (define (primitive-bindings libraries)
       (let ((bindings '()))
         (for-each (lambda (library)
@@ -54,13 +34,6 @@
         (if (and (pair? details) (loc? (car details)))
             (apply strict-error (car details) (error-object-message failure) (cdr details))
             (raise failure))))
-    (define (source-file->core root path)
-      (guard (failure (else (raise-source-diagnostic failure)))
-        (let* ((source ((chromium-trace "sfir.parse" syntax-list->sfir-library) (read-forms path)))
-               (libraries (collect-library-map source (library-loader root)
-                                               (list (cons '(sfir primitive) (make-primitive-library primitive-names)))))
-               (program ((chromium-trace "sfir.resolve" resolve-source-library) source libraries '())))
-          ((chromium-trace "sfir.infer" resolved-library->core) program))))
 
     ;; ---- Compilation from supplied library values ----
 
@@ -113,28 +86,16 @@
           (emit-artifact (strict-core->wasm program) entry
                          (map resolve (function-domains type)) (resolve (function-result type)) target))))
 
-    ;; ---- Concrete specialization and Wasm emission ----
-
-    (define command-program? (make-parameter #f))
-    (define (check-command-result core)
-      (let ((body (program-body core)))
-        (when (and (command-program?) (not (memq (resolve (node-type body)) '(Unit I32 I64 Never))))
-          (strict-error (node-loc body) "command result must be Unit, I32, I64 or Never" (node-type body)))))
-    (define (source-file->wasm root path . exports)
-      (let ((core (source-file->core root path)))
-        (check-command-result core)
-        (let ((concrete (apply (chromium-trace "sfir.specialize" monomorphize) core exports)))
-          ((chromium-trace "sfir.emit-wasm" strict-core->wasm) concrete))))
-    (define (source-file->wat-file root path output . exports)
-      (let ((module (apply source-file->wasm root path exports)))
-        (call-with-output-file output (lambda (port) (write-wasm module port))))))
+    )
 
   ;; ---- Tests ----
 
   (cond-expand
    (snail-tests
     (export test-compiler)
-    (import (snail-scheme test-utils)
+    (import (snail-scheme test-utils) (snail-sfir frontend)
+            (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+            (only (snail-scheme strict-core) program-body)
             (only (chibi temp-file) call-with-temp-dir)
             (only (srfi 130) string-contains)
             (only (snail-scheme ir) name-definition application-operator lambda-body value-binding-initializer))
