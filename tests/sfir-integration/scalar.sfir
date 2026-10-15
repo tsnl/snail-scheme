@@ -1,0 +1,2 @@
+(import (sfir core))
+(+ 40 2)

@@ -1,0 +1,11 @@
+(import (sfir core))
+(define exercise
+  (lambda (seed)
+    (let ((cell (ref seed)))
+      (let ((counted (lambda (x)
+                       (begin (ref-set! cell (+ (ref-get cell) 1)) x))))
+        (begin
+          (counted 42)
+          (counted #t)
+          (ref-get cell))))))
+(exercise 40)

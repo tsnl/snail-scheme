@@ -1,0 +1,176 @@
+{
+  "source_revision": "78734dd1103f450dfe2969a39dc2268358730792",
+  "files": [
+    {
+      "old_path": "tests/strict-extern/early-closure.scm",
+      "old_sha256": "daeeccb9652725ffcd749e6f6c1c171ec1ea1b64c8e6fef3522583b07db5fdc3",
+      "path": "tests/sfir-extern/early-closure.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 2,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "31d26c43ce6a92f47f19ce0ebc929be8f96c7d4139f0a5f2857cce85b940545b"
+    },
+    {
+      "old_path": "tests/strict-extern/failed-main.scm",
+      "old_sha256": "569acfce335f6096e549a9a9ad543a30686c8e37b897a7ebf9c1ae7062f861e9",
+      "path": "tests/sfir-extern/failed-main.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "6f5857723c58fb5e73c987f2d01c373f4c2d05d6e1c8f5736e9c0529639ce8a6"
+    },
+    {
+      "old_path": "tests/strict-extern/native.scm",
+      "old_sha256": "3f88e83a9e466e0f4579878b6bc19086f9ed8abbb84cd2bc86d5dfa100874fcd",
+      "path": "tests/sfir-extern/native.sfir",
+      "transformations": {
+        "attached-signatures": 11,
+        "explicit-body-blocks": 6,
+        "explicit-lambdas": 7
+      },
+      "sha256": "b34a686034e07b2b7860267eca0d5b8cbe7cbbc03905b1fbe24d39849082bfae"
+    },
+    {
+      "old_path": "tests/strict-extern/reentrant-main.scm",
+      "old_sha256": "8da825f53bf27a30ab74df2d43c738fd73290aa063057d83bd9adcb4ec917a60",
+      "path": "tests/sfir-extern/reentrant-main.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "dd4d125864855a76068c1317299843529eb245ee76d395a2a245fd15981604b8"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-argument-type.scm",
+      "old_sha256": "fb31dad0f5f5d5b1a98950fdef78aa7b4f2aa2fc902093a7d65dcfe1c8fc8ee1",
+      "path": "tests/sfir-extern/reject-argument-type.sfir",
+      "transformations": {},
+      "sha256": "86889b96053637290c72c975d5bc5d23c7e2398497e8c798ae10eed82763db16"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-class-member.scm",
+      "old_sha256": "832b51e7773afeec99212c7b2cb4578f1af09b87bd23486f475801551d8d3c76",
+      "path": "tests/sfir-extern/reject-class-member.sfir",
+      "transformations": {},
+      "sha256": "a0e81bfffb8e0afb7edffe5414b6626983c6f6e5059f7eec6dac8e8e219fda55"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-export-inferred.scm",
+      "old_sha256": "d2aff0241665ff91345bc1e95593b0f11fcee5a6ba04934e868b34d8a8bfcd12",
+      "path": "tests/sfir-extern/reject-export-inferred.sfir",
+      "transformations": {
+        "explicit-lambdas": 1
+      },
+      "sha256": "3f083cf33a507e422f20c38e7d305492599e52c522aaab4808d111ce64528400"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-export-polymorphic.scm",
+      "old_sha256": "f593137fbfb2b83a62a905c529f9ab6e1edde6f277a58de7f68267e9e86b7f50",
+      "path": "tests/sfir-extern/reject-export-polymorphic.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "0b305750af2e78df801fb51db5b871634a3bd2bdf0a526507a3027b005cc7f3f"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-export-reference.scm",
+      "old_sha256": "3cd70ff865351029e348b465c5b2b4376b3ed4071d723dd77cc058c8f16e47db",
+      "path": "tests/sfir-extern/reject-export-reference.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "1c894eb27597dec95d5d0e3bb98d19758de7fbc7632c2bf50fef218e11380043"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-export-rest.scm",
+      "old_sha256": "3167e99abb9f24f940257bb072058cdc6c7fe37b927b8f3819d73fc547ae0251",
+      "path": "tests/sfir-extern/reject-export-rest.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "b813342a3413e548d99ca37c5aa4659e20623ffd95c637da31be40f13ff3fc36"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-polymorphic.scm",
+      "old_sha256": "93fb5df8cc5944aa5570670fe17493e4eaa421478352448e4f3e9535f4b5d9ad",
+      "path": "tests/sfir-extern/reject-polymorphic.sfir",
+      "transformations": {},
+      "sha256": "0ecc81ce02fa3d00d80d2bcb299ff3f7f661de2478016ddde5df720aa2b519d3"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-reference.scm",
+      "old_sha256": "74eadb5e449e6992e2a93d8f723cb78f4760a2106b5290a39d75895f1bfaeede",
+      "path": "tests/sfir-extern/reject-reference.sfir",
+      "transformations": {},
+      "sha256": "cc1ae4690050d5d48281f97997bcf0e44a68f6d51d9c9448634827b31dc87e47"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-rest.scm",
+      "old_sha256": "8390df70739deb94fad6dfb228d232494f46150e4362a1b8bd6e45a1495673d0",
+      "path": "tests/sfir-extern/reject-rest.sfir",
+      "transformations": {},
+      "sha256": "3a5e1aa09b6ecd7b6ec6ab6c3e1c45f8bce4cc0f02d5e5b90944ad1839c602ff"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-symbol.scm",
+      "old_sha256": "0e5c5a9ef0f5136f0ac91345f2112a4f1470431a0494d0df0fea2c7e4e023e6c",
+      "path": "tests/sfir-extern/reject-symbol.sfir",
+      "transformations": {},
+      "sha256": "df87f1fc87bd4b833444f257b18676b19cf3e6532ff33808b32281bc6e7e5f22"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-top.scm",
+      "old_sha256": "66dff323e33be66462783d95eb56c06f4b7512a2d4060b784aefce12afd0eedb",
+      "path": "tests/sfir-extern/reject-top.sfir",
+      "transformations": {},
+      "sha256": "da92871faf376a90b003064d6cba82209a27d15e3fe4c444a0a82909274bf0d7"
+    },
+    {
+      "old_path": "tests/strict-extern/reject-unit-argument.scm",
+      "old_sha256": "a778eaa45491eadfdaf234e0809d2eb46d0acd0379aac824c59c06adc9937560",
+      "path": "tests/sfir-extern/reject-unit-argument.sfir",
+      "transformations": {},
+      "sha256": "d2af122b3d9665847b0c0e7bc7f8311dc1f5143712e09ab23be4d22914ab7701"
+    },
+    {
+      "old_path": "tests/strict-extern/round.scm",
+      "old_sha256": "cfb6f25b2bf07899b445ec823477e8e94575afc5729f6aae54f7a16344686872",
+      "path": "tests/sfir-extern/round.sfir",
+      "transformations": {
+        "attached-signatures": 6,
+        "explicit-lambdas": 6
+      },
+      "sha256": "1d881bf45db18619db956b20043dc7f2e02f700e59074c90ab38a02d815cfd4f"
+    },
+    {
+      "old_path": "tests/strict-extern/unit-main.scm",
+      "old_sha256": "327c1b4fbdda71d8fd5dae791e5499ce3986900b278600600ee198c29c729b5e",
+      "path": "tests/sfir-extern/unit-main.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "77e9ff57920590f9ec5d59b09304c3e73adcbe1536acce58535e220db6d0dc7c"
+    },
+    {
+      "old_path": "tests/strict-extern/vectors.scm",
+      "old_sha256": "cf493ad819ebced7530efd2393ad99d3f40200eba2ffe05d33da4e55c57386d4",
+      "path": "tests/sfir-extern/vectors.sfir",
+      "transformations": {
+        "explicit-lambdas": 9,
+        "attached-signatures": 8,
+        "explicit-unless": 1,
+        "recursive-loop-blocks": 1,
+        "explicit-body-blocks": 2,
+        "nested-sequential-lets": 1
+      },
+      "sha256": "7d984ba249586823ef1f7953cde57fbbfb7cb745ad091bcc4dae1b17a71500cb"
+    }
+  ]
+}

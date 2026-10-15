@@ -1,0 +1,38 @@
+(import (sfir core))
+(define literal
+  (ref (ann (ann "abc" Top) String)))
+(define effects
+  (ref 0))
+(define mark
+  (lambda (digit value)
+    (begin
+      (ref-set! effects (+ (* (ref-get effects) 10) digit))
+      value)))
+
+(define set-literal (-> Unit)
+  (lambda ()
+    (begin
+      (ref-set! effects 0)
+      (string-set! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 #\Z)))))
+
+(define set-effects (-> I64)
+  (lambda () (ref-get effects)))
+
+(define copy-literal (-> Unit)
+  (lambda ()
+    (begin
+      (ref-set! effects 0)
+      (string-copy! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 "Z") (mark 4 0) (mark 5 1)))))
+
+(define copy-effects (-> I64)
+  (lambda () (ref-get effects)))
+
+(define empty-literal-copy (-> Unit)
+  (lambda () (string-copy! "" 0 "" 0 0)))
+
+(define literal-endpoint-copy (-> Unit)
+  (lambda () (string-copy! (ref-get literal) 3 "" 0 0)))
+
+(define unchanged (-> Bool)
+  (lambda () (string=? (ref-get literal) "abc")))
+42

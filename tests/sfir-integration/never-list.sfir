@@ -1,0 +1,4 @@
+(import (sfir core))
+(define empty
+  (ann (quote ()) (List Never)))
+(if (null? empty) 42 (begin (car empty) 0))

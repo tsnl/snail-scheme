@@ -1,5 +1,0 @@
-(import (snail strict))
-(define-data Point (point (x I64 point-x) (y I64 point-y)))
-(define-instance (Default Point) (default (lambda () (point 4 8))))
-(define points (ann (make-vector 3) (Vector Point)))
-(point-y (vector-ref points 2))
