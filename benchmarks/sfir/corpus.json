@@ -31,7 +31,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "deriv",
@@ -55,7 +56,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "destruc",
@@ -79,7 +81,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "diviter",
@@ -103,7 +106,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "divrec",
@@ -127,7 +131,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "puzzle",
@@ -151,7 +156,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "triangl",
@@ -175,7 +181,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "tak",
@@ -199,7 +206,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "takl",
@@ -223,7 +231,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "ntakl",
@@ -247,7 +256,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "cpstak",
@@ -271,7 +281,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "ctak",
@@ -302,7 +313,9 @@
         "chez-adapted",
         "rust-wasm",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "fib",
@@ -326,7 +339,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "fibc",
@@ -357,7 +371,9 @@
         "chez-adapted",
         "rust-wasm",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "fibfp",
@@ -387,7 +403,9 @@
         "chez-original",
         "rust-wasm",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "sum",
@@ -411,7 +429,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "sumfp",
@@ -435,7 +454,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "fft",
@@ -457,7 +477,8 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "mbrot",
@@ -481,7 +502,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "mbrotZ",
@@ -505,7 +527,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "nucleic",
@@ -527,7 +550,8 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "pi",
@@ -549,7 +573,9 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "pnpoly",
@@ -573,7 +599,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "ray",
@@ -595,7 +622,8 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "simplex",
@@ -619,7 +647,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "ack",
@@ -648,7 +677,9 @@
         "sfir-native",
         "chez-original",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "array1",
@@ -672,7 +703,8 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "string",
@@ -696,7 +728,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "sum1",
@@ -724,7 +757,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "cat",
@@ -755,7 +789,9 @@
         "chez-adapted",
         "rust-wasm",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "tail",
@@ -777,7 +813,8 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "wc",
@@ -808,7 +845,9 @@
         "chez-adapted",
         "rust-wasm",
         "rust-native"
-      ]
+      ],
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "read1",
@@ -836,7 +875,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "compiler",
@@ -856,7 +896,8 @@
       "missing_reason": "Full source port is incomplete; prior typed collection/VM/GVM checkpoints are partial.",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "conform",
@@ -886,7 +927,8 @@
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json",
         "evidence/20261015-conform-host.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "dynamic",
@@ -906,7 +948,8 @@
       "missing_reason": "Complete dynamic type-inference benchmark port is pending.",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "earley",
@@ -930,7 +973,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "graphs",
@@ -954,7 +998,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "lattice",
@@ -978,7 +1023,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "matrix",
@@ -1002,7 +1048,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "maze",
@@ -1026,7 +1073,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "mazefun",
@@ -1050,7 +1098,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "nqueens",
@@ -1074,7 +1123,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "paraffins",
@@ -1098,7 +1148,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "parsing",
@@ -1128,7 +1179,8 @@
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json",
         "evidence/20261015-parsing-observations.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "peval",
@@ -1152,7 +1204,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "primes",
@@ -1176,7 +1229,9 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json"
     },
     {
       "name": "quicksort",
@@ -1200,7 +1255,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "scheme",
@@ -1220,7 +1276,8 @@
       "missing_reason": "Complete interpreter workload port is pending; no generic host evaluator substitution.",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "slatex",
@@ -1240,7 +1297,8 @@
       "missing_reason": "Complete document-processing workload port is pending.",
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
-      "rust_native_validation": "pending"
+      "rust_native_validation": "pending",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "chudnovsky",
@@ -1262,7 +1320,8 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json"
+      "validation_evidence": "evidence/20261015-specialized.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "nboyer",
@@ -1290,7 +1349,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "sboyer",
@@ -1318,7 +1378,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "gcbench",
@@ -1328,7 +1389,7 @@
       "host": "scalar",
       "entry": "bench",
       "wasm_validation": "passed",
-      "native_validation": "failed-build",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "gcbench/chez-original.scm",
       "chez_adapted": "gcbench/chez-adapted.scm",
@@ -1342,7 +1403,12 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-native-parity.json",
+      "validation_corrections": [
+        "evidence/20261015-native-parity.json"
+      ]
     },
     {
       "name": "mperm",
@@ -1366,7 +1432,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "equal",
@@ -1394,7 +1461,8 @@
       "validation_evidence": "evidence/20261015-existing41.json",
       "validation_corrections": [
         "evidence/20261015-chez-vector-copy.json"
-      ]
+      ],
+      "native_optimized_program_parity": "not-established"
     },
     {
       "name": "bv2string",
@@ -1418,7 +1486,8 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json"
+      "validation_evidence": "evidence/20261015-existing41.json",
+      "native_optimized_program_parity": "not-established"
     }
   ],
   "measurement_status_meaning": "Measured status names only the listed routes and exact evidence protocol; unavailable and failed routes remain visible. It never establishes all-57 coverage."

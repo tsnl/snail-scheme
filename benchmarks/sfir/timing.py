@@ -150,7 +150,7 @@ def clean_native_build(directory, source, target, manifest, environment):
     (target / 'case-config.h').write_text(header)
     command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
                '--entry-c', target / 'scalar-timing-entry.c', '--c-provider', 'benchmark',
-               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm', target / 'program.native']
+               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm.raw.wasm', target / 'program.native']
     return runner.record(target, 'clean-native-build', command, environment, target, manifest['config']['compile_timeout'])
 
 
@@ -158,13 +158,14 @@ def prepare_case_artifacts(directory, case, status, manifest, environment):
     source = directory / 'source/benchmarks/sfir' / case['name']
     original, target = directory / 'validation' / case['name'], directory / 'timing/artifacts' / case['name']
     target.mkdir(parents=True)
-    for name in ('input.txt', 'spec.json', 'program.wasm', 'provider.wasm'):
+    for name in ('input.txt', 'spec.json', 'program.wasm', 'program.wasm.raw.wasm', 'provider.wasm'):
         if (original / name).exists():
             copied_artifact(original / name, target / name)
     if status.get('native_validation') == 'passed':
         result = clean_native_build(directory, source, target, manifest, environment)
-        if not runner.succeeded(result):
-            status = dict(status, native_validation='failed-clean-build')
+        parity = runner.native_build_status(target, result, status)
+        if parity != 'passed':
+            status = dict(status, native_validation='failed-clean-' + parity.removeprefix('failed-'))
     return target, status
 
 
@@ -212,11 +213,27 @@ def immutable_execution_dependencies(command, target, route, manifest, environme
 def prepare_ready_route(directory, case, route, target, row, manifest, environment):
     command = route_command(directory, case, route, target, manifest)
     row.update(command=list(map(str, command)), files=command_dependencies(directory, command, target))
+    if route == 'sfir-native':
+        row['native_parity'] = checked_native_parity(directory, target, row)
     row['immutable_dependencies'] = immutable_execution_dependencies(command, target, route, manifest, environment)
     if route.startswith('chez-'):
         prefix = Path(manifest['tools']['CHEZ']['path']).parents[1]
         row['immutable_dependencies'].update({str(path): runner.digest(path) for path in prefix.rglob('*.boot')})
     validate_clean_route(directory, row, target, manifest, environment)
+
+
+def checked_native_parity(directory, target, row):
+    report = runner.load(target / 'native-parity.json')
+    required = {'program.wasm.raw.wasm', 'program.wasm', 'program.native'}
+    if report['status'] != 'passed' or not required <= report['files'].keys():
+        raise ValueError('timing requires verified native optimized-program parity')
+    runner.verify_files(target, report['files'])
+    expected = dict(raw_sha256=report['files']['program.wasm.raw.wasm'], optimized_sha256=report['files']['program.wasm'])
+    runner.check_native_parity(target, expected, report['files'])
+    paths = [target / name for name in report['files'] if not name.endswith('module.ll')]
+    paths += [target / 'native-parity.json']
+    row['files'].update({str(path.relative_to(directory)): runner.digest(path) for path in paths})
+    return report
 
 
 # ---- A sample is a successful process with one correct guest timer report ----
@@ -277,7 +294,7 @@ def prepare_route(directory, case, route, target, status, manifest, environment)
         return row
     try:
         prepare_ready_route(directory, case, route, target, row, manifest, environment)
-    except (OSError, ValueError, RuntimeError) as error:
+    except (OSError, ValueError, RuntimeError, KeyError) as error:
         row.update(eligibility='failed-clean-preparation', reason=str(error))
     return row
 
@@ -461,6 +478,19 @@ import unittest
 
 
 class TimingTests(unittest.TestCase):
+    def test_native_route_rejects_incomplete_or_failed_parity_evidence(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            root, row = Path(temporary), dict(files={})
+            target = root / 'timing/artifacts/ack'
+            target.mkdir(parents=True)
+            (target / 'program.wasm.raw.wasm').write_bytes(b'raw compiler output')
+            for status in ('passed', 'failed-parity'):
+                runner.save(target / 'native-parity.json', dict(status=status, files={
+                    'program.wasm.raw.wasm': runner.digest(target / 'program.wasm.raw.wasm')}))
+                with self.assertRaisesRegex(ValueError, 'verified native optimized-program parity'):
+                    checked_native_parity(root, target, row)
+
     def test_complete_schedule_still_fails_when_an_eligible_route_is_incomplete(self):
         report = dict(status='complete', rows=[dict(eligibility='ready', complete=False),
                                              dict(eligibility='unavailable', complete=False)])
