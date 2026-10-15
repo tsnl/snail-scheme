@@ -5,6 +5,9 @@ permutations and quicksort. V8 wins complex Mandelbrot. Both executors consume
 the **same optimized Wasm bytes** for each pair. These are selected workloads,
 not a result for the full suite or a reason to restore the native production path.
 
+The String row uses the earlier flat layout. A [later same-Wasm flat/block comparison](../2026-10-14-string-block-native-comparison/README.md)
+shows bounded String blocks reverse its executor winner from LLVM to V8.
+
 | Workload | V8 seconds, median (range) | LLVM + Immix seconds, median (range) | Faster executor |
 | --- | ---: | ---: | --- |
 | string | 5.030250 (5.002498–5.044233) | 2.299514 (2.294725–2.346621) | LLVM 2.19× |
