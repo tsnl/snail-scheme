@@ -5,7 +5,7 @@ MODULES = {
   (export cell Box box box-value choose)
   (import (sfir primitive))
   (begin
-(def cell (ref 0))
+(def cell (ref (ann 0 I64)))
   (def Box (datatype () (box (value I64 box-value))))
   (define-overload choose (-> I64 I64) (lambda (x) x))))''',
     'test/left.sfir': '''(define-library (test left)
@@ -27,91 +27,91 @@ MODULES = {
 }
 
 PASS = {
-    'scalar': ('''(def increment (-> I64 I64) (lambda (x) (i64-add x 1)))
-(increment 41)''', '42'),
+    'scalar': ('''(def increment (-> I64 I64) (lambda (x) (i64-add x (ann 1 I64))))
+(increment (ann 41 I64))''', '42'),
     'inferred-polymorphism': ('''(def identity (lambda (x) x))
-(begin (identity #t) (identity 42))''', '42'),
+(begin (identity #t) (identity (ann 42 I64)))''', '42'),
     'declared-polymorphism': ('''(def identity (All (T) (-> T T)) (lambda (x) x))
-(identity 42)''', '42'),
-    'local-polymorphism': ('(begin (let identity (lambda (x) x)) (begin (identity #t) (identity 42)))', '42'),
-    'let-outer-scope': ('''(begin (let x 1) (begin (let sfir-migration-let-1 2) (let sfir-migration-let-2 x) (let x sfir-migration-let-1)
+(identity (ann 42 I64))''', '42'),
+    'local-polymorphism': ('(begin (let identity (lambda (x) x)) (begin (identity #t) (identity (ann 42 I64))))', '42'),
+    'let-outer-scope': ('''(begin (let x (ann 1 I64)) (begin (let sfir-migration-let-1 (ann 2 I64)) (let sfir-migration-let-2 x) (let x sfir-migration-let-1)
 (let y sfir-migration-let-2)
 (i64-add x y)))''', '3'),
-    'let-effects': ('''(def cell (ref 0))
-(def stamp (lambda (x) (begin (ref-set! cell (i64-add (i64-mul (ref-get cell) 10) x)) x)))
-(begin (let sfir-migration-let-1 (stamp 1)) (let sfir-migration-let-2 (stamp 2)) (let left sfir-migration-let-1)
+    'let-effects': ('''(def cell (ref (ann 0 I64)))
+(def stamp (lambda (x) (begin (ref-set! cell (i64-add (i64-mul (ref-get cell) (ann 10 I64)) x)) x)))
+(begin (let sfir-migration-let-1 (stamp (ann 1 I64))) (let sfir-migration-let-2 (stamp (ann 2 I64))) (let left sfir-migration-let-1)
 (let right sfir-migration-let-2)
 (ref-get cell))''', '12'),
-    'call-effects': ('''(def cell (ref 0))
-(def stamp (lambda (x) (begin (ref-set! cell (i64-add (i64-mul (ref-get cell) 10) x)) x)))
+    'call-effects': ('''(def cell (ref (ann 0 I64)))
+(def stamp (lambda (x) (begin (ref-set! cell (i64-add (i64-mul (ref-get cell) (ann 10 I64)) x)) x)))
 (def read-result (lambda (left right) (ref-get cell)))
-(read-result (stamp 1) (stamp 2))''', '12'),
-    'block-shadowing': ('''(def x 1)
-(begin (def read-x (lambda () x)) (def x 42) (read-x))''', '42'),
+(read-result (stamp (ann 1 I64)) (stamp (ann 2 I64)))''', '12'),
+    'block-shadowing': ('''(def x (ann 1 I64))
+(begin (def read-x (lambda () x)) (def x (ann 42 I64)) (read-x))''', '42'),
     'recursive-block': ('''(begin
-  (def even (lambda (n) (if (i64-eq n 0) #t (odd (i64-sub n 1)))))
-  (def odd (lambda (n) (if (i64-eq n 0) #f (even (i64-sub n 1)))))
-  (if (even 1000) 42 0))''', '42'),
-    'forward-read': ('(begin (def x y) (def y 42) x)', 'trap'),
+  (def even (lambda (n) (if (i64-eq n (ann 0 I64)) #t (odd (i64-sub n (ann 1 I64))))))
+  (def odd (lambda (n) (if (i64-eq n (ann 0 I64)) #f (even (i64-sub n (ann 1 I64))))))
+  (if (even (ann 1000 I64)) (ann 42 I64) (ann 0 I64)))''', '42'),
+    'forward-read': ('(begin (def x y) (def y (ann 42 I64)) x)', 'trap'),
     'class': ('''(def Identity (typeclass ( T) (: identity (-> T T))))
 (def sfir-migration-instance-1 (instance (Identity I64) (identity (lambda (value) value))))
-(identity 42)''', '42'),
+(identity (ann 42 I64))''', '42'),
     'overload': ('''(define-overload select (-> I64 I64) (lambda (x) x))
 (define-overload select (-> Bool Bool) (lambda (x) x))
-(select 42)''', '42'),
+(select (ann 42 I64))''', '42'),
     'overload-result': ('''(define-overload select (-> I64 I64) (lambda (x) x))
 (define-overload select (-> I64 F64) i64->f64)
-(ann (select 42) F64)''', '42'),
-    'inferred-overload': ('''(define-overload select (lambda (x) (i64-add x 1)))
+(ann (select (ann 42 I64)) F64)''', '42'),
+    'inferred-overload': ('''(define-overload select (lambda (x) (i64-add x (ann 1 I64))))
 (define-overload select (lambda (x) (not x)))
-(select 41)''', '42'),
+(select (ann 41 I64))''', '42'),
     'data': ('''(def Maybe (datatype ( T) (none) (some (value T))))
-(match (some 42) ((none) 0) ((some value) value))''', '42'),
-    'empty-list-operation': ('(if (null? (ann (empty-list) (List I64))) 42 0)', '42'),
+(match (some (ann 42 I64)) ((none) (ann 0 I64)) ((some value) value))''', '42'),
+    'empty-list-operation': ('(if (null? (ann (empty-list) (List I64))) (ann 42 I64) (ann 0 I64))', '42'),
     'rest-arguments': ('''(def first (lambda (head . tail) head))
-(first 42 1 2)''', '42'),
-    'reference-alias': ('(begin (let a (ref 0)) (begin (let b a) (begin (ref-set! b 42) (ref-get a))))', '42'),
+(first (ann 42 I64) (ann 1 I64) (ann 2 I64))''', '42'),
+    'reference-alias': ('(begin (let a (ref (ann 0 I64))) (begin (let b a) (begin (ref-set! b (ann 42 I64)) (ref-get a))))', '42'),
     'module-shared-initializer': ('''(import (test left) (test right))
-(begin (ref-set! left 42) (ref-get right))''', '42'),
+(begin (ref-set! left (ann 42 I64)) (ref-get right))''', '42'),
     'module-renamed-type': ('''(import (rename (only (test shared) Box box box-value) (Box Alias) (box wrap)))
-(box-value (ann (wrap 42) Alias))''', '42'),
+(box-value (ann (wrap (ann 42 I64)) Alias))''', '42'),
     'module-overload-extension': ('''(import (rename (only (test shared) choose) (choose original)) (test extension))
-(if (original #t) (choose 42) 0)''', '42'),
+(if (original #t) (choose (ann 42 I64)) (ann 0 I64))''', '42'),
     'module-selected-renames': ('''(import (rename (only (test shared) Box box box-value)
   (Box p:Box) (box p:box) (box-value p:box-value)))
-(p:box-value (p:box 42))''', '42'),
+(p:box-value (p:box (ann 42 I64)))''', '42'),
     'module-program': ('''(define-library (test main) (import (sfir primitive)) (begin
-(def answer 42) answer))''', '42'),
+(def answer (ann 42 I64)) answer))''', '42'),
     'sequential-shadow-and-capture': ('''(begin
-  (let value 40)
+  (let value (ann 40 I64))
   (def read-value (-> I64) (lambda () value))
-  (let value (i64-add value 2))
+  (let value (i64-add value (ann 2 I64)))
   (i64-add (read-value) value))''', '82'),
     'separate-type-and-value-names': ('''(def keep (All (T) (-> T T))
   (lambda (T) (ann T T)))
-(keep 42)''', '42'),
+(keep (ann 42 I64))''', '42'),
     'nested-all-and-outer-annotation': ('''(def keep (All (T) (-> T T))
   (lambda (T)
     (begin
       (def identity (All (T) (-> T T)) (lambda (value) (ann value T)))
       (identity #t)
       (ann T T))))
-(keep 42)''', '42'),
+(keep (ann 42 I64))''', '42'),
     'library-concatenated-clauses': ('''(define-library (test clauses)
   (import (sfir primitive))
   (export answer)
-  (begin (let first 20))
-  (begin (def answer (-> I64) (lambda () (i64-add first 22))) (answer)))''', '42'),
+  (begin (let first (ann 20 I64)))
+  (begin (def answer (-> I64) (lambda () (i64-add first (ann 22 I64)))) (answer)))''', '42'),
     'named-instance-kind': ('''(def Identity (Kind-> Type Constraint)
   (typeclass (T) (: identity (-> T T))))
 (def identity-i64 (Evidence (Identity I64))
   (instance (Identity I64) (identity (lambda (value) value))))
-(identity 42)''', '42'),
+(identity (ann 42 I64))''', '42'),
     'empty-list-any-roundtrip': ('''(def saved Any (ann (empty-list) (List I64)))
-(if (null? (ann saved (List I64))) 42 0)''', '42'),
+(if (null? (ann saved (List I64))) (ann 42 I64) (ann 0 I64))''', '42'),
     'let-polymorphic-alias': ('''(begin
   (let initial-identity (lambda (value) value))
-  (let initial-number 42)
+  (let initial-number (ann 42 I64))
   (let identity initial-identity)
   (let number initial-number)
   (identity #t)
@@ -192,8 +192,8 @@ x''', 'unsupported SFIR form'),
 42''', 'unsupported SFIR form'),
     'rigid-signature': ('''(def bad (All (T) (-> T T)) (lambda (x) (i64-add x 1)))
 42''', 'rigid'),
-    'nonboolean-if': ('(if 1 42 0)', 'cannot unify'),
-    'invariant-reference': ('(begin (let cell (ref 42)) (ref-set! cell #t))', 'cannot unify'),
+    'nonboolean-if': ('(if (ann 1 I64) 42 0)', 'cannot unify'),
+    'invariant-reference': ('(begin (let cell (ref (ann 42 I64))) (ref-set! cell #t))', 'cannot unify'),
     'nested-all': ('''(def bad (-> (All (T) (-> T T))) (lambda () (lambda (x) x)))
 42''', 'All and constraints belong to an attached binding signature'),
     'module-empty-name': ('(define-library)', 'library requires a name'),
@@ -211,7 +211,7 @@ identity-i64''', 'static definition is not a value'),
     'let-application-alias-is-monomorphic': ('''(def make-identity (lambda () (lambda (value) value)))
 (begin
   (let initial-identity (make-identity))
-  (let initial-number 42)
+  (let initial-number (ann 42 I64))
   (let identity initial-identity)
   (let number initial-number)
   (identity #t)

@@ -17,7 +17,7 @@
     (def Rational (datatype ()
                             (rational (numerator Integer rational-numerator) (denominator Integer rational-denominator))))
     (def one
-         (integer-from-i64 1))
+         (integer-from-i64 (ann 1 I64)))
 
     (def make-rational (-> Integer Integer Rational)
          (lambda (numerator denominator)
@@ -92,16 +92,16 @@
                #f)))
 
     (def rational<? (-> Rational Rational Bool)
-         (lambda (left right) (< (rational-compare left right) 0)))
+         (lambda (left right) (< (rational-compare left right) (ann 0 I64))))
 
     (def rational<=? (-> Rational Rational Bool)
-         (lambda (left right) (<= (rational-compare left right) 0)))
+         (lambda (left right) (<= (rational-compare left right) (ann 0 I64))))
 
     (def rational>? (-> Rational Rational Bool)
-         (lambda (left right) (> (rational-compare left right) 0)))
+         (lambda (left right) (> (rational-compare left right) (ann 0 I64))))
 
     (def rational>=? (-> Rational Rational Bool)
-         (lambda (left right) (>= (rational-compare left right) 0)))
+         (lambda (left right) (>= (rational-compare left right) (ann 0 I64))))
 
     ;; ---- Binary64 exactness and decimal presentation ----
 
@@ -118,9 +118,9 @@
                  (def loop
                       (lambda (value exponent)
                         (if (= value (truncate value))
-                            (make-rational (integer-from-f64 value) (integer-power (integer-from-i64 2) exponent))
-                            (loop (* value 1073741824.0) (+ exponent 30)))))
-                 (loop value 0)))))
+                            (make-rational (integer-from-f64 value) (integer-power (integer-from-i64 (ann 2 I64)) exponent))
+                            (loop (* value 1073741824.0) (+ exponent (ann 30 I64))))))
+                 (loop value (ann 0 I64))))))
 
     (def rational->f64 (-> Rational F64)
          (lambda (value)
@@ -154,12 +154,12 @@
 
     (def test-rational
          (lambda ()
-           (begin (let half (make-rational (integer-from-i64 2) (integer-from-i64 -4)))
-                  (begin (let zero (make-rational (integer-from-i64 0) (integer-from-i64 -9)))
+           (begin (let half (make-rational (integer-from-i64 (ann 2 I64)) (integer-from-i64 (ann -4 I64))))
+                  (begin (let zero (make-rational (integer-from-i64 (ann 0 I64)) (integer-from-i64 (ann -9 I64))))
                          (begin
                            (if (if (string=? (rational->string half) "-1/2")
                                    (if (string=? (rational->string zero) "0")
-                                       (if (integer=? (rational-denominator zero) (integer-from-i64 1))
+                                       (if (integer=? (rational-denominator zero) (integer-from-i64 (ann 1 I64)))
                                            (if (rational=? (rational-from-f64 -0.5) half)
                                                (rational=? (rational-add half (rational-negate half)) zero)
                                                #f)
@@ -170,4 +170,4 @@
                                (begin
                                  (unreachable)
                                  (unit)))
-                           42)))))))
+                           (ann 42 I64))))))))

@@ -1,16 +1,16 @@
 (import (sfir base))
 (def log
-     (ref 0))
+     (ref (ann 0 I64)))
 (def record
      (lambda (digit)
        (begin
-         (ref-set! log (+ (* (ref-get log) 10) digit))
+         (ref-set! log (+ (* (ref-get log) (ann 10 I64)) digit))
          (i64->f64 digit))))
 (def operator
      (lambda ()
        (begin
-         (record 3)
+         (record (ann 3 I64))
          +)))
 (def result
-     ((operator) (record 1) (record 2)))
-(if (if (= result 3.0) (= (ref-get log) 123) #f) 42 (unreachable))
+     ((operator) (record (ann 1 I64)) (record (ann 2 I64))))
+(if (if (= result 3.0) (= (ref-get log) (ann 123 I64)) #f) (ann 42 I64) (unreachable))

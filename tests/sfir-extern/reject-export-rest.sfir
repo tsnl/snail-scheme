@@ -2,4 +2,4 @@
 
 (def worker (-> (Rest I32) I32)
      (lambda xs (car xs)))
-42
+(ann 42 I64)

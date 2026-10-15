@@ -1,2 +1,2 @@
 (import (sfir base))
-(round 42)
+(round (ann 42 I64))

@@ -1,4 +1,4 @@
 (import (sfir base))
 (define-overload identity (lambda (value) value))
-(define-overload identity (lambda (value) (i64-add value 0)))
-(identity 42)
+(define-overload identity (lambda (value) (i64-add value (ann 0 I64))))
+(identity (ann 42 I64))

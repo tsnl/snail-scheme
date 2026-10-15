@@ -1,6 +1,6 @@
 (import (sfir base))
 (def calls
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def observed (-> I64)
      (lambda () (ref-get calls)))
@@ -10,8 +10,8 @@
      (lambda ()
        (begin
          (def first
-              (alias (begin (ref-set! calls 1) 42)))
+              (alias (begin (ref-set! calls (ann 1 I64)) (ann 42 I64))))
          (def alias
               box)
          (unbox first))))
-42
+(ann 42 I64)

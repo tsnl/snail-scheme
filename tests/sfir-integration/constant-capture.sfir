@@ -11,16 +11,16 @@
                   (ref-set! alias (+ (ref-get state) delta))
                   (+ factor (remainder (ref-get alias) modulus)))))
          (def factor
-              7)
+              (ann 7 I64))
          (def modulus
-              16)
+              (ann 16 I64))
          (def state
               (ref start))
          (def alias
               state)
          (lambda (delta) (advance delta)))))
 (def first
-     (make-step 1))
+     (make-step (ann 1 I64)))
 (def second
-     (make-step 10))
-(+ (first 2) (+ (second 3) (first 4)))
+     (make-step (ann 10 I64)))
+(+ (first (ann 2 I64)) (+ (second (ann 3 I64)) (first (ann 4 I64))))

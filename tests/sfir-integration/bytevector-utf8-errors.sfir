@@ -34,23 +34,23 @@
      (lambda () (string-length (utf8->string #u8(244 144 128 128)))))
 
 (def cut-start (-> I64)
-     (lambda () (string-length (utf8->string #u8(195 169) 1))))
+     (lambda () (string-length (utf8->string #u8(195 169) (ann 1 I64)))))
 
 (def cut-end (-> I64)
-     (lambda () (string-length (utf8->string #u8(195 169) 0 1))))
+     (lambda () (string-length (utf8->string #u8(195 169) (ann 0 I64) (ann 1 I64)))))
 
 (def negative-start (-> I64)
-     (lambda () (string-length (utf8->string #u8() -1 0))))
+     (lambda () (string-length (utf8->string #u8() (ann -1 I64) (ann 0 I64)))))
 
 (def past-end (-> I64)
-     (lambda () (string-length (utf8->string #u8() 1 1))))
+     (lambda () (string-length (utf8->string #u8() (ann 1 I64) (ann 1 I64)))))
 
 (def reversed (-> I64)
-     (lambda () (string-length (utf8->string #u8(65) 1 0))))
+     (lambda () (string-length (utf8->string #u8(65) (ann 1 I64) (ann 0 I64)))))
 
 (def encode-range (-> I64)
-     (lambda () (bytevector-length (string->utf8 "A" 0 2))))
+     (lambda () (bytevector-length (string->utf8 "A" (ann 0 I64) (ann 2 I64)))))
 
 (def encode-negative (-> I64)
-     (lambda () (bytevector-length (string->utf8 "A" -1 0))))
-42
+     (lambda () (bytevector-length (string->utf8 "A" (ann -1 I64) (ann 0 I64)))))
+(ann 42 I64)

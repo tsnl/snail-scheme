@@ -5,15 +5,15 @@
 
 (def nominal (-> I64)
      (lambda ()
-       (match (ann (ann (first) Any) Second) ((second) 0))))
+       (match (ann (ann (first) Any) Second) ((second) (ann 0 I64)))))
 
 (def arguments (-> I64)
      (lambda ()
        (match (ann (ann (ann (marker) (Marker I32)) Any) (Marker Char))
-         ((marker) 0))))
+         ((marker) (ann 0 I64)))))
 
 (def valid (-> I64)
      (lambda ()
        (match (ann (ann (ann (marker) (Marker Char)) Any) (Marker Char))
-         ((marker) 42))))
-42
+         ((marker) (ann 42 I64)))))
+(ann 42 I64)

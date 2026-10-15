@@ -146,7 +146,7 @@ def check_scalar_providers():
     provider = ['--c-provider', 'fixture', ROOT / 'tests/native-mixed.h', ROOT / 'tests/native-mixed.c']
     run([build('tests/native-mixed.sfir', 'mixed', *provider)])
     bad = BUILD / 'wrong-signature.sfir'
-    bad.write_text('(import (sfir primitive))\n(define-extern f "fixture" "scalar_i32" (-> I64 I64))\n(f 1)\n')
+    bad.write_text('(import (sfir primitive))\n(define-extern f "fixture" "scalar_i32" (-> I64 I64))\n(f (ann 1 I64))\n')
     run([ROOT / 'scripts/build-native', *provider, bad, BUILD / 'wrong-signature'],
         status=1, error='native provider signature does not match Wasm import')
     assert not (BUILD / 'wrong-signature').exists()

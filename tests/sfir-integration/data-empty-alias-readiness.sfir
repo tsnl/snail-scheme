@@ -1,7 +1,7 @@
 (import (sfir base))
 (def Empty (datatype () (empty)))
 (def calls
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def observed (-> I64)
      (lambda () (ref-get calls)))
@@ -11,8 +11,8 @@
        (begin
          ;; Evaluating a nullary call's operator can have effects and fail readiness.
          (def first
-              ((begin (ref-set! calls 1) alias)))
+              ((begin (ref-set! calls (ann 1 I64)) alias)))
          (def alias
               empty)
-         (match first ((empty) 42)))))
-42
+         (match first ((empty) (ann 42 I64))))))
+(ann 42 I64)

@@ -2,4 +2,4 @@
 
 (def square (All (T) (-> T T))
      (lambda (x) (* x x)))
-(square 2)
+(square (ann 2 I64))

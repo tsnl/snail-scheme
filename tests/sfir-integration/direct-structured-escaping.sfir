@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def calls
-     (ref 0))
+     (ref (ann 0 I64)))
 (def make-counter
      (lambda (seed early?)
        (begin
@@ -14,11 +14,11 @@
                           (def apply
                                (lambda ()
                                  (begin
-                                   (ref-set! calls (+ (ref-get calls) 1))
+                                   (ref-set! calls (+ (ref-get calls) (ann 1 I64)))
                                    ((begin step) increment))))
                           apply)))))
          (def early
-              (if early? (saved 1) 0))
+              (if early? (saved (ann 1 I64)) (ann 0 I64)))
          (def step
               (lambda (amount)
                 (begin
@@ -26,9 +26,9 @@
                   (ref-get cell))))
          saved)))
 (def left
-     (make-counter 40 #f))
+     (make-counter (ann 40 I64) #f))
 (def right
-     (make-counter 100 #f))
+     (make-counter (ann 100 I64) #f))
 (def make-next
      (lambda (seed)
        ((begin (let cell (ref seed))
@@ -42,16 +42,16 @@
                       (lambda () (lambda (amount) ((begin step) amount))))
                  build)))))
 (def next
-     (make-next 40))
+     (make-next (ann 40 I64)))
 
 (def checked (-> I64)
-     (lambda () ((make-counter 0 #t) 1)))
+     (lambda () ((make-counter (ann 0 I64) #t) (ann 1 I64))))
 
 (def observed (-> I64)
      (lambda () (ref-get calls)))
 
-(if (if (= (left 1) 41)
-        (if (= (right 2) 102) (if (= (left 1) 42) (if (= (next 1) 41) (= (next 1) 42) #f) #f) #f)
+(if (if (= (left (ann 1 I64)) (ann 41 I64))
+        (if (= (right (ann 2 I64)) (ann 102 I64)) (if (= (left (ann 1 I64)) (ann 42 I64)) (if (= (next (ann 1 I64)) (ann 41 I64)) (= (next (ann 1 I64)) (ann 42 I64)) #f) #f) #f)
         #f)
-    42
-    0)
+    (ann 42 I64)
+    (ann 0 I64))

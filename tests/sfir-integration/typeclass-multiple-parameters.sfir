@@ -4,8 +4,8 @@
 (def sfir-migration-instance-2 (instance (Convert I64 F64) (convert i64->f64)))
 
 (def narrow I32
-     (convert 42))
+     (convert (ann 42 I64)))
 
 (def floating F64
-     (convert 42))
-(if (if (= narrow (ann 42 I32)) (= floating 42.0) #f) 42 (unreachable))
+     (convert (ann 42 I64)))
+(if (if (= narrow (ann 42 I32)) (= floating 42.0) #f) (ann 42 I64) (unreachable))

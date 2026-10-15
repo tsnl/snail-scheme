@@ -7,7 +7,7 @@
 (def early
      ((make #t)))
 (def later
-     42)
+     (ann 42 I64))
 (def late
-     (make 1))
+     (make (ann 1 I64)))
 early

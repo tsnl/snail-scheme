@@ -8,4 +8,4 @@
      (lambda (value) (helper value)))
 (define-overload g (-> I64 Bool) (lambda (value) #t))
 (define-overload g (lambda (value) (bridge value)))
-(if (if (ann (g 42) Bool) (= (ann (g 42) I64) 42) #f) 42 (unreachable))
+(if (if (ann (g (ann 42 I64)) Bool) (= (ann (g (ann 42 I64)) I64) (ann 42 I64)) #f) (ann 42 I64) (unreachable))

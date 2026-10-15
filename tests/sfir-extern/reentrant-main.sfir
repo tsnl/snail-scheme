@@ -4,4 +4,4 @@
 (def worker (-> I32 I32)
      (lambda (value) value))
 (callback)
-42
+(ann 42 I64)

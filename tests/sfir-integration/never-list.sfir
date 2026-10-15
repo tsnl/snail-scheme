@@ -1,4 +1,4 @@
 (import (sfir base))
 (def empty
      (ann (empty-list ) (List Never)))
-(if (null? empty) 42 (begin (car empty) 0))
+(if (null? empty) (ann 42 I64) (begin (car empty) (ann 0 I64)))

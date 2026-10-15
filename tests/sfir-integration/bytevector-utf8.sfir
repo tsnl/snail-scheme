@@ -9,7 +9,7 @@
 (def decoded
      (utf8->string encoded))
 (def empty1
-     (utf8->string #u8(194 128) 1 1))
+     (utf8->string #u8(194 128) (ann 1 I64) (ann 1 I64)))
 (def empty2
      (utf8->string #u8()))
 (def bytes-match?
@@ -20,28 +20,28 @@
                   (lambda (index)
                     (if (= index (bytevector-length a))
                         #t
-                        (if (= (bytevector-u8-ref a index) (bytevector-u8-ref b index)) (loop (+ index 1)) #f))))
-             (loop 0))
+                        (if (= (bytevector-u8-ref a index) (bytevector-u8-ref b index)) (loop (+ index (ann 1 I64))) #f))))
+             (loop (ann 0 I64)))
            #f)))
 (def large
-     (make-string 17000 #\λ))
-(string-set! large 8192 #\x1f600)
+     (make-string (ann 17000 I64) #\λ))
+(string-set! large (ann 8192 I64) #\x1f600)
 (def large-copy
      (utf8->string (string->utf8 large)))
 (def stable
      (if (bytes-match? actual encoded) (string=? decoded scalars) #f))
-(bytevector-u8-set! actual 0 42)
-(string-set! decoded 0 #\A)
+(bytevector-u8-set! actual (ann 0 I64) (ann 42 I64))
+(string-set! decoded (ann 0 I64) #\A)
 (if (if stable
         (if (string=? large-copy large)
-            (if (= (bytevector-u8-ref encoded 0) 0)
-                (if (char=? (string-ref scalars 0) #\null)
+            (if (= (bytevector-u8-ref encoded (ann 0 I64)) (ann 0 I64))
+                (if (char=? (string-ref scalars (ann 0 I64)) #\null)
                     (if (not (string-eq? empty1 empty2))
                         (if (not (bytevector-eq? (string->utf8 "") (string->utf8 "")))
-                            (if (string=? (utf8->string #u8(255 65 194 128 255) 1 4) "A\x80;")
-                                (if (bytes-match? (string->utf8 "Aé😀Z" 1 3) #u8(195 169 240 159 152 128))
-                                    (if (bytes-match? (string->utf8 "Aé" 1) #u8(195 169))
-                                        (string=? (utf8->string #u8(65 195 169) 1) "é")
+                            (if (string=? (utf8->string #u8(255 65 194 128 255) (ann 1 I64) (ann 4 I64)) "A\x80;")
+                                (if (bytes-match? (string->utf8 "Aé😀Z" (ann 1 I64) (ann 3 I64)) #u8(195 169 240 159 152 128))
+                                    (if (bytes-match? (string->utf8 "Aé" (ann 1 I64)) #u8(195 169))
+                                        (string=? (utf8->string #u8(65 195 169) (ann 1 I64)) "é")
                                         #f)
                                     #f)
                                 #f)
@@ -51,5 +51,5 @@
                 #f)
             #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

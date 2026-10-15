@@ -1,7 +1,7 @@
 (import (sfir base))
 (def Cell (datatype ( T) (cell (value (Ref T) cell-ref))))
 (def x
-     (cell (ref 1)))
+     (cell (ref (ann 1 I64))))
 (def alias
      x)
 (ref-set! (cell-ref alias) #t)

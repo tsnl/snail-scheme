@@ -3,4 +3,4 @@
 
 (def abstract (All (A) (=> ((convert (-> A Bool))) (-> A Bool)))
      (lambda (value) (convert value)))
-42
+(ann 42 I64)

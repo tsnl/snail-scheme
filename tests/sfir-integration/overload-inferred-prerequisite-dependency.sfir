@@ -5,4 +5,4 @@
   (All (A R) (=> ((target (-> A R))) (-> A R)))
   (lambda (value) (target value)))
 (define-overload target (lambda (value) value))
-(if (ann (wrapper 42) Bool) (ann (wrapper 42) I64) (unreachable))
+(if (ann (wrapper (ann 42 I64)) Bool) (ann (wrapper (ann 42 I64)) I64) (unreachable))

@@ -1,2 +1,2 @@
 (import (sfir base))
-(string-set! (make-string 1) 0 65)
+(string-set! (make-string (ann 1 I64)) (ann 0 I64) (ann 65 I64))

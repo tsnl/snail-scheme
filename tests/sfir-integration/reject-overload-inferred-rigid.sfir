@@ -3,4 +3,4 @@
 
 (def impossible (All (T) (-> T Bool))
      (lambda (value) (identity value)))
-42
+(ann 42 I64)

@@ -1,13 +1,13 @@
 (import (sfir base))
 
 (def effects
-     (ref 0))
+     (ref (ann 0 I64)))
 (def x
-     40)
+     (ann 40 I64))
 (def make-probe
      (lambda ()
-       (begin (let sfir-migration-let-1 (begin (ref-set! effects (+ (ref-get effects) 1)) 1))
-              (let sfir-migration-let-2 (begin (ref-set! effects (+ (ref-get effects) 10))
+       (begin (let sfir-migration-let-1 (begin (ref-set! effects (+ (ref-get effects) (ann 1 I64))) (ann 1 I64)))
+              (let sfir-migration-let-2 (begin (ref-set! effects (+ (ref-get effects) (ann 10 I64)))
                                                (lambda () x)))
               (let x sfir-migration-let-1)
               (let outer sfir-migration-let-2)

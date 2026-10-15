@@ -1,16 +1,16 @@
 (import (sfir base))
 
 (def state
-     (ref 0))
+     (ref (ann 0 I64)))
 (def wide
      (lambda ()
-       (begin (ref-set! state (+ (ref-get state) 1)) 7)))
+       (begin (ref-set! state (+ (ref-get state) (ann 1 I64))) (ann 7 I64))))
 (def narrow
      (lambda ()
-       (begin (ref-set! state (+ (ref-get state) 1)) (ann 7 I32))))
+       (begin (ref-set! state (+ (ref-get state) (ann 1 I64))) (ann 7 I32))))
 (def flag
      (lambda ()
-       (begin (ref-set! state (+ (ref-get state) 1)) #t)))
+       (begin (ref-set! state (+ (ref-get state) (ann 1 I64))) #t)))
 (def discard-wide
      (lambda () (if #t
                     (begin (wide)

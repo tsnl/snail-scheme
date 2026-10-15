@@ -15,7 +15,7 @@
            (begin
              (write-string "\x0;λ😀\x10ffff;" port)
              (write-char #\newline port)
-             42)))))
+             (ann 42 I64))))))
 
 (def callback-result (-> F64)
      (lambda ()
@@ -41,7 +41,7 @@
      (lambda ()
        (call-with-output-file "self-close.txt"
          (lambda (port)
-           (begin (write-string "closed" port) (close-output-port port) 19)))))
+           (begin (write-string "closed" port) (close-output-port port) (ann 19 I64))))))
 
 ;; ---- Each failure runs in a fresh, terminal instance ----
 

@@ -2,4 +2,4 @@
 (def exercise
      (lambda (x)
        ((begin (let y x) (lambda () y)))))
-(exercise 42)
+(exercise (ann 42 I64))

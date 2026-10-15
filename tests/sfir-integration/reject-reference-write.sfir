@@ -1,5 +1,5 @@
 (import (sfir base))
 (def cell
-     (ref 0))
+     (ref (ann 0 I64)))
 (ref-set! cell #t)
 (ref-get cell)

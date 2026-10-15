@@ -1,0 +1,334 @@
+{
+  "format": 1,
+  "policy_base": "045f7e2e4e3885de183329716f8f970be5d56e73",
+  "performance_samples": false,
+  "migration": {
+    "path": "/tmp/snail-sfir-literal-width-policy-20261015/tests/sfir-literal-widths/migration.json",
+    "sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b"
+  },
+  "accepted_inference": {
+    "passed": 349,
+    "expected": 349,
+    "canonical_benchmark_mains": 55,
+    "record": {
+      "path": "/tmp/sfir-width-policy-evidence-20261015/after-results.json",
+      "sha256": "78b192609f3302576db801a3c2cb4780fd9e2aa34ce0bf6b13fdb4e83b6aa714"
+    }
+  },
+  "rejection_prefixes": {
+    "rejected": 173,
+    "expected": 173,
+    "record": {
+      "path": "/tmp/sfir-width-policy-evidence-20261015/after-prefix-results.json",
+      "sha256": "9f8df2451d11ec7bb320e070117e506a993596ff33e374315e4a4f9db7b63cd3"
+    }
+  },
+  "literal_values": {
+    "completed": 13175,
+    "source_records": 393,
+    "widths_preserved": true,
+    "target_values_preserved": true,
+    "intentional_overflow_before_construction": 2,
+    "precision_control": {
+      "path": "/tmp/sfir-width-policy-evidence-20261015/precision-control/comparison.json",
+      "sha256": "84c920b70868f1c371b3316632437bed3f673f2db46112eead555116b5512006"
+    }
+  },
+  "source_edits": {
+    "audited_records": 395,
+    "inventoried_annotations": 5556,
+    "manual_host_annotations": 20,
+    "token_tree_unchanged_except_inventoried_annotations": true,
+    "record": {
+      "path": "/tmp/sfir-width-policy-evidence-20261015/source-edit-audit.json",
+      "sha256": "f5748b2cc98fe564ffc9df30281442c26f5f65025196679aa8dd9d6e8dd51343"
+    }
+  },
+  "focused_width_contracts": {
+    "inference_rejections": 15,
+    "raw_optimized_and_native_cases": 2,
+    "identical_optimized_guest_bytes": true,
+    "native_forced_gc": true,
+    "record": {
+      "path": "/tmp/snail-sfir-literal-width-policy-20261015/build/sfir-literal-widths/attempt-zp5kgc3_/results.json",
+      "sha256": "fbeca04592f63e089386b4af4687233d1b5a7677fb4c318c3fc1ef336399fd79"
+    }
+  },
+  "existing_integration": {
+    "passed": 315,
+    "expected": 315,
+    "raw_and_optimized_execution": true,
+    "record": {
+      "path": "/tmp/snail-sfir-literal-width-policy-20261015/build/sfir-integration-widths/results.json",
+      "sha256": "95d59457e8b588eb6cad37034efecaa9e002cea8aeda559b0e6ce3a2961274c8"
+    }
+  },
+  "rejection_boundaries": {
+    "compared": 115,
+    "same_located_diagnostic": 111,
+    "later_specialization_rejections_with_unchanged_predicates": [
+      "reject-vector-unresolved-empty",
+      "reject-vector-default-unresolved",
+      "reject-overload-no-class-guess",
+      "reject-data-layout-growth"
+    ],
+    "record": {
+      "path": "/tmp/sfir-width-policy-evidence-20261015/rejection-comparison.json",
+      "sha256": "10de7402d2c2a392553651d059de3b3e6b7307b7f355b5d0d5cdcc1494c4dc37"
+    }
+  },
+  "host_and_style": [
+    {
+      "command": "make test",
+      "exit_status": 0,
+      "log": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/make-test.log",
+        "sha256": "539e4ba627587ce7d88ce2f2ca449c600eb9ee1e288c215f1e4c2e8e5eb7f756"
+      }
+    },
+    {
+      "command": "make check",
+      "exit_status": 0,
+      "log": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/make-check-final3.log",
+        "sha256": "26fe945c5a142fd32398b8df1986d71b6cb2ba4020818d34e749f3e6cee82c3c"
+      }
+    }
+  ],
+  "gates": [
+    {
+      "name": "0-test-sfir",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/0-test-sfir/record.json",
+        "sha256": "5829f5051db25fa5554e86464202c0553d83beedde86db63d250323802c724eb"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "1-test-sfir-entry",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/1-test-sfir-entry/record.json",
+        "sha256": "eceb99d603e5a2057fe052b2b4b31b3e9e8c6084e0811fd3c9d751ef4f4bb5e1"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-entry"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "10-test-sfir-write",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/10-test-sfir-write/record.json",
+        "sha256": "61c4a9ee834e681a29f8dbc77dd0736671ea46f03543980d87bff3edce7d77da"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-write"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "11-test-native",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/11-test-native/record.json",
+        "sha256": "874e7c29551649e1d223d9d0848dfcdd2f4fe12f3d35fe0d3e6501b56dfe8216"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-native"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "12-command.py",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/12-command.py/record.json",
+        "sha256": "cf70060945e77efdd2792e72ba42b5e8e9604c928885aa9475ea550d3dbcec5a"
+      },
+      "command": [
+        "python3",
+        "/tmp/snail-sfir-literal-width-policy-20261015/tests/sfir/command.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "13-check.py",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/13-check.py/record.json",
+        "sha256": "9c4af66302026b33810ff38ed363ae0f388ed4d37450258ed30ed16102629d35"
+      },
+      "command": [
+        "python3",
+        "/tmp/snail-sfir-literal-width-policy-20261015/tests/sfir-recursion/check.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "14-check.py",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/14-check.py/record.json",
+        "sha256": "546fcf76b2dcbad01b8ab3dba6e6cd13b615f8f16843e280db0941c41da942b8"
+      },
+      "command": [
+        "python3",
+        "/tmp/snail-sfir-literal-width-policy-20261015/tests/sfir-instances/check.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "2-test-sfir-extern",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/2-test-sfir-extern/record.json",
+        "sha256": "d33d871ef0481c8136d34768932110ccaa8d08858c908a0752da236111b2bea4"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-extern"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "3-test-sfir-bytes",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/3-test-sfir-bytes/record.json",
+        "sha256": "b5abc64500eb905d0dbd68322cbc14f5312403389143d3dab73aba149986d1ed"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-bytes"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "4-test-sfir-integer",
+      "passed": false,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/4-test-sfir-integer/record.json",
+        "sha256": "20e4397b2b8c8e07a77362cb312b11d25de896267488b048aed754074c27046c"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-integer"
+      ],
+      "returncode": 1
+    },
+    {
+      "name": "5-test-sfir-io",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/5-test-sfir-io/record.json",
+        "sha256": "33173d39239692b8c48e2cd9bc3433a9fe619096b2cd1f48a1e67af84df13652"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-io"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "6-test-sfir-math",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/6-test-sfir-math/record.json",
+        "sha256": "b1ea4727cd277d6582f619185018d41ffd81d29a8617d88765ddf8ce120bf9eb"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-math"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "7-test-sfir-numbers",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/7-test-sfir-numbers/record.json",
+        "sha256": "f62bf27b0999624397bc3803ada091fcaf5f0ad911fa7fdda55a1efcf4bc1794"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-numbers"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "8-test-sfir-reader",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/8-test-sfir-reader/record.json",
+        "sha256": "f169d406a5a13e7fca89e9dcc46502c0c5c6fb68e407a88719ad280b082036e0"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-reader"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "9-test-sfir-text",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/9-test-sfir-text/record.json",
+        "sha256": "3beaeba238496a8349954175d061a29d378d82e7173ada0e25c422f5b77a75f9"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-text"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "integer-selector-retry",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/integer-selector-retry/record.json",
+        "sha256": "209374d092433d13039a3d8a7e2f918d60622ecb0e35847c173bbede3fbe5db3"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-integer",
+        "--output",
+        "/tmp/snail-sfir-literal-width-policy-20261015/build/sfir-integer-widths-retry"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "number-domain",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/number-domain/record.json",
+        "sha256": "a7604cc8740e54b6fecb38cfa36fbfd4a6a00f37d3fc1334fe3303cdbd33e0e9"
+      },
+      "command": [
+        "/tmp/snail-sfir-literal-width-policy-20261015/scripts/test-sfir-numbers",
+        "--domain",
+        "--output",
+        "/tmp/snail-sfir-literal-width-policy-20261015/build/sfir-number-domain-widths"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "scalar-services",
+      "passed": true,
+      "record": {
+        "path": "/tmp/sfir-width-policy-evidence-20261015/gates/commands/scalar-services/record.json",
+        "sha256": "833fbbc196cccd28f5d8b9c80cfbc4b482e18c59220968e055eccaa9e5c2300e"
+      },
+      "command": [
+        "python3",
+        "/tmp/snail-sfir-literal-width-policy-20261015/tests/sfir/scalar-services.py"
+      ],
+      "returncode": 0
+    }
+  ],
+  "corrected_attempt": "The first Integer gate stopped at its source-shape regex before compilation. The corrected check recognizes explicit I64 selectors and still proves complete production/small-radix source equality apart from the two constants. integer-selector-retry passed the full unit and oracle suite; the first record remains retained.",
+  "corpus_provenance": {
+    "cases": 57,
+    "source_input_and_external_control_hashes_verified": true,
+    "historical_results_unchanged": true,
+    "fresh_canonical_runtime_validation": "not claimed",
+    "fresh_measurements": "not claimed"
+  },
+  "review": "Fresh independent no-files literal-width model and behavioral debate; informed implementation critique retained nonliteral expected-type inference. Parent reviewed the implementation diff with no code concerns."
+}

@@ -1,6 +1,6 @@
 (import (sfir base))
 (def increment
-     (lambda (x) (+ x 1)))
+     (lambda (x) (+ x (ann 1 I64))))
 (def twice
      (lambda (f x) (f (f x))))
-(twice increment 40)
+(twice increment (ann 40 I64))

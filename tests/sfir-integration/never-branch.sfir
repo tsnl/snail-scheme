@@ -1,2 +1,2 @@
 (import (sfir base))
-(if #t 42 (unreachable))
+(if #t (ann 42 I64) (unreachable))

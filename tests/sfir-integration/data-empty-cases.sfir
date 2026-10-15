@@ -18,8 +18,8 @@
 (def right
      (ref first))
 (ref-set! left (alternate))
-(+ (+ (if (ref-eq? left right) -100 10)
-      (match (ref-get left) ((absent) -100) ((alternate) 12) ((value item) -100)))
-   (+ (match (ref-get right) ((absent) 7) ((alternate) -100) ((value item) -100))
-      (+ (match second ((absent) 8) ((alternate) -100) ((value item) -100))
-         (match marker ((empty) 5)))))
+(+ (+ (if (ref-eq? left right) (ann -100 I64) (ann 10 I64))
+      (match (ref-get left) ((absent) (ann -100 I64)) ((alternate) (ann 12 I64)) ((value item) (ann -100 I64))))
+   (+ (match (ref-get right) ((absent) (ann 7 I64)) ((alternate) (ann -100 I64)) ((value item) (ann -100 I64)))
+      (+ (match second ((absent) (ann 8 I64)) ((alternate) (ann -100 I64)) ((value item) (ann -100 I64)))
+         (match marker ((empty) (ann 5 I64))))))

@@ -2,8 +2,8 @@
 
 (def make-probe
      (lambda (start)
-       (begin (let sfir-migration-let-1 (+ start 1))
-              (let sfir-migration-let-2 (vector start (+ start 2)))
+       (begin (let sfir-migration-let-1 (+ start (ann 1 I64)))
+              (let sfir-migration-let-2 (vector start (+ start (ann 2 I64))))
               (let sfir-migration-let-3 (ref start))
               (let value sfir-migration-let-1)
               (let items sfir-migration-let-2)
@@ -13,11 +13,11 @@
                      (lambda (delta)
                        (begin
                          (ref-set! shared (+ (ref-get shared) delta))
-                         (+ value (+ (vector-ref items 1) (ref-get shared))))))
+                         (+ value (+ (vector-ref items (ann 1 I64)) (ref-get shared))))))
                 (lambda (delta) (advance delta))))))
 
 (def first
-     (make-probe 10))
+     (make-probe (ann 10 I64)))
 (def second
-     (make-probe 20))
-(+ (first 1) (+ (first 2) (second 3)))
+     (make-probe (ann 20 I64)))
+(+ (first (ann 1 I64)) (+ (first (ann 2 I64)) (second (ann 3 I64))))

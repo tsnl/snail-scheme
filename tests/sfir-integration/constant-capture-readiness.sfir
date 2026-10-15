@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def effects
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def checked (-> I64)
      (lambda ()
@@ -9,16 +9,16 @@
          (def read-later
               (lambda ()
                 (begin
-                  (ref-set! effects (+ (ref-get effects) 1))
+                  (ref-set! effects (+ (ref-get effects) (ann 1 I64)))
                   later)))
          (def invoke
               read-later)
          (def early
               (invoke))
          (def later
-              42)
+              (ann 42 I64))
          early)))
 
 (def observed (-> I64)
      (lambda () (ref-get effects)))
-42
+(ann 42 I64)

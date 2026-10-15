@@ -2,4 +2,4 @@
 
 (def add (All (T) (-> T T))
      (lambda (value) (+ value value)))
-0
+(ann 0 I64)

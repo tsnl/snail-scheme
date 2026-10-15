@@ -1,2 +1,2 @@
 (import (sfir base))
-(make-vector 1)
+(make-vector (ann 1 I64))

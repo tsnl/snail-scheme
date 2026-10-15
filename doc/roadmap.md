@@ -22,9 +22,12 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Evaluate every instance method initializer in source order, including
   unused aliases. Type immediate lambda calls by the ordinary rank-one call
   rule; sequential bindings retain their own generalization rules.
-- [ ] Default numeric literals to I32/F64. Only a direct literal annotation or
+- [x] Default numeric literals to I32/F64. Only a direct literal annotation or
   binding annotation selects another width; computed values require explicit
-  conversion. Check representation overflow at literals and runtime operations.
+  conversion. Preserve existing source representations through audited annotations.
+- [x] Decode numeric source spellings exactly, round once to the selected IEEE
+  width and reject representation overflow at literal construction.
+- [ ] Check representation overflow in runtime arithmetic and conversions.
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.

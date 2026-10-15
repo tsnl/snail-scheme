@@ -7,14 +7,14 @@
 (def invoke
      (lambda (operation value) (operation value)))
 (def original
-     (vector 40 2))
+     (vector (ann 40 I64) (ann 2 I64)))
 (def copied
      (copy-twice original))
 (def flags
      (invoke copy-value (vector #t #f)))
-(vector-set! copied 0 0)
+(vector-set! copied (ann 0 I64) (ann 0 I64))
 (if (if (not (vector-eq? original copied))
-        (if (vector-ref flags 0) (not (vector-ref flags 1)) #f)
+        (if (vector-ref flags (ann 0 I64)) (not (vector-ref flags (ann 1 I64))) #f)
         #f)
-    (+ (vector-ref original 0) (vector-ref original 1))
+    (+ (vector-ref original (ann 0 I64)) (vector-ref original (ann 1 I64)))
     (unreachable))

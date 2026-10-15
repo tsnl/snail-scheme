@@ -2,4 +2,4 @@
 
 (def worker (All (T) (-> T T))
      (lambda (x) x))
-42
+(ann 42 I64)

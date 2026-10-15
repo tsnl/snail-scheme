@@ -4,4 +4,4 @@
 
 (def twice (All (T) (=> ((Combine T)) (-> T T)))
      (lambda (x) (combine x x)))
-(twice 21)
+(twice (ann 21 I64))

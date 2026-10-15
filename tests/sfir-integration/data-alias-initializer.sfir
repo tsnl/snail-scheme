@@ -1,11 +1,11 @@
 (import (sfir base))
 (def calls
-     (ref 0))
+     (ref (ann 0 I64)))
 (def Box (datatype ( T) (box (value T unbox))))
 (def make
-     (begin (ref-set! calls (+ (ref-get calls) 1)) box))
+     (begin (ref-set! calls (+ (ref-get calls) (ann 1 I64))) box))
 (def first
-     (make 40))
+     (make (ann 40 I64)))
 (def second
-     (make (+ (unbox first) 2)))
-(if (= (ref-get calls) 1) (unbox second) (unreachable))
+     (make (+ (unbox first) (ann 2 I64))))
+(if (= (ref-get calls) (ann 1 I64)) (unbox second) (unreachable))

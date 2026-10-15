@@ -26,7 +26,7 @@
 
     (def mutable-output? (-> Datum Bool)
          (lambda (value)
-           (begin (let kind (datum-kind value)) (if (= kind 3) #t (if (= kind 6) #t (if (= kind 7) #t (= kind 8)))))))
+           (begin (let kind (datum-kind value)) (if (= kind (ann 3 I64)) #t (if (= kind (ann 6 I64)) #t (if (= kind (ann 7 I64)) #t (= kind (ann 8 I64))))))))
     ;; A nonempty result starts with the matching entry; an empty list is absent.
 
     (def find-output-node (-> Datum (List OutputNode) (List OutputNode))
@@ -37,7 +37,7 @@
 
     (def inspect-output-graph (-> Datum OutputGraph)
          (lambda (value)
-           (begin (let graph (output-graph (ref (empty-list )) (ref #f) (ref 0)))
+           (begin (let graph (output-graph (ref (empty-list )) (ref #f) (ref (ann 0 I64))))
                   (begin
                     (scan-output-value value (scan-done) graph) graph))))
 
@@ -66,7 +66,7 @@
                (continue-output-scan pending graph)
                (begin (let found (find-output-node value (ref-get (output-graph-nodes graph))))
                       (if (null? found)
-                          (begin (let node (output-node value (ref #t) (ref #f) (ref -1)))
+                          (begin (let node (output-node value (ref #t) (ref #f) (ref (ann -1 I64))))
                                  (begin
                                    (ref-set! (output-graph-nodes graph) (cons node (ref-get (output-graph-nodes graph))))
                                    (scan-output-children value (scan-leave node pending) graph)))
@@ -75,17 +75,17 @@
     (def scan-output-children (-> Datum OutputScan OutputGraph Unit)
          (lambda (value pending graph)
            (begin (let kind (datum-kind value))
-                  (if (= kind 6)
+                  (if (= kind (ann 6 I64))
                       (scan-output-value (datum-car value) (scan-value (datum-cdr value) pending) graph)
-                      (if (= kind 7)
-                          (scan-output-elements (datum-vector-values value) 0 pending graph)
+                      (if (= kind (ann 7 I64))
+                          (scan-output-elements (datum-vector-values value) (ann 0 I64) pending graph)
                           (continue-output-scan pending graph))))))
 
     (def scan-output-elements (-> (Vector Datum) I64 OutputScan OutputGraph Unit)
          (lambda (values index pending graph)
            (if (= index (vector-length values))
                (continue-output-scan pending graph)
-               (scan-output-value (vector-ref values index) (scan-elements values (+ index 1) pending) graph))))
+               (scan-output-value (vector-ref values index) (scan-elements values (+ index (ann 1 I64)) pending) graph))))
 
     ;; ---- First-output order assigns labels only when a cycle exists ----
 
@@ -107,7 +107,7 @@
            (begin (let label (ref-get (output-graph-next-label graph)))
                   (begin
                     (ref-set! (output-node-label node) label)
-                    (ref-set! (output-graph-next-label graph) (+ label 1)) label))))
+                    (ref-set! (output-graph-next-label graph) (+ label (ann 1 I64))) label))))
     ;; Return true after a reference; false after a definition or unlabelled value.
     ;; Assigning before any child is what makes a later cycle edge terminate.
 
@@ -117,7 +117,7 @@
                #f
                (begin (let node (car (find-output-node value (ref-get (output-graph-nodes graph)))))
                       (begin (let old (ref-get (output-node-label node)))
-                             (begin (let reference? (>= old 0))
+                             (begin (let reference? (>= old (ann 0 I64)))
                                     (begin (let label (if reference? old (claim-output-label! node graph)))
                                            (begin
                                              (write-char #\# port) (write-i64 label port)
@@ -160,10 +160,10 @@
                  (write-char #\( port)
                  (emit-output-value (datum-car value) display? port graph
                                     (output-tail (datum-cdr value) (output-close pending))))
-               (if (= (datum-kind value) 7)
+               (if (= (datum-kind value) (ann 7 I64))
                    (begin
                      (write-string "#(" port)
-                     (emit-output-elements (datum-vector-values value) 0 display? port graph (output-close pending)))
+                     (emit-output-elements (datum-vector-values value) (ann 0 I64) display? port graph (output-close pending)))
                    (begin (write-output-atom value display? port) (continue-output pending display? port graph))))))
 
     (def emit-output-tail (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
@@ -182,12 +182,12 @@
            (if (= index (vector-length values))
                (continue-output pending display? port graph)
                (begin
-                 (if (> index 0)
+                 (if (> index (ann 0 I64))
                      (begin (write-char #\space port)
                             (unit))
                      (unit))
                  (emit-output-value (vector-ref values index) display? port graph
-                                    (output-elements values (+ index 1) pending))))))
+                                    (output-elements values (+ index (ann 1 I64)) pending))))))
 
     ;; ---- Reader-compatible atomic spelling and recursive display ----
 
@@ -196,36 +196,36 @@
     (def write-output-atom (-> Datum Bool OutputPort Unit)
          (lambda (value display? port)
            (begin (let kind (datum-kind value))
-                  (if (= kind 0)
+                  (if (= kind (ann 0 I64))
                       (write-string "()" port)
-                      (if (= kind 1)
+                      (if (= kind (ann 1 I64))
                           (write-string (if (datum-boolean-value value) "#t" "#f") port)
-                          (if (= kind 2)
+                          (if (= kind (ann 2 I64))
                               (write-output-character (datum-character-value value) display? port)
-                              (if (= kind 3)
+                              (if (= kind (ann 3 I64))
                                   (if display?
                                       (write-string (datum-string-value value) port)
                                       (write-delimited-text (datum-string-value value) #\" port))
-                                  (if (= kind 4)
+                                  (if (= kind (ann 4 I64))
                                       (write-output-symbol (datum-symbol-value value) display? port)
-                                      (if (= kind 5)
+                                      (if (= kind (ann 5 I64))
                                           (write-string (number->string (datum-number-value value)) port)
-                                          (if (= kind 8)
+                                          (if (= kind (ann 8 I64))
                                               (write-output-bytes (datum-bytevector-values value) port)
                                               (datum-fail "write: expected an atomic datum")))))))))))
 
     (def control-character? (-> Char Bool)
          (lambda (character)
-           (begin (let code (char->integer character)) (if (< code 32) #t (if (>= code 127) (<= code 159) #f)))))
+           (begin (let code (char->integer character)) (if (< code (ann 32 I64)) #t (if (>= code (ann 127 I64)) (<= code (ann 159 I64)) #f)))))
 
     (def write-hex-digits (-> I64 OutputPort Unit)
          (lambda (value port)
            (begin
-             (if (< value 16)
+             (if (< value (ann 16 I64))
                  (unit)
-                 (begin (write-hex-digits (quotient value 16) port)
+                 (begin (write-hex-digits (quotient value (ann 16 I64)) port)
                         (unit)))
-             (write-char (string-ref "0123456789abcdef" (remainder value 16)) port))))
+             (write-char (string-ref "0123456789abcdef" (remainder value (ann 16 I64))) port))))
 
     (def write-output-character (-> Char Bool OutputPort Unit)
          (lambda (character display? port)
@@ -254,8 +254,8 @@
                     (lambda (index)
                       (if (= index (string-length text))
                           (write-char delimiter port)
-                          (begin (write-escaped-character (string-ref text index) delimiter port) (loop (+ index 1))))))
-               (loop 0)))))
+                          (begin (write-escaped-character (string-ref text index) delimiter port) (loop (+ index (ann 1 I64)))))))
+               (loop (ann 0 I64))))))
 
     (def write-escaped-character (-> Char Char OutputPort Unit)
          (lambda (character delimiter port)
@@ -297,12 +297,12 @@
                       (if (= index (bytevector-length bytes))
                           (write-char #\) port)
                           (begin
-                            (if (> index 0)
+                            (if (> index (ann 0 I64))
                                 (begin (write-char #\space port)
                                        (unit))
                                 (unit))
-                            (write-i64 (bytevector-u8-ref bytes index) port) (loop (+ index 1))))))
-               (loop 0)))))
+                            (write-i64 (bytevector-u8-ref bytes index) port) (loop (+ index (ann 1 I64)))))))
+               (loop (ann 0 I64))))))
 
     ;; ---- Default output is an ordinary call to the stable stdout port ----
 
@@ -332,4 +332,4 @@
                                              #f))))))))
 
     (def test-write (-> I64)
-         (lambda () (if (test-output-graph) 42 0)))))
+         (lambda () (if (test-output-graph) (ann 42 I64) (ann 0 I64))))))

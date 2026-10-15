@@ -42,12 +42,12 @@
            (begin
              (def loop
                   (lambda (index count)
-                    (if (> count 4294967294)
+                    (if (> count (ann 4294967294 I64))
                         (unreachable)
                         (if (= index (string-length source))
                             count
-                            (loop (+ index 1) (+ count (i32->i64 (full-fold-length (string-ref source index)))))))))
-             (loop 0 0))))
+                            (loop (+ index (ann 1 I64)) (+ count (i32->i64 (full-fold-length (string-ref source index)))))))))
+             (loop (ann 0 I64) (ann 0 I64)))))
 
     (def copy-folded-character! (-> String I64 Char I64)
          (lambda (target offset character)
@@ -59,7 +59,7 @@
                                position
                                (begin
                                  (string-set! target position (full-fold-scalar character component))
-                                 (loop (i32-add component (ann 1 I32)) (+ position 1))))))
+                                 (loop (i32-add component (ann 1 I32)) (+ position (ann 1 I64)))))))
                     (loop (ann 0 I32) offset)))))
 
     ;; No callbacks or source mutations occur between the two traversals. Their
@@ -73,8 +73,8 @@
                          (lambda (index offset)
                            (if (= index (string-length source))
                                result
-                               (loop (+ index 1) (copy-folded-character! result offset (string-ref source index))))))
-                    (loop 0 0)))))
+                               (loop (+ index (ann 1 I64)) (copy-folded-character! result offset (string-ref source index))))))
+                    (loop (ann 0 I64) (ann 0 I64))))))
 
     ;; ---- First unequal scalar or proper prefix decides ordering ----
 
@@ -96,8 +96,8 @@
                                    (begin (let sfir-migration-let-3 (string-ref left index)) (let sfir-migration-let-4 (string-ref right index))
                                           (let a sfir-migration-let-3)
                                           (let b sfir-migration-let-4)
-                                          (if (char=? a b) (loop (+ index 1)) (char<? a b)))))))
-                    (loop 0)))))
+                                          (if (char=? a b) (loop (+ index (ann 1 I64))) (char<? a b)))))))
+                    (loop (ann 0 I64))))))
 
     ;; ---- Tests ----
 
@@ -120,5 +120,5 @@
                            #f)
                        #f)
                    #f)
-               42
-               0)))))
+               (ann 42 I64)
+               (ann 0 I64))))))

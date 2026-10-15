@@ -3,4 +3,4 @@
      later)
 (def later
      (lambda (x) x))
-42
+(ann 42 I64)

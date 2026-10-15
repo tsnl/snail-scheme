@@ -3,4 +3,4 @@
 
 (def first (All (A) (-> (Tree A) A))
      (lambda (tree) (match tree ((leaf value) value) ((branch left right) (first left)))))
-(first (branch (leaf 11) (leaf 13)))
+(first (branch (leaf (ann 11 I64)) (leaf (ann 13 I64))))

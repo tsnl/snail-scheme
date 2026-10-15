@@ -1,4 +1,4 @@
 (import (sfir base))
-(define-overload result (lambda () 42))
+(define-overload result (lambda () (ann 42 I64)))
 (define-overload result (lambda () #t))
 (result)

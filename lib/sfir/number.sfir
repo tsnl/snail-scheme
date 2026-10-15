@@ -47,7 +47,7 @@
 
     (def scalar-zero? (-> Scalar Bool)
          (lambda (value)
-           (match value ((exact-scalar value) (= value 0))
+           (match value ((exact-scalar value) (= value (ann 0 I64)))
                   ((rational-scalar value) (rational-zero? value)) ((inexact-scalar value) (= value 0.0)))))
 
     (def scalar->f64 (-> Scalar F64)
@@ -74,7 +74,7 @@
     (def number-polar (-> Scalar Scalar Number)
          (lambda (radius angle)
            (if (if (scalar-exact? radius) (scalar-zero? radius) #f)
-               (exact-number 0)
+               (exact-number (ann 0 I64))
                (if (if (scalar-exact? angle) (scalar-zero? angle) #f)
                    (number-from-scalar radius)
                    (begin (let sfir-migration-let-1 (scalar->f64 radius)) (let sfir-migration-let-2 (scalar->f64 angle))
@@ -93,8 +93,8 @@
 
     (def imaginary-component (-> Number Scalar)
          (lambda (value)
-           (match value ((exact-number value) (exact-scalar 0)) ((rational-number value) (exact-scalar 0))
-                  ((inexact-number value) (exact-scalar 0)) ((complex-number real imaginary) imaginary))))
+           (match value ((exact-number value) (exact-scalar (ann 0 I64))) ((rational-number value) (exact-scalar (ann 0 I64)))
+                  ((inexact-number value) (exact-scalar (ann 0 I64))) ((complex-number real imaginary) imaginary))))
 
     (def complex-representation? (-> Number Bool)
          (lambda (value)
@@ -284,42 +284,42 @@
     (def scalar-order (-> Scalar Scalar I64)
          (lambda (left right)
            (if (if (scalar-nan? left) #t (scalar-nan? right))
-               2
+               (ann 2 I64)
                (if (if (scalar-finite? left) (scalar-finite? right) #f)
                    (rational-compare (scalar->rational left) (scalar->rational right))
                    (begin (let sfir-migration-let-11 (scalar->f64 left)) (let sfir-migration-let-12 (scalar->f64 right))
                           (let a sfir-migration-let-11)
                           (let b sfir-migration-let-12)
                           (if (< a b)
-                              -1
+                              (ann -1 I64)
                               (if (> a b)
-                                  1
+                                  (ann 1 I64)
                                   (if (scalar-finite? left)
-                                      (if (< b 0.0) 1 -1)
-                                      (if (scalar-finite? right) (if (< a 0.0) -1 1) 0)))))))))
+                                      (if (< b 0.0) (ann 1 I64) (ann -1 I64))
+                                      (if (scalar-finite? right) (if (< a 0.0) (ann -1 I64) (ann 1 I64)) (ann 0 I64))))))))))
 
     (def number=? (-> Number Number Bool)
          (lambda (left right)
-           (if (= (scalar-order (real-component left) (real-component right)) 0)
-               (= (scalar-order (imaginary-component left) (imaginary-component right)) 0)
+           (if (= (scalar-order (real-component left) (real-component right)) (ann 0 I64))
+               (= (scalar-order (imaginary-component left) (imaginary-component right)) (ann 0 I64))
                #f)))
 
     (def number<? (-> Number Number Bool)
-         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) -1)))
+         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) (ann -1 I64))))
 
     (def number>? (-> Number Number Bool)
-         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) 1)))
+         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) (ann 1 I64))))
 
     (def number<=? (-> Number Number Bool)
          (lambda (left right)
-           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order -1) #t (= order 0)))))
+           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order (ann -1 I64)) #t (= order (ann 0 I64))))))
 
     (def number>=? (-> Number Number Bool)
          (lambda (left right)
-           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order 1) #t (= order 0)))))
+           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order (ann 1 I64)) #t (= order (ann 0 I64))))))
 
     (def number-negative? (-> Number Bool)
-         (lambda (value) (number<? value (exact-number 0))))
+         (lambda (value) (number<? value (exact-number (ann 0 I64)))))
 
     (def number-abs (-> Number Number)
          (lambda (value)
@@ -375,27 +375,27 @@
            (begin
              (def loop
                   (lambda (value count)
-                    (if (> value -10) count (loop (quotient value 10) (+ count 1)))))
-             (loop value 1))))
+                    (if (> value (ann -10 I64)) count (loop (quotient value (ann 10 I64)) (+ count (ann 1 I64))))))
+             (loop value (ann 1 I64)))))
 
     (def i64->string (-> I64 String)
          (lambda (value)
-           (begin (let negative (< value 0))
-                  (begin (let magnitude (if negative value (- 0 value)))
-                         (begin (let count (+ (decimal-digits magnitude) (if negative 1 0)))
+           (begin (let negative (< value (ann 0 I64)))
+                  (begin (let magnitude (if negative value (- (ann 0 I64) value)))
+                         (begin (let count (+ (decimal-digits magnitude) (if negative (ann 1 I64) (ann 0 I64))))
                                 (begin (let text (make-string count))
                                        (begin
                                          (if negative
-                                             (begin (string-set! text 0 #\-)
+                                             (begin (string-set! text (ann 0 I64) #\-)
                                                     (unit))
                                              (unit))
                                          (begin
                                            (def loop
                                                 (lambda (remaining index)
                                                   (begin
-                                                    (string-set! text index (integer->char (- 48 (remainder remaining 10))))
-                                                    (if (> remaining -10) text (loop (quotient remaining 10) (- index 1))))))
-                                           (loop magnitude (- count 1))))))))))
+                                                    (string-set! text index (integer->char (- (ann 48 I64) (remainder remaining (ann 10 I64)))))
+                                                    (if (> remaining (ann -10 I64)) text (loop (quotient remaining (ann 10 I64)) (- index (ann 1 I64)))))))
+                                           (loop magnitude (- count (ann 1 I64)))))))))))
 
     (define-extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
     (define-extern text-length "snail.library" "snail:datum/token-text-length" (-> I32 I32))
@@ -414,8 +414,8 @@
                                        (lambda (at)
                                          (if (= at count)
                                              (begin (text-close handle) result)
-                                             (begin (string-set! result at (text-character handle (i64->i32 at))) (loop (+ at 1))))))
-                                  (loop 0)))))))
+                                             (begin (string-set! result at (text-character handle (i64->i32 at))) (loop (+ at (ann 1 I64)))))))
+                                  (loop (ann 0 I64))))))))
 
     (def scalar->string (-> Scalar String)
          (lambda (value)
@@ -428,7 +428,7 @@
                   (if (not (complex-representation? value))
                       real
                       (begin (let imaginary (scalar->string (imaginary-component value)))
-                             (begin (let first (string-ref imaginary 0))
+                             (begin (let first (string-ref imaginary (ann 0 I64)))
                                     (string-append real (if (if (char=? first #\+) #t (char=? first #\-)) "" "+") imaginary "i")))))))
 
     ;; ---- Static operator families ----
@@ -451,9 +451,9 @@
 
     (def test-number
          (lambda ()
-           (begin (let minimum (exact-number -9223372036854775808))
-                  (begin (let positive (number-divide minimum (exact-number -1)))
-                         (begin (let third (number-from-rational (make-rational (integer-from-i64 1) (integer-from-i64 3))))
+           (begin (let minimum (exact-number (ann -9223372036854775808 I64)))
+                  (begin (let positive (number-divide minimum (exact-number (ann -1 I64))))
+                         (begin (let third (number-from-rational (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 3 I64)))))
                                 (begin
                                   (if (if (string=? (number->string positive) "9223372036854775808")
                                           (if (number=? (number-negate minimum) positive)
@@ -468,4 +468,4 @@
                                       (begin
                                         (unreachable)
                                         (unit)))
-                                  42))))))))
+                                  (ann 42 I64)))))))))

@@ -10,12 +10,12 @@
                        n)
                   (def hold
                        (lambda () (lambda () owned)))
-                  (if (= n 0)
+                  (if (= n (ann 0 I64))
                       (hold)
-                      (begin (let sfir-migration-let-1 (loop (- n 1))) (let sfir-migration-let-2 (hold))
+                      (begin (let sfir-migration-let-1 (loop (- n (ann 1 I64)))) (let sfir-migration-let-2 (hold))
                              (let previous sfir-migration-let-1)
                              (let current sfir-migration-let-2)
                              (lambda () (+ (previous) (current))))))))
          (loop count))))
 
-(+ 6 ((make-probe 8)))
+(+ (ann 6 I64) ((make-probe (ann 8 I64))))

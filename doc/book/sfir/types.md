@@ -126,7 +126,10 @@ The literal annotation rules choose a representation before the unannotated
 literal is synthesized. Thus `(ann 2147483648 I64)` is valid even though
 `2147483648` alone is outside I32's range. A direct numeric literal initializer
 with a binding annotation uses the same rule. Other annotated initializers are
-checked normally. `Unit` is constructed by the ordinary `(unit)` operation with
+checked normally: `(def count I64 (begin 42))` and `(ann (begin 42) I64)` are type
+errors. A declared I64 function result also cannot change a bare body literal's
+I32 type. Boxing `(def value Any 42)` preserves I32, so `(ann value I64)` fails
+its runtime type check. `Unit` is constructed by the ordinary `(unit)` operation with
 signature `(-> Unit)`.
 
 An out-of-range literal is a compile-time error. Arithmetic and conversions must

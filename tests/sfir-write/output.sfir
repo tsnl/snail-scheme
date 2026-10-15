@@ -19,8 +19,8 @@
                                        (begin (let value (read-value! result))
                                               (begin
                                                 (write value written) (newline written)
-                                                (display value shown) (newline shown) (loop (+ count 1))))))))
-                     (loop 0))))))))))
+                                                (display value shown) (newline shown) (loop (+ count (ann 1 I64)))))))))
+                     (loop (ann 0 I64)))))))))))
 
 (def roundtrip (-> Bool)
      (lambda ()
@@ -57,16 +57,16 @@
                      (begin (let pair (datum-pair first rest))
                             (begin (let alias (datum-pair first rest))
                                    (begin (let text (string-copy "s"))
-                                          (begin (let bytes (bytevector 1 2))
+                                          (begin (let bytes (bytevector (ann 1 I64) (ann 2 I64)))
                                                  (begin (let values (vector pair alias (datum-string text) (datum-string text)
                                                                             (datum-bytevector bytes) (datum-bytevector bytes) (datum-null)))
                                                         (begin (let root (datum-vector values))
                                                                (begin
-                                                                 (vector-set! values 6 root)
+                                                                 (vector-set! values (ann 6 I64) root)
                                                                  (output-line root port) (output-line root port)
                                                                  (if (if (datum-eq? pair alias)
-                                                                         (if (datum-eq? (vector-ref values 6) root)
-                                                                             (if (string=? text "s") (= (bytevector-u8-ref bytes 1) 2) #f)
+                                                                         (if (datum-eq? (vector-ref values (ann 6 I64)) root)
+                                                                             (if (string=? text "s") (= (bytevector-u8-ref bytes (ann 1 I64)) (ann 2 I64)) #f)
                                                                              #f)
                                                                          #f)
                                                                      (unit)
@@ -79,7 +79,7 @@
               (begin (let values (vector (datum-cons (named "a") tail) tail (datum-null)))
                      (begin (let root (datum-vector values))
                             (begin
-                              (vector-set! values 2 (datum-vector values))
+                              (vector-set! values (ann 2 I64) (datum-vector values))
                               (output-line root port)))))))
 
 (def graphs (-> Unit)
@@ -96,7 +96,7 @@
              (begin (let values (vector (named "a") (datum-null)))
                     (begin (let root (datum-vector values))
                            (begin
-                             (vector-set! values 1 root) (output-line root port))))
+                             (vector-set! values (ann 1 I64) root) (output-line root port))))
              (cyclic-sharing port) (shared-tail port))))))
 
 (def deep-output (-> Unit)
@@ -106,10 +106,10 @@
            (begin
              (def loop
                   (lambda (depth value)
-                    (if (= depth 0)
+                    (if (= depth (ann 0 I64))
                         (output-line value port)
-                        (loop (- depth 1) (datum-list (datum-vector (vector value)))))))
-             (loop 4096 (named "end")))))))
+                        (loop (- depth (ann 1 I64)) (datum-list (datum-vector (vector value)))))))
+             (loop (ann 4096 I64) (named "end")))))))
 
 ;; ---- Stdout identity and borrowing survive both close entry points ----
 

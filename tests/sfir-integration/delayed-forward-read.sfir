@@ -3,7 +3,7 @@
      (lambda ()
        (begin
          (def delayed
-              (lambda () (later 42)))
+              (lambda () (later (ann 42 I64))))
          (def later
               (lambda (x) x))
          (delayed))))

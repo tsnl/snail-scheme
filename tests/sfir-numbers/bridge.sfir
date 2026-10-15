@@ -33,8 +33,8 @@
                      (lambda (at)
                        (if (= at count)
                            handle
-                           (begin (token-character handle (argument-character (ann 0 I32) at)) (loop (+ at 1))))))
-                (loop 0)))))
+                           (begin (token-character handle (argument-character (ann 0 I32) at)) (loop (+ at (ann 1 I64)))))))
+                (loop (ann 0 I64))))))
 (def argument-radix
      (lambda ()
        (begin
@@ -42,24 +42,24 @@
               (lambda (at value)
                 (if (= at (argument-length (ann 1 I32)))
                     (i64->i32 value)
-                    (loop (+ at 1) (+ (* value 10) (- (char->integer (argument-character (ann 1 I32) at)) 48))))))
-         (loop 0 0))))
+                    (loop (+ at (ann 1 I64)) (+ (* value (ann 10 I64)) (- (char->integer (argument-character (ann 1 I32) at)) (ann 48 I64)))))))
+         (loop (ann 0 I64) (ann 0 I64)))))
 (def emit-natural
      (lambda (value)
        (begin
-         (if (<= value -10)
-             (begin (emit-natural (quotient value 10))
+         (if (<= value (ann -10 I64))
+             (begin (emit-natural (quotient value (ann 10 I64)))
                     (unit))
              (unit))
-         (emit-character (integer->char (- 48 (remainder value 10)))))))
+         (emit-character (integer->char (- (ann 48 I64) (remainder value (ann 10 I64))))))))
 (def emit-integer
      (lambda (value)
        (begin
-         (if (< value 0)
+         (if (< value (ann 0 I64))
              (begin (emit-character #\-)
                     (unit))
              (unit))
-         (emit-natural (if (< value 0) value (- 0 value))))))
+         (emit-natural (if (< value (ann 0 I64)) value (- (ann 0 I64) value))))))
 (def emit-text
      (lambda (handle)
        (begin (let count (i32->i64 (text-length handle)))
@@ -69,9 +69,9 @@
                        (if (= at count)
                            (unit)
                            (begin
-                             (emit-character (text-character handle (i64->i32 at))) (loop (+ at 1))
+                             (emit-character (text-character handle (i64->i32 at))) (loop (+ at (ann 1 I64)))
                              (unit)))))
-                (loop 0)))))
+                (loop (ann 0 I64))))))
 (def emit-real
      (lambda (value)
        (begin (let handle (real-text value))
@@ -85,9 +85,9 @@
                        (if (= at count)
                            (unit)
                            (begin
-                             (emit-character (token-digits-character handle part term (i64->i32 at))) (loop (+ at 1))
+                             (emit-character (token-digits-character handle part term (i64->i32 at))) (loop (+ at (ann 1 I64)))
                              (unit)))))
-                (loop 0)))))
+                (loop (ann 0 I64))))))
 (def emit-fraction
      (lambda (handle part)
        (begin
@@ -100,9 +100,9 @@
        (begin (let kind (i32->i64 (token-kind handle part)))
               (begin
                 (emit-character #\|) (emit-integer kind) (emit-character #\:)
-                (if (= kind 1)
+                (if (= kind (ann 1 I64))
                     (emit-integer (token-integer handle part))
-                    (if (= kind 2) (emit-real (token-real handle part)) (emit-fraction handle part)))))))
+                    (if (= kind (ann 2 I64)) (emit-real (token-real handle part)) (emit-fraction handle part)))))))
 (def emit-error
      (lambda (handle)
        (begin
@@ -114,20 +114,20 @@
                          (if (= at count)
                              (unit)
                              (begin
-                               (emit-character (token-error-character handle (i64->i32 at))) (loop (+ at 1))
+                               (emit-character (token-error-character handle (i64->i32 at))) (loop (+ at (ann 1 I64)))
                                (unit)))))
-                  (loop 0))))))
+                  (loop (ann 0 I64)))))))
 (def emit-classification
      (lambda (handle kind)
        (begin
          (emit-integer kind)
-         (if (= kind 4)
+         (if (= kind (ann 4 I64))
              (emit-error handle)
-             (if (= kind 0)
+             (if (= kind (ann 0 I64))
                  (unit)
                  (begin
                    (emit-scalar handle (ann 0 I32))
-                   (if (if (= kind 3) #t (if (= kind 7) #t (= kind 8)))
+                   (if (if (= kind (ann 3 I64)) #t (if (= kind (ann 7 I64)) #t (= kind (ann 8 I64))))
                        (begin (emit-scalar handle (ann 1 I32))
                               (unit))
                        (unit))
@@ -140,34 +140,34 @@
        (begin (let handle (stage-argument))
               (begin (let kind (i32->i64 (token-parse handle (argument-radix))))
                      (begin
-                       (if (= operation 0)
+                       (if (= operation (ann 0 I64))
                            (emit-classification handle kind)
-                           (if (= operation 2)
+                           (if (= operation (ann 2 I64))
                                (emit-integer (token-integer handle (ann 0 I32)))
-                               (if (= operation 3)
+                               (if (= operation (ann 3 I64))
                                    (emit-real (token-real handle (ann 0 I32)))
-                                   (if (= operation 4)
+                                   (if (= operation (ann 4 I64))
                                        (token-close handle)
-                                       (if (= operation 5)
+                                       (if (= operation (ann 5 I64))
                                            (begin (token-parse handle (ann 10 I32)) (unit))
-                                           (if (= operation 6)
+                                           (if (= operation (ann 6 I64))
                                                (token-character handle #\a)
-                                               (if (= operation 7)
+                                               (if (= operation (ann 7 I64))
                                                    (begin (token-intern handle) (unit))
-                                                   (if (= operation 8)
+                                                   (if (= operation (ann 8 I64))
                                                        (begin (token-close handle) (emit-text handle))
-                                                       (if (= operation 9)
+                                                       (if (= operation (ann 9 I64))
                                                            (emit-fraction handle (ann 0 I32))
-                                                           (if (= operation 10)
+                                                           (if (= operation (ann 10 I64))
                                                                (emit-scalar handle (ann 2 I32))
                                                                (begin
                                                                  (token-close handle)
-                                                                 (if (= operation 11) (emit-scalar handle (ann 0 I32)) (emit-error handle)))))))))))))
+                                                                 (if (= operation (ann 11 I64)) (emit-scalar handle (ann 0 I32)) (emit-error handle)))))))))))))
                        (token-close handle))))))
 
 (def probe (-> I64 F64 F64)
      (lambda (operation value)
        (begin
-         (if (= operation 1) (emit-real value) (probe-token operation))
+         (if (= operation (ann 1 I64)) (emit-real value) (probe-token operation))
          0.0)))
 (unit)

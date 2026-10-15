@@ -3,5 +3,5 @@
 (def value
      (box later))
 (def later
-     7)
+     (ann 7 I64))
 (unbox value)

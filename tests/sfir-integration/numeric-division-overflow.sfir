@@ -1,2 +1,2 @@
 (import (sfir base))
-(quotient -9223372036854775808 -1)
+(quotient (ann -9223372036854775808 I64) (ann -1 I64))

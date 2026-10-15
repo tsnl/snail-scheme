@@ -2,8 +2,8 @@
 
 (def fibonacci (-> I64 I64)
      (lambda (n)
-       (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))
+       (if (< n (ann 2 I64)) n (+ (fibonacci (- n (ann 1 I64))) (fibonacci (- n (ann 2 I64)))))))
 
-(write-i64 (fibonacci 30) (current-output-port))
+(write-i64 (fibonacci (ann 30 I64)) (current-output-port))
 (newline)
-0
+(ann 0 I64)

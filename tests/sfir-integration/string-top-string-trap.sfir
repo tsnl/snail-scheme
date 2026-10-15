@@ -1,2 +1,2 @@
 (import (sfir base))
-(vector-ref (ann (ann "AB" Any) (Vector Char)) 0)
+(vector-ref (ann (ann "AB" Any) (Vector Char)) (ann 0 I64))

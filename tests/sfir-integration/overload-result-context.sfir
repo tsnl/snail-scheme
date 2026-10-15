@@ -6,9 +6,9 @@
 (def float-view
      (ann convert (-> I64 F64)))
 (def value
-     (convert 42))
-(if (if (= (ann (integer-view 42) I64) 42)
-        (if (= (ann (float-view 42) F64) 42.0) (= (f64-add value 0.0) 42.0) #f)
+     (convert (ann 42 I64)))
+(if (if (= (ann (integer-view (ann 42 I64)) I64) (ann 42 I64))
+        (if (= (ann (float-view (ann 42 I64)) F64) 42.0) (= (f64-add value 0.0) 42.0) #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

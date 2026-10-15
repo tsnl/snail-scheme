@@ -1,2 +1,2 @@
 (import (sfir base))
-(+ (ann 40 I32) 2)
+(+ (ann 40 I32) (ann 2 I64))

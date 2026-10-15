@@ -9,5 +9,5 @@
        (begin (+ left right) (unit))))
 (def nested
      (lambda (value) (+ (promote value) (combine value 2.0))))
-(discard 20 22.0)
-(if (= (nested 20) 42.0) 42 (unreachable))
+(discard (ann 20 I64) 22.0)
+(if (= (nested (ann 20 I64)) 42.0) (ann 42 I64) (unreachable))

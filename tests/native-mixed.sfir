@@ -6,7 +6,7 @@
 (define-extern character "fixture" "scalar_i32" (-> Char Char))
 (define-extern unit-call "fixture" "scalar_unit" (-> Char Unit))
 (unit-call (character #\x1f600))
-(if (bit (= (wide (mixed (ann -17 I32) -9223372036854775801
+(if (bit (= (wide (mixed (ann -17 I32) (ann -9223372036854775801 I64)
                          (narrow (ann 1.25 F32)) -2.5) -2.5) 3.5))
     (ann 0 I32)
     (unreachable))

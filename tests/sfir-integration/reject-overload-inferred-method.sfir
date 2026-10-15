@@ -1,4 +1,4 @@
 (import (sfir base))
 (def Identity (typeclass ( T) (: identity (-> T T))))
 (define-overload invalid identity)
-42
+(ann 42 I64)

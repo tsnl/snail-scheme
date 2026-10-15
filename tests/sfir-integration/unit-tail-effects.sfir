@@ -1,15 +1,15 @@
 (import (sfir base))
 
 (def digits
-     (ref 0))
+     (ref (ann 0 I64)))
 (def visit
      (lambda (n)
-       (if (> n 0)
+       (if (> n (ann 0 I64))
            (begin
-             (visit (- n 1))
-             (ref-set! digits (+ (* 10 (ref-get digits)) n))
+             (visit (- n (ann 1 I64)))
+             (ref-set! digits (+ (* (ann 10 I64) (ref-get digits)) n))
              (unit))
            (unit))))
 
-(visit 9)
+(visit (ann 9 I64))
 (ref-get digits)

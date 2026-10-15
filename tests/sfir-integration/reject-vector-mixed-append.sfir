@@ -1,2 +1,2 @@
 (import (sfir base))
-(vector-append (vector 1) (vector #t))
+(vector-append (vector (ann 1 I64)) (vector #t))

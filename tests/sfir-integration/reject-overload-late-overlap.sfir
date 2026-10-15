@@ -3,4 +3,4 @@
 (def wrapper
      (lambda (value) (same value)))
 (define-overload same (-> I64 I64) (lambda (value) value))
-(wrapper 42)
+(wrapper (ann 42 I64))

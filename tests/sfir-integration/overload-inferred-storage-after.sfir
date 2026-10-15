@@ -3,5 +3,5 @@
      (ref (empty-vector)))
 (define-overload stored (lambda () (ref-get cell)))
 (def initialized
-     (ref-set! cell (make-vector 1 42)))
-(vector-ref (stored) 0)
+     (ref-set! cell (make-vector (ann 1 I64) (ann 42 I64))))
+(vector-ref (stored) (ann 0 I64))
