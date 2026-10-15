@@ -355,6 +355,7 @@
          (prepare-body-items (car (fields form '(_ item ...))) outer local reservations
                              transformers fuel))
         ((define) (prepare-value-binding form outer local reservations transformers fuel))
+        ((define-extern) (prepare-extern-declaration form outer local reservations transformers))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
         ((define-class) (prepare-class-declaration form outer local reservations transformers))
         ((define-instance)
@@ -445,6 +446,7 @@
         ((begin) (values (append (car (fields form '(_ item ...))) remaining)
                          local reserved macros))
         ((define) (reserve-value-definition form remaining local reserved macros))
+        ((define-extern) (reserve-extern-declaration form remaining local reserved macros))
         ((define-class) (reserve-class-declaration form remaining local reserved macros))
         ((define-syntax) (reserve-syntax-definition form remaining local reserved macros))
         (else (values remaining local reserved macros))))
@@ -454,6 +456,21 @@
              (binding (pending-definition-binding pending)))
         (values remaining (add-local-bindings local (list binding) form)
                 (cons (cons form pending) reserved) macros)))
+    (define (reserve-extern-declaration form remaining local reserved macros)
+      (let ((binding (reserve-value-identifier
+                      (car (fields form '(_ name module symbol type))))))
+        (values remaining (add-local-bindings local (list binding) form)
+                (cons (cons form binding) reserved) macros)))
+    (define (prepare-extern-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (binding (if reserved (cdr reserved)
+                          (reserve-value-identifier
+                           (car (fields form '(_ name module symbol type))))))
+             (next (if reserved local (add-local-bindings local (list binding) form))))
+        (values (list (lambda (values transformers)
+                        (expand-extern-declaration form
+                                                   (append values (macro-bindings next) outer))))
+                next transformers)))
 
     ;; Later source forms see this keyword rather than an outer builtin.
     (define (reserve-syntax-definition form remaining local reserved macros)
@@ -495,7 +512,7 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax : %record-schema define-class define-instance)
+          ((define define-syntax : %record-schema define-class define-instance define-extern)
            (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
@@ -646,6 +663,14 @@
       (let ((parts (fields form '(_ name type))))
         (make-type-declaration (name-definition (resolve-name (car parts) environment))
                                (expand-type (cadr parts) environment) (syntax-loc form))))
+    (define (expand-extern-declaration form environment)
+      (let* ((parts (fields form '(_ name module symbol type)))
+             (module (syntax-datum (cadr parts))) (symbol (syntax-datum (caddr parts))))
+        (unless (and (string? module) (string? symbol))
+          (fail form "extern module and symbol must be literal strings"))
+        (make-extern-declaration (name-definition (resolve-name (car parts) environment))
+                                 module symbol (expand-type (cadddr parts) environment)
+                                 (syntax-loc form))))
 
     (define (expand-record-schema form environment)
       (let ((parts (fields form '(_ type constructor predicate arguments record-fields))))
@@ -1343,7 +1368,7 @@
 
     (define (runtime-expression? item)
       (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
-               (class-declaration? item) (instance-declaration? item)
+               (class-declaration? item) (instance-declaration? item) (extern-declaration? item)
                (eliminated-definition? item))))
 
     (define (runtime-items items)
@@ -1444,7 +1469,8 @@
     (define core-syntax-names
       (append '(define define-syntax syntax-rules let-syntax letrec-syntax
                  lambda quote if set! begin
-                 : ann inst All -> U => define-class define-instance %record-schema Ref List Rest)
+                 : ann inst All -> U => define-class define-instance define-extern
+                 %record-schema Ref List Rest)
               scalar-type-names strict-type-names))
 
     (define core-primitive-names

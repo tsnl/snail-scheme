@@ -3,7 +3,7 @@
 (define-library (snail strict)
   (export define define-syntax syntax-rules lambda quote if begin set!
           let let* letrec letrec* and or when unless
-          : ann inst All -> Rest => define-class define-instance
+          : ann inst All -> Rest => define-class define-instance define-extern
           I32 I64 F32 F64 Bool Char Unit Top Never Ref List
           + - * quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt
