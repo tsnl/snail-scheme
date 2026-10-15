@@ -1,0 +1,54 @@
+{
+  "kind": "Inspection of exact frozen optimized lattice Wasm; no binary changes or performance observations",
+  "wasm_sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2",
+  "wat_sha256": "0136be2063f348e390643d3dd72467a18a17e398ed69254c3f667d5d00b34380",
+  "disassembler": {
+    "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+    "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+    "version": "Binaryen132"
+  },
+  "main": {
+    "function_line": 4236,
+    "start_clock_line": 4754,
+    "count_controlled_loop_line": 4808,
+    "per_iteration_problem_parse_line": 4811,
+    "l3_enumeration_call_line": 4890,
+    "l4_enumeration_call_line": 4901,
+    "four_discarded_count_call_lines": [
+      4922,
+      4938,
+      4948,
+      4958
+    ],
+    "problem44_count_call_line": 5009,
+    "supplied_expected_parse_line": 5524,
+    "equality_line": 5534,
+    "wrong_expected_assert_line": 5539,
+    "stop_clock_line": 5642
+  },
+  "search": {
+    "count_function_line": 1930,
+    "allowed_targets_call_line": 1974,
+    "count_recursive_call_lines": [
+      2119,
+      2276
+    ],
+    "allowed_targets_function_line": 2658,
+    "constraint_compare_call_lines": [
+      2710,
+      2820,
+      3034,
+      3180,
+      3283,
+      3344
+    ],
+    "enumeration_function_line": 3505,
+    "enumeration_allowed_targets_call_line": 3675,
+    "enumeration_recursive_call_line": 3813,
+    "element_comparison_function_line": 4040,
+    "nested_comparison_recursive_call_line": 4148
+  },
+  "conclusion": "The exact optimized artifact retains lower-lattice materialization, all four discarded counts, candidate constraint comparisons, persistent branch-node allocation, recursive enumeration/counting and full outer loop. Count44 consumes materialized l4; it is not a formula or cached result. Rc increments/decrements and vector allocation/drop operations remain. Per-iteration problem parsing and final expected parsing are inside the clock.",
+  "opacity": "black_box(problem) and each returned run count; black_box on each of the four otherwise discarded counts. WAT retains their calls and result memory stores. No full-structure validation or extra per-node opacity is in timing.",
+  "limits": "Static call/control inspection establishes emitted work, not dynamic allocation counts or physical traffic. No complete l3/l4 payload dump or comparison matrix was captured from this frozen binary."
+}
