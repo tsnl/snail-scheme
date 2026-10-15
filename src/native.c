@@ -21,8 +21,11 @@ extern int snail_native_cleanup(void);
 void native_poll_finalizers(void);
 static bool terminating;
 static uint64_t released_resources;
+static uint64_t released_arrays;
 void native_resource_released(void) { released_resources++; }
 uint64_t native_resource_release_count(void) { return released_resources; }
+void native_array_released(void) { released_arrays++; }
+uint64_t native_array_release_count(void) { return released_arrays; }
 
 // Every runtime service drops its resource borrow before an allocation or
 // callback. Cleanup closes owned files without calling Scheme or releasing
@@ -224,6 +227,7 @@ TRUNCATIONS(double, f64)
 // ---- ABI finalization ----
 
 extern void drop_resource(uint32_t kind, uint32_t id) __asm__("snail:drop-resource");
+extern void drop_array(uint32_t id) __asm__("snail:drop-array");
 
 typedef struct Resource { uint32_t kind, id; struct Resource *next; } Resource;
 static Resource *pending_resources;
@@ -261,7 +265,8 @@ void native_poll_finalizers(void) {
     while (batch) {
         Resource *resource = batch;
         batch = resource->next;
-        drop_resource(resource->kind, resource->id);
+        if (resource->kind == 2) drop_array(resource->id);
+        else drop_resource(resource->kind, resource->id);
         finalized_resources++;
         free(resource);
     }

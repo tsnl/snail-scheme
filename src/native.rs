@@ -7,6 +7,7 @@ unsafe extern "C" {
     fn native_report_error(pointer: *const u8, length: usize) -> !;
     fn native_finish(status: i32) -> i32;
     fn native_resource_released();
+    fn native_array_released();
 }
 
 thread_local! {
@@ -30,6 +31,10 @@ pub(crate) fn resource_released() {
     unsafe { native_resource_released() };
 }
 
+pub(crate) fn array_released() {
+    unsafe { native_array_released() };
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn snail_native_cleanup() -> i32 {
     if TERMINATED.replace(true) {
@@ -37,5 +42,6 @@ pub extern "C" fn snail_native_cleanup() -> i32 {
     }
     let strict = crate::strict_io::close_all();
     let legacy = LEGACY_CLEANUP.get().is_some_and(|cleanup| cleanup());
+    crate::iverson::close_all_native();
     i32::from(strict != 0 || legacy)
 }
