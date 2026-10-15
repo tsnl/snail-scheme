@@ -1,4 +1,4 @@
-(import (sfir core))
-(define x
-  (ann 40 I32))
+(import (sfir base))
+(def x
+     (ann 40 I32))
 (+ 2 x)

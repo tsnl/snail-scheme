@@ -1,67 +1,67 @@
-(import (sfir core))
-(define target
-  (string-copy "abc"))
-(define source
-  "XY")
+(import (sfir base))
+(def target
+     (string-copy "abc"))
+(def source
+     "XY")
 
-(define negative-length (-> I64)
-  (lambda () (string-length (make-string -1))))
+(def negative-length (-> I64)
+     (lambda () (string-length (make-string -1))))
 
-(define overflow-length (-> I64)
-  (lambda () (string-length (make-string 4294967295))))
+(def overflow-length (-> I64)
+     (lambda () (string-length (make-string 4294967295))))
 
-(define huge-length (-> I64)
-  (lambda () (string-length (make-string 9223372036854775807))))
+(def huge-length (-> I64)
+     (lambda () (string-length (make-string 9223372036854775807))))
 
-(define negative-index (-> Char)
-  (lambda () (string-ref target -1)))
+(def negative-index (-> Char)
+     (lambda () (string-ref target -1)))
 
-(define endpoint-index (-> Char)
-  (lambda () (string-ref target 3)))
+(def endpoint-index (-> Char)
+     (lambda () (string-ref target 3)))
 
-(define wrapped-index (-> Unit)
-  (lambda () (string-set! target 4294967295 #\null)))
+(def wrapped-index (-> Unit)
+     (lambda () (string-set! target 4294967295 #\null)))
 
-(define empty-index (-> Char)
-  (lambda () (string-ref (string) 0)))
+(def empty-index (-> Char)
+     (lambda () (string-ref (string) 0)))
 
-(define reversed-range (-> Unit)
-  (lambda () (string-copy! target 0 source 2 1)))
+(def reversed-range (-> Unit)
+     (lambda () (string-copy! target 0 source 2 1)))
 
-(define negative-range (-> Unit)
-  (lambda () (string-copy! target 0 source -1 0)))
+(def negative-range (-> Unit)
+     (lambda () (string-copy! target 0 source -1 0)))
 
-(define long-source (-> Unit)
-  (lambda () (string-copy! target 0 source 0 3)))
+(def long-source (-> Unit)
+     (lambda () (string-copy! target 0 source 0 3)))
 
-(define short-target (-> Unit)
-  (lambda () (string-copy! target 2 source 0 2)))
+(def short-target (-> Unit)
+     (lambda () (string-copy! target 2 source 0 2)))
 
-(define empty-target-overflow (-> Unit)
-  (lambda () (string-copy! target 4294967295 source 0 0)))
+(def empty-target-overflow (-> Unit)
+     (lambda () (string-copy! target 4294967295 source 0 0)))
 
-(define empty-source-overflow (-> Unit)
-  (lambda () (string-copy! target 0 source 4294967295 4294967295)))
+(def empty-source-overflow (-> Unit)
+     (lambda () (string-copy! target 0 source 4294967295 4294967295)))
 
-(define empty-source-bounds (-> Unit)
-  (lambda () (string-copy! target 0 source 3 3)))
+(def empty-source-bounds (-> Unit)
+     (lambda () (string-copy! target 0 source 3 3)))
 
-(define empty-target-bounds (-> Unit)
-  (lambda () (string-copy! target 4 source 0 0)))
+(def empty-target-bounds (-> Unit)
+     (lambda () (string-copy! target 4 source 0 0)))
 
-(define negative-substring (-> I64)
-  (lambda () (string-length (substring source -1 0))))
+(def negative-substring (-> I64)
+     (lambda () (string-length (substring source -1 0))))
 
-(define reversed-substring (-> I64)
-  (lambda () (string-length (substring source 2 1))))
+(def reversed-substring (-> I64)
+     (lambda () (string-length (substring source 2 1))))
 
-(define long-substring (-> I64)
-  (lambda () (string-length (substring source 0 3))))
+(def long-substring (-> I64)
+     (lambda () (string-length (substring source 0 3))))
 
-(define unchanged (-> Bool)
-  (lambda ()
-    (let ((before (string=? target "abc")))
-      (begin
-        (string-set! target 0 #\Z)
-        (if before (string=? target "Zbc") #f)))))
+(def unchanged (-> Bool)
+     (lambda ()
+       (begin (let before (string=? target "abc"))
+              (begin
+                (string-set! target 0 #\Z)
+                (if before (string=? target "Zbc") #f)))))
 42

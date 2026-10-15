@@ -1,8 +1,8 @@
-(import (sfir core))
-(define state
-  (ref 40))
-(define values
-  (make-vector 2 (lambda (x) (+ (ref-get state) x))))
-(define invoke
-  (lambda (getter source) ((getter source 1) 2)))
+(import (sfir base))
+(def state
+     (ref 40))
+(def values
+     (make-vector 2 (lambda (x) (+ (ref-get state) x))))
+(def invoke
+     (lambda (getter source) ((getter source 1) 2)))
 (invoke vector-ref values)

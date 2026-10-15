@@ -1,3 +1,3 @@
-(import (sfir core))
-(define-data Choice (some (value I64)) (none))
+(import (sfir base))
+(def Choice (datatype () (some (value I64)) (none)))
 (match (some 6) ((none) (unreachable)) ((some value) value))

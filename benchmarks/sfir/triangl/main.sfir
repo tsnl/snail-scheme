@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.5) (cdr (cdr xs.5))))
+(def cddr (lambda (xs.5) (cdr (cdr xs.5))))
 
-(define length
+(def length
   (lambda (xs.3)
-    (((lambda () (begin (define loop.3 (lambda (xs.4 n.1) (if (null? xs.4) n.1 (loop.3 (cdr xs.4) (+ n.1 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.4 n.1) (if (null? xs.4) n.1 (loop.3 (cdr xs.4) (+ n.1 1))))) loop.3)))
       xs.3
       0)))
 
@@ -20,48 +20,48 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define list (lambda elements elements))
+(def list (lambda elements elements))
 
-(define append
+(def append
   (lambda (xs.2 ys.1) (if (null? xs.2) ys.1 (cons (car xs.2) (append (cdr xs.2) ys.1)))))
 
 (define-extern native-expected-length "benchmark" "expected_length" (-> I64))
 
 (define-extern native-expected-i64 "benchmark" "expected_i64" (-> I64 I64))
 
-(define expected-list
+(def expected-list
   (lambda ()
-    (((lambda () (begin (define loop.2 (lambda (n xs.1) (if (= n 0) xs.1 (loop.2 (- n 1) (cons (native-expected-i64 (- n 1)) xs.1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (n xs.1) (if (= n 0) xs.1 (loop.2 (- n 1) (cons (native-expected-i64 (- n 1)) xs.1))))) loop.2)))
       (native-expected-length)
-      (quote ()))))
+      (empty-list ))))
 
-(define same-i64-list? (-> (List I64) (List I64) Bool)
+(def same-i64-list? (-> (List I64) (List I64) Bool)
   (lambda (xs ys)
     (if (null? xs)
       (null? ys)
       (if (not (null? ys)) (if (= (car xs) (car ys)) (same-i64-list? (cdr xs) (cdr ys)) #f) #f))))
 
-(define hide (lambda (count.1 x) (hide-i64 x)))
+(def hide (lambda (count.1 x) (hide-i64 x)))
 
-(define *board* (list->vector (list 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1)))
+(def *board* (list->vector (list 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1)))
 
-(define *sequence* (list->vector (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
+(def *sequence* (list->vector (list 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
 
-(define *a*
+(def *a*
   (list->vector
     (list 1 2 4 3 5 6 1 3 6 2 5 4 11 12 13 7 8 4 4 7 11 8 12 13 6 10 15 9 14 13 13 14 15 9 10 6 6)))
 
-(define *b*
+(def *b*
   (list->vector
     (list 2 4 7 5 8 9 3 6 10 5 9 8 12 13 14 8 9 5 2 4 7 5 8 9 3 6 10 5 9 8 12 13 14 8 9 5 5)))
 
-(define *c*
+(def *c*
   (list->vector
     (list 4 7 11 8 12 13 6 10 15 9 14 13 13 14 15 9 10 6 1 2 4 3 5 6 1 3 6 2 5 4 11 12 13 7 8 4 4)))
 
-(define *answer* (ref (ann (quote ()) (List (List I64)))))
+(def *answer* (ref (ann (empty-list ) (List (List I64)))))
 
-(define attempt
+(def attempt
   (lambda (i.2 depth.1)
     (if (= depth.1 14)
       (begin (ref-set! *answer* (cons (cdr (vector->list *sequence*)) (ref-get *answer*))) #t)
@@ -71,7 +71,7 @@
           (vector-set! *board* (vector-ref *b* i.2) 0)
           (vector-set! *board* (vector-ref *c* i.2) 1)
           (vector-set! *sequence* depth.1 i.2)
-          (((lambda () (begin (define loop.1 (lambda (j depth.2) (if ((lambda (value) (if value value (attempt j depth.2))) (= j 36)) #f (loop.1 (+ j 1) depth.2)))) loop.1)))
+          (((lambda () (begin (def loop.1 (lambda (j depth.2) (if ((lambda (value) (if value value (attempt j depth.2))) (= j 36)) #f (loop.1 (+ j 1) depth.2)))) loop.1)))
             0
             (+ depth.1 1))
           (vector-set! *board* (vector-ref *a* i.2) 1)
@@ -80,19 +80,19 @@
           #f)
         #f))))
 
-(define test
+(def test
   (lambda (i.1 depth)
-    (begin (ref-set! *answer* (quote ())) (attempt i.1 depth) (car (ref-get *answer*)))))
+    (begin (ref-set! *answer* (empty-list )) (attempt i.1 depth) (car (ref-get *answer*)))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define input1 (native-input-i64 (ann 1 I32)))
+(def input1 (native-input-i64 (ann 1 I32)))
 
-(define expected (expected-list))
+(def expected (expected-list))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (if (same-i64-list? (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (test (hide count input0) (hide count input1))) result))) loop))) 0 (quote ())) expected)
+    (if (same-i64-list? (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (test (hide count input0) (hide count input1))) result))) loop))) 0 (empty-list )) expected)
       1
       0)))
 

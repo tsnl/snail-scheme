@@ -1,5 +1,5 @@
-(import (sfir core))
+(import (sfir base))
 
-(define maker (-> I64 (All (T) (-> T T)))
-  (lambda (ignored) (lambda (value) value)))
+(def maker (-> I64 (All (T) (-> T T)))
+     (lambda (ignored) (lambda (value) value)))
 42

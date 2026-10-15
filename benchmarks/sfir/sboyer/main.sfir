@@ -1,14 +1,14 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
 (import
-  (sfir core)
+  (sfir base)
   (rename (sfir datum) (string->symbol typed-string->symbol))
   (sfir io)
   (sfir read))
 
-(define boyer-zero? (-> I64 Bool) (lambda (value.16) (= value.16 0)))
+(def boyer-zero? (-> I64 Bool) (lambda (value.16) (= value.16 0)))
 
-(define boyer-exact (-> Datum I64)
+(def boyer-exact (-> Datum I64)
   (lambda (value.15)
     (match (datum-number-value value.15)
       ((exact-number value.12) value.12)
@@ -16,30 +16,30 @@
       ((inexact-number value.14) (datum-fail "boyer: expected an exact integer"))
       ((complex-number real imaginary) (datum-fail "boyer: expected an exact integer")))))
 
-(define boyer-symbol (-> String Datum) (lambda (text) (datum-symbol (typed-string->symbol text))))
+(def boyer-symbol (-> String Datum) (lambda (text) (datum-symbol (typed-string->symbol text))))
 
-(define boyer-integer (-> I64 Datum) (lambda (value.11) (datum-number (exact-number value.11))))
+(def boyer-integer (-> I64 Datum) (lambda (value.11) (datum-number (exact-number value.11))))
 
-(define boyer-caar (lambda (value.10) (datum-car (datum-car value.10))))
+(def boyer-caar (lambda (value.10) (datum-car (datum-car value.10))))
 
-(define boyer-cdar (lambda (value.9) (datum-cdr (datum-car value.9))))
+(def boyer-cdar (lambda (value.9) (datum-cdr (datum-car value.9))))
 
-(define boyer-cadr (lambda (value.8) (datum-car (datum-cdr value.8))))
+(def boyer-cadr (lambda (value.8) (datum-car (datum-cdr value.8))))
 
-(define boyer-caddr (lambda (value.7) (datum-car (datum-cdr (datum-cdr value.7)))))
+(def boyer-caddr (lambda (value.7) (datum-car (datum-cdr (datum-cdr value.7)))))
 
-(define boyer-cadddr (lambda (value.6) (datum-car (datum-cdr (datum-cdr (datum-cdr value.6))))))
+(def boyer-cadddr (lambda (value.6) (datum-car (datum-cdr (datum-cdr (datum-cdr value.6))))))
 
-(define boyer-vector (-> Datum Datum Datum)
+(def boyer-vector (-> Datum Datum Datum)
   (lambda (first.1 second) (datum-vector (vector first.1 second))))
 
-(define boyer-vector-ref
+(def boyer-vector-ref
   (lambda (value.5 index.2) (vector-ref (datum-vector-values value.5) index.2)))
 
-(define boyer-vector-set!
+(def boyer-vector-set!
   (lambda (value.4 index.1 item) (vector-set! (datum-vector-values value.4) index.1 item)))
 
-(define boyer-constant-0
+(def boyer-constant-0
   (datum-cons
     (datum-cons
       (boyer-symbol "x")
@@ -132,7 +132,7 @@
                     (datum-null)))))
             (datum-null)))))))
 
-(define boyer-constant-1
+(def boyer-constant-1
   (datum-cons
     (boyer-symbol "implies")
     (datum-cons
@@ -171,7 +171,7 @@
           (datum-cons (boyer-symbol "x") (datum-cons (boyer-symbol "w") (datum-null))))
         (datum-null)))))
 
-(define boyer-constant-2
+(def boyer-constant-2
   (datum-cons
     (datum-cons
       (boyer-symbol "equal")
@@ -5050,98 +5050,98 @@
                                                                                                                                                                                                                       (datum-null
 ))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
-(define boyer-constant-3 (boyer-symbol "equal"))
+(def boyer-constant-3 (boyer-symbol "equal"))
 
-(define boyer-constant-4 (boyer-symbol "lemmas"))
+(def boyer-constant-4 (boyer-symbol "lemmas"))
 
-(define boyer-constant-5 (boyer-symbol "lemmas"))
+(def boyer-constant-5 (boyer-symbol "lemmas"))
 
-(define boyer-constant-6 (datum-null))
+(def boyer-constant-6 (datum-null))
 
-(define boyer-constant-7 (datum-null))
+(def boyer-constant-7 (datum-null))
 
-(define boyer-constant-8 (datum-null))
+(def boyer-constant-8 (datum-null))
 
-(define boyer-constant-9 (boyer-symbol "or"))
+(def boyer-constant-9 (boyer-symbol "or"))
 
-(define boyer-constant-10 (datum-cons (boyer-symbol "f") (datum-null)))
+(def boyer-constant-10 (datum-cons (boyer-symbol "f") (datum-null)))
 
-(define boyer-constant-11 (datum-null))
+(def boyer-constant-11 (datum-null))
 
-(define boyer-constant-12 (datum-null))
+(def boyer-constant-12 (datum-null))
 
-(define boyer-constant-13 (datum-null))
+(def boyer-constant-13 (datum-null))
 
-(define boyer-constant-14 (datum-null))
+(def boyer-constant-14 (datum-null))
 
-(define boyer-constant-15 (boyer-symbol "*"))
+(def boyer-constant-15 (boyer-symbol "*"))
 
-(define boyer-constant-16 (datum-null))
+(def boyer-constant-16 (datum-null))
 
-(define boyer-constant-17 (boyer-symbol "*"))
+(def boyer-constant-17 (boyer-symbol "*"))
 
-(define boyer-constant-18 (datum-null))
+(def boyer-constant-18 (datum-null))
 
-(define boyer-constant-19 (boyer-symbol "*"))
+(def boyer-constant-19 (boyer-symbol "*"))
 
-(define boyer-constant-20 (boyer-symbol "*"))
+(def boyer-constant-20 (boyer-symbol "*"))
 
-(define boyer-constant-21 (boyer-symbol "implies"))
+(def boyer-constant-21 (boyer-symbol "implies"))
 
-(define boyer-constant-22 (boyer-symbol "implies"))
+(def boyer-constant-22 (boyer-symbol "implies"))
 
-(define boyer-constant-23 (boyer-symbol "implies"))
+(def boyer-constant-23 (boyer-symbol "implies"))
 
-(define boyer-constant-24 (boyer-symbol "and"))
+(def boyer-constant-24 (boyer-symbol "and"))
 
-(define boyer-constant-25 (boyer-symbol "implies"))
+(def boyer-constant-25 (boyer-symbol "implies"))
 
-(define boyer-constant-26 (datum-null))
+(def boyer-constant-26 (datum-null))
 
-(define boyer-constant-27 (boyer-symbol "if"))
+(def boyer-constant-27 (boyer-symbol "if"))
 
-(define boyer-constant-28 (datum-cons (boyer-symbol "f") (datum-null)))
+(def boyer-constant-28 (datum-cons (boyer-symbol "f") (datum-null)))
 
-(define boyer-constant-29 (datum-cons (boyer-symbol "t") (datum-null)))
+(def boyer-constant-29 (datum-cons (boyer-symbol "t") (datum-null)))
 
-(define alist boyer-constant-0)
+(def alist boyer-constant-0)
 
-(define term boyer-constant-1)
+(def term boyer-constant-1)
 
-(define setup-boyer (ref (ann (lambda () (unreachable)) (-> Bool))))
+(def setup-boyer (ref (ann (lambda () (unreachable)) (-> Bool))))
 
-(define test-boyer
+(def test-boyer
   (ref (ann (lambda (alist.6 term.11 n.5) (unreachable)) (-> Datum Datum I64 Datum))))
 
-((lambda () (begin (define setup (-> Bool) (lambda () (add-lemma-lst boyer-constant-2))) (define add-lemma-lst (-> Datum Bool) (lambda (lst.7) (if (datum-null? lst.7) #t (begin (add-lemma (datum-car lst.7)) (add-lemma-lst (datum-cdr lst.7)))))) (define add-lemma (-> Datum Unit) (lambda (term.10) (if (if (datum-pair? term.10) (if (datum-eq? (datum-car term.10) boyer-constant-3) (datum-pair? (boyer-cadr term.10)) #f) #f) (put (datum-car (boyer-cadr term.10)) boyer-constant-4 ((lambda (translated-lemma) ((lambda (prior-lemmas) ((lambda () (datum-cons translated-lemma prior-lemmas)))) (get (datum-car (boyer-cadr term.10)) boyer-constant-5))) (translate-term term.10))) (datum-fail "ADD-LEMMA did not like term")))) (define translate-term (-> Datum Datum) (lambda (term.9) (if (not (datum-pair? term.9)) term.9 ((lambda (constructor) ((lambda (arguments) ((lambda () (datum-cons constructor arguments)))) (translate-args (datum-cdr term.9)))) (symbol->symbol-record (datum-car term.9)))))) (define translate-args (-> Datum Datum) (lambda (lst.6) (if (datum-null? lst.6) boyer-constant-6 ((lambda (first) ((lambda (rest) ((lambda () (datum-cons first rest)))) (translate-args (datum-cdr lst.6)))) (translate-term (datum-car lst.6)))))) (define untranslate-term (-> Datum Datum) (lambda (term.8) (if (not (datum-pair? term.8)) term.8 (datum-cons (get-name (datum-car term.8)) (datum-map untranslate-term (datum-cdr term.8)))))) (define put (-> Datum Datum Datum Unit) (lambda (sym.3 property.1 value.3) (put-lemmas! (symbol->symbol-record sym.3) value.3))) (define get (-> Datum Datum Datum) (lambda (sym.2 property) (get-lemmas (symbol->symbol-record sym.2)))) (define symbol->symbol-record (-> Datum Datum) (lambda (sym.1) ((lambda (x.7) (if (datum-truth? x.7) (datum-cdr x.7) ((lambda (r) (begin (ref-set! *symbol-records-alist* (datum-cons (datum-cons sym.1 r) (ref-get *symbol-records-alist*))) r)) (make-symbol-record sym.1)))) (datum-assq sym.1 (ref-get *symbol-records-alist*))))) (define *symbol-records-alist* (ref boyer-constant-7)) (define make-symbol-record (-> Datum Datum) (lambda (sym) (boyer-vector sym boyer-constant-8))) (define put-lemmas! (-> Datum Datum Unit) (lambda (symbol-record.2 lemmas) (boyer-vector-set! symbol-record.2 1 lemmas))) (define get-lemmas (-> Datum Datum) (lambda (symbol-record.1) (boyer-vector-ref symbol-record.1 1))) (define get-name (-> Datum Datum) (lambda (symbol-record) (boyer-vector-ref symbol-record 0))) (define symbol-record-equal? (-> Datum Datum Bool) (lambda (r1 r2) (datum-eq? r1 r2))) (define test (-> Datum Datum I64 Bool) (lambda (alist.5 term.5 n.3) ((lambda (term.7) (tautp term.7)) (apply-subst (translate-alist alist.5) (translate-term (((lambda () (begin (define loop.1 (lambda (term.6 n.4) (if (boyer-zero? n.4) (begin (unit) term.6) (loop.1 (datum-list boyer-constant-9 term.6 boyer-constant-10) (- n.4 1))))) loop.1))) term.5 n.3)))))) (define translate-alist (-> Datum Datum) (lambda (alist.4) (if (datum-null? alist.4) boyer-constant-11 (datum-cons (datum-cons (boyer-caar alist.4) (translate-term (boyer-cdar alist.4))) (translate-alist (datum-cdr alist.4)))))) (define apply-subst (-> Datum Datum Datum) (lambda (alist.3 term.4) (if (not (datum-pair? term.4)) ((lambda (temp-temp.1) (if (datum-truth? temp-temp.1) (datum-cdr temp-temp.1) term.4)) (datum-assq term.4 alist.3)) (datum-cons (datum-car term.4) (apply-subst-lst alist.3 (datum-cdr term.4)))))) (define apply-subst-lst (-> Datum Datum Datum) (lambda (alist.2 lst.5) (if (datum-null? lst.5) boyer-constant-12 (datum-cons (apply-subst alist.2 (datum-car lst.5)) (apply-subst-lst alist.2 (datum-cdr lst.5)))))) (define tautp (-> Datum Bool) (lambda (x.6) (tautologyp (rewrite x.6) boyer-constant-13 boyer-constant-14))) (define tautologyp (-> Datum Datum Datum Bool) (lambda (x.5 true-lst false-lst) (if (truep x.5 true-lst) #t (if (falsep x.5 false-lst) #f (if (not (datum-pair? x.5)) #f (if (datum-eq? (datum-car x.5) (ref-get if-constructor)) (if (truep (boyer-cadr x.5) true-lst) (tautologyp (boyer-caddr x.5) true-lst false-lst) (if (falsep (boyer-cadr x.5) false-lst) (tautologyp (boyer-cadddr x.5) true-lst false-lst) (if (tautologyp (boyer-caddr x.5) (datum-cons (boyer-cadr x.5) true-lst) false-lst) (tautologyp (boyer-cadddr x.5) true-lst (datum-cons (boyer-cadr x.5) false-lst)) #f))) #f)))))) (define if-constructor (ref boyer-constant-15)) (define rewrite-count (ref 0)) (define scons (-> Datum Datum Datum Datum) (lambda (x.4 y.1 original) (if (if (datum-eq? x.4 (datum-car original)) (datum-eq? y.1 (datum-cdr original)) #f) original (datum-cons x.4 y.1)))) (define rewrite (-> Datum Datum) (lambda (term.3) (begin (ref-set! rewrite-count (+ (ref-get rewrite-count) 1)) (if (not (datum-pair? term.3)) term.3 (rewrite-with-lemmas (scons (datum-car term.3) (rewrite-args (datum-cdr term.3)) term.3) (get-lemmas (datum-car term.3))))))) (define rewrite-args (-> Datum Datum) (lambda (lst.4) (if (datum-null? lst.4) boyer-constant-16 (scons (rewrite (datum-car lst.4)) (rewrite-args (datum-cdr lst.4)) lst.4)))) (define rewrite-with-lemmas (-> Datum Datum Datum) (lambda (term.2 lst.3) (if (datum-null? lst.3) term.2 (if (one-way-unify term.2 (boyer-cadr (datum-car lst.3))) (rewrite (apply-subst (ref-get unify-subst) (boyer-caddr (datum-car lst.3)))) (rewrite-with-lemmas term.2 (datum-cdr lst.3)))))) (define unify-subst (ref boyer-constant-17)) (define one-way-unify (-> Datum Datum Bool) (lambda (term1.1 term2.1) (begin (ref-set! unify-subst boyer-constant-18) (one-way-unify1 term1.1 term2.1)))) (define one-way-unify1 (-> Datum Datum Bool) (lambda (term1 term2) (if (not (datum-pair? term2)) ((lambda (temp-temp) (if (datum-truth? temp-temp) (term-equal? term1 (datum-cdr temp-temp)) (if (datum-number? term2) (datum=? term1 term2) (begin (ref-set! unify-subst (datum-cons (datum-cons term2 term1) (ref-get unify-subst))) #t)))) (datum-assq term2 (ref-get unify-subst))) (if (not (datum-pair? term1)) #f (if (datum-eq? (datum-car term1) (datum-car term2)) (one-way-unify1-lst (datum-cdr term1) (datum-cdr term2)) #f))))) (define one-way-unify1-lst (-> Datum Datum Bool) (lambda (lst1.1 lst2.1) (if (datum-null? lst1.1) (datum-null? lst2.1) (if (datum-null? lst2.1) #f (if (one-way-unify1 (datum-car lst1.1) (datum-car lst2.1)) (one-way-unify1-lst (datum-cdr lst1.1) (datum-cdr lst2.1)) #f))))) (define falsep (-> Datum Datum Bool) (lambda (x.3 lst.2) ((lambda (value.2) (if value.2 value.2 (term-member? x.3 lst.2))) (term-equal? x.3 (ref-get false-term))))) (define truep (-> Datum Datum Bool) (lambda (x.2 lst.1) ((lambda (value.1) (if value.1 value.1 (term-member? x.2 lst.1))) (term-equal? x.2 (ref-get true-term))))) (define false-term (ref boyer-constant-19)) (define true-term (ref boyer-constant-20)) (define trans-of-implies (-> I64 Datum) (lambda (n.2) (translate-term (datum-list boyer-constant-21 (trans-of-implies1 n.2) (datum-list boyer-constant-22 (boyer-integer 0) (boyer-integer n.2)))))) (define trans-of-implies1 (-> I64 Datum) (lambda (n.1) (if (= n.1 1) (datum-list boyer-constant-23 (boyer-integer 0) (boyer-integer 1)) (datum-list boyer-constant-24 (datum-list boyer-constant-25 (boyer-integer (- n.1 1)) (boyer-integer n.1)) (trans-of-implies1 (- n.1 1)))))) (define term-equal? (-> Datum Datum Bool) (lambda (x.1 y) (if (datum-pair? x.1) (if (datum-pair? y) (if (symbol-record-equal? (datum-car x.1) (datum-car y)) (term-args-equal? (datum-cdr x.1) (datum-cdr y)) #f) #f) (datum=? x.1 y)))) (define term-args-equal? (-> Datum Datum Bool) (lambda (lst1 lst2) (if (datum-null? lst1) (datum-null? lst2) (if (datum-null? lst2) #f (if (term-equal? (datum-car lst1) (datum-car lst2)) (term-args-equal? (datum-cdr lst1) (datum-cdr lst2)) #f))))) (define term-member? (-> Datum Datum Bool) (lambda (x lst) (if (datum-null? lst) #f (if (term-equal? x (datum-car lst)) #t (term-member? x (datum-cdr lst)))))) (ref-set! setup-boyer (lambda () (begin (ref-set! *symbol-records-alist* boyer-constant-26) (ref-set! if-constructor (symbol->symbol-record boyer-constant-27)) (ref-set! false-term (translate-term boyer-constant-28)) (ref-set! true-term (translate-term boyer-constant-29)) (setup)))) (ref-set! test-boyer (lambda (alist.1 term.1 n) (begin (ref-set! rewrite-count 0) ((lambda (answer) (if answer (boyer-integer (ref-get rewrite-count)) (datum-boolean #f))) (test alist.1 term.1 n)))))))
+((lambda () (begin (def setup (-> Bool) (lambda () (add-lemma-lst boyer-constant-2))) (def add-lemma-lst (-> Datum Bool) (lambda (lst.7) (if (datum-null? lst.7) #t (begin (add-lemma (datum-car lst.7)) (add-lemma-lst (datum-cdr lst.7)))))) (def add-lemma (-> Datum Unit) (lambda (term.10) (if (if (datum-pair? term.10) (if (datum-eq? (datum-car term.10) boyer-constant-3) (datum-pair? (boyer-cadr term.10)) #f) #f) (put (datum-car (boyer-cadr term.10)) boyer-constant-4 ((lambda (translated-lemma) ((lambda (prior-lemmas) ((lambda () (datum-cons translated-lemma prior-lemmas)))) (get (datum-car (boyer-cadr term.10)) boyer-constant-5))) (translate-term term.10))) (datum-fail "ADD-LEMMA did not like term")))) (def translate-term (-> Datum Datum) (lambda (term.9) (if (not (datum-pair? term.9)) term.9 ((lambda (constructor) ((lambda (arguments) ((lambda () (datum-cons constructor arguments)))) (translate-args (datum-cdr term.9)))) (symbol->symbol-record (datum-car term.9)))))) (def translate-args (-> Datum Datum) (lambda (lst.6) (if (datum-null? lst.6) boyer-constant-6 ((lambda (first) ((lambda (rest) ((lambda () (datum-cons first rest)))) (translate-args (datum-cdr lst.6)))) (translate-term (datum-car lst.6)))))) (def untranslate-term (-> Datum Datum) (lambda (term.8) (if (not (datum-pair? term.8)) term.8 (datum-cons (get-name (datum-car term.8)) (datum-map untranslate-term (datum-cdr term.8)))))) (def put (-> Datum Datum Datum Unit) (lambda (sym.3 property.1 value.3) (put-lemmas! (symbol->symbol-record sym.3) value.3))) (def get (-> Datum Datum Datum) (lambda (sym.2 property) (get-lemmas (symbol->symbol-record sym.2)))) (def symbol->symbol-record (-> Datum Datum) (lambda (sym.1) ((lambda (x.7) (if (datum-truth? x.7) (datum-cdr x.7) ((lambda (r) (begin (ref-set! *symbol-records-alist* (datum-cons (datum-cons sym.1 r) (ref-get *symbol-records-alist*))) r)) (make-symbol-record sym.1)))) (datum-assq sym.1 (ref-get *symbol-records-alist*))))) (def *symbol-records-alist* (ref boyer-constant-7)) (def make-symbol-record (-> Datum Datum) (lambda (sym) (boyer-vector sym boyer-constant-8))) (def put-lemmas! (-> Datum Datum Unit) (lambda (symbol-record.2 lemmas) (boyer-vector-set! symbol-record.2 1 lemmas))) (def get-lemmas (-> Datum Datum) (lambda (symbol-record.1) (boyer-vector-ref symbol-record.1 1))) (def get-name (-> Datum Datum) (lambda (symbol-record) (boyer-vector-ref symbol-record 0))) (def symbol-record-equal? (-> Datum Datum Bool) (lambda (r1 r2) (datum-eq? r1 r2))) (def test (-> Datum Datum I64 Bool) (lambda (alist.5 term.5 n.3) ((lambda (term.7) (tautp term.7)) (apply-subst (translate-alist alist.5) (translate-term (((lambda () (begin (def loop.1 (lambda (term.6 n.4) (if (boyer-zero? n.4) (begin (unit) term.6) (loop.1 (datum-list boyer-constant-9 term.6 boyer-constant-10) (- n.4 1))))) loop.1))) term.5 n.3)))))) (def translate-alist (-> Datum Datum) (lambda (alist.4) (if (datum-null? alist.4) boyer-constant-11 (datum-cons (datum-cons (boyer-caar alist.4) (translate-term (boyer-cdar alist.4))) (translate-alist (datum-cdr alist.4)))))) (def apply-subst (-> Datum Datum Datum) (lambda (alist.3 term.4) (if (not (datum-pair? term.4)) ((lambda (temp-temp.1) (if (datum-truth? temp-temp.1) (datum-cdr temp-temp.1) term.4)) (datum-assq term.4 alist.3)) (datum-cons (datum-car term.4) (apply-subst-lst alist.3 (datum-cdr term.4)))))) (def apply-subst-lst (-> Datum Datum Datum) (lambda (alist.2 lst.5) (if (datum-null? lst.5) boyer-constant-12 (datum-cons (apply-subst alist.2 (datum-car lst.5)) (apply-subst-lst alist.2 (datum-cdr lst.5)))))) (def tautp (-> Datum Bool) (lambda (x.6) (tautologyp (rewrite x.6) boyer-constant-13 boyer-constant-14))) (def tautologyp (-> Datum Datum Datum Bool) (lambda (x.5 true-lst false-lst) (if (truep x.5 true-lst) #t (if (falsep x.5 false-lst) #f (if (not (datum-pair? x.5)) #f (if (datum-eq? (datum-car x.5) (ref-get if-constructor)) (if (truep (boyer-cadr x.5) true-lst) (tautologyp (boyer-caddr x.5) true-lst false-lst) (if (falsep (boyer-cadr x.5) false-lst) (tautologyp (boyer-cadddr x.5) true-lst false-lst) (if (tautologyp (boyer-caddr x.5) (datum-cons (boyer-cadr x.5) true-lst) false-lst) (tautologyp (boyer-cadddr x.5) true-lst (datum-cons (boyer-cadr x.5) false-lst)) #f))) #f)))))) (def if-constructor (ref boyer-constant-15)) (def rewrite-count (ref 0)) (def scons (-> Datum Datum Datum Datum) (lambda (x.4 y.1 original) (if (if (datum-eq? x.4 (datum-car original)) (datum-eq? y.1 (datum-cdr original)) #f) original (datum-cons x.4 y.1)))) (def rewrite (-> Datum Datum) (lambda (term.3) (begin (ref-set! rewrite-count (+ (ref-get rewrite-count) 1)) (if (not (datum-pair? term.3)) term.3 (rewrite-with-lemmas (scons (datum-car term.3) (rewrite-args (datum-cdr term.3)) term.3) (get-lemmas (datum-car term.3))))))) (def rewrite-args (-> Datum Datum) (lambda (lst.4) (if (datum-null? lst.4) boyer-constant-16 (scons (rewrite (datum-car lst.4)) (rewrite-args (datum-cdr lst.4)) lst.4)))) (def rewrite-with-lemmas (-> Datum Datum Datum) (lambda (term.2 lst.3) (if (datum-null? lst.3) term.2 (if (one-way-unify term.2 (boyer-cadr (datum-car lst.3))) (rewrite (apply-subst (ref-get unify-subst) (boyer-caddr (datum-car lst.3)))) (rewrite-with-lemmas term.2 (datum-cdr lst.3)))))) (def unify-subst (ref boyer-constant-17)) (def one-way-unify (-> Datum Datum Bool) (lambda (term1.1 term2.1) (begin (ref-set! unify-subst boyer-constant-18) (one-way-unify1 term1.1 term2.1)))) (def one-way-unify1 (-> Datum Datum Bool) (lambda (term1 term2) (if (not (datum-pair? term2)) ((lambda (temp-temp) (if (datum-truth? temp-temp) (term-equal? term1 (datum-cdr temp-temp)) (if (datum-number? term2) (datum=? term1 term2) (begin (ref-set! unify-subst (datum-cons (datum-cons term2 term1) (ref-get unify-subst))) #t)))) (datum-assq term2 (ref-get unify-subst))) (if (not (datum-pair? term1)) #f (if (datum-eq? (datum-car term1) (datum-car term2)) (one-way-unify1-lst (datum-cdr term1) (datum-cdr term2)) #f))))) (def one-way-unify1-lst (-> Datum Datum Bool) (lambda (lst1.1 lst2.1) (if (datum-null? lst1.1) (datum-null? lst2.1) (if (datum-null? lst2.1) #f (if (one-way-unify1 (datum-car lst1.1) (datum-car lst2.1)) (one-way-unify1-lst (datum-cdr lst1.1) (datum-cdr lst2.1)) #f))))) (def falsep (-> Datum Datum Bool) (lambda (x.3 lst.2) ((lambda (value.2) (if value.2 value.2 (term-member? x.3 lst.2))) (term-equal? x.3 (ref-get false-term))))) (def truep (-> Datum Datum Bool) (lambda (x.2 lst.1) ((lambda (value.1) (if value.1 value.1 (term-member? x.2 lst.1))) (term-equal? x.2 (ref-get true-term))))) (def false-term (ref boyer-constant-19)) (def true-term (ref boyer-constant-20)) (def trans-of-implies (-> I64 Datum) (lambda (n.2) (translate-term (datum-list boyer-constant-21 (trans-of-implies1 n.2) (datum-list boyer-constant-22 (boyer-integer 0) (boyer-integer n.2)))))) (def trans-of-implies1 (-> I64 Datum) (lambda (n.1) (if (= n.1 1) (datum-list boyer-constant-23 (boyer-integer 0) (boyer-integer 1)) (datum-list boyer-constant-24 (datum-list boyer-constant-25 (boyer-integer (- n.1 1)) (boyer-integer n.1)) (trans-of-implies1 (- n.1 1)))))) (def term-equal? (-> Datum Datum Bool) (lambda (x.1 y) (if (datum-pair? x.1) (if (datum-pair? y) (if (symbol-record-equal? (datum-car x.1) (datum-car y)) (term-args-equal? (datum-cdr x.1) (datum-cdr y)) #f) #f) (datum=? x.1 y)))) (def term-args-equal? (-> Datum Datum Bool) (lambda (lst1 lst2) (if (datum-null? lst1) (datum-null? lst2) (if (datum-null? lst2) #f (if (term-equal? (datum-car lst1) (datum-car lst2)) (term-args-equal? (datum-cdr lst1) (datum-cdr lst2)) #f))))) (def term-member? (-> Datum Datum Bool) (lambda (x lst) (if (datum-null? lst) #f (if (term-equal? x (datum-car lst)) #t (term-member? x (datum-cdr lst)))))) (ref-set! setup-boyer (lambda () (begin (ref-set! *symbol-records-alist* boyer-constant-26) (ref-set! if-constructor (symbol->symbol-record boyer-constant-27)) (ref-set! false-term (translate-term boyer-constant-28)) (ref-set! true-term (translate-term boyer-constant-29)) (setup)))) (ref-set! test-boyer (lambda (alist.1 term.1 n) (begin (ref-set! rewrite-count 0) ((lambda (answer) (if answer (boyer-integer (ref-get rewrite-count)) (datum-boolean #f))) (test alist.1 term.1 n)))))))
 )
 
-(define-data Specification
+(def Specification (datatype ()
   (specification
     (count I64 specification-count)
     (size I64 specification-size)
-    (expected Datum specification-expected)))
+    (expected Datum specification-expected))))
 
-(define read-specification (-> InputPort Specification)
+(def read-specification (-> InputPort Specification)
   (lambda (port)
     ((lambda (count.2) ((lambda (size) ((lambda (expected.1) ((lambda () (specification count.2 size expected.1)))) (read-value! (read port)))) (boyer-exact (read-value! (read port)))))
       (boyer-exact (read-value! (read port))))))
 
-(define configured (call-with-input-file "input.txt" read-specification))
+(def configured (call-with-input-file "input.txt" read-specification))
 
-(define configured-count (-> I64) (lambda () (specification-count configured)))
+(def configured-count (-> I64) (lambda () (specification-count configured)))
 
 (define-extern barrier "benchmark" "barrier" (-> Bool))
 
-(define hide (-> I64 I64 I64) (lambda (count.1 value) (if (barrier) value (unreachable))))
+(def hide (-> I64 I64 I64) (lambda (count.1 value) (if (barrier) value (unreachable))))
 
-(define boyer-accepted? (-> Datum Datum Bool)
+(def boyer-accepted? (-> Datum Datum Bool)
   (lambda (result.1 expected)
     (if (datum-number? result.1) (= (boyer-exact result.1) (boyer-exact expected)) #f)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (index result) (if (< index count) (begin ((ref-get setup-boyer)) (loop (+ index 1) ((ref-get test-boyer) alist term (hide count (specification-size configured))))) (if (boyer-accepted? result (specification-expected configured)) 1 0)))) loop)))
+    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (begin ((ref-get setup-boyer)) (loop (+ index 1) ((ref-get test-boyer) alist term (hide count (specification-size configured))))) (if (boyer-accepted? result (specification-expected configured)) 1 0)))) loop)))
       0
       (datum-boolean #f))))
 

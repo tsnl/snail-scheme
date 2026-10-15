@@ -1,9 +1,9 @@
 ;; Typed datum output. SFIR owns graph inspection, syntax and continuations;
 ;; Rust receives only each Unicode scalar and the explicit output-port ID.
-(library (sfir write)
+(define-library (sfir write)
   (export write display write-datum display-datum
           test-write)
-  (import (sfir core) (sfir io) (sfir datum) (sfir number) (sfir bytes))
+  (import (sfir base) (sfir io) (sfir datum) (sfir number) (sfir bytes))
 
   ;; ---- Query-local storage identities and graph analysis ----
 
@@ -12,323 +12,324 @@
   ;; The table retains ordinary traced values, never unrooted native pointers.
   ;; Linear identity lookup keeps the existing mutable storage contract: two
   ;; datum-pair/vector views of the same storage must share one graph entry.
-  (define-data OutputNode
-    (output-node (value Datum output-node-value) (active (Ref Bool) output-node-active)
-                 (repeated (Ref Bool) output-node-repeated) (label (Ref I64) output-node-label)))
-  (define-data OutputGraph
-    (output-graph (nodes (Ref (List OutputNode)) output-graph-nodes)
-                  (cyclic (Ref Bool) output-graph-cyclic) (next-label (Ref I64) output-graph-next-label)))
-  (define-data OutputScan
-    (scan-done) (scan-value (value Datum) (pending OutputScan))
-    (scan-elements (values (Vector Datum)) (index I64) (pending OutputScan))
-    (scan-leave (node OutputNode) (pending OutputScan)))
+  (begin
+    (def OutputNode (datatype ()
+                              (output-node (value Datum output-node-value) (active (Ref Bool) output-node-active)
+                                           (repeated (Ref Bool) output-node-repeated) (label (Ref I64) output-node-label))))
+    (def OutputGraph (datatype ()
+                               (output-graph (nodes (Ref (List OutputNode)) output-graph-nodes)
+                                             (cyclic (Ref Bool) output-graph-cyclic) (next-label (Ref I64) output-graph-next-label))))
+    (def OutputScan (datatype ()
+                              (scan-done) (scan-value (value Datum) (pending OutputScan))
+                              (scan-elements (values (Vector Datum)) (index I64) (pending OutputScan))
+                              (scan-leave (node OutputNode) (pending OutputScan))))
 
-  (define mutable-output? (-> Datum Bool)
-    (lambda (value)
-      (let ((kind (datum-kind value))) (if (= kind 3) #t (if (= kind 6) #t (if (= kind 7) #t (= kind 8)))))))
-  ;; A nonempty result starts with the matching entry; an empty list is absent.
+    (def mutable-output? (-> Datum Bool)
+         (lambda (value)
+           (begin (let kind (datum-kind value)) (if (= kind 3) #t (if (= kind 6) #t (if (= kind 7) #t (= kind 8)))))))
+    ;; A nonempty result starts with the matching entry; an empty list is absent.
 
-  (define find-output-node (-> Datum (List OutputNode) (List OutputNode))
-    (lambda (value nodes)
-      (if (if (null? nodes) #t (datum-eq? value (output-node-value (car nodes))))
-          nodes
-          (find-output-node value (cdr nodes)))))
+    (def find-output-node (-> Datum (List OutputNode) (List OutputNode))
+         (lambda (value nodes)
+           (if (if (null? nodes) #t (datum-eq? value (output-node-value (car nodes))))
+               nodes
+               (find-output-node value (cdr nodes)))))
 
-  (define inspect-output-graph (-> Datum OutputGraph)
-    (lambda (value)
-      (let ((graph (output-graph (ref (quote ())) (ref #f) (ref 0))))
-        (begin
-          (scan-output-value value (scan-done) graph) graph))))
-
-  (define continue-output-scan (-> OutputScan OutputGraph Unit)
-    (lambda (work graph)
-      (match work
-        ((scan-done) (unit))
-        ((scan-value value pending) (scan-output-value value pending graph))
-        ((scan-elements values index pending) (scan-output-elements values index pending graph))
-        ((scan-leave node pending)
-         (begin
-           (ref-set! (output-node-active node) #f) (continue-output-scan pending graph))))))
-
-  (define record-output-repeat! (-> OutputNode OutputGraph Unit)
-    (lambda (node graph)
-      (begin
-        (ref-set! (output-node-repeated node) #t)
-        (if (ref-get (output-node-active node))
-            (begin (ref-set! (output-graph-cyclic graph) #t)
-                   (unit))
-            (unit)))))
-
-  (define scan-output-value (-> Datum OutputScan OutputGraph Unit)
-    (lambda (value pending graph)
-      (if (not (mutable-output? value))
-          (continue-output-scan pending graph)
-          (let ((found (find-output-node value (ref-get (output-graph-nodes graph)))))
-            (if (null? found)
-                (let ((node (output-node value (ref #t) (ref #f) (ref -1))))
+    (def inspect-output-graph (-> Datum OutputGraph)
+         (lambda (value)
+           (begin (let graph (output-graph (ref (empty-list )) (ref #f) (ref 0)))
                   (begin
-                    (ref-set! (output-graph-nodes graph) (cons node (ref-get (output-graph-nodes graph))))
-                    (scan-output-children value (scan-leave node pending) graph)))
-                (begin (record-output-repeat! (car found) graph) (continue-output-scan pending graph)))))))
+                    (scan-output-value value (scan-done) graph) graph))))
 
-  (define scan-output-children (-> Datum OutputScan OutputGraph Unit)
-    (lambda (value pending graph)
-      (let ((kind (datum-kind value)))
-        (if (= kind 6)
-            (scan-output-value (datum-car value) (scan-value (datum-cdr value) pending) graph)
-            (if (= kind 7)
-                (scan-output-elements (datum-vector-values value) 0 pending graph)
-                (continue-output-scan pending graph))))))
-
-  (define scan-output-elements (-> (Vector Datum) I64 OutputScan OutputGraph Unit)
-    (lambda (values index pending graph)
-      (if (= index (vector-length values))
-          (continue-output-scan pending graph)
-          (scan-output-value (vector-ref values index) (scan-elements values (+ index 1) pending) graph))))
-
-  ;; ---- First-output order assigns labels only when a cycle exists ----
-
-  ;; Ordinary acyclic sharing expands at each occurrence. If any cycle exists,
-  ;; all repeated mutable objects use #n= and #n#, including strings and bytes.
-  ;; The scan visits each unique object's children once; rendering cannot call
-  ;; user code or mutate that graph between inspection and its final lookup.
-
-  (define labelled-output? (-> Datum OutputGraph Bool)
-    (lambda (value graph)
-      (if (ref-get (output-graph-cyclic graph))
-          (if (mutable-output? value)
-              (ref-get (output-node-repeated (car (find-output-node value (ref-get (output-graph-nodes graph))))))
-              #f)
-          #f)))
-
-  (define claim-output-label! (-> OutputNode OutputGraph I64)
-    (lambda (node graph)
-      (let ((label (ref-get (output-graph-next-label graph))))
-        (begin
-          (ref-set! (output-node-label node) label)
-          (ref-set! (output-graph-next-label graph) (+ label 1)) label))))
-  ;; Return true after a reference; false after a definition or unlabelled value.
-  ;; Assigning before any child is what makes a later cycle edge terminate.
-
-  (define write-output-label? (-> Datum OutputPort OutputGraph Bool)
-    (lambda (value port graph)
-      (if (not (labelled-output? value graph))
-          #f
-          (let ((node (car (find-output-node value (ref-get (output-graph-nodes graph))))))
-            (let ((old (ref-get (output-node-label node))))
-              (let ((reference? (>= old 0)))
-                (let ((label (if reference? old (claim-output-label! node graph))))
-                  (begin
-                    (write-char #\# port) (write-i64 label port)
-                    (write-char (if reference? #\# #\=) port) reference?))))))))
-
-  ;; ---- Explicit continuations keep nested output off the machine stack ----
-
-  (define-data OutputWork
-    (output-done) (output-tail (value Datum) (pending OutputWork))
-    (output-elements (values (Vector Datum)) (index I64) (pending OutputWork))
-    (output-close (pending OutputWork)))
-
-  (define write-datum (-> Datum OutputPort Unit)
-    (lambda (value port)
-      (emit-output-value value #f port (inspect-output-graph value) (output-done))))
-
-  (define display-datum (-> Datum OutputPort Unit)
-    (lambda (value port)
-      (emit-output-value value #t port (inspect-output-graph value) (output-done))))
-
-  (define continue-output (-> OutputWork Bool OutputPort OutputGraph Unit)
-    (lambda (work display? port graph)
-      (match work
-        ((output-done) (unit))
-        ((output-tail value pending) (emit-output-tail value display? port graph pending))
-        ((output-elements values index pending) (emit-output-elements values index display? port graph pending))
-        ((output-close pending)
-         (begin (write-char #\) port) (continue-output pending display? port graph))))))
-
-  (define emit-output-value (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
-    (lambda (value display? port graph pending)
-      (if (write-output-label? value port graph)
-          (continue-output pending display? port graph)
-          (emit-output-body value display? port graph pending))))
-
-  (define emit-output-body (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
-    (lambda (value display? port graph pending)
-      (if (datum-pair? value)
-          (begin
-            (write-char #\( port)
-            (emit-output-value (datum-car value) display? port graph
-                               (output-tail (datum-cdr value) (output-close pending))))
-          (if (= (datum-kind value) 7)
+    (def continue-output-scan (-> OutputScan OutputGraph Unit)
+         (lambda (work graph)
+           (match work
+             ((scan-done) (unit))
+             ((scan-value value pending) (scan-output-value value pending graph))
+             ((scan-elements values index pending) (scan-output-elements values index pending graph))
+             ((scan-leave node pending)
               (begin
-                (write-string "#(" port)
-                (emit-output-elements (datum-vector-values value) 0 display? port graph (output-close pending)))
-              (begin (write-output-atom value display? port) (continue-output pending display? port graph))))))
+                (ref-set! (output-node-active node) #f) (continue-output-scan pending graph))))))
 
-  (define emit-output-tail (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
-    (lambda (value display? port graph pending)
-      (if (datum-null? value)
-          (continue-output pending display? port graph)
-          (if (if (datum-pair? value) (not (labelled-output? value graph)) #f)
-              (begin
-                (write-char #\space port)
-                (emit-output-value (datum-car value) display? port graph (output-tail (datum-cdr value) pending)))
-              ;; Both a labelled definition and a reference must retain the pair boundary.
-              (begin (write-string " . " port) (emit-output-value value display? port graph pending))))))
-
-  (define emit-output-elements (-> (Vector Datum) I64 Bool OutputPort OutputGraph OutputWork Unit)
-    (lambda (values index display? port graph pending)
-      (if (= index (vector-length values))
-          (continue-output pending display? port graph)
-          (begin
-            (if (> index 0)
-                (begin (write-char #\space port)
-                       (unit))
-                (unit))
-            (emit-output-value (vector-ref values index) display? port graph
-                               (output-elements values (+ index 1) pending))))))
-
-  ;; ---- Reader-compatible atomic spelling and recursive display ----
-
-  ;; This exhaustive dispatch keeps every atomic Datum representation visible.
-
-  (define write-output-atom (-> Datum Bool OutputPort Unit)
-    (lambda (value display? port)
-      (let ((kind (datum-kind value)))
-        (if (= kind 0)
-            (write-string "()" port)
-            (if (= kind 1)
-                (write-string (if (datum-boolean-value value) "#t" "#f") port)
-                (if (= kind 2)
-                    (write-output-character (datum-character-value value) display? port)
-                    (if (= kind 3)
-                        (if display?
-                            (write-string (datum-string-value value) port)
-                            (write-delimited-text (datum-string-value value) #\" port))
-                        (if (= kind 4)
-                            (write-output-symbol (datum-symbol-value value) display? port)
-                            (if (= kind 5)
-                                (write-string (number->string (datum-number-value value)) port)
-                                (if (= kind 8)
-                                    (write-output-bytes (datum-bytevector-values value) port)
-                                    (datum-fail "write: expected an atomic datum")))))))))))
-
-  (define control-character? (-> Char Bool)
-    (lambda (character)
-      (let ((code (char->integer character))) (if (< code 32) #t (if (>= code 127) (<= code 159) #f)))))
-
-  (define write-hex-digits (-> I64 OutputPort Unit)
-    (lambda (value port)
-      (begin
-        (if (< value 16)
-            (unit)
-            (begin (write-hex-digits (quotient value 16) port)
-                   (unit)))
-        (write-char (string-ref "0123456789abcdef" (remainder value 16)) port))))
-
-  (define write-output-character (-> Char Bool OutputPort Unit)
-    (lambda (character display? port)
-      (if display?
-          (write-char character port)
-          (begin
-            (write-string "#\\" port)
-            (if (char=? character #\space)
-                (write-string "space" port)
-                (if (char=? character #\newline)
-                    (write-string "newline" port)
-                    (if (char=? character #\tab)
-                        (write-string "tab" port)
-                        (if (char=? character #\return)
-                            (write-string "return" port)
-                            (if (control-character? character)
-                                (begin (write-char #\x port) (write-hex-digits (char->integer character) port))
-                                (write-char character port))))))))))
-
-  (define write-delimited-text (-> String Char OutputPort Unit)
-    (lambda (text delimiter port)
-      (begin
-        (write-char delimiter port)
-        (begin
-          (define loop
-            (lambda (index)
-              (if (= index (string-length text))
-                  (write-char delimiter port)
-                  (begin (write-escaped-character (string-ref text index) delimiter port) (loop (+ index 1))))))
-          (loop 0)))))
-
-  (define write-escaped-character (-> Char Char OutputPort Unit)
-    (lambda (character delimiter port)
-      (if (if (char=? character delimiter) #t (char=? character #\\))
-          (begin
-            (write-char #\\ port) (write-char character port))
-          (if (char=? character #\newline)
-              (write-string "\\n" port)
-              (if (char=? character #\return)
-                  (write-string "\\r" port)
-                  (if (char=? character #\tab)
-                      (write-string "\\t" port)
-                      (if (control-character? character)
-                          (begin
-                            (write-string "\\x" port) (write-hex-digits (char->integer character) port) (write-char #\; port))
-                          (write-char character port))))))))
-
-  (define bare-output-symbol? (-> String Bool)
-    (lambda (text)
-      (if (identifier? text)
-          (match (string->number text)
-            ((not-a-number) #t) ((parsed-number value) #f) ((number-error message) #f))
-          #f)))
-
-  (define write-output-symbol (-> Symbol Bool OutputPort Unit)
-    (lambda (value display? port)
-      (let ((text (symbol->string value)))
-        (if (if display? #t (bare-output-symbol? text))
-            (write-string text port)
-            (write-delimited-text text #\| port)))))
-
-  (define write-output-bytes (-> Bytevector OutputPort Unit)
-    (lambda (bytes port)
-      (begin
-        (write-string "#u8(" port)
-        (begin
-          (define loop
-            (lambda (index)
-              (if (= index (bytevector-length bytes))
-                  (write-char #\) port)
-                  (begin
-                    (if (> index 0)
-                        (begin (write-char #\space port)
-                               (unit))
+    (def record-output-repeat! (-> OutputNode OutputGraph Unit)
+         (lambda (node graph)
+           (begin
+             (ref-set! (output-node-repeated node) #t)
+             (if (ref-get (output-node-active node))
+                 (begin (ref-set! (output-graph-cyclic graph) #t)
                         (unit))
-                    (write-i64 (bytevector-u8-ref bytes index) port) (loop (+ index 1))))))
-          (loop 0)))))
+                 (unit)))))
 
-  ;; ---- Default output is an ordinary call to the stable stdout port ----
+    (def scan-output-value (-> Datum OutputScan OutputGraph Unit)
+         (lambda (value pending graph)
+           (if (not (mutable-output? value))
+               (continue-output-scan pending graph)
+               (begin (let found (find-output-node value (ref-get (output-graph-nodes graph))))
+                      (if (null? found)
+                          (begin (let node (output-node value (ref #t) (ref #f) (ref -1)))
+                                 (begin
+                                   (ref-set! (output-graph-nodes graph) (cons node (ref-get (output-graph-nodes graph))))
+                                   (scan-output-children value (scan-leave node pending) graph)))
+                          (begin (record-output-repeat! (car found) graph) (continue-output-scan pending graph)))))))
 
-  (define-overload write (-> Datum OutputPort Unit) write-datum)
-  (define-overload write (-> Datum Unit) (lambda (value) (write-datum value (current-output-port))))
-  (define-overload display (-> Datum OutputPort Unit) display-datum)
-  (define-overload display (-> Datum Unit) (lambda (value) (display-datum value (current-output-port))))
+    (def scan-output-children (-> Datum OutputScan OutputGraph Unit)
+         (lambda (value pending graph)
+           (begin (let kind (datum-kind value))
+                  (if (= kind 6)
+                      (scan-output-value (datum-car value) (scan-value (datum-cdr value) pending) graph)
+                      (if (= kind 7)
+                          (scan-output-elements (datum-vector-values value) 0 pending graph)
+                          (continue-output-scan pending graph))))))
 
-  ;; ---- Tests ----
+    (def scan-output-elements (-> (Vector Datum) I64 OutputScan OutputGraph Unit)
+         (lambda (values index pending graph)
+           (if (= index (vector-length values))
+               (continue-output-scan pending graph)
+               (scan-output-value (vector-ref values index) (scan-elements values (+ index 1) pending) graph))))
 
-  ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
+    ;; ---- First-output order assigns labels only when a cycle exists ----
 
-  (define test-output-graph (-> Bool)
-    (lambda ()
-      (let ((pair (datum-cons (datum-null) (datum-null))))
-        (let ((shared (datum-vector (vector pair pair))))
-          (let ((ordinary (inspect-output-graph shared)))
-            (begin
-              (datum-set-car! pair shared)
-              (let ((cyclic (inspect-output-graph shared)))
-                (if (not (ref-get (output-graph-cyclic ordinary)))
-                    (if (ref-get (output-graph-cyclic cyclic))
-                        (if (labelled-output? pair cyclic)
-                            (if (labelled-output? shared cyclic) (datum-eq? (datum-car pair) shared) #f)
-                            #f)
-                        #f)
-                    #f))))))))
+    ;; Ordinary acyclic sharing expands at each occurrence. If any cycle exists,
+    ;; all repeated mutable objects use #n= and #n#, including strings and bytes.
+    ;; The scan visits each unique object's children once; rendering cannot call
+    ;; user code or mutate that graph between inspection and its final lookup.
 
-  (define test-write (-> I64)
-    (lambda () (if (test-output-graph) 42 0))))
+    (def labelled-output? (-> Datum OutputGraph Bool)
+         (lambda (value graph)
+           (if (ref-get (output-graph-cyclic graph))
+               (if (mutable-output? value)
+                   (ref-get (output-node-repeated (car (find-output-node value (ref-get (output-graph-nodes graph))))))
+                   #f)
+               #f)))
+
+    (def claim-output-label! (-> OutputNode OutputGraph I64)
+         (lambda (node graph)
+           (begin (let label (ref-get (output-graph-next-label graph)))
+                  (begin
+                    (ref-set! (output-node-label node) label)
+                    (ref-set! (output-graph-next-label graph) (+ label 1)) label))))
+    ;; Return true after a reference; false after a definition or unlabelled value.
+    ;; Assigning before any child is what makes a later cycle edge terminate.
+
+    (def write-output-label? (-> Datum OutputPort OutputGraph Bool)
+         (lambda (value port graph)
+           (if (not (labelled-output? value graph))
+               #f
+               (begin (let node (car (find-output-node value (ref-get (output-graph-nodes graph)))))
+                      (begin (let old (ref-get (output-node-label node)))
+                             (begin (let reference? (>= old 0))
+                                    (begin (let label (if reference? old (claim-output-label! node graph)))
+                                           (begin
+                                             (write-char #\# port) (write-i64 label port)
+                                             (write-char (if reference? #\# #\=) port) reference?))))))))
+
+    ;; ---- Explicit continuations keep nested output off the machine stack ----
+
+    (def OutputWork (datatype ()
+                              (output-done) (output-tail (value Datum) (pending OutputWork))
+                              (output-elements (values (Vector Datum)) (index I64) (pending OutputWork))
+                              (output-close (pending OutputWork))))
+
+    (def write-datum (-> Datum OutputPort Unit)
+         (lambda (value port)
+           (emit-output-value value #f port (inspect-output-graph value) (output-done))))
+
+    (def display-datum (-> Datum OutputPort Unit)
+         (lambda (value port)
+           (emit-output-value value #t port (inspect-output-graph value) (output-done))))
+
+    (def continue-output (-> OutputWork Bool OutputPort OutputGraph Unit)
+         (lambda (work display? port graph)
+           (match work
+             ((output-done) (unit))
+             ((output-tail value pending) (emit-output-tail value display? port graph pending))
+             ((output-elements values index pending) (emit-output-elements values index display? port graph pending))
+             ((output-close pending)
+              (begin (write-char #\) port) (continue-output pending display? port graph))))))
+
+    (def emit-output-value (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
+         (lambda (value display? port graph pending)
+           (if (write-output-label? value port graph)
+               (continue-output pending display? port graph)
+               (emit-output-body value display? port graph pending))))
+
+    (def emit-output-body (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
+         (lambda (value display? port graph pending)
+           (if (datum-pair? value)
+               (begin
+                 (write-char #\( port)
+                 (emit-output-value (datum-car value) display? port graph
+                                    (output-tail (datum-cdr value) (output-close pending))))
+               (if (= (datum-kind value) 7)
+                   (begin
+                     (write-string "#(" port)
+                     (emit-output-elements (datum-vector-values value) 0 display? port graph (output-close pending)))
+                   (begin (write-output-atom value display? port) (continue-output pending display? port graph))))))
+
+    (def emit-output-tail (-> Datum Bool OutputPort OutputGraph OutputWork Unit)
+         (lambda (value display? port graph pending)
+           (if (datum-null? value)
+               (continue-output pending display? port graph)
+               (if (if (datum-pair? value) (not (labelled-output? value graph)) #f)
+                   (begin
+                     (write-char #\space port)
+                     (emit-output-value (datum-car value) display? port graph (output-tail (datum-cdr value) pending)))
+                   ;; Both a labelled definition and a reference must retain the pair boundary.
+                   (begin (write-string " . " port) (emit-output-value value display? port graph pending))))))
+
+    (def emit-output-elements (-> (Vector Datum) I64 Bool OutputPort OutputGraph OutputWork Unit)
+         (lambda (values index display? port graph pending)
+           (if (= index (vector-length values))
+               (continue-output pending display? port graph)
+               (begin
+                 (if (> index 0)
+                     (begin (write-char #\space port)
+                            (unit))
+                     (unit))
+                 (emit-output-value (vector-ref values index) display? port graph
+                                    (output-elements values (+ index 1) pending))))))
+
+    ;; ---- Reader-compatible atomic spelling and recursive display ----
+
+    ;; This exhaustive dispatch keeps every atomic Datum representation visible.
+
+    (def write-output-atom (-> Datum Bool OutputPort Unit)
+         (lambda (value display? port)
+           (begin (let kind (datum-kind value))
+                  (if (= kind 0)
+                      (write-string "()" port)
+                      (if (= kind 1)
+                          (write-string (if (datum-boolean-value value) "#t" "#f") port)
+                          (if (= kind 2)
+                              (write-output-character (datum-character-value value) display? port)
+                              (if (= kind 3)
+                                  (if display?
+                                      (write-string (datum-string-value value) port)
+                                      (write-delimited-text (datum-string-value value) #\" port))
+                                  (if (= kind 4)
+                                      (write-output-symbol (datum-symbol-value value) display? port)
+                                      (if (= kind 5)
+                                          (write-string (number->string (datum-number-value value)) port)
+                                          (if (= kind 8)
+                                              (write-output-bytes (datum-bytevector-values value) port)
+                                              (datum-fail "write: expected an atomic datum")))))))))))
+
+    (def control-character? (-> Char Bool)
+         (lambda (character)
+           (begin (let code (char->integer character)) (if (< code 32) #t (if (>= code 127) (<= code 159) #f)))))
+
+    (def write-hex-digits (-> I64 OutputPort Unit)
+         (lambda (value port)
+           (begin
+             (if (< value 16)
+                 (unit)
+                 (begin (write-hex-digits (quotient value 16) port)
+                        (unit)))
+             (write-char (string-ref "0123456789abcdef" (remainder value 16)) port))))
+
+    (def write-output-character (-> Char Bool OutputPort Unit)
+         (lambda (character display? port)
+           (if display?
+               (write-char character port)
+               (begin
+                 (write-string "#\\" port)
+                 (if (char=? character #\space)
+                     (write-string "space" port)
+                     (if (char=? character #\newline)
+                         (write-string "newline" port)
+                         (if (char=? character #\tab)
+                             (write-string "tab" port)
+                             (if (char=? character #\return)
+                                 (write-string "return" port)
+                                 (if (control-character? character)
+                                     (begin (write-char #\x port) (write-hex-digits (char->integer character) port))
+                                     (write-char character port))))))))))
+
+    (def write-delimited-text (-> String Char OutputPort Unit)
+         (lambda (text delimiter port)
+           (begin
+             (write-char delimiter port)
+             (begin
+               (def loop
+                    (lambda (index)
+                      (if (= index (string-length text))
+                          (write-char delimiter port)
+                          (begin (write-escaped-character (string-ref text index) delimiter port) (loop (+ index 1))))))
+               (loop 0)))))
+
+    (def write-escaped-character (-> Char Char OutputPort Unit)
+         (lambda (character delimiter port)
+           (if (if (char=? character delimiter) #t (char=? character #\\))
+               (begin
+                 (write-char #\\ port) (write-char character port))
+               (if (char=? character #\newline)
+                   (write-string "\\n" port)
+                   (if (char=? character #\return)
+                       (write-string "\\r" port)
+                       (if (char=? character #\tab)
+                           (write-string "\\t" port)
+                           (if (control-character? character)
+                               (begin
+                                 (write-string "\\x" port) (write-hex-digits (char->integer character) port) (write-char #\; port))
+                               (write-char character port))))))))
+
+    (def bare-output-symbol? (-> String Bool)
+         (lambda (text)
+           (if (identifier? text)
+               (match (string->number text)
+                 ((not-a-number) #t) ((parsed-number value) #f) ((number-error message) #f))
+               #f)))
+
+    (def write-output-symbol (-> Symbol Bool OutputPort Unit)
+         (lambda (value display? port)
+           (begin (let text (symbol->string value))
+                  (if (if display? #t (bare-output-symbol? text))
+                      (write-string text port)
+                      (write-delimited-text text #\| port)))))
+
+    (def write-output-bytes (-> Bytevector OutputPort Unit)
+         (lambda (bytes port)
+           (begin
+             (write-string "#u8(" port)
+             (begin
+               (def loop
+                    (lambda (index)
+                      (if (= index (bytevector-length bytes))
+                          (write-char #\) port)
+                          (begin
+                            (if (> index 0)
+                                (begin (write-char #\space port)
+                                       (unit))
+                                (unit))
+                            (write-i64 (bytevector-u8-ref bytes index) port) (loop (+ index 1))))))
+               (loop 0)))))
+
+    ;; ---- Default output is an ordinary call to the stable stdout port ----
+
+    (define-overload write (-> Datum OutputPort Unit) write-datum)
+    (define-overload write (-> Datum Unit) (lambda (value) (write-datum value (current-output-port))))
+    (define-overload display (-> Datum OutputPort Unit) display-datum)
+    (define-overload display (-> Datum Unit) (lambda (value) (display-datum value (current-output-port))))
+
+    ;; ---- Tests ----
+
+    ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
+
+    (def test-output-graph (-> Bool)
+         (lambda ()
+           (begin (let pair (datum-cons (datum-null) (datum-null)))
+                  (begin (let shared (datum-vector (vector pair pair)))
+                         (begin (let ordinary (inspect-output-graph shared))
+                                (begin
+                                  (datum-set-car! pair shared)
+                                  (begin (let cyclic (inspect-output-graph shared))
+                                         (if (not (ref-get (output-graph-cyclic ordinary)))
+                                             (if (ref-get (output-graph-cyclic cyclic))
+                                                 (if (labelled-output? pair cyclic)
+                                                     (if (labelled-output? shared cyclic) (datum-eq? (datum-car pair) shared) #f)
+                                                     #f)
+                                                 #f)
+                                             #f))))))))
+
+    (def test-write (-> I64)
+         (lambda () (if (test-output-graph) 42 0)))))

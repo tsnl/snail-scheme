@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import random
+import re
 import signal
 import subprocess
 import sys
@@ -166,9 +167,9 @@ def verify_small_radix(output):
     reduced = FIXTURES / 'small-radix/sfir/integer.sfir'
     expected, actual = production.read_text(), reduced.read_text()
     for name, before, after in [('radix', 1073741824, 4), ('limb-bits', 30, 2)]:
-        old, new = [f'(define {name}\n    {value})' for value in [before, after]]
-        assert expected.count(old) == actual.count(new) == 1, name
-        expected = expected.replace(old, new)
+        declaration = rf'(\(def\s+{name}\s+){before}(\))'
+        expected, count = re.subn(declaration, lambda match: f'{match[1]}{after}{match[2]}', expected)
+        assert count == 1, name
     assert actual == expected, 'small-radix library differs beyond its declared constants'
     save(output / 'radix-source-identities.json', {
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()

@@ -1,17 +1,17 @@
-(import (sfir core))
-(define-class (Copy T) (: copy-value (-> T T)))
-(define-instance (Copy (Vector I64)) (copy-value vector-copy))
-(define-instance (Copy (Vector Bool)) (copy-value vector-copy))
-(define copy-twice
-  (lambda (value) (copy-value (copy-value value))))
-(define invoke
-  (lambda (operation value) (operation value)))
-(define original
-  (vector 40 2))
-(define copied
-  (copy-twice original))
-(define flags
-  (invoke copy-value (vector #t #f)))
+(import (sfir base))
+(def Copy (typeclass ( T) (: copy-value (-> T T))))
+(def sfir-migration-instance-1 (instance (Copy (Vector I64)) (copy-value vector-copy)))
+(def sfir-migration-instance-2 (instance (Copy (Vector Bool)) (copy-value vector-copy)))
+(def copy-twice
+     (lambda (value) (copy-value (copy-value value))))
+(def invoke
+     (lambda (operation value) (operation value)))
+(def original
+     (vector 40 2))
+(def copied
+     (copy-twice original))
+(def flags
+     (invoke copy-value (vector #t #f)))
 (vector-set! copied 0 0)
 (if (if (not (vector-eq? original copied))
         (if (vector-ref flags 0) (not (vector-ref flags 1)) #f)

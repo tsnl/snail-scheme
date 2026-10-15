@@ -1,7 +1,7 @@
 # SFIR libraries
 
 These are ordinary libraries for the [bare SFIR language](../../doc/sfir.md).
-The compiler reads each `.sfir` file directly. Import `(sfir core)` for scalar
+The compiler reads each `.sfir` file directly. Import `(sfir base)` for scalar
 operators and homogeneous collections, then import the libraries required by the
 program. No Scheme expansion or source generator participates in loading them.
 
@@ -13,7 +13,7 @@ overload families.
 
 | Library | Responsibility |
 | --- | --- |
-| `core` | Static scalar overloads, `Default`, and homogeneous vector/string operations. Only primitive function values come from `(sfir primitive)`. |
+| `base` | Static scalar overloads, `Default`, and homogeneous vector/string operations. Only primitive function values come from `(sfir primitive)`. |
 | `io` | Scalar file services, explicit shared-handle ownership, borrowed standard streams, line input and text output. |
 | `math` | Binary64 trigonometry, exponentials and logarithms through scalar externs. |
 | `text` | Unicode scalar properties, full string case folding and lexical string ordering. |
@@ -27,9 +27,9 @@ overload families.
 
 ## Source and representation contracts
 
-The migration starts from `src/snail/{strict,io,math,text,bytes,integer,rational,number,datum,read,write}.sld`
+The initial extraction started from `src/snail/{strict,io,math,text,bytes,integer,rational,number,datum,read,write}.sld`
 at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
-`core`; the other module names stay the same. All 393 value definitions, 24
+`core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations are retained. Foreign module/provider strings and scalar signatures
 are unchanged, so the same Rust implementations serve Wasm and native execution.
@@ -49,10 +49,12 @@ it. Rust returns scalar mapping lengths and components, without receiving
 managed strings or allocating temporary strings. The generated casing exceptions
 record Rust's Unicode baseline and require regeneration when it changes.
 
-Every former procedure definition is now an explicit value definition containing
-a lambda. An existing signature is attached to that definition. A lambda or let
-has one body expression; `begin` supplies ordered effects and a final value.
-Sequential bindings use nested lets, preserving rebinding and outer-name reads.
+Every former procedure definition is an explicit `def` containing a lambda,
+with any existing signature attached. A lambda has one body expression;
+`begin` supplies ordered statements and a final value. A statement `let` binds
+its name only after its initializer. The surface migration preserves each old
+parallel let with a fresh block: all initializers run before aliases introduce
+the old names. Existing nested blocks remain separate lexical scopes.
 
 The 79 local recursive loops use a fresh lexical `begin`, an explicit lambda
 definition and the initial call. Their original initializers contain no reference
@@ -83,18 +85,20 @@ The final `Tests` sections of `text`, `integer`, `rational`, `number`, `datum`,
 exports are always available in SFIR, replacing the old `snail-tests` conditional
 expansion. A program can call them directly without a language feature flag.
 
-The implemented literal domain supports `(quote ())`, not nonempty quoted lists.
+Empty lists use the polymorphic `empty-list` operation. Quoted list syntax is
+rejected.
 The private reader delimiter test constructs its twelve integer elements with
 explicit `cons` calls. This is the only test-allocation adaptation; no production
 constant or benchmark kernel changes allocation behavior.
 
-A structural audit checks bare-form arities, retained definitions, attached
+The initial extraction's structural audit checked bare-form arities, retained definitions, attached
 signatures, data/overload/foreign declarations, numeric/string/character constants
 and non-control application inventories. Its only extra non-control calls are
 the reader test's twelve `cons` operations. This audit supplements execution; it
 does not establish runtime correctness by itself.
 
-The source checkpoint `3ae7928` passed the following execution checks:
+The historical source checkpoint `3ae7928`, before the published surface
+migration, passed the following execution checks:
 
 - A core fixture returned `42` on raw and mandatory-Binaryen-optimized Wasm,
   including the invocation guard. The same fixture also passed with committed
@@ -118,6 +122,10 @@ discards that value and returns `Unit`. Both initial records are retained.
 
 These are library correctness checks, not complete benchmark-suite coverage or
 performance measurements. Historical strict-Scheme measurements remain historical.
+The [surface migration manifest](../../tests/sfir/surface-migration.json) records
+original, mechanically migrated, and formatted source hashes. Formatting preserves
+every syntax token and comment. Its checks do not revalidate the historical
+execution artifacts against the new compiler surface.
 
 The focused `core`/`io` clarity review used the pinned
 [simplify skill](../../.agents/skills/simplify/SKILL.md), a fresh explainer without

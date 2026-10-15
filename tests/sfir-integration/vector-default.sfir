@@ -1,14 +1,14 @@
-(import (sfir core))
-(define values
-  (make-vector 3))
+(import (sfir base))
+(def values
+     (make-vector 3))
 (vector-set! values 1 42)
-(define floats
-  (ann (make-vector 2) (Vector F64)))
-(define empty
-  (ann (make-vector 0) (Vector Bool)))
+(def floats
+     (ann (make-vector 2) (Vector F64)))
+(def empty
+     (ann (make-vector 0) (Vector Bool)))
 
-(define build (All (T) (=> ((Default T)) (-> I64 (Vector T))))
-  (lambda (count) (make-vector count)))
+(def build (All (T) (=> ((Default T)) (-> I64 (Vector T))))
+     (lambda (count) (make-vector count)))
 (if (if (= (vector-ref values 0) 0)
         (if (= (vector-ref values 1) 42)
             (if (= (vector-ref values 2) 0)

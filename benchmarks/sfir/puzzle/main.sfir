@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.15 (lambda (xs.1 n.3) (if (null? xs.1) n.3 (loop.15 (cdr xs.1) (+ n.3 1))))) loop.15)))
+    (((lambda () (begin (def loop.15 (lambda (xs.1 n.3) (if (null? xs.1) n.3 (loop.15 (cdr xs.1) (+ n.3 1))))) loop.15)))
       xs
       0)))
 
@@ -20,86 +20,86 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define-data PuzzleResult (puzzle-failed) (puzzle-count (value I64)))
+(def PuzzleResult (datatype () (puzzle-failed) (puzzle-count (value I64))))
 
-(define puzzle-failure (puzzle-failed))
+(def puzzle-failure (puzzle-failed))
 
-(define zero? (lambda (value.4) (= value.4 0)))
+(def zero? (lambda (value.4) (= value.4 0)))
 
 (define-extern puzzle-print "benchmark" "print_text" (-> I64 Unit))
 
-(define puzzle-error (lambda () (begin (puzzle-print 0) (puzzle-print 1))))
+(def puzzle-error (lambda () (begin (puzzle-print 0) (puzzle-print 1))))
 
-(define puzzle-for-each
+(def puzzle-for-each
   (lambda (procedure values)
     (if (null? values)
       (unit)
       (begin (procedure (car values)) (puzzle-for-each procedure (cdr values)) (unit)))))
 
-(define hide (lambda (count.1 x) (hide-i64 x)))
+(def hide (lambda (count.1 x) (hide-i64 x)))
 
-(define my-iota
+(def my-iota
   (lambda (n.1)
-    (((lambda () (begin (define loop.14 (lambda (n.2 list) (if (zero? n.2) list (loop.14 (- n.2 1) (cons (- n.2 1) list))))) loop.14)))
+    (((lambda () (begin (def loop.14 (lambda (n.2 list) (if (zero? n.2) list (loop.14 (- n.2 1) (cons (- n.2 1) list))))) loop.14)))
       n.1
-      (quote ()))))
+      (empty-list ))))
 
-(define *size* 511)
+(def *size* 511)
 
-(define classmax 3)
+(def classmax 3)
 
-(define typemax 12)
+(def typemax 12)
 
-(define *iii* (ref 0))
+(def *iii* (ref 0))
 
-(define *kount* (ref 0))
+(def *kount* (ref 0))
 
-(define *d* 8)
+(def *d* 8)
 
-(define *piececount* (make-vector (+ classmax 1) 0))
+(def *piececount* (make-vector (+ classmax 1) 0))
 
-(define *class* (make-vector (+ typemax 1) 0))
+(def *class* (make-vector (+ typemax 1) 0))
 
-(define *piecemax* (make-vector (+ typemax 1) 0))
+(def *piecemax* (make-vector (+ typemax 1) 0))
 
-(define *puzzle* (make-vector (+ *size* 1) #t))
+(def *puzzle* (make-vector (+ *size* 1) #t))
 
-(define *p* (make-vector (+ typemax 1) (make-vector 0 #t)))
+(def *p* (make-vector (+ typemax 1) (make-vector 0 #t)))
 
-(define fit
+(def fit
   (lambda (i.8 j.5)
-    ((lambda (end.2) (((lambda () (begin (define loop.13 (lambda (k.6) (if ((lambda (value.3) (if value.3 value.3 (if (vector-ref (vector-ref *p* i.8) k.6) (vector-ref *puzzle* (+ j.5 k.6)) #f))) (> k.6 end.2)) (if (> k.6 end.2) #t #f) (loop.13 (+ k.6 1))))) loop.13))) 0))
+    ((lambda (end.2) (((lambda () (begin (def loop.13 (lambda (k.6) (if ((lambda (value.3) (if value.3 value.3 (if (vector-ref (vector-ref *p* i.8) k.6) (vector-ref *puzzle* (+ j.5 k.6)) #f))) (> k.6 end.2)) (if (> k.6 end.2) #t #f) (loop.13 (+ k.6 1))))) loop.13))) 0))
       (vector-ref *piecemax* i.8))))
 
-(define place
+(def place
   (lambda (i.7 j.4)
-    ((lambda (end.1) (begin (((lambda () (begin (define loop.12 (lambda (k.5) (if (> k.5 end.1) (unit) (begin (if (vector-ref (vector-ref *p* i.7) k.5) (begin (vector-set! *puzzle* (+ j.4 k.5) #t) (unit)) (unit)) (loop.12 (+ k.5 1)))))) loop.12))) 0) (vector-set! *piececount* (vector-ref *class* i.7) (- (vector-ref *piececount* (vector-ref *class* i.7)) 1)) (((lambda () (begin (define loop.11 (lambda (k.4) (if ((lambda (value.2) (if value.2 value.2 (not (vector-ref *puzzle* k.4)))) (> k.4 *size*)) (if (> k.4 *size*) 0 k.4) (loop.11 (+ k.4 1))))) loop.11))) j.4)))
+    ((lambda (end.1) (begin (((lambda () (begin (def loop.12 (lambda (k.5) (if (> k.5 end.1) (unit) (begin (if (vector-ref (vector-ref *p* i.7) k.5) (begin (vector-set! *puzzle* (+ j.4 k.5) #t) (unit)) (unit)) (loop.12 (+ k.5 1)))))) loop.12))) 0) (vector-set! *piececount* (vector-ref *class* i.7) (- (vector-ref *piececount* (vector-ref *class* i.7)) 1)) (((lambda () (begin (def loop.11 (lambda (k.4) (if ((lambda (value.2) (if value.2 value.2 (not (vector-ref *puzzle* k.4)))) (> k.4 *size*)) (if (> k.4 *size*) 0 k.4) (loop.11 (+ k.4 1))))) loop.11))) j.4)))
       (vector-ref *piecemax* i.7))))
 
-(define puzzle-remove
+(def puzzle-remove
   (lambda (i.6 j.3)
-    ((lambda (end) (begin (((lambda () (begin (define loop.10 (lambda (k.3) (if (> k.3 end) (unit) (begin (if (vector-ref (vector-ref *p* i.6) k.3) (begin (vector-set! *puzzle* (+ j.3 k.3) #f) (unit)) (unit)) (loop.10 (+ k.3 1)))))) loop.10))) 0) (vector-set! *piececount* (vector-ref *class* i.6) (+ (vector-ref *piececount* (vector-ref *class* i.6)) 1))))
+    ((lambda (end) (begin (((lambda () (begin (def loop.10 (lambda (k.3) (if (> k.3 end) (unit) (begin (if (vector-ref (vector-ref *p* i.6) k.3) (begin (vector-set! *puzzle* (+ j.3 k.3) #f) (unit)) (unit)) (loop.10 (+ k.3 1)))))) loop.10))) 0) (vector-set! *piececount* (vector-ref *class* i.6) (+ (vector-ref *piececount* (vector-ref *class* i.6)) 1))))
       (vector-ref *piecemax* i.6))))
 
-(define trial
+(def trial
   (lambda (j.2)
-    (((lambda () (begin (define candidates (lambda (i.5) (if (> i.5 typemax) (begin (ref-set! *kount* (+ (ref-get *kount*) 1)) #f) (if (if (not (zero? (vector-ref *piececount* (vector-ref *class* i.5)))) (fit i.5 j.2) #f) ((lambda (k.2) (if ((lambda (value.1) (if value.1 value.1 (zero? k.2))) (trial k.2)) (begin (ref-set! *kount* (+ (ref-get *kount*) 1)) #t) (begin (puzzle-remove i.5 j.2) (candidates (+ i.5 1))))) (place i.5 j.2)) (candidates (+ i.5 1)))))) candidates)))
+    (((lambda () (begin (def candidates (lambda (i.5) (if (> i.5 typemax) (begin (ref-set! *kount* (+ (ref-get *kount*) 1)) #f) (if (if (not (zero? (vector-ref *piececount* (vector-ref *class* i.5)))) (fit i.5 j.2) #f) ((lambda (k.2) (if ((lambda (value.1) (if value.1 value.1 (zero? k.2))) (trial k.2)) (begin (ref-set! *kount* (+ (ref-get *kount*) 1)) #t) (begin (puzzle-remove i.5 j.2) (candidates (+ i.5 1))))) (place i.5 j.2)) (candidates (+ i.5 1)))))) candidates)))
       0)))
 
-(define definePiece
+(def definePiece
   (lambda (iclass ii jj kk)
-    ((lambda (index) (begin (((lambda () (begin (define loop.7 (lambda (i.4) (if (> i.4 ii) (unit) (begin (((lambda () (begin (define loop.8 (lambda (j.1) (if (> j.1 jj) (unit) (begin (((lambda () (begin (define loop.9 (lambda (k.1) (if (> k.1 kk) (unit) (begin (ref-set! index (+ i.4 (* *d* (+ j.1 (* *d* k.1))))) (vector-set! (vector-ref *p* (ref-get *iii*)) (ref-get index) #t) (loop.9 (+ k.1 1)))))) loop.9))) 0) (loop.8 (+ j.1 1)))))) loop.8))) 0) (loop.7 (+ i.4 1)))))) loop.7))) 0) (vector-set! *class* (ref-get *iii*) iclass) (vector-set! *piecemax* (ref-get *iii*) (ref-get index)) (if (not (= (ref-get *iii*) typemax)) (begin (ref-set! *iii* (+ (ref-get *iii*) 1)) (unit)) (unit))))
+    ((lambda (index) (begin (((lambda () (begin (def loop.7 (lambda (i.4) (if (> i.4 ii) (unit) (begin (((lambda () (begin (def loop.8 (lambda (j.1) (if (> j.1 jj) (unit) (begin (((lambda () (begin (def loop.9 (lambda (k.1) (if (> k.1 kk) (unit) (begin (ref-set! index (+ i.4 (* *d* (+ j.1 (* *d* k.1))))) (vector-set! (vector-ref *p* (ref-get *iii*)) (ref-get index) #t) (loop.9 (+ k.1 1)))))) loop.9))) 0) (loop.8 (+ j.1 1)))))) loop.8))) 0) (loop.7 (+ i.4 1)))))) loop.7))) 0) (vector-set! *class* (ref-get *iii*) iclass) (vector-set! *piecemax* (ref-get *iii*) (ref-get index)) (if (not (= (ref-get *iii*) typemax)) (begin (ref-set! *iii* (+ (ref-get *iii*) 1)) (unit)) (unit))))
       (ref 0))))
 
-(define start
+(def start
   (lambda (size)
     (begin
       (ref-set! *kount* 0)
-      (((lambda () (begin (define loop.6 (lambda (m.2) (if (> m.2 size) (unit) (begin (vector-set! *puzzle* m.2 #t) (loop.6 (+ m.2 1)))))) loop.6)))
+      (((lambda () (begin (def loop.6 (lambda (m.2) (if (> m.2 size) (unit) (begin (vector-set! *puzzle* m.2 #t) (loop.6 (+ m.2 1)))))) loop.6)))
         0)
-      (((lambda () (begin (define loop.3 (lambda (i.3) (if (> i.3 5) (unit) (begin (((lambda () (begin (define loop.4 (lambda (j) (if (> j 5) (unit) (begin (((lambda () (begin (define loop.5 (lambda (k) (if (> k 5) (unit) (begin (vector-set! *puzzle* (+ i.3 (* *d* (+ j (* *d* k)))) #f) (loop.5 (+ k 1)))))) loop.5))) 1) (loop.4 (+ j 1)))))) loop.4))) 1) (loop.3 (+ i.3 1)))))) loop.3)))
+      (((lambda () (begin (def loop.3 (lambda (i.3) (if (> i.3 5) (unit) (begin (((lambda () (begin (def loop.4 (lambda (j) (if (> j 5) (unit) (begin (((lambda () (begin (def loop.5 (lambda (k) (if (> k 5) (unit) (begin (vector-set! *puzzle* (+ i.3 (* *d* (+ j (* *d* k)))) #f) (loop.5 (+ k 1)))))) loop.5))) 1) (loop.4 (+ j 1)))))) loop.4))) 1) (loop.3 (+ i.3 1)))))) loop.3)))
         1)
-      (((lambda () (begin (define loop.1 (lambda (i.2) (if (> i.2 typemax) (unit) (begin (((lambda () (begin (define loop.2 (lambda (m.1) (if (> m.1 size) (unit) (begin (vector-set! (vector-ref *p* i.2) m.1 #f) (loop.2 (+ m.1 1)))))) loop.2))) 0) (loop.1 (+ i.2 1)))))) loop.1)))
+      (((lambda () (begin (def loop.1 (lambda (i.2) (if (> i.2 typemax) (unit) (begin (((lambda () (begin (def loop.2 (lambda (m.1) (if (> m.1 size) (unit) (begin (vector-set! (vector-ref *p* i.2) m.1 #f) (loop.2 (+ m.1 1)))))) loop.2))) 0) (loop.1 (+ i.2 1)))))) loop.1)))
         0)
       (ref-set! *iii* 0)
       (definePiece 0 3 1 0)
@@ -127,15 +127,15 @@
   (lambda (i.1) (vector-set! *p* i.1 (make-vector (+ *size* 1) #t)))
   (my-iota (+ typemax 1)))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define input1 (native-input-i64 (ann 1 I32)))
+(def input1 (native-input-i64 (ann 1 I32)))
 
-(define input2 (native-input-i64 (ann 2 I32)))
+(def input2 (native-input-i64 (ann 2 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (start (hide count input0))) (if (match result ((puzzle-failed) (= input1 0)) ((puzzle-count value) (if (= input1 2) (= value input2) #f))) 1 0)))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (start (hide count input0))) (if (match result ((puzzle-failed) (= input1 0)) ((puzzle-count value) (if (= input1 2) (= value input2) #f))) 1 0)))) loop)))
       0
       puzzle-failure)))
 

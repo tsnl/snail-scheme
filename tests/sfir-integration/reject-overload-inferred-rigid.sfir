@@ -1,6 +1,6 @@
-(import (sfir core))
+(import (sfir base))
 (define-overload identity (lambda (value) value))
 
-(define impossible (All (T) (-> T Bool))
-  (lambda (value) (identity value)))
+(def impossible (All (T) (-> T Bool))
+     (lambda (value) (identity value)))
 42

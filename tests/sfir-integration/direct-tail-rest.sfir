@@ -1,35 +1,35 @@
-(import (sfir core))
+(import (sfir base))
 
-(define exercise
-  (lambda ()
-    (begin
-      (define count
-        (ref 0))
-      (define even (-> I64 Unit)
-        (lambda (n)
-          (begin
-            (if (> n 0)
+(def exercise
+     (lambda ()
+       (begin
+         (def count
+              (ref 0))
+         (def even (-> I64 Unit)
+              (lambda (n)
                 (begin
-                  (ref-set! count (+ 1 (ref-get count)))
-                  (odd (- n 1))
-                  (unit))
-                (unit))
-            (unit))))
-      (define odd (-> I64 Unit)
-        (lambda (n)
-          (begin
-            (if (= n 0)
-                (unit)
+                  (if (> n 0)
+                      (begin
+                        (ref-set! count (+ 1 (ref-get count)))
+                        (odd (- n 1))
+                        (unit))
+                      (unit))
+                  (unit))))
+         (def odd (-> I64 Unit)
+              (lambda (n)
                 (begin
-                  (ref-set! count (+ 1 (ref-get count)))
-                  (even (- n 1))
-                  (unit)))
-            (unit))))
-      (define add-first (-> I64 (Rest I64) I64)
-        (lambda (first . remaining) (+ first (car remaining))))
-      (define stop
-        (lambda () (unreachable)))
-      (even 100000)
-      (if (= (ref-get count) 100000) (add-first 40 2 99) (stop)))))
+                  (if (= n 0)
+                      (unit)
+                      (begin
+                        (ref-set! count (+ 1 (ref-get count)))
+                        (even (- n 1))
+                        (unit)))
+                  (unit))))
+         (def add-first (-> I64 (Rest I64) I64)
+              (lambda (first . remaining) (+ first (car remaining))))
+         (def stop
+              (lambda () (unreachable)))
+         (even 100000)
+         (if (= (ref-get count) 100000) (add-first 40 2 99) (stop)))))
 
 (exercise)

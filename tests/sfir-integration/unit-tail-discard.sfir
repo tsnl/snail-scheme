@@ -1,29 +1,29 @@
-(import (sfir core))
+(import (sfir base))
 
-(define state
-  (ref 0))
-(define wide
-  (lambda ()
-    (begin (ref-set! state (+ (ref-get state) 1)) 7)))
-(define narrow
-  (lambda ()
-    (begin (ref-set! state (+ (ref-get state) 1)) (ann 7 I32))))
-(define flag
-  (lambda ()
-    (begin (ref-set! state (+ (ref-get state) 1)) #t)))
-(define discard-wide
-  (lambda () (if #t
-                 (begin (wide)
-                        (unit))
-                 (unit))))
-(define discard-narrow
-  (lambda () (if #f
-                 (unit)
-                 (begin (narrow)
-                        (unit)))))
-(define discard-flag
-  (lambda ()
-    (begin (flag) (unit) (unit))))
+(def state
+     (ref 0))
+(def wide
+     (lambda ()
+       (begin (ref-set! state (+ (ref-get state) 1)) 7)))
+(def narrow
+     (lambda ()
+       (begin (ref-set! state (+ (ref-get state) 1)) (ann 7 I32))))
+(def flag
+     (lambda ()
+       (begin (ref-set! state (+ (ref-get state) 1)) #t)))
+(def discard-wide
+     (lambda () (if #t
+                    (begin (wide)
+                           (unit))
+                    (unit))))
+(def discard-narrow
+     (lambda () (if #f
+                    (unit)
+                    (begin (narrow)
+                           (unit)))))
+(def discard-flag
+     (lambda ()
+       (begin (flag) (unit) (unit))))
 
 (ann (discard-wide) Unit)
 (ann (discard-narrow) Unit)

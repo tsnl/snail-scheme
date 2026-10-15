@@ -1,5 +1,5 @@
-(import (sfir core))
+(import (sfir base))
 
-(define add (All (T) (-> T T))
-  (lambda (value) (+ value value)))
+(def add (All (T) (-> T T))
+     (lambda (value) (+ value value)))
 0

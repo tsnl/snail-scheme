@@ -1,6 +1,6 @@
-(import (sfir core))
-(define x
-  (ann 1.0 F32))
-(define y
-  2.0)
+(import (sfir base))
+(def x
+     (ann 1.0 F32))
+(def y
+     2.0)
 (+ x y)

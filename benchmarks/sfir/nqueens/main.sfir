@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.3) (cdr (cdr xs.3))))
+(def cddr (lambda (xs.3) (cdr (cdr xs.3))))
 
-(define length
+(def length
   (lambda (xs.1)
-    (((lambda () (begin (define loop.2 (lambda (xs.2 n.2) (if (null? xs.2) n.2 (loop.2 (cdr xs.2) (+ n.2 1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (xs.2 n.2) (if (null? xs.2) n.2 (loop.2 (cdr xs.2) (+ n.2 1))))) loop.2)))
       xs.1
       0)))
 
@@ -20,43 +20,43 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define list (lambda elements elements))
+(def list (lambda elements elements))
 
-(define append (lambda (xs ys) (if (null? xs) ys (cons (car xs) (append (cdr xs) ys)))))
+(def append (lambda (xs ys) (if (null? xs) ys (cons (car xs) (append (cdr xs) ys)))))
 
-(define hide (lambda (count.1 x.1) (hide-i64 x.1)))
+(def hide (lambda (count.1 x.1) (hide-i64 x.1)))
 
-(define trace? #f)
+(def trace? #f)
 
-(define nqueens
+(def nqueens
   (lambda (n)
     (begin
-      (define iota1
+      (def iota1
         (lambda (n.1)
-          (((lambda () (begin (define loop.1 (lambda (i.1 l) (if (= i.1 0) l (loop.1 (- i.1 1) (cons i.1 l))))) loop.1)))
+          (((lambda () (begin (def loop.1 (lambda (i.1 l) (if (= i.1 0) l (loop.1 (- i.1 1) (cons i.1 l))))) loop.1)))
             n.1
-            (quote ()))))
-      (define my-try
+            (empty-list ))))
+      (def my-try
         (lambda (x y z)
           (if (null? x)
             (if (null? y) 1 0)
             (+
-              (if (ok? (car x) 1 z) (my-try (append (cdr x) y) (quote ()) (cons (car x) z)) 0)
+              (if (ok? (car x) 1 z) (my-try (append (cdr x) y) (empty-list ) (cons (car x) z)) 0)
               (my-try (cdr x) (cons (car x) y) z)))))
-      (define ok?
+      (def ok?
         (lambda (row dist placed)
           (if (null? placed)
             #t
             (if (not (= (car placed) (+ row dist)))
               (if (not (= (car placed) (- row dist))) (ok? row (+ dist 1) (cdr placed)) #f)
               #f))))
-      (my-try (iota1 n) (quote ()) (quote ())))))
+      (my-try (iota1 n) (empty-list ) (empty-list )))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (nqueens (hide count input0))) result))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (nqueens (hide count input0))) result))) loop)))
       0
       0)))
 

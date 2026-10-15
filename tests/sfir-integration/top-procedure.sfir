@@ -1,7 +1,7 @@
-(import (sfir core))
+(import (sfir base))
 
-(define increment (-> I64 I64)
-  (lambda (x) (+ x 1)))
-(define erased
-  (ann increment Top))
+(def increment (-> I64 I64)
+     (lambda (x) (+ x 1)))
+(def erased
+     (ann increment Any))
 ((ann erased (-> I64 I64)) 41)

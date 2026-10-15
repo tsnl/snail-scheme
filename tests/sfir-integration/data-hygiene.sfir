@@ -1,14 +1,14 @@
-(import (sfir core))
+(import (sfir base))
 ;; Former macro expansion introduced two independent local nominal types.
 ;; Each explicit lexical block keeps its constructor and accessor identities.
-(define-data Box (box (item Bool unbox)))
+(def Box (datatype () (box (item Bool unbox))))
 (if (unbox (box #t))
-    (+ (let ()
+    (+ (begin
          (begin
-           (define-data Box (box (item I64 unbox)))
+           (def Box (datatype () (box (item I64 unbox))))
            (unbox (box 8))))
-       (let ()
+       (begin
          (begin
-           (define-data Box (box (item I64 unbox)))
+           (def Box (datatype () (box (item I64 unbox))))
            (unbox (box 9)))))
     0)

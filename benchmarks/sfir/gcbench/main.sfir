@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.6 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.6 (cdr xs.1) (+ n.4 1))))) loop.6)))
+    (((lambda () (begin (def loop.6 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.6 (cdr xs.1) (+ n.4 1))))) loop.6)))
       xs
       0)))
 
@@ -20,38 +20,38 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define-data classNode
+(def classNode (datatype ()
   (Nil)
   (make-node-cells
     (left (Ref classNode) node.left-cell)
     (right (Ref classNode) node.right-cell)
     (i I64 node.i)
-    (j I64 node.j)))
+    (j I64 node.j))))
 
-(define empty-node?
+(def empty-node?
   (lambda (node.5) (match node.5 ((Nil) #t) ((make-node-cells left.1 right.1 i.7 j.1) #f))))
 
-(define classNode? (lambda (node.4) (not (empty-node? node.4))))
+(def classNode? (lambda (node.4) (not (empty-node? node.4))))
 
-(define make-node-raw (lambda (left right i.6 j) (make-node-cells (ref left) (ref right) i.6 j)))
+(def make-node-raw (lambda (left right i.6 j) (make-node-cells (ref left) (ref right) i.6 j)))
 
-(define node.left (lambda (node.3) (ref-get (node.left-cell node.3))))
+(def node.left (lambda (node.3) (ref-get (node.left-cell node.3))))
 
-(define node.right (lambda (node.2) (ref-get (node.right-cell node.2))))
+(def node.right (lambda (node.2) (ref-get (node.right-cell node.2))))
 
-(define node.left-set! (lambda (node.1 value.3) (ref-set! (node.left-cell node.1) value.3)))
+(def node.left-set! (lambda (node.1 value.3) (ref-set! (node.left-cell node.1) value.3)))
 
-(define node.right-set! (lambda (node value.2) (ref-set! (node.right-cell node) value.2)))
+(def node.right-set! (lambda (node value.2) (ref-set! (node.right-cell node) value.2)))
 
-(define power-of-two
+(def power-of-two
   (lambda (n.2)
-    (((lambda () (begin (define loop.5 (lambda (n.3 value.1) (if (= n.3 0) value.1 (loop.5 (- n.3 1) (* value.1 2))))) loop.5)))
+    (((lambda () (begin (def loop.5 (lambda (n.3 value.1) (if (= n.3 0) value.1 (loop.5 (- n.3 1) (* value.1 2))))) loop.5)))
       n.2
       1)))
 
-(define min (lambda (a b) (if (< a b) a b)))
+(def min (lambda (a b) (if (< a b) a b)))
 
-(define inexact (lambda (n.1) (i64->f64 n.1)))
+(def inexact (lambda (n.1) (i64->f64 n.1)))
 
 (define-extern print-text "benchmark" "print_text" (-> I64 Unit))
 
@@ -59,26 +59,26 @@
 
 (define-extern print-construction "benchmark" "print_construction" (-> I64 I64 Unit))
 
-(define hide (lambda (count.1 x) (hide-i64 x)))
+(def hide (lambda (count.1 x) (hide-i64 x)))
 
-(define run-benchmark2 (lambda (name thunk) (begin (print-text name) (print-text 0) (thunk))))
+(def run-benchmark2 (lambda (name thunk) (begin (print-text name) (print-text 0) (thunk))))
 
-(define PrintDiagnostics (lambda () (begin (print-text 1) (print-text 2) (print-text 0))))
+(def PrintDiagnostics (lambda () (begin (print-text 1) (print-text 2) (print-text 0))))
 
-(define gcbench
+(def gcbench
   (lambda (kStretchTreeDepth)
     (begin
-      (define TreeSize (lambda (i.5) (- (power-of-two (+ i.5 1)) 1)))
-      (define NumIters (lambda (i.4) (quotient (* 2 (TreeSize kStretchTreeDepth)) (TreeSize i.4))))
-      ((lambda (kLongLivedTreeDepth) ((lambda (kArraySize) ((lambda (kMinTreeDepth) ((lambda (kMaxTreeDepth) ((lambda () (begin (define nil (Nil)) ((lambda (make-empty-node make-node) (begin (define Populate (lambda (iDepth.1 thisNode) (if (<= iDepth.1 0) (unit) ((lambda (iDepth.2) (begin (node.left-set! thisNode (make-empty-node)) (node.right-set! thisNode (make-empty-node)) (Populate iDepth.2 (node.left thisNode)) (Populate iDepth.2 (node.right thisNode)))) (- iDepth.1 1))))) (define MakeTree (lambda (iDepth) (if (<= iDepth 0) (make-empty-node) (make-node (MakeTree (- iDepth 1)) (MakeTree (- iDepth 1)))))) (define TimeConstruction (lambda (depth) ((lambda (iNumIters) (begin (print-construction iNumIters depth) (print-text 0) (run-benchmark2 4 (lambda () (((lambda () (begin (define loop.4 (lambda (i.3) (if (>= i.3 iNumIters) (unit) (begin (Populate depth (make-empty-node)) (loop.4 (+ i.3 1)))))) loop.4))) 0))) (run-benchmark2 5 (lambda () (((lambda () (begin (define loop.3 (lambda (i.2) (if (>= i.2 iNumIters) (unit) (begin (MakeTree depth) (loop.3 (+ i.2 1)))))) loop.3))) 0))))) (NumIters depth)))) (define run-benchmark-x (lambda () (begin (print-text 3) (print-text 0) (print-size 0 kStretchTreeDepth) (print-text 0) (PrintDiagnostics) (run-benchmark2 6 (lambda () (begin (MakeTree kStretchTreeDepth) (print-size 1 kLongLivedTreeDepth) (print-text 0) ((lambda (longLivedTree) (begin (Populate kLongLivedTreeDepth longLivedTree) (print-size 2 kArraySize) (print-text 0) ((lambda (array) (begin (((lambda () (begin (define loop.2 (lambda (i.1) (if (>= i.1 (quotient kArraySize 2)) (unit) (begin (vector-set! array i.1 (/ 1.0 (inexact (+ i.1 1)))) (loop.2 (+ i.1 1)))))) loop.2))) 0) (PrintDiagnostics) (((lambda () (begin (define loop.1 (lambda (d) (if (> d kMaxTreeDepth) (unit) (begin (TimeConstruction d) (loop.1 (+ d 2)))))) loop.1))) kMinTreeDepth) (if ((lambda (value) (if value value ((lambda (n) (not (= (vector-ref array n) (/ 1.0 (inexact (+ n 1)))))) (min 1000 (- (quotient (vector-length array) 2) 1))))) (empty-node? longLivedTree)) (begin (print-text 7) (print-text 0)) (unit)))) (make-vector kArraySize 0.0)))) (make-empty-node))))) (PrintDiagnostics)))) (run-benchmark-x))) (lambda () (make-node-raw nil nil 0 0)) (lambda (l r) (make-node-raw l r 0 0))))))) kLongLivedTreeDepth)) 4)) (* 4 (TreeSize kLongLivedTreeDepth))))
+      (def TreeSize (lambda (i.5) (- (power-of-two (+ i.5 1)) 1)))
+      (def NumIters (lambda (i.4) (quotient (* 2 (TreeSize kStretchTreeDepth)) (TreeSize i.4))))
+      ((lambda (kLongLivedTreeDepth) ((lambda (kArraySize) ((lambda (kMinTreeDepth) ((lambda (kMaxTreeDepth) ((lambda () (begin (def nil (Nil)) ((lambda (make-empty-node make-node) (begin (def Populate (lambda (iDepth.1 thisNode) (if (<= iDepth.1 0) (unit) ((lambda (iDepth.2) (begin (node.left-set! thisNode (make-empty-node)) (node.right-set! thisNode (make-empty-node)) (Populate iDepth.2 (node.left thisNode)) (Populate iDepth.2 (node.right thisNode)))) (- iDepth.1 1))))) (def MakeTree (lambda (iDepth) (if (<= iDepth 0) (make-empty-node) (make-node (MakeTree (- iDepth 1)) (MakeTree (- iDepth 1)))))) (def TimeConstruction (lambda (depth) ((lambda (iNumIters) (begin (print-construction iNumIters depth) (print-text 0) (run-benchmark2 4 (lambda () (((lambda () (begin (def loop.4 (lambda (i.3) (if (>= i.3 iNumIters) (unit) (begin (Populate depth (make-empty-node)) (loop.4 (+ i.3 1)))))) loop.4))) 0))) (run-benchmark2 5 (lambda () (((lambda () (begin (def loop.3 (lambda (i.2) (if (>= i.2 iNumIters) (unit) (begin (MakeTree depth) (loop.3 (+ i.2 1)))))) loop.3))) 0))))) (NumIters depth)))) (def run-benchmark-x (lambda () (begin (print-text 3) (print-text 0) (print-size 0 kStretchTreeDepth) (print-text 0) (PrintDiagnostics) (run-benchmark2 6 (lambda () (begin (MakeTree kStretchTreeDepth) (print-size 1 kLongLivedTreeDepth) (print-text 0) ((lambda (longLivedTree) (begin (Populate kLongLivedTreeDepth longLivedTree) (print-size 2 kArraySize) (print-text 0) ((lambda (array) (begin (((lambda () (begin (def loop.2 (lambda (i.1) (if (>= i.1 (quotient kArraySize 2)) (unit) (begin (vector-set! array i.1 (/ 1.0 (inexact (+ i.1 1)))) (loop.2 (+ i.1 1)))))) loop.2))) 0) (PrintDiagnostics) (((lambda () (begin (def loop.1 (lambda (d) (if (> d kMaxTreeDepth) (unit) (begin (TimeConstruction d) (loop.1 (+ d 2)))))) loop.1))) kMinTreeDepth) (if ((lambda (value) (if value value ((lambda (n) (not (= (vector-ref array n) (/ 1.0 (inexact (+ n 1)))))) (min 1000 (- (quotient (vector-length array) 2) 1))))) (empty-node? longLivedTree)) (begin (print-text 7) (print-text 0)) (unit)))) (make-vector kArraySize 0.0)))) (make-empty-node))))) (PrintDiagnostics)))) (run-benchmark-x))) (lambda () (make-node-raw nil nil 0 0)) (lambda (l r) (make-node-raw l r 0 0))))))) kLongLivedTreeDepth)) 4)) (* 4 (TreeSize kLongLivedTreeDepth))))
         (- kStretchTreeDepth 2)))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
     (begin
-      (((lambda () (begin (define loop (lambda (i) (if (= i count) (unit) (begin (gcbench (hide count input0)) (loop (+ i 1)) (unit))))) loop)))
+      (((lambda () (begin (def loop (lambda (i) (if (= i count) (unit) (begin (gcbench (hide count input0)) (loop (+ i 1)) (unit))))) loop)))
         0)
       1)))
 

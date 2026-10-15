@@ -1,6 +1,6 @@
-(import (sfir core))
-(define-data Box (box (value I64 unbox)))
-(define outer
-  (box 8))
-(let ()
-  (begin (define-data Box (box (value I64 unbox))) (unbox outer)))
+(import (sfir base))
+(def Box (datatype () (box (value I64 unbox))))
+(def outer
+     (box 8))
+(begin
+  (begin (def Box (datatype () (box (value I64 unbox)))) (unbox outer)))

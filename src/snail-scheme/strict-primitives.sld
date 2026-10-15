@@ -91,7 +91,7 @@
         (bytevector-copy! (Bytevector I64 Bytevector I64 I64) Unit bytevector-copy!)))
     (define primitive-names
       (append (map car concrete-primitives)
-              '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable
+              '(not unit ref ref-get ref-set! ref-eq? empty-list cons car cdr null? unreachable
                     empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)))
     (define (primitive-opcode name)
       (let ((entry (assq name concrete-primitives))) (if entry (cadddr entry) name)))
@@ -117,6 +117,7 @@
                 ((ref-get) (function-type (list ref) #f a))
                 ((ref-set!) (function-type (list ref a) #f 'Unit))
                 ((ref-eq?) (function-type (list ref ref) #f 'Bool))
+                ((empty-list) (function-type '() #f list-type))
                 ((cons) (function-type (list a list-type) #f list-type))
                 ((car) (function-type (list list-type) #f a))
                 ((cdr) (function-type (list list-type) #f list-type))

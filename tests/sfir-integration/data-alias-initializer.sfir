@@ -1,11 +1,11 @@
-(import (sfir core))
-(define calls
-  (ref 0))
-(define-data (Box T) (box (value T unbox)))
-(define make
-  (begin (ref-set! calls (+ (ref-get calls) 1)) box))
-(define first
-  (make 40))
-(define second
-  (make (+ (unbox first) 2)))
+(import (sfir base))
+(def calls
+     (ref 0))
+(def Box (datatype ( T) (box (value T unbox))))
+(def make
+     (begin (ref-set! calls (+ (ref-get calls) 1)) box))
+(def first
+     (make 40))
+(def second
+     (make (+ (unbox first) 2)))
 (if (= (ref-get calls) 1) (unbox second) (unreachable))

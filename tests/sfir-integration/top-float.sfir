@@ -1,2 +1,2 @@
-(import (sfir core))
-(ann (ann 3.75 Top) F64)
+(import (sfir base))
+(ann (ann 3.75 Any) F64)
