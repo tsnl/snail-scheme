@@ -228,3 +228,12 @@ optimized input. Tests cover missing raw input, differing optimized bytes,
 replaced executables, ambiguous build attempts and ineligible timing evidence.
 The build-evidence checks stay together despite exceeding the ten-line guideline
 because they establish one artifact-identity guarantee.
+
+[Native parity validation](evidence/20261015-native-parity.md) records 15 actual
+builds with identical optimized guest bytes: the six representative workloads
+with correctness and clean native entries, plus Pi, Primes and GCBench. All
+canonical SFIR routes pass, including GCBench's separately preserved earlier
+timeout. This brings authored-program correctness coverage to 53 on both SFIR
+targets; nine cases also have the new parity proof. The six-case plan has 33
+ready routes, retaining Rust Wasm Ack's failure and unavailable controls, but
+no new performance samples have been collected.

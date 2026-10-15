@@ -28,6 +28,11 @@ records 53 SFIR Wasm successes and 52 native successes, with GCBench's native
 build timeout preserved. Four source ports remain pending. These correctness
 runs do not add performance coverage.
 
+The subsequent [native parity check](sfir/evidence/20261015-native-parity.md)
+passes GCBench and establishes identical optimized guest programs for nine
+cases, bringing canonical native correctness coverage to all 53 authored
+programs. Earlier failures and measured artifacts remain unchanged.
+
 [`wasm-reference`](wasm-reference/README.md) contains the 57 separate Rust ports
 and complete correctness fixtures. Its original Chez controls now come from
 the static SFIR corpus rather than a Scheme-source generator.
