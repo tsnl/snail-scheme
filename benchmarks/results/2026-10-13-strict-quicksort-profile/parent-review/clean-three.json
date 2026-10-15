@@ -1,0 +1,343 @@
+{
+  "started_utc": "2026-10-14T02:45:32.978332+00:00",
+  "scope": "Uninstrumented workload timing; initialization excluded, V8 tiering included.",
+  "intervention": "Private closure representation, direct parameters, captured loads/readiness and redundant checks together.",
+  "cpu": 5,
+  "node_options": null,
+  "identities_before": {
+    "original": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+      "sha256": "e947322337325a79d278ffb0d7f3cb95340d54ab50e8b98a95a49868d8ece282"
+    },
+    "reassembled": {
+      "path": "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+      "sha256": "517a373f06c492fafbc89603fc4eac70d8c2b312d3d530414b51a24d39d33f35"
+    },
+    "direct-parameters": {
+      "path": "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+      "sha256": "76faef61b094152e601df96a21cc16c799e9dadc4d9e8b0038a52247edc11502"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+      "sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2"
+    },
+    "spec": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-quicksort-fixture-review-20261013/build/parent-fixture-review/measure-three.py",
+      "sha256": "10f1bb0af50102ccbb129d2d1a7147031a93a3d939bb2dfb7dc7cf5bfbbe3595"
+    }
+  },
+  "observations": [
+    {
+      "variant": "original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.209253543,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.236666419019457,
+      "round": 0,
+      "discarded": true,
+      "workload_seconds": 2.209253543
+    },
+    {
+      "variant": "reassembled",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.204024865,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.2298218379728496,
+      "round": 0,
+      "discarded": true,
+      "workload_seconds": 2.204024865
+    },
+    {
+      "variant": "direct-parameters",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.217559533,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.2396134469890967,
+      "round": 0,
+      "discarded": true,
+      "workload_seconds": 1.217559533
+    },
+    {
+      "variant": "reassembled",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.197680131,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.222549138998147,
+      "round": 1,
+      "discarded": false,
+      "workload_seconds": 2.197680131
+    },
+    {
+      "variant": "direct-parameters",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.21703745,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.239587206975557,
+      "round": 1,
+      "discarded": false,
+      "workload_seconds": 1.21703745
+    },
+    {
+      "variant": "original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.224442512,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.249320907983929,
+      "round": 1,
+      "discarded": false,
+      "workload_seconds": 2.224442512
+    },
+    {
+      "variant": "direct-parameters",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.214265319,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.236802006023936,
+      "round": 2,
+      "discarded": false,
+      "workload_seconds": 1.214265319
+    },
+    {
+      "variant": "original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.201488444,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.226444158004597,
+      "round": 2,
+      "discarded": false,
+      "workload_seconds": 2.201488444
+    },
+    {
+      "variant": "reassembled",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.199942654,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.2247769529931247,
+      "round": 2,
+      "discarded": false,
+      "workload_seconds": 2.199942654
+    },
+    {
+      "variant": "original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.20011556,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.226097953040153,
+      "round": 3,
+      "discarded": false,
+      "workload_seconds": 2.20011556
+    },
+    {
+      "variant": "reassembled",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.203043778,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.2287757269805297,
+      "round": 3,
+      "discarded": false,
+      "workload_seconds": 2.203043778
+    },
+    {
+      "variant": "direct-parameters",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+        "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+        "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.216610649,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.2414617610047571,
+      "round": 3,
+      "discarded": false,
+      "workload_seconds": 1.216610649
+    }
+  ],
+  "identities_after": {
+    "original": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/quicksort/strict.wasm",
+      "sha256": "e947322337325a79d278ffb0d7f3cb95340d54ab50e8b98a95a49868d8ece282"
+    },
+    "reassembled": {
+      "path": "/tmp/strict-quicksort-profile-20261013/verification/original-reassembled.wasm",
+      "sha256": "517a373f06c492fafbc89603fc4eac70d8c2b312d3d530414b51a24d39d33f35"
+    },
+    "direct-parameters": {
+      "path": "/tmp/strict-quicksort-profile-20261013/allocation-ablation/module.wasm",
+      "sha256": "76faef61b094152e601df96a21cc16c799e9dadc4d9e8b0038a52247edc11502"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/host.mjs",
+      "sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2"
+    },
+    "spec": {
+      "path": "/tmp/strict-quicksort-profile-20261013/original/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-quicksort-fixture-review-20261013/build/parent-fixture-review/measure-three.py",
+      "sha256": "10f1bb0af50102ccbb129d2d1a7147031a93a3d939bb2dfb7dc7cf5bfbbe3595"
+    }
+  },
+  "summary": {
+    "original": {
+      "samples": [
+        2.224442512,
+        2.201488444,
+        2.20011556
+      ],
+      "median": 2.201488444,
+      "min": 2.20011556,
+      "max": 2.224442512
+    },
+    "reassembled": {
+      "samples": [
+        2.197680131,
+        2.199942654,
+        2.203043778
+      ],
+      "median": 2.199942654,
+      "min": 2.197680131,
+      "max": 2.203043778
+    },
+    "direct-parameters": {
+      "samples": [
+        1.21703745,
+        1.214265319,
+        1.216610649
+      ],
+      "median": 1.216610649,
+      "min": 1.214265319,
+      "max": 1.21703745
+    }
+  },
+  "ratios": {
+    "reassembled_over_original": 0.9992978432368277,
+    "direct_over_original": 0.5526309494450382,
+    "direct_over_reassembled": 0.5530192556555612
+  },
+  "finished_utc": "2026-10-14T02:45:55.821993+00:00"
+}

@@ -1,0 +1,145 @@
+{
+  "investigation_base": "dcad7138637cf4a5dc163c768e7c54cbf1e61a28",
+  "preparation_compiler": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "driver_commit": "86d49d4d7f36b00f48724f3fe63854a2afe2413d",
+  "canonical": {
+    "count": 2500,
+    "vector_length": 10000,
+    "random_limit": 1000000
+  },
+  "original_optimized_wasm_sha256": "e947322337325a79d278ffb0d7f3cb95340d54ab50e8b98a95a49868d8ece282",
+  "requested_constructions": {
+    "nontrivial_partitions": 16705000,
+    "sites_per_partition": 10,
+    "total_partition_requests": 167050000,
+    "per_sort_partitions": 6682,
+    "ablation_partition_requests": 0,
+    "all_other_sites_and_all_entries_match": true,
+    "requests_by_function_original": {
+      "function51": 15000,
+      "function54": 167050000,
+      "function69": 6,
+      "function70": 7500
+    },
+    "requests_by_function_ablation": {
+      "function51": 15000,
+      "function69": 6,
+      "function70": 7500
+    }
+  },
+  "machine": {
+    "function": 54,
+    "wasm_index": 27,
+    "tier": "TurboFan",
+    "retained_paths": 10,
+    "bytes_per_partition": 368,
+    "static_count_size_model_bytes": 6147440000,
+    "dynamic_physical_allocation_count_observed": false
+  },
+  "whole_process_profiles": {
+    "original": {
+      "samples": 2118,
+      "gc_samples": 30,
+      "gc_sample_percent": 1.4164305949008498,
+      "gc_events": 450,
+      "allocated_field_sum_bytes": 6334710400
+    },
+    "ablation": {
+      "samples": 1183,
+      "gc_samples": 3,
+      "gc_sample_percent": 0.25359256128486896,
+      "gc_events": 70,
+      "allocated_field_sum_bytes": 223455856
+    },
+    "scope": "Whole process, no workload anchors; profiling overhead and concurrent correctness work. No clean elapsed comparison.",
+    "allocated_limit": "Pre-GC object-size minus prior post-GC object-size, summed through last GC; startup included, final tail absent, no site attribution.",
+    "pause_limit": "Printed pause is rounded to 0.1ms. No precise total pause or collector CPU claim."
+  },
+  "validation": {
+    "expected_outcomes": 50,
+    "independent_operand_witness": true,
+    "reassembly_control_node_execution": true,
+    "parent_reassembly_expected_outcomes": 16,
+    "clean_canonical_checks": 12
+  },
+  "combined_intervention": [
+    "private partition closure/readiness/environment/pivot-cell construction removal",
+    "captured-data field and readiness checks removed",
+    "private helper signatures and calls changed",
+    "repeated unsigned-index checks simplified",
+    "j width checked before i read rather than afterward"
+  ],
+  "reassembly_control": {
+    "sha256": "517a373f06c492fafbc89603fc4eac70d8c2b312d3d530414b51a24d39d33f35",
+    "byte_identical_to_original": false,
+    "changed_sections": [
+      "code",
+      "name"
+    ],
+    "changed_encoded_bodies": [
+      37,
+      48,
+      66,
+      67,
+      70
+    ],
+    "target_features_present": false,
+    "comparison": "Included with original and direct-parameter fixture in the clean three-way batch; parent-review/clean-three.json."
+  },
+  "preservation": {
+    "original_payload_files_verified": 116,
+    "compiler_files_verified": 51,
+    "changed_wat_functions": [
+      54,
+      56,
+      57,
+      58
+    ],
+    "original_report_unchanged": true
+  },
+  "status": "Reviewed frozen diagnostic plus completed clean three-way comparison; no production compiler optimization.",
+  "comparative_speed_claim": true,
+  "parent_review": "parent-review/review-conclusion.json",
+  "clean_timing": {
+    "summary": {
+      "original": {
+        "samples": [
+          2.224442512,
+          2.201488444,
+          2.20011556
+        ],
+        "median": 2.201488444,
+        "min": 2.20011556,
+        "max": 2.224442512
+      },
+      "reassembled": {
+        "samples": [
+          2.197680131,
+          2.199942654,
+          2.203043778
+        ],
+        "median": 2.199942654,
+        "min": 2.197680131,
+        "max": 2.203043778
+      },
+      "direct-parameters": {
+        "samples": [
+          1.21703745,
+          1.214265319,
+          1.216610649
+        ],
+        "median": 1.216610649,
+        "min": 1.214265319,
+        "max": 1.21703745
+      }
+    },
+    "ratios": {
+      "reassembled_over_original": 0.9992978432368277,
+      "direct_over_original": 0.5526309494450382,
+      "direct_over_reassembled": 0.5530192556555612
+    },
+    "raw": "parent-review/clean-three.json",
+    "scope": "Fresh default-V8 processes on CPU5, original2500x10000 input, startup/initialization excluded, lazy compilation/tiering included. Combined intervention; no new Chez comparison."
+  },
+  "comparative_speed_scope": "Original frozen strict compiler output versus diagnostic direct-parameter fixture only; combined representation/calling/check effect."
+}
