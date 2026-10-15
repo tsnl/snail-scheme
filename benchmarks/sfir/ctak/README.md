@@ -28,12 +28,20 @@ the base case and all three recursive operands. They supplement the full canonic
 run; they do not replace it. The `(10, 6, 3)` trace contains 497 calls, 497 captures
 and 373 invocations, and returns 4. No event calls occur in `main.sfir`.
 
-Both optimized SFIR on V8 and the original/adapted Chez controls have passed the
-complete canonical predicate. Native execution remains to be checked by the
-frozen corpus runner. These concurrent validation runs are not clean timing data.
+The frozen corpus runner passed the complete canonical predicate on SFIR/V8,
+SFIR/native64, original/adapted Chez, and Rust Wasm/native. That native preparation
+optimized an already optimized module again, so its program bytes differ from
+V8's input; it establishes correctness, not module parity. The runner is correcting
+that preparation separately. These validation runs are not clean timing data.
 
-The simplify review so far is local because the independent explainer slot was
-unavailable. It retained the exhaustive `resume` dispatch as one atomic transition,
-despite exceeding the ten-line target. Replacing the contexts with an ordinary
-direct TAK call would conceal the source's continuation semantics and was rejected.
-An independent explanation remains required before landing.
+The focused simplify review used a fresh explanation without repository access,
+followed by a critique of the closed-program invariant. Each incoming continuation
+is the active return context because every receiver calls `ctak-aux` in tail
+position. The recursive branch shadows its incoming handle with another capture
+of that same context; diagnostics retain the capture event, while the measured
+code shares the immutable context. Some shadowed handles are never invoked.
+Neither source nor diagnostics compares handle identities. The review retained
+the exhaustive `resume` dispatch as one atomic transition, despite exceeding the
+ten-line target. Replacing it with direct TAK would remove the required control
+operations. A caller with non-tail work, mutable frames, escaping continuations,
+or observable handle identities would require a new proof.

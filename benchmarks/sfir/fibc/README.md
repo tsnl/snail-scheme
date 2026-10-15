@@ -26,12 +26,20 @@ trace must contain 177 calls, 176 captures, 177 invocations and 130 Peano steps.
 These small observations supplement the full canonical run. The measured
 `main.sfir` contains no event calls.
 
-Optimized SFIR on V8 and both original/adapted Chez controls have passed the full
-canonical predicate. Native execution remains to be checked by the frozen corpus
-runner. Concurrent validation observations are not clean timing data.
+The frozen corpus runner passed the complete canonical predicate on SFIR/V8,
+SFIR/native64, original/adapted Chez, and Rust Wasm/native. That native preparation
+optimized an already optimized module again, so its program bytes differ from
+V8's input; it establishes correctness, not module parity. The runner is correcting
+that preparation separately. Concurrent validation observations are not clean
+timing data.
 
-The simplify review so far is local because the independent explainer slot was
-unavailable. The saved input in the first frame is necessary to evaluate the
-second operand, and the saved first result in the second frame is necessary for
-Peano addition. Replacing `addc` with scalar addition would change the benchmark's
-work and was rejected. An independent explanation remains required before landing.
+The focused simplify review used a fresh explanation without repository access
+and a critique of the source's exact operations. The first frame retains the
+input needed for the second operand, and the second frame retains the first
+result needed by `addc`. The zero and predecessor-zero tests stay separate;
+the second recursive operand still evaluates `pred(pred(x))`. Each diagnostic
+Peano event records one complete addition step, without claiming to count every
+standalone predecessor call. The review rejected scalar addition and Fibonacci
+memoization because both remove measured work. Immutable frames and tail calls
+express the closed continuation uses directly; no general multi-shot machinery
+is required for these source programs.

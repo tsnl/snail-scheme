@@ -1,0 +1,191 @@
+{
+  "purpose": "Correctness review of two complete static SFIR ports after scalar runtime cleanup; no timing claim.",
+  "tested_checkout": "90374746275f3b86314f2d56596c6bc9fd7c5562",
+  "runtime_base": "6abd973de0fdcd594f9d71fd6322c513ba3b55fa",
+  "guest_preparation": "Retained raw/optimized modules from the original complete builds. Chibi read verified checked-in source forms identical to each compiled source after formatting. Current Rust provider and native executable rebuilt; native optimizes raw input once.",
+  "artifact_directory": "/tmp/snail-sfir-last-ports-review-20261015/build/port-review",
+  "records": [
+    {
+      "command": [
+        "chibi-scheme",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/compare-source.scm",
+        "/tmp/snail-sfir-last-ports-review-20261015/benchmarks/sfir/scheme/main.sfir",
+        "/tmp/snail-sfir-large-ports-20261015/scheme-attempt3/main.sfir"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 0.9660453230026178
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/compare-source.scm",
+        "/tmp/snail-sfir-last-ports-review-20261015/benchmarks/sfir/dynamic/main.sfir",
+        "/tmp/snail-sfir-large-ports-20261015/dynamic-attempt4/main.sfir"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 1.1159528649877757
+    },
+    {
+      "command": [
+        "cargo",
+        "rustc",
+        "--crate-type=cdylib",
+        "--quiet",
+        "--offline",
+        "--release",
+        "--target",
+        "wasm32-wasip1",
+        "--target-dir",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/runtime"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 1.4172259430051781
+    },
+    {
+      "command": [
+        "wasm-opt",
+        "-O3",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/runtime/wasm32-wasip1/release/snail_runtime.wasm",
+        "-o",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/provider.wasm"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 0.6149547380045988
+    },
+    {
+      "command": [
+        "node",
+        "--experimental-wasm-type-reflection",
+        "/tmp/snail-sfir-last-ports-review-20261015/benchmarks/sfir/scheme/verify.mjs",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/program.wasm",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/provider.wasm"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/v8",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 24.09340394800529
+    },
+    {
+      "command": [
+        "/tmp/snail-sfir-last-ports-review-20261015/scripts/build-native",
+        "--wasm",
+        "--entry-c",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/entry.c",
+        "--c-provider",
+        "benchmark",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/observe-provider.h",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/observe-provider.c",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/program.wasm.raw.wasm",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/program.native"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 47.06204491300741
+    },
+    {
+      "command": [
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/program.native"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/scheme/native",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 39.40093435603194
+    },
+    {
+      "command": [
+        "node",
+        "--experimental-wasm-type-reflection",
+        "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-v8-4/run.mjs",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/program.wasm",
+        "/tmp/snail-sfir-last-ports-review-20261015/benchmarks/sfir/dynamic/spec.json",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/provider.wasm"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/v8",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 22.587908662040718
+    },
+    {
+      "command": [
+        "/tmp/snail-sfir-last-ports-review-20261015/scripts/build-native",
+        "--wasm",
+        "--entry-c",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/entry.c",
+        "--c-provider",
+        "benchmark",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/observe-provider.h",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/observe-provider.c",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/program.wasm.raw.wasm",
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/program.native"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 67.69873079803074
+    },
+    {
+      "command": [
+        "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/program.native"
+      ],
+      "cwd": "/tmp/snail-sfir-last-ports-review-20261015/build/port-review/dynamic/native",
+      "timeout_seconds": 1800,
+      "returncode": 0,
+      "elapsed_seconds": 56.67900526401354
+    }
+  ],
+  "runtime_sources": {
+    "src/host.rs": "950c339e083d047c53a91203b2ae7f94ace30f3dc7c637be0963e1e60239187c",
+    "src/lib.rs": "5e9ec23cf82759ba1ae507bb566a8b6bd2186b18633f8223ebea53c5f49091e8",
+    "src/native.rs": "5703a537a38a0c3347280d0d8e3e1f1d32772cd5e43732efb10eef9aad4b51fe",
+    "src/strict_datum.rs": "09942f7758fcc57754704933b7d8dae77bd4e06a82f8bd48c33e21231d48f4af",
+    "src/strict_io.rs": "7f81a2c2af887a58d699e001c7d6f607a5b21f578ef692862e6ffbbc7d5b65dd",
+    "src/strict_math.rs": "c77cfebff17a5f310ff2489cd19d71b6c07917621b75e456c2cbe11f47ee732b",
+    "src/strict_number.rs": "c7de1362888ef021d24375841ec7fc32ee895fcbf02ea8a7be71c283d148d08a",
+    "src/strict_text.rs": "0f6ce2e05837d0060922134a8034bd293410477f9b4c1d2d08ff10e0749348db",
+    "src/symbols.rs": "7e92b240803087354b569b09c075a2330a10fcb2920d6a00407127d9fc10fd28",
+    "src/unicode.rs": "e37ac56f45762409f62ac10c0cfdca07d570a54a74ea26c534652697e3609c52"
+  },
+  "cases": {
+    "scheme": {
+      "source_sha256": "f7981b5be4419369fcc7089964dfa67cd7803ebd49adb38ca96c5722502869ba",
+      "compiled_source_sha256": "8b5bea3e912c1ccc9b1aa4453499ab49ffea4eee17b40dab91d8e458852d0452",
+      "parsed_source_identity": true,
+      "raw_wasm_sha256": "ba643193ea6da81cd12dd0fec6fb5446b11a21e0eeee97edd80acf7638375a57",
+      "optimized_wasm_sha256": "edcb13a9c30f53f61699d3ef134adfe05bac41a3c280ea67577f54ca63f975b5",
+      "native_optimized_wasm_sha256": "edcb13a9c30f53f61699d3ef134adfe05bac41a3c280ea67577f54ca63f975b5",
+      "native_sha256": "926b419d87685710d2c77bf4b639b37a08423a558e7b125e5c399191d835a2ef",
+      "native_stdout": "26 interpreter probes and canonical 100000 passed",
+      "v8": {
+        "stdout": "26 interpreter probes and canonical 100000 passed"
+      }
+    },
+    "dynamic": {
+      "source_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+      "compiled_source_sha256": "7a42df7945f83e4a7aa8346feaff32354ea134ffa62e189b20694d30dc27b11a",
+      "parsed_source_identity": true,
+      "raw_wasm_sha256": "a3f9660fa9d6358270dbaa3ce58abc90cd1236f1c98353222abcfb8aa4d2862f",
+      "optimized_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+      "native_optimized_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+      "native_sha256": "ac96c55a6b20aebc68a4e37aea09aaba51e695cf46f305a62aade82a8ccb673d",
+      "native_stdout": "canonical500 setup_closed1 worker_closed0 cleanup_closed500",
+      "v8": {
+        "setup_input_closes": 1,
+        "worker_input_opens": 500,
+        "worker_input_bytes": 41936000,
+        "worker_eof_reads": 500,
+        "worker_input_closes": 0,
+        "cleanup_input_closes": 500
+      }
+    }
+  },
+  "provider_sha256": "8b4dac93496d0c6ec948f78403184c2e76da33921cf9b01a5f90dd9b2f6979c7"
+}
