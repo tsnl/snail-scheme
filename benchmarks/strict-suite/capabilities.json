@@ -193,12 +193,15 @@
     },
     {
       "name": "tail",
-      "status": "additional-capabilities",
+      "status": "prepared-canonical-source",
       "source_lines": 46,
       "files": {
         "src/tail.scm": "016f368f6cbd29b2ebe0f1ddc522c46c7726d6655185bcbb9086518dd67ee6ae",
-        "inputs/tail.input": "b06e57a58d1410fbe92f4724a9b36e4cc61f8c110f30e29abdd5aa5a473e9a16"
-      }
+        "inputs/tail.input": "b06e57a58d1410fbe92f4724a9b36e4cc61f8c110f30e29abdd5aa5a473e9a16",
+        "inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3"
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-tail/README.md",
+      "note": "Full 50 repeats retain all 31,102 lines before reversed output. Raw/optimized linked Wasm, both Chez controls and native pass complete canonical bytes; 95 supplemental executions retain line/EOF/Unicode/lifecycle behavior. Original Chez get-line is LF-only on noncanonical CR fixtures. No clean measurements."
     },
     {
       "name": "read1",

@@ -1,0 +1,30 @@
+{
+  "unchanged_binary_sha256": "23de40d54791743841fe3e9e93336872bd34ef6a8858607b136eb4cb92d2e33d",
+  "observer_erasure_recovers_original_host": true,
+  "iterations": 50,
+  "opens": 100,
+  "closes": 100,
+  "deletes": 49,
+  "read_bytes": 223002800,
+  "written_bytes": 223002800,
+  "output_sha256": "a15bdc3031685b3dcec119172e22a052f36467a9efb9b01e3061b71d2ec3f717",
+  "changes": [
+    [
+      "let eofSeen = false;",
+      "let eofSeen = false;\nlet readBytes = 0, writtenBytes = 0;"
+    ],
+    [
+      "    const status = wasi.wasiImport.fd_read(...args);",
+      "    const status = wasi.wasiImport.fd_read(...args);\n    if (status === 0) readBytes += new DataView(instance.exports.memory.buffer).getUint32(args.at(-1), true);"
+    ],
+    [
+      "    return wasi.wasiImport.fd_write(...args);",
+      "    const status = wasi.wasiImport.fd_write(...args);\n    if (status === 0 && live.get(args[0]) === config.pathnames[1])\n      writtenBytes += new DataView(instance.exports.memory.buffer).getUint32(args.at(-1), true);\n    return status;"
+    ],
+    [
+      "  observation.events = events;",
+      "  observation.events = events;\n  observation.read_bytes = readBytes;\n  observation.written_bytes = writtenBytes;"
+    ]
+  ],
+  "limit": "WASI events establish physical read/write order; source proves full line retention before Scheme writes."
+}
