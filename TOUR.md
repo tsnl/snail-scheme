@@ -278,7 +278,9 @@ module also owns the enumeration of concrete site storage used by the emitter;
 readiness tokens and payload copies therefore have one definition.
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
-and emits explicit universal-value conversions. Direct local procedures receive
+and emits explicit universal-value conversions. Immutable scalar literal reads
+expose the constant payload while retaining the source binding's readiness check.
+Direct local procedures receive
 lexical state as native parameters. Parameters and nonrecursive let values are
 initialized before capture and travel as concrete values. Recursive local
 captures carry nullable payloads and readiness flags until the original read;
