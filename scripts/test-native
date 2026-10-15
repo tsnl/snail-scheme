@@ -126,6 +126,7 @@ def check_collector():
         if name == 'immix-gc':
             run([output, 'wrap'])
             run([output, 'wrap-large'])
+            run([output, 'boundaries'])
     print('PASS exact reference-only tracing, weak cleanup and Immix hole reuse', flush=True)
 
 

@@ -100,11 +100,50 @@ static void check_wrapped_large_space(void) {
     assert(separator[1] == 2 && last[1] == 4 && three[1] == 5 && two[1] == 6);
 }
 
+static void check_allocation_boundaries(void) {
+    struct { NativeRoots *previous; uint64_t capacity, count, values[8]; } roots = {NULL, 8, 8, {0}};
+    native_roots = (NativeRoots *)&roots;
+    uint64_t *first = object(1);
+    roots.values[0] = (uintptr_t)first;
+    // The payload fits one block, but its header makes the footprint larger.
+    uint64_t *large = sized_object(32768, 2);
+    roots.values[1] = (uintptr_t)large;
+    uint64_t *second = object(3);
+    roots.values[2] = (uintptr_t)second;
+    assert((uintptr_t)second == (uintptr_t)first + 32); // Large allocation preserves the bump tail.
+    uint64_t *tail = sized_object(32768 - 64 - 8, 4);
+    roots.values[3] = (uintptr_t)tail;
+    assert((uintptr_t)tail == (uintptr_t)second + 32); // Exact remaining fit.
+    uint64_t *whole = sized_object(32768 - 8, 5);
+    roots.values[4] = (uintptr_t)whole;
+    assert((uintptr_t)whole == (uintptr_t)first + 3 * 32768);
+    uint64_t *below = sized_object(32768 - 24, 6);
+    roots.values[5] = (uintptr_t)below;
+    uint64_t *last = native_gc_alloc(8);
+    assert(last && last[0] == 0);
+    last[0] = 6;
+    roots.values[6] = (uintptr_t)last;
+    assert((uintptr_t)last == (uintptr_t)below + 32768 - 16);
+    uint64_t *above = sized_object(32768 - 7, 7);
+    roots.values[7] = (uintptr_t)above;
+    assert((uintptr_t)above == (uintptr_t)first + 5 * 32768);
+    // Only one block is free: a two-block failure retries collection once.
+    size_t collected = native_gc_collections();
+    assert(!native_gc_alloc(32768));
+    assert(native_gc_collections() == collected + 1);
+    assert(first[1] == 1 && large[1] == 2 && second[1] == 3 && tail[1] == 4);
+    assert(whole[1] == 5 && below[1] == 6 && above[1] == 7 && last[0] == 6);
+    uint64_t *remaining = object(8);
+    assert((uintptr_t)remaining == (uintptr_t)first + 7 * 32768);
+}
+
 int main(int argc, char **argv) {
     bool large = argc > 1 && !strcmp(argv[1], "wrap-large");
-    setenv("SNAIL_GC_HEAP_BYTES", large ? "262144" : "32768", 1);
+    bool boundaries = argc > 1 && !strcmp(argv[1], "boundaries");
+    setenv("SNAIL_GC_HEAP_BYTES", large || boundaries ? "262144" : "32768", 1);
     native_gc_init();
-    if (large) check_wrapped_large_space();
+    if (boundaries) check_allocation_boundaries();
+    else if (large) check_wrapped_large_space();
     else if (argc > 1) check_wrapped_small_hole();
     else check_reclaimed_lines();
     return 0;
