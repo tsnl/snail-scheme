@@ -302,6 +302,14 @@ services retain temporary token text and stable symbol IDs, while SFIR owns the
 reader and managed datum graph. These services accept scalars and never retain
 guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
 
+[`io.sfir`](lib/sfir/io.sfir) shares an owned file's pending input and closed
+handle across aliases. Rust returns up to seven already-buffered ASCII characters
+in one scalar packet; character, line and datum reads consume that same cursor.
+Optional packet bytes never refill the native buffer or decode a later invalid
+suffix. Borrowed stdin retains the native scalar read/peek cursor so direct
+foreign reads interoperate. The [input contract](lib/sfir/README.md#text-input-cursor)
+describes the representation, EOF behavior and execution checks.
+
 [`text.sfir`](lib/sfir/text.sfir) owns string ordering and full case-fold output
 storage. [`strict_text.rs`](src/strict_text.rs) exposes Unicode operations as
 scalar C/Wasm functions. [`unicode.rs`](src/unicode.rs) keeps one generated
