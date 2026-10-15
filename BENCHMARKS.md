@@ -40,11 +40,13 @@ The report preserves exact inputs, hashes, failures, and an interrupted earlier
 five-system run separately. These are pre-migration baseline measurements.
 
 The strict compiler's [current coverage inventory](benchmarks/strict-suite/capabilities.md)
-records measurements for 27 of 57 workloads at their respective compiler
-checkpoints, including 26 paired Chez comparisons. The latest
-[String comparison](benchmarks/results/2026-10-14-strict-string-comparison/README.md)
-adds the original string-copy workload against both Chez controls and Rust/Wasm;
-its large remaining gap is investigated with separate allocation diagnostics.
+records measurements for 28 of 57 workloads at their respective compiler
+checkpoints, including 27 paired Chez comparisons. The latest
+[Puzzle comparison](benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md)
+takes 1.157× original Chez time and 2.434× Rust/Wasm time. The
+[String storage controls](benchmarks/results/2026-10-14-string-storage/README.md)
+show that element width and zeroing do not explain its entire Rust/Wasm gap;
+allocation diagnostics remain separate from clean timings.
 The preceding [complete-program comparisons](benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md)
 cover symbolic differentiation and complex Mandelbrot. The strict ports preserve the original
 inputs and repetition counts while documenting their source and representation
