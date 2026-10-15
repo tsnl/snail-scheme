@@ -48,17 +48,20 @@ takes 1.647× original Chez time and 1.815× Rust/Wasm time on all ten original
 different allocation and call costs. The
 [Puzzle comparison](benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md)
 takes 1.157× original Chez time and 2.434× Rust/Wasm time. The
-[String storage controls](benchmarks/results/2026-10-14-string-storage/README.md)
-show that element width and zeroing do not explain its entire Rust/Wasm gap;
-allocation diagnostics remain separate from clean timings.
+[String block comparison](benchmarks/results/2026-10-14-string-block-comparison/README.md)
+improves the original Unicode workload 5.04× by changing backing-array sizes.
+Separate [size controls](benchmarks/results/2026-10-14-string-size-controls/README.md)
+find 2–22% overhead on smaller growth/copy inputs, which remains under review.
 The preceding [complete-program comparisons](benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md)
 cover symbolic differentiation and complex Mandelbrot. The strict ports preserve the original
 inputs and repetition counts while documenting their source and representation
 adaptations. This is separate from the historical complete-suite runner above.
 
 A separate [current-Wasm LLVM/Immix experiment](benchmarks/results/2026-10-14-current-wasm-llvm/README.md)
-executes identical optimized Wasm on both backends. LLVM wins String by 2.19×,
-permutations by 2.55× and quicksort by 1.12×; V8 wins complex Mandelbrot by 1.79×.
+executes identical optimized Wasm on both backends. At that checkpoint LLVM
+wins flat String by 2.19×, permutations by 2.55× and quicksort by 1.12×; V8 wins
+complex Mandelbrot by 1.79×. The later [String layout matrix](benchmarks/results/2026-10-14-string-block-native-comparison/README.md)
+reverses its winner: V8 runs the improved String Wasm 2.27× faster than LLVM.
 The permutation result requires a 1 GiB native arena, and deriv cannot compile
 through the archived emitter. This is a bounded experiment, not a suite result.
 
