@@ -1,0 +1,21 @@
+{
+  "actual_tool_terminal": true,
+  "chunk_id": "91792f",
+  "exit_code": 1,
+  "benchmark_runner_success": true,
+  "reason": "Auditor initially required absolute path spelling, while the runner was invoked with relative output. Capture identities retain actual relative paths; resolve them against the recorded launch directory.",
+  "runner_launch_cwd": "/tmp/snail-maze-measurement-20261014",
+  "capture_paths": {
+    "stdout": {
+      "path": "build/maze-clean-da8519f/sample-000/stdout.bin",
+      "bytes": 35,
+      "sha256": "8404c4fd84249f4a92d311764cd9d0e4b69d070ffdb647ba62417f70f37cdd46"
+    },
+    "stderr": {
+      "path": "build/maze-clean-da8519f/sample-000/stderr.bin",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "review_code_sha256": "64de8a5359966c70b315aff4b7606cf820a904e41f10f5592117a9acd284df27"
+}

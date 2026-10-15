@@ -1,0 +1,50 @@
+{
+  "complete": true,
+  "raw_captures_verified": 56,
+  "medians": {
+    "snail-production-v8": {
+      "median": 0.419036819,
+      "minimum": 0.415633793,
+      "maximum": 0.423085429,
+      "samples": 7
+    },
+    "snail-native64": {
+      "median": 0.461827422,
+      "minimum": 0.459433069,
+      "maximum": 0.465222026,
+      "samples": 7
+    },
+    "snail-identical-wasm-v8": {
+      "median": 0.417998163,
+      "minimum": 0.417264752,
+      "maximum": 0.419515307,
+      "samples": 7
+    },
+    "chez": {
+      "median": 0.332521329,
+      "minimum": 0.330862453,
+      "maximum": 0.333273955,
+      "samples": 7
+    },
+    "chez-adapted": {
+      "median": 0.500966136,
+      "minimum": 0.500254224,
+      "maximum": 0.503299189,
+      "samples": 7
+    },
+    "rust-native": {
+      "median": 0.229180672,
+      "minimum": 0.227546644,
+      "maximum": 0.231139955,
+      "samples": 7
+    },
+    "rust-optimized-wasm": {
+      "median": 0.246174006,
+      "minimum": 0.24192087,
+      "maximum": 0.251513939,
+      "samples": 7
+    }
+  },
+  "plan_sha256": "09f16e4cded8ee975a7426dfca357d102bb45bea4beaecff5550f052501da7e9",
+  "scope": "Independent parent raw-byte identities, terminal fields, sample schedule and clock/median replay; complete frame semantics additionally audited by the separate report auditor"
+}
