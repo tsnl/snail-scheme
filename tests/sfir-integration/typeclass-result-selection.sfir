@@ -4,8 +4,8 @@
 (def sfir-migration-instance-2 (instance (Zero F64) (zero (lambda () 0.0))))
 
 (def first I32
-  (zero))
+     (zero))
 
 (def second F64
-  (zero))
+     (zero))
 (if (if (i32-eq first (ann 0 I32)) (f64-eq second 0.0) #f) 42 0)

@@ -1,7 +1,7 @@
 (import (sfir base))
 (def Box (datatype () (box (value I64 unbox))))
 (def value
-  (box later))
+     (box later))
 (def later
-  7)
+     7)
 (unbox value)

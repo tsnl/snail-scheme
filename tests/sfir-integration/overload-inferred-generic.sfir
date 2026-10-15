@@ -2,10 +2,10 @@
 (define-overload choose (lambda (left right) left))
 (define-overload choose identity)
 (def identity
-  (lambda (value) value))
+     (lambda (value) value))
 
 (def constrained (All (T) (=> ((choose (-> T T))) (-> T T)))
-  (lambda (value) (choose value)))
+     (lambda (value) (choose value)))
 (def unary
-  (ann choose (-> Bool Bool)))
+     (ann choose (-> Bool Bool)))
 (if (if (unary #t) (constrained #t) #f) (choose 42 #f) (unreachable))

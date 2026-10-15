@@ -3,24 +3,24 @@
 ;; Constants and mutable aliases share a recursive scope. Escaping closures
 ;; must preserve separate activations while all aliases observe one Ref.
 (def make-step
-  (lambda (start)
-    (begin
-      (def advance
-        (lambda (delta)
-          (begin
-            (ref-set! alias (+ (ref-get state) delta))
-            (+ factor (remainder (ref-get alias) modulus)))))
-      (def factor
-        7)
-      (def modulus
-        16)
-      (def state
-        (ref start))
-      (def alias
-        state)
-      (lambda (delta) (advance delta)))))
+     (lambda (start)
+       (begin
+         (def advance
+              (lambda (delta)
+                (begin
+                  (ref-set! alias (+ (ref-get state) delta))
+                  (+ factor (remainder (ref-get alias) modulus)))))
+         (def factor
+              7)
+         (def modulus
+              16)
+         (def state
+              (ref start))
+         (def alias
+              state)
+         (lambda (delta) (advance delta)))))
 (def first
-  (make-step 1))
+     (make-step 1))
 (def second
-  (make-step 10))
+     (make-step 10))
 (+ (first 2) (+ (second 3) (first 4)))

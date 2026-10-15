@@ -1,16 +1,16 @@
 (import (sfir base))
 
 (def exercise
-  (lambda ()
-    (begin
-      (def choose
-        (lambda (use-later?) (if use-later? (later) 20)))
-      (def before
-        (choose #f))
-      (def later
-        (lambda () (vector-ref payload 0)))
-      (def payload
-        (make-vector 1 22))
-      (+ before (choose #t)))))
+     (lambda ()
+       (begin
+         (def choose
+              (lambda (use-later?) (if use-later? (later) 20)))
+         (def before
+              (choose #f))
+         (def later
+              (lambda () (vector-ref payload 0)))
+         (def payload
+              (make-vector 1 22))
+         (+ before (choose #t)))))
 
 (exercise)

@@ -13,8 +13,26 @@
     "chez-original.scm": "ddca50c7c5ea6db504cd887428eec0e4ea587f09dcb011ec3f4df9201ecc2eb1"
   },
   "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
-  "sfir_sha256": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
-  "observation_sfir_sha256": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3",
+  "sfir_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+  "observation_sfir_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
   "canonical_validation": "/tmp/snail-sfir-continuation-validation-20261015/validation.json",
-  "clarity_review": "Fresh independent no-files explanation and focused critique of closed continuation contexts, CTAK shadowing captures, source operand order, ownership and complete Peano addition; measured sources unchanged."
+  "clarity_review": "Fresh independent no-files explanation and focused critique of closed continuation contexts, CTAK shadowing captures, source operand order, ownership and complete Peano addition; measured sources unchanged.",
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
+    "migrated_unformatted_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "after_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source.",
+    "observer": {
+      "before_sha256": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3",
+      "migrated_unformatted_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+      "after_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc"
+    }
+  }
 }

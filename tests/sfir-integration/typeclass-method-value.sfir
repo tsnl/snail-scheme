@@ -2,10 +2,10 @@
 (def Combine (typeclass ( T) (: combine (-> T T T))))
 (def sfir-migration-instance-1 (instance (Combine I64) (combine (lambda (a b) (+ a b)))))
 (def combine-alias
-  combine)
+     combine)
 
 (def selected (-> I64 I64 I64)
-  combine-alias)
+     combine-alias)
 (def twice-with
-  (lambda (operation x) (operation x x)))
+     (lambda (operation x) (operation x x)))
 (twice-with selected 21)

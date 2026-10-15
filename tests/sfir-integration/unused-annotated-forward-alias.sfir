@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def alias (All (T) (-> T T))
-  later)
+     later)
 (def later
-  (lambda (x) x))
+     (lambda (x) x))
 42

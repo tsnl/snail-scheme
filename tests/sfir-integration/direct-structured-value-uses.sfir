@@ -1,22 +1,22 @@
 (import (sfir base))
 
 (def saved
-  (ref (ann (lambda () 0) (-> I64))))
+     (ref (ann (lambda () 0) (-> I64))))
 (def answer
-  ((begin
-     (begin
-       (def value
-         (lambda () 42))
-       (ref-set! saved value)
-       value))))
+     ((begin
+        (begin
+          (def value
+               (lambda () 42))
+          (ref-set! saved value)
+          value))))
 (def choose
-  (lambda (flag)
-    ((begin
-       (begin
-         (def yes
-           (lambda () answer))
-         (def no
-           (lambda () 0))
-         (if flag yes no))))))
+     (lambda (flag)
+       ((begin
+          (begin
+            (def yes
+                 (lambda () answer))
+            (def no
+                 (lambda () 0))
+            (if flag yes no))))))
 
 (if (if (= ((ref-get saved)) 42) (if (= (choose #t) 42) (= (choose #f) 0) #f) #f) 42 0)

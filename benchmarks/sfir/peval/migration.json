@@ -9,14 +9,32 @@
   "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
   "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
   "reviewed_port_sha256": "eb11d439f1e62f11120eb67ad58033e02e5b625f5bc0ad2dde4e8cab4d60b5fc",
-  "sfir_sha256": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+  "sfir_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
   "controls": {
     "chez-adapted.scm": "da0b6fe87c1fca25ef8ff30e76be149743eae7acb5bc4e005ff784b187357c11",
     "chez-original.scm": "0f0af24d3980b2dfb69476f8be750abea84f7f0f568a8740d36ab59c2dcfd920"
   },
   "observer": {
-    "sfir_sha256": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
+    "sfir_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
     "reviewed_port_sha256": "35df83e632d7da849b55cc313e68426a9c252c569ecd77c30408f4a9902b82f8",
     "status": "SFIR execution pending; earlier strict observation inference timed out at 1800 seconds."
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+    "migrated_unformatted_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "after_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source.",
+    "observer": {
+      "before_sha256": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
+      "migrated_unformatted_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+      "after_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c"
+    }
   }
 }

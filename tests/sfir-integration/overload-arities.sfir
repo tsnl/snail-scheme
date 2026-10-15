@@ -2,9 +2,9 @@
 (define-overload select (-> I64 I64) (lambda (value) value))
 (define-overload select (-> I64 I64 I64) i64-add)
 (def alias
-  select)
+     select)
 (def one
-  (lambda (x) (alias x)))
+     (lambda (x) (alias x)))
 (def two
-  (lambda (x y) (alias x y)))
+     (lambda (x y) (alias x y)))
 (if (if (= (one 42) 42) (= (two 20 22) 42) #f) 42 (unreachable))

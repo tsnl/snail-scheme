@@ -1,24 +1,24 @@
 (import (sfir base))
 
 (def effects
-  (ref 0))
+     (ref 0))
 
 (def checked (-> I64)
-  (lambda ()
-    (begin
-      (def make-probe
-        (lambda ()
-          (begin (let copy later)
-            (begin
-              (ref-set! effects 1)
-              (lambda () (copy 42))))))
-      (def saved
-        (make-probe))
-      (def later
-        (lambda (x) x))
-      (saved))))
+     (lambda ()
+       (begin
+         (def make-probe
+              (lambda ()
+                (begin (let copy later)
+                       (begin
+                         (ref-set! effects 1)
+                         (lambda () (copy 42))))))
+         (def saved
+              (make-probe))
+         (def later
+              (lambda (x) x))
+         (saved))))
 
 (def observed (-> I64)
-  (lambda () (ref-get effects)))
+     (lambda () (ref-get effects)))
 
 42

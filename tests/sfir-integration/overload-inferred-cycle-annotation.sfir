@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def bridge (-> I64 I64)
-  (lambda (value) (countdown value)))
+     (lambda (value) (countdown value)))
 (define-overload countdown
   (lambda (value) (if (= value 0) 42 (bridge (- value 1)))))
 (countdown 3)

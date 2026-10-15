@@ -2,5 +2,5 @@
 (define-overload identity (lambda (value) value))
 
 (def impossible (All (T) (-> T Bool))
-  (lambda (value) (identity value)))
+     (lambda (value) (identity value)))
 42

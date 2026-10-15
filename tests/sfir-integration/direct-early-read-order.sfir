@@ -1,23 +1,23 @@
 (import (sfir base))
 
 (def state
-  (ref 0))
+     (ref 0))
 
 (def checked (-> I64)
-  (lambda ()
-    (begin
-      (def read-later
-        (lambda ()
-          (begin
-            (ref-set! state 7)
-            (vector-ref later 0))))
-      (def early
-        (read-later))
-      (def later
-        (make-vector 1 42))
-      early)))
+     (lambda ()
+       (begin
+         (def read-later
+              (lambda ()
+                (begin
+                  (ref-set! state 7)
+                  (vector-ref later 0))))
+         (def early
+              (read-later))
+         (def later
+              (make-vector 1 42))
+         early)))
 
 (def observed (-> I64)
-  (lambda () (ref-get state)))
+     (lambda () (ref-get state)))
 
 42

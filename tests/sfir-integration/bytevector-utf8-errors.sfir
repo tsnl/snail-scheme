@@ -1,56 +1,56 @@
 (import (sfir base) (sfir bytes))
 
 (def isolated-tail (-> I64)
-  (lambda () (string-length (utf8->string #u8(128)))))
+     (lambda () (string-length (utf8->string #u8(128)))))
 
 (def invalid-lead (-> I64)
-  (lambda () (string-length (utf8->string #u8(255)))))
+     (lambda () (string-length (utf8->string #u8(255)))))
 
 (def truncated-two (-> I64)
-  (lambda () (string-length (utf8->string #u8(194)))))
+     (lambda () (string-length (utf8->string #u8(194)))))
 
 (def truncated-three (-> I64)
-  (lambda () (string-length (utf8->string #u8(224 160)))))
+     (lambda () (string-length (utf8->string #u8(224 160)))))
 
 (def truncated-four (-> I64)
-  (lambda () (string-length (utf8->string #u8(240 144 128)))))
+     (lambda () (string-length (utf8->string #u8(240 144 128)))))
 
 (def bad-tail (-> I64)
-  (lambda () (string-length (utf8->string #u8(224 65 128)))))
+     (lambda () (string-length (utf8->string #u8(224 65 128)))))
 
 (def overlong-two (-> I64)
-  (lambda () (string-length (utf8->string #u8(192 128)))))
+     (lambda () (string-length (utf8->string #u8(192 128)))))
 
 (def overlong-three (-> I64)
-  (lambda () (string-length (utf8->string #u8(224 159 191)))))
+     (lambda () (string-length (utf8->string #u8(224 159 191)))))
 
 (def overlong-four (-> I64)
-  (lambda () (string-length (utf8->string #u8(240 143 191 191)))))
+     (lambda () (string-length (utf8->string #u8(240 143 191 191)))))
 
 (def surrogate (-> I64)
-  (lambda () (string-length (utf8->string #u8(237 160 128)))))
+     (lambda () (string-length (utf8->string #u8(237 160 128)))))
 
 (def too-large (-> I64)
-  (lambda () (string-length (utf8->string #u8(244 144 128 128)))))
+     (lambda () (string-length (utf8->string #u8(244 144 128 128)))))
 
 (def cut-start (-> I64)
-  (lambda () (string-length (utf8->string #u8(195 169) 1))))
+     (lambda () (string-length (utf8->string #u8(195 169) 1))))
 
 (def cut-end (-> I64)
-  (lambda () (string-length (utf8->string #u8(195 169) 0 1))))
+     (lambda () (string-length (utf8->string #u8(195 169) 0 1))))
 
 (def negative-start (-> I64)
-  (lambda () (string-length (utf8->string #u8() -1 0))))
+     (lambda () (string-length (utf8->string #u8() -1 0))))
 
 (def past-end (-> I64)
-  (lambda () (string-length (utf8->string #u8() 1 1))))
+     (lambda () (string-length (utf8->string #u8() 1 1))))
 
 (def reversed (-> I64)
-  (lambda () (string-length (utf8->string #u8(65) 1 0))))
+     (lambda () (string-length (utf8->string #u8(65) 1 0))))
 
 (def encode-range (-> I64)
-  (lambda () (bytevector-length (string->utf8 "A" 0 2))))
+     (lambda () (bytevector-length (string->utf8 "A" 0 2))))
 
 (def encode-negative (-> I64)
-  (lambda () (bytevector-length (string->utf8 "A" -1 0))))
+     (lambda () (bytevector-length (string->utf8 "A" -1 0))))
 42

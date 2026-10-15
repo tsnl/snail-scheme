@@ -165,7 +165,7 @@ def check_scalar_providers():
 def bytevector_trap_entry(source, names):
     # The fixtures declare zero-argument scalar observers. Match their real C
     # result types even though trap probes must never return a result.
-    signatures = dict(re.findall(r'\(define\s+([\w!?-]+)\s+\(->\s+(I64|Bool|Unit)\s*\)', source))
+    signatures = dict(re.findall(r'\(def\s+([\w!?-]+)\s+\(->\s+(I64|Bool|Unit)\s*\)', source))
     types = {'I64': 'int64_t', 'Bool': 'int32_t', 'Unit': 'void'}
     declarations = [f'extern {types[signatures[name]]} probe{i}(void) __asm__("wasm.{name}");'
                     for i, name in enumerate(names)]

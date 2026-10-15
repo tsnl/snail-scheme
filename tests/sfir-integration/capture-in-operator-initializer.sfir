@@ -1,5 +1,5 @@
 (import (sfir base))
 (def exercise
-  (lambda (x)
-    ((begin (let y x) (lambda () y)))))
+     (lambda (x)
+       ((begin (let y x) (lambda () y)))))
 (exercise 42)

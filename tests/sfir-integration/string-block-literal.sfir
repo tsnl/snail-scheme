@@ -5,7 +5,7 @@
 ;; Each complete literal line is 127 lambdas, an emoji and a newline.
 
 (def literal (-> String)
-  (lambda () "λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
+     (lambda () "λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
@@ -70,38 +70,38 @@
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ😀
 λλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλλ􏿿"))
 (def shared
-  (literal))
+     (literal))
 (def copied
-  (string-copy shared))
+     (string-copy shared))
 (def expected-character
-  (lambda (index)
-    (if (= index 8192)
-        #\x10ffff
-        (begin (let offset (remainder index 129))
-          (if (= offset 128) #\newline (if (= offset 127) #\x1f600 #\λ))))))
+     (lambda (index)
+       (if (= index 8192)
+           #\x10ffff
+           (begin (let offset (remainder index 129))
+                  (if (= offset 128) #\newline (if (= offset 127) #\x1f600 #\λ))))))
 (def complete-literal?
-  (lambda (value)
-    (if (= (string-length value) 8193)
-        (begin
-          (def loop
-            (lambda (index)
-              (if (= index 8193)
-                  #t
-                  (if (char=? (string-ref value index) (expected-character index)) (loop (+ index 1)) #f))))
-          (loop 0))
-        #f)))
+     (lambda (value)
+       (if (= (string-length value) 8193)
+           (begin
+             (def loop
+                  (lambda (index)
+                    (if (= index 8193)
+                        #t
+                        (if (char=? (string-ref value index) (expected-character index)) (loop (+ index 1)) #f))))
+             (loop 0))
+           #f)))
 
 (def set-literal (-> Unit)
-  (lambda () (string-set! shared 8192 #\Z)))
+     (lambda () (string-set! shared 8192 #\Z)))
 
 (def copy-literal (-> Unit)
-  (lambda () (string-copy! shared 8191 "ZZ" 0 2)))
+     (lambda () (string-copy! shared 8191 "ZZ" 0 2)))
 
 (def empty-literal-copy (-> Unit)
-  (lambda () (string-copy! shared 8193 "" 0 0)))
+     (lambda () (string-copy! shared 8193 "" 0 0)))
 
 (def unchanged (-> Bool)
-  (lambda () (complete-literal? shared)))
+     (lambda () (complete-literal? shared)))
 (string-set! copied 8192 #\Z)
 (if (if (string-eq? shared (literal))
         (if (not (string-eq? shared copied))

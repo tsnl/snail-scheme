@@ -1,5 +1,5 @@
 (import (sfir base))
 
 (def square (All (T) (-> T T))
-  (lambda (x) (* x x)))
+     (lambda (x) (* x x)))
 (square 2)

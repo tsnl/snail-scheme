@@ -1,6 +1,6 @@
 (import (sfir base))
 (def invoke
-  (lambda (operation value) (operation value)))
+     (lambda (operation value) (operation value)))
 (if (if (= (i64->f64 -9223372036854775808) -9223372036854775808.0)
         (if (= (i64->f64 9007199254740993) 9007199254740992.0)
             (if (= (i32->i64 (ann -2147483648 I32)) -2147483648)

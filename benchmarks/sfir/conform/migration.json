@@ -9,7 +9,7 @@
   "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
   "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
   "reviewed_port_sha256": "640d10a7d00a635e821f01c2424ce4620af39576553fdb3c2ce58db5db6806c9",
-  "sfir_sha256": "e8f7a95daf8d0213f01fe5c95e8974c261a9a49117f991cec58947a4f101f2e2",
+  "sfir_sha256": "a5ba5f9f8dd7e639a3e03dd752c7d66e09815a60a3458928eff4302f989a59a3",
   "controls": {
     "chez-adapted.scm": "c7b8135efe998ed5146c9f817d6696aeae45116d0ed1423ff447c4249271901e",
     "chez-original.scm": "b565628374c880d2ad40f6b8890c55571e42d06894f6f5458ee12ba7749f8fa6"
@@ -24,5 +24,18 @@
       },
       "exact_reverse_verified": true
     }
-  ]
+  ],
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "e8f7a95daf8d0213f01fe5c95e8974c261a9a49117f991cec58947a4f101f2e2",
+    "migrated_unformatted_sha256": "a5ba5f9f8dd7e639a3e03dd752c7d66e09815a60a3458928eff4302f989a59a3",
+    "after_sha256": "a5ba5f9f8dd7e639a3e03dd752c7d66e09815a60a3458928eff4302f989a59a3",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  }
 }

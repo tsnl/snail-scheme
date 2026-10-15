@@ -3,61 +3,61 @@
 ;; ---- Public Char APIs retain scalar types across the worker boundary ----
 
 (def lower (-> Char Char)
-  (lambda (value) (char-downcase value)))
+     (lambda (value) (char-downcase value)))
 
 (def alphabetic (-> Char Bool)
-  (lambda (value) (char-alphabetic? value)))
+     (lambda (value) (char-alphabetic? value)))
 
 (def numeric (-> Char Bool)
-  (lambda (value) (char-numeric? value)))
+     (lambda (value) (char-numeric? value)))
 
 (def whitespace (-> Char Bool)
-  (lambda (value) (char-whitespace? value)))
+     (lambda (value) (char-whitespace? value)))
 
 ;; ---- Hosts populate ordinary mutable SFIR strings through scalar workers ----
 
 (def left
-  (ref (make-string 0)))
+     (ref (make-string 0)))
 (def right
-  (ref (make-string 0)))
+     (ref (make-string 0)))
 
 (def fresh-strings (-> I64 I64 Unit)
-  (lambda (a b)
-    (begin (ref-set! left (make-string a)) (ref-set! right (make-string b)))))
+     (lambda (a b)
+       (begin (ref-set! left (make-string a)) (ref-set! right (make-string b)))))
 
 (def fill-left (-> I64 Char Unit)
-  (lambda (index value) (string-set! (ref-get left) index value)))
+     (lambda (index value) (string-set! (ref-get left) index value)))
 
 (def fill-right (-> I64 Char Unit)
-  (lambda (index value) (string-set! (ref-get right) index value)))
+     (lambda (index value) (string-set! (ref-get right) index value)))
 
 (def ordered (-> Bool)
-  (lambda () (string<? (ref-get left) (ref-get right))))
+     (lambda () (string<? (ref-get left) (ref-get right))))
 
 (def self-ordered (-> Bool)
-  (lambda () (string<? (ref-get left) (ref-get left))))
+     (lambda () (string<? (ref-get left) (ref-get left))))
 
 (def fold-left (-> Unit)
-  (lambda () (ref-set! right (string-foldcase (ref-get left)))))
+     (lambda () (ref-set! right (string-foldcase (ref-get left)))))
 
 (def read-left (-> I64 Char)
-  (lambda (index) (string-ref (ref-get left) index)))
+     (lambda (index) (string-ref (ref-get left) index)))
 
 (def read-right (-> I64 Char)
-  (lambda (index) (string-ref (ref-get right) index)))
+     (lambda (index) (string-ref (ref-get right) index)))
 
 (def right-length (-> I64)
-  (lambda () (string-length (ref-get right))))
+     (lambda () (string-length (ref-get right))))
 
 (def same-strings (-> Bool)
-  (lambda () (string-eq? (ref-get left) (ref-get right))))
+     (lambda () (string-eq? (ref-get left) (ref-get right))))
 
 (def fold-literal (-> Bool)
-  (lambda ()
-    (begin (let folded (string-foldcase "Straße"))
-      (begin
-        (string-set! folded 0 #\S)
-        (string=? folded "Strasse")))))
+     (lambda ()
+       (begin (let folded (string-foldcase "Straße"))
+              (begin
+                (string-set! folded 0 #\S)
+                (string=? folded "Strasse")))))
 
 ;; ---- Malformed raw callers must release files before the fatal diagnostic ----
 
@@ -69,27 +69,27 @@
 (define-extern raw-full-fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> I32 I32 I32))
 
 (def fold-count (-> I32 I32)
-  (lambda (code) (raw-full-fold-length code)))
+     (lambda (code) (raw-full-fold-length code)))
 
 (def fold-component (-> I32 I32 I32)
-  (lambda (code index) (raw-full-fold-scalar code index)))
+     (lambda (code index) (raw-full-fold-scalar code index)))
 
 (def malformed (-> I64 I32 Unit)
-  (lambda (operation code)
-    (begin
-      (begin (let port (open-output-file "pending.txt")) (write-string "buffered" port))
-      (if (= operation 0)
-          (raw-downcase code)
-          (if (= operation 1)
-              (raw-alphabetic code)
-              (if (= operation 2)
-                  (raw-numeric code)
-                  (if (= operation 3)
-                      (raw-whitespace code)
-                      (if (= operation 4)
-                          (raw-full-fold-length code)
-                          (if (= operation 5)
-                              (raw-full-fold-scalar code (ann 0 I32))
-                              (raw-full-fold-scalar (if (= operation 6) (ann 223 I32) (ann 912 I32)) code)))))))
-      (unreachable))))
+     (lambda (operation code)
+       (begin
+         (begin (let port (open-output-file "pending.txt")) (write-string "buffered" port))
+         (if (= operation 0)
+             (raw-downcase code)
+             (if (= operation 1)
+                 (raw-alphabetic code)
+                 (if (= operation 2)
+                     (raw-numeric code)
+                     (if (= operation 3)
+                         (raw-whitespace code)
+                         (if (= operation 4)
+                             (raw-full-fold-length code)
+                             (if (= operation 5)
+                                 (raw-full-fold-scalar code (ann 0 I32))
+                                 (raw-full-fold-scalar (if (= operation 6) (ann 223 I32) (ann 912 I32)) code)))))))
+         (unreachable))))
 (unit)

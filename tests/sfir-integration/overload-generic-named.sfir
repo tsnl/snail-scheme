@@ -1,5 +1,5 @@
 (import (sfir base))
 (define-overload select (All (T) (-> T T)) identity)
 (def identity
-  (lambda (x) x))
+     (lambda (x) x))
 (if (if (select #t) (= (select 42) 42) #f) 42 (unreachable))

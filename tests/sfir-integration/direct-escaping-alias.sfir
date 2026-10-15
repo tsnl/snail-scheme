@@ -1,14 +1,14 @@
 (import (sfir base))
 
 (def exercise
-  (lambda (amount)
-    (begin
-      (def add
-        (lambda (value) (+ amount value)))
-      (def alias
-        add)
-      (def invoke
-        (lambda (value) (alias value)))
-      (invoke 2))))
+     (lambda (amount)
+       (begin
+         (def add
+              (lambda (value) (+ amount value)))
+         (def alias
+              add)
+         (def invoke
+              (lambda (value) (alias value)))
+         (invoke 2))))
 
 (exercise 40)

@@ -5,7 +5,7 @@
 ;; The two methods have identical arrow shapes; their class arguments still
 ;; select distinct implementations.
 (def mark-integer
-  (inst mark I32))
+     (inst mark I32))
 (def mark-float
-  (inst mark F64))
+     (inst mark F64))
 (+ (mark-integer) (mark-float))

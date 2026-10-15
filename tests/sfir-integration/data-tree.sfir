@@ -1,12 +1,12 @@
 (import (sfir base))
 (def Tree (datatype ( T)
-  (leaf (value T))
-  (branch (left (Tree T)) (right (Tree T)))))
+                    (leaf (value T))
+                    (branch (left (Tree T)) (right (Tree T)))))
 (def first
-  (lambda (tree)
-    (match tree ((leaf value) value) ((branch left right) (first left)))))
+     (lambda (tree)
+       (match tree ((leaf value) value) ((branch left right) (first left)))))
 (def ints
-  (branch (leaf 12) (leaf 19)))
+     (branch (leaf 12) (leaf 19)))
 (def floats
-  (branch (leaf 2.5) (leaf 3.5)))
+     (branch (leaf 2.5) (leaf 3.5)))
 (+ (first ints) (f64->i64 (first floats)))

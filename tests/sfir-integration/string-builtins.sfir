@@ -1,18 +1,18 @@
 (import (sfir base))
 (def source
-  (string #\A #\null #\é #\x1f600))
+     (string #\A #\null #\é #\x1f600))
 (def copied
-  (string-copy source))
+     (string-copy source))
 (def middle
-  (substring source 1 3))
+     (substring source 1 3))
 (def joined
-  (string-append "" "[" source "]" ""))
+     (string-append "" "[" source "]" ""))
 (def one
-  (string-append source))
+     (string-append source))
 (def empty
-  (string-append))
+     (string-append))
 (def chars
-  (string->list source))
+     (string->list source))
 (string-set! source 0 #\Z)
 (if (if (string=? copied "A\x0;é😀")
         (if (string=? (list->string chars) copied)

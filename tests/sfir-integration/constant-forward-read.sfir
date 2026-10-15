@@ -2,9 +2,9 @@
 
 ;; Literal payload knowledge must not initialize the source binding early.
 (def read-later
-  (lambda () later))
+     (lambda () later))
 (def early
-  (read-later))
+     (read-later))
 (def later
-  42)
+     42)
 early

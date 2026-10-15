@@ -1,32 +1,32 @@
 (import (sfir base))
 
 (def count
-  (ref 0))
+     (ref 0))
 
 (def through (-> (-> I64 Unit) I64 Unit)
-  (lambda (action n)
-    (begin
-      (action n)
-      (unit)
-      (unit))))
+     (lambda (action n)
+       (begin
+         (action n)
+         (unit)
+         (unit))))
 
 (def down (-> I64 Unit)
-  (lambda (n)
-    (if (> n 0)
-        (begin
-          (ref-set! count (+ (ref-get count) 1))
-          (up (- n 1))
-          (unit))
-        (unit))))
+     (lambda (n)
+       (if (> n 0)
+           (begin
+             (ref-set! count (+ (ref-get count) 1))
+             (up (- n 1))
+             (unit))
+           (unit))))
 
 (def up (-> I64 Unit)
-  (lambda (n)
-    (if (= n 0)
-        (unit)
-        (begin
-          (ref-set! count (+ (ref-get count) 1))
-          (through down (- n 1))
-          (unit)))))
+     (lambda (n)
+       (if (= n 0)
+           (unit)
+           (begin
+             (ref-set! count (+ (ref-get count) 1))
+             (through down (- n 1))
+             (unit)))))
 
 (down 100000)
 (ref-get count)

@@ -1,38 +1,38 @@
 (import (sfir base))
 (def literal
-  (ref (ann (ann "abc" Any) String)))
+     (ref (ann (ann "abc" Any) String)))
 (def effects
-  (ref 0))
+     (ref 0))
 (def mark
-  (lambda (digit value)
-    (begin
-      (ref-set! effects (+ (* (ref-get effects) 10) digit))
-      value)))
+     (lambda (digit value)
+       (begin
+         (ref-set! effects (+ (* (ref-get effects) 10) digit))
+         value)))
 
 (def set-literal (-> Unit)
-  (lambda ()
-    (begin
-      (ref-set! effects 0)
-      (string-set! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 #\Z)))))
+     (lambda ()
+       (begin
+         (ref-set! effects 0)
+         (string-set! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 #\Z)))))
 
 (def set-effects (-> I64)
-  (lambda () (ref-get effects)))
+     (lambda () (ref-get effects)))
 
 (def copy-literal (-> Unit)
-  (lambda ()
-    (begin
-      (ref-set! effects 0)
-      (string-copy! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 "Z") (mark 4 0) (mark 5 1)))))
+     (lambda ()
+       (begin
+         (ref-set! effects 0)
+         (string-copy! (mark 1 (ref-get literal)) (mark 2 0) (mark 3 "Z") (mark 4 0) (mark 5 1)))))
 
 (def copy-effects (-> I64)
-  (lambda () (ref-get effects)))
+     (lambda () (ref-get effects)))
 
 (def empty-literal-copy (-> Unit)
-  (lambda () (string-copy! "" 0 "" 0 0)))
+     (lambda () (string-copy! "" 0 "" 0 0)))
 
 (def literal-endpoint-copy (-> Unit)
-  (lambda () (string-copy! (ref-get literal) 3 "" 0 0)))
+     (lambda () (string-copy! (ref-get literal) 3 "" 0 0)))
 
 (def unchanged (-> Bool)
-  (lambda () (string=? (ref-get literal) "abc")))
+     (lambda () (string=? (ref-get literal) "abc")))
 42

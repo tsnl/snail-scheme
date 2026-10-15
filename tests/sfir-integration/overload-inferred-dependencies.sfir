@@ -3,10 +3,10 @@
 (define-overload g (lambda (value) (bridge value)))
 (define-overload g (-> I64 Bool) (lambda (value) #t))
 (def bridge
-  (lambda (value) (helper value)))
+     (lambda (value) (helper value)))
 (def forward
-  (lambda (value) (f value)))
+     (lambda (value) (f value)))
 (def helper
-  forward)
+     forward)
 (define-overload f (lambda (value) value))
 (if (if (ann (g 42) Bool) (= (ann (g 42) I64) 42) #f) 42 (unreachable))

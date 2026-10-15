@@ -1,5 +1,5 @@
 (import (sfir base) (sfir io))
 (def port
-  (open-output-file "main-trap.txt"))
+     (open-output-file "main-trap.txt"))
 (write-string "buffered before main trapped" port)
 (unreachable)

@@ -1,5 +1,5 @@
 (import (sfir base))
 (begin (let x 42)
-  (begin (let sfir-migration-let-1 #t) (let sfir-migration-let-2 x) (let x sfir-migration-let-1)
-(let y sfir-migration-let-2)
-y))
+       (begin (let sfir-migration-let-1 #t) (let sfir-migration-let-2 x) (let x sfir-migration-let-1)
+              (let y sfir-migration-let-2)
+              y))

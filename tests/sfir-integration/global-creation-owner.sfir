@@ -3,11 +3,11 @@
 ;; Both concrete factories own their nested creation at this first event.
 ;; A later demand must not lend its initialized globals to the earlier code.
 (def make
-  (lambda (ignored) (lambda () later)))
+     (lambda (ignored) (lambda () later)))
 (def early
-  ((make #t)))
+     ((make #t)))
 (def later
-  42)
+     42)
 (def late
-  (make 1))
+     (make 1))
 early

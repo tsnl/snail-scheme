@@ -1,6 +1,6 @@
 (import (sfir base))
 (def combine
-  (lambda (left right) (+ left right)))
+     (lambda (left right) (+ left right)))
 (if (if (= (combine 20 22.0) 42.0)
         (if (= (combine 20.0 22) 42.0)
             (if (= (- 45 3.0) 42.0)

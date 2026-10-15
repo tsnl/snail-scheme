@@ -3,5 +3,5 @@
 (write-string "buffered before exhaustion" port)
 (def huge (make-vector 1000000 7))
 (def read-huge (-> I64 I64)
-  (lambda (index) (vector-ref huge index)))
+     (lambda (index) (vector-ref huge index)))
 (unit)

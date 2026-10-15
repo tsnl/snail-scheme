@@ -1,54 +1,54 @@
 (import (sfir base))
 
 (def calls
-  (ref 0))
+     (ref 0))
 (def make-counter
-  (lambda (seed early?)
-    (begin
-      (def cell
-        (ref seed))
-      (def saved
-        (lambda (amount)
-          ((begin (let increment amount)
-             (begin
-               (def apply
-                 (lambda ()
-                   (begin
-                     (ref-set! calls (+ (ref-get calls) 1))
-                     ((begin step) increment))))
-               apply)))))
-      (def early
-        (if early? (saved 1) 0))
-      (def step
-        (lambda (amount)
-          (begin
-            (ref-set! cell (+ (ref-get cell) amount))
-            (ref-get cell))))
-      saved)))
-(def left
-  (make-counter 40 #f))
-(def right
-  (make-counter 100 #f))
-(def make-next
-  (lambda (seed)
-    ((begin (let cell (ref seed))
+     (lambda (seed early?)
        (begin
+         (def cell
+              (ref seed))
+         (def saved
+              (lambda (amount)
+                ((begin (let increment amount)
+                        (begin
+                          (def apply
+                               (lambda ()
+                                 (begin
+                                   (ref-set! calls (+ (ref-get calls) 1))
+                                   ((begin step) increment))))
+                          apply)))))
+         (def early
+              (if early? (saved 1) 0))
          (def step
-           (lambda (amount)
-             (begin
-               (ref-set! cell (+ (ref-get cell) amount))
-               (ref-get cell))))
-         (def build
-           (lambda () (lambda (amount) ((begin step) amount))))
-         build)))))
+              (lambda (amount)
+                (begin
+                  (ref-set! cell (+ (ref-get cell) amount))
+                  (ref-get cell))))
+         saved)))
+(def left
+     (make-counter 40 #f))
+(def right
+     (make-counter 100 #f))
+(def make-next
+     (lambda (seed)
+       ((begin (let cell (ref seed))
+               (begin
+                 (def step
+                      (lambda (amount)
+                        (begin
+                          (ref-set! cell (+ (ref-get cell) amount))
+                          (ref-get cell))))
+                 (def build
+                      (lambda () (lambda (amount) ((begin step) amount))))
+                 build)))))
 (def next
-  (make-next 40))
+     (make-next 40))
 
 (def checked (-> I64)
-  (lambda () ((make-counter 0 #t) 1)))
+     (lambda () ((make-counter 0 #t) 1)))
 
 (def observed (-> I64)
-  (lambda () (ref-get calls)))
+     (lambda () (ref-get calls)))
 
 (if (if (= (left 1) 41)
         (if (= (right 2) 102) (if (= (left 1) 42) (if (= (next 1) 41) (= (next 1) 42) #f) #f) #f)

@@ -1,21 +1,21 @@
 (import (sfir base))
 (def convert
-  (lambda (procedure value) (procedure value)))
+     (lambda (procedure value) (procedure value)))
 
 (def negative (-> Char)
-  (lambda () (integer->char -1)))
+     (lambda () (integer->char -1)))
 
 (def surrogate-low (-> Char)
-  (lambda () (integer->char 55296)))
+     (lambda () (integer->char 55296)))
 
 (def surrogate-high (-> Char)
-  (lambda () (integer->char 57343)))
+     (lambda () (integer->char 57343)))
 
 (def too-large (-> Char)
-  (lambda () (integer->char 1114112)))
+     (lambda () (integer->char 1114112)))
 
 (def huge (-> Char)
-  (lambda () (convert integer->char 9223372036854775807)))
+     (lambda () (convert integer->char 9223372036854775807)))
 (if (if (= (char->integer (integer->char 0)) 0)
         (if (= (char->integer (integer->char 55295)) 55295)
             (if (= (char->integer (integer->char 57344)) 57344)

@@ -1,11 +1,11 @@
 (import (sfir base))
 (def count
-  (ref 0))
+     (ref 0))
 (define-overload add-two (-> I64 I64) implementation)
 (def implementation
-  (begin (ref-set! count (+ (ref-get count) 1)) (lambda (value) (+ value 2))))
+     (begin (ref-set! count (+ (ref-get count) 1)) (lambda (value) (+ value 2))))
 (def first
-  (add-two 38))
+     (add-two 38))
 (def second
-  (add-two first))
+     (add-two first))
 (if (= (ref-get count) 1) second (unreachable))

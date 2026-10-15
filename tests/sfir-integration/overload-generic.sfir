@@ -2,12 +2,12 @@
 (define-overload promote (-> I64 F64) i64->f64)
 
 (def combine (All (A B R) (=> ((+ (-> A B R))) (-> A B R)))
-  (lambda (left right) (+ left right)))
+     (lambda (left right) (+ left right)))
 
 (def discard (All (A B R) (=> ((+ (-> A B R))) (-> A B Unit)))
-  (lambda (left right)
-    (begin (+ left right) (unit))))
+     (lambda (left right)
+       (begin (+ left right) (unit))))
 (def nested
-  (lambda (value) (+ (promote value) (combine value 2.0))))
+     (lambda (value) (+ (promote value) (combine value 2.0))))
 (discard 20 22.0)
 (if (= (nested 20) 42.0) 42 (unreachable))

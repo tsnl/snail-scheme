@@ -4,16 +4,16 @@
 (def Marker (datatype ( T) (marker)))
 
 (def nominal (-> I64)
-  (lambda ()
-    (match (ann (ann (first) Any) Second) ((second) 0))))
+     (lambda ()
+       (match (ann (ann (first) Any) Second) ((second) 0))))
 
 (def arguments (-> I64)
-  (lambda ()
-    (match (ann (ann (ann (marker) (Marker I32)) Any) (Marker Char))
-      ((marker) 0))))
+     (lambda ()
+       (match (ann (ann (ann (marker) (Marker I32)) Any) (Marker Char))
+         ((marker) 0))))
 
 (def valid (-> I64)
-  (lambda ()
-    (match (ann (ann (ann (marker) (Marker Char)) Any) (Marker Char))
-      ((marker) 42))))
+     (lambda ()
+       (match (ann (ann (ann (marker) (Marker Char)) Any) (Marker Char))
+         ((marker) 42))))
 42

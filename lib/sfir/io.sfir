@@ -14,245 +14,245 @@
   ;; ---- Scalar resource boundary ----
 
   (begin
-(def OutputPort (datatype ()
-    (output-port (handle (Ref I32) output-handle))))
-  (def InputPort (datatype ()
-    (input-port (handle (Ref I32) input-handle))))
-  (def LineResult (datatype () (end-of-file) (line (text String line-text))))
-  (def CharacterResult (datatype ()
-    (character-end) (character-value (text Char character-text))))
-  (define-extern path-begin "snail.library" "snail:io/path-begin" (-> Unit))
-  (define-extern path-character "snail.library" "snail:io/path-character" (-> Char Unit))
-  (define-extern path-exists "snail.library" "snail:io/file-exists" (-> I32))
-  (define-extern path-delete "snail.library" "snail:io/delete-file" (-> Unit))
-  (define-extern path-open-output "snail.library" "snail:io/open-output-file" (-> I32))
-  (define-extern path-open-input "snail.library" "snail:io/open-input-file" (-> I32))
-  (define-extern port-read "snail.library" "snail:io/read-character" (-> I32 I32))
-  (define-extern port-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
-  (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
-  (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
-  (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
-  (define-extern standard-input-handle "snail.library" "snail:io/standard-input" (-> I32))
-  (define-extern port-check-output "snail.library" "snail:io/check-output" (-> I32 Unit))
+    (def OutputPort (datatype ()
+                              (output-port (handle (Ref I32) output-handle))))
+    (def InputPort (datatype ()
+                             (input-port (handle (Ref I32) input-handle))))
+    (def LineResult (datatype () (end-of-file) (line (text String line-text))))
+    (def CharacterResult (datatype ()
+                                   (character-end) (character-value (text Char character-text))))
+    (define-extern path-begin "snail.library" "snail:io/path-begin" (-> Unit))
+    (define-extern path-character "snail.library" "snail:io/path-character" (-> Char Unit))
+    (define-extern path-exists "snail.library" "snail:io/file-exists" (-> I32))
+    (define-extern path-delete "snail.library" "snail:io/delete-file" (-> Unit))
+    (define-extern path-open-output "snail.library" "snail:io/open-output-file" (-> I32))
+    (define-extern path-open-input "snail.library" "snail:io/open-input-file" (-> I32))
+    (define-extern port-read "snail.library" "snail:io/read-character" (-> I32 I32))
+    (define-extern port-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
+    (define-extern port-write "snail.library" "snail:io/write-character" (-> I32 Char Unit))
+    (define-extern port-close "snail.library" "snail:io/close" (-> I32 Unit))
+    (define-extern standard-output-handle "snail.library" "snail:io/standard-output" (-> I32))
+    (define-extern standard-input-handle "snail.library" "snail:io/standard-input" (-> I32))
+    (define-extern port-check-output "snail.library" "snail:io/check-output" (-> I32 Unit))
 
-  ;; This singleton borrows stdout. Its reserved scalar ID never names an
-  ;; owned file, and neither explicit close nor trap cleanup closes the stream.
-  ;; Current output is fixed here; dynamic rebinding is not implemented.
-  (def standard-output
-    (output-port (ref (standard-output-handle))))
+    ;; This singleton borrows stdout. Its reserved scalar ID never names an
+    ;; owned file, and neither explicit close nor trap cleanup closes the stream.
+    ;; Current output is fixed here; dynamic rebinding is not implemented.
+    (def standard-output
+         (output-port (ref (standard-output-handle))))
 
-  (def current-output-port (-> OutputPort)
-    (lambda () standard-output))
+    (def current-output-port (-> OutputPort)
+         (lambda () standard-output))
 
-  ;; All aliases share the native reader and its peek buffer. Explicit close
-  ;; preserves the borrowed handle, just as it does for standard output.
-  (def standard-input
-    (input-port (ref (standard-input-handle))))
+    ;; All aliases share the native reader and its peek buffer. Explicit close
+    ;; preserves the borrowed handle, just as it does for standard output.
+    (def standard-input
+         (input-port (ref (standard-input-handle))))
 
-  (def current-input-port (-> InputPort)
-    (lambda () standard-input))
+    (def current-input-port (-> InputPort)
+         (lambda () standard-input))
 
-  (def output-port=? (-> OutputPort OutputPort Bool)
-    (lambda (left right) (ref-eq? (output-handle left) (output-handle right))))
+    (def output-port=? (-> OutputPort OutputPort Bool)
+         (lambda (left right) (ref-eq? (output-handle left) (output-handle right))))
 
-  ;; No user callback occurs between begin and the consuming file operation.
-  ;; UTF-8 encoding happens in Rust; String traversal stays in SFIR.
+    ;; No user callback occurs between begin and the consuming file operation.
+    ;; UTF-8 encoding happens in Rust; String traversal stays in SFIR.
 
-  (def stage-path (-> String Unit)
-    (lambda (pathname)
-      (begin
-        (path-begin)
-        (begin (let count (string-length pathname))
-          (begin
-            (def loop
-              (lambda (index)
-                (if (= index count)
-                    (unit)
+    (def stage-path (-> String Unit)
+         (lambda (pathname)
+           (begin
+             (path-begin)
+             (begin (let count (string-length pathname))
                     (begin
-                      (path-character (string-ref pathname index))
-                      (loop (+ index 1))
-                      (unit)))))
-            (loop 0))))))
+                      (def loop
+                           (lambda (index)
+                             (if (= index count)
+                                 (unit)
+                                 (begin
+                                   (path-character (string-ref pathname index))
+                                   (loop (+ index 1))
+                                   (unit)))))
+                      (loop 0))))))
 
-  (def file-exists? (-> String Bool)
-    (lambda (pathname)
-      (begin
-        (stage-path pathname)
-        (i32-eq (path-exists) (ann 1 I32)))))
+    (def file-exists? (-> String Bool)
+         (lambda (pathname)
+           (begin
+             (stage-path pathname)
+             (i32-eq (path-exists) (ann 1 I32)))))
 
-  (def delete-file (-> String Unit)
-    (lambda (pathname)
-      (begin (stage-path pathname) (path-delete))))
+    (def delete-file (-> String Unit)
+         (lambda (pathname)
+           (begin (stage-path pathname) (path-delete))))
 
-  (def open-output-file (-> String OutputPort)
-    (lambda (pathname)
-      (begin
-        (stage-path pathname)
-        (output-port (ref (path-open-output))))))
+    (def open-output-file (-> String OutputPort)
+         (lambda (pathname)
+           (begin
+             (stage-path pathname)
+             (output-port (ref (path-open-output))))))
 
-  (def open-input-file (-> String InputPort)
-    (lambda (pathname)
-      (begin
-        (stage-path pathname)
-        (input-port (ref (path-open-input))))))
+    (def open-input-file (-> String InputPort)
+         (lambda (pathname)
+           (begin
+             (stage-path pathname)
+             (input-port (ref (path-open-input))))))
 
-  ;; ---- Explicit close and a normally returning callback ----
+    ;; ---- Explicit close and a normally returning callback ----
 
-  (def close-output-port (-> OutputPort Unit)
-    (lambda (port)
-      (close-handle (output-handle port))))
+    (def close-output-port (-> OutputPort Unit)
+         (lambda (port)
+           (close-handle (output-handle port))))
 
-  (def close-input-port (-> InputPort Unit)
-    (lambda (port)
-      (close-handle (input-handle port))))
+    (def close-input-port (-> InputPort Unit)
+         (lambda (port)
+           (close-handle (input-handle port))))
 
-  (def close-handle (-> (Ref I32) Unit)
-    (lambda (cell)
-      (begin (let handle (ref-get cell))
-        (if (if (i32-eq handle (ann -1 I32)) #t
-                (if (i32-eq handle (ann -2 I32)) #t (i32-eq handle (ann -3 I32))))
-            (unit)
-            (begin
-              (ref-set! cell (ann -1 I32))
-              (port-close handle)
-              (unit))))))
+    (def close-handle (-> (Ref I32) Unit)
+         (lambda (cell)
+           (begin (let handle (ref-get cell))
+                  (if (if (i32-eq handle (ann -1 I32)) #t
+                          (if (i32-eq handle (ann -2 I32)) #t (i32-eq handle (ann -3 I32))))
+                      (unit)
+                      (begin
+                        (ref-set! cell (ann -1 I32))
+                        (port-close handle)
+                        (unit))))))
 
-  (def call-with-output-file (All (T) (-> String (-> OutputPort T) T))
-    (lambda (pathname procedure)
-      (begin (let port (open-output-file pathname))
-        (begin (let result (procedure port))
-          (begin
-            (close-output-port port)
-            result)))))
+    (def call-with-output-file (All (T) (-> String (-> OutputPort T) T))
+         (lambda (pathname procedure)
+           (begin (let port (open-output-file pathname))
+                  (begin (let result (procedure port))
+                         (begin
+                           (close-output-port port)
+                           result)))))
 
-  (def call-with-input-file (All (T) (-> String (-> InputPort T) T))
-    (lambda (pathname procedure)
-      (begin (let port (open-input-file pathname))
-        (begin (let result (procedure port))
-          (begin
-            (close-input-port port)
-            result)))))
+    (def call-with-input-file (All (T) (-> String (-> InputPort T) T))
+         (lambda (pathname procedure)
+           (begin (let port (open-input-file pathname))
+                  (begin (let result (procedure port))
+                         (begin
+                           (close-input-port port)
+                           result)))))
 
-  ;; ---- Complete lines distinguish an empty line from end of file ----
+    ;; ---- Complete lines distinguish an empty line from end of file ----
 
-  (def character-end? (-> CharacterResult Bool)
-    (lambda (result)
-      (match result ((character-end) #t) ((character-value text) #f))))
+    (def character-end? (-> CharacterResult Bool)
+         (lambda (result)
+           (match result ((character-end) #t) ((character-value text) #f))))
 
-  (def character-result (-> I32 CharacterResult)
-    (lambda (code)
-      (if (i32-eq code (ann -1 I32))
-          (character-end)
-          (character-value (integer->char (i32->i64 code))))))
+    (def character-result (-> I32 CharacterResult)
+         (lambda (code)
+           (if (i32-eq code (ann -1 I32))
+               (character-end)
+               (character-value (integer->char (i32->i64 code))))))
 
-  (def read-char (-> InputPort CharacterResult)
-    (lambda (port)
-      (character-result (port-read (ref-get (input-handle port))))))
+    (def read-char (-> InputPort CharacterResult)
+         (lambda (port)
+           (character-result (port-read (ref-get (input-handle port))))))
 
-  (def peek-char (-> InputPort CharacterResult)
-    (lambda (port)
-      (character-result (port-peek (ref-get (input-handle port))))))
+    (def peek-char (-> InputPort CharacterResult)
+         (lambda (port)
+           (character-result (port-peek (ref-get (input-handle port))))))
 
-  (def eof-object? (-> LineResult Bool)
-    (lambda (result)
-      (match result ((end-of-file) #t) ((line text) #f))))
+    (def eof-object? (-> LineResult Bool)
+         (lambda (result)
+           (match result ((end-of-file) #t) ((line text) #f))))
 
-  (def read-line (-> InputPort LineResult)
-    (lambda (port)
-      (begin (let handle (ref-get (input-handle port)))
-        (begin (let code (port-read handle))
-          (if (i32-eq code (ann -1 I32))
-              (end-of-file)
-              (line (read-line-text handle code (make-string 0) 0)))))))
-  ;; Rust validates UTF-8 and keeps one lookahead in the input port. CR, LF,
-  ;; and CRLF terminate one line. A non-LF lookahead belongs to the next read.
+    (def read-line (-> InputPort LineResult)
+         (lambda (port)
+           (begin (let handle (ref-get (input-handle port)))
+                  (begin (let code (port-read handle))
+                         (if (i32-eq code (ann -1 I32))
+                             (end-of-file)
+                             (line (read-line-text handle code (make-string 0) 0)))))))
+    ;; Rust validates UTF-8 and keeps one lookahead in the input port. CR, LF,
+    ;; and CRLF terminate one line. A non-LF lookahead belongs to the next read.
 
-  (def consume-line-feed (-> I32 Unit)
-    (lambda (handle)
-      (if (i32-eq (port-peek handle) (ann 10 I32)) (begin (port-read handle) (unit)) (unit))))
+    (def consume-line-feed (-> I32 Unit)
+         (lambda (handle)
+           (if (i32-eq (port-peek handle) (ann 10 I32)) (begin (port-read handle) (unit)) (unit))))
 
-  (def read-line-text (-> I32 I32 String I64 String)
-    (lambda (handle code buffer count)
-      (if (if (i32-eq code (ann -1 I32))
-              #t
-              (if (i32-eq code (ann 10 I32)) #t (i32-eq code (ann 13 I32))))
-          (begin
-            (if (i32-eq code (ann 13 I32))
-                (begin (consume-line-feed handle)
-                       (unit))
-                (unit))
-            (if (= count (string-length buffer)) buffer (substring buffer 0 count)))
-          (begin (let buffer (line-capacity buffer count))
-            (begin
-              (string-set! buffer count (integer->char (i32->i64 code)))
-              (read-line-text handle (port-read handle) buffer (+ count 1)))))))
-  ;; Only the first count characters are initialized text. Doubling capacity
-  ;; bounds total copying by a geometric series; no character needs a GC node.
-  ;; The final substring trims spare capacity once, and exact fits reuse it.
+    (def read-line-text (-> I32 I32 String I64 String)
+         (lambda (handle code buffer count)
+           (if (if (i32-eq code (ann -1 I32))
+                   #t
+                   (if (i32-eq code (ann 10 I32)) #t (i32-eq code (ann 13 I32))))
+               (begin
+                 (if (i32-eq code (ann 13 I32))
+                     (begin (consume-line-feed handle)
+                            (unit))
+                     (unit))
+                 (if (= count (string-length buffer)) buffer (substring buffer 0 count)))
+               (begin (let buffer (line-capacity buffer count))
+                      (begin
+                        (string-set! buffer count (integer->char (i32->i64 code)))
+                        (read-line-text handle (port-read handle) buffer (+ count 1)))))))
+    ;; Only the first count characters are initialized text. Doubling capacity
+    ;; bounds total copying by a geometric series; no character needs a GC node.
+    ;; The final substring trims spare capacity once, and exact fits reuse it.
 
-  (def line-capacity (-> String I64 String)
-    (lambda (buffer count)
-      (if (< count (string-length buffer))
-          buffer
-          (if (= count 4294967294)
-              (unreachable)
-              (begin (let size (if (= count 0) 64 (if (> count 2147483647) 4294967294 (* count 2))))
-                (begin (let grown (make-string size))
+    (def line-capacity (-> String I64 String)
+         (lambda (buffer count)
+           (if (< count (string-length buffer))
+               buffer
+               (if (= count 4294967294)
+                   (unreachable)
+                   (begin (let size (if (= count 0) 64 (if (> count 2147483647) 4294967294 (* count 2))))
+                          (begin (let grown (make-string size))
+                                 (begin
+                                   (string-copy! grown 0 buffer 0 count)
+                                   grown)))))))
+
+    ;; ---- Character iteration and decimal integer formatting ----
+
+    (def write-char-to (-> Char OutputPort Unit)
+         (lambda (character port)
+           (port-write (ref-get (output-handle port)) character)))
+
+    (def write-string-to (-> String OutputPort Unit)
+         (lambda (text port)
+           (begin
+             ;; Even an empty write checks direction and lifetime without emitting text.
+             (port-check-output (ref-get (output-handle port)))
+             (begin (let count (string-length text))
+                    (begin
+                      (def loop
+                           (lambda (index)
+                             (if (= index count)
+                                 (unit)
+                                 (begin
+                                   (write-char (string-ref text index) port)
+                                   (loop (+ index 1))
+                                   (unit)))))
+                      (loop 0))))))
+
+    (def newline-to (-> OutputPort Unit)
+         (lambda (port) (write-char #\newline port)))
+    (define-overload write-char (-> Char OutputPort Unit) write-char-to)
+    (define-overload write-char (-> Char Unit)
+      (lambda (character) (write-char-to character (current-output-port))))
+    (define-overload write-string (-> String OutputPort Unit) write-string-to)
+    (define-overload write-string (-> String Unit)
+      (lambda (text) (write-string-to text (current-output-port))))
+    (define-overload newline (-> OutputPort Unit) newline-to)
+    (define-overload newline (-> Unit) (lambda () (newline-to (current-output-port))))
+
+    (def write-i64 (-> I64 OutputPort Unit)
+         (lambda (number port)
+           (begin
+             (if (< number 0)
+                 (begin (write-char #\- port)
+                        (unit))
+                 (unit))
+             (write-negative-digits (if (> number 0) (- 0 number) number) port))))
+    ;; Nonpositive digits avoid negating I64_MIN. Remainders are in [-9, 0],
+    ;; recursion has at most 19 levels, and zero still emits one digit.
+
+    (def write-negative-digits (-> I64 OutputPort Unit)
+         (lambda (number port)
+           (begin (let prefix (quotient number 10))
                   (begin
-                    (string-copy! grown 0 buffer 0 count)
-                    grown)))))))
-
-  ;; ---- Character iteration and decimal integer formatting ----
-
-  (def write-char-to (-> Char OutputPort Unit)
-    (lambda (character port)
-      (port-write (ref-get (output-handle port)) character)))
-
-  (def write-string-to (-> String OutputPort Unit)
-    (lambda (text port)
-      (begin
-        ;; Even an empty write checks direction and lifetime without emitting text.
-        (port-check-output (ref-get (output-handle port)))
-        (begin (let count (string-length text))
-          (begin
-            (def loop
-              (lambda (index)
-                (if (= index count)
-                    (unit)
-                    (begin
-                      (write-char (string-ref text index) port)
-                      (loop (+ index 1))
-                      (unit)))))
-            (loop 0))))))
-
-  (def newline-to (-> OutputPort Unit)
-    (lambda (port) (write-char #\newline port)))
-  (define-overload write-char (-> Char OutputPort Unit) write-char-to)
-  (define-overload write-char (-> Char Unit)
-    (lambda (character) (write-char-to character (current-output-port))))
-  (define-overload write-string (-> String OutputPort Unit) write-string-to)
-  (define-overload write-string (-> String Unit)
-    (lambda (text) (write-string-to text (current-output-port))))
-  (define-overload newline (-> OutputPort Unit) newline-to)
-  (define-overload newline (-> Unit) (lambda () (newline-to (current-output-port))))
-
-  (def write-i64 (-> I64 OutputPort Unit)
-    (lambda (number port)
-      (begin
-        (if (< number 0)
-            (begin (write-char #\- port)
-                   (unit))
-            (unit))
-        (write-negative-digits (if (> number 0) (- 0 number) number) port))))
-  ;; Nonpositive digits avoid negating I64_MIN. Remainders are in [-9, 0],
-  ;; recursion has at most 19 levels, and zero still emits one digit.
-
-  (def write-negative-digits (-> I64 OutputPort Unit)
-    (lambda (number port)
-      (begin (let prefix (quotient number 10))
-        (begin
-          (if (= prefix 0)
-              (unit)
-              (begin (write-negative-digits prefix port)
-                     (unit)))
-          (write-char (integer->char (- 48 (remainder number 10))) port)))))))
+                    (if (= prefix 0)
+                        (unit)
+                        (begin (write-negative-digits prefix port)
+                               (unit)))
+                    (write-char (integer->char (- 48 (remainder number 10))) port)))))))

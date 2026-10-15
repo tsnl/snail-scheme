@@ -1,9 +1,9 @@
 (import (sfir base))
 
 (def first (Ref (Vector I64))
-  (ref (empty-vector)))
+     (ref (empty-vector)))
 (def second
-  (ref (empty-vector)))
+     (ref (empty-vector)))
 (define-overload stored-first (lambda () (ref-get first)))
 (define-overload stored-second (-> (Vector I64)) (lambda () (ref-get second)))
 (ref-set! first (make-vector 1 20))

@@ -1,6 +1,6 @@
 (import (sfir base))
 (def Route (datatype ( T) (done (value T)) (next (rest (Route I64)))))
 (def value
-  (ann (next (done 21)) (Route Bool)))
+     (ann (next (done 21)) (Route Bool)))
 (match value ((done flag) (if flag 1 0))
        ((next rest) (match rest ((done value) value) ((next again) 0))))

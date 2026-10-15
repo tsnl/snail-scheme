@@ -2,35 +2,35 @@
 ;; Gcbench's top-down writes and bottom-up construction with explicit Ref
 ;; child slots. One shared Nil replaces the original numeric zero sentinel.
 (def Tree (datatype ()
-  (Nil)
-  (Node (left (Ref Tree) node-left) (right (Ref Tree) node-right)
-        (i I64) (j I64))))
+                    (Nil)
+                    (Node (left (Ref Tree) node-left) (right (Ref Tree) node-right)
+                          (i I64) (j I64))))
 (def empty
-  (Nil))
+     (Nil))
 (def make-empty-node
-  (lambda () (Node (ref empty) (ref empty) 0 0)))
+     (lambda () (Node (ref empty) (ref empty) 0 0)))
 (def make-node
-  (lambda (left right) (Node (ref left) (ref right) 0 0)))
+     (lambda (left right) (Node (ref left) (ref right) 0 0)))
 (def populate
-  (lambda (depth node)
-    (if (<= depth 0)
-        (unit)
-        (begin (let next (- depth 1))
-          (begin
-            (ref-set! (node-left node) (make-empty-node))
-            (ref-set! (node-right node) (make-empty-node))
-            (populate next (ref-get (node-left node)))
-            (populate next (ref-get (node-right node))))))))
+     (lambda (depth node)
+       (if (<= depth 0)
+           (unit)
+           (begin (let next (- depth 1))
+                  (begin
+                    (ref-set! (node-left node) (make-empty-node))
+                    (ref-set! (node-right node) (make-empty-node))
+                    (populate next (ref-get (node-left node)))
+                    (populate next (ref-get (node-right node))))))))
 (def make-tree
-  (lambda (depth)
-    (if (<= depth 0)
-        (make-empty-node)
-        (make-node (make-tree (- depth 1)) (make-tree (- depth 1))))))
+     (lambda (depth)
+       (if (<= depth 0)
+           (make-empty-node)
+           (make-node (make-tree (- depth 1)) (make-tree (- depth 1))))))
 (def size
-  (lambda (tree)
-    (match tree ((Nil) 0)
-           ((Node left right i j) (+ 1 (+ (size (ref-get left)) (size (ref-get right))))))))
+     (lambda (tree)
+       (match tree ((Nil) 0)
+              ((Node left right i j) (+ 1 (+ (size (ref-get left)) (size (ref-get right))))))))
 (def top
-  (make-empty-node))
+     (make-empty-node))
 (populate 4 top)
 (+ (size top) (size (make-tree 4)))

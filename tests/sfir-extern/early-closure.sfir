@@ -2,21 +2,21 @@
 
 (define-extern mark "probe" "mark" (-> I32 Unit))
 (def base
-  (ann 40 I32))
+     (ann 40 I32))
 
 (def worker (-> I32 I32)
-  (lambda (value) (+ base value)))
+     (lambda (value) (+ base value)))
 (def invoke
-  (lambda (callback) (callback)))
+     (lambda (callback) (callback)))
 (def pending
-  ((lambda ()
-     (begin
-       (def read-later
-         (lambda ()
-           (begin
-             (mark (ann 3 I32))
-             (+ base later))))
-       (invoke read-later)))))
+     ((lambda ()
+        (begin
+          (def read-later
+               (lambda ()
+                 (begin
+                   (mark (ann 3 I32))
+                   (+ base later))))
+          (invoke read-later)))))
 (def later
-  (ann 2 I32))
+     (ann 2 I32))
 pending

@@ -10,8 +10,8 @@
   (lambda () (destination (source))))
 
 (def first F64
-  (compose))
+     (compose))
 
 (def second F64
-  (reverse-compose))
+     (reverse-compose))
 (if (if (= first 42.0) (= second 42.0) #f) 42 (unreachable))

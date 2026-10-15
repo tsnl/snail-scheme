@@ -1,5 +1,5 @@
 (import (sfir base))
 
 (def worker (-> (Ref I32) I32)
-  (lambda (x) (ref-get x)))
+     (lambda (x) (ref-get x)))
 42

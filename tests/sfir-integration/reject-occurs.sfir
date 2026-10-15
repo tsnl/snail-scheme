@@ -1,4 +1,4 @@
 (import (sfir base))
 (def self
-  (lambda (x) (x x)))
+     (lambda (x) (x x)))
 0

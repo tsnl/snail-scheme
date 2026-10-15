@@ -1,6 +1,6 @@
 (import (sfir base))
 (def alias
-  later)
+     later)
 (def later
-  (lambda (x) x))
+     (lambda (x) x))
 42

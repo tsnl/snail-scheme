@@ -1,4 +1,4 @@
 (import (sfir base))
 (def x
-  (ann 40 I32))
+     (ann 40 I32))
 (+ 2 x)

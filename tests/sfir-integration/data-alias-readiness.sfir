@@ -1,17 +1,17 @@
 (import (sfir base))
 (def calls
-  (ref 0))
+     (ref 0))
 
 (def observed (-> I64)
-  (lambda () (ref-get calls)))
+     (lambda () (ref-get calls)))
 (def Box (datatype () (box (value I64 unbox))))
 
 (def invoke (-> I64)
-  (lambda ()
-    (begin
-      (def first
-        (alias (begin (ref-set! calls 1) 42)))
-      (def alias
-        box)
-      (unbox first))))
+     (lambda ()
+       (begin
+         (def first
+              (alias (begin (ref-set! calls 1) 42)))
+         (def alias
+              box)
+         (unbox first))))
 42

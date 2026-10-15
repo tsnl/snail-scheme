@@ -1,5 +1,5 @@
 (import (sfir base))
 (def values
-  (make-vector 2 (ann 42 Any)))
+     (make-vector 2 (ann 42 Any)))
 (vector-set! values 1 (ann #t Any))
 (if (ann (vector-ref values 1) Bool) (ann (vector-ref values 0) I64) 0)

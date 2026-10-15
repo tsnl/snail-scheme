@@ -1,5 +1,5 @@
 (import (sfir base))
 (def value
-  42)
+     42)
 (define-overload invalid value)
 42

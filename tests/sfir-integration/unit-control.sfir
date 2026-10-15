@@ -1,7 +1,7 @@
 (import (sfir base))
 
 (def state
-  (ref 0))
+     (ref 0))
 (ann (unit) Unit)
 (ann (ann (unit) Any) Unit)
 (if #t

@@ -1,6 +1,6 @@
 (import (sfir base))
 (def bad
-  (lambda (captured)
-    (begin (let get (lambda (ignored) captured))
-      (+ (get 0) (if (get #t) 1 2)))))
+     (lambda (captured)
+       (begin (let get (lambda (ignored) captured))
+              (+ (get 0) (if (get #t) 1 2)))))
 (bad 41)

@@ -1,41 +1,41 @@
 (import (sfir base) (sfir bytes))
 (def same-bytes?
-  (lambda (left right)
-    (if (= (bytevector-length left) (bytevector-length right))
-        (begin
-          (def loop
-            (lambda (index)
-              (if (= index (bytevector-length left))
-                  #t
-                  (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
-                      (loop (+ index 1))
-                      #f))))
-          (loop 0))
-        #f)))
+     (lambda (left right)
+       (if (= (bytevector-length left) (bytevector-length right))
+           (begin
+             (def loop
+                  (lambda (index)
+                    (if (= index (bytevector-length left))
+                        #t
+                        (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
+                            (loop (+ index 1))
+                            #f))))
+             (loop 0))
+           #f)))
 (def source
-  (bytevector 0 127 128 255))
+     (bytevector 0 127 128 255))
 (def alias
-  (ann (ann source Any) Bytevector))
+     (ann (ann source Any) Bytevector))
 (def copied
-  (bytevector-copy source))
+     (bytevector-copy source))
 (def joined
-  (bytevector-append #u8() source #u8(42)))
+     (bytevector-append #u8() source #u8(42)))
 (def one
-  (bytevector-append source))
+     (bytevector-append source))
 (def empty
-  (make-bytevector 0))
+     (make-bytevector 0))
 (def overlap
-  (bytevector 1 2 3 4 5))
+     (bytevector 1 2 3 4 5))
 (bytevector-u8-set! alias 0 254)
 (bytevector-copy! overlap 1 overlap 0 4)
 (def right-correct
-  (same-bytes? overlap #u8(1 1 2 3 4)))
+     (same-bytes? overlap #u8(1 1 2 3 4)))
 (bytevector-copy! overlap 0 overlap 1 5)
 (def left-correct
-  (same-bytes? overlap #u8(1 2 3 4 4)))
+     (same-bytes? overlap #u8(1 2 3 4 4)))
 (bytevector-copy! overlap 5 overlap 5 5)
 (def by-procedure
-  bytevector-u8-ref)
+     bytevector-u8-ref)
 (if (if (bytevector-eq? source alias)
         (if (= (by-procedure source 0) 254)
             (if (same-bytes? copied #u8(0 127 128 255))

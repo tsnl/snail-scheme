@@ -3,15 +3,15 @@
 (def sfir-migration-instance-1 (instance (Copy (Vector I64)) (copy-value vector-copy)))
 (def sfir-migration-instance-2 (instance (Copy (Vector Bool)) (copy-value vector-copy)))
 (def copy-twice
-  (lambda (value) (copy-value (copy-value value))))
+     (lambda (value) (copy-value (copy-value value))))
 (def invoke
-  (lambda (operation value) (operation value)))
+     (lambda (operation value) (operation value)))
 (def original
-  (vector 40 2))
+     (vector 40 2))
 (def copied
-  (copy-twice original))
+     (copy-twice original))
 (def flags
-  (invoke copy-value (vector #t #f)))
+     (invoke copy-value (vector #t #f)))
 (vector-set! copied 0 0)
 (if (if (not (vector-eq? original copied))
         (if (vector-ref flags 0) (not (vector-ref flags 1)) #f)

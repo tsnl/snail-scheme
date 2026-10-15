@@ -1,5 +1,5 @@
 (import (sfir base))
 
 (def worker (All (T) (-> T T))
-  (lambda (x) x))
+     (lambda (x) x))
 42

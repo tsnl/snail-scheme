@@ -2,8 +2,8 @@
 (define-overload choose (All (T) (-> T T T)) (lambda (left right) left))
 (define-overload choose (All (T) (-> T T)) (lambda (value) value))
 (def alias
-  choose)
+     choose)
 
 (def constrained (All (T) (=> ((choose (-> T T T))) (-> T T T)))
-  (lambda (left right) (choose left right)))
+     (lambda (left right) (choose left right)))
 (if (if (choose #t #f) (if (alias #t) (= (constrained 42 0) 42) #f) #f) 42 (unreachable))

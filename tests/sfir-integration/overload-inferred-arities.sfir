@@ -3,9 +3,9 @@
 (define-overload add
   (lambda (value)
     (begin (let sfir-migration-let-1 (ann add (-> I64 I64 I64)))
-          (let sfir-migration-let-2 (inst add (-> I64 I64 I64)))
-      (let first sfir-migration-let-1)
-(let second sfir-migration-let-2)
-(second (first value 1) 1))))
+           (let sfir-migration-let-2 (inst add (-> I64 I64 I64)))
+           (let first sfir-migration-let-1)
+           (let second sfir-migration-let-2)
+           (second (first value 1) 1))))
 (define-overload add (-> I64 I64 I64) i64-add)
 (add 40)

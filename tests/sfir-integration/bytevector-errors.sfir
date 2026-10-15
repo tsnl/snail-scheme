@@ -1,77 +1,77 @@
 (import (sfir base) (sfir bytes))
 (def target
-  (bytevector 1 2 3))
+     (bytevector 1 2 3))
 (def effects
-  (ref 0))
+     (ref 0))
 (def mark
-  (lambda (digit value)
-    (begin
-      (ref-set! effects (+ (* (ref-get effects) 10) digit)) value)))
+     (lambda (digit value)
+       (begin
+         (ref-set! effects (+ (* (ref-get effects) 10) digit)) value)))
 
 (def negative-length (-> I64)
-  (lambda () (bytevector-length (make-bytevector -1))))
+     (lambda () (bytevector-length (make-bytevector -1))))
 
 (def overflow-length (-> I64)
-  (lambda () (bytevector-length (make-bytevector 4294967296))))
+     (lambda () (bytevector-length (make-bytevector 4294967296))))
 
 (def empty-invalid-fill (-> I64)
-  (lambda () (bytevector-length (make-bytevector 0 256))))
+     (lambda () (bytevector-length (make-bytevector 0 256))))
 
 (def negative-fill (-> I64)
-  (lambda () (bytevector-length (make-bytevector 0 -1))))
+     (lambda () (bytevector-length (make-bytevector 0 -1))))
 
 (def negative-index (-> I64)
-  (lambda () (bytevector-u8-ref target -1)))
+     (lambda () (bytevector-u8-ref target -1)))
 
 (def wrapped-index (-> I64)
-  (lambda () (bytevector-u8-ref target 4294967296)))
+     (lambda () (bytevector-u8-ref target 4294967296)))
 
 (def endpoint-index (-> I64)
-  (lambda () (bytevector-u8-ref target 3)))
+     (lambda () (bytevector-u8-ref target 3)))
 
 (def invalid-byte (-> Unit)
-  (lambda () (bytevector-u8-set! target 0 256)))
+     (lambda () (bytevector-u8-set! target 0 256)))
 
 (def readonly-write (-> Unit)
-  (lambda ()
-    (bytevector-u8-set! (mark 1 #u8(0)) (mark 2 0) (mark 3 42))))
+     (lambda ()
+       (bytevector-u8-set! (mark 1 #u8(0)) (mark 2 0) (mark 3 42))))
 
 (def observed-effects (-> I64)
-  (lambda () (ref-get effects)))
+     (lambda () (ref-get effects)))
 
 (def readonly-empty-copy (-> Unit)
-  (lambda () (bytevector-copy! #u8() 0 #u8() 0 0)))
+     (lambda () (bytevector-copy! #u8() 0 #u8() 0 0)))
 
 (def source-range (-> Unit)
-  (lambda () (bytevector-copy! target 0 #u8(9 8) 0 3)))
+     (lambda () (bytevector-copy! target 0 #u8(9 8) 0 3)))
 
 (def target-range (-> Unit)
-  (lambda () (bytevector-copy! target 2 #u8(9 8) 0 2)))
+     (lambda () (bytevector-copy! target 2 #u8(9 8) 0 2)))
 
 (def reversed-range (-> Unit)
-  (lambda () (bytevector-copy! target 0 #u8(9 8) 2 1)))
+     (lambda () (bytevector-copy! target 0 #u8(9 8) 2 1)))
 
 (def negative-range (-> Unit)
-  (lambda () (bytevector-copy! target 0 #u8(9 8) -1 0)))
+     (lambda () (bytevector-copy! target 0 #u8(9 8) -1 0)))
 
 (def empty-source-range (-> Unit)
-  (lambda () (bytevector-copy! target 0 #u8() 1 1)))
+     (lambda () (bytevector-copy! target 0 #u8() 1 1)))
 
 (def empty-target-range (-> Unit)
-  (lambda () (bytevector-copy! target 4 #u8() 0 0)))
+     (lambda () (bytevector-copy! target 4 #u8() 0 0)))
 
 (def negative-copy (-> I64)
-  (lambda () (bytevector-length (bytevector-copy target -1 0))))
+     (lambda () (bytevector-length (bytevector-copy target -1 0))))
 
 (def wrong-top (-> I64)
-  (lambda () (bytevector-length (ann (ann (vector 1 2) Any) Bytevector))))
+     (lambda () (bytevector-length (ann (ann (vector 1 2) Any) Bytevector))))
 
 (def wrong-string (-> I64)
-  (lambda () (string-length (ann (ann target Any) String))))
+     (lambda () (string-length (ann (ann target Any) String))))
 
 (def unchanged (-> Bool)
-  (lambda ()
-    (if (= (bytevector-u8-ref target 0) 1)
-        (if (= (bytevector-u8-ref target 1) 2) (= (bytevector-u8-ref target 2) 3) #f)
-        #f)))
+     (lambda ()
+       (if (= (bytevector-u8-ref target 0) 1)
+           (if (= (bytevector-u8-ref target 1) 2) (= (bytevector-u8-ref target 2) 3) #f)
+           #f)))
 42

@@ -1,12 +1,12 @@
 (import (sfir base))
 (def forward
-  (string-copy "abcdef"))
+     (string-copy "abcdef"))
 (def backward
-  (string-copy "abcdef"))
+     (string-copy "abcdef"))
 (def shared
-  (ref forward))
+     (ref forward))
 (def alias
-  (ref-get shared))
+     (ref-get shared))
 (string-copy! forward 2 forward 0 4)
 (string-copy! backward 0 backward 2 6)
 (string-copy! forward 6 backward 6 6)

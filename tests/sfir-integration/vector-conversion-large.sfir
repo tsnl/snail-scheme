@@ -1,13 +1,13 @@
 (import (sfir base))
 (def values
-  (list->vector
-   (begin
-     (def loop
-       (lambda (index result)
-         (if (< index 0) result (loop (- index 1) (cons index result)))))
-     (loop 99999 (empty-list )))))
+     (list->vector
+      (begin
+        (def loop
+             (lambda (index result)
+               (if (< index 0) result (loop (- index 1) (cons index result)))))
+        (loop 99999 (empty-list )))))
 (def joined
-  (vector-append (vector -1) values (vector 100000)))
+     (vector-append (vector -1) values (vector 100000)))
 (if (if (= (vector-length values) 100000)
         (if (= (vector-ref values 0) 0)
             (if (= (vector-ref values 99999) 99999)

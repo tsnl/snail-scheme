@@ -5,5 +5,5 @@
 (define-overload choose (lambda (value) (identity value)))
 
 (def wrapper (All (T) (=> ((Identity T)) (-> T T)))
-  (lambda (value) (choose value)))
+     (lambda (value) (choose value)))
 (if (wrapper #t) (wrapper 42) (unreachable))

@@ -18,454 +18,454 @@
   ;; ---- Concrete numeric values and canonical exact packing ----
 
   (begin
-(def Scalar (datatype ()
-    (exact-scalar (value I64)) (rational-scalar (value Rational)) (inexact-scalar (value F64))))
-  (def Number (datatype ()
-    (exact-number (value I64)) (rational-number (value Rational)) (inexact-number (value F64))
-    (complex-number (real Scalar) (imaginary Scalar))))
-
-  (def scalar-from-rational (-> Rational Scalar)
-    (lambda (value)
-      (if (if (rational-integer? value) (integer-fits-i64? (rational-numerator value)) #f)
-          (exact-scalar (integer->i64 (rational-numerator value)))
-          (rational-scalar value))))
-
-  (def number-from-scalar (-> Scalar Number)
-    (lambda (value)
-      (match value ((exact-scalar value) (exact-number value))
-             ((rational-scalar value) (rational-number value)) ((inexact-scalar value) (inexact-number value)))))
-
-  (def number-from-rational (-> Rational Number)
-    (lambda (value) (number-from-scalar (scalar-from-rational value))))
-
-  (def number-from-integer (-> Integer Number)
-    (lambda (value) (number-from-rational (rational-from-integer value))))
-
-  (def scalar-exact? (-> Scalar Bool)
-    (lambda (value)
-      (match value ((exact-scalar value) #t) ((rational-scalar value) #t) ((inexact-scalar value) #f))))
-
-  (def scalar-zero? (-> Scalar Bool)
-    (lambda (value)
-      (match value ((exact-scalar value) (= value 0))
-             ((rational-scalar value) (rational-zero? value)) ((inexact-scalar value) (= value 0.0)))))
-
-  (def scalar->f64 (-> Scalar F64)
-    (lambda (value)
-      (match value ((exact-scalar value) (i64->f64 value))
-             ((rational-scalar value) (rational->f64 value)) ((inexact-scalar value) value))))
-
-  (def scalar->rational (-> Scalar Rational)
-    (lambda (value)
-      (match value ((exact-scalar value) (rational-from-integer (integer-from-i64 value)))
-             ((rational-scalar value) value) ((inexact-scalar value) (rational-from-f64 value)))))
-
-  ;; Collapse an exact imaginary zero before promoting a surviving mixed
-  ;; pair. An inexact imaginary zero preserves complex shape and its sign.
-
-  (def number-rectangular (-> Scalar Scalar Number)
-    (lambda (real imaginary)
-      (if (if (scalar-exact? imaginary) (scalar-zero? imaginary) #f)
-          (number-from-scalar real)
-          (if (if (scalar-exact? real) (scalar-exact? imaginary) #f)
-              (complex-number real imaginary)
-              (complex-number (inexact-scalar (scalar->f64 real)) (inexact-scalar (scalar->f64 imaginary)))))))
-
-  (def number-polar (-> Scalar Scalar Number)
-    (lambda (radius angle)
-      (if (if (scalar-exact? radius) (scalar-zero? radius) #f)
-          (exact-number 0)
-          (if (if (scalar-exact? angle) (scalar-zero? angle) #f)
-              (number-from-scalar radius)
-              (begin (let sfir-migration-let-1 (scalar->f64 radius)) (let sfir-migration-let-2 (scalar->f64 angle))
-                (let radius sfir-migration-let-1)
-(let angle sfir-migration-let-2)
-(complex-number (inexact-scalar (* radius (cos angle)))
-                                (inexact-scalar (* radius (sin angle)))))))))
-
-  ;; ---- Real/imaginary projections keep exact zero for scalar input ----
-
-  (def real-component (-> Number Scalar)
-    (lambda (value)
-      (match value ((exact-number value) (exact-scalar value))
-             ((rational-number value) (rational-scalar value)) ((inexact-number value) (inexact-scalar value))
-             ((complex-number real imaginary) real))))
-
-  (def imaginary-component (-> Number Scalar)
-    (lambda (value)
-      (match value ((exact-number value) (exact-scalar 0)) ((rational-number value) (exact-scalar 0))
-             ((inexact-number value) (exact-scalar 0)) ((complex-number real imaginary) imaginary))))
-
-  (def complex-representation? (-> Number Bool)
-    (lambda (value)
-      (match value ((exact-number value) #f) ((rational-number value) #f)
-             ((inexact-number value) #f) ((complex-number real imaginary) #t))))
-
-  (def real-value (-> Number Scalar)
-    (lambda (value)
-      (if (scalar-zero? (imaginary-component value)) (real-component value) (unreachable))))
-
-  (def number-real-part (-> Number Number)
-    (lambda (value) (number-from-scalar (real-component value))))
-
-  (def number-imag-part (-> Number Number)
-    (lambda (value) (number-from-scalar (imaginary-component value))))
-
-  (def number->f64 (-> Number F64)
-    (lambda (value) (scalar->f64 (real-value value))))
-
-  (def number->rational (-> Number Rational)
-    (lambda (value) (scalar->rational (real-value value))))
-
-  (def number->integer (-> Number Integer)
-    (lambda (value)
-      (begin (let value (real-value value))
-        (if (not (scalar-exact? value))
-            (unreachable)
-            (begin (let value (scalar->rational value))
-              (if (rational-integer? value) (rational-numerator value) (unreachable)))))))
-
-  ;; ---- Exactness, numeric domains and explicit conversions ----
-
-  (def finite-real? (-> F64 Bool)
-    (lambda (value)
-      (if (= value value) (if (< value (/ 1.0 0.0)) (> value (/ -1.0 0.0)) #f) #f)))
-
-  (def scalar-finite? (-> Scalar Bool)
-    (lambda (value)
-      (match value ((exact-scalar value) #t) ((rational-scalar value) #t)
-             ((inexact-scalar value) (finite-real? value)))))
-
-  (def scalar-integer? (-> Scalar Bool)
-    (lambda (value)
-      (match value ((exact-scalar value) #t) ((rational-scalar value) (rational-integer? value))
-             ((inexact-scalar value) (if (finite-real? value) (= value (truncate value)) #f)))))
-
-  (def number-real? (-> Number Bool)
-    (lambda (value) (scalar-zero? (imaginary-component value))))
-
-  (def number-exact? (-> Number Bool)
-    (lambda (value)
-      (if (scalar-exact? (real-component value)) (scalar-exact? (imaginary-component value)) #f)))
-
-  (def number-rational? (-> Number Bool)
-    (lambda (value) (if (number-real? value) (scalar-finite? (real-component value)) #f)))
-
-  (def number-integer? (-> Number Bool)
-    (lambda (value) (if (number-real? value) (scalar-integer? (real-component value)) #f)))
-
-  (def number-exact-integer? (-> Number Bool)
-    (lambda (value) (if (number-exact? value) (number-integer? value) #f)))
-
-  (def number-zero? (-> Number Bool)
-    (lambda (value)
-      (if (scalar-zero? (real-component value)) (scalar-zero? (imaginary-component value)) #f)))
-
-  (def number-exact (-> Number Number)
-    (lambda (value)
-      (number-rectangular (scalar-from-rational (scalar->rational (real-component value)))
-                          (scalar-from-rational (scalar->rational (imaginary-component value))))))
-
-  (def number-inexact (-> Number Number)
-    (lambda (value)
-      (if (complex-representation? value)
-          (complex-number (inexact-scalar (scalar->f64 (real-component value)))
-                          (inexact-scalar (scalar->f64 (imaginary-component value))))
-          (inexact-number (number->f64 value)))))
-
-  (def number-truncate (-> Number Number)
-    (lambda (value)
-      (match (real-value value) ((exact-scalar value) (exact-number value))
-             ((rational-scalar value) (number-from-integer (rational-truncate value)))
-             ((inexact-scalar value) (inexact-number (truncate value))))))
-
-  (def number-numerator (-> Number Number)
-    (lambda (value)
-      (begin (let scalar (real-value value))
-        (if (if (not (scalar-exact? scalar)) (scalar-zero? scalar) #f)
-            (number-from-scalar scalar)
-            (begin (let numerator (rational-numerator (scalar->rational scalar)))
-              (if (scalar-exact? scalar)
-                  (number-from-integer numerator)
-                  (inexact-number (integer->f64 numerator))))))))
-
-  (def number-denominator (-> Number Number)
-    (lambda (value)
-      (begin (let scalar (real-value value))
-        (begin (let denominator (rational-denominator (scalar->rational scalar)))
-          (if (scalar-exact? scalar)
-              (number-from-integer denominator)
-              (inexact-number (integer->f64 denominator)))))))
-
-  ;; ---- Scalar arithmetic promotes only at an inexact boundary ----
-
-  (def scalar-add (-> Scalar Scalar Scalar)
-    (lambda (left right)
-      (if (if (scalar-exact? left) (scalar-exact? right) #f)
-          (scalar-from-rational (rational-add (scalar->rational left) (scalar->rational right)))
-          (inexact-scalar (+ (scalar->f64 left) (scalar->f64 right))))))
-
-  (def scalar-negate (-> Scalar Scalar)
-    (lambda (value)
-      (match value ((exact-scalar value) (scalar-from-rational (rational-negate (scalar->rational (exact-scalar value)))))
-             ((rational-scalar value) (scalar-from-rational (rational-negate value)))
-             ((inexact-scalar value) (inexact-scalar (* -1.0 value))))))
-
-  (def scalar-subtract (-> Scalar Scalar Scalar)
-    (lambda (left right)
-      (if (if (scalar-exact? left) (scalar-exact? right) #f)
-          (scalar-from-rational (rational-subtract (scalar->rational left) (scalar->rational right)))
-          (inexact-scalar (- (scalar->f64 left) (scalar->f64 right))))))
-
-  (def scalar-multiply (-> Scalar Scalar Scalar)
-    (lambda (left right)
-      (if (if (scalar-exact? left) (scalar-exact? right) #f)
-          (scalar-from-rational (rational-multiply (scalar->rational left) (scalar->rational right)))
-          (inexact-scalar (* (scalar->f64 left) (scalar->f64 right))))))
-
-  (def scalar-divide (-> Scalar Scalar Scalar)
-    (lambda (left right)
-      (if (if (scalar-exact? left) (scalar-exact? right) #f)
-          (scalar-from-rational (rational-divide (scalar->rational left) (scalar->rational right)))
-          (inexact-scalar (/ (scalar->f64 left) (scalar->f64 right))))))
-
-  (def number-add (-> Number Number Number)
-    (lambda (left right)
-      (number-rectangular (scalar-add (real-component left) (real-component right))
-                          (scalar-add (imaginary-component left) (imaginary-component right)))))
-
-  (def number-negate (-> Number Number)
-    (lambda (value)
-      (number-rectangular (scalar-negate (real-component value)) (scalar-negate (imaginary-component value)))))
-
-  (def number-subtract (-> Number Number Number)
-    (lambda (left right)
-      (number-rectangular (scalar-subtract (real-component left) (real-component right))
-                          (scalar-subtract (imaginary-component left) (imaginary-component right)))))
-
-  (def number-multiply (-> Number Number Number)
-    (lambda (left right)
-      (begin (let sfir-migration-let-3 (real-component left)) (let sfir-migration-let-4 (imaginary-component left))
-            (let sfir-migration-let-5 (real-component right)) (let sfir-migration-let-6 (imaginary-component right))
-        (let a sfir-migration-let-3)
-(let b sfir-migration-let-4)
-(let c sfir-migration-let-5)
-(let d sfir-migration-let-6)
-(if (not (if (complex-representation? left) #t (complex-representation? right)))
-            (number-from-scalar (scalar-multiply a c))
-            (number-rectangular (scalar-subtract (scalar-multiply a c) (scalar-multiply b d))
-                                (scalar-add (scalar-multiply a d) (scalar-multiply b c)))))))
-
-  (def number-divide (-> Number Number Number)
-    (lambda (left right)
-      (begin (let sfir-migration-let-7 (real-component left)) (let sfir-migration-let-8 (imaginary-component left))
-            (let sfir-migration-let-9 (real-component right)) (let sfir-migration-let-10 (imaginary-component right))
-        (let a sfir-migration-let-7)
-(let b sfir-migration-let-8)
-(let c sfir-migration-let-9)
-(let d sfir-migration-let-10)
-(if (not (if (complex-representation? left) #t (complex-representation? right)))
-            (number-from-scalar (scalar-divide a c))
-            (begin (let divisor (scalar-add (scalar-multiply c c) (scalar-multiply d d)))
-              (number-rectangular
-               (scalar-divide (scalar-add (scalar-multiply a c) (scalar-multiply b d)) divisor)
-               (scalar-divide (scalar-subtract (scalar-multiply b c) (scalar-multiply a d)) divisor)))))))
-
-  ;; ---- Exact comparisons never round an operand to make it equal ----
-
-  ;; Order is -1, 0, 1, or 2 for unordered NaN. Finite mixed comparisons
-  ;; compare the exact dyadic float value against the exact rational operand.
-
-  (def scalar-nan? (-> Scalar Bool)
-    (lambda (value)
-      (match value ((exact-scalar value) #f) ((rational-scalar value) #f)
-             ((inexact-scalar value) (not (= value value))))))
-
-  (def scalar-order (-> Scalar Scalar I64)
-    (lambda (left right)
-      (if (if (scalar-nan? left) #t (scalar-nan? right))
-          2
-          (if (if (scalar-finite? left) (scalar-finite? right) #f)
-              (rational-compare (scalar->rational left) (scalar->rational right))
-              (begin (let sfir-migration-let-11 (scalar->f64 left)) (let sfir-migration-let-12 (scalar->f64 right))
-                (let a sfir-migration-let-11)
-(let b sfir-migration-let-12)
-(if (< a b)
-                    -1
-                    (if (> a b)
-                        1
-                        (if (scalar-finite? left)
-                            (if (< b 0.0) 1 -1)
-                            (if (scalar-finite? right) (if (< a 0.0) -1 1) 0)))))))))
-
-  (def number=? (-> Number Number Bool)
-    (lambda (left right)
-      (if (= (scalar-order (real-component left) (real-component right)) 0)
-          (= (scalar-order (imaginary-component left) (imaginary-component right)) 0)
-          #f)))
-
-  (def number<? (-> Number Number Bool)
-    (lambda (left right) (= (scalar-order (real-value left) (real-value right)) -1)))
-
-  (def number>? (-> Number Number Bool)
-    (lambda (left right) (= (scalar-order (real-value left) (real-value right)) 1)))
-
-  (def number<=? (-> Number Number Bool)
-    (lambda (left right)
-      (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order -1) #t (= order 0)))))
-
-  (def number>=? (-> Number Number Bool)
-    (lambda (left right)
-      (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order 1) #t (= order 0)))))
-
-  (def number-negative? (-> Number Bool)
-    (lambda (value) (number<? value (exact-number 0))))
-
-  (def number-abs (-> Number Number)
-    (lambda (value)
-      (number-from-scalar
-       (match (real-value value) ((exact-scalar value) (scalar-from-rational (rational-abs (scalar->rational (exact-scalar value)))))
-              ((rational-scalar value) (scalar-from-rational (rational-abs value)))
-              ((inexact-scalar value) (inexact-scalar (if (<= value 0.0) (- 0.0 value) value)))))))
-
-  ;; Equivalence retains exactness, complex shape and binary64 zero signs.
-  (define-extern real-equivalent "snail.library" "snail:datum/real-equivalent" (-> F64 F64 I32))
-
-  (def scalar-equivalent? (-> Scalar Scalar Bool)
-    (lambda (left right)
-      (match left
-        ((exact-scalar value)
-         (match right ((exact-scalar other) (= value other)) ((inexact-scalar other) #f)
-                ((rational-scalar other) (rational=? (scalar->rational left) other))))
-        ((rational-scalar value) (if (scalar-exact? right) (rational=? value (scalar->rational right)) #f))
-        ((inexact-scalar value)
-         (match right ((exact-scalar other) #f) ((rational-scalar other) #f)
-                ((inexact-scalar other) (i32-eq (real-equivalent value other) (ann 1 I32))))))))
-
-  (def number-equivalent? (-> Number Number Bool)
-    (lambda (left right)
-      ;; Existing I64/F64 leaves compare directly. Arbitrary exact components
-      ;; use normalized fractions; no numeric projection allocates a wrapper.
-      (match left
-        ((exact-number value)
-         (match right ((exact-number other) (= value other)) ((inexact-number other) #f)
-                ((complex-number real imaginary) #f)
-                ((rational-number other) (rational=? (rational-from-integer (integer-from-i64 value)) other))))
-        ((rational-number value)
-         (if (not (complex-representation? right))
-             (if (number-exact? right) (rational=? value (number->rational right)) #f)
-             #f))
-        ((inexact-number value)
-         (match right ((exact-number other) #f) ((rational-number other) #f) ((complex-number real imaginary) #f)
-                ((inexact-number other) (i32-eq (real-equivalent value other) (ann 1 I32)))))
-        ((complex-number real imaginary)
-         (match right ((exact-number other) #f) ((rational-number other) #f) ((inexact-number other) #f)
-                ((complex-number other-real other-imaginary)
-                 (if (scalar-equivalent? real other-real)
-                     (scalar-equivalent? imaginary other-imaginary)
-                     #f)))))))
-
-  ;; ---- Canonical decimal formatting and scalar-only Rust text handles ----
-
-  ;; Work with a nonpositive magnitude so the minimum I64 needs no positive
-  ;; counterpart. Each remainder lies in [-9,0]; negating that digit is safe.
-
-  (def decimal-digits (-> I64 I64)
-    (lambda (value)
-      (begin
-        (def loop
-          (lambda (value count)
-            (if (> value -10) count (loop (quotient value 10) (+ count 1)))))
-        (loop value 1))))
-
-  (def i64->string (-> I64 String)
-    (lambda (value)
-      (begin (let negative (< value 0))
-        (begin (let magnitude (if negative value (- 0 value)))
-          (begin (let count (+ (decimal-digits magnitude) (if negative 1 0)))
-            (begin (let text (make-string count))
-              (begin
-                (if negative
-                    (begin (string-set! text 0 #\-)
-                           (unit))
-                    (unit))
-                (begin
-                  (def loop
-                    (lambda (remaining index)
-                      (begin
-                        (string-set! text index (integer->char (- 48 (remainder remaining 10))))
-                        (if (> remaining -10) text (loop (quotient remaining 10) (- index 1))))))
-                  (loop magnitude (- count 1))))))))))
-
-  (define-extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
-  (define-extern text-length "snail.library" "snail:datum/token-text-length" (-> I32 I32))
-  (define-extern text-character "snail.library" "snail:datum/token-text-character" (-> I32 I32 Char))
-  (define-extern text-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
-
-  (def f64->string (-> F64 String)
-    (lambda (value)
-      (begin (let handle (real-text value))
-        (begin (let count (i32->i64 (text-length handle)))
-          (begin (let result (make-string count))
-            ;; No callback runs while the Rust text handle is owned. Trap cleanup
-            ;; releases it; the ordinary path copies every scalar then closes once.
-            (begin
-              (def loop
-                (lambda (at)
-                  (if (= at count)
-                      (begin (text-close handle) result)
-                      (begin (string-set! result at (text-character handle (i64->i32 at))) (loop (+ at 1))))))
-              (loop 0)))))))
-
-  (def scalar->string (-> Scalar String)
-    (lambda (value)
-      (match value ((exact-scalar value) (i64->string value))
-             ((rational-scalar value) (rational->string value)) ((inexact-scalar value) (f64->string value)))))
-
-  (def number->string (-> Number String)
-    (lambda (value)
-      (begin (let real (scalar->string (real-component value)))
-        (if (not (complex-representation? value))
-            real
-            (begin (let imaginary (scalar->string (imaginary-component value)))
-              (begin (let first (string-ref imaginary 0))
-                (string-append real (if (if (char=? first #\+) #t (char=? first #\-)) "" "+") imaginary "i")))))))
-
-  ;; ---- Static operator families ----
-
-  (define-overload + (-> Number Number Number) number-add)
-  (define-overload - (-> Number Number Number) number-subtract)
-  (define-overload - (-> Number Number) number-negate)
-  (define-overload * (-> Number Number Number) number-multiply)
-  (define-overload / (-> Number Number Number) number-divide)
-  (define-overload = (-> Number Number Bool) number=?)
-  (define-overload < (-> Number Number Bool) number<?)
-  (define-overload <= (-> Number Number Bool) number<=?)
-  (define-overload > (-> Number Number Bool) number>?)
-  (define-overload >= (-> Number Number Bool) number>=?)
-  (define-overload truncate (-> Number Number) number-truncate)
-
-  ;; ---- Tests ----
-
-  ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
-
-  (def test-number
-    (lambda ()
-      (begin (let minimum (exact-number -9223372036854775808))
-        (begin (let positive (number-divide minimum (exact-number -1)))
-          (begin (let third (number-from-rational (make-rational (integer-from-i64 1) (integer-from-i64 3))))
-            (begin
-              (if (if (string=? (number->string positive) "9223372036854775808")
-                      (if (number=? (number-negate minimum) positive)
-                          (if (number>? third (inexact-number (/ 1.0 3.0)))
-                              (if (number-exact? (number-add third third))
-                                  (not (number-equivalent? (inexact-number 0.0) (inexact-number (* -1.0 0.0))))
-                                  #f)
-                              #f)
-                          #f)
-                      #f)
-                  (unit)
-                  (begin
-                    (unreachable)
-                    (unit)))
-              42))))))))
+    (def Scalar (datatype ()
+                          (exact-scalar (value I64)) (rational-scalar (value Rational)) (inexact-scalar (value F64))))
+    (def Number (datatype ()
+                          (exact-number (value I64)) (rational-number (value Rational)) (inexact-number (value F64))
+                          (complex-number (real Scalar) (imaginary Scalar))))
+
+    (def scalar-from-rational (-> Rational Scalar)
+         (lambda (value)
+           (if (if (rational-integer? value) (integer-fits-i64? (rational-numerator value)) #f)
+               (exact-scalar (integer->i64 (rational-numerator value)))
+               (rational-scalar value))))
+
+    (def number-from-scalar (-> Scalar Number)
+         (lambda (value)
+           (match value ((exact-scalar value) (exact-number value))
+                  ((rational-scalar value) (rational-number value)) ((inexact-scalar value) (inexact-number value)))))
+
+    (def number-from-rational (-> Rational Number)
+         (lambda (value) (number-from-scalar (scalar-from-rational value))))
+
+    (def number-from-integer (-> Integer Number)
+         (lambda (value) (number-from-rational (rational-from-integer value))))
+
+    (def scalar-exact? (-> Scalar Bool)
+         (lambda (value)
+           (match value ((exact-scalar value) #t) ((rational-scalar value) #t) ((inexact-scalar value) #f))))
+
+    (def scalar-zero? (-> Scalar Bool)
+         (lambda (value)
+           (match value ((exact-scalar value) (= value 0))
+                  ((rational-scalar value) (rational-zero? value)) ((inexact-scalar value) (= value 0.0)))))
+
+    (def scalar->f64 (-> Scalar F64)
+         (lambda (value)
+           (match value ((exact-scalar value) (i64->f64 value))
+                  ((rational-scalar value) (rational->f64 value)) ((inexact-scalar value) value))))
+
+    (def scalar->rational (-> Scalar Rational)
+         (lambda (value)
+           (match value ((exact-scalar value) (rational-from-integer (integer-from-i64 value)))
+                  ((rational-scalar value) value) ((inexact-scalar value) (rational-from-f64 value)))))
+
+    ;; Collapse an exact imaginary zero before promoting a surviving mixed
+    ;; pair. An inexact imaginary zero preserves complex shape and its sign.
+
+    (def number-rectangular (-> Scalar Scalar Number)
+         (lambda (real imaginary)
+           (if (if (scalar-exact? imaginary) (scalar-zero? imaginary) #f)
+               (number-from-scalar real)
+               (if (if (scalar-exact? real) (scalar-exact? imaginary) #f)
+                   (complex-number real imaginary)
+                   (complex-number (inexact-scalar (scalar->f64 real)) (inexact-scalar (scalar->f64 imaginary)))))))
+
+    (def number-polar (-> Scalar Scalar Number)
+         (lambda (radius angle)
+           (if (if (scalar-exact? radius) (scalar-zero? radius) #f)
+               (exact-number 0)
+               (if (if (scalar-exact? angle) (scalar-zero? angle) #f)
+                   (number-from-scalar radius)
+                   (begin (let sfir-migration-let-1 (scalar->f64 radius)) (let sfir-migration-let-2 (scalar->f64 angle))
+                          (let radius sfir-migration-let-1)
+                          (let angle sfir-migration-let-2)
+                          (complex-number (inexact-scalar (* radius (cos angle)))
+                                          (inexact-scalar (* radius (sin angle)))))))))
+
+    ;; ---- Real/imaginary projections keep exact zero for scalar input ----
+
+    (def real-component (-> Number Scalar)
+         (lambda (value)
+           (match value ((exact-number value) (exact-scalar value))
+                  ((rational-number value) (rational-scalar value)) ((inexact-number value) (inexact-scalar value))
+                  ((complex-number real imaginary) real))))
+
+    (def imaginary-component (-> Number Scalar)
+         (lambda (value)
+           (match value ((exact-number value) (exact-scalar 0)) ((rational-number value) (exact-scalar 0))
+                  ((inexact-number value) (exact-scalar 0)) ((complex-number real imaginary) imaginary))))
+
+    (def complex-representation? (-> Number Bool)
+         (lambda (value)
+           (match value ((exact-number value) #f) ((rational-number value) #f)
+                  ((inexact-number value) #f) ((complex-number real imaginary) #t))))
+
+    (def real-value (-> Number Scalar)
+         (lambda (value)
+           (if (scalar-zero? (imaginary-component value)) (real-component value) (unreachable))))
+
+    (def number-real-part (-> Number Number)
+         (lambda (value) (number-from-scalar (real-component value))))
+
+    (def number-imag-part (-> Number Number)
+         (lambda (value) (number-from-scalar (imaginary-component value))))
+
+    (def number->f64 (-> Number F64)
+         (lambda (value) (scalar->f64 (real-value value))))
+
+    (def number->rational (-> Number Rational)
+         (lambda (value) (scalar->rational (real-value value))))
+
+    (def number->integer (-> Number Integer)
+         (lambda (value)
+           (begin (let value (real-value value))
+                  (if (not (scalar-exact? value))
+                      (unreachable)
+                      (begin (let value (scalar->rational value))
+                             (if (rational-integer? value) (rational-numerator value) (unreachable)))))))
+
+    ;; ---- Exactness, numeric domains and explicit conversions ----
+
+    (def finite-real? (-> F64 Bool)
+         (lambda (value)
+           (if (= value value) (if (< value (/ 1.0 0.0)) (> value (/ -1.0 0.0)) #f) #f)))
+
+    (def scalar-finite? (-> Scalar Bool)
+         (lambda (value)
+           (match value ((exact-scalar value) #t) ((rational-scalar value) #t)
+                  ((inexact-scalar value) (finite-real? value)))))
+
+    (def scalar-integer? (-> Scalar Bool)
+         (lambda (value)
+           (match value ((exact-scalar value) #t) ((rational-scalar value) (rational-integer? value))
+                  ((inexact-scalar value) (if (finite-real? value) (= value (truncate value)) #f)))))
+
+    (def number-real? (-> Number Bool)
+         (lambda (value) (scalar-zero? (imaginary-component value))))
+
+    (def number-exact? (-> Number Bool)
+         (lambda (value)
+           (if (scalar-exact? (real-component value)) (scalar-exact? (imaginary-component value)) #f)))
+
+    (def number-rational? (-> Number Bool)
+         (lambda (value) (if (number-real? value) (scalar-finite? (real-component value)) #f)))
+
+    (def number-integer? (-> Number Bool)
+         (lambda (value) (if (number-real? value) (scalar-integer? (real-component value)) #f)))
+
+    (def number-exact-integer? (-> Number Bool)
+         (lambda (value) (if (number-exact? value) (number-integer? value) #f)))
+
+    (def number-zero? (-> Number Bool)
+         (lambda (value)
+           (if (scalar-zero? (real-component value)) (scalar-zero? (imaginary-component value)) #f)))
+
+    (def number-exact (-> Number Number)
+         (lambda (value)
+           (number-rectangular (scalar-from-rational (scalar->rational (real-component value)))
+                               (scalar-from-rational (scalar->rational (imaginary-component value))))))
+
+    (def number-inexact (-> Number Number)
+         (lambda (value)
+           (if (complex-representation? value)
+               (complex-number (inexact-scalar (scalar->f64 (real-component value)))
+                               (inexact-scalar (scalar->f64 (imaginary-component value))))
+               (inexact-number (number->f64 value)))))
+
+    (def number-truncate (-> Number Number)
+         (lambda (value)
+           (match (real-value value) ((exact-scalar value) (exact-number value))
+                  ((rational-scalar value) (number-from-integer (rational-truncate value)))
+                  ((inexact-scalar value) (inexact-number (truncate value))))))
+
+    (def number-numerator (-> Number Number)
+         (lambda (value)
+           (begin (let scalar (real-value value))
+                  (if (if (not (scalar-exact? scalar)) (scalar-zero? scalar) #f)
+                      (number-from-scalar scalar)
+                      (begin (let numerator (rational-numerator (scalar->rational scalar)))
+                             (if (scalar-exact? scalar)
+                                 (number-from-integer numerator)
+                                 (inexact-number (integer->f64 numerator))))))))
+
+    (def number-denominator (-> Number Number)
+         (lambda (value)
+           (begin (let scalar (real-value value))
+                  (begin (let denominator (rational-denominator (scalar->rational scalar)))
+                         (if (scalar-exact? scalar)
+                             (number-from-integer denominator)
+                             (inexact-number (integer->f64 denominator)))))))
+
+    ;; ---- Scalar arithmetic promotes only at an inexact boundary ----
+
+    (def scalar-add (-> Scalar Scalar Scalar)
+         (lambda (left right)
+           (if (if (scalar-exact? left) (scalar-exact? right) #f)
+               (scalar-from-rational (rational-add (scalar->rational left) (scalar->rational right)))
+               (inexact-scalar (+ (scalar->f64 left) (scalar->f64 right))))))
+
+    (def scalar-negate (-> Scalar Scalar)
+         (lambda (value)
+           (match value ((exact-scalar value) (scalar-from-rational (rational-negate (scalar->rational (exact-scalar value)))))
+                  ((rational-scalar value) (scalar-from-rational (rational-negate value)))
+                  ((inexact-scalar value) (inexact-scalar (* -1.0 value))))))
+
+    (def scalar-subtract (-> Scalar Scalar Scalar)
+         (lambda (left right)
+           (if (if (scalar-exact? left) (scalar-exact? right) #f)
+               (scalar-from-rational (rational-subtract (scalar->rational left) (scalar->rational right)))
+               (inexact-scalar (- (scalar->f64 left) (scalar->f64 right))))))
+
+    (def scalar-multiply (-> Scalar Scalar Scalar)
+         (lambda (left right)
+           (if (if (scalar-exact? left) (scalar-exact? right) #f)
+               (scalar-from-rational (rational-multiply (scalar->rational left) (scalar->rational right)))
+               (inexact-scalar (* (scalar->f64 left) (scalar->f64 right))))))
+
+    (def scalar-divide (-> Scalar Scalar Scalar)
+         (lambda (left right)
+           (if (if (scalar-exact? left) (scalar-exact? right) #f)
+               (scalar-from-rational (rational-divide (scalar->rational left) (scalar->rational right)))
+               (inexact-scalar (/ (scalar->f64 left) (scalar->f64 right))))))
+
+    (def number-add (-> Number Number Number)
+         (lambda (left right)
+           (number-rectangular (scalar-add (real-component left) (real-component right))
+                               (scalar-add (imaginary-component left) (imaginary-component right)))))
+
+    (def number-negate (-> Number Number)
+         (lambda (value)
+           (number-rectangular (scalar-negate (real-component value)) (scalar-negate (imaginary-component value)))))
+
+    (def number-subtract (-> Number Number Number)
+         (lambda (left right)
+           (number-rectangular (scalar-subtract (real-component left) (real-component right))
+                               (scalar-subtract (imaginary-component left) (imaginary-component right)))))
+
+    (def number-multiply (-> Number Number Number)
+         (lambda (left right)
+           (begin (let sfir-migration-let-3 (real-component left)) (let sfir-migration-let-4 (imaginary-component left))
+                  (let sfir-migration-let-5 (real-component right)) (let sfir-migration-let-6 (imaginary-component right))
+                  (let a sfir-migration-let-3)
+                  (let b sfir-migration-let-4)
+                  (let c sfir-migration-let-5)
+                  (let d sfir-migration-let-6)
+                  (if (not (if (complex-representation? left) #t (complex-representation? right)))
+                      (number-from-scalar (scalar-multiply a c))
+                      (number-rectangular (scalar-subtract (scalar-multiply a c) (scalar-multiply b d))
+                                          (scalar-add (scalar-multiply a d) (scalar-multiply b c)))))))
+
+    (def number-divide (-> Number Number Number)
+         (lambda (left right)
+           (begin (let sfir-migration-let-7 (real-component left)) (let sfir-migration-let-8 (imaginary-component left))
+                  (let sfir-migration-let-9 (real-component right)) (let sfir-migration-let-10 (imaginary-component right))
+                  (let a sfir-migration-let-7)
+                  (let b sfir-migration-let-8)
+                  (let c sfir-migration-let-9)
+                  (let d sfir-migration-let-10)
+                  (if (not (if (complex-representation? left) #t (complex-representation? right)))
+                      (number-from-scalar (scalar-divide a c))
+                      (begin (let divisor (scalar-add (scalar-multiply c c) (scalar-multiply d d)))
+                             (number-rectangular
+                              (scalar-divide (scalar-add (scalar-multiply a c) (scalar-multiply b d)) divisor)
+                              (scalar-divide (scalar-subtract (scalar-multiply b c) (scalar-multiply a d)) divisor)))))))
+
+    ;; ---- Exact comparisons never round an operand to make it equal ----
+
+    ;; Order is -1, 0, 1, or 2 for unordered NaN. Finite mixed comparisons
+    ;; compare the exact dyadic float value against the exact rational operand.
+
+    (def scalar-nan? (-> Scalar Bool)
+         (lambda (value)
+           (match value ((exact-scalar value) #f) ((rational-scalar value) #f)
+                  ((inexact-scalar value) (not (= value value))))))
+
+    (def scalar-order (-> Scalar Scalar I64)
+         (lambda (left right)
+           (if (if (scalar-nan? left) #t (scalar-nan? right))
+               2
+               (if (if (scalar-finite? left) (scalar-finite? right) #f)
+                   (rational-compare (scalar->rational left) (scalar->rational right))
+                   (begin (let sfir-migration-let-11 (scalar->f64 left)) (let sfir-migration-let-12 (scalar->f64 right))
+                          (let a sfir-migration-let-11)
+                          (let b sfir-migration-let-12)
+                          (if (< a b)
+                              -1
+                              (if (> a b)
+                                  1
+                                  (if (scalar-finite? left)
+                                      (if (< b 0.0) 1 -1)
+                                      (if (scalar-finite? right) (if (< a 0.0) -1 1) 0)))))))))
+
+    (def number=? (-> Number Number Bool)
+         (lambda (left right)
+           (if (= (scalar-order (real-component left) (real-component right)) 0)
+               (= (scalar-order (imaginary-component left) (imaginary-component right)) 0)
+               #f)))
+
+    (def number<? (-> Number Number Bool)
+         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) -1)))
+
+    (def number>? (-> Number Number Bool)
+         (lambda (left right) (= (scalar-order (real-value left) (real-value right)) 1)))
+
+    (def number<=? (-> Number Number Bool)
+         (lambda (left right)
+           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order -1) #t (= order 0)))))
+
+    (def number>=? (-> Number Number Bool)
+         (lambda (left right)
+           (begin (let order (scalar-order (real-value left) (real-value right))) (if (= order 1) #t (= order 0)))))
+
+    (def number-negative? (-> Number Bool)
+         (lambda (value) (number<? value (exact-number 0))))
+
+    (def number-abs (-> Number Number)
+         (lambda (value)
+           (number-from-scalar
+            (match (real-value value) ((exact-scalar value) (scalar-from-rational (rational-abs (scalar->rational (exact-scalar value)))))
+                   ((rational-scalar value) (scalar-from-rational (rational-abs value)))
+                   ((inexact-scalar value) (inexact-scalar (if (<= value 0.0) (- 0.0 value) value)))))))
+
+    ;; Equivalence retains exactness, complex shape and binary64 zero signs.
+    (define-extern real-equivalent "snail.library" "snail:datum/real-equivalent" (-> F64 F64 I32))
+
+    (def scalar-equivalent? (-> Scalar Scalar Bool)
+         (lambda (left right)
+           (match left
+             ((exact-scalar value)
+              (match right ((exact-scalar other) (= value other)) ((inexact-scalar other) #f)
+                     ((rational-scalar other) (rational=? (scalar->rational left) other))))
+             ((rational-scalar value) (if (scalar-exact? right) (rational=? value (scalar->rational right)) #f))
+             ((inexact-scalar value)
+              (match right ((exact-scalar other) #f) ((rational-scalar other) #f)
+                     ((inexact-scalar other) (i32-eq (real-equivalent value other) (ann 1 I32))))))))
+
+    (def number-equivalent? (-> Number Number Bool)
+         (lambda (left right)
+           ;; Existing I64/F64 leaves compare directly. Arbitrary exact components
+           ;; use normalized fractions; no numeric projection allocates a wrapper.
+           (match left
+             ((exact-number value)
+              (match right ((exact-number other) (= value other)) ((inexact-number other) #f)
+                     ((complex-number real imaginary) #f)
+                     ((rational-number other) (rational=? (rational-from-integer (integer-from-i64 value)) other))))
+             ((rational-number value)
+              (if (not (complex-representation? right))
+                  (if (number-exact? right) (rational=? value (number->rational right)) #f)
+                  #f))
+             ((inexact-number value)
+              (match right ((exact-number other) #f) ((rational-number other) #f) ((complex-number real imaginary) #f)
+                     ((inexact-number other) (i32-eq (real-equivalent value other) (ann 1 I32)))))
+             ((complex-number real imaginary)
+              (match right ((exact-number other) #f) ((rational-number other) #f) ((inexact-number other) #f)
+                     ((complex-number other-real other-imaginary)
+                      (if (scalar-equivalent? real other-real)
+                          (scalar-equivalent? imaginary other-imaginary)
+                          #f)))))))
+
+    ;; ---- Canonical decimal formatting and scalar-only Rust text handles ----
+
+    ;; Work with a nonpositive magnitude so the minimum I64 needs no positive
+    ;; counterpart. Each remainder lies in [-9,0]; negating that digit is safe.
+
+    (def decimal-digits (-> I64 I64)
+         (lambda (value)
+           (begin
+             (def loop
+                  (lambda (value count)
+                    (if (> value -10) count (loop (quotient value 10) (+ count 1)))))
+             (loop value 1))))
+
+    (def i64->string (-> I64 String)
+         (lambda (value)
+           (begin (let negative (< value 0))
+                  (begin (let magnitude (if negative value (- 0 value)))
+                         (begin (let count (+ (decimal-digits magnitude) (if negative 1 0)))
+                                (begin (let text (make-string count))
+                                       (begin
+                                         (if negative
+                                             (begin (string-set! text 0 #\-)
+                                                    (unit))
+                                             (unit))
+                                         (begin
+                                           (def loop
+                                                (lambda (remaining index)
+                                                  (begin
+                                                    (string-set! text index (integer->char (- 48 (remainder remaining 10))))
+                                                    (if (> remaining -10) text (loop (quotient remaining 10) (- index 1))))))
+                                           (loop magnitude (- count 1))))))))))
+
+    (define-extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
+    (define-extern text-length "snail.library" "snail:datum/token-text-length" (-> I32 I32))
+    (define-extern text-character "snail.library" "snail:datum/token-text-character" (-> I32 I32 Char))
+    (define-extern text-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
+
+    (def f64->string (-> F64 String)
+         (lambda (value)
+           (begin (let handle (real-text value))
+                  (begin (let count (i32->i64 (text-length handle)))
+                         (begin (let result (make-string count))
+                                ;; No callback runs while the Rust text handle is owned. Trap cleanup
+                                ;; releases it; the ordinary path copies every scalar then closes once.
+                                (begin
+                                  (def loop
+                                       (lambda (at)
+                                         (if (= at count)
+                                             (begin (text-close handle) result)
+                                             (begin (string-set! result at (text-character handle (i64->i32 at))) (loop (+ at 1))))))
+                                  (loop 0)))))))
+
+    (def scalar->string (-> Scalar String)
+         (lambda (value)
+           (match value ((exact-scalar value) (i64->string value))
+                  ((rational-scalar value) (rational->string value)) ((inexact-scalar value) (f64->string value)))))
+
+    (def number->string (-> Number String)
+         (lambda (value)
+           (begin (let real (scalar->string (real-component value)))
+                  (if (not (complex-representation? value))
+                      real
+                      (begin (let imaginary (scalar->string (imaginary-component value)))
+                             (begin (let first (string-ref imaginary 0))
+                                    (string-append real (if (if (char=? first #\+) #t (char=? first #\-)) "" "+") imaginary "i")))))))
+
+    ;; ---- Static operator families ----
+
+    (define-overload + (-> Number Number Number) number-add)
+    (define-overload - (-> Number Number Number) number-subtract)
+    (define-overload - (-> Number Number) number-negate)
+    (define-overload * (-> Number Number Number) number-multiply)
+    (define-overload / (-> Number Number Number) number-divide)
+    (define-overload = (-> Number Number Bool) number=?)
+    (define-overload < (-> Number Number Bool) number<?)
+    (define-overload <= (-> Number Number Bool) number<=?)
+    (define-overload > (-> Number Number Bool) number>?)
+    (define-overload >= (-> Number Number Bool) number>=?)
+    (define-overload truncate (-> Number Number) number-truncate)
+
+    ;; ---- Tests ----
+
+    ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
+
+    (def test-number
+         (lambda ()
+           (begin (let minimum (exact-number -9223372036854775808))
+                  (begin (let positive (number-divide minimum (exact-number -1)))
+                         (begin (let third (number-from-rational (make-rational (integer-from-i64 1) (integer-from-i64 3))))
+                                (begin
+                                  (if (if (string=? (number->string positive) "9223372036854775808")
+                                          (if (number=? (number-negate minimum) positive)
+                                              (if (number>? third (inexact-number (/ 1.0 3.0)))
+                                                  (if (number-exact? (number-add third third))
+                                                      (not (number-equivalent? (inexact-number 0.0) (inexact-number (* -1.0 0.0))))
+                                                      #f)
+                                                  #f)
+                                              #f)
+                                          #f)
+                                      (unit)
+                                      (begin
+                                        (unreachable)
+                                        (unit)))
+                                  42))))))))

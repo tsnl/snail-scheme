@@ -1,8 +1,8 @@
 (import (sfir base))
 (def cell
-  (ref 0))
+     (ref 0))
 
 (def broad (Ref Any)
-  cell)
+     cell)
 (ref-set! broad (ann #t Any))
 (ref-get cell)

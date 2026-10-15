@@ -1,7 +1,7 @@
 (import (sfir base))
 (def cell
-  (ref 0))
+     (ref 0))
 (def alias
-  cell)
+     cell)
 (ref-set! alias 42)
 (if (ref-eq? cell alias) (ref-get cell) 0)

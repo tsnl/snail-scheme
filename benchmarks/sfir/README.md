@@ -7,17 +7,19 @@ bare `main.sfir` when its complete port exists. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
-There are currently 53 static SFIR programs. Forty-nine were serialized once
+There are currently 55 static SFIR programs. Forty-nine were serialized once
 from the resolved IR of reviewed complete ports, including Peval, Pi and
 Chudnovsky. Cat and WC have complete direct SFIR character loops and file
 lifecycles and matching adapted Chez controls. CTak and Fibc preserve call/cc behavior with explicit immutable continuation
-variants and matching original call/cc traces. Compiler, Dynamic, Scheme and
-SLaTeX still need complete SFIR sources. The
+variants and matching original call/cc traces. Dynamic and Scheme retain complete
+benchmark-local typed implementations with separate original/adapted Chez controls.
+Compiler and SLaTeX remain pending in preserved full-source drafts. The runner
+currently registers 53 sources; Dynamic and Scheme await its lifecycle integration. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
 
-`lambda` and `let` have one body expression, `if` has both branches, and
-sequencing uses lexical `begin`. No target macro or derived Scheme form runs
+`lambda` has one body expression, `let` is a sequential statement, `if` has both
+branches, and sequencing uses lexical `begin`. No target macro or derived Scheme form runs
 during preparation. The one-off conversion expanded macros with the old
 frontend outside the product, then retained resolved binding identities with
 unique local names. Administrative lambda applications from that expansion
@@ -25,6 +27,23 @@ remain visible. Literal constants retain their original representation.
 Each `migration.json` identifies the pinned source and input, reviewed port
 hash, conversion utility hash and authored SFIR hash. This is provenance, not
 a claim of behavioral equivalence before target execution.
+
+The published surface migration uses `def`, static formers, `Any`,
+`define-library`, `(sfir base)` and the ordinary `empty-list` operation. The
+[source manifest](../../tests/sfir/surface-migration.json) records the old,
+mechanically migrated and formatted hashes. Each active `migration.json` keeps
+its old hashes in `surface_migration` and sets `sfir_sha256` to the current static
+source, so preparation still requires an exact hash match. Parallel let
+initializers retain their original outer scope and left-to-right effects through
+fresh temporaries before aliases bind the original names. Numeric spellings,
+algorithms, canonical inputs, counts, predicates and external controls are unchanged.
+
+All evidence referenced below and by existing per-case validation fields predates
+this surface migration. The corpus records current-surface validation as pending;
+the older successful execution and timing records are retained verbatim and do
+not establish results for the migrated sources. The standard formatter covers
+libraries, tests and examples. Benchmark layout remains token-preserving because
+the formatter also fails on the pre-migration Parsing source.
 
 ## Preparation and validation
 

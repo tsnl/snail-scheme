@@ -1,26 +1,26 @@
 (import (sfir base))
 
 (def digits
-  (ref 0))
+     (ref 0))
 (def record
-  (lambda (digit)
-    (begin
-      (ref-set! digits (+ (* 10 (ref-get digits)) digit))
-      digit)))
+     (lambda (digit)
+       (begin
+         (ref-set! digits (+ (* 10 (ref-get digits)) digit))
+         digit)))
 (def answer
-  ((begin (let sfir-migration-let-1 (record 3)) (let sfir-migration-let-2 (record 4))
-     (let left sfir-migration-let-1)
-(let right sfir-migration-let-2)
-(begin
-       (def middle
-         (record 5))
-       (def finish
-         (lambda (first second)
-           (begin
-             (record 7)
-             (+ (+ first second) (+ (+ left right) middle)))))
-       (record 6)
-       finish))
-   (record 1) (record 2)))
+     ((begin (let sfir-migration-let-1 (record 3)) (let sfir-migration-let-2 (record 4))
+             (let left sfir-migration-let-1)
+             (let right sfir-migration-let-2)
+             (begin
+               (def middle
+                    (record 5))
+               (def finish
+                    (lambda (first second)
+                      (begin
+                        (record 7)
+                        (+ (+ first second) (+ (+ left right) middle)))))
+               (record 6)
+               finish))
+      (record 1) (record 2)))
 
 (if (if (= answer 15) (= (ref-get digits) 1234567) #f) 42 0)

@@ -2,6 +2,6 @@
 (define-extern callback "probe" "callback" (-> Unit))
 
 (def worker (-> I32 I32)
-  (lambda (value) value))
+     (lambda (value) value))
 (callback)
 42

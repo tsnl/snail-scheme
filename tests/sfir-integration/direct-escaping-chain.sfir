@@ -1,16 +1,16 @@
 (import (sfir base))
 
 (def make-probe
-  (lambda ()
-    (begin
-      (def first
-        (lambda () (second)))
-      (def second
-        (lambda () (lambda () (vector-ref later 0))))
-      (def saved
-        (first))
-      (def later
-        (make-vector 1 42))
-      saved)))
+     (lambda ()
+       (begin
+         (def first
+              (lambda () (second)))
+         (def second
+              (lambda () (lambda () (vector-ref later 0))))
+         (def saved
+              (first))
+         (def later
+              (make-vector 1 42))
+         saved)))
 
 ((make-probe))

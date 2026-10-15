@@ -1,5 +1,5 @@
 (import (sfir base))
 (def sum
-  (lambda (n result)
-    (if (= n 0) result (sum (- n 1) (+ result n)))))
+     (lambda (n result)
+       (if (= n 0) result (sum (- n 1) (+ result n)))))
 (sum 100000 0)
