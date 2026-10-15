@@ -13,12 +13,14 @@
         (only (snail-scheme syntax-parser) test-syntax-parser)
         (only (snail-scheme ir) test-ir)
         (only (snail-sfir frontend) test-frontend)
+        (only (snail-sfir compiler) test-compiler)
         (only (snail-scheme strict-types) test-strict-types)
         (only (snail-scheme strict-infer) test-strict-infer)
         (only (snail-scheme strict-specialize) test-strict-specialize)
         (only (snail-scheme wasm-extern) test-wasm-extern))
 
 (test-chromium-trace)
+(test-compiler)
 (call-with-temp-dir
  "sfir-unit-traces"
  (lambda (directory preserve)
