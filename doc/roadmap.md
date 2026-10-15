@@ -60,8 +60,14 @@ or library APIs are implemented. Work proceeds through these contracts:
   and the existing extern/overload extensions. Preserve the checked transfer boundary.
 - [x] Add native loading with independent state, a checked scalar bridge and
   explicit providers; see [the native adapter](sfir-native-loading.md).
-- [ ] Add general compiler/execution
-  APIs callable from SFIR; Scheme elaboration and macro staging remain deferred.
+- [x] Expose explicit library maps, compilation, Wasm loading, independent state
+  and checked scalar invocation to ordinary SFIR through an owned Chibi service.
+  Return recoverable errors and retain separate provider linkage; see the
+  [compiler service](sfir-compiler-service.md).
+- [ ] Return inspectable first-class `SfirLibrary` values from SFIR parsing;
+  source insertion currently parses directly into the service's immutable map.
+- [ ] Add native target support to the SFIR compiler service. Scheme elaboration
+  and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.
   Retain the existing source and artifact snapshots as historical baselines.
 

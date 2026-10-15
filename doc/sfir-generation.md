@@ -119,8 +119,11 @@ it when necessary. It closes the producer and builder arena before writing the
 owned transfer. Both execution and cleanup errors are retained when both fail.
 Already performed provider effects are not rolled back.
 
-There is no built-in `read-source`, Scheme frontend, macro expansion, general
-compiler RPC or auxiliary-artifact protocol in this slice. The book's
+There is no built-in `read-source`, Scheme frontend, macro expansion or
+auxiliary-artifact protocol in this driver. The separate
+[SFIR compiler service](sfir-compiler-service.md) exposes explicit compilation
+and Wasm execution calls; this recipe runner does not automatically install it.
+The book's
 `read-source` example assumes an imported service; this driver supplies the
 explicit source context such a service needs. The
 [constructive syntax API](sfir-builder.md) covers the book's complete library
