@@ -1,0 +1,57 @@
+{
+  "production": {
+    "module_sha256": "1bf1d61500abd5fef7ac4723008b92d09dddb7ca2d5a428e5db5c646539e5e97",
+    "function": "$function138",
+    "function_index": 64,
+    "calls": {
+      "$function139": 1,
+      "$foreign4": 3,
+      "$function138": 1,
+      "$function148": 10,
+      "$function147": 1
+    },
+    "import_return_dependence": "The three hide_i64 return values are the arguments of the pies call inside the repetition branch.",
+    "runtime_flags": [
+      "--print-wasm-code",
+      "--print-wasm-code-function-index=64"
+    ],
+    "diagnostic_only": true,
+    "observed_tiers": [
+      "Liftoff"
+    ]
+  },
+  "native-final": {
+    "module_sha256": "d8f3aaf2746e71255cc607fdcd50030cbe78a0754c57e99b97b6735c0ff237b8",
+    "function": "$function138",
+    "function_index": 64,
+    "calls": {
+      "$function139": 1,
+      "$foreign4": 3,
+      "$function138": 1,
+      "$function59": 145,
+      "$function148": 20,
+      "$function147": 1
+    },
+    "import_return_dependence": "The three hide_i64 return values are the arguments of the pies call inside the repetition branch.",
+    "runtime_flags": [
+      "--print-wasm-code",
+      "--print-wasm-code-function-index=64"
+    ],
+    "diagnostic_only": true,
+    "observed_tiers": [
+      "Liftoff"
+    ]
+  },
+  "native": {
+    "executable_sha256": "3dc439a94b7850e76c744e52a6009164bcaadb2b62b9a68e6de314ef6e15204d",
+    "symbol": "0000000000049640 <f.64>:",
+    "calls": {
+      "hide_i64": 3,
+      "f.65": 1,
+      "f.20": 145,
+      "f.70": 20,
+      "f.69": 1,
+      "native_trap": 1
+    }
+  }
+}

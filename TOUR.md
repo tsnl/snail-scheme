@@ -753,6 +753,14 @@ native64, original/adapted Chez and the identical limb Scheme body on Chez with
 checked I64/I32 intermediates. Its scalar providers transport expected decimal
 text and observed characters; all numerical work remains in Scheme.
 
+[`integer_controls.py`](benchmarks/strict-suite/integer_controls.py) prepares the
+eight comparison controls, including the exact native-final module on V8 and
+separate native-bigint and same-limb Chez programs. It places input preparation
+before the optional clock, the complete numerical predicate inside it, and
+serialization afterward. Count and wrong-result controls exercise the production
+artifacts; separate probes observe every complete repetition without changing
+the measured kernels. Preparation never starts a measurement.
+
 [`reader_ports.py`](benchmarks/strict-suite/reader_ports.py) preserves the complete
 Sum1 and Read1 file-reading kernels. Reversible edits expose typed read results,
 numeric conversion and the initial false datum. The Chez control uses the exact
