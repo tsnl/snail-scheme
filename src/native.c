@@ -113,16 +113,30 @@ uint32_t native_ref_test(uint64_t reference, int64_t type, uint32_t nullable, ui
 
 // ---- GC arrays and rooted tables ----
 
-// Every array element has an eight-byte slot. Lengths remain unsigned wasm32.
-// Reference slots contain nonmoving heap pointers or odd immediate words. Rust
-// retains these objects through ABI handles in a scanned table.
+// Arrays have two eight-byte header words, then tightly stored Wasm elements.
+// LLVM supplies a constant stride from the validated storage type: 1/2/4/8
+// bytes for numeric elements, always eight for references. Lengths remain
+// unsigned wasm32. The collector traces only reference arrays; their layout
+// is unchanged. Rust retains these objects through handles in a scanned table.
 
-uint64_t native_array_new(uint64_t type, uint32_t length, uint64_t initial) {
-    uint64_t reference = native_alloc(16 + (uint64_t)length * 8);
+static void array_fill(void *payload, uint32_t length, uint64_t initial, uint32_t stride) {
+    // Typed stores retain the low bits on either native byte order. No allocation
+    // or callback occurs while the newly allocated object is being initialized.
+    switch (stride) {
+    case 1: memset(payload, (uint8_t)initial, length); break;
+    case 2: for (uint32_t i = 0; i < length; i++) ((uint16_t *)payload)[i] = (uint16_t)initial; break;
+    case 4: for (uint32_t i = 0; i < length; i++) ((uint32_t *)payload)[i] = (uint32_t)initial; break;
+    case 8: for (uint32_t i = 0; i < length; i++) ((uint64_t *)payload)[i] = initial; break;
+    default: native_trap();
+    }
+}
+
+uint64_t native_array_new(uint64_t type, uint32_t length, uint64_t initial, uint32_t stride) {
+    uint64_t reference = native_alloc(16 + (uint64_t)length * stride);
     uint64_t *words = object_words(reference);
     words[0] = type;
     words[1] = length;
-    for (uint32_t i = 0; i < length; i++) words[i + 2] = initial;
+    array_fill(words + 2, length, initial, stride);
     return reference;
 }
 
@@ -130,18 +144,19 @@ uint32_t native_array_length(uint64_t reference) {
     return (uint32_t)object_words(reference)[1];
 }
 
-void *native_array_slot(uint64_t reference, uint32_t index) {
+void *native_array_slot(uint64_t reference, uint32_t index, uint32_t stride) {
     uint64_t *words = object_words(reference);
     if (index >= words[1]) native_trap();
-    return &words[2 + (uint64_t)index];
+    return (uint8_t *)(words + 2) + (uint64_t)index * stride;
 }
 
 void native_array_copy(uint64_t target, uint32_t to, uint64_t source,
-                       uint32_t from, uint32_t count) {
+                       uint32_t from, uint32_t count, uint32_t stride) {
     uint64_t *destination = object_words(target), *origin = object_words(source);
     if ((uint64_t)to + count > destination[1] || (uint64_t)from + count > origin[1])
         native_trap();
-    memmove(destination + 2 + to, origin + 2 + from, (size_t)count * 8);
+    memmove((uint8_t *)(destination + 2) + (uint64_t)to * stride,
+            (uint8_t *)(origin + 2) + (uint64_t)from * stride, (uint64_t)count * stride);
 }
 
 // Headerless table buffers have explicit ownership outside the GC arena.
