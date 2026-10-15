@@ -295,6 +295,7 @@ The explicitly named `i32-*`, `i64-*`, `f32-*`, and `f64-*` primitives remain
 available for code that requires a fixed representation.
 
 `i32-bitwise-and` and `i64-bitwise-and` intersect all bits of their two operands.
+`i32-bitwise-xor` and `i64-bitwise-xor` set each bit where their operands differ.
 `i32-shift-right/logical` and `i64-shift-right/logical` shift the first operand
 right and fill high bits with zero. Both arguments and the result have the named
 width; there is no coercion or overloaded numeric family for these operations.

@@ -668,7 +668,10 @@ def validate_fixture(directory, case, commands, tools, environment, driver):
 def datum_unit_program(root):
     library = (root / 'src/snail/datum.sld').read_text()
     tests = form(library, '(begin\n      (define (test-pair-identity)')
-    return ('(import (snail strict) (snail datum) (snail bytes))\n' + tests
+    # The strict fixture copies private history definitions with their unit tests.
+    history = library.split(';; ---- Query-local comparison history ----', 1)[1]
+    history = history.split(';; ---- Stack-safe equality of finite graphs ----', 1)[0]
+    return ('(import (snail strict) (snail datum) (snail bytes))\n' + history + tests
             + '\n(: configured-count (-> I64))\n(define (configured-count) 1)\n(: bench (-> I64 I64))\n(define (bench count) (test-datum))\n(unit)\n')
 
 

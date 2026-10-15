@@ -258,7 +258,7 @@ defines nominal applications of resolved declaration identities and substitutes
 their field types; recursive fields retain identities instead of expanding a tree.
 [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
 supplies complete concrete primitive signatures and opcodes, including unary
-conversions and fixed-width bitwise intersection and logical right shifts.
+conversions, fixed-width bitwise intersection/exclusive-or, and logical right shifts.
 [`(snail strict)`](src/snail/strict.sld) provides numeric overload
 families with explicit I64/F64 promotion bodies, hygienic binding and control forms
 and ordinary vector and Unicode string functions. Append, substring, copying,
