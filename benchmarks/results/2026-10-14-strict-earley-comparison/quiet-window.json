@@ -1,0 +1,16 @@
+{
+  "released": "2026-10-14T16:16:54.748151+00:00",
+  "authority": "Parent /root explicit quiet-window RELEASE",
+  "exact_message": "Run the frozen five-system 30-process campaign now; Sol and Matrix confirm owned processes terminal and held; parent performs no builds/tests/compression/GitHub work. Stop on first failure, retain every attempt, no silent replacement.",
+  "identities": {
+    "timing-plan.json": "063472786ad5ea7d0d20c6b50ee025a7d9719f3b2dc13f241cab71ef9ad06168",
+    "measure-five.py": "83943c281cebe9493afe4bab48a059ef4f6e79a837f51528e56e0cc7c3ce30b6"
+  },
+  "command": [
+    "python3",
+    "benchmarks/results/2026-10-14-strict-earley-preparation/measure-five.py",
+    "--run",
+    "--output",
+    "build/earley-clean-01"
+  ]
+}

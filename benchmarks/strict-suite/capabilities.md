@@ -3,7 +3,7 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `5abc65d`: result-context overloads, `Default T`, rank-one
+compiler basis is `3dcce40`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
 calls to nonescaping local procedures and structured operators, plus direct captures
 of initialized let values, are implemented. Native Unicode strings have
@@ -51,7 +51,13 @@ Bytevector conversion now adds a
 V8 takes 0.939191 s, 1.992× original Chez time and 20.569× Rust/Wasm time;
 native takes 1.029586 s. All 42 processes passed. Unicode-scalar versus UTF-8
 storage, native slot widths and ownership differences are explicit. Historical
-coverage is now 35 of 57 measured workloads, 34 with paired Chez controls.
+coverage before Earley was 35 of 57 measured workloads, 34 with paired Chez controls.
+Earley adds a [five-system comparison](../results/2026-10-14-strict-earley-comparison/README.md):
+production V8 takes 2.644450 s, 1.484× original Chez time and 0.754× adapted
+Chez time. Native takes 1.458× V8 on the identical final Wasm, using an explicit
+1 GiB arena. All 30 processes passed; the adapter's extra append spines and
+optimized payload removal remain disclosed. Historical coverage is now
+36 of 57 measured workloads, 35 with paired Chez controls.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -87,7 +93,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | compiler | Symbolic heterogeneous compiler IR, mutable pairs/vectors, strings, files and binary/text output; a scalar kernel slice would not port this compiler workload. |
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
-| earley | Complete source port prepared; canonical count 1, length 15 and result 2674440 pass on raw/optimized Wasm, actual native and original/adapted Chez. Products, optional fields, typed mutable storage and stored functions preserve parser construction, forward/backward passes and all three query APIs. Complete ordered small trees, nullable/duplicate rules, mutation identity and captured lexer state pass. The finite atom/user-info vocabulary and I64 domain are explicit; native requires a 1 GiB reservation after default arena exhaustion. Binaryen retains tree spines but removes unused payloads. A frozen five-system timing plan is awaiting a clean window; preparation adds no measured coverage. See the [preparation report](../results/2026-10-14-strict-earley-preparation/README.md). |
+| earley | Measured complete canonical count 1, length 15 and result 2674440: production V8 2.644450 s, common-artifact V8 2.663772 s, native 3.882573 s, original Chez 1.781515 s and adapted Chez 3.505472 s. Production V8 takes 1.484× original Chez time; native takes 1.458× same-Wasm V8 time with an explicit 1 GiB reservation after default arena exhaustion. All 30 clean processes and 161 identities pass. Complete ordered trees, mutable state/configuration identity and stored lexer/query functions are validated. Finite atom/user-info scope, I64 arithmetic, temporary append spines and legal unused payload removal remain explicit. See the [five-system report](../results/2026-10-14-strict-earley-comparison/README.md). |
 | lattice | Measured original count 10, input 44 and result 120549: 1.647× original Chez time, 1.504× adapted Chez and 1.815× Rust/Wasm. Raw/optimized Wasm and untouched/adapted Chez correctness checks pass. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and Rust vector/enum/Rc layout/control differences are disclosed; the timed Rust artifact has limited complete-payload checks. No compiler changes or dynamic fallback. |
 | matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
@@ -105,8 +111,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 35 of 57 workloads,
-with 34 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 36 of 57 workloads,
+with 35 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
