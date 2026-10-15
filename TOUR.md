@@ -328,8 +328,10 @@ Native foreign declarations retain their resolved identity in IR.
 validates the concrete scalar boundary shared by imports and selected worker
 exports; the emitter adapts Unit results without introducing an object carrier.
 [`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
-passes without process effects. The build wrapper reuses the shared Binaryen
-assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
+passes without process effects. Its `strict.infer`, `strict.specialize`, and
+`strict.emit-wasm` trace spans expose each completed phase separately from source
+expansion, serialization, and optimization. The build wrapper reuses the shared
+Binaryen assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
 executes native exports and checks located source rejections.
 [`scripts/test-strict-extern`](scripts/test-strict-extern) links real Wasm
 providers, checks mismatched signatures and exercises reusable worker captures
