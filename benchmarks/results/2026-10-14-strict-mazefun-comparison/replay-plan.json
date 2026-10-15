@@ -1,0 +1,76 @@
+{
+  "kind": "Four relocated full-count correctness executions; not timing samples",
+  "count": 10000,
+  "dimensions": [
+    11,
+    11
+  ],
+  "input": "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+  "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+  "path_rule": "Resolve files/ paths under the restored archive root; preserve external tools. Use a fresh cwd per variant.",
+  "command_prefix": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5"
+  ],
+  "removed_environment": [
+    "NODE_OPTIONS",
+    "NODE_V8_COVERAGE",
+    "NODE_DEBUG",
+    "NODE_DEBUG_NATIVE"
+  ],
+  "reject_effective_environment": [
+    "LD_PRELOAD"
+  ],
+  "timeout_seconds": 900,
+  "validator": "files/tmp/snail-mazefun-comparison-20261014/benchmarks/results/2026-10-14-strict-mazefun-comparison/measure-matched.py",
+  "variants": [
+    {
+      "variant": "strict",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "files/tmp/snail-strict-mazefun-preparation-20261014-r3/host.mjs",
+        "files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/strict.wasm",
+        "files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/spec.json"
+      ],
+      "stdin": "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "expected_result": "1",
+      "csv_case": null
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/program.so"
+      ],
+      "stdin": "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "expected_result": null,
+      "csv_case": "mazefun:11:11:10000"
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "files/tmp/snail-strict-mazefun-preparation-20261014-r3/mazefun/same-source-chez/program.so"
+      ],
+      "stdin": "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "expected_result": null,
+      "csv_case": "mazefun:11:11:10000"
+    },
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/run-wasi.mjs",
+        "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm"
+      ],
+      "stdin": "files/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/input.txt",
+      "expected_result": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))",
+      "csv_case": "mazefun:10000"
+    }
+  ]
+}

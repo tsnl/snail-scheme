@@ -1,0 +1,29 @@
+{
+  "kind": "Bounded driver validation before clean timing; cached real outputs and synthetic format negatives",
+  "performance_samples": false,
+  "checks": [
+    {
+      "variant": "rust-wasm",
+      "kind": "Cached actual full-count stdout framing",
+      "seconds": 2.340880654
+    },
+    {
+      "variant": "original-chez",
+      "kind": "Cached actual full-count stdout framing",
+      "seconds": 1.025045993
+    },
+    {
+      "variant": "adapted-chez",
+      "kind": "Cached actual full-count stdout framing",
+      "seconds": 0.890624542
+    },
+    {
+      "variant": "strict",
+      "kind": "Synthetic clean JSON format validator only; no workload execution",
+      "seconds": 0.5
+    }
+  ],
+  "strict_format_negatives_rejected": 3,
+  "frozen_files_verified": 887,
+  "all_checks_pass": true
+}

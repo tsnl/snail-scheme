@@ -1,0 +1,11 @@
+{
+  "archive_sha256": "27158c8fae7d2ab3d16f6e37b7d7ee9b520c656c2c3e85c0cbb8b94c2425c45f",
+  "archive_bytes": 1222428,
+  "files_verified": 964,
+  "all_regular_files": true,
+  "no_duplicate_entries": true,
+  "actual_relocated_full_count_variants": 4,
+  "destination": "/tmp/snail-mazefun-comparison-20261014/build/mazefun-comparison-restored",
+  "all_checks_pass": true,
+  "performance_samples": false
+}
