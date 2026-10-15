@@ -7,7 +7,7 @@
           native-code-library native-code-export native-code-parameters native-code-result
           linked-code-directory instance-directory)
   (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
-          (scheme process-context) (chibi filesystem) (chibi bytevector) (chibi json)
+          (scheme process-context) (chibi filesystem) (chibi bytevector) (snail-tools json)
           (chibi weak) (chibi string) (srfi 1) (srfi 18) (srfi 151)
           (only (srfi 132) list-sort)
           (only (chibi process) fork execute waitpid current-process-id set-signal-action! signal/pipe)

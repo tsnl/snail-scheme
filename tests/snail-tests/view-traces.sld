@@ -44,8 +44,13 @@
         (assert-equal (cdr response) #u8(0 97 115 109)))
       (write-text (path-join directory "outside.json") "an unselected file")
       (assert-that (symbolic-link-file (path-join directory "outside.json") (path-join ui "escape.json")))
+      ;; A permissive decoder would expose these existing UI files.
+      (for-each (lambda (name) (write-text (path-join ui name) "invalid escape accepted"))
+                '("\x1;.json" "%.json" "%0.json"))
       (for-each (lambda (route) (request base route 404))
-                '("/trace/outside.json" "/trace/%2e%2e/outside.json" "/%2e%2e/outside.json" "/escape.json" "/trace/%00.json")))
+                '("/trace/outside.json" "/trace/%2e%2e/outside.json" "/%2e%2e/outside.json" "/escape.json"
+                  "/trace/%00.json" "/%+1.json" "/%-0.json" "/%.json" "/%0.json"))
+      (assert-equal (cdr (request base "/version/engine.wasm" 200)) #u8(0 97 115 109)))
 
     ;; ---- A test owns the server process until all requests finish ----
 
@@ -54,7 +59,8 @@
         (assert-that file)
         ;; Chibi's descriptor operation returns #f even after a successful dup2.
         (duplicate-file-descriptor-to file descriptor)
-        (close-file-descriptor file)))
+        ;; Closing the port also marks Chibi's descriptor wrapper closed.
+        (close-output-port (open-output-file-descriptor file))))
     (define (start-server trace ui stdout stderr)
       (let ((pid (fork)))
         (assert-that pid)

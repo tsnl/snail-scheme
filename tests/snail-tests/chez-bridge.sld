@@ -46,7 +46,8 @@
         (assert-that (starts? (read-text reference) (string-append body "fn main()")) "static Rust formatter reference drifted")
         (write-bytes data (read-bytes (fixture "sfir-numbers" "format-input.txt")))
         (checked "format-reference-build" (list (tool-name "CARGO" "cargo") "build" "--offline" "--release" "--quiet"
-                                                "--manifest-path" (path "tests/Cargo.toml") "--target-dir" (path "tests/target") "--bin" "format-reference"))
+                                                "--manifest-path" (path "tests/Cargo.toml") "--target-dir" (path "tests/target") "--bin" "format-reference")
+                 `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
         (let* ((reference (lines (command-output "format-reference-run" (list binary data))))
                (actual (lines (field (run-control "format-chez" (control "format.scm") data #f) 'stdout)))
                (bits (lines (read-text data))))

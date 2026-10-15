@@ -1,8 +1,9 @@
 ;; Actual native execution checks instruction, ABI, GC and resource contracts.
 (define-library (snail-tests native)
   (export run-native-suite)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
+  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write) (scheme process-context)
           (srfi 1) (chibi pathname) (chibi regexp) (chibi regexp pcre)
+          (only (chibi process) fork waitpid)
           (only (chibi filesystem) symbolic-link-file)
           (snail-tests streams) (rename (snail-tests harness) (checked checked-command)))
   (begin
@@ -63,6 +64,20 @@
                                `((status . ,(if traps? 1 0))))
                       (checked name (list native) (append `((status . ,(if traps? 1 0))) (if traps? '((error . "WebAssembly trap")) '()))))))
                 '((0 0 "" #f) (0 1 "" #t) (0 -1 "" #t) (1 0 "$f" #f) (1 1 "$f" #t))))
+    (define (spawn-native-build source name)
+      (let ((pid (fork)))
+        (assert-that pid "cannot fork concurrent native build")
+        (when (zero? pid)
+          (guard (failure (else (write failure (current-error-port)) (newline (current-error-port)) (emergency-exit 1)))
+            (native-fixture source name '("--wasm")) (emergency-exit 0)))
+        pid))
+    (define (run-concurrent-builds)
+      ;; Distinct guest objects must remain distinct in the shared Cargo target.
+      (let ((pids (map (lambda (pair) (spawn-native-build (build-path (car pair)) (cadr pair)))
+                       '(("element-0-0-empty.wasm" "concurrent-valid") ("element-0-1-empty.wasm" "concurrent-trap")))))
+        (for-each (lambda (pid) (assert-equal (cadr (waitpid pid 0)) 0 "concurrent native build" pid)) pids))
+      (checked "concurrent-valid" (list (build-path "concurrent-valid")))
+      (checked "concurrent-trap" (list (build-path "concurrent-trap")) '((status . 1) (error . "WebAssembly trap"))))
 
     ;; ---- Literal Rust scalar declarations establish the provider contract ----
 
@@ -192,9 +207,9 @@
         (checked "protect-source-alias" (list (path "scripts/build-native") source alias)
                  '((status . 1) (error . "must not replace an input")))))
     (define (run-native-suite)
-      (run-semantics) (run-element-segments)
+      (run-semantics) (run-element-segments) (run-concurrent-builds)
       (checked "collector-contracts" (list (tool-name "CARGO" "cargo") "test" "--offline" "--features" "native-runtime")
-               '((stdout . #f) (stderr . #f)))
+               `((stdout . #f) (stderr . #f) (environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (run-providers) (run-bytevector-traps) (run-native-io) (run-native-input) (run-build-ownership)
       (checked "instance-ordering" (chibi (path "tests/run.scm") (root) "sfir-instances") '((stdout . #f)))
       (freeze-sources! "native")

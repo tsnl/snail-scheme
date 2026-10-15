@@ -4,7 +4,7 @@
   (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
           (srfi 1) (srfi 69) (only (chibi string) string-suffix? string-split)
           (snail-tests harness)
-          (chibi json) (chibi regexp) (chibi regexp pcre) (only (chibi string) call-with-input-string))
+          (snail-tools json) (chibi regexp) (chibi regexp pcre) (only (chibi string) call-with-input-string))
   (begin
 
     ;; ---- One source, linked Wasm forms and a real native executable ----
@@ -151,7 +151,8 @@
                   (apply string-append (map (lambda (row)
                                               (let ((left (rows (vector-ref row 0))) (right (rows (vector-ref row 1))))
                                                 (number-row (append (list (length left) (length right)) left right)))) (rows (field corpus 'fold_strings)))))
-      (checked "folding-oracle" (rust-harness "folding" (fixture "sfir-text" "cases.json") (output)))
+      (checked "folding-oracle" (rust-harness "folding" (fixture "sfir-text" "cases.json") (output))
+               `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (write-json (build-path "input-identities.json")
                   (map (lambda (name) (cons (string->symbol name) (file-sha256 (build-path name))))
                        '("scalars.txt" "strings.txt" "fold-scalars.txt" "fold-strings.txt"))))
@@ -213,7 +214,7 @@
                         (if failure? (assert-that (any (lambda (error) (contains? (string-downcase stderr) error)) errors) record)
                             (assert-equal stderr ""))
                         (when (member worker '("copy-characters" "copy-standard"))
-                          (assert-equal (read-bytes (path-join directory "output.txt")) (if failure? prefix contents))))) '("raw" "optimized" "native")))))
+                          (assert-equal (read-bytes (path-join directory "output.txt")) (if failure? prefix contents)))))) '("raw" "optimized" "native"))))
     (define (run-packets)
       (test-environment (append '(("SNAIL_NATIVE_GC_INTERVAL" . "1") ("CARGO_BUILD_JOBS" . "1")) (test-environment)))
       (prepare-stream! "sfir-io" (lambda ()

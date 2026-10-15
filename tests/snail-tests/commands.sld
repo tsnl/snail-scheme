@@ -2,7 +2,7 @@
 (define-library (snail-tests commands)
   (export run-command-suite optimizer-scope)
   (import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
-          (srfi 1) (only (chibi ast) setenv unsetenv) (chibi json) (chibi pathname) (chibi regexp) (chibi regexp pcre)
+          (srfi 1) (only (chibi ast) setenv unsetenv) (snail-tools json) (chibi pathname) (chibi regexp) (chibi regexp pcre)
           (only (chibi string) string-split string-suffix? call-with-input-string)
           (snail-tests harness))
   (begin
@@ -24,7 +24,8 @@
                                        (list guest "program" provider module "-o" linked))))
     (define (build-test-harness!)
       (checked "test-harness" (list (tool-name "CARGO" "cargo") "build" "--offline" "--quiet"
-                                    "--manifest-path" (path "tests/Cargo.toml") "--target-dir" (path "tests/target"))))
+                                    "--manifest-path" (path "tests/Cargo.toml") "--target-dir" (path "tests/target"))
+               `((environment . ,(native-cargo-environment (path "build/native-runtime"))))))
     (define (optimizer-scope operation)
       (build-test-harness!)
       (let* ((optimizer (car (lines (command-output "find-optimizer" (list "which" (tool-name "WASM_OPT" "wasm-opt"))))))

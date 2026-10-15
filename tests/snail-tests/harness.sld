@@ -7,16 +7,16 @@
           write-source build-guest build-native link-forms runtime-build
           native-guest-path native-guest-identical! fresh-output initialize-suite! argument-value argument-present? argument-positionals
           freeze-sources! record-tools! record-artifacts! verify-reuse! complete! rust-harness
-          finalize-records!
+          finalize-records! native-cargo-environment
           read-text write-text read-bytes write-bytes read-json write-json file-sha256
           path-join path-directory absolute-path make-build-directory directory-files-recursive
           create-directory* directory-files file-exists? file-regular? delete-file
           option-ref tool-name)
   (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (scheme inexact)
-          (chibi json) (chibi filesystem) (chibi pathname) (chibi regexp)
+          (snail-tools json) (chibi filesystem) (chibi pathname) (chibi regexp)
           (srfi 1) (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string) (srfi 95) (snail-tools process)
-          (only (snail-tools native-build) ensure-native-supervisor))
+          (only (snail-tools native-build) ensure-native-supervisor native-cargo-environment))
   (begin
 
     ;; ---- Concrete paths, options and structured evidence ----
@@ -194,7 +194,8 @@
     (define (record-tools!)
       (let ((tools '(("CHIBI" "chibi-scheme") ("NODE" "node") ("CHEZ" "scheme")
                      ("WASM_AS" "wasm-as") ("WASM_OPT" "wasm-opt") ("WASM_DIS" "wasm-dis")
-                     ("WASM_MERGE" "wasm-merge") ("RUSTC" "rustc") ("CARGO" "cargo") ("CLANG" "clang") ("LLD" "ld.lld"))))
+                     ("WASM_MERGE" "wasm-merge") ("RUSTC" "rustc") ("CARGO" "cargo")
+                     ("LLVM_OPT" "opt") ("LLC" "llc"))))
         (write-json (build-path "tools.json")
                     (append (map tool-identity tools)
                             `((git_head . ,(command-output "git-head" '("git" "rev-parse" "HEAD")))

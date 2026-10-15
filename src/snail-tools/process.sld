@@ -7,7 +7,7 @@
           option-ref command-line-main directory-files-recursive)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (chibi filesystem) (chibi pathname)
-          (chibi json)
+          (snail-tools json)
           (only (chibi bytevector) bytevector->hex-string)
           (only (chibi io) port->string port->bytevector)
           (only (chibi process) fork execute waitpid current-process-id)

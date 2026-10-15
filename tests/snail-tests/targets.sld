@@ -127,7 +127,8 @@
 
     (define (run-bytes)
       (let* ((oracle (build-path "unicode.bin")) (wasm (build-path "unicode.wasm")) (native (build-path "native")))
-        (checked "unicode-oracle" (rust-harness "unicode" oracle))
+        (checked "unicode-oracle" (rust-harness "unicode" oracle)
+                 `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
         (assert-equal (bytevector-length (read-bytes oracle)) (* 1112064 12))
         (write-json (build-path "oracle.json") `((scalars . 1112064) (bytes . ,(* 1112064 12)) (sha256 . ,(file-sha256 oracle))
                                                  (oracle . "Rust char::encode_utf8; all Unicode scalars")))

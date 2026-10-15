@@ -7,7 +7,7 @@
           (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
           (only (chibi process) current-process-id execute)
           (only (chibi crypto sha2) sha-256)
-          (chibi string) (chibi regexp) (chibi json) (srfi 1) (srfi 95) (srfi 151)
+          (chibi string) (chibi regexp) (snail-tools json) (srfi 1) (srfi 95) (srfi 151)
           (snail-tools process))
   (begin
 
