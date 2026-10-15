@@ -1,0 +1,40 @@
+{
+  "skill": ".agents/skills/simplify/SKILL.md",
+  "scope": [
+    "src/snail/text.sld",
+    "src/strict_text.rs"
+  ],
+  "independent_explanation": {
+    "agent": "/root/strict_datum_output/unicode_text_explainer",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "max",
+    "fork_turns": "none",
+    "files_inspected": false,
+    "behavioral_model": [
+      "Character helpers expose existing simple Unicode scalar mapping and properties through a validated scalar ABI.",
+      "String ordering maintains an equal prefix, checks both ends, then uses the first unequal scalar; a proper prefix is smaller.",
+      "No normalized copies, cached ordering, encoded strings, generic comparison framework or extra ownership state is required."
+    ],
+    "invariants": [
+      "Input and mapped character are valid Unicode scalars; malformed raw scalars take terminal cleanup.",
+      "The string index is in both ranges whenever characters are read; earlier characters are equal.",
+      "Inputs remain unchanged; a later invocation observes mutations made between calls."
+    ]
+  },
+  "local_source_comparison": {
+    "status": "completed by implementing agent after the independent explanation",
+    "decisions": [
+      "Existing Char extern support permits direct Char-to-Char downcase without conversion wrappers.",
+      "Predicates retain the existing I32 0/1 scalar convention and small Scheme Bool wrappers.",
+      "Whitespace binds the existing strict datum reader provider directly; no duplicate property implementation.",
+      "Three new Rust functions reuse unicode::lowercase, unicode::digit_value and char::is_alphabetic.",
+      "String ordering uses existing char=?/char<? primitives in one loop.",
+      "Documentation separates pinned Unicode16 simple casing/decimal data from native Rust property version17.0.0."
+    ]
+  },
+  "informed_debate": {
+    "status": "pending",
+    "reason": "Follow-up to the fresh explainer failed with collaboration.followup_task: agent thread limit reached.",
+    "parent_direction": "Keep the fresh independent model and your local source comparison separate in evidence; do not label the informed debate complete. Continue the bounded implementation and actual-target validation, with that review step explicitly pending."
+  }
+}
