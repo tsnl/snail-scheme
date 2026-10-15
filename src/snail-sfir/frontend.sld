@@ -345,7 +345,8 @@
 
     (define (parse-expression form environment)
       (cond ((syntax-identifier? form) (make-name (resolve-value form environment) (syntax-loc form)))
-            ((atom-syntax? form) (make-literal (atom-syntax-value form) (syntax-loc form)))
+            ((atom-syntax? form)
+             (make-literal (atom-syntax-value form) (syntax-loc form) (atom-syntax-number-spelling form)))
             ((vector-syntax? form) (make-literal (syntax->datum form) (syntax-loc form)))
             ((list-syntax? form) (parse-list-expression form environment))
             (else (fail form "expected an SFIR expression"))))
