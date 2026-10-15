@@ -298,6 +298,9 @@ Unicode scalar conversions reject surrogate and out-of-range values. Nominal rec
 closed sums add a constructor tag and typed case subtypes. The layout registry
 reserves applications before following recursive fields, and accessors explicitly
 check tags because Wasm can canonicalize cases with identical shapes.
+Zero-field cases use private rooted globals named by those same concrete layout
+identities. Their source calls still evaluate operators and enforce readiness;
+payload-bearing constructors and explicit mutable identities remain runtime work.
 Native foreign declarations retain their resolved identity in IR.
 [`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
 validates the concrete scalar boundary shared by imports and selected worker
