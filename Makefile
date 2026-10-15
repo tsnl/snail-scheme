@@ -9,7 +9,7 @@ BENCH_OUTPUT ?= /tmp/snail-sfir-benchmarks
 test:
 	"$(CHIBI)" -D snail-tests -I src -I tests tests/sfir/host.scm
 	"$(CHIBI)" -D snail-tests -I src -I tests -I benchmarks tests/sfir-benchmarks.scm
-	"$(CHIBI)" -D snail-tests -I src -I benchmarks benchmarks/wasm-reference/tests/audits.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests -I benchmarks benchmarks/wasm-reference/tests/audits.scm
 
 benchmark:
 	"$(CHIBI)" -I src -I benchmarks benchmarks/sfir/runner.scm prepare --output "$(BENCH_OUTPUT)"
