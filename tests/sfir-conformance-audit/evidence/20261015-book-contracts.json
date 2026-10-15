@@ -1,0 +1,239 @@
+{
+  "schema": 1,
+  "base": "875f11a6",
+  "revision": "71e6cc09062731bc6570e989e33431b1042e4b82",
+  "worktree": "/tmp/snail-sfir-conformance-audit-20261015",
+  "scope": [
+    "doc/book/sfir/types.md",
+    "doc/book/sfir/terms.md"
+  ],
+  "scope_note": "Executable audit of selected contracts; not a proof of all programs or complete coverage.",
+  "outside_scope": [
+    "numeric default width policy",
+    "arithmetic overflow MVP gap",
+    "benchmark performance measurement"
+  ],
+  "findings": [
+    {
+      "priority": "P2",
+      "problem": "Annotated initializer replaces lexical class assumptions, rejecting valid nested qualified captures.",
+      "fix": "65cbba899cc59230703c391790bc13f22d1f4c2d",
+      "before": "logs/before-lexical-fix/results.json"
+    },
+    {
+      "priority": "P2",
+      "problem": "Unused concrete declared requirements justify themselves without a corresponding instance.",
+      "fix": "66cebf32",
+      "before": "logs/concrete-unused-before/results.json"
+    },
+    {
+      "priority": "P2",
+      "problem": "Runtime checked Any projections are classified nonexpansive; explicit All can hide an unused initializer trap.",
+      "fix": "71e6cc09062731bc6570e989e33431b1042e4b82",
+      "before": "logs/before-any-projection-fix/results.json"
+    }
+  ],
+  "focused_contracts": {
+    "count": 20,
+    "results": "logs/final-projection-fix/attempt-xprukbk9/results.json",
+    "sources": "fixtures/",
+    "native": "logs/projection-native/results.json"
+  },
+  "behavior_checks": [
+    {
+      "name": "order-fixed",
+      "passed": true,
+      "source": "sources/order-fixed.sfir",
+      "source_sha256": "e7ba34eda519d942b453b23c7acf88e90c809ec03a7471718611a49f4a10bf9d",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "order-rest",
+      "passed": true,
+      "source": "sources/order-rest.sfir",
+      "source_sha256": "3647e7da56d194b217873aa2787593a194104af4c91955af8adef8b6850ed342",
+      "result_file": "logs/behavior-corrected/results.json"
+    },
+    {
+      "name": "order-argument-trap",
+      "passed": true,
+      "source": "sources/order-argument-trap.sfir",
+      "source_sha256": "a06a64b59885bc5085ae36f678e4653deec15c296d2605fd0b3971d951ff0b60",
+      "result_file": "logs/behavior-corrected/results.json"
+    },
+    {
+      "name": "order-operator-trap",
+      "passed": true,
+      "source": "sources/order-operator-trap.sfir",
+      "source_sha256": "82d91daa23163b0ad8eeb22903920117ce2bc1d08f2365dd6f411116d4af7158",
+      "result_file": "logs/behavior-corrected/results.json"
+    },
+    {
+      "name": "any-scalar-identity",
+      "passed": true,
+      "source": "sources/any-scalar-identity.sfir",
+      "source_sha256": "8d51970526fd864aa612b183788dfefb1e25c150e37f83f6e2cd76e328b4c806",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-empty-list-arguments",
+      "passed": true,
+      "source": "sources/any-empty-list-arguments.sfir",
+      "source_sha256": "459775cee74db72260e2c2ab1504363a921b82fe0dd0f09e8403a4cbb4f6e881",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-ref-arguments",
+      "passed": true,
+      "source": "sources/any-ref-arguments.sfir",
+      "source_sha256": "9a2beeea88f1b28f66daf22e3cfd7046d0f689800dad6b1c620463bc079ace05",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-nested-container",
+      "passed": true,
+      "source": "sources/any-nested-container.sfir",
+      "source_sha256": "1cf3be13a3d880405135d6e87dac1a03d4653e4488135df7d1d647acbeb6b633",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-function-domains",
+      "passed": true,
+      "source": "sources/any-function-domains.sfir",
+      "source_sha256": "d48901c1ce5772650d3478948a579f5d1057a94727dfb44f64c65c4bad7952fd",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-function-results",
+      "passed": true,
+      "source": "sources/any-function-results.sfir",
+      "source_sha256": "3302996f1e97a33330bd4d30f9629eb9c11ed23969b2c2499cc89c1a224f2c76",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-fixed-versus-rest",
+      "passed": true,
+      "source": "sources/any-fixed-versus-rest.sfir",
+      "source_sha256": "16992f1bdca4114fb373bdbe00d9be607b3535327111e3233fcbbc62d4452ab5",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-phantom-arguments",
+      "passed": true,
+      "source": "sources/any-phantom-arguments.sfir",
+      "source_sha256": "b07ff540ef16d7bc2261929b835a9620ffe261e4ea26dc8d8101cf73f2227492",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-nominal-identity",
+      "passed": true,
+      "source": "sources/any-nominal-identity.sfir",
+      "source_sha256": "b848f8313b5db84ef8c5fba614abedff0d0d370e9c6f449f241bd70168c1fad7",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-mutable-alias",
+      "passed": true,
+      "source": "sources/any-mutable-alias.sfir",
+      "source_sha256": "6da86b2d8342518ca7ea73019d4488490ad1f5dd2f07491c70cce2c41cd91a16",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "any-projection-required",
+      "passed": true,
+      "source": "sources/any-projection-required.sfir",
+      "source_sha256": "78fa83081b42f023ecfe588e363e4a7271cc83d04ffc60dc670046aa60de90f0",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "value-mutable-alias",
+      "passed": true,
+      "source": "sources/value-mutable-alias.sfir",
+      "source_sha256": "293f6c3f6abbfe987b2ee2a1d8af027c84605c7e25eecb1ec2eca050318aa51f",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "value-captured-mutable",
+      "passed": true,
+      "source": "sources/value-captured-mutable.sfir",
+      "source_sha256": "f7c1887b6736ca122eff6b1ec546d1959a5b1e751f3c80c1852796f768753dfc",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "value-explicit-all-alias",
+      "passed": true,
+      "source": "sources/value-explicit-all-alias.sfir",
+      "source_sha256": "c3c659c5cae50922204c402c9f8ba95cac648cda1a298c1df1e9ce4e4c6fa29a",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "value-allocation-factory",
+      "passed": true,
+      "source": "sources/value-allocation-factory.sfir",
+      "source_sha256": "a0e1f6973f8db42fdf0b96feaf09b7a27968c9b1fd5743b8211e4f9674ed050e",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "instance-duplicate",
+      "passed": true,
+      "source": "sources/instance-duplicate.sfir",
+      "source_sha256": "505d55423d62bca9d8511d5aa4783072007e76c18a62e73917758c149fa803b2",
+      "result_file": "logs/behavior/results.json"
+    },
+    {
+      "name": "instance-no-unknown-guess",
+      "passed": true,
+      "source": "sources/instance-no-unknown-guess.sfir",
+      "source_sha256": "1e85870830c4f32e91aae4c312744b0e457c88fec6cc5c9124daac9ccaab3223",
+      "result_file": "logs/behavior/results.json"
+    }
+  ],
+  "additional_checks": {
+    "host": "logs/any-projection-host.json",
+    "surface83": "logs/projection-surface.json",
+    "existing_polymorphism14": "logs/projection-related/results.json",
+    "existing_class20": "logs/related-integration/results.json",
+    "recursive_groups12_rejections_4_executions": "logs/projection-recursion/attempt-qi1shahz/results.json",
+    "lexical_native": "logs/lexical-native/results.json",
+    "closed_native": "logs/closed-native/results.json",
+    "behavior_native": "logs/behavior-native/results.json",
+    "diamond": "logs/instance-diamond/results.json",
+    "unused_generic_forward_alias": "logs/generic-forward-alias/results.json",
+    "tail": "logs/tail-final/results.json",
+    "tail_optimized_wat": "logs/tail-final/optimized.wat",
+    "tail_optimized_call_summary": "logs/tail-final/optimized-call-summary.txt"
+  },
+  "tail_contract": {
+    "iterations_raw_optimized_native": 1000000,
+    "forced_gc_native_iterations": 10000,
+    "native_gc_interval": 1,
+    "retained_optimized_arities": [
+      2,
+      12
+    ],
+    "retained_optimized_calls": [
+      "return_call_ref $call2",
+      "return_call_ref $call0"
+    ],
+    "retained_managed_state": "Ref I64; fresh struct.new remains in narrow tail caller",
+    "native_guest_identical_to_optimized_wasm": true,
+    "source": "sources/tail-changed-arity.sfir",
+    "entry": "sources/tail-entry.c"
+  },
+  "notes": [
+    "Initial three behavior failures were fixture/harness mistakes, corrected with the same compiler: rest lambda changed from (a rest) to (a . rest), and trapping order probes moved after successful Unit main initialization so exported state can be observed.",
+    "Unit public main returns JavaScript undefined and C void. Initial tail harness expected integer zero; corrected harness follows Unit ABI.",
+    "The first tail probes were optimized into a self-call, so their native runs do not establish alternating arity. Only tail-final is the authoritative changing-arity stress; optimized WAT retains two- and twelve-argument indirect tail calls and managed Ref allocation.",
+    "Native outcomes use actual execution and compare the optimized native guest to the separately optimized Wasm bytes; these are correctness checks, not performance measurements.",
+    "make check scheme formatting passes, then the old isolated base fails unrelated ir.sld lines 432-434 over 100 columns; parent fixed those separately.",
+    "All original logs and large native executables remain under /tmp/sfir-conformance-audit-evidence-20261015. Bundle includes command/output logs and Wasm guests, excluding native build products and executables."
+  ],
+  "bundle": {
+    "file": "20261015-book-contracts.tar.gz",
+    "sha256": "dda69c48119483f1232a14b8c4217e4a86bc157177c498d2eef8ecb1a562f455",
+    "bytes": 291191,
+    "index": "index.json",
+    "readme": "README.md"
+  },
+  "integration_note": "The tested compiler tree is 71e6cc09; its projection fix is integrated as fb265367. Numeric-literal precision changes and the execution adapter in the integrated branch were separately validated by the parent and are outside this audit."
+}
