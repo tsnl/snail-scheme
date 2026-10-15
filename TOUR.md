@@ -4,8 +4,8 @@ Chibi hosts the compiler implementation. The supported input is located SFIR,
 with no Scheme expander or interpreter in the compilation pipeline.
 
 ```text
-SFIR text → located syntax → parsed library values → resolved IR → inferred/checkable IR
-          → concrete specializations → WasmGC → Binaryen
+SFIR text → located syntax → parsed library values → resolved source + binding/scope checking
+          → concrete demand summaries → source-based WasmGC generation → Binaryen
           → linked Wasm reactor → Binaryen → V8/WASI
           → mechanical LLVM lowering → native linker → 64-bit executable
 ```
@@ -60,8 +60,9 @@ same parsed consumer can be resolved against different provider maps.
 [`snail-scheme/library.sld`](src/snail-scheme/library.sld) records the resulting
 resolved imports and exports. Dependency traversal initializes each library
 identity once before its users. [`ir.sld`](src/snail-scheme/ir.sld) holds the shared
-expression and binding records, initially with type holes and attached declared
-signatures. Immutable `LibraryId` and `BindingId` origins survive resolution and
+source expression and binding records. Expressions have no inferred type or
+constraint fields; binding definitions retain attached declarations and schemes.
+Immutable `LibraryId` and `BindingId` origins survive resolution and
 checking copies; mutable definition objects are canonical within their own graph.
 [`signatures.sld`](src/snail-sfir/signatures.sld) retains quantified source type
 identities. A hole is missing compile-time information, never an implicit Any.
@@ -72,11 +73,16 @@ the source surface uses `Any`.
 
 [`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
 rigid quantified variables, unification, substitution, schemes and subtyping.
-[`strict-core.sld`](src/snail-scheme/strict-core.sld) records the checked program
-and its class evidence.
+[`strict-core.sld`](src/snail-scheme/strict-core.sld) records immutable source,
+binding schemes, lexical scopes, the program result type and class evidence.
+[`strict-pass.sld`](src/snail-scheme/strict-pass.sld) defines the small `pass` record
+and shared source-arm dispatch. Typing rules receive returned child judgments;
+the visitor owns scope and expected-type dependencies.
 
 [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) checks every body, including
-unused functions, on an owned copy of the resolved graph. Each lexical block
+unused functions, on an owned binding graph without mutating source expressions.
+Transient judgments contain no child judgments; only binding and scope summaries
+survive checking. Each lexical block
 builds direct dependencies once and groups mutually recursive bindings. Group
 members retain source order. Overload-row readiness is checked separately as
 signatures become known; this never reorders runtime initializers. Mutable
@@ -95,24 +101,36 @@ initialization and retain premature-read traps.
 [`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) resolves complete
 argument/result constraints with coherent class requirements.
 [`strict-data.sld`](src/snail-scheme/strict-data.sld) prepares nominal data,
-constructors and fields. Matching checks exhaustiveness and lowers to ordinary
-bindings and branches. [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
+constructors and fields. Matching checks exhaustiveness and retains pattern binding
+types; generation emits field reads and branches directly from source arms.
+[`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
 assigns concrete operation signatures. Explicit Any conversions preserve the
 checks required at dynamic boundaries.
 
 ## Concrete code and storage
 
-[`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) copies demanded
-concrete implementations. A source site owns initialization, a value owns a
-concrete payload, and a function owns code. Sharing code does not duplicate
-initialization. Captures, forward-read guards, class evidence and export
-signatures remain explicit. Unsupported specialization is a compilation error.
+[`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) reserves demanded
+implementations in a persistent SRFI 146 hash map and drains a pending list.
+Source identity, concrete quantifier substitutions and lexical instance identity
+select stable IDs before recursive requests. A site owns initialization, a value
+owns a concrete payload, and a function owns code. Summary discovery records
+reads and nested closures, then settles capture requirements without constructing
+a concrete expression tree. Source-order initialization and erased alias readiness
+checks remain separate from code demand.
 
-[`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld) maps these concrete types to
-Wasm scalars, structs, arrays and function references. It emits operations and
-checks directly, using typed storage for container elements. The shared
-[`wasm.sld`](src/snail-scheme/wasm.sld) only serializes Wasm data; the old Scheme
-emitter has been removed.
+[`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld) supplies emission operations
+to the explicit interleaved source visitor. Concrete typing replay and generated
+children feed those operations; target code is emitted after capture/storage
+summaries settle. Scalars, structs, arrays, precise Any witnesses and tail calls
+retain their existing Wasm contracts. Emission checks that demand is already
+complete. The shared [`wasm.sld`](src/snail-scheme/wasm.sld) serializes Wasm data.
+
+Current replay can repeat subtree typing and become quadratic on deeply nested
+source. Local procedures use ordinary closures; direct primitive/foreign/data
+operations and known worker calls remain. Closure elimination and proven-global
+readiness-check elimination are deferred. Private target local/layout registries
+remain mutable. These [implementation tradeoffs](doc/ir.md#current-tradeoffs) are
+separate from language semantics and measured runtime performance.
 
 [`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes.
 The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks

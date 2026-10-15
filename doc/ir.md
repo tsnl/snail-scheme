@@ -2,7 +2,8 @@
 
 The direct [frontend](../src/snail-sfir/frontend.sld) turns located s-expressions
 into the expression and binding records in [ir.sld](../src/snail-scheme/ir.sld).
-It resolves names and attaches declared types or inference holes. It does not
+It resolves names and attaches binding declarations. Expressions have no inferred
+type or constraint fields. The frontend does not
 expand macros, infer types or optimize expressions.
 
 ## Identity and scope
@@ -36,8 +37,8 @@ an expression `begin` remains a nested scope.
 | Object | Information it retains |
 | --- | --- |
 | Binding | Identity, source location, initializer, attached declaration and inferred scheme |
-| Expression | Source location, operation and type slot |
-| Source literal | Decoded value and original numeric spelling; checking selects and rounds its representation once |
+| Expression | Source location, operation and source children |
+| Source literal | Decoded value and original numeric spelling; transient typing selects and rounds its representation |
 | Reference | The resolved binding being read |
 | Lambda | Positional parameters, optional rest parameter and body |
 | Application | Operator and ordered argument expressions |
@@ -50,28 +51,78 @@ A hole means that inference must solve a type, never that a value should be
 boxed into `Any` (currently spelled `Top` inside the solver). Declared signatures belong to their definitions; no later
 pass must guess which same-named overload a detached annotation describes.
 
-## Pass ownership
+## Checking and generation
 
-Inference takes an owned copy of the resolved graph. It plans binding dependency
-groups once, checks explicit quantifiers rigidly, solves constraints and
-retains generalized schemes and class requirements. Dependency groups establish
-checking order; they do not change runtime initializer order. Mutable state
-limits generalization.
+Inference owns a copy of the resolved binding graph, preserving immutable binding
+origins. Expressions contain only kind, location and source data. Frontend import
+resolution and graph copying have a construction-only data setter; checking and
+emission never use it. The completed program retains source, binding schemes,
+lexical scopes, its result type, and class evidence. There is no expression-type
+map and no lowered or monomorphized expression tree.
 
-For a recursive group with quantified annotations, a private source copy solves
-the group's monomorphic template before the original bodies are checked against
-their rigid signatures. `copy-ir-graph` accepts one optional identity mapping:
-mapped objects and their children remain owned by the enclosing check, while
-unmapped group nodes and binders are copied. This preserves external nominal,
-class and type-variable identities without cloning their dependency graphs.
-Checked name nodes retain their ordinary binding and substitution evidence for
-specialization; the private template does not become executable IR.
+The Scheme record `pass` names callable operations for each source arm. Its shared
+visitor dispatches the arm; structural visitors arrange child dependencies and
+supply returned judgments to separate typing rules. The concrete visitor manually
+interleaves typing, child generation and emission operations. It is explicit code,
+not a higher-order pass-interleaving combinator.
 
-Specialization requests concrete instances of those checked templates and
-resolves overloads and class methods for each instance. It retains explicit
-conversions, concrete function signatures and storage types. Unresolved runtime
-polymorphism is an error. The concrete program then supplies Wasm function,
-closure and data layouts to the emitter.
+Every body is checked, including unused functions. Each block plans binding
+recursion groups before checking. A quantified recursive group first solves a
+private monomorphic relation, then checks the source bodies with independent
+rigid interpretations. The optional identity mapping of `copy-ir-graph` preserves
+enclosing nominal, class and type-variable identities at that boundary.
+
+Expression judgments are temporary records containing the current arm's type,
+obligations and immediate result information. They contain no child judgments.
+Binding summaries retain only initializer type, obligations, nonexpansiveness and
+the lexical proof scope; they do not retain arm details. Those obligations are
+saturated after enclosing monotypes settle and discharged before generation.
+The private solver still mutates unification holes and owned binding schemes.
+
+## Concrete demand and storage
+
+A persistent SRFI 146 hash map reserves stable IDs before appending implementation
+requests to a pending list. A binding request is keyed by lexical site, concrete
+type and indexed concrete quantifier substitutions. Function requests include the
+source identity and concrete lexical instance identity. No cache key contains a
+unification variable. Requests reuse reserved IDs, including during recursion;
+there is no mutable pending/emitted status object. The visitor threads each
+returned context through subsequent siblings.
+
+Generation first drains source-based implementation requests to discover storage,
+reads and nested closures. Only binding/function summaries survive this stage.
+A capture fixed point propagates the values required to construct nested closures,
+excluding each function's own locals and globals. Each demanded body is then
+emitted from source after its storage and capture layouts are settled. Emission
+asserts that it introduces no unplanned implementation IDs.
+
+A source site owns initialization; a concrete value owns its payload; a function
+owns code. Demanding code does not execute an initializer. All source bind events
+remain in order, including unused effects and unused polymorphic alias reads.
+Forward reads use readiness guards. A readiness token preserves an erased alias's
+source read even when no payload specialization is demanded. Captured recursive
+bindings use shared cells; parameter and pattern values are captured directly.
+
+Runtime operands evaluate from left to right before the operator. Type replay can
+inspect the operator earlier to determine operand expectations. Explicit Any
+conversions retain precise semantic type witnesses, including nominal identities.
+Proper tail calls remain target tail calls, including a Unit-valued call followed
+only by an inert Unit constructor.
+
+## Current tradeoffs
+
+Concrete generation conservatively replays typing for a subtree before emitting
+its arm. This settles representations without retaining expression annotations,
+but repeated replay can be quadratic for deeply nested expressions. It is an
+explicit scheduling limitation, not a claim that functional passes require that
+cost. Restricting replay to unresolved constraint boundaries is future work.
+
+Local functions currently use ordinary closures. Primitive, foreign and data
+operations still emit directly, and known closure workers use direct calls, but
+removing closures for exclusively invoked local functions and eliding proven global
+readiness checks are deferred optimizations. The emitter's private local/layout
+registries remain mutable; the demand graph and worklist are persistent values.
+No native lowering or runtime ownership protocol changes with this representation.
 
 The [tour](../TOUR.md) names each implementing module. The internal
 `snail-scheme`/`strict-*` module names are migration remnants; they do not expose

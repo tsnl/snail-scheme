@@ -10,8 +10,8 @@
           (snail-scheme strict-specialize) (snail-scheme strict-wasm)
           (only (snail-scheme strict-types) strict-error resolve scheme-variables scheme-type
                 function-type? function-domains function-result)
-          (only (snail-scheme strict-core) program-globals)
-          (only (snail-scheme ir) node-type node-loc node-data binding-kind binding-payload
+          (only (snail-scheme strict-core) program-globals program-type)
+          (only (snail-scheme ir) node-loc node-data binding-kind binding-payload
                 binding-origin binding-scheme binding-initializer value-definition-loc
                 make-value-definition make-value-binding make-name)
           (only (snail-scheme source) loc?)
@@ -77,12 +77,12 @@
              (core (resolved-library->core root (make-value-binding abi (make-name public loc) loc)))
              (checked (checked-binding core (binding-origin abi))))
         (check-entry-function checked)
-        (monomorphize-entry core checked)))
+        (prepare-entry-generation core checked)))
     (define (compile libraries entry target)
       (unless (target? target) (error "compile requires a target value" target))
       (guard (failure (else (raise-source-diagnostic failure)))
         (let* ((program (entry-program libraries entry))
-               (type (value-type (cdar (mono-program-exports program)))))
+               (type (value-type (cdar (prepared-exports program)))))
           (emit-artifact (strict-core->wasm program) entry
                          (map resolve (function-domains type)) (resolve (function-result type)) target))))
 
@@ -116,8 +116,8 @@
                                   (begin (increment 41)))"))
                (libraries (list (cons '(sfir primitive) primitive) (cons '(test math) provider)
                                 (cons '(test app) app))))
-          (expect (resolve (node-type (program-body (library-map->core libraries '(test app))))) 'I32)
-          (expect (resolve (node-type (program-body (library-map->core libraries '(test app))))) 'I32)
+          (expect (resolve (program-type (library-map->core libraries '(test app)))) 'I32)
+          (expect (resolve (program-type (library-map->core libraries '(test app)))) 'I32)
           (expect (scoped-reference?
                    (name-definition (application-operator
                                      (lambda-body (value-binding-initializer
@@ -134,9 +134,9 @@
                (origin (binding-origin (cdr (assq 'worker (sfir-library-bindings provider))))))
           (for-each
            (lambda (entry)
-             (let* ((program (entry-program libraries entry)) (exports (mono-program-exports program))
+             (let* ((program (entry-program libraries entry)) (exports (prepared-exports program))
                     (initializer (value-initializer (cdar exports)))
-                    (selected (value-source (car (node-data initializer)))))
+                    (selected (car (node-data initializer))))
                (expect (map car exports) '(entry))
                (expect (eq? (binding-origin selected) origin) #t)
                (expect (function-result (value-type (cdar exports))) 'I64)))
@@ -168,10 +168,10 @@
                                 (cons '(sfir primitive) (make-primitive-library primitive-names)))))
           (for-each (lambda (case)
                       (let ((program (entry-program libraries (make-entry '(test entries) (car case)))))
-                        (expect (function-result (value-type (cdar (mono-program-exports program)))) (cdr case))))
+                        (expect (function-result (value-type (cdar (prepared-exports program)))) (cdr case))))
                     '((inferred . I64) (foreign . I32)))
           (let ((program (entry-program libraries (make-entry '(sfir primitive) 'i32-add))))
-            (expect (function-domains (value-type (cdar (mono-program-exports program)))) '(I32 I32)))))
+            (expect (function-domains (value-type (cdar (prepared-exports program)))) '(I32 I32)))))
       (define (test-compiler)
         (run-test test-map-compilation)
         (run-test test-entry-identity)

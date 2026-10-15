@@ -1,7 +1,7 @@
-;; Program-wide static evidence accompanies the shared IR. Expression and
-;; definition records live in ir.sld throughout expansion, checking and copying.
+;; Checked programs retain source, binding schemes, lexical scopes and static
+;; class evidence. Expression typing results never become part of this record.
 (define-library (snail-scheme strict-core)
-  (export make-program program? program-body program-globals program-classes program-instances
+  (export make-program program? program-body program-globals program-classes program-instances program-type program-scopes
           make-class class? class-definition class-variables class-methods class-overload?
           make-instance instance? instance-class instance-types instance-members instance-scheme set-instance-scheme! instance-row)
   (import (scheme base) (only (snail-scheme strict-types) scheme-type))
@@ -10,9 +10,10 @@
     ;; ---- Checked compilation roots ----
 
     (define-record-type <program>
-      (make-program body globals classes instances) program?
+      (make-program body globals classes instances type scopes) program?
       (body program-body) (globals program-globals)
-      (classes program-classes) (instances program-instances))
+      (classes program-classes) (instances program-instances)
+      (type program-type) (scopes program-scopes))
 
     ;; ---- Static class evidence ----
 
