@@ -4,7 +4,7 @@
           reference-directory copy-file! copy-tree! reference-execute generated-files
           json-items text-position replace-text first-count-one)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
-          (scheme process-context) (chibi filesystem) (chibi pathname) (chibi json)
+          (scheme process-context) (chibi filesystem) (chibi pathname)
           (chibi crypto sha2) (chibi regexp) (only (chibi string) string-prefix? string-suffix? string-split string-trim) (srfi 1) (srfi 95)
           (only (srfi 130) string-contains string-cursor->index)
           (snail-tools process) (snail-tools native-build) (wasm-reference audit))
@@ -99,8 +99,11 @@
         (read-text path)))
     (define (compile-chez-source source artifact)
       (let ((script (string-append artifact ".compile.scm")))
-        (write-text script (string-append "(import (chezscheme))\n(parameterize ((optimize-level 2)) (compile-program "
-                                          (json->string source) " " (json->string artifact) "))\n"))
+        (call-with-output-file script
+          (lambda (port)
+            (write '(import (chezscheme)) port) (newline port)
+            (write `(parameterize ((optimize-level 2)) (compile-program ,source ,artifact)) port)
+            (newline port)))
         (let ((command (list (tool-name "CHEZ" "scheme") "--script" script))) (run-command! command) command)))
     (define (prepare-case root name output)
       (let* ((directory (path-join output "cases" name)) (artifact (path-join directory "program.wasm"))

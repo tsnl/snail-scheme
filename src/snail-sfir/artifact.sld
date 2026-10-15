@@ -8,7 +8,7 @@
           emit-artifact)
   (import (scheme base) (scheme file) (scheme write)
           (only (chibi temp-file) call-with-temp-dir)
-          (only (chibi json) json->string)
+          (only (snail-tools json) json->string)
           (snail-scheme build-host) (snail-scheme chromium-trace)
           (snail-scheme wasm-optimize) (snail-scheme native)
           (snail-scheme wasm-read) (snail-sfir native-entry)

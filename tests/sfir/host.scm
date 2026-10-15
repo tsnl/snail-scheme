@@ -20,6 +20,7 @@
         (only (snail-sfir execute-native) test-native-execution)
         (only (snail-tools native-build) test-native-build)
         (only (snail-tools json) test-json)
+        (only (snail-tools process) test-process)
         (only (snail-sfir numeric-literals) test-numeric-literals)
         (only (snail-scheme strict-types) test-strict-types)
         (only (snail-scheme strict-infer) test-strict-infer)
@@ -33,6 +34,7 @@
 (test-native-execution)
 (test-native-build)
 (test-json)
+(test-process)
 (call-with-temp-dir
  "sfir-unit-traces"
  (lambda (directory preserve)

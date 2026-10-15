@@ -2,7 +2,7 @@
 (define-library (snail-tools view-traces)
   (export view-traces-main)
   (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write) (scheme process-context)
-          (chibi filesystem) (chibi pathname) (chibi json) (chibi net) (chibi net server)
+          (chibi filesystem) (chibi pathname) (snail-tools json) (chibi net) (chibi net server)
           (only (chibi) port-fileno) (only (chibi mime) mime-type-from-extension)
           (only (chibi process) execute set-signal-action! signal/pipe signal/interrupt)
           (only (chibi string) string-prefix? string-contains string-split string-trim string-trim-left
