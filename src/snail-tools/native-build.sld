@@ -1,7 +1,7 @@
 ;; Native builds keep one path: optimized Wasm, LLVM object, Cargo-linked Rust.
 (define-library (snail-tools native-build)
   (export rust-bindings runtime-bindings check-provider-bindings
-          llvm-object link-native-object native-cargo-environment build-native-main
+          llvm-object link-native-object native-cargo-environment native-system-environment build-native-main
           ensure-native-supervisor)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
           (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
@@ -110,41 +110,46 @@
     (define (native-cargo-environment directory)
       (let ((flags (native-linker-flags directory)))
         (list (cons "CARGO_ENCODED_RUSTFLAGS" (string-join flags (string (integer->char 31)))))))
+    (define (native-system-environment)
+      (list (cons "SNAIL_NATIVE_LIBC" (libc-directory)) (cons "SNAIL_NATIVE_GCC" (gcc-directory))))
     (define (cargo-build manifest target directory)
       (run-command! (list (tool-name "CARGO" "cargo") "build" "--quiet" "--offline" "--release"
                           "--manifest-path" manifest "--target-dir" target)
                     `((environment . ,(native-cargo-environment directory)))))
 
-    ;; ---- Opaque provider archives and a single shared runtime ----
+    ;; ---- Rust providers and a single shared runtime ----
 
-    (define (provider-archive provider index directory)
+    (define (provider-crate provider index directory)
       (let* ((name (string-append "sfir_provider_" (number->string index)))
-             (crate (path-join directory name)) (target (path-join crate "target")))
+             (crate (path-join directory name)))
         (create-directory* crate)
         (write-text (path-join crate "Cargo.toml")
                     (string-append "[package]\nname = " (json->string name) "\nversion = \"0.0.0\"\nedition = \"2024\"\n"
-                                   "[lib]\ncrate-type = [\"staticlib\"]\npath = " (json->string (cadr provider))
-                                   "\n[profile.release]\npanic = \"abort\"\nlto = false\ncodegen-units = 1\n"))
-        (cargo-build (path-join crate "Cargo.toml") target directory)
-        (path-join target "release" (string-append "lib" name ".a"))))
-    (define (write-link-package root object entry archives directory)
+                                   "[lib]\npath = " (json->string (cadr provider)) "\n"))
+        (cons name crate)))
+    (define (write-link-package root object entry providers directory)
       (write-text (path-join directory "Cargo.toml")
                   (string-append "[package]\nname = \"sfir-native-program\"\nversion = \"0.0.0\"\nedition = \"2024\"\n"
-                                 "[[bin]]\nname = \"program\"\npath = " (json->string entry)
+                                 "[[bin]]\nname = \"program\"\npath = \"main.rs\""
                                  "\n[dependencies]\nsnail-runtime = { path = " (json->string root)
                                  ", features = [\"native-runtime\"] }\n"
+                                 (apply string-append (map (lambda (provider)
+                                                             (string-append (car provider) " = { path = "
+                                                                            (json->string (cdr provider)) " }\n")) providers))
                                  "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1\n"))
+      ;; LLVM has already emitted machine code. Rust LTO can optimize its own
+      ;; crates but cannot see through the guest's foreign calls to providers.
+      (write-text (path-join directory "main.rs")
+                  (string-append (apply string-append (map (lambda (provider) (string-append "extern crate " (car provider) " as _;\n")) providers))
+                                 "include!(" (json->string entry) ");\n"))
       (write-text (path-join directory "build.rs")
-                  (string-append "fn main() {\n"
-                                 (apply string-append
-                                        (map (lambda (path) (string-append "    println!(\"cargo:rustc-link-arg={}\", "
-                                                                           (json->string path) ");\n"))
-                                             (cons object archives))) "}\n")))
+                  (string-append "fn main() {\n    println!(\"cargo:rustc-link-arg={}\", "
+                                 (json->string object) ");\n}\n")))
     (define (link-native-object root object entry providers directory)
-      (let ((archives (map (lambda (provider index) (provider-archive provider index directory))
-                           providers (iota (length providers))))
+      (let ((crates (map (lambda (provider index) (provider-crate provider index directory))
+                         providers (iota (length providers))))
             (target (path-join root "build" "native-programs")))
-        (write-link-package root object entry archives directory)
+        (write-link-package root object entry crates directory)
         (create-directory* target)
         (let ((lock (open (path-join target "publish.lock") (bitwise-ior open/write open/create) #o600)))
           (unless lock (error "cannot lock the native Cargo output"))
