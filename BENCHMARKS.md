@@ -257,7 +257,7 @@ Snail is not fully R7RS compliant. Reusable, multi-shot continuations are outsid
 the intended language; the current backend rejects `call/cc` entirely. Single-shot
 delimited continuations and coroutines are planned, and other conformance gaps
 remain. Unsupported continuation workloads stay visible in the suite report.
-See [the roadmap](TODO.md) and [backend guide](doc/backend.md).
+See [the roadmap](doc/roadmap.md) and [backend guide](doc/backend.md).
 
 [The benchmark guide](benchmarks/README.md) retains historical measurements,
 other workloads, and compiler-latency results.

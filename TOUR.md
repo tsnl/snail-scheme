@@ -917,6 +917,10 @@ coverage table retains failed and unported workloads.
 extends the scalar-I/O experiment to Unicode character/word/line counting inside
 the frozen legacy harness, with native counts and an owned input-port wrapper.
 
+The [TODO tracking issue](https://github.com/tsnl/snail-scheme/issues/11) and
+[repository roadmap](doc/roadmap.md) track outstanding implementation work.
+The roadmap preserves later tasks while the issue coordinates their status.
+
 ## Actor and HTML prototypes
 
 `source-library->wasm` in `compiler.sld` loads an actor library and its
