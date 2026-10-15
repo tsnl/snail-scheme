@@ -7,11 +7,12 @@ bare `main.sfir` when its complete port exists. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
-There are currently 51 static SFIR programs. Forty-nine were serialized once
+There are currently 53 static SFIR programs. Forty-nine were serialized once
 from the resolved IR of reviewed complete ports, including Peval, Pi and
 Chudnovsky. Cat and WC have complete direct SFIR character loops and file
-lifecycles and matching adapted Chez controls. Compiler,
-CTak, Fibc, Dynamic, Scheme and SLaTeX still need complete SFIR sources. The
+lifecycles and matching adapted Chez controls. CTak and Fibc preserve call/cc behavior with explicit immutable continuation
+variants and matching original call/cc traces. Compiler, Dynamic, Scheme and
+SLaTeX still need complete SFIR sources. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
 
