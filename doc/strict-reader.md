@@ -53,7 +53,8 @@ interchangeable with legacy symbols or compiler enumeration symbols.
 Refs; `datum-car`, `datum-cdr`, `datum-set-car!` and `datum-set-cdr!` expose their
 ordinary aliasing. Strings, vectors and bytes retain their existing mutable
 storage. The reader constructs acyclic data. Applications can create cycles via
-mutation, but the initial `datum=?` contract covers finite acyclic data only.
+mutation; `datum=?` compares finite graphs by their structural unfoldings,
+including shared subgraphs and differently shaped but equivalent cycles.
 
 `datum-null?`, `datum-pair?` and `datum-truth?` classify these values; only a
 false Boolean datum is false, so the null datum remains true in a condition.
@@ -70,6 +71,36 @@ The public `datum-pair` constructor can also make two views of the same two Refs
 those views are aliases under this contract. Sharing only one field is not pair
 identity. This API does not claim distinct wrapper-allocation identity or every
 implementation-dependent choice of R7RS `eq?` for numbers.
+
+The public `datum-pair` and `datum-vector` names are ordinary constructor
+functions. Their internal variants are private, so callers cannot forge the
+immutable IDs used by equality. Recursive variants are no longer public match
+patterns. `datum-kind` returns the ordered tags 0 through 8 for null, Boolean,
+character, string, symbol, number, pair, vector and bytevector. Read-only
+projections expose the corresponding contents; `datum-car` and `datum-cdr`
+return stored datums without allocating fresh views.
+
+Each recursive view carries one positive I64 ID in addition to its existing
+fields. Creating an alias gives it a different ID while retaining the public
+storage identity above. A scalar counter supplies IDs and fails before
+exhaustion; it never retains an object or recycles an ID. `Ref` cells and direct
+WasmGC vector arrays keep their existing layouts.
+
+Equality owns an explicit continuation stack and an open-addressed table of
+ordered ID pairs. It records a comparison before descending, so a repeated edge
+terminates without cancelling the pending checks. All traversal calls are tail
+calls, including deep `car` chains. Input fields are never temporarily changed,
+and every call starts with a fresh table, so mutation between calls is visible.
+The table contains only integers, while pending continuations retain the Scheme
+values they still need. Neither structure escapes the call.
+
+With constant-time table operations, work is proportional to visited comparison
+pairs, their child obligations, and leaf-content comparisons. This is not a
+linear bound in arbitrary input graph size: cycles of coprime lengths can visit
+the product of those lengths. The deterministic arithmetic hash avoids ordinary
+sequential-ID correlations but can still suffer collisions. Union-find or a
+stronger identity-map contract is future work if that general cyclic worst case
+becomes significant.
 
 `i64->string` constructs a fresh decimal String for every signed I64, including
 the minimum value. Its digit loop uses a nonpositive magnitude so it never needs

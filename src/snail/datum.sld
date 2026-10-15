@@ -10,7 +10,8 @@
           Datum datum-null datum-boolean datum-character datum-string datum-symbol datum-number
           datum-pair datum-vector datum-bytevector datum=? datum-cons datum-car datum-cdr
           datum-set-car! datum-set-cdr! datum-number? datum-number-value datum-string-value datum-symbol-value
-          datum-null? datum-pair? datum-truth? datum-eq?
+          datum-null? datum-pair? datum-truth? datum-eq? datum-kind
+          datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
           datum-list datum-length datum-append datum-assq datum-map)
   (import (snail strict) (snail bytes))
   (begin
@@ -156,8 +157,9 @@
       (datum-string (value String datum-string-value))
       (datum-symbol (value Symbol datum-symbol-value))
       (datum-number (value Number datum-number-value))
-      (datum-pair (first (Ref Datum) datum-first) (rest (Ref Datum) datum-rest))
-      (datum-vector (values (Vector Datum) datum-vector-values))
+      (pair-datum (first (Ref Datum) datum-first) (rest (Ref Datum) datum-rest)
+                  (identity I64 pair-datum-identity))
+      (vector-datum (values (Vector Datum) datum-vector-values) (identity I64 vector-datum-identity))
       (datum-bytevector (values Bytevector datum-bytevector-values)))
 
     ;; ---- A shared result for atom interpretation and incremental input ----
@@ -187,6 +189,22 @@
 
     ;; ---- Explicit mutable pair fields ----
 
+    ;; These private constructors attach IDs to immutable views, not to storage.
+    ;; Two views of the same Refs/array may have different IDs; datum-eq? below
+    ;; still reports their shared storage. Child reads return the stored view.
+    ;; Never recycling an ID lets a comparison remember it without rooting the
+    ;; object. The only global state is a scalar; it retains no Scheme graph.
+    (define next-datum-identity (ref 1))
+    (: fresh-datum-identity (-> I64))
+    (define (fresh-datum-identity)
+      (let ((identity (ref-get next-datum-identity)))
+        (if (= identity 9223372036854775807)
+            (datum-fail "datum: recursive view identity exhausted")
+            (begin (ref-set! next-datum-identity (+ identity 1)) identity))))
+    (: datum-pair (-> (Ref Datum) (Ref Datum) Datum))
+    (define (datum-pair first rest) (pair-datum first rest (fresh-datum-identity)))
+    (: datum-vector (-> (Vector Datum) Datum))
+    (define (datum-vector values) (vector-datum values (fresh-datum-identity)))
     (: datum-cons (-> Datum Datum Datum))
     (define (datum-cons first rest) (datum-pair (ref first) (ref rest)))
     (: datum-car (-> Datum Datum))
@@ -202,7 +220,7 @@
       (match value
         ((datum-null) 0) ((datum-boolean value) 1) ((datum-character value) 2)
         ((datum-string value) 3) ((datum-symbol value) 4) ((datum-number value) 5)
-        ((datum-pair first rest) 6) ((datum-vector values) 7) ((datum-bytevector values) 8)))
+        ((pair-datum first rest identity) 6) ((vector-datum values identity) 7) ((datum-bytevector values) 8)))
     (: datum-number? (-> Datum Bool))
     (define (datum-number? value) (= (datum-kind value) 5))
     (: datum-null? (-> Datum Bool))
@@ -230,9 +248,9 @@
              ((datum-string left) (string-eq? left (datum-string-value right)))
              ((datum-symbol left) (symbol=? left (datum-symbol-value right)))
              ((datum-number left) (number-equivalent? left (datum-number-value right)))
-             ((datum-pair first rest)
+             ((pair-datum first rest identity)
               (and (ref-eq? first (datum-first right)) (ref-eq? rest (datum-rest right))))
-             ((datum-vector left) (vector-eq? left (datum-vector-values right)))
+             ((vector-datum left identity) (vector-eq? left (datum-vector-values right)))
              ((datum-bytevector left) (bytevector-eq? left (datum-bytevector-values right))))))
 
     ;; ---- Proper list operations preserve elements and shared suffixes ----
@@ -260,30 +278,133 @@
           (let ((head (procedure (datum-car values))))
             (datum-cons head (datum-map procedure (datum-cdr values))))))
 
-    ;; Finite acyclic structural equality. Mutation can create cycles, but
-    ;; cycle-aware equality and datum-label input are outside this API contract.
-    ;; The exhaustive dispatch keeps each representation's equality visible.
+    ;; ---- Query-local comparison history ----
+
+    ;; Remember ordered pairs of recursive view IDs before following children.
+    ;; Reaching that comparison again closes a cycle or skips an already shared
+    ;; subgraph. It does not assert a one-to-one mapping between the two graphs:
+    ;; one-node and two-node cycles with the same unfolding compare equal.
+    ;;
+    ;; Zero is the empty key. At most half the slots are occupied, so every
+    ;; probe terminates. The arrays contain only scalar IDs and are discarded
+    ;; after this call. Neither comparison history nor pending work escapes.
+    ;; Work is proportional to the visited comparison pairs with well-distributed
+    ;; hashes, not necessarily to input nodes: coprime cycle lengths can visit
+    ;; their product. Hash collisions can add linear probing work.
+    (define-data EqualityHistory
+      (equality-history (left (Ref (Vector I64)) history-left)
+                        (right (Ref (Vector I64)) history-right)
+                        (size (Ref I64) history-size)))
+    (: make-equality-history (-> EqualityHistory))
+    (define (make-equality-history)
+      (equality-history (ref (make-vector 32 0)) (ref (make-vector 32 0)) (ref 0)))
+    ;; Fold all three base-2^21 digits before reducing to a prime. A nonlinear
+    ;; final mix avoids the low-bit correlations of sequential/strided IDs.
+    ;; Every intermediate stays positive and below I64's maximum, including
+    ;; the square (2147483646^2). This is not an adversarial hash guarantee.
+    (: equality-identity-hash (-> I64 I64))
+    (define (equality-identity-hash identity)
+      (let ((high (quotient identity 4398046511104))
+            (middle (remainder (quotient identity 2097152) 2097152))
+            (low (remainder identity 2097152)))
+        (remainder (+ (* (+ (* high 48271) middle) 48271) low) 2147483647)))
+    (: equality-bucket (-> I64 I64 I64 I64))
+    (define (equality-bucket left right capacity)
+      (let ((hash (remainder (+ (* (equality-identity-hash left) 48271)
+                                (equality-identity-hash right)) 2147483647)))
+        (remainder (remainder (+ (+ (* hash hash) hash) 1) 2147483647) capacity)))
+    (: equality-slot (-> I64 I64 (Vector I64) (Vector I64) I64))
+    (define (equality-slot left right keys partners)
+      (let ((capacity (vector-length keys)))
+        (let loop ((index (equality-bucket left right capacity)))
+          (if (or (= (vector-ref keys index) 0)
+                  (and (= (vector-ref keys index) left) (= (vector-ref partners index) right)))
+              index (loop (if (= (+ index 1) capacity) 0 (+ index 1)))))))
+    (: place-equality-key! (-> I64 I64 (Vector I64) (Vector I64) Unit))
+    (define (place-equality-key! left right keys partners)
+      (let ((slot (equality-slot left right keys partners)))
+        (vector-set! keys slot left) (vector-set! partners slot right)))
+    (: rehash-equality-keys! (-> (Vector I64) (Vector I64) (Vector I64) (Vector I64) Unit))
+    (define (rehash-equality-keys! old-left old-right keys partners)
+      (let loop ((index 0))
+        (if (= index (vector-length old-left)) (unit)
+            (begin
+              (unless (= (vector-ref old-left index) 0)
+                (place-equality-key! (vector-ref old-left index) (vector-ref old-right index) keys partners))
+              (loop (+ index 1))))))
+    (: grow-equality-history! (-> EqualityHistory Unit))
+    (define (grow-equality-history! history)
+      (let* ((old-left (ref-get (history-left history))) (old-right (ref-get (history-right history)))
+             (capacity (vector-length old-left))
+             (grown (if (> capacity 1073741824) (datum-fail "datum=?: comparison history exhausted") (* capacity 2)))
+             (keys (make-vector grown 0)) (partners (make-vector grown 0)))
+        (rehash-equality-keys! old-left old-right keys partners)
+        (ref-set! (history-left history) keys) (ref-set! (history-right history) partners)))
+    (: equality-seen? (-> I64 I64 EqualityHistory Bool))
+    (define (equality-seen? left right history)
+      (when (= (* (ref-get (history-size history)) 2) (vector-length (ref-get (history-left history))))
+        (grow-equality-history! history))
+      (let* ((keys (ref-get (history-left history))) (partners (ref-get (history-right history)))
+             (slot (equality-slot left right keys partners)))
+        (if (= (vector-ref keys slot) left) #t
+            (begin (vector-set! keys slot left) (vector-set! partners slot right)
+                   (ref-set! (history-size history) (+ (ref-get (history-size history)) 1)) #f))))
+
+    ;; ---- Stack-safe equality of finite graphs ----
+
+    ;; Pending continuations live in traced Scheme data. Every recursive call
+    ;; below is a tail call, including descent through car and vector elements.
+    ;; Scalar comparison retains the existing exactness, NaN and zero rules.
+    ;; No input is mutated, no user procedure is called, and every call starts
+    ;; with fresh history, so later pair/vector mutation is visible immediately.
+    (define-data EqualityWork
+      (equality-done)
+      (equality-values (left Datum) (right Datum) (pending EqualityWork))
+      (equality-elements (left (Vector Datum)) (right (Vector Datum))
+                         (index I64) (pending EqualityWork)))
     (: datum=? (-> Datum Datum Bool))
     (define (datum=? left right)
-      (and (= (datum-kind left) (datum-kind right))
-           (match left
-             ((datum-null) #t)
-             ((datum-boolean left) (if left (datum-boolean-value right) (not (datum-boolean-value right))))
-             ((datum-character left) (char=? left (datum-character-value right)))
-             ((datum-string left) (string=? left (datum-string-value right)))
-             ((datum-symbol left) (symbol=? left (datum-symbol-value right)))
-             ((datum-number left) (number-equivalent? left (datum-number-value right)))
-             ((datum-pair first rest)
-              (and (datum=? (ref-get first) (datum-car right)) (datum=? (ref-get rest) (datum-cdr right))))
-             ((datum-vector left) (datum-vector=? left (datum-vector-values right)))
-             ((datum-bytevector left) (datum-bytes=? left (datum-bytevector-values right))))))
-    (: datum-vector=? (-> (Vector Datum) (Vector Datum) Bool))
-    (define (datum-vector=? left right)
-      (let ((count (vector-length left)))
-        (and (= count (vector-length right))
-             (let loop ((index 0))
-               (or (= index count)
-                   (and (datum=? (vector-ref left index) (vector-ref right index)) (loop (+ index 1))))))))
+      (or (datum-eq? left right)
+          (equality-compare left right (equality-done) (make-equality-history))))
+    (: equality-continue (-> EqualityWork EqualityHistory Bool))
+    (define (equality-continue work history)
+      (match work
+        ((equality-done) #t)
+        ((equality-values left right pending) (equality-compare left right pending history))
+        ((equality-elements left right index pending) (equality-vector left right index pending history))))
+    (: equality-pair (-> Datum Datum EqualityWork EqualityHistory Bool))
+    (define (equality-pair left right pending history)
+      (if (equality-seen? (pair-datum-identity left) (pair-datum-identity right) history)
+          (equality-continue pending history)
+          (equality-compare (datum-car left) (datum-car right)
+                            (equality-values (datum-cdr left) (datum-cdr right) pending) history)))
+    (: equality-vector (-> (Vector Datum) (Vector Datum) I64 EqualityWork EqualityHistory Bool))
+    (define (equality-vector left right index pending history)
+      (if (= index (vector-length left)) (equality-continue pending history)
+          (equality-compare (vector-ref left index) (vector-ref right index)
+                            (equality-elements left right (+ index 1) pending) history)))
+    (: equality-vector-datum (-> Datum Datum EqualityWork EqualityHistory Bool))
+    (define (equality-vector-datum left right pending history)
+      (let ((values (datum-vector-values left)) (others (datum-vector-values right)))
+        (and (= (vector-length values) (vector-length others))
+             (if (equality-seen? (vector-datum-identity left) (vector-datum-identity right) history)
+                 (equality-continue pending history)
+                 (equality-vector values others 0 pending history)))))
+    (: equality-compare (-> Datum Datum EqualityWork EqualityHistory Bool))
+    (define (equality-compare left right pending history)
+      (if (datum-eq? left right) (equality-continue pending history)
+          (and (= (datum-kind left) (datum-kind right))
+               (match left
+                 ;; Atomic equivalence already failed. Only distinct mutable
+                 ;; storage can still contain structurally equal values.
+                 ((datum-null) #f) ((datum-boolean value) #f) ((datum-character value) #f)
+                 ((datum-symbol value) #f) ((datum-number value) #f)
+                 ((datum-string text)
+                  (and (string=? text (datum-string-value right)) (equality-continue pending history)))
+                 ((datum-bytevector bytes)
+                  (and (datum-bytes=? bytes (datum-bytevector-values right)) (equality-continue pending history)))
+                 ((pair-datum first rest identity) (equality-pair left right pending history))
+                 ((vector-datum values identity) (equality-vector-datum left right pending history))))))
     (: datum-bytes=? (-> Bytevector Bytevector Bool))
     (define (datum-bytes=? left right)
       (let ((count (bytevector-length left)))
@@ -359,9 +480,76 @@
                (test-atom-error "1/2") (test-atom-error "#e1.5")
                (test-atom-error "9223372036854775808")
                (test-invalid-atom "123abc") (test-invalid-atom ""))))
+      (define (test-equality-cycles)
+        (let* ((a (datum-character #\a)) (b (datum-character #\b))
+               (one (datum-cons a (datum-null))) (two (datum-cons a one))
+               (self (datum-cons a (datum-null))))
+          (datum-set-cdr! one two) (datum-set-cdr! self self)
+          (and (datum=? one self) (datum=? self two)
+               (begin (datum-set-car! two b) (not (datum=? self one)))
+               (begin (datum-set-car! two a) (datum=? self one))
+               (datum-eq? (datum-cdr one) two) (datum-eq? (datum-cdr self) self))))
+      (define (test-equality-pair-views)
+        (let* ((first (ref (datum-character #\a))) (rest (ref (datum-null)))
+               (original (datum-pair first rest)) (alias (datum-pair first rest))
+               (other (datum-cons (datum-character #\a) (datum-null)))
+               (one-field (datum-pair first (ref (datum-character #\b))))
+               (other-field (datum-pair (ref (datum-character #\b)) rest)))
+          (datum-set-cdr! original alias) (datum-set-cdr! other other)
+          (and (datum=? original alias) (datum-eq? original alias) (datum=? alias other)
+               (not (datum=? original one-field)) (not (datum=? original other-field))
+               (datum-eq? (datum-cdr alias) alias) (char=? (datum-character-value (ref-get first)) #\a))))
+      (define (test-equality-vector-cycles)
+        (let* ((left (vector (datum-null))) (right (vector (datum-null)))
+               (x (datum-vector left)) (alias (datum-vector left)) (y (datum-vector right))
+               (a (datum-cons (datum-character #\a) x)) (b (datum-cons (datum-character #\a) y)))
+          (vector-set! left 0 a) (vector-set! right 0 b)
+          (and (datum=? alias y) (datum-eq? alias x)
+               (not (datum=? x (datum-vector (empty-vector))))
+               (begin (datum-set-car! b (datum-character #\b)) (not (datum=? x y)))
+               (datum-eq? (vector-ref left 0) a) (datum-eq? (datum-cdr a) x))))
+      (define (test-equality-pending-cdr)
+        (let ((left (datum-cons (datum-null) (datum-character #\a)))
+              (right (datum-cons (datum-null) (datum-character #\b))))
+          (datum-set-car! left left) (datum-set-car! right right)
+          (and (not (datum=? left right))
+               (begin (datum-set-cdr! right (datum-character #\a)) (datum=? left right)))))
+      (define (test-equality-pending-vector)
+        (let* ((left (vector (datum-null) (datum-character #\a)))
+               (right (vector (datum-null) (datum-character #\b)))
+               (x (datum-cons (datum-vector left) (datum-null)))
+               (y (datum-cons (datum-vector right) (datum-null))))
+          (vector-set! left 0 x) (vector-set! right 0 y)
+          (and (not (datum=? x y))
+               (begin (vector-set! right 1 (datum-character #\a)) (datum=? x y)))))
+      (define (test-ring count)
+        (let ((root (datum-cons (datum-character #\a) (datum-null))))
+          (let loop ((count (- count 1)) (last root))
+            (if (= count 0) (begin (datum-set-cdr! last root) root)
+                (let ((next (datum-cons (datum-character #\a) (datum-null))))
+                  (datum-set-cdr! last next) (loop (- count 1) next))))))
+      (define (test-equality-coprime-cycles)
+        (let ((left (test-ring 17)) (right (test-ring 19)))
+          (and (datum=? left right)
+               (begin (datum-set-car! (datum-cdr right) (datum-character #\b))
+                      (not (datum=? left right))))))
+      (define (test-deep-datum count leaf)
+        (let loop ((count count) (value leaf))
+          (if (= count 0) value
+              (loop (- count 1) (datum-cons value (datum-null))))))
+      (define (test-equality-depth)
+        (let ((left (test-deep-datum 5000 (datum-character #\a)))
+              (right (test-deep-datum 5000 (datum-character #\a)))
+              (different (test-deep-datum 5000 (datum-character #\b))))
+          (and (datum=? left right) (not (datum=? left different))
+               (datum=? (datum-vector (empty-vector)) (datum-vector (empty-vector))))))
       (define (test-datum)
         (if (and (test-pair-identity) (test-list-sharing) (test-storage-identity)
                  (test-atoms)
+                 (test-equality-cycles) (test-equality-pair-views)
+                 (test-equality-vector-cycles) (test-equality-depth)
+                 (test-equality-pending-cdr) (test-equality-pending-vector)
+                 (test-equality-coprime-cycles)
                  (datum-null? (datum-null)) (datum-pair? (datum-list (datum-null)))
                  (datum-truth? (datum-null)) (not (datum-truth? (datum-boolean #f)))
                  (datum-eq? (datum-symbol (string->symbol "same"))

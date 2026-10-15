@@ -231,6 +231,8 @@ DATUM_EXPORTS = '''datum-fail i64->string
   datum-car datum-cdr datum-set-car! datum-set-cdr! datum-null? datum-pair?
   datum-truth? datum-eq? datum=? datum-list datum-length datum-append datum-assq datum-map
   datum-symbol-value datum-string-value datum-number-value exact-number read-value!'''.split()
+DATUM_EXPORTS += '''datum-kind datum-boolean-value datum-character-value
+  datum-vector-values datum-bytevector-values'''.split()
 
 
 def chez_prelude(root):
@@ -767,8 +769,9 @@ def prepare_native_control(original, target, tools, environment, driver):
     check = reader_ports.record(target, 'shared-module-validation', [tools['NODE'], '--disable-warning=ExperimentalWarning',
         driver.HERE / 'reader-host.mjs', target / 'native-final.wasm', target / 'spec.json', target / 'provider.wasm'], environment, target)
     value = json.loads(check['stdout'])
-    if value['result'] != 1 or value['barriers'] != specification((target / 'input.txt').read_bytes())['count']:
-        raise ValueError('same native final module lost full browse work on V8')
+    spec = driver.load(target / 'spec.json')
+    if value['result'] != 1 or value['barriers'] != spec['barriers_per_iteration'] * spec['count']:
+        raise ValueError('same native final module lost workload opacity calls on V8')
 
 
 # ---- Rust remains a distinct vector/property and Rc-pattern control ----
