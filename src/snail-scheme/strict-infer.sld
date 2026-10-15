@@ -612,9 +612,18 @@
              (value (binding-initializer binding)))
         (check-obligations (node-constraints value) (initializer-scope binding scope) (node-loc value) #t
                            (lexical-schemes scope (list binding)))
+        (check-concrete-declaration! binding scope)
         ;; Keep the escape check after proof improvement, which may link an
         ;; enclosing hole to a private rigid type since the initializer's check.
         (check-skolem-escape binding scope)))
+    (define (check-concrete-declaration! binding scope)
+      ;; A closed requirement must have enclosing evidence even when its body
+      ;; never uses it. The declaration's own assumptions cannot prove it.
+      (for-each (lambda (constraint)
+                  (when (concrete-type? (cdr constraint))
+                    (check-obligations (list constraint) scope
+                                       (node-loc (source-initializer binding)) #f)))
+                (scheme-constraints (binding-scheme binding))))
     (define (check-skolem-escape binding scope)
       (let ((variables (scheme-variables (binding-scheme binding))))
         (for-each (lambda (scheme)
