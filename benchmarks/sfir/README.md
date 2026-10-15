@@ -7,17 +7,20 @@ bare `main.sfir` when its complete port exists. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
-There are currently 56 committed static SFIR programs. Forty-nine were serialized once
+All 57 workloads now have complete static SFIR sources and registered execution
+routes. Forty-nine were serialized once
 from the resolved IR of reviewed complete ports, including Peval, Pi and
 Chudnovsky. Cat and WC have complete direct SFIR character loops and file
 lifecycles and matching adapted Chez controls. CTak and Fibc preserve call/cc behavior with explicit immutable continuation
 variants and matching original call/cc traces. Dynamic and Scheme retain complete
 benchmark-local typed implementations with separate original/adapted Chez controls.
 SLaTeX now passes its complete 500-iteration workload, all 28,500 output files and
-resource checks on the current source; Compiler remains in a preserved draft.
-The runner registers all 56 sources. Dynamic and Scheme pass their complete
-current-source canonical workloads on both SFIR targets and all four external
-control routes; their workload-local verifiers preserve the source lifecycles. The
+resource checks on the current source. Compiler retains all 1,343 kernel forms,
+its 2,000-compilation canonical input and complete 497-line assembly predicate;
+all six canonical routes pass on the recorded compiler snapshot. The runner
+registers all 57 sources. Dynamic and Scheme pass their complete current-source
+canonical workloads on both SFIR targets and all four external control routes;
+their workload-local verifiers preserve the source lifecycles. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
 
@@ -41,11 +44,10 @@ initializers retain their original outer scope and left-to-right effects through
 fresh temporaries before aliases bind the original names. Numeric spellings,
 algorithms, canonical inputs, counts, predicates and external controls are unchanged.
 
-Historical evidence referenced below predates this surface migration. The corpus
-records current-surface validation as pending except the explicit SLaTeX,
-Dynamic and Scheme results;
-the older successful execution and timing records are retained verbatim and do
-not establish results for the migrated sources. The standard formatter covers
+Historical evidence referenced below predates this surface migration. A case
+marked `current_surface_validation: passed` identifies newer execution evidence
+and its compiler snapshot. Older successful execution and timing records remain
+verbatim and do not establish results for the migrated sources. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because
 the formatter also fails on the pre-migration Parsing source.
 
