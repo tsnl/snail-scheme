@@ -100,6 +100,15 @@ emitter has been removed.
 [`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes.
 The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks
 the chosen root's dependency closure. It requires no tracing or source context.
+`compile` takes that same map, `(make-entry library-key public-name)`, and a
+target value. Selection follows the chosen library's public interface through
+renames and reexports. A private ABI binding references the selected identity
+after the library initializers; checking and specialization retain that identity
+even when unrelated private bindings have the same spelling. Entries require
+monomorphic functions with fixed scalar parameters and a scalar or Unit result.
+Inferred function signatures are accepted; an `All` entry needs type arguments
+that this interface does not supply.
+
 The source driver reads files and calls `collect-library-map` before resolution;
 the older frontend convenience APIs are adapters over these stages. Its
 `sfir.parse`, `sfir.resolve`, `sfir.infer`, `sfir.specialize` and `sfir.emit-wasm`
@@ -107,13 +116,11 @@ trace spans expose the boundaries. [`chromium-trace.sld`](src/snail-scheme/chrom
 requires an explicit trace scope. [`scripts/view-traces`](scripts/view-traces)
 opens retained evidence in Perfetto.
 
-The book's complete `compile(libraries, Entry, Target) → Artifact` API remains
-unimplemented. The current map entry selects a root library for checking; CLI
-`--export` still selects a unique flattened binding name rather than a library's
-public export. There are no SFIR-accessible compiler functions or cross-context
-library transport, nor public `load`, `instantiate`, typed invocation or
-`generate-library` execution APIs yet. The runtime adapters still provide their
-existing one-shot initialization and scalar export operations.
+The source CLI keeps its existing script behavior and `--export` selector for
+unique flattened binding names. The library API uses public Entry selection.
+There are no SFIR-accessible compiler functions or cross-context library
+transport, nor public `load`, `instantiate`, typed invocation or
+`generate-library` execution APIs yet.
 
 ## Targets and runtime
 
@@ -122,6 +129,26 @@ publication and host invocation. [`build-sfir`](scripts/build-sfir) and
 [`build-native`](scripts/build-native) preserve intermediates for module-level
 work. [`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) requires Binaryen
 and optimizes program Wasm on every target.
+
+[`snail-sfir/artifact.sld`](src/snail-sfir/artifact.sld) implements the Chibi
+Target and Artifact boundary. `wasm-target` returns optimized, unlinked Wasm
+bytes. `(native64-target imports)` returns an unlinked x86-64 Linux relocatable
+object, using the existing Wasm-to-LLVM route followed by Clang. Its explicit
+provider declarations are `(make-native-import module name c-symbol parameters
+result)`: string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a
+scalar or `void` result. Missing declarations and signature mismatches fail.
+Both targets require Binaryen. Tool temporaries live in a private directory;
+compilation reads no source files and returns artifact bytes for the caller to
+write. Provider and runtime linking remain separate target operations.
+
+Artifact accessors expose the target, original Entry, semantic scalar parameter
+and result types, and bytes. The fixed ABI exports `entry` for the selected
+function and `main` for one-shot library initialization; native symbols are
+`wasm.entry` and `wasm.main`, after `native_module_init`. Calling `entry` before
+successful initialization traps. A public SFIR export named `main` is therefore
+unambiguous. These are existing low-level adapter operations, not the book's
+future loading, instantiation and typed invocation APIs. Native object bytes do
+not themselves represent a running instance.
 
 [`link-sfir-runtime`](scripts/link-sfir-runtime) links the Rust scalar externs
 into a WASI reactor, drops unused runtime exports and optimizes the result.
@@ -159,6 +186,8 @@ the lowering and collector that rely on them.
 `make test` executes compiler host tests. `scripts/test-sfir` checks explicit
 syntax, typing, module identity and actual V8 execution. `scripts/test-build`
 checks the public command, cleanup and publication on Wasm and native.
+`scripts/test-sfir-entry` compiles supplied library maps, links public Entry
+artifacts to foreign providers, and executes both Wasm and native64 aliases.
 `scripts/test-sfir-integration` executes 307 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises

@@ -32,8 +32,10 @@ Open <http://127.0.0.1:8000/sfir/>. The book reloads as its sources change.
 `scripts/book build` writes the rendered book to `build/book/`.
 
 These chapters specify the language and library contracts. The current compiler
-has Chibi-hosted APIs that parse dependency-independent library values and resolve
-explicit library maps. These APIs are not yet exposed as SFIR library functions.
-The full `Entry`/`Target` compilation interface, loading/instantiation APIs and
+has Chibi-hosted APIs that parse dependency-independent library values, resolve
+explicit library maps, and compile a public `Entry` to a Wasm or native64
+artifact. Entries currently use the existing monomorphic scalar function ABI;
+provider linking is separate. These APIs are not yet exposed as SFIR library
+functions. Loading/instantiation, typed invocation, library transport and
 generation recipes remain implementation work; see [the compiler tour](../TOUR.md)
 for the supported stages and their limits.
