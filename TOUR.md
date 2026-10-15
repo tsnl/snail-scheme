@@ -308,12 +308,14 @@ Chez controls and Rust comparisons. Source availability, execution correctness
 and clean measurement are distinct statuses. Compiler traces and instrumented
 runs explain work; they are not substituted for clean timing runs.
 
-`benchmarks/sfir/runner.py` freezes the corpus inputs and validates each target
-route. Dynamic, Scheme and SLaTeX keep their complete workload and resource
+`benchmarks/sfir/runner.py` freezes the compiler, corpus inputs, selected Rust
+installation and locked crate sources, then validates each target route.
+Dynamic, Scheme and SLaTeX keep their complete workload and resource
 contracts in local verifiers and native entries; the runner owns fixture copies,
 tool invocation and artifact parity. Scheme's interpreter is benchmark code.
-`benchmarks/sfir/timing.py` prepares clean artifacts, fixes the comparison
-schedule, supervises fresh execution processes and summarizes complete sample
+`benchmarks/sfir/timing.py` prepares clean artifacts for all 57 registered
+workloads, fixes the comparison schedule, supervises fresh execution processes
+and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
 
 ## Language specification
