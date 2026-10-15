@@ -1,0 +1,17 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/cat.scm",
+  "upstream_sha256": "63835925d09ce503e795005dd75c2a662ebb81bfe0ea15e427c2f4f401c11c9b",
+  "canonical_input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "Direct bare SFIR port of the complete pinned character loop and file lifecycle; no migration compiler.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target and identically adapted Chez validation pending.",
+  "controls": {
+    "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+    "chez-adapted.scm": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2"
+  },
+  "sfir_sha256": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
+  "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services."
+}

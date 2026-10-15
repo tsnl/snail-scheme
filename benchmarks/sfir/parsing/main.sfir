@@ -1,0 +1,321 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import
+  (sfir core)
+  (sfir io)
+  (sfir read)
+  (rename
+    (sfir datum)
+    (string->symbol typed-string->symbol)
+    (symbol->string typed-symbol->string)
+    (symbol=? typed-symbol=?)
+    (string->number typed-string->number)))
+
+(define-overload parsing-case=? (-> Char Char Bool) char=?)
+
+(define-overload parsing-case=? (-> Symbol Symbol Bool) typed-symbol=?)
+
+(define-extern parsing-raw-whitespace "snail.library" "snail:datum/whitespace" (-> Char I32))
+
+(define parsing-whitespace?
+  (lambda (character) (i32-eq (parsing-raw-whitespace character) (ann 1 I32))))
+
+(define-extern parsing-write-character "benchmark" "write_character" (-> Char Unit))
+
+(define parsing-read-char read-char)
+
+(define parsing-list (All (T) (-> (Rest T) (List T))) (lambda values.8 values.8))
+
+(define parsing-cadr (All (T) (-> (List T) T)) (lambda (values.7) (car (cdr values.7))))
+
+(define parsing-reverse (All (T) (-> (List T) (List T)))
+  (lambda (values.5)
+    (((lambda () (begin (define loop.7 (lambda (values.6 result.3) (if (null? values.6) result.3 (loop.7 (cdr values.6) (cons (car values.6) result.3))))) loop.7)))
+      values.5
+      (quote ()))))
+
+(define parsing-member? (-> Symbol (List Symbol) Bool)
+  (lambda (value.328 values.4)
+    (if (not (null? values.4))
+      ((lambda (value.329) (if value.329 value.329 (parsing-member? value.328 (cdr values.4))))
+        (typed-symbol=? value.328 (car values.4)))
+      #f)))
+
+(define parsing-char? (-> Char Bool) (lambda (value.327) #t))
+
+(define parsing-character-end? (-> CharacterResult Bool)
+  (lambda (value.326) (match value.326 ((character-end) #t) ((character-value value.325) #f))))
+
+(define parsing-character-text (-> CharacterResult Char)
+  (lambda (value.324)
+    (match value.324
+      ((character-end) (datum-fail "parsing: unexpected physical EOF"))
+      ((character-value value.323) value.323))))
+
+(define parsing-integer (-> I64 Datum) (lambda (value.322) (datum-number (exact-number value.322))))
+
+(define parsing-exact (-> Datum I64)
+  (lambda (value.321)
+    (match (datum-number-value value.321)
+      ((exact-number value.318) value.318)
+      ((rational-number value.319) (datum-fail "parsing: expected an exact count"))
+      ((inexact-number value.320) (datum-fail "parsing: expected an exact count"))
+      ((complex-number real imaginary) (datum-fail "parsing: expected an exact count")))))
+
+(define parsing-number (-> String Datum)
+  (lambda (text.1)
+    (match (typed-string->number text.1)
+      ((not-a-number) (datum-boolean #f))
+      ((parsed-number value.317) (datum-number value.317))
+      ((number-error message) (datum-fail message)))))
+
+(define parsing-vector (-> Datum Datum)
+  (lambda (values.2)
+    ((lambda (result.2) (((lambda () (begin (define loop.6 (lambda (values.3 index.1) (if (datum-null? values.3) (datum-vector result.2) (begin (vector-set! result.2 index.1 (datum-car values.3)) (loop.6 (datum-cdr values.3) (+ index.1 1)))))) loop.6))) values.2 0))
+      (make-vector (datum-length values.2) (datum-null)))))
+
+(define parsing-display-string (-> String Unit)
+  (lambda (text)
+    (((lambda () (begin (define loop.5 (lambda (index) (if (< index (string-length text)) (begin (parsing-write-character (string-ref text index)) (loop.5 (+ index 1)) (unit)) (unit)))) loop.5)))
+      0)))
+
+(define parsing-display-symbol (-> Symbol Unit)
+  (lambda (value.316) (parsing-display-string (typed-symbol->string value.316))))
+
+(define parsing-display-symbols (-> (List Symbol) Unit)
+  (lambda (values)
+    (begin
+      (parsing-write-character #\()
+      (((lambda () (begin (define loop.4 (lambda (values.1 first) (if (null? values.1) (unit) (begin (if first (unit) (begin (parsing-write-character #\space) (unit))) (parsing-display-symbol (car values.1)) (loop.4 (cdr values.1) #f) (unit))))) loop.4)))
+        values
+        #t)
+      (parsing-write-character #\)))))
+
+(define parsing-newline (lambda () (parsing-write-character #\newline)))
+
+(define parsing-symbol-<abbrev-prefix>-value (typed-string->symbol "<abbrev-prefix>"))
+
+(define parsing-symbol-<abbreviation>-value (typed-string->symbol "<abbreviation>"))
+
+(define parsing-symbol-<compound-datum>-value (typed-string->symbol "<compound-datum>"))
+
+(define parsing-symbol-<data>-value (typed-string->symbol "<data>"))
+
+(define parsing-symbol-<datum>-value (typed-string->symbol "<datum>"))
+
+(define parsing-symbol-<list2>-value (typed-string->symbol "<list2>"))
+
+(define parsing-symbol-<list3>-value (typed-string->symbol "<list3>"))
+
+(define parsing-symbol-<list4>-value (typed-string->symbol "<list4>"))
+
+(define parsing-symbol-<list>-value (typed-string->symbol "<list>"))
+
+(define parsing-symbol-<simple-datum>-value (typed-string->symbol "<simple-datum>"))
+
+(define parsing-symbol-<symbol>-value (typed-string->symbol "<symbol>"))
+
+(define parsing-symbol-<vector>-value (typed-string->symbol "<vector>"))
+
+(define parsing-symbol-backquote-value (typed-string->symbol "backquote"))
+
+(define parsing-symbol-boolean-value (typed-string->symbol "boolean"))
+
+(define parsing-symbol-character-value (typed-string->symbol "character"))
+
+(define parsing-symbol-comma-value (typed-string->symbol "comma"))
+
+(define parsing-symbol-eof-value (typed-string->symbol "eof"))
+
+(define parsing-symbol-id-value (typed-string->symbol "id"))
+
+(define parsing-symbol-lparen-value (typed-string->symbol "lparen"))
+
+(define parsing-symbol-number-value (typed-string->symbol "number"))
+
+(define parsing-symbol-period-value (typed-string->symbol "period"))
+
+(define parsing-symbol-quasiquote-value (typed-string->symbol "quasiquote"))
+
+(define parsing-symbol-quote-value (typed-string->symbol "quote"))
+
+(define parsing-symbol-rparen-value (typed-string->symbol "rparen"))
+
+(define parsing-symbol-splicing-value (typed-string->symbol "splicing"))
+
+(define parsing-symbol-string-value (typed-string->symbol "string"))
+
+(define parsing-symbol-unquote-value (typed-string->symbol "unquote"))
+
+(define parsing-symbol-unquote-splicing-value (typed-string->symbol "unquote-splicing"))
+
+(define parsing-symbol-vecstart-value (typed-string->symbol "vecstart"))
+
+(define parsing-symbol-z1-value (typed-string->symbol "z1"))
+
+(define parsing-literal-0 (parsing-list))
+
+(define parsing-literal-1
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-comma-value
+    parsing-symbol-id-value
+    parsing-symbol-lparen-value
+    parsing-symbol-number-value
+    parsing-symbol-quote-value
+    parsing-symbol-splicing-value
+    parsing-symbol-string-value
+    parsing-symbol-vecstart-value))
+
+(define parsing-literal-2
+  (parsing-list
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-id-value
+    parsing-symbol-number-value
+    parsing-symbol-string-value))
+
+(define parsing-literal-3 (parsing-list parsing-symbol-id-value))
+
+(define parsing-literal-4
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-comma-value
+    parsing-symbol-lparen-value
+    parsing-symbol-quote-value
+    parsing-symbol-splicing-value
+    parsing-symbol-vecstart-value))
+
+(define parsing-literal-5
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-comma-value
+    parsing-symbol-lparen-value
+    parsing-symbol-quote-value
+    parsing-symbol-splicing-value))
+
+(define parsing-literal-6
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-comma-value
+    parsing-symbol-id-value
+    parsing-symbol-lparen-value
+    parsing-symbol-number-value
+    parsing-symbol-quote-value
+    parsing-symbol-rparen-value
+    parsing-symbol-splicing-value
+    parsing-symbol-string-value
+    parsing-symbol-vecstart-value))
+
+(define parsing-literal-7
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-comma-value
+    parsing-symbol-id-value
+    parsing-symbol-lparen-value
+    parsing-symbol-number-value
+    parsing-symbol-period-value
+    parsing-symbol-quote-value
+    parsing-symbol-rparen-value
+    parsing-symbol-splicing-value
+    parsing-symbol-string-value
+    parsing-symbol-vecstart-value))
+
+(define parsing-literal-8 (parsing-list parsing-symbol-rparen-value))
+
+(define parsing-literal-9 (parsing-list parsing-symbol-period-value parsing-symbol-rparen-value))
+
+(define parsing-literal-10
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-comma-value
+    parsing-symbol-quote-value
+    parsing-symbol-splicing-value))
+
+(define parsing-literal-11
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-comma-value
+    parsing-symbol-quote-value
+    parsing-symbol-splicing-value))
+
+(define parsing-literal-12 (parsing-list parsing-symbol-rparen-value))
+
+(define parsing-literal-13 (parsing-list parsing-symbol-vecstart-value))
+
+(define parsing-literal-14
+  (parsing-list
+    parsing-symbol-backquote-value
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-comma-value
+    parsing-symbol-id-value
+    parsing-symbol-lparen-value
+    parsing-symbol-number-value
+    parsing-symbol-period-value
+    parsing-symbol-quote-value
+    parsing-symbol-rparen-value
+    parsing-symbol-splicing-value
+    parsing-symbol-string-value
+    parsing-symbol-vecstart-value))
+
+(define parsing-literal-15
+  (parsing-list
+    parsing-symbol-boolean-value
+    parsing-symbol-character-value
+    parsing-symbol-id-value
+    parsing-symbol-number-value
+    parsing-symbol-string-value))
+
+(define parsing-benchmark (-> (Rest Datum) Datum)
+  (lambda rest
+    ((lambda (n) ((lambda (input) ((lambda (input-string.1) ((lambda () (((lambda () (begin (define loop.3 (lambda (i result.1) (if (= i n) result.1 (loop.3 (+ i 1) (parse-string input-string.1))))) loop.3))) 0 (datum-boolean #f))))) (read-file-as-string input))) (datum-string-value (if ((lambda (value.315) (if value.315 value.315 (null? (cdr rest)))) (null? rest)) (datum-string "nboyer.sch") (parsing-cadr rest)))))
+      (parsing-exact (if (null? rest) (parsing-integer 1000) (car rest))))))
+
+(define read-file-as-string (-> String String)
+  (lambda (name)
+    (call-with-input-file
+      name
+      (lambda (in)
+        (((lambda () (begin (define loop.2 (lambda (x.2 chars) (if (parsing-character-end? x.2) (begin (unit) (list->string (parsing-reverse chars))) (loop.2 (parsing-read-char in) (cons (parsing-character-text x.2) chars))))) loop.2)))
+          (parsing-read-char in)
+          parsing-literal-0)))))
+
+(define parse-string (-> String Datum)
+  (lambda (input-string)
+    ((lambda (eof) ((lambda (max_token_size) ((lambda (errLongToken) ((lambda (errincompletetoken) ((lambda (errLexGenBug) ((lambda (kindOfNextToken) ((lambda (nextTokenIsReady) ((lambda (tokenValue) ((lambda (totalErrors) ((lambda (lineNumber) ((lambda (lineNumberOfLastError) ((lambda (string_accumulator) ((lambda (string_accumulator_length) ((lambda (nextCharacter) ((lambda (nextCharacterIsReady) ((lambda (input-index) ((lambda (input-length) ((lambda () (begin (define scanner0 (-> Symbol) (lambda () (begin (((lambda () (begin (define loop.1 (lambda (c.45) (if (parsing-whitespace? c.45) (begin (consumechar) (ref-set! string_accumulator_length 0) (loop.1 (scanchar)) (unit)) (unit)))) loop.1))) (scanchar)) ((lambda (c.44) (if (char=? c.44 eof) (accept parsing-symbol-eof-value) (state0 c.44))) (scanchar))))) (define state0 (-> Char Symbol) (lambda (c.43) ((lambda (saved.71) (if (parsing-case=? saved.71 #\`) (begin (consumechar) (accept parsing-symbol-backquote-value)) ((lambda (saved.72) (if (parsing-case=? saved.72 #\') (begin (consumechar) (accept parsing-symbol-quote-value)) ((lambda (saved.73) (if (parsing-case=? saved.73 #\)) (begin (consumechar) (accept parsing-symbol-rparen-value)) ((lambda (saved.74) (if (parsing-case=? saved.74 #\() (begin (consumechar) (accept parsing-symbol-lparen-value)) ((lambda (saved.75) (if (parsing-case=? saved.75 #\;) (begin (consumechar) (state29 (scanchar))) ((lambda (saved.76) (if ((lambda (value.314) (if value.314 value.314 (parsing-case=? saved.76 #\-))) (parsing-case=? saved.76 #\+)) (begin (consumechar) (state28 (scanchar))) ((lambda (saved.77) (if ((lambda (value.313) (if value.313 value.313 ((lambda (value.312) (if value.312 value.312 ((lambda (value.311) (if value.311 value.311 ((lambda (value.310) (if value.310 value.310 ((lambda (value.309) (if value.309 value.309 ((lambda (value.308) (if value.308 value.308 ((lambda (value.307) (if value.307 value.307 ((lambda (value.306) (if value.306 value.306 ((lambda (value.305) (if value.305 value.305 (parsing-case=? saved.77 #\9))) (parsing-case=? saved.77 #\8)))) (parsing-case=? saved.77 #\7)))) (parsing-case=? saved.77 #\6)))) (parsing-case=? saved.77 #\5)))) (parsing-case=? saved.77 #\4)))) (parsing-case=? saved.77 #\3)))) (parsing-case=? saved.77 #\2)))) (parsing-case=? saved.77 #\1)))) (parsing-case=? saved.77 #\0)) (begin (consumechar) (state27 (scanchar))) ((lambda (saved.78) (if (parsing-case=? saved.78 #\.) (begin (consumechar) (state16 (scanchar))) ((lambda (saved.79) (if ((lambda (value.304) (if value.304 value.304 ((lambda (value.303) (if value.303 value.303 ((lambda (value.302) (if value.302 value.302 ((lambda (value.301) (if value.301 value.301 ((lambda (value.300) (if value.300 value.300 ((lambda (value.299) (if value.299 value.299 ((lambda (value.298) (if value.298 value.298 ((lambda (value.297) (if value.297 value.297 ((lambda (value.296) (if value.296 value.296 ((lambda (value.295) (if value.295 value.295 ((lambda (value.294) (if value.294 value.294 ((lambda (value.293) (if value.293 value.293 ((lambda (value.292) (if value.292 value.292 ((lambda (value.291) (if value.291 value.291 ((lambda (value.290) (if value.290 value.290 ((lambda (value.289) (if value.289 value.289 ((lambda (value.288) (if value.288 value.288 ((lambda (value.287) (if value.287 value.287 ((lambda (value.286) (if value.286 value.286 ((lambda (value.285) (if value.285 value.285 ((lambda (value.284) (if value.284 value.284 ((lambda (value.283) (if value.283 value.283 ((lambda (value.282) (if value.282 value.282 ((lambda (value.281) (if value.281 value.281 ((lambda (value.280) (if value.280 value.280 ((lambda (value.279) (if value.279 value.279 ((lambda (value.278) (if value.278 value.278 ((lambda (value.277) (if value.277 value.277 ((lambda (value.276) (if value.276 value.276 ((lambda (value.275) (if value.275 value.275 ((lambda (value.274) (if value.274 value.274 ((lambda (value.273) (if value.273 value.273 ((lambda (value.272) (if value.272 value.272 ((lambda (value.271) (if value.271 value.271 ((lambda (value.270) (if value.270 value.270 ((lambda (value.269) (if value.269 value.269 ((lambda (value.268) (if value.268 value.268 ((lambda (value.267) (if value.267 value.267 ((lambda (value.266) (if value.266 value.266 ((lambda (value.265) (if value.265 value.265 ((lambda (value.264) (if value.264 value.264 ((lambda (value.263) (if value.263 value.263 ((lambda (value.262) (if value.262 value.262 ((lambda (value.261) (if value.261 value.261 ((lambda (value.260) (if value.260 value.260 ((lambda (value.259) (if value.259 value.259 ((lambda (value.258) (if value.258 value.258 ((lambda (value.257) (if value.257 value.257 ((lambda (value.256) (if value.256 value.256 ((lambda (value.255) (if value.255 value.255 ((lambda (value.254) (if value.254 value.254 ((lambda (value.253) (if value.253 value.253 ((lambda (value.252) (if value.252 value.252 ((lambda (value.251) (if value.251 value.251 ((lambda (value.250) (if value.250 value.250 ((lambda (value.249) (if value.249 value.249 ((lambda (value.248) (if value.248 value.248 ((lambda (value.247) (if value.247 value.247 ((lambda (value.246) (if value.246 value.246 ((lambda (value.245) (if value.245 value.245 ((lambda (value.244) (if value.244 value.244 ((lambda (value.243) (if value.243 value.243 ((lambda (value.242) (if value.242 value.242 ((lambda (value.241) (if value.241 value.241 ((lambda (value.240) (if value.240 value.240 (parsing-case=? saved.79 #\~))) (parsing-case=? saved.79 #\_)))) (parsing-case=? saved.79 #\^)))) (parsing-case=? saved.79 #\?)))) (parsing-case=? saved.79 #\>)))) (parsing-case=? saved.79 #\=)))) (parsing-case=? saved.79 #\<)))) (parsing-case=? saved.79 #\:)))) (parsing-case=? saved.79 #\/)))) (parsing-case=? saved.79 #\*)))) (parsing-case=? saved.79 #\&)))) (parsing-case=? saved.79 #\%)))) (parsing-case=? saved.79 #\$)))) (parsing-case=? saved.79 #\!)))) (parsing-case=? saved.79 #\Z)))) (parsing-case=? saved.79 #\Y)))) (parsing-case=? saved.79 #\X)))) (parsing-case=? saved.79 #\W)))) (parsing-case=? saved.79 #\V)))) (parsing-case=? saved.79 #\U)))) (parsing-case=? saved.79 #\T)))) (parsing-case=? saved.79 #\S)))) (parsing-case=? saved.79 #\R)))) (parsing-case=? saved.79 #\Q)))) (parsing-case=? saved.79 #\P)))) (parsing-case=? saved.79 #\O)))) (parsing-case=? saved.79 #\N)))) (parsing-case=? saved.79 #\M)))) (parsing-case=? saved.79 #\L)))) (parsing-case=? saved.79 #\K)))) (parsing-case=? saved.79 #\J)))) (parsing-case=? saved.79 #\I)))) (parsing-case=? saved.79 #\H)))) (parsing-case=? saved.79 #\G)))) (parsing-case=? saved.79 #\F)))) (parsing-case=? saved.79 #\E)))) (parsing-case=? saved.79 #\D)))) (parsing-case=? saved.79 #\C)))) (parsing-case=? saved.79 #\B)))) (parsing-case=? saved.79 #\A)))) (parsing-case=? saved.79 #\z)))) (parsing-case=? saved.79 #\y)))) (parsing-case=? saved.79 #\x)))) (parsing-case=? saved.79 #\w)))) (parsing-case=? saved.79 #\v)))) (parsing-case=? saved.79 #\u)))) (parsing-case=? saved.79 #\t)))) (parsing-case=? saved.79 #\s)))) (parsing-case=? saved.79 #\r)))) (parsing-case=? saved.79 #\q)))) (parsing-case=? saved.79 #\p)))) (parsing-case=? saved.79 #\o)))) (parsing-case=? saved.79 #\n)))) (parsing-case=? saved.79 #\m)))) (parsing-case=? saved.79 #\l)))) (parsing-case=? saved.79 #\k)))) (parsing-case=? saved.79 #\j)))) (parsing-case=? saved.79 #\i)))) (parsing-case=? saved.79 #\h)))) (parsing-case=? saved.79 #\g)))) (parsing-case=? saved.79 #\f)))) (parsing-case=? saved.79 #\e)))) (parsing-case=? saved.79 #\d)))) (parsing-case=? saved.79 #\c)))) (parsing-case=? saved.79 #\b)))) (parsing-case=? saved.79 #\a)) (begin (consumechar) (state14 (scanchar))) ((lambda (saved.80) (if (parsing-case=? saved.80 #\#) (begin (consumechar) (state13 (scanchar))) ((lambda (saved.81) (if (parsing-case=? saved.81 #\") (begin (consumechar) (state2 (scanchar))) ((lambda (saved.82) (if (parsing-case=? saved.82 #\,) (begin (consumechar) (state1 (scanchar))) (if (parsing-whitespace? c.43) (begin (consumechar) (state30 (scanchar))) (scannererror errincompletetoken)))) saved.81))) saved.80))) saved.79))) saved.78))) saved.77))) saved.76))) saved.75))) saved.74))) saved.73))) saved.72))) saved.71))) c.43))) (define state1 (-> Char Symbol) (lambda (c.42) ((lambda (saved.70) (if (parsing-case=? saved.70 #\@) (begin (consumechar) (accept parsing-symbol-splicing-value)) (accept parsing-symbol-comma-value))) c.42))) (define state2 (-> Char Symbol) (lambda (c.41) ((lambda (saved.69) (if (parsing-case=? saved.69 #\") (begin (consumechar) (accept parsing-symbol-string-value)) (if (isnotdoublequote? c.41) (begin (consumechar) (state2 (scanchar))) (scannererror errincompletetoken)))) c.41))) (define state3 (-> Char Symbol) (lambda (c.40) ((lambda (saved.68) (if (parsing-case=? saved.68 #\n) (begin (consumechar) (state8 (scanchar))) (scannererror errincompletetoken))) c.40))) (define state4 (-> Char Symbol) (lambda (c.39) ((lambda (saved.67) (if (parsing-case=? saved.67 #\i) (begin (consumechar) (state3 (scanchar))) (scannererror errincompletetoken))) c.39))) (define state5 (-> Char Symbol) (lambda (c.38) ((lambda (saved.66) (if (parsing-case=? saved.66 #\l) (begin (consumechar) (state4 (scanchar))) (scannererror errincompletetoken))) c.38))) (define state6 (-> Char Symbol) (lambda (c.37) ((lambda (saved.65) (if (parsing-case=? saved.65 #\w) (begin (consumechar) (state5 (scanchar))) (scannererror errincompletetoken))) c.37))) (define state7 (-> Char Symbol) (lambda (c.36) ((lambda (saved.64) (if (parsing-case=? saved.64 #\e) (begin (consumechar) (state6 (scanchar))) (scannererror errincompletetoken))) c.36))) (define state8 (-> Char Symbol) (lambda (c.35) ((lambda (saved.63) (if (parsing-case=? saved.63 #\e) (begin (consumechar) (accept parsing-symbol-character-value)) (scannererror errincompletetoken))) c.35))) (define state9 (-> Char Symbol) (lambda (c.34) ((lambda (saved.62) (if (parsing-case=? saved.62 #\c) (begin (consumechar) (state8 (scanchar))) (scannererror errincompletetoken))) c.34))) (define state10 (-> Char Symbol) (lambda (c.33) ((lambda (saved.61) (if (parsing-case=? saved.61 #\a) (begin (consumechar) (state9 (scanchar))) (scannererror errincompletetoken))) c.33))) (define state11 (-> Char Symbol) (lambda (c.32) ((lambda (saved.60) (if (parsing-case=? saved.60 #\p) (begin (consumechar) (state10 (scanchar))) (scannererror errincompletetoken))) c.32))) (define state12 (-> Char Symbol) (lambda (c.31) ((lambda (saved.58) (if (parsing-case=? saved.58 #\s) (begin (consumechar) (state11 (scanchar))) ((lambda (saved.59) (if (parsing-case=? saved.59 #\n) (begin (consumechar) (state7 (scanchar))) (if (parsing-char? c.31) (begin (consumechar) (accept parsing-symbol-character-value)) (scannererror errincompletetoken)))) saved.58))) c.31))) (define state13 (-> Char Symbol) (lambda (c.30) ((lambda (saved.55) (if (parsing-case=? saved.55 #\() (begin (consumechar) (accept parsing-symbol-vecstart-value)) ((lambda (saved.56) (if ((lambda (value.239) (if value.239 value.239 (parsing-case=? saved.56 #\f))) (parsing-case=? saved.56 #\t)) (begin (consumechar) (accept parsing-symbol-boolean-value)) ((lambda (saved.57) (if (parsing-case=? saved.57 #\\) (begin (consumechar) (state12 (scanchar))) (scannererror errincompletetoken))) saved.56))) saved.55))) c.30))) (define state14 (-> Char Symbol) (lambda (c.29) ((lambda (saved.54) (if ((lambda (value.238) (if value.238 value.238 ((lambda (value.237) (if value.237 value.237 ((lambda (value.236) (if value.236 value.236 ((lambda (value.235) (if value.235 value.235 ((lambda (value.234) (if value.234 value.234 ((lambda (value.233) (if value.233 value.233 ((lambda (value.232) (if value.232 value.232 ((lambda (value.231) (if value.231 value.231 ((lambda (value.230) (if value.230 value.230 ((lambda (value.229) (if value.229 value.229 ((lambda (value.228) (if value.228 value.228 ((lambda (value.227) (if value.227 value.227 ((lambda (value.226) (if value.226 value.226 ((lambda (value.225) (if value.225 value.225 ((lambda (value.224) (if value.224 value.224 ((lambda (value.223) (if value.223 value.223 ((lambda (value.222) (if value.222 value.222 ((lambda (value.221) (if value.221 value.221 ((lambda (value.220) (if value.220 value.220 ((lambda (value.219) (if value.219 value.219 ((lambda (value.218) (if value.218 value.218 ((lambda (value.217) (if value.217 value.217 ((lambda (value.216) (if value.216 value.216 ((lambda (value.215) (if value.215 value.215 ((lambda (value.214) (if value.214 value.214 ((lambda (value.213) (if value.213 value.213 ((lambda (value.212) (if value.212 value.212 ((lambda (value.211) (if value.211 value.211 ((lambda (value.210) (if value.210 value.210 ((lambda (value.209) (if value.209 value.209 ((lambda (value.208) (if value.208 value.208 ((lambda (value.207) (if value.207 value.207 ((lambda (value.206) (if value.206 value.206 ((lambda (value.205) (if value.205 value.205 ((lambda (value.204) (if value.204 value.204 ((lambda (value.203) (if value.203 value.203 ((lambda (value.202) (if value.202 value.202 ((lambda (value.201) (if value.201 value.201 ((lambda (value.200) (if value.200 value.200 ((lambda (value.199) (if value.199 value.199 ((lambda (value.198) (if value.198 value.198 ((lambda (value.197) (if value.197 value.197 ((lambda (value.196) (if value.196 value.196 ((lambda (value.195) (if value.195 value.195 ((lambda (value.194) (if value.194 value.194 ((lambda (value.193) (if value.193 value.193 ((lambda (value.192) (if value.192 value.192 ((lambda (value.191) (if value.191 value.191 ((lambda (value.190) (if value.190 value.190 ((lambda (value.189) (if value.189 value.189 ((lambda (value.188) (if value.188 value.188 ((lambda (value.187) (if value.187 value.187 ((lambda (value.186) (if value.186 value.186 ((lambda (value.185) (if value.185 value.185 ((lambda (value.184) (if value.184 value.184 ((lambda (value.183) (if value.183 value.183 ((lambda (value.182) (if value.182 value.182 ((lambda (value.181) (if value.181 value.181 ((lambda (value.180) (if value.180 value.180 ((lambda (value.179) (if value.179 value.179 ((lambda (value.178) (if value.178 value.178 ((lambda (value.177) (if value.177 value.177 ((lambda (value.176) (if value.176 value.176 ((lambda (value.175) (if value.175 value.175 ((lambda (value.174) (if value.174 value.174 ((lambda (value.173) (if value.173 value.173 ((lambda (value.172) (if value.172 value.172 ((lambda (value.171) (if value.171 value.171 ((lambda (value.170) (if value.170 value.170 ((lambda (value.169) (if value.169 value.169 ((lambda (value.168) (if value.168 value.168 ((lambda (value.167) (if value.167 value.167 ((lambda (value.166) (if value.166 value.166 ((lambda (value.165) (if value.165 value.165 ((lambda (value.164) (if value.164 value.164 ((lambda (value.163) (if value.163 value.163 ((lambda (value.162) (if value.162 value.162 ((lambda (value.161) (if value.161 value.161 ((lambda (value.160) (if value.160 value.160 (parsing-case=? saved.54 #\@))) (parsing-case=? saved.54 #\.)))) (parsing-case=? saved.54 #\-)))) (parsing-case=? saved.54 #\+)))) (parsing-case=? saved.54 #\9)))) (parsing-case=? saved.54 #\8)))) (parsing-case=? saved.54 #\7)))) (parsing-case=? saved.54 #\6)))) (parsing-case=? saved.54 #\5)))) (parsing-case=? saved.54 #\4)))) (parsing-case=? saved.54 #\3)))) (parsing-case=? saved.54 #\2)))) (parsing-case=? saved.54 #\1)))) (parsing-case=? saved.54 #\0)))) (parsing-case=? saved.54 #\~)))) (parsing-case=? saved.54 #\_)))) (parsing-case=? saved.54 #\^)))) (parsing-case=? saved.54 #\?)))) (parsing-case=? saved.54 #\>)))) (parsing-case=? saved.54 #\=)))) (parsing-case=? saved.54 #\<)))) (parsing-case=? saved.54 #\:)))) (parsing-case=? saved.54 #\/)))) (parsing-case=? saved.54 #\*)))) (parsing-case=? saved.54 #\&)))) (parsing-case=? saved.54 #\%)))) (parsing-case=? saved.54 #\$)))) (parsing-case=? saved.54 #\!)))) (parsing-case=? saved.54 #\Z)))) (parsing-case=? saved.54 #\Y)))) (parsing-case=? saved.54 #\X)))) (parsing-case=? saved.54 #\W)))) (parsing-case=? saved.54 #\V)))) (parsing-case=? saved.54 #\U)))) (parsing-case=? saved.54 #\T)))) (parsing-case=? saved.54 #\S)))) (parsing-case=? saved.54 #\R)))) (parsing-case=? saved.54 #\Q)))) (parsing-case=? saved.54 #\P)))) (parsing-case=? saved.54 #\O)))) (parsing-case=? saved.54 #\N)))) (parsing-case=? saved.54 #\M)))) (parsing-case=? saved.54 #\L)))) (parsing-case=? saved.54 #\K)))) (parsing-case=? saved.54 #\J)))) (parsing-case=? saved.54 #\I)))) (parsing-case=? saved.54 #\H)))) (parsing-case=? saved.54 #\G)))) (parsing-case=? saved.54 #\F)))) (parsing-case=? saved.54 #\E)))) (parsing-case=? saved.54 #\D)))) (parsing-case=? saved.54 #\C)))) (parsing-case=? saved.54 #\B)))) (parsing-case=? saved.54 #\A)))) (parsing-case=? saved.54 #\z)))) (parsing-case=? saved.54 #\y)))) (parsing-case=? saved.54 #\x)))) (parsing-case=? saved.54 #\w)))) (parsing-case=? saved.54 #\v)))) (parsing-case=? saved.54 #\u)))) (parsing-case=? saved.54 #\t)))) (parsing-case=? saved.54 #\s)))) (parsing-case=? saved.54 #\r)))) (parsing-case=? saved.54 #\q)))) (parsing-case=? saved.54 #\p)))) (parsing-case=? saved.54 #\o)))) (parsing-case=? saved.54 #\n)))) (parsing-case=? saved.54 #\m)))) (parsing-case=? saved.54 #\l)))) (parsing-case=? saved.54 #\k)))) (parsing-case=? saved.54 #\j)))) (parsing-case=? saved.54 #\i)))) (parsing-case=? saved.54 #\h)))) (parsing-case=? saved.54 #\g)))) (parsing-case=? saved.54 #\f)))) (parsing-case=? saved.54 #\e)))) (parsing-case=? saved.54 #\d)))) (parsing-case=? saved.54 #\c)))) (parsing-case=? saved.54 #\b)))) (parsing-case=? saved.54 #\a)) (begin (consumechar) (state14 (scanchar))) (accept parsing-symbol-id-value))) c.29))) (define state15 (-> Char Symbol) (lambda (c.28) ((lambda (saved.53) (if (parsing-case=? saved.53 #\.) (begin (consumechar) (accept parsing-symbol-id-value)) (scannererror errincompletetoken))) c.28))) (define state16 (-> Char Symbol) (lambda (c.27) ((lambda (saved.51) (if ((lambda (value.159) (if value.159 value.159 ((lambda (value.158) (if value.158 value.158 ((lambda (value.157) (if value.157 value.157 ((lambda (value.156) (if value.156 value.156 ((lambda (value.155) (if value.155 value.155 ((lambda (value.154) (if value.154 value.154 ((lambda (value.153) (if value.153 value.153 ((lambda (value.152) (if value.152 value.152 ((lambda (value.151) (if value.151 value.151 (parsing-case=? saved.51 #\9))) (parsing-case=? saved.51 #\8)))) (parsing-case=? saved.51 #\7)))) (parsing-case=? saved.51 #\6)))) (parsing-case=? saved.51 #\5)))) (parsing-case=? saved.51 #\4)))) (parsing-case=? saved.51 #\3)))) (parsing-case=? saved.51 #\2)))) (parsing-case=? saved.51 #\1)))) (parsing-case=? saved.51 #\0)) (begin (consumechar) (state18 (scanchar))) ((lambda (saved.52) (if (parsing-case=? saved.52 #\.) (begin (consumechar) (state15 (scanchar))) (accept parsing-symbol-period-value))) saved.51))) c.27))) (define state17 (-> Char Symbol) (lambda (c.26) ((lambda (saved.50) (if ((lambda (value.150) (if value.150 value.150 ((lambda (value.149) (if value.149 value.149 ((lambda (value.148) (if value.148 value.148 ((lambda (value.147) (if value.147 value.147 ((lambda (value.146) (if value.146 value.146 ((lambda (value.145) (if value.145 value.145 ((lambda (value.144) (if value.144 value.144 ((lambda (value.143) (if value.143 value.143 ((lambda (value.142) (if value.142 value.142 (parsing-case=? saved.50 #\9))) (parsing-case=? saved.50 #\8)))) (parsing-case=? saved.50 #\7)))) (parsing-case=? saved.50 #\6)))) (parsing-case=? saved.50 #\5)))) (parsing-case=? saved.50 #\4)))) (parsing-case=? saved.50 #\3)))) (parsing-case=? saved.50 #\2)))) (parsing-case=? saved.50 #\1)))) (parsing-case=? saved.50 #\0)) (begin (consumechar) (state18 (scanchar))) (scannererror errincompletetoken))) c.26))) (define state18 (-> Char Symbol) (lambda (c.25) ((lambda (saved.47) (if ((lambda (value.141) (if value.141 value.141 ((lambda (value.140) (if value.140 value.140 ((lambda (value.139) (if value.139 value.139 ((lambda (value.138) (if value.138 value.138 (parsing-case=? saved.47 #\l))) (parsing-case=? saved.47 #\d)))) (parsing-case=? saved.47 #\f)))) (parsing-case=? saved.47 #\s)))) (parsing-case=? saved.47 #\e)) (begin (consumechar) (state22 (scanchar))) ((lambda (saved.48) (if (parsing-case=? saved.48 #\#) (begin (consumechar) (state19 (scanchar))) ((lambda (saved.49) (if ((lambda (value.137) (if value.137 value.137 ((lambda (value.136) (if value.136 value.136 ((lambda (value.135) (if value.135 value.135 ((lambda (value.134) (if value.134 value.134 ((lambda (value.133) (if value.133 value.133 ((lambda (value.132) (if value.132 value.132 ((lambda (value.131) (if value.131 value.131 ((lambda (value.130) (if value.130 value.130 ((lambda (value.129) (if value.129 value.129 (parsing-case=? saved.49 #\9))) (parsing-case=? saved.49 #\8)))) (parsing-case=? saved.49 #\7)))) (parsing-case=? saved.49 #\6)))) (parsing-case=? saved.49 #\5)))) (parsing-case=? saved.49 #\4)))) (parsing-case=? saved.49 #\3)))) (parsing-case=? saved.49 #\2)))) (parsing-case=? saved.49 #\1)))) (parsing-case=? saved.49 #\0)) (begin (consumechar) (state18 (scanchar))) (accept parsing-symbol-number-value))) saved.48))) saved.47))) c.25))) (define state19 (-> Char Symbol) (lambda (c.24) ((lambda (saved.45) (if ((lambda (value.128) (if value.128 value.128 ((lambda (value.127) (if value.127 value.127 ((lambda (value.126) (if value.126 value.126 ((lambda (value.125) (if value.125 value.125 (parsing-case=? saved.45 #\l))) (parsing-case=? saved.45 #\d)))) (parsing-case=? saved.45 #\f)))) (parsing-case=? saved.45 #\s)))) (parsing-case=? saved.45 #\e)) (begin (consumechar) (state22 (scanchar))) ((lambda (saved.46) (if (parsing-case=? saved.46 #\#) (begin (consumechar) (state19 (scanchar))) (accept parsing-symbol-number-value))) saved.45))) c.24))) (define state20 (-> Char Symbol) (lambda (c.23) ((lambda (saved.44) (if ((lambda (value.124) (if value.124 value.124 ((lambda (value.123) (if value.123 value.123 ((lambda (value.122) (if value.122 value.122 ((lambda (value.121) (if value.121 value.121 ((lambda (value.120) (if value.120 value.120 ((lambda (value.119) (if value.119 value.119 ((lambda (value.118) (if value.118 value.118 ((lambda (value.117) (if value.117 value.117 ((lambda (value.116) (if value.116 value.116 (parsing-case=? saved.44 #\9))) (parsing-case=? saved.44 #\8)))) (parsing-case=? saved.44 #\7)))) (parsing-case=? saved.44 #\6)))) (parsing-case=? saved.44 #\5)))) (parsing-case=? saved.44 #\4)))) (parsing-case=? saved.44 #\3)))) (parsing-case=? saved.44 #\2)))) (parsing-case=? saved.44 #\1)))) (parsing-case=? saved.44 #\0)) (begin (consumechar) (state20 (scanchar))) (accept parsing-symbol-number-value))) c.23))) (define state21 (-> Char Symbol) (lambda (c.22) ((lambda (saved.43) (if ((lambda (value.115) (if value.115 value.115 ((lambda (value.114) (if value.114 value.114 ((lambda (value.113) (if value.113 value.113 ((lambda (value.112) (if value.112 value.112 ((lambda (value.111) (if value.111 value.111 ((lambda (value.110) (if value.110 value.110 ((lambda (value.109) (if value.109 value.109 ((lambda (value.108) (if value.108 value.108 ((lambda (value.107) (if value.107 value.107 (parsing-case=? saved.43 #\9))) (parsing-case=? saved.43 #\8)))) (parsing-case=? saved.43 #\7)))) (parsing-case=? saved.43 #\6)))) (parsing-case=? saved.43 #\5)))) (parsing-case=? saved.43 #\4)))) (parsing-case=? saved.43 #\3)))) (parsing-case=? saved.43 #\2)))) (parsing-case=? saved.43 #\1)))) (parsing-case=? saved.43 #\0)) (begin (consumechar) (state20 (scanchar))) (scannererror errincompletetoken))) c.22))) (define state22 (-> Char Symbol) (lambda (c.21) ((lambda (saved.41) (if ((lambda (value.106) (if value.106 value.106 (parsing-case=? saved.41 #\-))) (parsing-case=? saved.41 #\+)) (begin (consumechar) (state21 (scanchar))) ((lambda (saved.42) (if ((lambda (value.105) (if value.105 value.105 ((lambda (value.104) (if value.104 value.104 ((lambda (value.103) (if value.103 value.103 ((lambda (value.102) (if value.102 value.102 ((lambda (value.101) (if value.101 value.101 ((lambda (value.100) (if value.100 value.100 ((lambda (value.99) (if value.99 value.99 ((lambda (value.98) (if value.98 value.98 ((lambda (value.97) (if value.97 value.97 (parsing-case=? saved.42 #\9))) (parsing-case=? saved.42 #\8)))) (parsing-case=? saved.42 #\7)))) (parsing-case=? saved.42 #\6)))) (parsing-case=? saved.42 #\5)))) (parsing-case=? saved.42 #\4)))) (parsing-case=? saved.42 #\3)))) (parsing-case=? saved.42 #\2)))) (parsing-case=? saved.42 #\1)))) (parsing-case=? saved.42 #\0)) (begin (consumechar) (state20 (scanchar))) (scannererror errincompletetoken))) saved.41))) c.21))) (define state23 (-> Char Symbol) (lambda (c.20) ((lambda (saved.40) (if (parsing-case=? saved.40 #\#) (begin (consumechar) (state23 (scanchar))) (accept parsing-symbol-number-value))) c.20))) (define state24 (-> Char Symbol) (lambda (c.19) ((lambda (saved.38) (if ((lambda (value.96) (if value.96 value.96 ((lambda (value.95) (if value.95 value.95 ((lambda (value.94) (if value.94 value.94 ((lambda (value.93) (if value.93 value.93 ((lambda (value.92) (if value.92 value.92 ((lambda (value.91) (if value.91 value.91 ((lambda (value.90) (if value.90 value.90 ((lambda (value.89) (if value.89 value.89 ((lambda (value.88) (if value.88 value.88 (parsing-case=? saved.38 #\9))) (parsing-case=? saved.38 #\8)))) (parsing-case=? saved.38 #\7)))) (parsing-case=? saved.38 #\6)))) (parsing-case=? saved.38 #\5)))) (parsing-case=? saved.38 #\4)))) (parsing-case=? saved.38 #\3)))) (parsing-case=? saved.38 #\2)))) (parsing-case=? saved.38 #\1)))) (parsing-case=? saved.38 #\0)) (begin (consumechar) (state24 (scanchar))) ((lambda (saved.39) (if (parsing-case=? saved.39 #\#) (begin (consumechar) (state23 (scanchar))) (accept parsing-symbol-number-value))) saved.38))) c.19))) (define state25 (-> Char Symbol) (lambda (c.18) ((lambda (saved.37) (if ((lambda (value.87) (if value.87 value.87 ((lambda (value.86) (if value.86 value.86 ((lambda (value.85) (if value.85 value.85 ((lambda (value.84) (if value.84 value.84 ((lambda (value.83) (if value.83 value.83 ((lambda (value.82) (if value.82 value.82 ((lambda (value.81) (if value.81 value.81 ((lambda (value.80) (if value.80 value.80 ((lambda (value.79) (if value.79 value.79 (parsing-case=? saved.37 #\9))) (parsing-case=? saved.37 #\8)))) (parsing-case=? saved.37 #\7)))) (parsing-case=? saved.37 #\6)))) (parsing-case=? saved.37 #\5)))) (parsing-case=? saved.37 #\4)))) (parsing-case=? saved.37 #\3)))) (parsing-case=? saved.37 #\2)))) (parsing-case=? saved.37 #\1)))) (parsing-case=? saved.37 #\0)) (begin (consumechar) (state24 (scanchar))) (scannererror errincompletetoken))) c.18))) (define state26 (-> Char Symbol) (lambda (c.17) ((lambda (saved.33) (if (parsing-case=? saved.33 #\#) (begin (consumechar) (state26 (scanchar))) ((lambda (saved.34) (if (parsing-case=? saved.34 #\/) (begin (consumechar) (state25 (scanchar))) ((lambda (saved.35) (if ((lambda (value.78) (if value.78 value.78 ((lambda (value.77) (if value.77 value.77 ((lambda (value.76) (if value.76 value.76 ((lambda (value.75) (if value.75 value.75 (parsing-case=? saved.35 #\l))) (parsing-case=? saved.35 #\d)))) (parsing-case=? saved.35 #\f)))) (parsing-case=? saved.35 #\s)))) (parsing-case=? saved.35 #\e)) (begin (consumechar) (state22 (scanchar))) ((lambda (saved.36) (if (parsing-case=? saved.36 #\.) (begin (consumechar) (state19 (scanchar))) (accept parsing-symbol-number-value))) saved.35))) saved.34))) saved.33))) c.17))) (define state27 (-> Char Symbol) (lambda (c.16) ((lambda (saved.28) (if ((lambda (value.74) (if value.74 value.74 ((lambda (value.73) (if value.73 value.73 ((lambda (value.72) (if value.72 value.72 ((lambda (value.71) (if value.71 value.71 ((lambda (value.70) (if value.70 value.70 ((lambda (value.69) (if value.69 value.69 ((lambda (value.68) (if value.68 value.68 ((lambda (value.67) (if value.67 value.67 ((lambda (value.66) (if value.66 value.66 (parsing-case=? saved.28 #\9))) (parsing-case=? saved.28 #\8)))) (parsing-case=? saved.28 #\7)))) (parsing-case=? saved.28 #\6)))) (parsing-case=? saved.28 #\5)))) (parsing-case=? saved.28 #\4)))) (parsing-case=? saved.28 #\3)))) (parsing-case=? saved.28 #\2)))) (parsing-case=? saved.28 #\1)))) (parsing-case=? saved.28 #\0)) (begin (consumechar) (state27 (scanchar))) ((lambda (saved.29) (if (parsing-case=? saved.29 #\#) (begin (consumechar) (state26 (scanchar))) ((lambda (saved.30) (if (parsing-case=? saved.30 #\/) (begin (consumechar) (state25 (scanchar))) ((lambda (saved.31) (if ((lambda (value.65) (if value.65 value.65 ((lambda (value.64) (if value.64 value.64 ((lambda (value.63) (if value.63 value.63 ((lambda (value.62) (if value.62 value.62 (parsing-case=? saved.31 #\l))) (parsing-case=? saved.31 #\d)))) (parsing-case=? saved.31 #\f)))) (parsing-case=? saved.31 #\s)))) (parsing-case=? saved.31 #\e)) (begin (consumechar) (state22 (scanchar))) ((lambda (saved.32) (if (parsing-case=? saved.32 #\.) (begin (consumechar) (state18 (scanchar))) (accept parsing-symbol-number-value))) saved.31))) saved.30))) saved.29))) saved.28))) c.16))) (define state28 (-> Char Symbol) (lambda (c.15) ((lambda (saved.26) (if ((lambda (value.61) (if value.61 value.61 ((lambda (value.60) (if value.60 value.60 ((lambda (value.59) (if value.59 value.59 ((lambda (value.58) (if value.58 value.58 ((lambda (value.57) (if value.57 value.57 ((lambda (value.56) (if value.56 value.56 ((lambda (value.55) (if value.55 value.55 ((lambda (value.54) (if value.54 value.54 ((lambda (value.53) (if value.53 value.53 (parsing-case=? saved.26 #\9))) (parsing-case=? saved.26 #\8)))) (parsing-case=? saved.26 #\7)))) (parsing-case=? saved.26 #\6)))) (parsing-case=? saved.26 #\5)))) (parsing-case=? saved.26 #\4)))) (parsing-case=? saved.26 #\3)))) (parsing-case=? saved.26 #\2)))) (parsing-case=? saved.26 #\1)))) (parsing-case=? saved.26 #\0)) (begin (consumechar) (state27 (scanchar))) ((lambda (saved.27) (if (parsing-case=? saved.27 #\.) (begin (consumechar) (state17 (scanchar))) (accept parsing-symbol-id-value))) saved.26))) c.15))) (define state29 (-> Char Symbol) (lambda (c.14) ((lambda (saved.25) (if (parsing-case=? saved.25 #\newline) (begin (consumechar) (begin (ref-set! string_accumulator_length 0) (state0 (scanchar)))) (if (isnotnewline? c.14) (begin (consumechar) (state29 (scanchar))) (scannererror errincompletetoken)))) c.14))) (define state30 (-> Char Symbol) (lambda (c.13) (if (parsing-whitespace? c.13) (begin (consumechar) (state30 (scanchar))) (begin (ref-set! string_accumulator_length 0) (state0 (scanchar)))))) (define state31 (-> Char Symbol) (lambda (c.12) (begin (ref-set! string_accumulator_length 0) (state0 (scanchar))))) (define state32 (-> Char Symbol) (lambda (c.11) (accept parsing-symbol-id-value))) (define state33 (-> Char Symbol) (lambda (c.10) (accept parsing-symbol-boolean-value))) (define state34 (-> Char Symbol) (lambda (c.9) (accept parsing-symbol-character-value))) (define state35 (-> Char Symbol) (lambda (c.8) (accept parsing-symbol-vecstart-value))) (define state36 (-> Char Symbol) (lambda (c.7) (accept parsing-symbol-string-value))) (define state37 (-> Char Symbol) (lambda (c.6) (accept parsing-symbol-lparen-value))) (define state38 (-> Char Symbol) (lambda (c.5) (accept parsing-symbol-rparen-value))) (define state39 (-> Char Symbol) (lambda (c.4) (accept parsing-symbol-quote-value))) (define state40 (-> Char Symbol) (lambda (c.3) (accept parsing-symbol-backquote-value))) (define state41 (-> Char Symbol) (lambda (c.2) (accept parsing-symbol-splicing-value))) (define parse-datum (-> Datum) (lambda () ((lambda (saved.23) (if ((lambda (value.52) (if value.52 value.52 ((lambda (value.51) (if value.51 value.51 ((lambda (value.50) (if value.50 value.50 ((lambda (value.49) (if value.49 value.49 ((lambda (value.48) (if value.48 value.48 (parsing-case=? saved.23 parsing-symbol-vecstart-value))) (parsing-case=? saved.23 parsing-symbol-lparen-value)))) (parsing-case=? saved.23 parsing-symbol-quote-value)))) (parsing-case=? saved.23 parsing-symbol-backquote-value)))) (parsing-case=? saved.23 parsing-symbol-comma-value)))) (parsing-case=? saved.23 parsing-symbol-splicing-value)) ((lambda (ast1.12) (identity ast1.12)) (parse-compound-datum)) ((lambda (saved.24) (if ((lambda (value.47) (if value.47 value.47 ((lambda (value.46) (if value.46 value.46 ((lambda (value.45) (if value.45 value.45 ((lambda (value.44) (if value.44 value.44 (parsing-case=? saved.24 parsing-symbol-id-value))) (parsing-case=? saved.24 parsing-symbol-string-value)))) (parsing-case=? saved.24 parsing-symbol-character-value)))) (parsing-case=? saved.24 parsing-symbol-number-value)))) (parsing-case=? saved.24 parsing-symbol-boolean-value)) ((lambda (ast1.11) (identity ast1.11)) (parse-simple-datum)) (parse-error parsing-symbol-<datum>-value parsing-literal-1))) saved.23))) (next-token)))) (define parse-simple-datum (-> Datum) (lambda () ((lambda (saved.18) (if (parsing-case=? saved.18 parsing-symbol-id-value) ((lambda (ast1.10) (identity ast1.10)) (parse-symbol)) ((lambda (saved.19) (if (parsing-case=? saved.19 parsing-symbol-string-value) (begin (consume-token!) (makeString)) ((lambda (saved.20) (if (parsing-case=? saved.20 parsing-symbol-character-value) (begin (consume-token!) (makeChar)) ((lambda (saved.21) (if (parsing-case=? saved.21 parsing-symbol-number-value) (begin (consume-token!) (makeNum)) ((lambda (saved.22) (if (parsing-case=? saved.22 parsing-symbol-boolean-value) (begin (consume-token!) (makeBool)) (parse-error parsing-symbol-<simple-datum>-value parsing-literal-15))) saved.21))) saved.20))) saved.19))) saved.18))) (next-token)))) (define parse-symbol (-> Datum) (lambda () ((lambda (saved.17) (if (parsing-case=? saved.17 parsing-symbol-id-value) (begin (consume-token!) (makeSym)) (parse-error parsing-symbol-<symbol>-value parsing-literal-3))) (next-token)))) (define parse-compound-datum (-> Datum) (lambda () ((lambda (saved.15) (if (parsing-case=? saved.15 parsing-symbol-vecstart-value) ((lambda (ast1.9) (identity ast1.9)) (parse-vector)) ((lambda (saved.16) (if ((lambda (value.43) (if value.43 value.43 ((lambda (value.42) (if value.42 value.42 ((lambda (value.41) (if value.41 value.41 ((lambda (value.40) (if value.40 value.40 (parsing-case=? saved.16 parsing-symbol-splicing-value))) (parsing-case=? saved.16 parsing-symbol-comma-value)))) (parsing-case=? saved.16 parsing-symbol-backquote-value)))) (parsing-case=? saved.16 parsing-symbol-quote-value)))) (parsing-case=? saved.16 parsing-symbol-lparen-value)) ((lambda (ast1.8) (identity ast1.8)) (parse-list)) (parse-error parsing-symbol-<compound-datum>-value parsing-literal-4))) saved.15))) (next-token)))) (define parse-list (-> Datum) (lambda () ((lambda (saved.13) (if ((lambda (value.39) (if value.39 value.39 ((lambda (value.38) (if value.38 value.38 ((lambda (value.37) (if value.37 value.37 (parsing-case=? saved.13 parsing-symbol-quote-value))) (parsing-case=? saved.13 parsing-symbol-backquote-value)))) (parsing-case=? saved.13 parsing-symbol-comma-value)))) (parsing-case=? saved.13 parsing-symbol-splicing-value)) ((lambda (ast1.7) (identity ast1.7)) (parse-abbreviation)) ((lambda (saved.14) (if (parsing-case=? saved.14 parsing-symbol-lparen-value) (begin (consume-token!) ((lambda (ast1.6) (identity ast1.6)) (parse-list2))) (parse-error parsing-symbol-<list>-value parsing-literal-5))) saved.13))) (next-token)))) (define parse-list2 (-> Datum) (lambda () ((lambda (saved.11) (if ((lambda (value.36) (if value.36 value.36 ((lambda (value.35) (if value.35 value.35 ((lambda (value.34) (if value.34 value.34 ((lambda (value.33) (if value.33 value.33 ((lambda (value.32) (if value.32 value.32 ((lambda (value.31) (if value.31 value.31 ((lambda (value.30) (if value.30 value.30 ((lambda (value.29) (if value.29 value.29 ((lambda (value.28) (if value.28 value.28 ((lambda (value.27) (if value.27 value.27 (parsing-case=? saved.11 parsing-symbol-splicing-value))) (parsing-case=? saved.11 parsing-symbol-comma-value)))) (parsing-case=? saved.11 parsing-symbol-backquote-value)))) (parsing-case=? saved.11 parsing-symbol-quote-value)))) (parsing-case=? saved.11 parsing-symbol-lparen-value)))) (parsing-case=? saved.11 parsing-symbol-vecstart-value)))) (parsing-case=? saved.11 parsing-symbol-boolean-value)))) (parsing-case=? saved.11 parsing-symbol-number-value)))) (parsing-case=? saved.11 parsing-symbol-character-value)))) (parsing-case=? saved.11 parsing-symbol-string-value)))) (parsing-case=? saved.11 parsing-symbol-id-value)) ((lambda (ast1.5) ((lambda (ast2.3) (datum-cons ast1.5 ast2.3)) (parse-list3))) (parse-datum)) ((lambda (saved.12) (if (parsing-case=? saved.12 parsing-symbol-rparen-value) (begin (consume-token!) (emptyList)) (parse-error parsing-symbol-<list2>-value parsing-literal-6))) saved.11))) (next-token)))) (define parse-list3 (-> Datum) (lambda () ((lambda (saved.10) (if ((lambda (value.26) (if value.26 value.26 ((lambda (value.25) (if value.25 value.25 ((lambda (value.24) (if value.24 value.24 ((lambda (value.23) (if value.23 value.23 ((lambda (value.22) (if value.22 value.22 ((lambda (value.21) (if value.21 value.21 ((lambda (value.20) (if value.20 value.20 ((lambda (value.19) (if value.19 value.19 ((lambda (value.18) (if value.18 value.18 ((lambda (value.17) (if value.17 value.17 ((lambda (value.16) (if value.16 value.16 ((lambda (value.15) (if value.15 value.15 (parsing-case=? saved.10 parsing-symbol-id-value))) (parsing-case=? saved.10 parsing-symbol-string-value)))) (parsing-case=? saved.10 parsing-symbol-character-value)))) (parsing-case=? saved.10 parsing-symbol-number-value)))) (parsing-case=? saved.10 parsing-symbol-boolean-value)))) (parsing-case=? saved.10 parsing-symbol-vecstart-value)))) (parsing-case=? saved.10 parsing-symbol-lparen-value)))) (parsing-case=? saved.10 parsing-symbol-quote-value)))) (parsing-case=? saved.10 parsing-symbol-backquote-value)))) (parsing-case=? saved.10 parsing-symbol-comma-value)))) (parsing-case=? saved.10 parsing-symbol-splicing-value)))) (parsing-case=? saved.10 parsing-symbol-period-value)))) (parsing-case=? saved.10 parsing-symbol-rparen-value)) ((lambda (ast1.4) ((lambda (ast2.2) (pseudoAppend ast1.4 ast2.2)) (parse-list4))) (parse-data)) (parse-error parsing-symbol-<list3>-value parsing-literal-14))) (next-token)))) (define parse-list4 (-> Datum) (lambda () ((lambda (saved.8) (if (parsing-case=? saved.8 parsing-symbol-period-value) (begin (consume-token!) ((lambda (ast1.3) (if (typed-symbol=? (next-token) parsing-symbol-rparen-value) (begin (consume-token!) (identity ast1.3)) (parse-error parsing-symbol-<list4>-value parsing-literal-12))) (parse-datum))) ((lambda (saved.9) (if (parsing-case=? saved.9 parsing-symbol-rparen-value) (begin (consume-token!) (emptyList)) (parse-error parsing-symbol-<list4>-value parsing-literal-9))) saved.8))) (next-token)))) (define parse-abbreviation (-> Datum) (lambda () ((lambda (saved.7) (if ((lambda (value.14) (if value.14 value.14 ((lambda (value.13) (if value.13 value.13 ((lambda (value.12) (if value.12 value.12 (parsing-case=? saved.7 parsing-symbol-splicing-value))) (parsing-case=? saved.7 parsing-symbol-comma-value)))) (parsing-case=? saved.7 parsing-symbol-backquote-value)))) (parsing-case=? saved.7 parsing-symbol-quote-value)) ((lambda (ast1.2) ((lambda (ast2.1) (datum-list ast1.2 ast2.1)) (parse-datum))) (parse-abbrev-prefix)) (parse-error parsing-symbol-<abbreviation>-value parsing-literal-11))) (next-token)))) (define parse-abbrev-prefix (-> Datum) (lambda () ((lambda (saved.3) (if (parsing-case=? saved.3 parsing-symbol-splicing-value) (begin (consume-token!) (symSplicing)) ((lambda (saved.4) (if (parsing-case=? saved.4 parsing-symbol-comma-value) (begin (consume-token!) (symUnquote)) ((lambda (saved.5) (if (parsing-case=? saved.5 parsing-symbol-backquote-value) (begin (consume-token!) (symBackquote)) ((lambda (saved.6) (if (parsing-case=? saved.6 parsing-symbol-quote-value) (begin (consume-token!) (symQuote)) (parse-error parsing-symbol-<abbrev-prefix>-value parsing-literal-11))) saved.5))) saved.4))) saved.3))) (next-token)))) (define parse-vector (-> Datum) (lambda () ((lambda (saved.2) (if (parsing-case=? saved.2 parsing-symbol-vecstart-value) (begin (consume-token!) ((lambda (ast1.1) (if (typed-symbol=? (next-token) parsing-symbol-rparen-value) (begin (consume-token!) (list2vector ast1.1)) (parse-error parsing-symbol-<vector>-value parsing-literal-12))) (parse-data))) (parse-error parsing-symbol-<vector>-value parsing-literal-13))) (next-token)))) (define parse-data (-> Datum) (lambda () ((lambda (saved) (if ((lambda (value.11) (if value.11 value.11 ((lambda (value.10) (if value.10 value.10 ((lambda (value.9) (if value.9 value.9 ((lambda (value.8) (if value.8 value.8 ((lambda (value.7) (if value.7 value.7 ((lambda (value.6) (if value.6 value.6 ((lambda (value.5) (if value.5 value.5 ((lambda (value.4) (if value.4 value.4 ((lambda (value.3) (if value.3 value.3 ((lambda (value.2) (if value.2 value.2 (parsing-case=? saved parsing-symbol-splicing-value))) (parsing-case=? saved parsing-symbol-comma-value)))) (parsing-case=? saved parsing-symbol-backquote-value)))) (parsing-case=? saved parsing-symbol-quote-value)))) (parsing-case=? saved parsing-symbol-lparen-value)))) (parsing-case=? saved parsing-symbol-vecstart-value)))) (parsing-case=? saved parsing-symbol-boolean-value)))) (parsing-case=? saved parsing-symbol-number-value)))) (parsing-case=? saved parsing-symbol-character-value)))) (parsing-case=? saved parsing-symbol-string-value)))) (parsing-case=? saved parsing-symbol-id-value)) ((lambda (ast1) ((lambda (ast2) (datum-cons ast1 ast2)) (parse-data))) (parse-datum)) ((lambda (saved.1) (if ((lambda (value.1) (if value.1 value.1 (parsing-case=? saved.1 parsing-symbol-period-value))) (parsing-case=? saved.1 parsing-symbol-rparen-value)) (emptyList) (parse-error parsing-symbol-<data>-value parsing-literal-14))) saved))) (next-token)))) (define isnotdoublequote? (lambda (c.1) (not (char=? c.1 #\")))) (define isnotnewline? (lambda (c) (not (char=? c #\newline)))) (define next-token (-> Symbol) (lambda () (if (ref-get nextTokenIsReady) (ref-get kindOfNextToken) (begin (ref-set! string_accumulator_length 0) (scanner0))))) (define consume-token! (-> Unit) (lambda () (ref-set! nextTokenIsReady #f))) (define scannererror (-> I64 Symbol) (lambda (msg) (begin (define msgtxt (if (= msg errLongToken) "Amazingly long token" (if (= msg errincompletetoken) "in line " (if (= msg errLexGenBug) "Bug in lexical analyzer (generated)" "Bug in lexical analyzer")))) (datum-fail (string-append "Lexical Error: " msgtxt " " (i64->string (ref-get lineNumber)))) (ref-set! nextTokenIsReady #f) (ref-set! nextCharacterIsReady #f) (next-token)))) (define accept (-> Symbol Symbol) (lambda (t) (begin (if (parsing-member? t parsing-literal-15) (begin (ref-set! tokenValue (substring string_accumulator 0 (ref-get string_accumulator_length))) (unit)) (unit)) (ref-set! kindOfNextToken t) (ref-set! nextTokenIsReady #t) t))) (define scanchar (-> Char) (lambda () (if (ref-get nextCharacterIsReady) (ref-get nextCharacter) (begin (if (< (ref-get input-index) input-length) (begin (ref-set! nextCharacter (string-ref input-string (ref-get input-index))) (ref-set! input-index (+ (ref-get input-index) 1))) (ref-set! nextCharacter eof)) (ref-set! nextCharacterIsReady #t) (if #f (begin (parsing-write-character (ref-get nextCharacter)) (unit)) (unit)) (scanchar))))) (define consumechar (-> Unit) (lambda () (begin (if (ref-get nextCharacterIsReady) (unit) (begin (scanchar) (unit))) (if (< (ref-get string_accumulator_length) max_token_size) (begin (ref-set! nextCharacterIsReady #f) (if (char=? (ref-get nextCharacter) #\newline) (begin (ref-set! lineNumber (+ (ref-get lineNumber) 1)) (unit)) (unit)) (string-set! string_accumulator (ref-get string_accumulator_length) (ref-get nextCharacter)) (ref-set! string_accumulator_length (+ (ref-get string_accumulator_length) 1))) (begin (scannererror errLongToken) (unit)))))) (define emptyList (-> Datum) (lambda () (datum-null))) (define identity (lambda (x.1) x.1)) (define list2vector (lambda (vals.1) (parsing-vector vals.1))) (define makeBool (-> Datum) (lambda () (datum-boolean (string=? (ref-get tokenValue) "#t")))) (define makeChar (-> Datum) (lambda () (datum-character (string-ref (ref-get tokenValue) 0)))) (define makeNum (-> Datum) (lambda () (parsing-number (ref-get tokenValue)))) (define makeString (-> Datum) (lambda () (datum-string (substring (ref-get tokenValue) 1 (- (string-length (ref-get tokenValue)) 1))))) (define makeSym (-> Datum) (lambda () (datum-symbol (typed-string->symbol (ref-get tokenValue))))) (define pseudoAppend (-> Datum Datum Datum) (lambda (vals terminus) (if (datum-null? vals) terminus (datum-cons (datum-car vals) (pseudoAppend (datum-cdr vals) terminus))))) (define symBackquote (-> Datum) (lambda () (datum-symbol parsing-symbol-quasiquote-value))) (define symQuote (-> Datum) (lambda () (datum-symbol parsing-symbol-quote-value))) (define symSplicing (-> Datum) (lambda () (datum-symbol parsing-symbol-unquote-splicing-value))) (define symUnquote (-> Datum) (lambda () (datum-symbol parsing-symbol-unquote-value))) (define parse-error (-> Symbol (List Symbol) Datum) (lambda (nonterminal expected-terminals) (if (typed-symbol=? parsing-symbol-eof-value (next-token)) (datum-symbol parsing-symbol-eof-value) (begin (parsing-display-string "Syntax error in line ") (parsing-display-string (i64->string (ref-get lineNumber))) (parsing-display-string " while parsing a ") (parsing-display-symbol nonterminal) (parsing-newline) (parsing-display-string "  Encountered a ") (parsing-display-symbol (next-token)) (parsing-display-string " while expecting something in") (parsing-newline) (parsing-display-string "  ") (parsing-display-symbols expected-terminals) (parsing-newline) (datum-fail "Syntax error"))))) (((lambda () (begin (define loop (lambda (x y) (if (datum-eq? x (datum-symbol parsing-symbol-eof-value)) (begin (unit) y) (loop (parse-datum) x)))) loop))) (parse-datum) (datum-symbol parsing-symbol-eof-value)))))) (string-length input-string))) (ref 0))) (ref #f))) (ref #\space))) (ref 0))) (make-string max_token_size))) 0)) (ref 1))) 0)) (ref ""))) (ref #f))) (ref parsing-symbol-z1-value))) 3)) 2)) 1)) 1024))
+      #\~)))
+
+(define-data Specification
+  (specification
+    (count I64 specification-count)
+    (path String specification-path)
+    (expected Datum specification-expected)))
+
+(define read-specification
+  (lambda (port)
+    ((lambda (count.2) ((lambda (path) ((lambda (expected) ((lambda () (specification count.2 path expected)))) (read-value! (read port)))) (datum-string-value (read-value! (read port)))))
+      (parsing-exact (read-value! (read port))))))
+
+(define configured (call-with-input-file "input.txt" read-specification))
+
+(define configured-count (-> I64) (lambda () (specification-count configured)))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define hide (All (T) (-> I64 T T)) (lambda (count.1 value) (if (barrier) value (unreachable))))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    ((lambda (result) (if (datum=? result (specification-expected configured)) 1 0))
+      (parsing-benchmark
+        (parsing-integer (hide count count))
+        (datum-string (hide count (specification-path configured)))))))
+
+(unit)

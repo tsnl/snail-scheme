@@ -1,0 +1,202 @@
+(import
+  (only (chezscheme)
+    current-time
+    machine-type
+    scheme-version-number
+    time-nanosecond
+    time-second)
+  (except
+    (rename (rnrs) (define-record-type r6rs:define-record-type))
+    bitwise-and
+    bitwise-not
+    div
+    mod
+    partition)
+  (rnrs mutable-pairs)
+  (rnrs mutable-strings)
+  (rnrs r5rs))
+
+(define-syntax define-record-type
+  ;; Simplistic R7RS to R6RS define-record-type transformation.
+  (syntax-rules ()
+    ((define-record-type name
+      (make-name param ...)
+      name?
+      (field-name field-ref field-set!)
+      ...)
+     (r6rs:define-record-type (name make-name name?)
+       (protocol
+         (lambda (new)
+           (lambda (param ...)
+             (new param ...))))
+       (fields
+         (mutable field-name field-ref field-set!)
+         ...)))))
+
+(define (exact-integer? z)
+  (and (exact? z) (integer? z)))
+
+ (define read-line
+   get-line)
+
+(define (square x)
+  (* x x))
+
+(define write-string
+  (case-lambda
+    ((string)
+      (put-string (current-output-port) string))
+    ((string port)
+      (put-string port string))
+    ((string port start)
+      (put-string port string start))
+    ((string port start end)
+      (put-string port string start (fx+ (fx- end start) 1)))))
+;; R7RS benchmark timing for compiled Chez programs. The upstream Petite-Chez
+;; prelude supplies language compatibility; the benchmark body is unchanged.
+;; Use Chez's monotonic clock and integer nanoseconds, not two wall-clock reads.
+
+(define (current-jiffy)
+  (let ((now (current-time 'time-monotonic)))
+    (+ (* (time-second now) 1000000000) (time-nanosecond now))))
+
+(define (jiffies-per-second) 1000000000)
+
+(define (current-second)
+  (/ (current-jiffy) 1000000000.0))
+
+(define (empty-vector) (vector))
+(define (i64->f64 value) (inexact value))
+;;; MBROT -- Generation of Mandelbrot set fractal.
+
+
+(define (count r i step x y)
+
+  (let ((max-count 64)
+        (radius^2  16.0))
+
+    (let ((cr (+ r (* (i64->f64 x) step)))
+          (ci (+ i (* (i64->f64 y) step))))
+
+      (let loop ((zr cr)
+                 (zi ci)
+                 (c 0))
+        (if (= c max-count)
+            c
+            (let ((zr^2 (* zr zr))
+                  (zi^2 (* zi zi)))
+              (if (> (+ zr^2 zi^2) radius^2)
+                  c
+                  (let ((new-zr (+ (- zr^2 zi^2) cr))
+                        (new-zi (+ (* 2.0 (* zr zi)) ci)))
+                    (loop new-zr new-zi (+ c 1))))))))))
+
+(define (mbrot matrix r i step n)
+  (let loop1 ((y (- n 1)))
+    (when (>= y 0)
+      (let loop2 ((x (- n 1)))
+        (if (>= x 0)
+            (begin
+              (vector-set! (vector-ref matrix x) y (count r i step x y))
+              (loop2 (- x 1)))
+            (loop1 (- y 1)))))))
+
+(define (test n)
+  (let ((matrix (make-vector n (empty-vector))))
+    (let loop ((i (- n 1)))
+      (when (>= i 0)
+        (vector-set! matrix i (make-vector n 0))
+        (loop (- i 1))))
+    (mbrot matrix -1.0 -0.5 0.005 n)
+    (vector-ref (vector-ref matrix 0) 0)))
+
+(define (run-benchmark)
+  (let* ((count (read))
+         (input1 (read))
+         (output (read))
+         (s2 (number->string count))
+         (s1 (number->string input1))
+         (name "mbrot"))
+    (run-r7rs-benchmark
+     (string-append name ":" s1 ":" s2)
+     count
+     (lambda () (test (hide count input1)))
+     (lambda (result) (= result output)))))
+
+(define (this-scheme-implementation-name) "chez")
+
+;;; The following code is appended to all benchmarks.
+
+;;; Given an integer and an object, returns the object
+;;; without making it too easy for compilers to tell
+;;; the object will be returned.
+
+(define (hide r x)
+  (call-with-values
+   (lambda ()
+     (values (vector values (lambda (x) x))
+             (if (< r 100) 0 1)))
+   (lambda (v i)
+     ((vector-ref v i) x))))
+
+;;; Given the name of a benchmark,
+;;; the number of times it should be executed,
+;;; a thunk that runs the benchmark once,
+;;; and a unary predicate that is true of the
+;;; correct results the thunk may return,
+;;; runs the benchmark for the number of specified iterations.
+
+(define (run-r7rs-benchmark name count thunk ok?)
+
+  ;; Rounds to thousandths.
+  (define (rounded x)
+    (/ (round (* 1000 x)) 1000))
+
+  (display "Running ")
+  (display name)
+  (newline)
+  (flush-output-port (current-output-port))
+  (let* ((j/s (jiffies-per-second))
+         (t0 (current-second))
+         (j0 (current-jiffy)))
+    (let loop ((i 0)
+               (result #f))
+      (cond ((< i count)
+             (loop (+ i 1) (thunk)))
+            ((ok? result)
+             (let* ((t1 (current-second))
+                    (j1 (current-jiffy))
+                    (jifs (- j1 j0))
+                    (secs (inexact (/ jifs j/s)))
+                    (secs2 (rounded (- t1 t0))))
+               (display "Elapsed time: ")
+               (write secs)
+               (display " seconds (")
+               (write secs2)
+               (display ") for ")
+               (display name)
+               (newline)
+               (display "+!CSVLINE!+")
+               (display (this-scheme-implementation-name))
+               (display ",")
+               (display name)
+               (display ",")
+               (display secs)
+               (newline)
+               (flush-output-port (current-output-port)))
+             0)
+            (else
+             (display "ERROR: returned incorrect result: ")
+             (write result)
+             (newline)
+             (display "+!CSVLINE!+")
+             (display (this-scheme-implementation-name))
+             (display ",")
+             (display name)
+             (display ",")
+             (display "INCORRECT")
+             (newline)
+             (flush-output-port (current-output-port))
+             0)))))
+
+(run-benchmark)

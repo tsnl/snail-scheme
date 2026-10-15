@@ -1,0 +1,17 @@
+{
+  "name": "cat",
+  "count": 50,
+  "pathnames": [
+    "inputs/bib",
+    "outputs/cat.output"
+  ],
+  "expected": 1,
+  "inputs": [],
+  "barriers_per_iteration": 2,
+  "setup_barriers": 0,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader",
+  "expected_datum": "ignored"
+}

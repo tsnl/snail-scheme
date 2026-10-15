@@ -1,0 +1,40 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import (sfir core))
+
+(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(define length
+  (lambda (xs)
+    (((lambda () (begin (define loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
+      xs
+      0)))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(define hide (lambda (count.1 x.1) (hide-i64 x.1)))
+
+(define tak
+  (lambda (x y z) (if (not (< y x)) z (tak (tak (- x 1) y z) (tak (- y 1) z x) (tak (- z 1) x y)))))
+
+(define input0 (native-input-i64 (ann 0 I32)))
+
+(define input1 (native-input-i64 (ann 1 I32)))
+
+(define input2 (native-input-i64 (ann 2 I32)))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (tak (hide count input0) (hide count input1) (hide count input2))) result))) loop)))
+      0
+      0)))
+
+(unit)

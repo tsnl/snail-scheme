@@ -1,0 +1,25 @@
+{
+  "name": "triangl",
+  "count": 50,
+  "inputs": [
+    22,
+    1
+  ],
+  "expected": [
+    22,
+    34,
+    31,
+    15,
+    7,
+    1,
+    20,
+    17,
+    25,
+    6,
+    5,
+    13,
+    32
+  ],
+  "barriers_per_iteration": 2,
+  "result_kind": "i64-list-values"
+}
