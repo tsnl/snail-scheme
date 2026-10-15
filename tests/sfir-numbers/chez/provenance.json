@@ -77,6 +77,38 @@
         "lib/sfir/math.sfir": "8874d03006e98d9b8c286b3026221b7f1e06a97c75f2f3ac4cdb0ffaf8a92d2d",
         "lib/sfir/rational.sfir": "452d3da874d649babc93fe26ebd707e68db0ef5142b6c25fe0ca9c3a04f8e176"
       }
+    },
+    {
+      "name": "full-unicode-folding",
+      "base_source_revision": "c3b0f622f93cad1a069aab11810682584edb16d8",
+      "review": "Parent source review: extends the scalar-extensions-and-borrowed-stdin profile. Only text.sfir changes among these libraries; its existing definitions are unchanged. This profile records compatibility for the stated observations, not new execution results.",
+      "covered_observations": [
+        "Number arithmetic and scalar formatting",
+        "Datum numeric tokens and ownership errors",
+        "Reader streams through explicit owned input files"
+      ],
+      "changes": {
+        "lib/sfir/text.sfir": "Adds string-foldcase and two scalar full-fold declarations. The numeric/reader fixtures do not import this library. Existing character and string-ordering definitions are unchanged."
+      },
+      "excluded_coverage": [
+        "Full string folding, tested separately by scripts/test-sfir-text",
+        "Borrowed standard input and its aliasing",
+        "New scalar math and Unicode functions",
+        "Unchanged initialization order, allocation counts or timing"
+      ],
+      "sfir_libraries": {
+        "lib/sfir/io.sfir": "5d15c3023a46751dc26f09c2c5403e0436ba202ce4c491a8ba26765f718b48e5",
+        "lib/sfir/integer.sfir": "97ee15cdd80126052dcac4c4062ebe4df9efab87bdb24ed9ae95507b079c2f9e",
+        "lib/sfir/bytes.sfir": "605f1f70812f171852b3fcc94d49c2e37ba4aee8bae707d5b820d60e11b2a7e5",
+        "lib/sfir/datum.sfir": "c24509116eb4147556284914fb38909d0ea330326bfdb3a94f07b82edc1e9c4c",
+        "lib/sfir/number.sfir": "8e01342bfba2633d7af2418add34a261183e469ba45521a87f2f7cbff2a79a01",
+        "lib/sfir/core.sfir": "d33da43e681f7dd2cb36d24d7ab0fd113e0decf14776478e33316ab4873f7749",
+        "lib/sfir/read.sfir": "959fc57da32cd06263bd92596b04d5ca68ce67f3f52e102bf65f72f54d513597",
+        "lib/sfir/write.sfir": "761002391a23161706c28260aac9343ff19bf00631fad0763a072f946882fbcd",
+        "lib/sfir/text.sfir": "9b52eef3f325208968d75b3693f0474e804b85415474f935abd088de27fe8243",
+        "lib/sfir/math.sfir": "8874d03006e98d9b8c286b3026221b7f1e06a97c75f2f3ac4cdb0ffaf8a92d2d",
+        "lib/sfir/rational.sfir": "452d3da874d649babc93fe26ebd707e68db0ef5142b6c25fe0ca9c3a04f8e176"
+      }
     }
   ]
 }

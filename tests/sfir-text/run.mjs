@@ -39,6 +39,35 @@ try {
     api['fill-left'](0n, 99); assert.equal(api.ordered(), 0);
     api['fill-left'](0n, 98); assert.equal(api.ordered(), 0);
     api['fill-right'](0n, 99); assert.equal(api.ordered(), 1);
+  } else if (action === 'fold-scalars') {
+    let count = 0;
+    for (const line of fs.readFileSync(path.join(directory, 'fold-scalars.txt'), 'utf8').trim().split('\n')) {
+      const [code, length, ...expected] = line.split(' ').map(Number);
+      assert.equal(api['fold-count'](code), length, `fold length U+${code.toString(16)}`);
+      for (let index = 0; index < length; index++)
+        assert.equal(api['fold-component'](code, index), expected[index], `fold U+${code.toString(16)}[${index}]`);
+      count++;
+    }
+    console.log(count);
+  } else if (action === 'fold-strings') {
+    let count = 0;
+    for (const line of fs.readFileSync(path.join(directory, 'fold-strings.txt'), 'utf8').trim().split('\n')) {
+      const [size, length, ...characters] = line.split(' ').map(Number);
+      api['fresh-strings'](BigInt(size), 0n);
+      for (let index = 0; index < size; index++) api['fill-left'](BigInt(index), characters[index]);
+      api['fold-left']();
+      assert.equal(api['right-length'](), BigInt(length));
+      assert.equal(api['same-strings'](), 0, 'even empty and identity folds own fresh storage');
+      for (let index = 0; index < size; index++) assert.equal(api['read-left'](BigInt(index)), characters[index]);
+      for (let index = 0; index < length; index++) assert.equal(api['read-right'](BigInt(index)), characters[size + index]);
+      if (size > 0) {
+        api['fill-left'](0n, 33); assert.equal(api['read-right'](0n), characters[size]);
+        api['fill-right'](0n, 63); assert.equal(api['read-left'](0n), 33);
+      }
+      count++;
+    }
+    assert.equal(api['fold-literal'](), 1);
+    console.log(count);
   } else {
     assert.equal(action, 'malformed');
     assert.throws(() => api.malformed(BigInt(operation), Number(code)));

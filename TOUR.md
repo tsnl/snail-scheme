@@ -96,6 +96,13 @@ resource cleanup. The [SFIR libraries](lib/sfir/README.md) implement numeric,
 container, datum and I/O behavior in SFIR; Rust externs supply concrete host
 operations. Wasm owns managed collection.
 
+[`text.sfir`](lib/sfir/text.sfir) owns string ordering and full case-fold output
+storage. [`strict_text.rs`](src/strict_text.rs) exposes Unicode operations as
+scalar C/Wasm functions. [`unicode.rs`](src/unicode.rs) keeps one generated
+folding implementation with at most three stack-resident output scalars;
+[`generate-unicode`](scripts/generate-unicode) checks that bound against pinned
+Unicode data and Rust's recorded casing baseline.
+
 [`native.sld`](src/snail-scheme/native.sld) optimizes Wasm before lowering.
 [`wasm-read.sld`](src/snail-scheme/wasm-read.sld) reads Binaryen's spelling;
 [`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld) resolves Wasm identities.

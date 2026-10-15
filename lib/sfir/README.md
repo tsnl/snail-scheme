@@ -16,7 +16,7 @@ overload families.
 | `core` | Static scalar overloads, `Default`, and homogeneous vector/string operations. Only primitive function values come from `(sfir primitive)`. |
 | `io` | Scalar file services, explicit shared-handle ownership, borrowed standard streams, line input and text output. |
 | `math` | Binary64 trigonometry, exponentials and logarithms through scalar externs. |
-| `text` | Unicode scalar properties and lexical string ordering. |
+| `text` | Unicode scalar properties, full string case folding and lexical string ordering. |
 | `bytes` | Packed bytes, checked copies and strict UTF-8 conversion. |
 | `integer` | Exact signed integers, arithmetic, division, roots and correctly rounded binary64 conversion. |
 | `rational` | Exact normalized ratios with positive coprime denominators. |
@@ -41,6 +41,13 @@ modules. Datums retain distinct mutable storage identity and recursive view IDs.
 Graph equality and output keep their existing work lists and cycle handling.
 No generic evaluator, boxed replacement algorithm or reduced numeric domain is
 introduced by the migration.
+
+`string-foldcase` follows the [Unicode 16 default full mappings](https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt)
+and returns fresh mutable string storage, including for empty and unchanged
+strings. A first traversal computes the checked output length; a second fills
+it. Rust returns scalar mapping lengths and components, without receiving
+managed strings or allocating temporary strings. The generated casing exceptions
+record Rust's Unicode baseline and require regeneration when it changes.
 
 Every former procedure definition is now an explicit value definition containing
 a lambda. An existing signature is attached to that definition. A lambda or let
