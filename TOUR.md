@@ -376,6 +376,14 @@ workloads, fixes the comparison schedule, supervises fresh execution processes
 and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
 
+`benchmarks/wasm-reference/suite.sld` runs the independent Rust/WASI and original
+Chez correctness checks, retaining pinned inputs, complete file results and
+negative checks. `audit.sld` reads serialized output without losing numeric
+spellings and compares lexical alpha equivalence, complete graphs and nucleic
+transformations. `compiler.sld` executes the four independent compiler-stage
+probe groups against the original Chez algorithm. Their `.scm` entry points
+and unit tests run in Chibi.
+
 ## Language specification
 
 The [SFIR book](doc/book/sfir/index.md) specifies the language, library

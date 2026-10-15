@@ -3,14 +3,26 @@
 The suite implements all 57 canonical workloads. Source
 coverage, successful execution of the unchanged canonical inputs, and measured
 performance are separate statuses. [`PORTING.md`](PORTING.md) records the
-implementation contracts and remaining work. `suite.py` freezes sources and
+implementation contracts and remaining work. `suite.scm` freezes sources and
 tool/binary hashes, runs actual Node/Wasm plus independent original Chez checks,
 and retains failures such as Ackermann's default native-stack overflow.
 
 ```sh
-python3 benchmarks/wasm-reference/suite.py --build \
+chibi-scheme -I src -I benchmarks benchmarks/wasm-reference/suite.scm --build \
   --output build/rust-reference-checks --benchmarks all --checks full
 ```
+
+The complete residual-program, assembly, instruction-graph, nucleic and generated-file
+audit tests run with:
+
+```sh
+chibi-scheme -D snail-tests -I src -I tests -I benchmarks \
+  benchmarks/wasm-reference/tests/audits.scm
+```
+
+Compiler stage probes use `tests/compiler-frontend.scm`, `tests/compiler-gvm.scm`,
+`tests/compiler-asm.scm`, and `tests/compiler-assembly.scm`, each with `--output DIR`.
+Build the `compiler_frontend` Cargo example for `wasm32-wasip1` before running them.
 
 `--checks small` executes independent fixtures and wrong-result probes;
 `--checks quick` retains the original algorithm inputs while changing the
