@@ -619,6 +619,10 @@ suspension across Rust frames are unsupported.
 
 [`doc/book/`](doc/book/index.md) contains the recovered node/runtime model,
 connection diagrams, concrete build APIs, installed Node host, and GUI stubs.
+[`doc/book/sfir/`](doc/book/sfir/index.md) specifies the proposed SFIR language
+and library model, from examples through formal rules and staged builds.
+[`doc/sfir.md`](doc/sfir.md) remains its entry page; shared rule snippets keep
+the explanatory chapters and rendered formal summary synchronized.
 The runtime runs a node using its selected platform. Spawn/connect/message
 contracts are documented model behavior, not installed command capabilities.
 [`scripts/book`](scripts/book) builds or serves the book.

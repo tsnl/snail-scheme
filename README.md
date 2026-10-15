@@ -15,6 +15,9 @@ The [book](doc/book/index.md) explains the longer-term model of nodes, artifacts
 spawn, connect, and messages. Node connections and browser GUI adapters are still
 unimplemented; the book distinguishes that model from runnable examples.
 
+The [SFIR chapters](doc/book/sfir/index.md) specify the proposed typed language,
+library values and compiler-as-library model, with examples and formal rules.
+
 ## Getting started
 
 ```sh

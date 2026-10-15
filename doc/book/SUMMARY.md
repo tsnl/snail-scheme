@@ -2,6 +2,14 @@
 
 [Why Snail-Scheme?](index.md)
 
+- [SFIR](sfir/index.md)
+  - [Terms and definitions](sfir/terms.md)
+  - [Types](sfir/types.md)
+  - [Formal summary](sfir/reference.md)
+  - [Libraries](sfir/libraries.md)
+  - [Compilers as libraries](sfir/compilers.md)
+  - [Notable omissions](sfir/omissions.md)
+  - [References](sfir/references.md)
 - [Nodes and Runtimes](nodes.md)
   - [Runtime contracts](runtime-contracts.md)
 - [Platforms and effect interfaces](effects.md)

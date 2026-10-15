@@ -14,8 +14,14 @@ with a counter shared by two browsers.
 
 ## How to read this book
 
-Start with [nodes and runtimes](nodes.md), [runtime contracts](runtime-contracts.md),
-and [build scripts](builds.md). The [examples](tutorials/index.md) apply
+For the proposed language, start with [SFIR](sfir/index.md). Its chapters move
+from examples and language rules to imports, library values and programmable
+builds. They specify a design independently of the current compiler's syntax.
+
+For the application model, read [nodes and runtimes](nodes.md),
+[runtime contracts](runtime-contracts.md), and [build scripts](builds.md).
+These chapters describe the existing Scheme APIs and the wider runtime design.
+The [examples](tutorials/index.md) apply
 these ideas to a game, chat, and tensor training. Game and chat use pseudocode; the tensor tutorial includes a runnable prototype.
 
 Optional type annotations support checking, inference, and
