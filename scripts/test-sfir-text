@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Unicode scalar helpers and mutable string ordering on Wasm/native64."""
+"""Verify Unicode scalar helpers, full folding and mutable strings on both targets."""
 
 import hashlib
 import importlib.machinery
@@ -19,7 +19,8 @@ SUPPORT.OUTPUT = SUPPORT.ARTIFACTS = OUTPUT
 SUPPORT.ENV['SNAIL_NATIVE_GC_INTERVAL'] = '1'
 run = SUPPORT.run
 EXPORTS = ['lower', 'alphabetic', 'numeric', 'whitespace', 'fresh-strings', 'fill-left',
-           'fill-right', 'ordered', 'self-ordered', 'malformed']
+           'fill-right', 'ordered', 'self-ordered', 'malformed', 'fold-left', 'read-left',
+           'read-right', 'right-length', 'same-strings', 'fold-literal', 'fold-count', 'fold-component']
 WHITESPACE = {9, 10, 11, 12, 13, 32, 0x85, 0xa0, 0x1680, *range(0x2000, 0x200b),
               0x2028, 0x2029, 0x202f, 0x205f, 0x3000}
 
@@ -91,6 +92,30 @@ def string_cases():
     return rows
 
 
+def write_folding_cases():
+    # Python's independently shipped Unicode16 tables establish every expected
+    # scalar, including identities that must override newer native casing.
+    strings = ['', 'same', 'Straße', 'Σσς', 'ﬃ', 'ΐ', 'Iİı', '\0', 'a\0B',
+               'É', 'E\u0301', '\U00010400\U00010428', '\u13a0\uab70', '\U0010ffff',
+               'ß' * 8193, 'a' * 8191 + 'ΐﬃİ']
+    count = 0
+    with (OUTPUT / 'fold-scalars.txt').open('w') as stream:
+        for code in range(0x110000):
+            if 0xd800 <= code <= 0xdfff:
+                continue
+            character = chr(code)
+            folded = character.casefold()
+            assert 1 <= len(folded) <= 3
+            stream.write(' '.join(map(str, [code, len(folded), *map(ord, folded), *([0] * (3 - len(folded)))])) + '\n')
+            if folded != character:
+                strings.append(character)
+            count += 1
+    strings += [a + b for a, b in string_cases()]
+    (OUTPUT / 'fold-strings.txt').write_text(''.join(' '.join(map(str, [len(value), len(value.casefold()),
+        *map(ord, value), *map(ord, value.casefold())])) + '\n' for value in strings))
+    return count, len(strings)
+
+
 # ---- Retained sources and actual raw/optimized Wasm and native builds ----
 
 
@@ -112,7 +137,7 @@ def check(system, action, arguments=()):
     label = '-'.join(map(str, [system, action, *arguments]))
     directory = OUTPUT / 'cases' / label
     directory.mkdir(parents=True)
-    for name in ['scalars.txt', 'strings.txt']:
+    for name in ([] if action == 'malformed' else [action + '.txt']):
         (directory / name).write_bytes((OUTPUT / name).read_bytes())
     SUPPORT.ENV['SNAIL_NATIVE_CLEANUP_LOG'] = str(directory / 'released')
     command = ([OUTPUT / 'native', action, *arguments] if system == 'native' else
@@ -121,7 +146,8 @@ def check(system, action, arguments=()):
     stdout = run(command, label, cwd=directory, failure=action == 'malformed' and system == 'native')
     stderr = (OUTPUT / 'commands' / label / 'stderr').read_text()
     if action == 'malformed':
-        assert not stdout and 'invalid Unicode scalar' in stderr
+        expected = 'invalid Unicode scalar' if arguments[0] < 6 else 'full case-fold component index out of range'
+        assert not stdout and expected in stderr, stderr
         assert (directory / 'pending.txt').read_bytes() == b'buffered'
     else:
         assert not stderr, stderr
@@ -142,7 +168,7 @@ def check_scalars(output, expected):
 def freeze_sources():
     paths = [ROOT / name for name in ['lib/sfir/text.sfir', 'src/strict_text.rs', 'src/unicode.rs',
              'src/lib.rs', 'src/strict_datum.rs', 'src/strict_io.rs', 'scripts/test-sfir-text',
-             'scripts/test-sfir-reader', 'tests/native-cleanup-observer.h']]
+             'scripts/test-sfir-reader', 'scripts/generate-unicode', 'tests/native-cleanup-observer.h']]
     paths += sorted((ROOT / 'lib/sfir').glob('*.sfir'))
     paths += sorted((ROOT / 'src').rglob('*.sld'))
     paths += list(FIXTURES.iterdir())
@@ -160,9 +186,13 @@ def main():
     OUTPUT.mkdir(parents=True)
     print(OUTPUT, flush=True)
     scalars, strings = scalar_cases(), string_cases()
+    fold_scalars, fold_strings = write_folding_cases()
     (OUTPUT / 'scalars.txt').write_text(''.join(' '.join(map(str, row)) + '\n' for row in scalars))
     (OUTPUT / 'strings.txt').write_text(''.join(' '.join(map(str, [len(a), len(b), int(a < b),
          *map(ord, a), *map(ord, b)])) + '\n' for a, b in strings))
+    inputs = {name: hashlib.sha256((OUTPUT / name).read_bytes()).hexdigest()
+              for name in ['scalars.txt', 'strings.txt', 'fold-scalars.txt', 'fold-strings.txt']}
+    (OUTPUT / 'input-identities.json').write_text(json.dumps(inputs, indent=2) + '\n')
     freeze_sources()
     SUPPORT.record_tools()
     build()
@@ -173,15 +203,23 @@ def main():
         check_scalars(output, scalars)
         streams.append(output)
         assert check(system, 'strings') == ''.join(str(int(a < b)) + '\n' for a, b in strings)
-        for operation in range(4):
+        assert check(system, 'fold-scalars') == str(fold_scalars) + '\n'
+        assert check(system, 'fold-strings') == str(fold_strings) + '\n'
+        for operation in range(6):
             for code in [0xd800, 0xdfff, 0x110000, 0xffffffff]:
                 check(system, 'malformed', [operation, code])
+        for operation, indices in [(6, [2, 3, 0xffffffff]), (7, [3, 4, 0xffffffff])]:
+            for index in indices:
+                check(system, 'malformed', [operation, index])
         print('PASS Unicode text ' + system, flush=True)
     assert streams[0] == streams[1] == streams[2]
     report = dict(systems=['raw linked Wasm', 'optimized linked Wasm', 'native64'], scalar_cases=len(scalars),
-                  comparison_cases=len(strings), malformed_cases_per_system=16, python_unicode=unicodedata.unidata_version,
+                  comparison_cases=len(strings), full_fold_scalar_cases=fold_scalars, full_fold_string_cases=fold_strings,
+                  malformed_cases_per_system=30, python_unicode=unicodedata.unidata_version,
                   oracle='Unicode16 full lowercase plus explicit simple U+0130; decimal category Nd; fixed Alphabetic/White_Space cases',
-                  mutation_checks=4, complete_scalar_fields_equal_across_targets=True)
+                  mutation_checks='four ordering mutations and independent source/result mutation for every nonempty fold',
+                  full_fold_oracle='Python Unicode16 default full casefold on all Unicode scalars',
+                  complete_scalar_fields_equal_across_targets=True)
     (OUTPUT / 'validation.json').write_text(json.dumps(report, indent=2) + '\n')
     print('PASS complete Unicode text checks: ' + str(OUTPUT), flush=True)
 
