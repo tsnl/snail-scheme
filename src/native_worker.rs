@@ -103,9 +103,42 @@ fn own_lifetime(parent: libc::pid_t) -> io::Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Default)]
+struct Cleanup {
+    wait_status: Option<i32>,
+    descendants_gone: bool,
+    unexpected_descendants: Vec<libc::pid_t>,
+    executing_descendants: Vec<libc::pid_t>,
+}
+
+impl Cleanup {
+    fn exit_code(&self) -> Option<i32> {
+        self.wait_status
+            .filter(|&status| libc::WIFEXITED(status))
+            .map(|status| libc::WEXITSTATUS(status))
+    }
+
+    fn signal(&self) -> Option<i32> {
+        self.wait_status
+            .filter(|&status| libc::WIFSIGNALED(status))
+            .map(|status| libc::WTERMSIG(status))
+    }
+
+    fn status(&self) -> i32 {
+        if self.descendants_gone {
+            self.exit_code().unwrap_or(1)
+        } else {
+            1
+        }
+    }
+}
+
 struct ChildGroup {
     pid: libc::pid_t,
-    reaped: bool,
+    // An unreaped child reserves its PID, even after exit. Once released, no
+    // process-group signal may use that identity again.
+    leader_owned: bool,
+    cleanup: Option<Cleanup>,
 }
 
 impl ChildGroup {
@@ -127,114 +160,222 @@ impl ChildGroup {
         }
         Ok(Self {
             pid: command.spawn()?.id() as libc::pid_t,
-            reaped: false,
+            leader_owned: true,
+            cleanup: None,
         })
     }
 
-    fn exited(&self) -> io::Result<bool> {
-        let mut information: libc::siginfo_t = unsafe { std::mem::zeroed() };
-        let result = unsafe {
-            libc::waitid(
-                libc::P_PID,
-                self.pid as u32,
-                &mut information,
-                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
-            )
-        };
-        if result == 0 {
-            return Ok(unsafe { information.si_pid() } == self.pid);
+    fn exited(&mut self) -> io::Result<bool> {
+        if !self.leader_owned {
+            return Ok(true);
         }
-        let error = io::Error::last_os_error();
-        if error.kind() == io::ErrorKind::Interrupted {
-            Ok(false)
-        } else {
-            Err(error)
+        match child_exited(self.pid)? {
+            Some(exited) => Ok(exited),
+            None => {
+                self.leader_owned = false;
+                Ok(true)
+            }
         }
     }
 
     fn signal(&self, signal: i32) {
-        unsafe { libc::kill(-self.pid, signal) };
+        if self.leader_owned {
+            unsafe { libc::kill(-self.pid, signal) };
+        }
     }
 
-    fn finish(&mut self) -> i32 {
-        if self.reaped {
-            return 1;
+    fn finish(&mut self) -> Cleanup {
+        if let Some(cleanup) = &self.cleanup {
+            return cleanup.clone();
         }
-        self.signal(libc::SIGKILL);
-        let mut status = 0;
-        wait_for(self.pid, &mut status);
-        // Providers are trusted native code. Deliberately escaping the owned
-        // process group is unsupported; normal descendants remain killable.
-        loop {
-            let waited = unsafe { libc::waitpid(-1, std::ptr::null_mut(), 0) };
-            if waited < 0 && io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
+        let mut cleanup = Cleanup::default();
+        if self.exited().unwrap_or(false) {
+            cleanup.unexpected_descendants = running_children()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|&pid| pid != self.pid)
+                .collect();
+        }
+        self.signal(libc::SIGKILL); // The last group signal precedes reaping its leader.
+        self.collect_children(&mut cleanup, Instant::now() + Duration::from_secs(2));
+        self.cleanup = Some(cleanup.clone());
+        cleanup
+    }
+
+    fn collect_children(&mut self, cleanup: &mut Cleanup, deadline: Instant) {
+        while Instant::now() < deadline {
+            match self.reap_ready(cleanup, deadline) {
+                Ok(true) => {
+                    cleanup.descendants_gone = true;
+                    return;
+                }
+                Err(_) => break,
+                Ok(false) => {}
+            }
+            // Children that changed group become direct adopted children when
+            // their parents exit. Signal only identities still owned by us.
+            if kill_owned_children().is_err() {
                 break;
             }
+            std::thread::sleep(Duration::from_millis(10));
         }
-        self.reaped = true;
-        if libc::WIFEXITED(status) {
-            libc::WEXITSTATUS(status)
-        } else {
-            1
+        cleanup.executing_descendants = running_children().unwrap_or_default();
+        cleanup.descendants_gone = self.reap_ready(cleanup, deadline).unwrap_or(false);
+        if cleanup.descendants_gone {
+            cleanup.executing_descendants.clear();
+        }
+    }
+
+    fn reap_ready(&mut self, cleanup: &mut Cleanup, deadline: Instant) -> io::Result<bool> {
+        loop {
+            let mut status = 0;
+            let pid = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
+            if pid == self.pid {
+                self.leader_owned = false;
+                cleanup.wait_status = Some(status);
+            }
+            if pid == 0 {
+                return Ok(false);
+            }
+            if pid < 0 {
+                let error = io::Error::last_os_error();
+                if error.raw_os_error() == Some(libc::ECHILD) {
+                    self.leader_owned = false;
+                    return Ok(true);
+                }
+                if error.kind() != io::ErrorKind::Interrupted {
+                    return Err(error);
+                }
+            }
+            if Instant::now() >= deadline {
+                return Ok(false);
+            }
         }
     }
 }
 
 impl Drop for ChildGroup {
     fn drop(&mut self) {
-        if !self.reaped {
-            self.finish();
-        }
+        self.finish();
     }
 }
 
-fn wait_for(pid: libc::pid_t, status: &mut i32) {
-    while unsafe { libc::waitpid(pid, status, 0) } < 0 {
-        if io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
-            break;
+fn child_exited(pid: libc::pid_t) -> io::Result<Option<bool>> {
+    let mut information: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    let result = unsafe {
+        libc::waitid(
+            libc::P_PID,
+            pid as u32,
+            &mut information,
+            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+        )
+    };
+    if result == 0 {
+        return Ok(Some(unsafe { information.si_pid() } == pid));
+    }
+    let error = io::Error::last_os_error();
+    match error.raw_os_error() {
+        Some(libc::ECHILD) => Ok(None),
+        Some(libc::EINTR) => Ok(Some(false)),
+        _ => Err(error),
+    }
+}
+
+fn owned_children() -> io::Result<Vec<libc::pid_t>> {
+    // This dedicated supervisor is single-threaded and owns every child. The
+    // kernel list includes adopted orphans, independently of process groups.
+    let path = format!("/proc/self/task/{}/children", unsafe { libc::getpid() });
+    std::fs::read_to_string(path)?
+        .split_whitespace()
+        .map(|pid| {
+            pid.parse()
+                .map_err(|_| io::Error::other("invalid kernel child identifier"))
+        })
+        .collect()
+}
+
+fn running_children() -> io::Result<Vec<libc::pid_t>> {
+    let mut running = Vec::new();
+    for pid in owned_children()? {
+        if child_exited(pid)? == Some(false) {
+            running.push(pid);
         }
     }
+    Ok(running)
+}
+
+fn kill_owned_children() -> io::Result<()> {
+    for pid in running_children()? {
+        // No other thread reaps children. Exiting between this check and kill
+        // retains a zombie and therefore cannot recycle the checked identity.
+        unsafe { libc::kill(pid, libc::SIGKILL) };
+    }
+    Ok(())
 }
 
 fn supervise_command(mut command: Command, timeout: Duration) -> io::Result<i32> {
     let record = std::env::var_os("SNAIL_PROCESS_RECORD");
     command.env_remove("SNAIL_PROCESS_RECORD");
     let mut child = ChildGroup::spawn(&mut command)?;
-    record_process(record.as_deref(), child.pid, false, false)?;
+    record_process(record.as_deref(), child.pid, &Cleanup::default(), false)?;
+    let timed_out = command_lifetime(&mut child, timeout)?;
+    let cleanup = child.finish();
+    record_process(record.as_deref(), child.pid, &cleanup, timed_out)?;
+    Ok(if timed_out { 124 } else { cleanup.status() })
+}
+
+fn command_lifetime(child: &mut ChildGroup, timeout: Duration) -> io::Result<bool> {
     let start = Instant::now();
     let mut stopping = None;
     while !child.exited()? {
         if !timeout.is_zero() && start.elapsed() >= timeout {
             eprintln!("native command timed out");
-            child.finish();
-            record_process(record.as_deref(), child.pid, true, true)?;
-            return Ok(124);
+            return Ok(true);
         }
         if STOPPED.load(Ordering::Relaxed) && stopping.is_none() {
             child.signal(libc::SIGTERM);
             stopping = Some(Instant::now());
         }
         if stopping.is_some_and(|start| start.elapsed() >= Duration::from_secs(1)) {
-            child.signal(libc::SIGKILL);
+            return Ok(false);
         }
         std::thread::sleep(Duration::from_millis(10));
     }
-    let status = child.finish();
-    record_process(record.as_deref(), child.pid, true, false)?;
-    Ok(status)
+    Ok(false)
 }
 
 fn record_process(
     path: Option<&std::ffi::OsStr>,
     pid: libc::pid_t,
-    descendants_gone: bool,
+    cleanup: &Cleanup,
     timed_out: bool,
 ) -> io::Result<()> {
     if let Some(path) = path {
+        let exit_code = cleanup
+            .exit_code()
+            .map_or("null".into(), |value| value.to_string());
+        let signal = cleanup
+            .signal()
+            .map_or("null".into(), |value| value.to_string());
+        let wait_status = cleanup
+            .wait_status
+            .map_or("null".into(), |value| value.to_string());
         std::fs::write(
             path,
             format!(
-                "{{\"pid\":{pid},\"pgid\":{pid},\"descendants_gone\":{descendants_gone},\"timed_out\":{timed_out}}}\n"
+                concat!(
+                    "{{\"pid\":{pid},\"pgid\":{pid},\"descendants_gone\":{},\"timed_out\":{timed_out},",
+                    "\"unexpected_descendants\":{:?},\"executing_descendants\":{:?},",
+                    "\"exit_code\":{exit_code},\"signal\":{signal},\"wait_status\":{wait_status}}}\n"
+                ),
+                cleanup.descendants_gone,
+                cleanup.unexpected_descendants,
+                cleanup.executing_descendants,
+                pid = pid,
+                timed_out = timed_out,
+                exit_code = exit_code,
+                signal = signal,
+                wait_status = wait_status
             ),
         )?;
     }
@@ -276,6 +417,7 @@ struct Relay {
     timeout: Duration,
     initialized: bool,
     closing: bool,
+    response_closed: bool,
 }
 
 impl Relay {
@@ -304,6 +446,7 @@ impl Relay {
             timeout,
             initialized: false,
             closing: false,
+            response_closed: false,
         })
     }
 
@@ -333,6 +476,9 @@ impl Relay {
                 revents: 0,
             },
         ];
+        if self.response_closed {
+            polls[1].fd = -1;
+        }
         if self.closing {
             polls[0].fd = -1;
         } else if self.deadline.is_some() && self.command.is_empty() {
@@ -388,7 +534,13 @@ impl Relay {
             .guest_response
             .read(&mut bytes[..8 - self.result.len()])?;
         if count == 0 {
-            return Ok(false);
+            // Closing a descriptor precedes process exit. Keep the leader alive
+            // until it exits, so cleanup callbacks and atexit statistics finish.
+            self.response_closed = true;
+            self.closing = true;
+            self.deadline
+                .get_or_insert_with(|| Instant::now() + self.timeout);
+            return Ok(true);
         }
         self.result.extend_from_slice(&bytes[..count]);
         if self.result.len() != 8 {
@@ -443,8 +595,8 @@ fn supervise_worker(
         timeout,
     )?;
     let result = relay_loop(&mut child, &mut relay);
-    let status = child.finish();
-    result.map(|()| status)
+    let cleanup = child.finish();
+    result.map(|()| cleanup.status())
 }
 
 fn relay_loop(child: &mut ChildGroup, relay: &mut Relay) -> io::Result<()> {
@@ -597,6 +749,10 @@ mod tests {
             return;
         };
         own_lifetime(unsafe { libc::getppid() }).unwrap();
+        if mode == "relay-close" {
+            check_close_lifetime();
+            return;
+        }
         let mut command = Command::new("sh");
         command.args(["-c", &mode]);
         let status = supervise_command(command, Duration::from_millis(200)).unwrap();
@@ -643,5 +799,97 @@ mod tests {
         std::fs::remove_file(path).unwrap();
         assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
         assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
+    }
+
+    fn check_close_lifetime() {
+        let (_request_writer, request) = pipe().map(|(read, write)| (write, read)).unwrap();
+        let (_guest_reader, guest_request) = pipe().unwrap();
+        let (guest_response, response_writer) = pipe().unwrap();
+        let mut command = Command::new("sh");
+        command
+            .args(["-c", "exec 1>&-; sleep 0.1; exit 7"])
+            .stdout(Stdio::from(response_writer));
+        let mut child = ChildGroup::spawn(&mut command).unwrap();
+        drop(command);
+        let mut relay = Relay::new(
+            request.into(),
+            File::create("/dev/null").unwrap(),
+            guest_request,
+            guest_response,
+            0,
+            Duration::from_secs(2),
+        )
+        .unwrap();
+        relay.closing = true;
+        relay.initialized = true;
+        let start = Instant::now();
+        relay_loop(&mut child, &mut relay).unwrap();
+        assert!(relay.response_closed);
+        assert!(start.elapsed() >= Duration::from_millis(90));
+        let cleanup = child.finish();
+        assert_eq!(cleanup.status(), 7);
+        assert!(cleanup.descendants_gone);
+        assert!(cleanup.unexpected_descendants.is_empty());
+    }
+
+    #[test]
+    fn closing_response_eof_allows_the_worker_to_finish_exiting() {
+        let result = process_test("relay-close");
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+
+    #[test]
+    fn changed_group_descendants_are_recorded_killed_and_reaped() {
+        let base = std::env::temp_dir().join(format!("snail-changed-group-{}", std::process::id()));
+        let (pidfile, record) = (base.with_extension("pid"), base.with_extension("json"));
+        let command = format!(
+            "setsid sh -c 'echo $$ > \"$1\"; exec sleep 60' sh '{}' & while [ ! -s '{}' ]; do sleep 0.01; done",
+            pidfile.display(),
+            pidfile.display()
+        );
+        let start = Instant::now();
+        let result = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "native::worker::tests::owned_process_test_child",
+                "--nocapture",
+            ])
+            .env("SNAIL_PROCESS_TEST", command)
+            .env("SNAIL_PROCESS_RECORD", &record)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        assert!(start.elapsed() < Duration::from_secs(3));
+        let pid: i32 = std::fs::read_to_string(&pidfile)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let evidence = std::fs::read_to_string(&record).unwrap();
+        assert!(
+            evidence.contains(&format!("\"unexpected_descendants\":[{pid}]")),
+            "{evidence}"
+        );
+        assert!(evidence.contains("\"descendants_gone\":true"), "{evidence}");
+        assert!(
+            evidence.contains("\"executing_descendants\":[]"),
+            "{evidence}"
+        );
+        assert!(
+            evidence.contains("\"exit_code\":0,\"signal\":null"),
+            "{evidence}"
+        );
+        assert_eq!(unsafe { libc::kill(pid, 0) }, -1);
+        assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::ESRCH));
+        std::fs::remove_file(pidfile).unwrap();
+        std::fs::remove_file(record).unwrap();
     }
 }
