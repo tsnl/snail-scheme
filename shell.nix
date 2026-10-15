@@ -10,8 +10,10 @@ let
     stripRoot = false;
   };
 in
-pkgs.mkShell {
+pkgs.mkShellNoCC {
   PERFETTO_UI = perfettoUi;
+  SNAIL_NATIVE_LIBC = "${pkgs.glibc}/lib";
+  SNAIL_NATIVE_GCC = "${pkgs.stdenv.cc.cc.lib}/lib";
   packages = with pkgs; [
     git
     chibi
@@ -21,11 +23,9 @@ pkgs.mkShell {
     nixfmt
     emacs-nox
     ripgrep
-    python3
     rustup
     binaryen
-    clang
-    llvmPackages.lld
+    llvmPackages.llvm
     nodejs
     mdbook
   ];

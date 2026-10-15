@@ -28,7 +28,7 @@
       (new-entry (append library '()) export))
 
     ;; Native declarations use physical Wasm scalar types. They describe the
-    ;; target's C symbols and signatures; they neither find nor link providers.
+    ;; target's scalar ABI symbols and signatures; they neither find nor link providers.
     (define-record-type <native-import>
       (new-native-import key symbol parameters results) native-import?
       (key native-import-key) (symbol native-import-symbol)
@@ -132,11 +132,14 @@
       (let ((llvm (string-append directory "/module.ll")) (output (string-append directory "/artifact.o")))
         (parameterize ((current-native-imports (target-imports target)))
           (native-wasm->llvm module directory llvm))
-        (run-command "native.object"
-                     (list (tool-name "CLANG" "clang") "--target=x86_64-unknown-linux-gnu" "-O3"
-                           "-ffunction-sections" "-fdata-sections" "-c"
+        (run-command "native.optimize-llvm"
+                     (list (tool-name "LLVM_OPT" "opt") "-passes=default<O3>"
                            (native-entry-llvm directory parameters result (entry-description entry parameters result)
-                                              (target-imports target)) "-o" output))
+                                              (target-imports target)) "-o" (string-append output ".bc")))
+        (run-command "native.object"
+                     (list (tool-name "LLC" "llc") "-O=3" "-mtriple=x86_64-unknown-linux-gnu"
+                           "-relocation-model=pic" "-function-sections" "-data-sections" "-filetype=obj"
+                           (string-append output ".bc") "-o" output))
         (file-bytes output)))
     (define (emit-artifact module entry parameters result target)
       (unless (target? target) (error "compile requires a target value" target))

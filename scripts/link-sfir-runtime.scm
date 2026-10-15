@@ -1,0 +1,66 @@
+;; Link SFIR scalar imports to the same Cargo runtime used by native builds.
+(import (scheme base) (scheme cxr) (scheme file) (chibi filesystem)
+        (chibi string) (chibi regexp) (snail-tools process) (snail-scheme wasm-optimize))
+
+;; ---- Link request and explicit runtime ABI ----
+
+(define adapter
+  "(module\n  (import \"snail.library\" \"snail:report-error\" (func $report (param i32 i32)))\n  (import \"snail.library\" \"snail:io/close-all\" (func $close (result i32)))\n  (export \"diagnostics/report-error\" (func $report))\n  (export \"close-resources\" (func $close)))\n")
+(define (request arguments)
+  (let loop ((arguments arguments) (options '()) (paths '()))
+    (cond ((null? arguments)
+           (unless (= 2 (length paths)) (error "usage: link-sfir-runtime [OPTIONS] SOURCE OUTPUT"))
+           (append options (list (cons 'source (absolute-path (cadr paths))) (cons 'output (absolute-path (car paths))))))
+          ((string=? (car arguments) "--runtime")
+           (unless (pair? (cdr arguments)) (error "--runtime needs a path"))
+           (loop (cddr arguments) (cons (cons 'runtime (absolute-path (cadr arguments))) options) paths))
+          ((string=? (car arguments) "--diagnostic-prune-only")
+           (loop (cdr arguments) (cons '(diagnostic . #t) options) paths))
+          ((string-prefix? "-" (car arguments)) (error "unknown link option" (car arguments)))
+          (else (loop (cdr arguments) options (cons (car arguments) paths))))))
+(define (runtime root options)
+  (or (option-ref options 'runtime #f)
+      (let ((target (path-join root "build/wasm-runtime")))
+        (run-command! (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline"
+                            "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join root "Cargo.toml")
+                            "--target-dir" target))
+        (path-join target "wasm32-wasip1/release/snail_runtime.wasm"))))
+(define (disassemble input output)
+  (run-command! (list (tool-name "WASM_DIS" "wasm-dis") input "-o" output))
+  (read-text output))
+(define (check-exports text)
+  (let loop ((offset 0))
+    (let ((match (regexp-search (rx "(export \"" ($ (+ (~ #\"))) "\"") text offset)))
+      (when match
+        (let ((name (regexp-match-submatch match 1)))
+          (when (or (member name '("memory" "_initialize" "close-resources"))
+                    (string-prefix? "snail:" name) (string-prefix? "diagnostics/" name))
+            (error "SFIR program uses a reserved runtime export name" name)))
+        (loop (regexp-match-submatch-end match 0))))))
+
+;; ---- Retained merge and optimization ----
+
+(define (link-runtime root options)
+  (let* ((source (option-ref options 'source #f)) (output (option-ref options 'output #f))
+         (adapter-wat (string-append output ".adapter.wat")) (adapter-wasm (string-append output ".adapter.wasm"))
+         (linked (string-append output ".linked.wasm")))
+    (when (or (string=? source output) (equal? (option-ref options 'runtime #f) output))
+      (error "link output must not replace an input"))
+    (create-directory* (path-directory output))
+    (parameterize ((current-command-log (string-append output ".link.json")) (current-command-records '()))
+      (check-exports (disassemble source (string-append output ".input.wat")))
+      (let ((provider (runtime root options)))
+        (write-text adapter-wat adapter)
+        (run-command! (append (list (tool-name "WASM_AS" "wasm-as")) wasm-features (list adapter-wat "-o" adapter-wasm)))
+        (run-command! (append (list (tool-name "WASM_MERGE" "wasm-merge") "-g") wasm-features
+                              (list source "snail.abi" provider "snail.library" adapter-wasm "snail.platform" "-o" linked))))
+      (run-command! (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
+                            '("--remove-exports" "--pass-arg=remove-exports@snail:*,diagnostics/*")
+                            (if (option-ref options 'diagnostic #f) '("--remove-unused-module-elements")
+                                '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge"))
+                            (list linked "-o" output)))
+      (when (regexp-search (rx "(import \"snail." (or "abi" "library" "platform") "\"")
+                           (disassemble output (string-append output ".wat")))
+        (error "linked SFIR program retains an unresolved runtime import")))
+    0))
+(command-line-main (lambda (arguments) (link-runtime (car arguments) (request (cdr arguments)))))
