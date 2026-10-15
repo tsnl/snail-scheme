@@ -39,9 +39,12 @@ provider linking is separate. A JavaScript Wasm adapter loads those artifact
 bytes, creates independent instances with typed providers and checks scalar
 entry calls. The [Python native adapter](sfir-native-loading.md) separately links
 providers and creates independent native instances with checked scalar transport.
-The [SFIR builder API](sfir-builder.md) constructs and inspects the book's library
-declarations, and explicit checked transport lets compiled Wasm producers return
-those library values to Chibi. The source driver also executes
-[generation recipes](sfir-generation.md) with separate producer dependencies.
-General compiler/execution services are not yet exposed as SFIR library
-functions. See [the compiler tour](../TOUR.md) for the supported stages and their limits.
+The [SFIR builder](sfir-builder.md) constructs and inspects the full
+library syntax and transfers owned data into Chibi; the source driver executes
+explicit [generation recipes](sfir-generation.md). Ordinary SFIR programs can
+also call the [compiler and Wasm execution service](sfir-compiler-service.md),
+with explicit library maps and recoverable error values. Native target support
+in that SFIR service and first-class parsing that returns inspectable
+`SfirLibrary` data to SFIR remain pending; service source insertion currently
+parses directly into its owned map. See [the compiler tour](../TOUR.md) for
+module responsibilities.
