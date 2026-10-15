@@ -48,6 +48,27 @@ if (contract === 'native') {
   assert.equal(api.main(), undefined);
   assert.equal(api.worker(), undefined);
   trap(() => api.main());
+} else if (contract === 'round') {
+  api.main();
+  const cases = [[0, 0], [-0, -0], [0.5, 0], [-0.5, -0],
+    [1.5, 2], [2.5, 2], [3.5, 4], [-1.5, -2], [-2.5, -2], [-3.5, -4],
+    [1.25, 1], [-1.25, -1], [1.75, 2], [-1.75, -2],
+    [2 ** 64, 2 ** 64], [-(2 ** 64), -(2 ** 64)],
+    [Infinity, Infinity], [-Infinity, -Infinity], [NaN, NaN]];
+  for (const name of ['worker', 'native64', 'view64', 'round32', 'native32', 'view32']) {
+    for (const [input, expected] of cases)
+      assert(Object.is(api[name](input), expected), `${name}: ${input} -> ${expected}`);
+  }
+  for (const name of ['worker', 'native64', 'view64']) {
+    assert(Object.is(api[name](-Number.MIN_VALUE), -0));
+    assert(Object.is(api[name](Number.MIN_VALUE), 0));
+    assert.equal(api[name](Number.MAX_VALUE), Number.MAX_VALUE);
+  }
+  for (const name of ['round32', 'native32', 'view32']) {
+    assert(Object.is(api[name](-(2 ** -149)), -0));
+    assert(Object.is(api[name](2 ** -149), 0));
+    assert.equal(api[name](2 ** 24 + 1), 2 ** 24);
+  }
 } else if (contract === 'reentrant-main') {
   callback = () => trap(() => api.main());
   assert.equal(api.main(), 42n);
