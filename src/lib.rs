@@ -1,9 +1,10 @@
 //! Rust services for the application binary interface (ABI).
 //!
-//! Every exported primitive borrows a rooted argument vector and returns one
-//! owned result handle. Rust sees table indices, never WasmGC pointers. The
-//! runtime compiles to Wasm and uses the Scheme module’s engine-visible root
-//! table. A node owns one instance; the engine collects its Scheme memory.
+//! Legacy dynamic primitives borrow a rooted argument vector and return one
+//! owned result handle. Rust sees table indices, never WasmGC pointers. Their
+//! Wasm runtime uses the Scheme module's engine-visible root table. Strict
+//! scalar services in strict_io instead own files behind integer IDs and hold
+//! no Scheme values. A node owns one instance; the engine collects Scheme memory.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -16,6 +17,7 @@ mod host;
 mod interop_example;
 mod iverson;
 mod platform;
+mod strict_io;
 mod symbols;
 mod text;
 mod unicode;
