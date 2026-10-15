@@ -13,14 +13,16 @@
   "cases": [
     {
       "name": "browse",
-      "status": "prepared-awaiting-measurement",
+      "status": "measured-canonical-source",
       "source_lines": 203,
       "files": {
         "src/browse.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776",
         "inputs/browse.input": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-browse-preparation/README.md",
-      "representation_note": "Complete original 2000 invocations and 100-value predicate; interned symbols, closed Datum, explicit Ref pairs and bindings, original property lists/cyclic pattern ring/destructive shuffle. Three MatchResult variants retain truthy empty-list returns. Five Scheme executors pass counts 1/2/2000 and bounded complete internal traces at 1/2; unchanged Rust controls disclose Vec/Rc and Boolean result differences. Clean matcher retention inspected; no new measured coverage."
+      "representation_note": "Complete original 2000 invocations and 100-value predicate; interned symbols, closed Datum, explicit Ref pairs and bindings, original property lists/cyclic pattern ring/destructive shuffle and prefix sharing. Three MatchResult variants retain truthy empty-list returns. Five Scheme executors pass counts 1/2/2000 and bounded complete internal traces at 1/2; full-count internal traces were not recorded. The final database predicate is independent of matcher results; clean matcher retention is separately inspected. Unchanged Rust controls use Vec database/properties, Rc lists, string symbols, copied star-prefixes and Boolean Empty/True collapse. Provider linkage, source helpers, allocation and reclamation differ.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
+      "note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance."
     },
     {
       "name": "deriv",
@@ -484,8 +486,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 42,
-  "historical_paired_chez_count": 41,
+  "historical_measured_strict_count": 43,
+  "historical_paired_chez_count": 42,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -519,6 +521,7 @@
   "historical_measured_strict_names": [
     "ack",
     "array1",
+    "browse",
     "bv2string",
     "cat",
     "chudnovsky",
@@ -563,6 +566,7 @@
   "historical_paired_chez_names": [
     "ack",
     "array1",
+    "browse",
     "bv2string",
     "chudnovsky",
     "cpstak",
@@ -613,5 +617,7 @@
   "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md",
   "integer_measurement_report": "benchmarks/results/2026-10-14-strict-integer-comparison/README.md",
   "ack_measurement_report": "benchmarks/results/2026-10-14-strict-ack-comparison/README.md",
-  "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained."
+  "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained.",
+  "browse_measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
+  "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance."
 }

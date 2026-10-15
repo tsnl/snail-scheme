@@ -3,9 +3,14 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, and `matrix`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, and `browse`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
+
+Historical strict measurements cover **43 of 57 workloads**, **42 with paired
+Chez controls**, including the complete Browse comparison below. The explicit
+name sets are in [`capabilities.json`](capabilities.json). These are separate
+compiler checkpoints, not a complete-suite rerun on the current revision.
 
 The kernel bodies come from the pinned upstream sources. Small Scheme macros
 express `cond` and `do` using the strict surface. The earlier floating ports use
@@ -909,3 +914,24 @@ allocator basis, scalar-provider differences and narrower Rust readers explicit.
 The generic `measure` command rejects these reader cases: their separately frozen
 plan preserves file I/O, setup and cleanup boundaries and requires a coordinated
 quiet window. The initial zero-sample dependency failure remains archived.
+
+## Complete Browse workload
+
+The [complete preparation](../results/2026-10-14-strict-browse-preparation/README.md)
+preserves the source property lists, interned symbols, cyclic pattern ring,
+destructive shuffle and all three matcher-result classes through the reusable
+Datum library and explicit Ref cells. Five Scheme paths pass the original
+2,000 invocations and complete 100-value predicate; ordered internal traces at
+counts 1/2 and separate clean-artifact matcher-retention checks support the
+work discarded by the final database predicate. Full-count internal traces
+were not recorded.
+
+The [seven-system comparison](../results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 4.037493 s, 7.673× original
+Chez time, 0.635× adapted Chez time and 2.055× Rust/Wasm time. Native takes
+7.409398 s versus 4.297396 s for the identical native-final Scheme Wasm on V8
+(1.724×). Adapted Chez itself takes 12.088× original Chez time; helpers and
+representation change jointly. Rust's Rc lists, Vec properties/database,
+string symbols, copied star-prefixes and Boolean matcher results differ.
+All retained variance remains. The frozen compiler/library basis is `15d2c64`,
+with separately recorded native/control source and tool provenance.
