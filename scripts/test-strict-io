@@ -12,6 +12,9 @@ OUTPUT = ROOT / 'build/strict-io'
 EXPORTS = ['format-number', 'unicode', 'callback-result', 'exists', 'remove', 'close-alias',
            'callback-close', 'escaped-alias', 'missing-directory', 'nul-path', 'delete-absent',
            'callback-trap', 'close-failure', 'invalid-character', 'invalid-handle', 'interrupted-path']
+INPUT_EXPORTS = ['copy-lines', 'line-storage', 'close-input-alias', 'input-callback-close',
+                 'input-escaped-alias', 'input-missing', 'input-callback-trap', 'read-invalid',
+                 'input-raw-output', 'input-stale-handle', 'input-invalid-handle', 'input-invalid-peek']
 
 
 # ---- Compile one fixture, then execute both retained compiler forms ----
@@ -30,13 +33,15 @@ def check_form(source, label, runtime, contract):
     flags = ['--diagnostic-prune-only'] if label.endswith('-raw') else []
     run([ROOT / 'scripts/link-strict-runtime', '--runtime', runtime, *flags, source, linked], label + '-link')
     files = tempfile.mkdtemp(prefix=label + '-', dir=OUTPUT)
-    run([os.environ.get('NODE', 'node'), ROOT / 'tests/strict-io/run.mjs', linked, files, contract], label + '-run')
-    print('PASS strict text output ' + label, flush=True)
+    host = 'input.mjs' if contract.startswith('input') else 'run.mjs'
+    run([os.environ.get('NODE', 'node'), ROOT / 'tests/strict-io' / host, linked, files, contract], label + '-run')
+    print('PASS strict text I/O ' + label, flush=True)
 
 
 def check_fixture(name, runtime):
     source = OUTPUT / (name + '.wasm')
-    exports = [word for export in EXPORTS for word in ('--export', export)] if name == 'output' else []
+    selected = EXPORTS if name == 'output' else INPUT_EXPORTS if name == 'input' else []
+    exports = [word for export in selected for word in ('--export', export)]
     run([ROOT / 'scripts/build-strict', *exports, ROOT / 'tests/strict-io' / (name + '.scm'), source], name + '-compile')
     check_form(Path(str(source) + '.raw.wasm'), name + '-raw', runtime, name)
     check_form(source, name + '-optimized', runtime, name)
@@ -49,6 +54,8 @@ def main():
     runtime = ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
     check_fixture('output', runtime)
     check_fixture('main-trap', runtime)
+    check_fixture('input', runtime)
+    check_fixture('input-main-trap', runtime)
 
 
 if __name__ == '__main__':

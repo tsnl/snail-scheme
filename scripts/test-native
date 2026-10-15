@@ -23,6 +23,9 @@ FEATURES = ['--mvp-features', '--enable-gc', '--enable-reference-types', '--enab
 FOREIGN = ['rust-triple', 'rust-remember', 'rust-recalled', 'rust-call', 'rust-forget', 'rust-root-stress']
 IO_EXPORTS = ['format-number', 'unicode', 'callback-result', 'exists', 'remove', 'callback-trap',
               'close-failure', 'missing-directory', 'invalid-character', 'invalid-handle', 'escaped-alias', 'close-alias']
+INPUT_EXPORTS = ['copy-lines', 'line-storage', 'close-input-alias', 'input-callback-close',
+                 'input-escaped-alias', 'input-missing', 'input-callback-trap', 'read-invalid',
+                 'input-raw-output', 'input-stale-handle', 'input-invalid-handle', 'input-invalid-peek']
 
 
 # ---- Retained commands and actual process outcomes ----
@@ -185,6 +188,53 @@ def check_io():
     print('PASS shared Rust Unicode/I64 I/O and explicit normal/trap/I/O-error/exhaustion cleanup', flush=True)
 
 
+def input_observed(program, label, contents, arguments, releases, failure=False):
+    directory = Path(tempfile.mkdtemp(prefix='input-' + label + '-', dir=BUILD))
+    path = directory / 'λ😀.txt'
+    if contents is None:
+        path.mkdir()
+    else:
+        path.write_bytes(contents)
+    run([program, *arguments], cwd=directory, status=int(failure),
+        SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'), SNAIL_NATIVE_GC_INTERVAL='1')
+    assert int((directory / 'released').read_text()) == releases
+    return directory
+
+
+def check_input_values(program):
+    cases = [('', '', 0), ('\n', '\n', 1), ('\n\n', '\n\n', 2), ('last', 'last\n', 1),
+             ('last\r', 'last\n', 1), ('\r', '\n', 1),
+             ('first\nlast\n', 'first\nlast\n', 2), ('a\rb\r\nc\n\r\n\rfinal', 'a\nb\nc\n\n\nfinal\n', 6),
+             ('\0λ😀\U0010ffff\n\t\u0085\u2028\u2029', '\0λ😀\U0010ffff\n\t\u0085\u2028\u2029\n', 2)]
+    for count in [1, 63, 64, 65, 127, 128, 129, 4095, 4096, 4097, 65537]:
+        line = '😀' * count
+        cases.append((line + '\r\nend', line + '\nend\n', 2))
+    for index, (source, expected, count) in enumerate(cases):
+        directory = input_observed(program, str(index), source.encode(), ['copy', str(count)], 2)
+        assert (directory / 'lines.txt').read_bytes() == expected.encode()
+    input_observed(program, 'ownership', b'same\nsame\n', ['ownership'], 3)
+
+
+def check_input_failures(program):
+    for kind, released in [('alias', 1), ('missing', 0), ('trap', 1), ('output', 1), ('stale', 1), ('handle', 0), ('peek', 0)]:
+        input_observed(program, kind, b'line\n', [kind], released, failure=True)
+    for index, contents in enumerate([b'\xff', b'\xf0\x9f', b'\r\xff', None]):
+        directory = input_observed(program, 'invalid-' + str(index), contents, ['invalid'], 2, failure=True)
+        assert (directory / 'buffered.txt').read_text() == 'released after read failure'
+
+
+def check_input():
+    options = [arg for name in INPUT_EXPORTS for arg in ['--export', name]]
+    executable = build('tests/strict-io/input.scm', 'input', '--strict',
+                       '--entry-c', ROOT / 'tests/native-input-runner.c', *options)
+    check_input_values(executable)
+    check_input_failures(executable)
+    trapped = build('tests/strict-io/input-main-trap.scm', 'input-main-trap', '--strict',
+                    '--entry-c', ROOT / 'tests/native-lifecycle.c')
+    input_observed(trapped, 'main-trap', b'line\n', [], 1, failure=True)
+    print('PASS native strict line input, Unicode, buffer growth, aliases and terminal cleanup', flush=True)
+
+
 def check_legacy_runtime():
     options = [arg for name in FOREIGN for arg in ['--foreign', name, 'snail.library']]
     interop = build('examples/rust-interop/main.scm', 'interop', *options)
@@ -268,6 +318,7 @@ def main():
     check_collector()
     check_scalar_providers()
     check_io()
+    check_input()
     check_legacy_runtime()
     check_build_ownership()
     files = [path for directory in ['src', 'tests'] for path in (ROOT / directory).rglob('*') if path.is_file()]
