@@ -917,6 +917,14 @@ limb-body Chez and Rust num-bigint remain separate controls. Together with the
 reader measurements below, historical coverage reaches 41 workloads and 40
 paired Chez comparisons across different compiler checkpoints.
 
+The subsequent [bigint loop ablation](../results/2026-10-14-bigint-loop-ablation/README.md)
+replaces one hot long-division self-tail call with a local backedge, keeping
+arithmetic and guards. All 110 clean processes pass, but matching roundtrip
+controls show no useful workload gain: Pi takes 1.0125× raw-control time and
+1.0270× after equal extra optimization; Chudnovsky takes 1.0108× and 0.99558×.
+Separate whole-process profiles and actual V8 code captures are retained.
+This negative artifact experiment adds no compiler change or suite coverage.
+
 ## Complete file readers
 
 Select `--benchmarks sum1 read1` to prepare the complete upstream programs with
