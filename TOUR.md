@@ -703,6 +703,15 @@ it does not implement general Scheme symbols. Preparation includes untouched
 and adapted Chez controls, complete small-tree observations, mutable-state
 identity probes and native execution. Its preparation does not add measured
 coverage.
+
+[`matrix_port.py`](benchmarks/strict-suite/matrix_port.py) preserves the complete
+modular matrix search and ordered answers. Counted edits make lazy permutation
+messages, GCD result alternatives, mutable prime tails and collector state
+concrete. Original/adapted Chez, raw/optimized Wasm and native probes compare
+full results, callback order and mutable aliases; independent small models
+check finite-field spans and signed-permutation maximality. The existing Rust
+reference is validated as a separate algorithm and layout control.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its

@@ -1,0 +1,75 @@
+{
+  "native-final-archive-verification": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/strict-suite/replay.py",
+      "/tmp/snail-matrix-native-final-replay-20261014",
+      "--report",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/native-final-control"
+    ],
+    "returncode": 0,
+    "stdout": "Verified 9 files in /tmp/snail-matrix-native-final-replay-20261014\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 3,
+    "executing_descendants": [],
+    "process_seconds": 0.11244661500677466
+  },
+  "freeze-seven-system-plan": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py"
+    ],
+    "returncode": 0,
+    "stdout": "Frozen seven-system plan with 59 identities and 56 processes\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 4,
+    "executing_descendants": [],
+    "process_seconds": 0.1414422889938578
+  },
+  "python-syntax": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "-m",
+      "py_compile",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/prepare-native-final.py"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 5,
+    "executing_descendants": [],
+    "process_seconds": 0.03579619899392128
+  },
+  "timing-dry-verification": {
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py"
+    ],
+    "returncode": 0,
+    "stdout": "Verified frozen identities; no benchmark process started\n",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 6,
+    "executing_descendants": [],
+    "process_seconds": 0.09308358002454042
+  },
+  "whitespace": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "timeout": false,
+    "process_group": 7,
+    "executing_descendants": [],
+    "process_seconds": 0.0051162109593860805
+  }
+}
