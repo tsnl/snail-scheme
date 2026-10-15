@@ -208,8 +208,16 @@ a replacement of the existing command-line compiler yet.
 
 [`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
 rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
-[`strict-core.sld`](src/snail-scheme/strict-core.sld) defines checked expression,
-binding and static class records.
+[`ir.sld`](src/snail-scheme/ir.sld) supplies the same located expression and
+definition records to expansion, checking and specialization. Expansion gives
+each expression and binding a fresh `Hole` and attaches declared syntax directly
+to its definition. It performs no inference. The checker copies all compilation
+roots together, preserving shared identities and cycles while isolating cached
+libraries, then refines that owned graph. `Hole` is unresolved static information;
+`Top` is a concrete universal value representation. Rigid `All` variables are a
+separate type variant and cannot be solved by unification.
+[`strict-core.sld`](src/snail-scheme/strict-core.sld) holds the checked program's
+class and instance evidence; it defines no second expression or binding tree.
 [`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) matches complete
 function signatures with isolated candidate trials, commits unique generic row
 views, and repeats improvement as argument and result information settles.
@@ -228,7 +236,10 @@ allocation, indexing, identity, length, and bulk copying are native primitives.
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
-methods, and computes capture dependencies. The same initializer policy serves
+methods, and computes capture dependencies. It makes concrete copies of the
+shared IR, preserving checked templates and their external binding identities.
+Site, value and function records describe initialization, storage and code;
+they are not another expression representation. The same initializer policy serves
 recursive definitions and typed lets, with their source scopes explicit. This
 module also owns the enumeration of concrete site storage used by the emitter;
 readiness tokens and payload copies therefore have one definition.

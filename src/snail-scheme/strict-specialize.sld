@@ -9,9 +9,12 @@
           function-index function-type* function-parameters function-rest-binding
           function-body function-captures function-source)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
+          (only (snail-scheme ir)
+                make-node node? node-kind node-type node-loc node-data node-constraints
+                binding-scheme binding-initializer binding-kind binding-payload
+                value-definition-name value-definition-loc)
           (snail-scheme strict-overloads)
-          (only (snail-scheme wasm-extern) native-scalar-signature)
-          (only (snail-scheme ir) value-definition-name value-definition-loc))
+          (only (snail-scheme wasm-extern) native-scalar-signature))
   (begin
 
     ;; ---- Source sites and concrete copies ----
@@ -180,7 +183,7 @@
     (define (resolve-method node type context state)
       (let* ((method (car (node-data node)))
              (instance (exact-instance (car (node-constraints node)) context (node-loc node) state))
-             (binding (cdr (assq (binding-definition method) (instance-members instance)))))
+             (binding (cdr (assq method (instance-members instance)))))
         (let-values (((signature obligations substitutions) (instantiate (binding-scheme binding))))
           (unify! signature type (node-loc node))
           (require-overloads! obligations (state-classes state) (state-instances state) (node-loc node))
@@ -316,7 +319,7 @@
         (native-scalar-signature (function-domains type) (function-result type))))
     (define (named-global-sites name sites)
       (cond ((null? sites) '())
-            ((eq? name (value-definition-name (binding-definition (site-source (car sites)))))
+            ((eq? name (value-definition-name (site-source (car sites))))
              (cons (car sites) (named-global-sites name (cdr sites))))
             (else (named-global-sites name (cdr sites)))))
     (define (selected-export name sites loc)
@@ -324,7 +327,7 @@
       (let ((matches (named-global-sites name sites)))
         (unless (= (length matches) 1) (strict-error loc "export requires one unambiguous top-level binding" name))
         (let* ((site (car matches)) (binding (site-source site)) (scheme (binding-scheme binding))
-               (loc (value-definition-loc (binding-definition binding))))
+               (loc (value-definition-loc binding)))
           (unless (and (eq? (binding-kind binding) 'value) (cadr (binding-payload binding))
                        (null? (scheme-variables scheme)) (function-type? (scheme-type scheme)))
             (strict-error loc "export requires an explicit concrete function declaration" name))

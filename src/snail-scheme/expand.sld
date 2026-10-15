@@ -5,7 +5,8 @@
 ;; Environments are alists from identifier keys to value or macro definitions.
 ;; They are passed through recursive descent and never stored in IR.
 ;; Definition identities are reserved before expanding bodies, then shared by
-;; references, value bindings, and parameters without mutation.
+;; references, value bindings, and parameters. Expansion attaches declarations
+;; and initializer syntax, leaving every type Hole unsolved.
 
 (define-library (snail-scheme expand)
   (export syntax-list->ir-library syntax->ir-library macroexpand-1 make-core-library)
@@ -321,8 +322,9 @@
                      (reserve-direct-definitions (apply append chunks) outer initial))
                     ((builders local transformers)
                      (prepare-body-chunks chunks outer local reservations transformers fuel)))
-        (values (build-body-chunks builders (value-bindings local) transformers)
-                (append local outer) transformers)))
+        (let ((chunks (build-body-chunks builders (value-bindings local) transformers)))
+          (attach-declarations! (apply append chunks))
+          (values chunks (append local outer) transformers))))
 
     (define (build-body-chunks builders value-environment transformers)
       (map (lambda (chunk)
