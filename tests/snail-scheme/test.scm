@@ -21,6 +21,7 @@
         (only (snail-scheme wasm-i32) test-wasm-i32)
         (only (snail-scheme types) test-types)
         (only (snail-scheme strict-types) test-strict-types)
+        (only (snail-scheme wasm-extern) test-wasm-extern)
         (only (snail-scheme type-inference) test-type-inference)
         (only (snail-scheme expand) test-expand))
 
@@ -50,6 +51,7 @@
       (test-wasm-i32)
       (test-types)
       (test-strict-types)
+      (test-wasm-extern)
       (test-type-inference)
       (test-expand)))))
 (display-error "All tests ok\n")

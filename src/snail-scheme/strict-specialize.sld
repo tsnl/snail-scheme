@@ -2,13 +2,15 @@
 ;; Each lexical binding site owns its instances; the runtime block executes
 ;; those initializers at that one source position in each enclosing activation.
 (define-library (snail-scheme strict-specialize)
-  (export monomorphize mono-program-body mono-program-functions mono-program-globals
+  (export monomorphize mono-program-body mono-program-functions mono-program-globals mono-program-exports
           site-instances site-global? site-source site-token site-check
           value-binding? value-type value-site value-initializer value-index
           value-parameter? value-source
           function-index function-type* function-parameters function-rest-binding
           function-body function-captures function-source)
-  (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core))
+  (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
+          (only (snail-scheme wasm-extern) native-scalar-signature)
+          (only (snail-scheme ir) value-definition-name value-definition-loc))
   (begin
 
     ;; ---- Lexical sites, values, and native function instances ----
@@ -33,8 +35,9 @@
       (rest function-rest-binding set-function-rest-binding!)
       (body function-body set-function-body!) (captures function-captures set-function-captures!))
     (define-record-type <program>
-      (make-mono-program body functions globals) mono-program?
-      (body mono-program-body) (functions mono-program-functions) (globals mono-program-globals))
+      (make-mono-program body functions globals exports) mono-program?
+      (body mono-program-body) (functions mono-program-functions) (globals mono-program-globals)
+      (exports mono-program-exports))
     (define-record-type <state>
       (make-state functions values globals depth instances) state?
       (functions state-functions set-state-functions!) (values state-values set-state-values!)
@@ -113,8 +116,8 @@
              (view (if (eq? (binding-kind original) 'method) (resolve-method node type context state) (node-data node)))
              (binding (car view))
              (site (context-site binding context)))
-        (if (eq? (binding-kind binding) 'primitive)
-            (make-node 'primitive type (node-loc node) (list (binding-payload binding)) '())
+        (if (memq (binding-kind binding) '(primitive extern))
+            (make-node (binding-kind binding) type (node-loc node) (list (binding-payload binding)) '())
             (begin
               (unless site (strict-error (node-loc node) "missing lexical specialization site"))
               (make-node 'get type (node-loc node)
@@ -157,7 +160,7 @@
       (case (node-kind node)
         ((name)
          (let ((binding (car (node-data node))))
-           (if (memq (binding-kind binding) '(primitive method)) (make-node 'unit 'Unit (node-loc node) '() '())
+           (if (memq (binding-kind binding) '(primitive method extern)) (make-node 'unit 'Unit (node-loc node) '() '())
                (make-node 'get 'Unit (node-loc node)
                           (list (readiness-token! (context-site binding context) state)) '()))))
         ((convert) (initializer-check (car (node-data node)) context state))
@@ -237,8 +240,38 @@
       (or (and (null? left) (null? right))
           (and (pair? left) (pair? right) (eq? (car left) (car right))
                (same-values? (cdr left) (cdr right)))))
-    (define (monomorphize program)
+    ;; A selected worker may capture managed values, but its public signature
+    ;; shares the scalar import contract until a cross-module GC ABI exists.
+    (define (check-export-signature type loc)
+      (when (function-rest type) (strict-error loc "native export requires fixed scalar parameters"))
+      (guard (failure (else (strict-error loc "native export requires scalar parameters and a scalar or Unit result")))
+        (native-scalar-signature (function-domains type) (function-result type))))
+    (define (named-global-sites name sites)
+      (cond ((null? sites) '())
+            ((eq? name (value-definition-name (binding-definition (site-source (car sites)))))
+             (cons (car sites) (named-global-sites name (cdr sites))))
+            (else (named-global-sites name (cdr sites)))))
+    (define (selected-export name sites loc)
+      (when (eq? name 'main) (strict-error loc "main is reserved for one-shot initialization"))
+      (let ((matches (named-global-sites name sites)))
+        (unless (= (length matches) 1) (strict-error loc "export requires one unambiguous top-level binding" name))
+        (let* ((site (car matches)) (binding (site-source site)) (scheme (binding-scheme binding))
+               (loc (value-definition-loc (binding-definition binding))))
+          (unless (and (eq? (binding-kind binding) 'value) (cadr (binding-payload binding))
+                       (null? (scheme-variables scheme)) (function-type? (scheme-type scheme)))
+            (strict-error loc "export requires an explicit concrete function declaration" name))
+          (require-concrete (scheme-type scheme) loc)
+          (check-export-signature (scheme-type scheme) loc)
+          (cons name (cdar (site-instances site))))))
+    (define (check-export-names names loc)
+      (unless (null? names)
+        (unless (symbol? (car names)) (strict-error loc "export name must be an identifier" (car names)))
+        (when (memq (car names) (cdr names)) (strict-error loc "export names must be distinct" (car names)))
+        (check-export-names (cdr names) loc)))
+    (define (monomorphize program . export-names)
       (let* ((state (make-state '() 0 '() 0 (program-instances program))) (context (make-context '() #f '()))
              (body (clone-block (program-body program) context #t state)))
+        (check-export-names export-names (node-loc body))
         (settle-captures! (state-functions state))
-        (make-mono-program body (state-functions state) (state-globals state))))))
+        (make-mono-program body (state-functions state) (state-globals state)
+                           (map (lambda (name) (selected-export name (state-globals state) (node-loc body))) export-names))))))

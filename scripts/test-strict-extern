@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Link strict native imports and exports to matching and mismatched Wasm functions."""
+
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / "tests/strict-extern"
+OUTPUT = ROOT / "build/strict-extern"
+
+
+# ---- Compile once, execute raw and optimized boundaries ----
+
+
+def invoke(command, log):
+    result = subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True, text=True, timeout=120)
+    log.write_text(json.dumps(dict(command=list(map(str, command)), status=result.returncode,
+                                   stdout=result.stdout, stderr=result.stderr), indent=2) + "\n")
+    return result
+
+
+def check(case, provider):
+    source = FIXTURES / (case.get("source", case["name"]) + ".scm")
+    artifact = OUTPUT / (case["name"] + ".wasm")
+    exports = [word for name in case.get("exports", []) for word in ("--export", name)]
+    compiled = invoke([ROOT / "scripts/build-strict", *exports, source, artifact],
+                      OUTPUT / (case["name"] + "-compile.json"))
+    if "error" in case:
+        message = compiled.stdout + compiled.stderr
+        located = not case.get("located", True) or bool(re.search(re.escape(source.name) + r":\d+:\d+:", message))
+        return compiled.returncode != 0 and bool(re.search(case["error"], message)) and located
+    if compiled.returncode != 0:
+        return False
+    results = [invoke([os.environ.get("NODE", "node"), FIXTURES / "run.mjs", provider,
+                       str(artifact) + suffix, case["name"]], OUTPUT / (case["name"] + suffix + "-run.json"))
+               for suffix in (".raw.wasm", "")]
+    return all(result.returncode == 0 for result in results)
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    provider = OUTPUT / "provider.wasm"
+    assembled = invoke([os.environ.get("WASM_AS", "wasm-as"), FIXTURES / "provider.wat", "-o", provider],
+                       OUTPUT / "provider-assemble.json")
+    if assembled.returncode != 0:
+        raise SystemExit(assembled.stderr)
+    cases = json.loads((FIXTURES / "cases.json").read_text())
+    results = []
+    for case in cases:
+        result = dict(name=case["name"], passed=check(case, provider))
+        results.append(result)
+        (OUTPUT / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+        print(("PASS" if result["passed"] else "FAIL") + " " + result["name"], flush=True)
+    passed = sum(result["passed"] for result in results)
+    print(f"Passed {passed}/{len(results)} native boundary contracts")
+    return 0 if passed == len(results) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

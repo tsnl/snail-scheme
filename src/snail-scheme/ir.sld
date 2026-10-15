@@ -42,6 +42,9 @@
    class-declaration-variables class-declaration-methods class-declaration-loc
    make-instance-declaration instance-declaration? instance-declaration-class
    instance-declaration-types instance-declaration-methods instance-declaration-loc
+   make-extern-declaration extern-declaration? extern-declaration-definition
+   extern-declaration-module extern-declaration-symbol extern-declaration-type
+   extern-declaration-loc
 
    ;; ---- Identity ----
 
@@ -172,6 +175,13 @@
       (fields record-schema-fields) (loc record-schema-loc))
 
     ;; ---- Static interfaces ----
+
+    (define-record-type <extern-declaration>
+      (make-extern-declaration definition module symbol type loc)
+      extern-declaration?
+      (definition extern-declaration-definition) (module extern-declaration-module)
+      (symbol extern-declaration-symbol) (type extern-declaration-type)
+      (loc extern-declaration-loc))
 
     ;; Methods and classes have ordinary resolved identities, with no runtime
     ;; value until a method is instantiated. Method rows are (definition type).

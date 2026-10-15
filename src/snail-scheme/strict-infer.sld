@@ -4,6 +4,7 @@
   (export infer-program source-type)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types)
           (snail-scheme strict-core) (snail-scheme strict-primitives)
+          (snail-scheme wasm-extern)
           (prefix (snail-scheme ir) ir:)
           (prefix (snail-scheme types) source:))
   (begin
@@ -55,6 +56,22 @@
                                  (cons (car constraint) (map (lambda (type) (source-type type scope loc)) (cdr constraint))))
                                (source:type-constraints type))))
         (cons (make-scheme (map cdr fresh) (source-type (source:all-body type) scope loc) obligations) scope)))
+
+    ;; ---- Native foreign declarations ----
+
+    (define (extern-binding node)
+      (let ((loc (node-location node)) (definition (ir:extern-declaration-definition node)))
+        (guard (failure (else (if (error-object? failure)
+                                  (apply strict-error loc (error-object-message failure) (error-object-irritants failure))
+                                  (strict-error loc "invalid native extern declaration"))))
+          (let ((declaration (parse-extern `(define-extern ,(ir:value-definition-name definition)
+                                              ,(ir:extern-declaration-module node) ,(ir:extern-declaration-symbol node)
+                                              ,(ir:extern-declaration-type node)))))
+            (make-binding definition (mono-scheme (source-type (extern-type declaration) '() loc)) #f 'extern declaration)))))
+    (define (extern-bindings items)
+      (cond ((null? items) '())
+            ((ir:extern-declaration? (car items)) (cons (extern-binding (car items)) (extern-bindings (cdr items))))
+            (else (extern-bindings (cdr items)))))
 
     ;; ---- Exact static classes and instance initializer sites ----
 
@@ -347,14 +364,16 @@
              (type (join-types (node-type yes) (node-type no) (node-location node))))
         (typed 'if type node (list test (conform yes type #f) (conform no type #f)) test yes no)))
     (define (infer-block items scope expected source)
-      (let* ((bindings (definition-bindings items scope)) (scope (extend-scope scope bindings)))
+      (let* ((bindings (definition-bindings items scope)) (foreign (extern-bindings items))
+             (scope (extend-scope scope (append bindings foreign))))
         (check-bindings! bindings scope)
         (let ((nodes (infer-items items scope expected)))
           (make-node 'block (if (null? nodes) 'Unit (node-type (car (reverse nodes)))) (node-location source)
-                     (list bindings nodes) (constraints nodes)))))
+                     (list (append bindings foreign) nodes) (constraints nodes)))))
     (define (infer-items items scope expected)
       (cond ((null? items) '())
-            ((ir:type-declaration? (car items)) (infer-items (cdr items) scope expected))
+            ((or (ir:type-declaration? (car items)) (ir:extern-declaration? (car items)))
+             (infer-items (cdr items) scope expected))
             ((ir:value-binding? (car items))
              (let* ((binding (lookup (ir:value-binding-definition (car items)) (scope-bindings scope)))
                     (value (binding-initializer binding)))

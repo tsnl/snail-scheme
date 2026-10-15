@@ -8,6 +8,7 @@
 (define raw (string-append output ".raw.wasm"))
 (with-chromium-trace-to (string-append output ".trace.json")
                         (lambda ()
-                          (strict-source-file->wat-file (car arguments) (cadr arguments) wat)
+                          (apply strict-source-file->wat-file (car arguments) (cadr arguments) wat
+                                 (map string->symbol (cdddr arguments)))
                           (assemble-wasm wat raw)
                           (optimize-scheme-wasm raw output)))
