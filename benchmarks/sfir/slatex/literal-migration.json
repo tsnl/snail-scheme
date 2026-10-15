@@ -1,0 +1,2993 @@
+{
+  "case": "slatex",
+  "old_source_sha256": "257326c6da38dfd0b87a460f0703fc0ea29e4a3db24b38e98fa0d950e24a5d5b",
+  "sfir_sha256": "929f04cf2b8c998b72d143b93f45d5a26ae5eb440233199cf5638b5259c87f26",
+  "literals": [
+    {
+      "line": 52,
+      "column": 21,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 53,
+      "column": 32,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 54,
+      "column": 36,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 55,
+      "column": 30,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 56,
+      "column": 30,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 57,
+      "column": 30,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 58,
+      "column": 32,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 59,
+      "column": 30,
+      "spelling": "7",
+      "type": "I64",
+      "value": "7",
+      "annotation_added": true
+    },
+    {
+      "line": 60,
+      "column": 33,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 61,
+      "column": 36,
+      "spelling": "9",
+      "type": "I64",
+      "value": "9",
+      "annotation_added": true
+    },
+    {
+      "line": 62,
+      "column": 28,
+      "spelling": "10",
+      "type": "I64",
+      "value": "10",
+      "annotation_added": true
+    },
+    {
+      "line": 63,
+      "column": 45,
+      "spelling": "11",
+      "type": "I64",
+      "value": "11",
+      "annotation_added": true
+    },
+    {
+      "line": 64,
+      "column": 20,
+      "spelling": "12",
+      "type": "I64",
+      "value": "12",
+      "annotation_added": true
+    },
+    {
+      "line": 65,
+      "column": 28,
+      "spelling": "13",
+      "type": "I64",
+      "value": "13",
+      "annotation_added": true
+    },
+    {
+      "line": 66,
+      "column": 30,
+      "spelling": "14",
+      "type": "I64",
+      "value": "14",
+      "annotation_added": true
+    },
+    {
+      "line": 94,
+      "column": 75,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 96,
+      "column": 78,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 98,
+      "column": 80,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 100,
+      "column": 77,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 102,
+      "column": 77,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 104,
+      "column": 77,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 106,
+      "column": 75,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 108,
+      "column": 77,
+      "spelling": "7",
+      "type": "I64",
+      "value": "7",
+      "annotation_added": true
+    },
+    {
+      "line": 110,
+      "column": 81,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 112,
+      "column": 76,
+      "spelling": "9",
+      "type": "I64",
+      "value": "9",
+      "annotation_added": true
+    },
+    {
+      "line": 114,
+      "column": 77,
+      "spelling": "10",
+      "type": "I64",
+      "value": "10",
+      "annotation_added": true
+    },
+    {
+      "line": 116,
+      "column": 80,
+      "spelling": "11",
+      "type": "I64",
+      "value": "11",
+      "annotation_added": true
+    },
+    {
+      "line": 118,
+      "column": 74,
+      "spelling": "12",
+      "type": "I64",
+      "value": "12",
+      "annotation_added": true
+    },
+    {
+      "line": 120,
+      "column": 82,
+      "spelling": "13",
+      "type": "I64",
+      "value": "13",
+      "annotation_added": true
+    },
+    {
+      "line": 122,
+      "column": 84,
+      "spelling": "14",
+      "type": "I64",
+      "value": "14",
+      "annotation_added": true
+    },
+    {
+      "line": 155,
+      "column": 45,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 155,
+      "column": 50,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 170,
+      "column": 39,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 170,
+      "column": 89,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 265,
+      "column": 22,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 265,
+      "column": 41,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 265,
+      "column": 60,
+      "spelling": "10",
+      "type": "I64",
+      "value": "10",
+      "annotation_added": true
+    },
+    {
+      "line": 265,
+      "column": 76,
+      "spelling": "16",
+      "type": "I64",
+      "value": "16",
+      "annotation_added": true
+    },
+    {
+      "line": 531,
+      "column": 11,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 532,
+      "column": 9,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 556,
+      "column": 83,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 556,
+      "column": 86,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 630,
+      "column": 86,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 630,
+      "column": 107,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 632,
+      "column": 88,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 632,
+      "column": 109,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 633,
+      "column": 51,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 634,
+      "column": 76,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 636,
+      "column": 53,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 668,
+      "column": 25,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 686,
+      "column": 56,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 686,
+      "column": 73,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 703,
+      "column": 65,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 703,
+      "column": 73,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 706,
+      "column": 24,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 706,
+      "column": 41,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 706,
+      "column": 52,
+      "spelling": "1.0",
+      "type": "F64",
+      "value": "1.0",
+      "annotation_added": false
+    },
+    {
+      "line": 706,
+      "column": 59,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 712,
+      "column": 22,
+      "spelling": "1.0",
+      "type": "F64",
+      "value": "1.0",
+      "annotation_added": false
+    },
+    {
+      "line": 712,
+      "column": 26,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 712,
+      "column": 45,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 712,
+      "column": 50,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 712,
+      "column": 69,
+      "spelling": "1.0",
+      "type": "F64",
+      "value": "1.0",
+      "annotation_added": false
+    },
+    {
+      "line": 718,
+      "column": 23,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 726,
+      "column": 59,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 727,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 735,
+      "column": 14,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 736,
+      "column": 16,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 738,
+      "column": 11,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 739,
+      "column": 45,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 739,
+      "column": 58,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 739,
+      "column": 76,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 742,
+      "column": 34,
+      "spelling": "0.5",
+      "type": "F64",
+      "value": "0.5",
+      "annotation_added": false
+    },
+    {
+      "line": 742,
+      "column": 44,
+      "spelling": "0.5",
+      "type": "F64",
+      "value": "0.5",
+      "annotation_added": false
+    },
+    {
+      "line": 743,
+      "column": 21,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 744,
+      "column": 48,
+      "spelling": "2.0",
+      "type": "F64",
+      "value": "2.0",
+      "annotation_added": false
+    },
+    {
+      "line": 746,
+      "column": 47,
+      "spelling": "2.0",
+      "type": "F64",
+      "value": "2.0",
+      "annotation_added": false
+    },
+    {
+      "line": 747,
+      "column": 49,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 754,
+      "column": 30,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 754,
+      "column": 43,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 765,
+      "column": 51,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 770,
+      "column": 50,
+      "spelling": "0.5",
+      "type": "F64",
+      "value": "0.5",
+      "annotation_added": false
+    },
+    {
+      "line": 770,
+      "column": 73,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 772,
+      "column": 50,
+      "spelling": "0.5",
+      "type": "F64",
+      "value": "0.5",
+      "annotation_added": false
+    },
+    {
+      "line": 772,
+      "column": 73,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 778,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 787,
+      "column": 23,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 790,
+      "column": 62,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 796,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 802,
+      "column": 71,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 802,
+      "column": 103,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 804,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 811,
+      "column": 58,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 815,
+      "column": 71,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 815,
+      "column": 103,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 816,
+      "column": 59,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 817,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 819,
+      "column": 46,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 825,
+      "column": 23,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 828,
+      "column": 48,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 830,
+      "column": 55,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 831,
+      "column": 50,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 837,
+      "column": 66,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 847,
+      "column": 81,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 848,
+      "column": 66,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 870,
+      "column": 33,
+      "spelling": "1.0",
+      "type": "F64",
+      "value": "1.0",
+      "annotation_added": false
+    },
+    {
+      "line": 870,
+      "column": 37,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 870,
+      "column": 51,
+      "spelling": "-1.0",
+      "type": "F64",
+      "value": "-1.0",
+      "annotation_added": false
+    },
+    {
+      "line": 870,
+      "column": 56,
+      "spelling": "0.0",
+      "type": "F64",
+      "value": "0.0",
+      "annotation_added": false
+    },
+    {
+      "line": 901,
+      "column": 22,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 901,
+      "column": 41,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 901,
+      "column": 60,
+      "spelling": "10",
+      "type": "I64",
+      "value": "10",
+      "annotation_added": true
+    },
+    {
+      "line": 901,
+      "column": 76,
+      "spelling": "16",
+      "type": "I64",
+      "value": "16",
+      "annotation_added": true
+    },
+    {
+      "line": 902,
+      "column": 20,
+      "spelling": "10",
+      "type": "I64",
+      "value": "10",
+      "annotation_added": true
+    },
+    {
+      "line": 908,
+      "column": 48,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 908,
+      "column": 84,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 967,
+      "column": 43,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 967,
+      "column": 45,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 969,
+      "column": 9,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 971,
+      "column": 71,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 971,
+      "column": 92,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 971,
+      "column": 95,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 975,
+      "column": 18,
+      "spelling": "4294967294",
+      "type": "I64",
+      "value": "4294967294",
+      "annotation_added": true
+    },
+    {
+      "line": 989,
+      "column": 44,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 994,
+      "column": 88,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 994,
+      "column": 92,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1045,
+      "column": 45,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 1071,
+      "column": 88,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1080,
+      "column": 92,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1089,
+      "column": 47,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 1140,
+      "column": 19,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1142,
+      "column": 21,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 1144,
+      "column": 23,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 1146,
+      "column": 25,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 1148,
+      "column": 27,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 1150,
+      "column": 29,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 1152,
+      "column": 31,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 1159,
+      "column": 31,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 1162,
+      "column": 21,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 1166,
+      "column": 84,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1175,
+      "column": 47,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 1214,
+      "column": 85,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 1223,
+      "column": 48,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2259,
+      "column": 340,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2259,
+      "column": 492,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2294,
+      "column": 574,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2294,
+      "column": 752,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2308,
+      "column": 374,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2308,
+      "column": 605,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2308,
+      "column": 662,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2308,
+      "column": 870,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2308,
+      "column": 933,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2387,
+      "column": 484,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2404,
+      "column": 441,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2407,
+      "column": 35,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2419,
+      "column": 256,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2419,
+      "column": 465,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2419,
+      "column": 651,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2533,
+      "column": 89,
+      "spelling": "13",
+      "type": "I64",
+      "value": "13",
+      "annotation_added": true
+    },
+    {
+      "line": 2537,
+      "column": 86,
+      "spelling": "9",
+      "type": "I64",
+      "value": "9",
+      "annotation_added": true
+    },
+    {
+      "line": 2947,
+      "column": 71,
+      "spelling": "200",
+      "type": "I64",
+      "value": "200",
+      "annotation_added": true
+    },
+    {
+      "line": 2951,
+      "column": 93,
+      "spelling": "7",
+      "type": "I64",
+      "value": "7",
+      "annotation_added": true
+    },
+    {
+      "line": 2955,
+      "column": 93,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 2959,
+      "column": 95,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 2963,
+      "column": 93,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 2969,
+      "column": 58,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 2973,
+      "column": 92,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 2977,
+      "column": 93,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 2981,
+      "column": 92,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 2985,
+      "column": 95,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 2989,
+      "column": 96,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 2993,
+      "column": 90,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 2997,
+      "column": 89,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3001,
+      "column": 90,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3005,
+      "column": 90,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 3009,
+      "column": 90,
+      "spelling": "7",
+      "type": "I64",
+      "value": "7",
+      "annotation_added": true
+    },
+    {
+      "line": 3013,
+      "column": 92,
+      "spelling": "6",
+      "type": "I64",
+      "value": "6",
+      "annotation_added": true
+    },
+    {
+      "line": 3017,
+      "column": 92,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 3021,
+      "column": 92,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 3025,
+      "column": 94,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3029,
+      "column": 93,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3033,
+      "column": 95,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3037,
+      "column": 92,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3044,
+      "column": 67,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 3052,
+      "column": 60,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 3056,
+      "column": 58,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3060,
+      "column": 60,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3064,
+      "column": 59,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3068,
+      "column": 61,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3076,
+      "column": 138,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3096,
+      "column": 67,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3104,
+      "column": 66,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3108,
+      "column": 71,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3112,
+      "column": 59,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3119,
+      "column": 67,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3127,
+      "column": 69,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3131,
+      "column": 64,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3135,
+      "column": 63,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 1526,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 1685,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 3040,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 3216,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 3358,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 4270,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 4429,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 6045,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 6221,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 7364,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 9084,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 9147,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 10821,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 12167,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 13133,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 13489,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 14368,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 14427,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 14614,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 14694,
+      "spelling": "8",
+      "type": "I64",
+      "value": "8",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 15555,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 16418,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 17299,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 17975,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3243,
+      "column": 18210,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3262,
+      "column": 92,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 3472,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 3551,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 3626,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 3958,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 4883,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 5117,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 5321,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 5493,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 5920,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 6175,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 6778,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 8201,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 8396,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3272,
+      "column": 8564,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3291,
+      "column": 585,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3291,
+      "column": 1128,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3291,
+      "column": 1724,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3291,
+      "column": 1826,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3293,
+      "column": 35,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3308,
+      "column": 774,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3308,
+      "column": 857,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 230,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 670,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 1276,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 1359,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 1548,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3324,
+      "column": 1630,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3339,
+      "column": 873,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3339,
+      "column": 975,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3341,
+      "column": 35,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3355,
+      "column": 527,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3355,
+      "column": 872,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3355,
+      "column": 1128,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3355,
+      "column": 1317,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3357,
+      "column": 35,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3369,
+      "column": 170,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3370,
+      "column": 171,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3375,
+      "column": 43,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3414,
+      "column": 79,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3418,
+      "column": 79,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3431,
+      "column": 47,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3434,
+      "column": 47,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3438,
+      "column": 47,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3442,
+      "column": 47,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3446,
+      "column": 47,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3459,
+      "column": 673,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3462,
+      "column": 37,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3463,
+      "column": 37,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 1631,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 1985,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 2869,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 3501,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 4203,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 4736,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 5146,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 5678,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 6203,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 6429,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 7444,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 7659,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 8686,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 8997,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 9194,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 9289,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 9847,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 9983,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 10129,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 10467,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 10603,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 10749,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 11288,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 11439,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 11656,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 12230,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 12383,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 12604,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 12752,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 12970,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 13118,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 13452,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 13887,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 14033,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 14190,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 14336,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 14641,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 14861,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 15010,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 15652,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 15880,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 16033,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 16148,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 16317,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 16535,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 16683,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3476,
+      "column": 17215,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3478,
+      "column": 35,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3488,
+      "column": 581,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3488,
+      "column": 685,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3488,
+      "column": 1313,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3488,
+      "column": 1385,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3510,
+      "column": 336,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3531,
+      "column": 124,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3542,
+      "column": 130,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3563,
+      "column": 276,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3563,
+      "column": 388,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3593,
+      "column": 76,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3645,
+      "column": 364,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3645,
+      "column": 481,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3688,
+      "column": 387,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3751,
+      "column": 69,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 3765,
+      "column": 41,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3782,
+      "column": 229,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3783,
+      "column": 33,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 3805,
+      "column": 158,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 160,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 338,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 848,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 1576,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 1751,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 1891,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3882,
+      "column": 2227,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 3893,
+      "column": 315,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3893,
+      "column": 890,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3935,
+      "column": 160,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3935,
+      "column": 333,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3935,
+      "column": 713,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 3935,
+      "column": 1130,
+      "spelling": "4",
+      "type": "I64",
+      "value": "4",
+      "annotation_added": true
+    },
+    {
+      "line": 3935,
+      "column": 1412,
+      "spelling": "5",
+      "type": "I64",
+      "value": "5",
+      "annotation_added": true
+    },
+    {
+      "line": 3980,
+      "column": 160,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 3980,
+      "column": 338,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 3980,
+      "column": 713,
+      "spelling": "3",
+      "type": "I64",
+      "value": "3",
+      "annotation_added": true
+    },
+    {
+      "line": 4057,
+      "column": 79,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4070,
+      "column": 340,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4070,
+      "column": 649,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 4083,
+      "column": 1576,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4083,
+      "column": 1788,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    },
+    {
+      "line": 4083,
+      "column": 1931,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 4198,
+      "column": 241,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4198,
+      "column": 563,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 4213,
+      "column": 193,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4213,
+      "column": 671,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 4241,
+      "column": 5820,
+      "spelling": "-1",
+      "type": "I64",
+      "value": "-1",
+      "annotation_added": true
+    },
+    {
+      "line": 4273,
+      "column": 1088,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4273,
+      "column": 1893,
+      "spelling": "2",
+      "type": "I64",
+      "value": "2",
+      "annotation_added": true
+    },
+    {
+      "line": 4286,
+      "column": 1398,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4352,
+      "column": 85,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4387,
+      "column": 24,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4390,
+      "column": 13,
+      "spelling": "1",
+      "type": "I64",
+      "value": "1",
+      "annotation_added": true
+    },
+    {
+      "line": 4391,
+      "column": 15,
+      "spelling": "0",
+      "type": "I64",
+      "value": "0",
+      "annotation_added": true
+    }
+  ],
+  "annotations_added": 338,
+  "claim": "Each source literal maps by unchanged token order to a checked old source location; only nondefault representations receive annotations."
+}
