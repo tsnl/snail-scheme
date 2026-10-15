@@ -3,16 +3,18 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `35d5baa`: result-context overloads, `Default T`, rank-one
+compiler basis is `0cf2240`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
-calls to nonescaping local procedures are implemented. Mutable fields use explicit
+calls to nonescaping local procedures and structured operators, plus direct captures
+of initialized let values, are implemented. Mutable fields use explicit
 `Ref` cells. Symbols, general mutable
 pairs, first-class continuations and a full numeric tower are still outside this
 strict subset. Representation support alone does not establish a completed port.
 
 The five selected ports and FFT have preceding measured reports. Quicksort,
-graphs and mperm have reviewed canonical measurements in the
-[direct-call report](../results/2026-10-13-strict-direct-calls/README.md).
+graphs, mperm and simplex have reviewed canonical measurements against both
+Chez controls and Rust/Wasm in the
+[call/capture report](../results/2026-10-13-strict-call-captures/README.md).
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -26,11 +28,11 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | triangl | Measured in the preceding five-port report. Existing Vector I64 backtracking and Ref(List(List I64)); construct flat integer tables with `list`, box the mutable answer binding, and make an omitted `do` step explicit. Check all 13 expected moves. Original count 50, initial move 22 and depth 1. |
 | mbrot | Measured in the preceding five-port report on numeric compiler `320987e`. Preserve all pixel and escape loops; replace `inexact` with explicit `i64->f64`, supply nested-vector/zero fills. Original count 1,000, matrix 75 by 75, predicate checks result 5. |
 | pnpoly | Measured in the preceding five-port report on numeric compiler `320987e`. Box its local integer counter. Construct both 20-element F64 input vectors from runtime values; preserve both vector-to-list-to-vector copies and all 12 point tests. Original count 1,000,000, expected 6. |
-| graphs | Measured canonical source program: 4.880× the same adapted source on Chez. Complete CPS enumeration, Bool matrices and I64 adjacency lists; finite I64 comparison codes and typed helpers replace symbols/`case`. Original count 3, size 7, expected 213,829. Separate complete-value and exhaustive small isomorphism-class probes. Unused result-list payloads are legally eliminated; this is not an equal-allocation comparison. |
-| mperm | Measured canonical source program: 3.847× the same adapted source on Chez. Original grey-code generator and shared list tails, two explicit Ref bindings, vector queue, initial fill before timing, and final complete predicate. Original M:N:K:L = 20:10:2:1 retained. Separate permutation/queue/predicate probes; source representation and optimized retention recorded before timing. |
+| graphs | Measured canonical source program: 2.323× the same adapted source on Chez; 3.100× Rust/Wasm. Complete CPS enumeration, Bool matrices and I64 adjacency lists; finite I64 comparison codes and typed helpers replace symbols/`case`. Original count 3, size 7, expected 213,829. Separate complete-value and exhaustive small isomorphism-class probes. Unused result-list payloads are legally eliminated; this is not an equal-allocation comparison. |
+| mperm | Measured canonical source program: 3.569× the same adapted source on Chez; 3.624× Rust/Wasm. Original grey-code generator and shared list tails, two explicit Ref bindings, vector queue, initial fill before timing, and final complete predicate. Original M:N:K:L = 20:10:2:1 retained. Separate permutation/queue/predicate probes; source representation and optimized retention recorded before timing. |
 | fft | Measured in its preceding report. The canonical F64 kernel uses a separately compiled scalar Wasm sine provider; 65,536 elements and 100 repeats remain intact. |
-| quicksort | Measured canonical source program: 0.793× the same adapted source on Chez after direct local calls. Canonical RNG, explicit procedure/seed refs, per-element mapping, adjacent sortedness checks and original 2,500 × 10,000 input retained. Separate checks cover complete sorted values and RNG sequences. |
-| simplex | Prepared for review, unmeasured. Full million-invocation two-phase F64 tableau workload; closed result variants and explicit Ref scalar mutation. Original and adapted Chez controls, complete small outputs/store order, final-predicate negatives and original guard checks. One original equality-case discrepancy is preserved and distinguished from mathematical correctness. |
+| quicksort | Measured canonical source program: 0.681× the same adapted source on Chez; 1.251× Rust/Wasm after initialized captures and structured calls. Canonical RNG, explicit procedure/seed refs, per-element mapping, adjacent sortedness checks and original 2,500 × 10,000 input retained. Separate checks cover complete sorted values and RNG sequences. |
+| simplex | Measured canonical source program: 0.494× the same adapted source on Chez; 1.589× Rust/Wasm. Full million-invocation two-phase F64 tableau workload; closed result variants and explicit Ref scalar mutation. Original and adapted Chez controls, complete small outputs/store order, final-predicate negatives and original guard checks. One original equality-case discrepancy is preserved and distinguished from mathematical correctness. |
 | browse | Symbols, generated symbol/string names, heterogeneous pattern trees and mutable property-list pairs. |
 | deriv | Symbolic recursive expression trees and number-versus-expression dispatch; recursive nominal ASTs are available, but symbolic operations and the typed port remain. |
 | destruc | Mutable pair cars/cdrs; element values mix integers and empty lists. Immutable homogeneous List is insufficient. |
@@ -66,8 +68,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 23 of 57 workloads,
-with 22 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 24 of 57 workloads,
+with 23 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
