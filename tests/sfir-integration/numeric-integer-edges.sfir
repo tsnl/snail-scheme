@@ -1,4 +1,4 @@
-(import (sfir core))
+(import (sfir base))
 (if (if (= (+ 9223372036854775807 1) -9223372036854775808)
         (if (= (+ (ann 2147483647 I32) (ann 1 I32)) (ann -2147483648 I32))
             (if (= (quotient -7 3) -2)

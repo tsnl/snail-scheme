@@ -1,4 +1,4 @@
-(import (sfir core))
-(define choose
-  (lambda (flag) (if flag 42 #t)))
+(import (sfir base))
+(def choose
+     (lambda (flag) (if flag 42 #t)))
 (choose #t)

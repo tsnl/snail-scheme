@@ -1,5 +1,5 @@
-(import (sfir core))
-(define select
-  (lambda (value) value))
+(import (sfir base))
+(def select
+     (lambda (value) value))
 (define-overload select (-> I64 I64) (lambda (value) value))
 (select 42)

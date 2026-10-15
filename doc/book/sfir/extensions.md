@@ -1,0 +1,63 @@
+# Implementation extensions
+
+The compiler retains two explicit declaration forms used by its libraries.
+They supplement the core grammar while foreign interfaces and ad-hoc overload
+declarations acquire their complete specification. They are not macros or
+alternative spellings of `def`.
+
+## Foreign functions
+
+```scheme
+(define-extern clock-nanoseconds "host" "clock_nanoseconds" (-> I64))
+```
+
+The declaration binds a function with a concrete signature to a provider module
+and symbol. Both names are literal strings. The target checks that the signature
+is supported by its foreign ABI; declaring an arbitrary SFIR type does not make
+that type transportable. Wasm imports and native C linkage use the same declared
+interface. A declaration can occur at library scope or in a local block; it
+does not call the function or allocate a provider when evaluated.
+
+```text
+extern_declaration ::= "(" "define-extern" name string_literal string_literal function_type ")"
+```
+
+## Ad-hoc overload families
+
+```scheme
+(define-overload add (-> I32 I32 I32) i32-add)
+(define-overload add (-> F64 F64 F64) f64-add)
+```
+
+These library-level declarations add members to one named family. Each member
+has its own initializer and optional signature. A family cannot share a name
+with an ordinary definition, datatype or class method. An imported family can
+be extended through its original identity, including after renaming.
+
+```text
+overload_declaration ::= "(" "define-overload" name [signature] expression ")"
+```
+
+The [typeclass and overload rules](types.md#typeclasses-and-overloads) govern
+selection: argument and result constraints must leave exactly one compatible
+complete signature. Declaration order and prerequisites do not rank candidates.
+An overload signature can be inferred; unresolved captures that prevent a stable
+signature are errors. Implementations retain their ordinary initialization
+sites and effects.
+
+A qualified signature can require a family at a complete function type, for
+example `(All (T) (=> ((add (-> T T T))) (-> T T T)))`. This reuses class evidence
+and specialization; it does not introduce runtime dispatch.
+
+## Standard operations
+
+`(sfir base)` supplies the ordinary numeric and collection operations used in
+the examples. `(sfir primitive)` exposes the compiler's concrete primitives.
+`empty-list` has signature `(All (T) (-> (List T)))`; for example,
+`(ann (empty-list) (List I32))` constructs an empty immutable list. There is no
+`quote` form in SFIR. List construction otherwise uses ordinary `cons` calls.
+
+The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
+remaining differences, including numeric literal defaults, overflow checks and
+first-class library compilation APIs. These gaps do not weaken the language
+contract.

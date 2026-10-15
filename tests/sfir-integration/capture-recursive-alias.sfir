@@ -1,24 +1,24 @@
-(import (sfir core))
+(import (sfir base))
 
-(define effects
-  (ref 0))
+(def effects
+     (ref 0))
 
-(define checked (-> I64)
-  (lambda ()
-    (let ((x 42))
-      (begin
-        (define read-alias
-          (lambda ()
-            (begin
-              (ref-set! effects 1)
-              alias)))
-        (define early
-          (read-alias))
-        (define alias
-          x)
-        (read-alias)))))
+(def checked (-> I64)
+     (lambda ()
+       (begin (let x 42)
+              (begin
+                (def read-alias
+                     (lambda ()
+                       (begin
+                         (ref-set! effects 1)
+                         alias)))
+                (def early
+                     (read-alias))
+                (def alias
+                     x)
+                (read-alias)))))
 
-(define observed (-> I64)
-  (lambda () (ref-get effects)))
+(def observed (-> I64)
+     (lambda () (ref-get effects)))
 
 42

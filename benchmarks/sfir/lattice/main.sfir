@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
       xs
       0)))
 
@@ -20,39 +20,39 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define-data (MutableList T)
+(def MutableList (datatype ( T)
   (ml-empty)
-  (ml-node (head T ml-car) (tail (Ref (MutableList T)) ml-tail-cell)))
+  (ml-node (head T ml-car) (tail (Ref (MutableList T)) ml-tail-cell))))
 
-(define-data (Lattice T)
-  (make-lattice (elements (MutableList T) lattice->elements) (compare (-> T T I64) lattice->cmp)))
+(def Lattice (datatype ( T)
+  (make-lattice (elements (MutableList T) lattice->elements) (compare (-> T T I64) lattice->cmp))))
 
-(define-data (Binding S T) (make-binding (source S binding-source) (target T binding-target)))
+(def Binding (datatype ( S T) (make-binding (source S binding-source) (target T binding-target))))
 
-(define ml-cons (All (T) (-> T (MutableList T) (MutableList T)))
+(def ml-cons (All (T) (-> T (MutableList T) (MutableList T)))
   (lambda (head.4 tail.2) (ml-node head.4 (ref tail.2))))
 
-(define ml-null? (All (T) (-> (MutableList T) Bool))
+(def ml-null? (All (T) (-> (MutableList T) Bool))
   (lambda (values.3) (match values.3 ((ml-empty) #t) ((ml-node head.3 tail.1) #f))))
 
-(define ml-cdr (All (T) (-> (MutableList T) (MutableList T)))
+(def ml-cdr (All (T) (-> (MutableList T) (MutableList T)))
   (lambda (values.2) (ref-get (ml-tail-cell values.2))))
 
-(define ml-set-cdr! (All (T) (-> (MutableList T) (MutableList T) Unit))
+(def ml-set-cdr! (All (T) (-> (MutableList T) (MutableList T) Unit))
   (lambda (values.1 tail) (ref-set! (ml-tail-cell values.1) tail)))
 
-(define ml-map (All (A B) (-> (-> A B) (MutableList A) (MutableList B)))
+(def ml-map (All (A B) (-> (-> A B) (MutableList A) (MutableList B)))
   (lambda (procedure values)
     (if (ml-null? values)
       (ml-empty)
       ((lambda (head.2) (ml-cons head.2 (ml-map procedure (ml-cdr values))))
         (procedure (ml-car values))))))
 
-(define ml-append (All (T) (-> (MutableList T) (MutableList T) (MutableList T)))
+(def ml-append (All (T) (-> (MutableList T) (MutableList T) (MutableList T)))
   (lambda (first last)
     (if (ml-null? first) last (ml-cons (ml-car first) (ml-append (ml-cdr first) last)))))
 
-(define ml-concatenate (All (T) (-> (MutableList (MutableList T)) (MutableList T)))
+(def ml-concatenate (All (T) (-> (MutableList (MutableList T)) (MutableList T)))
   (lambda (lists)
     (if (ml-null? lists)
       (ml-empty)
@@ -60,35 +60,35 @@
         (ml-car lists)
         (ml-append (ml-car lists) (ml-concatenate (ml-cdr lists)))))))
 
-(define code-member? (-> I64 (MutableList I64) Bool)
+(def code-member? (-> I64 (MutableList I64) Bool)
   (lambda (value.16 codes)
     (if (not (ml-null? codes))
       ((lambda (value.17) (if value.17 value.17 (code-member? value.16 (ml-cdr codes))))
         (= value.16 (ml-car codes)))
       #f)))
 
-(define lattice-base-elements (ml-cons 0 (ml-cons 1 (ml-empty))))
+(def lattice-base-elements (ml-cons 0 (ml-cons 1 (ml-empty))))
 
-(define lattice-less-equal (ml-cons 0 (ml-cons 1 (ml-empty))))
+(def lattice-less-equal (ml-cons 0 (ml-cons 1 (ml-empty))))
 
-(define lattice-more-equal (ml-cons 2 (ml-cons 1 (ml-empty))))
+(def lattice-more-equal (ml-cons 2 (ml-cons 1 (ml-empty))))
 
-(define hide (lambda (count.1 x.4) (hide-i64 x.4)))
+(def hide (lambda (count.1 x.4) (hide-i64 x.4)))
 
-(define lexico (All (T) (-> (-> T T I64) (-> (MutableList T) (MutableList T) I64)))
+(def lexico (All (T) (-> (-> T T I64) (-> (MutableList T) (MutableList T) I64)))
   (lambda (base)
     (begin
-      (define lex-fixed
+      (def lex-fixed
         (lambda (fixed lhs.2 rhs.2)
           (begin
-            (define check
+            (def check
               (lambda (lhs.3 rhs.3)
                 (if (ml-null? lhs.3)
                   fixed
                   ((lambda (probe.1) (if ((lambda (value.15) (if value.15 value.15 (= probe.1 fixed))) (= probe.1 1)) (check (ml-cdr lhs.3) (ml-cdr rhs.3)) 3))
                     (base (ml-car lhs.3) (ml-car rhs.3))))))
             (check lhs.2 rhs.2))))
-      (define lex-first
+      (def lex-first
         (lambda (lhs.1 rhs.1)
           (if (ml-null? lhs.1)
             1
@@ -96,10 +96,10 @@
               (base (ml-car lhs.1) (ml-car rhs.1))))))
       lex-first)))
 
-(define zulu-select (All (T) (-> (-> T Bool) (MutableList T) (MutableList T)))
+(def zulu-select (All (T) (-> (-> T Bool) (MutableList T) (MutableList T)))
   (lambda (test.1 lst.6)
     (begin
-      (define select-a.1
+      (def select-a.1
         (lambda (ac.1 lst.7)
           (if (ml-null? lst.7)
             (xreverse! ac.1)
@@ -108,15 +108,15 @@
               (ml-cdr lst.7)))))
       (select-a.1 (ml-empty) lst.6))))
 
-(define xreverse! (All (T) (-> (MutableList T) (MutableList T)))
+(def xreverse! (All (T) (-> (MutableList T) (MutableList T)))
   (lambda (lst.5)
-    ((lambda () (begin (define rotate (lambda (fo fum) ((lambda (next.1) (begin (ml-set-cdr! fo fum) (if (ml-null? next.1) fo (rotate next.1 fo)))) (ml-cdr fo)))) (if (ml-null? lst.5) (ml-empty) (rotate lst.5 (ml-empty)))))
+    ((lambda () (begin (def rotate (lambda (fo fum) ((lambda (next.1) (begin (ml-set-cdr! fo fum) (if (ml-null? next.1) fo (rotate next.1 fo)))) (ml-cdr fo)))) (if (ml-null? lst.5) (ml-empty) (rotate lst.5 (ml-empty)))))
 )))
 
-(define select-map (All (A B) (-> (-> A Bool) (-> A B) (MutableList A) (MutableList B)))
+(def select-map (All (A B) (-> (-> A Bool) (-> A B) (MutableList A) (MutableList B)))
   (lambda (test func lst.3)
     (begin
-      (define select-a
+      (def select-a
         (lambda (ac lst.4)
           (if (ml-null? lst.4)
             (xreverse! ac)
@@ -125,20 +125,20 @@
               (ml-cdr lst.4)))))
       (select-a (ml-empty) lst.3))))
 
-(define map-and (All (T) (-> (-> T Bool) (MutableList T) Bool))
+(def map-and (All (T) (-> (-> T Bool) (MutableList T) Bool))
   (lambda (proc lst.1)
     (if (ml-null? lst.1)
       #t
-      ((lambda () (begin (define drudge (lambda (lst.2) ((lambda (rest.2) (if (ml-null? rest.2) (proc (ml-car lst.2)) (if (proc (ml-car lst.2)) (drudge rest.2) #f))) (ml-cdr lst.2)))) (drudge lst.1)))
+      ((lambda () (begin (def drudge (lambda (lst.2) ((lambda (rest.2) (if (ml-null? rest.2) (proc (ml-car lst.2)) (if (proc (ml-car lst.2)) (drudge rest.2) #f))) (ml-cdr lst.2)))) (drudge lst.1)))
 ))))
 
-(define maps-1 (All (S T) (-> (Lattice S) (Lattice T) (MutableList (Binding S T)) S (MutableList T)))
+(def maps-1 (All (S T) (-> (Lattice S) (Lattice T) (MutableList (Binding S T)) S (MutableList T)))
   (lambda (source.3 target.3 pas.1 new)
     ((lambda (scmp tcmp) ((lambda (less more) (zulu-select (lambda (t) (if (map-and (lambda (t2.1) (code-member? (tcmp t2.1 t) lattice-less-equal)) less) (map-and (lambda (t2) (code-member? (tcmp t2 t) lattice-more-equal)) more) #f)) (lattice->elements target.3))) (select-map (lambda (p) (= 0 (scmp (binding-source p) new))) binding-target pas.1) (select-map (lambda (p.1) (= 2 (scmp (binding-source p.1) new))) binding-target pas.1)))
       (lattice->cmp source.3)
       (lattice->cmp target.3))))
 
-(define maps-rest (All (S T R) (-> (Lattice S) (Lattice T) (MutableList (Binding S T)) (MutableList S) (-> (MutableList (Binding S T)) R) (-> (MutableList R) R) R))
+(def maps-rest (All (S T R) (-> (Lattice S) (Lattice T) (MutableList (Binding S T)) (MutableList S) (-> (MutableList (Binding S T)) R) (-> (MutableList R) R) R))
   (lambda (source.2 target.2 pas rest to-1 to-collect)
     (if (ml-null? rest)
       (to-1 pas)
@@ -146,7 +146,7 @@
         (ml-car rest)
         (ml-cdr rest)))))
 
-(define maps (All (S T) (-> (Lattice S) (Lattice T) (Lattice (MutableList T))))
+(def maps (All (S T) (-> (Lattice S) (Lattice T) (Lattice (MutableList T))))
   (lambda (source.1 target.1)
     (make-lattice
       (maps-rest
@@ -158,14 +158,14 @@
         (lambda (x.2) (ml-concatenate x.2)))
       (lexico (lattice->cmp target.1)))))
 
-(define count-maps (All (S T) (-> (Lattice S) (Lattice T) I64))
+(def count-maps (All (S T) (-> (Lattice S) (Lattice T) I64))
   (lambda (source target)
     (maps-rest source target (ml-empty) (lattice->elements source) (lambda (x) 1) sum)))
 
-(define sum (-> (MutableList I64) I64)
+(def sum (-> (MutableList I64) I64)
   (lambda (lst) (if (ml-null? lst) 0 (+ (ml-car lst) (sum (ml-cdr lst))))))
 
-(define run (-> I64 I64)
+(def run (-> I64 I64)
   (lambda (k)
     ((lambda (l2) ((lambda (l3) ((lambda (l4) ((lambda () (begin (count-maps l2 l2) (count-maps l3 l3) (count-maps l2 l3) (count-maps l3 l2) ((lambda (value.6) (if (= value.6 33) (count-maps l3 l3) ((lambda (value.7) (if (= value.7 44) (count-maps l4 l4) ((lambda (value.8) (if (= value.8 45) ((lambda (l5.2) (count-maps l4 l5.2)) (maps l4 l4)) ((lambda (value.9) (if (= value.9 54) ((lambda (l5.1) (count-maps l5.1 l4)) (maps l4 l4)) ((lambda (value.10) (if (= value.10 55) ((lambda (l5) (count-maps l5 l5)) (maps l4 l4)) (unreachable))) value.9))) value.8))) value.7))) value.6))) k))))) (maps l3 l3))) (maps l2 l2)))
       (make-lattice
@@ -174,13 +174,13 @@
           ((lambda (value) (if (= value 0) ((lambda (value.4) (if (= value.4 0) 1 ((lambda (value.5) (if (= value.5 1) 0 (unreachable))) value.4))) rhs) ((lambda (value.3) (if (= value.3 1) ((lambda (value.1) (if (= value.1 0) 2 ((lambda (value.2) (if (= value.2 1) 1 (unreachable))) value.1))) rhs) (unreachable))) value)))
             lhs))))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
     (if (<= count 0)
       (unreachable)
-      (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (run (hide count input0))) result))) loop)))
+      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (run (hide count input0))) result))) loop)))
         1
         (run (hide count input0))))))
 

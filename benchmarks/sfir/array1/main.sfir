@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.4 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.4 (cdr xs.1) (+ n.4 1))))) loop.4)))
+    (((lambda () (begin (def loop.4 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.4 (cdr xs.1) (+ n.4 1))))) loop.4)))
       xs
       0)))
 
@@ -20,35 +20,35 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define hide (lambda (count.1 x.1) (hide-i64 x.1)))
+(def hide (lambda (count.1 x.1) (hide-i64 x.1)))
 
-(define create-x
+(def create-x
   (lambda (n.3)
     (begin
-      (define result.3 (make-vector n.3 0))
-      (((lambda () (begin (define loop.3 (lambda (i.2) (if (>= i.2 n.3) result.3 (begin (vector-set! result.3 i.2 i.2) (loop.3 (+ i.2 1)))))) loop.3)))
+      (def result.3 (make-vector n.3 0))
+      (((lambda () (begin (def loop.3 (lambda (i.2) (if (>= i.2 n.3) result.3 (begin (vector-set! result.3 i.2 i.2) (loop.3 (+ i.2 1)))))) loop.3)))
         0))))
 
-(define create-y
+(def create-y
   (lambda (x)
-    ((lambda (n.2) ((lambda (result.2) ((lambda () (((lambda () (begin (define loop.2 (lambda (i.1) (if (< i.1 0) result.2 (begin (vector-set! result.2 i.1 (vector-ref x i.1)) (loop.2 (- i.1 1)))))) loop.2))) (- n.2 1))))) (make-vector n.2 0)))
+    ((lambda (n.2) ((lambda (result.2) ((lambda () (((lambda () (begin (def loop.2 (lambda (i.1) (if (< i.1 0) result.2 (begin (vector-set! result.2 i.1 (vector-ref x i.1)) (loop.2 (- i.1 1)))))) loop.2))) (- n.2 1))))) (make-vector n.2 0)))
       (vector-length x))))
 
-(define my-try (lambda (n.1) (vector-length (create-y (create-x n.1)))))
+(def my-try (lambda (n.1) (vector-length (create-y (create-x n.1)))))
 
-(define go
+(def go
   (lambda (m n)
-    (((lambda () (begin (define loop.1 (lambda (repeat result.1) (if (> repeat 0) (loop.1 (- repeat 1) (my-try n)) result.1))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (repeat result.1) (if (> repeat 0) (loop.1 (- repeat 1) (my-try n)) result.1))) loop.1)))
       m
       0)))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define input1 (native-input-i64 (ann 1 I32)))
+(def input1 (native-input-i64 (ann 1 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (go (hide input0 input0) (hide input0 input1))) result))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (go (hide input0 input0) (hide input0 input1))) result))) loop)))
       0
       0)))
 

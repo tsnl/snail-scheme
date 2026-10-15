@@ -1,14 +1,14 @@
-(import (sfir core))
-(define count
-  (ref 0))
-(define-class (Combine T) (: combine (-> T T T)))
-(define-instance (Combine I64) (combine member))
-(define make-member
-  (lambda ()
-    (begin
-      (ref-set! count (+ (ref-get count) 1))
-      (lambda (a b) (+ a b)))))
-(define member
-  (make-member))
+(import (sfir base))
+(def count
+     (ref 0))
+(def Combine (typeclass ( T) (: combine (-> T T T))))
+(def sfir-migration-instance-1 (instance (Combine I64) (combine member)))
+(def make-member
+     (lambda ()
+       (begin
+         (ref-set! count (+ (ref-get count) 1))
+         (lambda (a b) (+ a b)))))
+(def member
+     (make-member))
 (combine 1 2)
 (+ (combine 20 21) (ref-get count))

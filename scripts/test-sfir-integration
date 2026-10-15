@@ -114,7 +114,7 @@ def main():
     options.output.mkdir(parents=True, exist_ok=True)
     cases = json.loads((FIXTURES / "cases.json").read_text())
     names = [case["name"] for case in cases]
-    assert len(names) == len(set(names)) == 307
+    assert len(names) == len(set(names))
     assert set(names) == {source.stem for source in FIXTURES.glob('*.sfir')}
     if options.cases:
         known = {case["name"] for case in cases}

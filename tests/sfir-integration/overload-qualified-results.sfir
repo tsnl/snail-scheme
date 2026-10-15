@@ -1,10 +1,10 @@
-(import (sfir core))
+(import (sfir base))
 (define-overload view (-> I64 I64) (lambda (value) value))
 (define-overload view (-> I64 F64) i64->f64)
 
-(define pair-views (All (A R S) (=> ((view (-> A R)) (view (-> A S))) (-> A R S S)))
-  (lambda (input left right)
-    (begin
-      (if #f left (view input))
-      (if #f right (view input)))))
+(def pair-views (All (A R S) (=> ((view (-> A R)) (view (-> A S))) (-> A R S S)))
+     (lambda (input left right)
+       (begin
+         (if #f left (view input))
+         (if #f right (view input)))))
 (if (= (pair-views 42 0 0.0) 42.0) 42 (unreachable))

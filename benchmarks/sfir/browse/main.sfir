@@ -1,7 +1,7 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
 (import
-  (sfir core)
+  (sfir base)
   (rename
     (sfir datum)
     (string->symbol typed-string->symbol)
@@ -10,107 +10,107 @@
   (sfir io)
   (sfir read))
 
-(define-data MatchResult (match-false) (match-true) (match-empty))
+(def MatchResult (datatype () (match-false) (match-true) (match-empty)))
 
-(define failed-match (match-false))
+(def failed-match (match-false))
 
-(define successful-match (match-true))
+(def successful-match (match-true))
 
-(define empty-match (match-empty))
+(def empty-match (match-empty))
 
-(define match-boolean (-> Bool MatchResult)
+(def match-boolean (-> Bool MatchResult)
   (lambda (value.16) (if value.16 successful-match failed-match)))
 
-(define match-truth? (-> MatchResult Bool)
+(def match-truth? (-> MatchResult Bool)
   (lambda (value.15) (match value.15 ((match-false) #f) ((match-true) #t) ((match-empty) #t))))
 
-(define browse-zero? (lambda (value.14) (= value.14 0)))
+(def browse-zero? (lambda (value.14) (= value.14 0)))
 
-(define datum-cadr (lambda (value.13) (datum-car (datum-cdr value.13))))
+(def datum-cadr (lambda (value.13) (datum-car (datum-cdr value.13))))
 
-(define datum-cddr (lambda (value.12) (datum-cdr (datum-cdr value.12))))
+(def datum-cddr (lambda (value.12) (datum-cdr (datum-cdr value.12))))
 
-(define symbol-pattern (datum-symbol (typed-string->symbol "pattern")))
+(def symbol-pattern (datum-symbol (typed-string->symbol "pattern")))
 
-(define symbol-question (datum-symbol (typed-string->symbol "?")))
+(def symbol-question (datum-symbol (typed-string->symbol "?")))
 
-(define symbol-star (datum-symbol (typed-string->symbol "*")))
+(def symbol-star (datum-symbol (typed-string->symbol "*")))
 
-(define symbol-a (datum-symbol (typed-string->symbol "a")))
+(def symbol-a (datum-symbol (typed-string->symbol "a")))
 
-(define symbol-b (datum-symbol (typed-string->symbol "b")))
+(def symbol-b (datum-symbol (typed-string->symbol "b")))
 
-(define generate-symbol-value (-> String Datum)
+(def generate-symbol-value (-> String Datum)
   (lambda (text) (datum-symbol (typed-string->symbol text))))
 
-(define symbol-datum->string (-> Datum String)
+(def symbol-datum->string (-> Datum String)
   (lambda (value.11) (typed-symbol->string (datum-symbol-value value.11))))
 
-(define symbol-datum->string-datum (-> Datum Datum)
+(def symbol-datum->string-datum (-> Datum Datum)
   (lambda (value.10) (datum-string (symbol-datum->string value.10))))
 
-(define string-datum->number-datum (-> Datum Datum)
+(def string-datum->number-datum (-> Datum Datum)
   (lambda (value.9)
     (match (typed-string->number (datum-string-value value.9))
       ((not-a-number) (datum-boolean #f))
       ((parsed-number value.8) (datum-number value.8))
       ((number-error message) (datum-fail message)))))
 
-(define lookup (-> Datum Datum Datum)
+(def lookup (-> Datum Datum Datum)
   (lambda (key table)
-    (((lambda () (begin (define loop.13 (lambda (x.5) (if (datum-null? x.5) (datum-boolean #f) ((lambda (pair) (if (datum-eq? (datum-car pair) key) pair (loop.13 (datum-cdr x.5)))) (datum-car x.5))))) loop.13)))
+    (((lambda () (begin (def loop.13 (lambda (x.5) (if (datum-null? x.5) (datum-boolean #f) ((lambda (pair) (if (datum-eq? (datum-car pair) key) pair (loop.13 (datum-cdr x.5)))) (datum-car x.5))))) loop.13)))
       table)))
 
-(define *properties* (ref (datum-null)))
+(def *properties* (ref (datum-null)))
 
-(define get (-> Datum Datum Datum)
+(def get (-> Datum Datum Datum)
   (lambda (key1.1 key2.1)
     ((lambda (x.4) (if (datum-truth? x.4) ((lambda (y.2) (if (datum-truth? y.2) (datum-cdr y.2) (datum-boolean #f))) (lookup key2.1 (datum-cdr x.4))) (datum-boolean #f)))
       (lookup key1.1 (ref-get *properties*)))))
 
-(define put (-> Datum Datum Datum Unit)
+(def put (-> Datum Datum Datum Unit)
   (lambda (key1 key2 val.2)
     ((lambda (x.3) (if (datum-truth? x.3) ((lambda (y.1) (if (datum-truth? y.1) (datum-set-cdr! y.1 val.2) (datum-set-cdr! x.3 (datum-cons (datum-cons key2 val.2) (datum-cdr x.3))))) (lookup key2 (datum-cdr x.3))) (ref-set! *properties* (datum-cons (datum-list key1 (datum-cons key2 val.2)) (ref-get *properties*)))))
       (lookup key1 (ref-get *properties*)))))
 
-(define *current-gensym* (ref 0))
+(def *current-gensym* (ref 0))
 
-(define generate-symbol (-> Datum)
+(def generate-symbol (-> Datum)
   (lambda ()
     (begin
       (ref-set! *current-gensym* (+ (ref-get *current-gensym*) 1))
       (generate-symbol-value (i64->string (ref-get *current-gensym*))))))
 
-(define append-to-tail! (-> Datum Datum Datum)
+(def append-to-tail! (-> Datum Datum Datum)
   (lambda (x.2 y)
     (if (datum-null? x.2)
       y
-      (((lambda () (begin (define loop.12 (lambda (a.3 b) (if (datum-null? b) (begin (unit) (datum-set-cdr! a.3 y) x.2) (loop.12 b (datum-cdr b))))) loop.12)))
+      (((lambda () (begin (def loop.12 (lambda (a.3 b) (if (datum-null? b) (begin (unit) (datum-set-cdr! a.3 y) x.2) (loop.12 b (datum-cdr b))))) loop.12)))
         x.2
         (datum-cdr x.2)))))
 
-(define tree-copy (-> Datum Datum)
+(def tree-copy (-> Datum Datum)
   (lambda (x.1)
     (if (not (datum-pair? x.1))
       x.1
       (datum-cons (tree-copy (datum-car x.1)) (tree-copy (datum-cdr x.1))))))
 
-(define *rand* (ref 21))
+(def *rand* (ref 21))
 
-(define init (-> I64 I64 I64 Datum Datum)
+(def init (-> I64 I64 I64 Datum Datum)
   (lambda (n.2 m npats ipats)
-    ((lambda (ipats.1) (begin (((lambda () (begin (define loop.11 (lambda (p.1) (if (datum-null? (datum-cdr p.1)) (begin (unit) (datum-set-cdr! p.1 ipats.1)) (loop.11 (datum-cdr p.1))))) loop.11))) ipats.1) (((lambda () (begin (define loop.7 (lambda (n.3 i name a.1) (if (= n.3 0) (begin (unit) (ref-get a.1)) (begin (ref-set! a.1 (datum-cons name (ref-get a.1))) (((lambda () (begin (define loop.10 (lambda (i.2) (if (browse-zero? i.2) (unit) (begin (put name (generate-symbol) (datum-boolean #f)) (loop.10 (- i.2 1)))))) loop.10))) i) (put name symbol-pattern (((lambda () (begin (define loop.9 (lambda (i.1 ipats.2 a.2) (if (browse-zero? i.1) (begin (unit) (ref-get a.2)) (begin (ref-set! a.2 (datum-cons (datum-car ipats.2) (ref-get a.2))) (loop.9 (- i.1 1) (datum-cdr ipats.2) a.2))))) loop.9))) npats ipats.1 (ref (datum-null)))) (((lambda () (begin (define loop.8 (lambda (j) (if (browse-zero? j) (unit) (begin (put name (generate-symbol) (datum-boolean #f)) (loop.8 (- j 1)))))) loop.8))) (- m i)) (loop.7 (- n.3 1) (if (browse-zero? i) m (- i 1)) (generate-symbol) a.1))))) loop.7))) n.2 m (generate-symbol) (ref (datum-null)))))
+    ((lambda (ipats.1) (begin (((lambda () (begin (def loop.11 (lambda (p.1) (if (datum-null? (datum-cdr p.1)) (begin (unit) (datum-set-cdr! p.1 ipats.1)) (loop.11 (datum-cdr p.1))))) loop.11))) ipats.1) (((lambda () (begin (def loop.7 (lambda (n.3 i name a.1) (if (= n.3 0) (begin (unit) (ref-get a.1)) (begin (ref-set! a.1 (datum-cons name (ref-get a.1))) (((lambda () (begin (def loop.10 (lambda (i.2) (if (browse-zero? i.2) (unit) (begin (put name (generate-symbol) (datum-boolean #f)) (loop.10 (- i.2 1)))))) loop.10))) i) (put name symbol-pattern (((lambda () (begin (def loop.9 (lambda (i.1 ipats.2 a.2) (if (browse-zero? i.1) (begin (unit) (ref-get a.2)) (begin (ref-set! a.2 (datum-cons (datum-car ipats.2) (ref-get a.2))) (loop.9 (- i.1 1) (datum-cdr ipats.2) a.2))))) loop.9))) npats ipats.1 (ref (datum-null)))) (((lambda () (begin (def loop.8 (lambda (j) (if (browse-zero? j) (unit) (begin (put name (generate-symbol) (datum-boolean #f)) (loop.8 (- j 1)))))) loop.8))) (- m i)) (loop.7 (- n.3 1) (if (browse-zero? i) m (- i 1)) (generate-symbol) a.1))))) loop.7))) n.2 m (generate-symbol) (ref (datum-null)))))
       (tree-copy ipats))))
 
-(define browse-random (-> I64)
+(def browse-random (-> I64)
   (lambda () (begin (ref-set! *rand* (remainder (* (ref-get *rand*) 17) 251)) (ref-get *rand*))))
 
-(define randomize (-> Datum Datum)
+(def randomize (-> Datum Datum)
   (lambda (original-list)
-    ((lambda (l.1) (((lambda () (begin (define loop.5 (lambda (a) (if (datum-null? (ref-get l.1)) (begin (unit) (ref-get a)) (begin ((lambda (n) (if (browse-zero? n) (begin (ref-set! a (datum-cons (datum-car (ref-get l.1)) (ref-get a))) (ref-set! l.1 (datum-cdr (ref-get l.1))) (ref-get l.1)) (((lambda () (begin (define loop.6 (lambda (n.1 x) (if (= n.1 1) (begin (unit) (ref-set! a (datum-cons (datum-cadr x) (ref-get a))) (datum-set-cdr! x (datum-cddr x)) x) (loop.6 (- n.1 1) (datum-cdr x))))) loop.6))) n (ref-get l.1)))) (remainder (browse-random) (datum-length (ref-get l.1)))) (loop.5 a))))) loop.5))) (ref (datum-null))))
+    ((lambda (l.1) (((lambda () (begin (def loop.5 (lambda (a) (if (datum-null? (ref-get l.1)) (begin (unit) (ref-get a)) (begin ((lambda (n) (if (browse-zero? n) (begin (ref-set! a (datum-cons (datum-car (ref-get l.1)) (ref-get a))) (ref-set! l.1 (datum-cdr (ref-get l.1))) (ref-get l.1)) (((lambda () (begin (def loop.6 (lambda (n.1 x) (if (= n.1 1) (begin (unit) (ref-set! a (datum-cons (datum-cadr x) (ref-get a))) (datum-set-cdr! x (datum-cddr x)) x) (loop.6 (- n.1 1) (datum-cdr x))))) loop.6))) n (ref-get l.1)))) (remainder (browse-random) (datum-length (ref-get l.1)))) (loop.5 a))))) loop.5))) (ref (datum-null))))
       (ref original-list))))
 
-(define my-match (-> Datum Datum Datum MatchResult)
+(def my-match (-> Datum Datum Datum MatchResult)
   (lambda (pat dat alist)
     (if (datum-null? pat)
       (match-boolean (datum-null? dat))
@@ -126,7 +126,7 @@
                 ((lambda (val.1) (if (datum-truth? val.1) (my-match (datum-cons (datum-cdr val.1) (datum-cdr pat)) dat alist) (my-match (datum-cdr pat) (datum-cdr dat) (datum-cons (datum-cons (datum-car pat) (datum-car dat)) alist))))
                   (datum-assq (datum-car pat) alist))
                 (if (char=? (string-ref (symbol-datum->string (datum-car pat)) 0) #\*)
-                  ((lambda (val) (if (datum-truth? val) (my-match (datum-append (datum-cdr val) (datum-cdr pat)) dat alist) (((lambda () (begin (define loop.4 (lambda (l e d) (if ((lambda (value.4) (if value.4 value.4 (match-truth? (my-match (datum-cdr pat) d (datum-cons (datum-cons (datum-car pat) l) alist))))) (datum-null? e)) (begin (unit) (match-boolean (not (datum-null? e)))) (loop.4 (append-to-tail! l (datum-cons (if (datum-null? d) (datum-null) (datum-car d)) (datum-null))) (datum-cdr e) (if (datum-null? d) (datum-null) (datum-cdr d)))))) loop.4))) (datum-null) (datum-cons (datum-null) dat) dat)))
+                  ((lambda (val) (if (datum-truth? val) (my-match (datum-append (datum-cdr val) (datum-cdr pat)) dat alist) (((lambda () (begin (def loop.4 (lambda (l e d) (if ((lambda (value.4) (if value.4 value.4 (match-truth? (my-match (datum-cdr pat) d (datum-cons (datum-cons (datum-car pat) l) alist))))) (datum-null? e)) (begin (unit) (match-boolean (not (datum-null? e)))) (loop.4 (append-to-tail! l (datum-cons (if (datum-null? d) (datum-null) (datum-car d)) (datum-null))) (datum-cdr e) (if (datum-null? d) (datum-null) (datum-cdr d)))))) loop.4))) (datum-null) (datum-cons (datum-null) dat) dat)))
                     (datum-assq (datum-car pat) alist))
                   failed-match))
               (if (match-truth? (match-boolean (datum-pair? (datum-car dat))))
@@ -135,7 +135,7 @@
                   failed-match)
                 failed-match))))))))
 
-(define database
+(def database
   (randomize
     (init
       100
@@ -213,24 +213,24 @@
                           (datum-cons symbol-b (datum-cons symbol-a (datum-null))))))))))
             (datum-null)))))))
 
-(define browse (-> Datum Datum)
+(def browse (-> Datum Datum)
   (lambda (pats.2)
     (begin
       (investigate database pats.2)
       (datum-map string-datum->number-datum (datum-map symbol-datum->string-datum database)))))
 
-(define investigate (-> Datum Datum Unit)
+(def investigate (-> Datum Datum Unit)
   (lambda (units pats)
-    (((lambda () (begin (define loop.1 (lambda (units.1) (if (datum-null? units.1) (unit) (begin (((lambda () (begin (define loop.2 (lambda (pats.1) (if (datum-null? pats.1) (unit) (begin (((lambda () (begin (define loop.3 (lambda (p) (if (datum-null? p) (unit) (begin (my-match (datum-car pats.1) (datum-car p) (datum-null)) (loop.3 (datum-cdr p)))))) loop.3))) (get (datum-car units.1) symbol-pattern)) (loop.2 (datum-cdr pats.1)))))) loop.2))) pats) (loop.1 (datum-cdr units.1)))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (units.1) (if (datum-null? units.1) (unit) (begin (((lambda () (begin (def loop.2 (lambda (pats.1) (if (datum-null? pats.1) (unit) (begin (((lambda () (begin (def loop.3 (lambda (p) (if (datum-null? p) (unit) (begin (my-match (datum-car pats.1) (datum-car p) (datum-null)) (loop.3 (datum-cdr p)))))) loop.3))) (get (datum-car units.1) symbol-pattern)) (loop.2 (datum-cdr pats.1)))))) loop.2))) pats) (loop.1 (datum-cdr units.1)))))) loop.1)))
       units)))
 
-(define-data Specification
+(def Specification (datatype ()
   (specification
     (count I64 specification-count)
     (patterns Datum specification-patterns)
-    (expected Datum specification-expected)))
+    (expected Datum specification-expected))))
 
-(define exact-count (-> Datum I64)
+(def exact-count (-> Datum I64)
   (lambda (datum)
     (match (datum-number-value datum)
       ((exact-number value.1) value.1)
@@ -238,26 +238,26 @@
       ((inexact-number value.3) (datum-fail "browse: count must be exact"))
       ((complex-number real imaginary) (datum-fail "browse: count must be exact")))))
 
-(define read-specification (-> InputPort Specification)
+(def read-specification (-> InputPort Specification)
   (lambda (port)
     ((lambda (count.2) ((lambda (patterns) ((lambda (expected.1) ((lambda () (specification count.2 patterns expected.1)))) (read-value! (read port)))) (read-value! (read port))))
       (exact-count (read-value! (read port))))))
 
-(define configured (call-with-input-file "input.txt" read-specification))
+(def configured (call-with-input-file "input.txt" read-specification))
 
-(define input0 (specification-patterns configured))
+(def input0 (specification-patterns configured))
 
-(define expected (specification-expected configured))
+(def expected (specification-expected configured))
 
-(define configured-count (-> I64) (lambda () (specification-count configured)))
+(def configured-count (-> I64) (lambda () (specification-count configured)))
 
 (define-extern barrier "benchmark" "barrier" (-> Bool))
 
-(define hide (-> I64 Datum Datum) (lambda (count.1 value) (if (barrier) value (unreachable))))
+(def hide (-> I64 Datum Datum) (lambda (count.1 value) (if (barrier) value (unreachable))))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (index result) (if (< index count) (loop (+ index 1) (browse (hide count input0))) (if (datum=? result expected) 1 0)))) loop)))
+    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index 1) (browse (hide count input0))) (if (datum=? result expected) 1 0)))) loop)))
       0
       (datum-boolean #f))))
 

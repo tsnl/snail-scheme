@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 1))))) loop.3)))
       xs
       0)))
 
@@ -20,27 +20,27 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define hide (lambda (count.1 x) (if (barrier) x (unreachable))))
+(def hide (lambda (count.1 x) (if (barrier) x (unreachable))))
 
-(define create-n (-> I64 (List (List Never)))
+(def create-n (-> I64 (List (List Never)))
   (lambda (n)
-    (((lambda () (begin (define loop.2 (lambda (n.1 a.1) (if (= n.1 0) a.1 (loop.2 (- n.1 1) (cons (quote ()) a.1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (n.1 a.1) (if (= n.1 0) a.1 (loop.2 (- n.1 1) (cons (empty-list ) a.1))))) loop.2)))
       n
-      (quote ()))))
+      (empty-list ))))
 
-(define iterative-div2
+(def iterative-div2
   (lambda (l)
-    (((lambda () (begin (define loop.1 (lambda (l.1 a) (if (null? l.1) a (loop.1 (cddr l.1) (cons (car l.1) a))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (l.1 a) (if (null? l.1) a (loop.1 (cddr l.1) (cons (car l.1) a))))) loop.1)))
       l
-      (quote ()))))
+      (empty-list ))))
 
-(define input0 (create-n (native-input-i64 (ann 0 I32))))
+(def input0 (create-n (native-input-i64 (ann 0 I32))))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
     (length
-      (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (iterative-div2 input0)) result))) loop)))
+      (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (iterative-div2 input0)) result))) loop)))
         0
-        (quote ())))))
+        (empty-list )))))
 
 (unit)

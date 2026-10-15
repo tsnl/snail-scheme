@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "purpose": "Parsing correctness after deferring declared proof checks until enclosing inference settles.",
+  "compiler_base_revision": "6a35d0326136049c59e8875f8399ae1c7e0515df",
+  "compiler_module_sha256": "30eba035aab30fd606bd5b3c7d02bb21e1f5e165e6337d8d7d5e64d92fabce09",
+  "diagnosis": "Removing the immediate-lambda let-generalization shortcut exposed premature declared-obligation checking. The annotated scanner captured an enclosing parameter whose I64 type is established by a later call argument. Declared bodies now retain their lexical proof scope until the existing template inference fixpoint, then verify their own requirements and rigid escape; flexible captured requirements remain with enclosing inference.",
+  "exposing_commit": "79f1c4603d05949f70e78530b7baf4e98ee9c5cf",
+  "pre_surface_control": "f3810a10a6e261b294ffd74633160274105b9e60",
+  "source_files": {
+    "benchmarks/sfir/parsing/main.sfir": "ba1c4f7b5ef4216763615c6a35be1cd7518c78ea16e2544a0bb1c3627d575f4d",
+    "benchmarks/sfir/parsing/migration.json": "455383fd35d6e53f901a1a97a9e1e7c2b7bdcb42ee0a13e36ac3919d380064c8",
+    "benchmarks/sfir/parsing/spec.json": "f1be05dbfd2f684f5a6c840280b9a9939c4fe097bf8d069af0f1a9db64f504f6",
+    "benchmarks/sfir/parsing/input.txt": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65"
+  },
+  "benchmark_source_changed": false,
+  "algorithm_inputs_count_predicate_changed": false,
+  "numeric_policy_changed": false,
+  "numeric_inventory": {
+    "literal_count": 848,
+    "source_order_widths_and_values_identical": true,
+    "width_counts": {
+      "I32": 37,
+      "I64": 768,
+      "F32": 1,
+      "F64": 42
+    },
+    "per_file_counts": {
+      "benchmarks/sfir/parsing/main.sfir": 31,
+      "lib/sfir/base.sfir": 42,
+      "lib/sfir/bytes.sfir": 69,
+      "lib/sfir/datum.sfir": 222,
+      "lib/sfir/integer.sfir": 257,
+      "lib/sfir/io.sfir": 35,
+      "lib/sfir/number.sfir": 62,
+      "lib/sfir/rational.sfir": 20,
+      "lib/sfir/read.sfir": 110
+    },
+    "normalization": "Compare numeric occurrences in source order within each file; normalize the surface migration rename lib/sfir/core.sfir to lib/sfir/base.sfir."
+  },
+  "checks": {
+    "host": "passed",
+    "format": "passed",
+    "surface_contracts": {
+      "passed": 83,
+      "total": 83
+    },
+    "integration_contracts": {
+      "passed": 307,
+      "total": 307
+    },
+    "monomorphic_parameter_rejections": {
+      "passed": 3,
+      "total": 3
+    },
+    "post_review": "All eleven focused contracts and host tests passed again after moving the final rigid-escape check after proof improvement."
+  },
+  "wasm": {
+    "raw": {
+      "returncode": 0,
+      "canonical_count": 2500,
+      "result": 1,
+      "barriers": 2,
+      "worker_file_bytes": 28300,
+      "artifact_sha256": "44f9c0833175239564e5b7a13dec4f4e264d9a310298010ef8e5de00e6412459",
+      "provider_sha256": "23312d58d35bd9459bdcbb888a482d99fe20f94d8c253f3d1841a6ccf264cc42"
+    },
+    "optimized": {
+      "returncode": 0,
+      "canonical_count": 2500,
+      "result": 1,
+      "barriers": 2,
+      "worker_file_bytes": 28300,
+      "artifact_sha256": "ad2355f0329e44118137c303b75f58349f131a097bf8bbe28e9c506b6f9cb579",
+      "provider_sha256": "308dcd4c2ced9285ac04b022658d846a42d5c06d03a3e3cfa67bbb87a06a3a0f"
+    }
+  },
+  "runtime": "Both final providers were pruned for their guest import sets from a fresh offline build of the current Rust scalar runtime.",
+  "measurement": "No performance measurement or native execution is claimed by this audit.",
+  "review": "Focused local explanation and parent critique; a fresh explainer was unavailable because the agent thread limit was reached. Longer existing inference operations remain together to expose their complete checking or dispatch contracts.",
+  "archive": {
+    "path": "20261015-parsing-inference-audit.json.gz",
+    "sha256": "0141fb52eb311ed6658732db723c17112f2dd526227e853247feb5fd26bc9054",
+    "raw_evidence_directory": "/tmp/sfir-parsing-surface-evidence-20261015"
+  }
+}

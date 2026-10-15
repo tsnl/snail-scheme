@@ -12,7 +12,7 @@
     "chez-original.scm": "7624c6512be66c19f69b45357c07d10c6fd150471335e2882baef3a1242d137b"
   },
   "representation": "Closed benchmark-local Value with explicit mutable pair cells, fixed element types, concrete closure signatures, arbitrary Integer/Rational/Number arithmetic and typed scalar I/O. Original and adapted Chez remain separate controls.",
-  "sfir_sha256": "f7981b5be4419369fcc7089964dfa67cd7803ebd49adb38ca96c5722502869ba",
+  "sfir_sha256": "2a3c5ef2f1a4d601a387197312981e0c2fed9962dd0aa7e96ff1408a9e34740f",
   "source_coverage_sha256": "045bad881b2dc2adca0b8a78b0c57599d5d41c63f18d0c630ef2fccbcf36af38",
   "supported_observations": 26,
   "unsupported_reader_cases": "unsupported-reader-labels.scm",
@@ -36,5 +36,18 @@
     "checked_harness_result": "/tmp/snail-sfir-large-ports-20261015/scheme-checked-harness-1/run.stdout"
   },
   "verification_harness_sha256": "1f32d993a51a0085f6ac0572b2c7f08322204bd621a1accfe6a31b48e1fd857f",
-  "clarity_review": "Independent no-files explanation and focused debate of Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison and actual target verification."
+  "clarity_review": "Independent no-files explanation and focused debate of Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison and actual target verification.",
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "f7981b5be4419369fcc7089964dfa67cd7803ebd49adb38ca96c5722502869ba",
+    "migrated_unformatted_sha256": "2a3c5ef2f1a4d601a387197312981e0c2fed9962dd0aa7e96ff1408a9e34740f",
+    "after_sha256": "2a3c5ef2f1a4d601a387197312981e0c2fed9962dd0aa7e96ff1408a9e34740f",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  }
 }

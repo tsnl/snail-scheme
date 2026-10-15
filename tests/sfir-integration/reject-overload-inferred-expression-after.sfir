@@ -1,6 +1,6 @@
-(import (sfir core))
-(define cell
-  (ref (empty-vector)))
+(import (sfir base))
+(def cell
+     (ref (empty-vector)))
 (define-overload stored (lambda () (ref-get cell)))
 (ref-set! cell (make-vector 1 42))
 (vector-ref (stored) 0)

@@ -1,12 +1,12 @@
-(import (sfir core))
+(import (sfir base))
 ;; Freezing bridge before f is complete would give g an overly broad A -> R row.
 (define-overload g (lambda (value) (bridge value)))
 (define-overload g (-> I64 Bool) (lambda (value) #t))
-(define bridge
-  (lambda (value) (helper value)))
-(define forward
-  (lambda (value) (f value)))
-(define helper
-  forward)
+(def bridge
+     (lambda (value) (helper value)))
+(def forward
+     (lambda (value) (f value)))
+(def helper
+     forward)
 (define-overload f (lambda (value) value))
 (if (if (ann (g 42) Bool) (= (ann (g 42) I64) 42) #f) 42 (unreachable))

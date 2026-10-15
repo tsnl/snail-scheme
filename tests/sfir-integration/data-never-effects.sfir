@@ -1,14 +1,14 @@
-(import (sfir core))
-(define calls
-  (ref 0))
+(import (sfir base))
+(def calls
+     (ref 0))
 
-(define observed (-> I64)
-  (lambda () (ref-get calls)))
-(define-data Impossible (impossible (first Unit) (stop Never) (last Unit)))
+(def observed (-> I64)
+     (lambda () (ref-get calls)))
+(def Impossible (datatype () (impossible (first Unit) (stop Never) (last Unit))))
 
-(define construct (-> I64)
-  (lambda ()
-    (begin
-      (impossible (ref-set! calls 1) (unreachable) (ref-set! calls 2))
-      0)))
+(def construct (-> I64)
+     (lambda ()
+       (begin
+         (impossible (ref-set! calls 1) (unreachable) (ref-set! calls 2))
+         0)))
 42

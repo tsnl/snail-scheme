@@ -1,12 +1,12 @@
 ;; Canonical bare SFIR. See migration.json for source provenance.
 
-(import (sfir core))
+(import (sfir base))
 
-(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
 
-(define length
+(def length
   (lambda (xs)
-    (((lambda () (begin (define loop.2 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.2 (cdr xs.1) (+ n.4 1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.2 (cdr xs.1) (+ n.4 1))))) loop.2)))
       xs
       0)))
 
@@ -20,43 +20,43 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(define-data Radical (H) (C (first Radical) (second Radical) (third Radical)))
+(def Radical (datatype () (H) (C (first Radical) (second Radical) (third Radical))))
 
-(define-data Paraffin
+(def Paraffin (datatype ()
   (BCP (first Radical) (second Radical))
-  (CCP (first Radical) (second Radical) (third Radical) (fourth Radical)))
+  (CCP (first Radical) (second Radical) (third Radical) (fourth Radical))))
 
-(define max (lambda (a b) (if (> a b) a b)))
+(def max (lambda (a b) (if (> a b) a b)))
 
-(define odd? (lambda (n.3) (not (= (remainder n.3 2) 0))))
+(def odd? (lambda (n.3) (not (= (remainder n.3 2) 0))))
 
-(define hide (lambda (count.1 x.1) (hide-i64 x.1)))
+(def hide (lambda (count.1 x.1) (hide-i64 x.1)))
 
-(define gen
+(def gen
   (lambda (n.1)
-    ((lambda (n/2) ((lambda (radicals) ((lambda () (begin (define rads-of-size (lambda (n.2) (((lambda () (begin (define loop1.4 (lambda (ps.1 lst.12) (if (null? ps.1) lst.12 ((lambda (p.1) ((lambda (nc1.3) ((lambda (nc2.3) ((lambda (nc3.2) ((lambda () (((lambda () (begin (define loop2.4 (lambda (rads1.2 lst.13) (if (null? rads1.2) lst.13 (((lambda () (begin (define loop3.2 (lambda (rads2.2 lst.14) (if (null? rads2.2) lst.14 (((lambda () (begin (define loop4.1 (lambda (rads3.1 lst.15) (if (null? rads3.1) lst.15 (cons (C (car rads1.2) (car rads2.2) (car rads3.1)) (loop4.1 (cdr rads3.1) lst.15))))) loop4.1))) (if (= nc2.3 nc3.2) rads2.2 (vector-ref radicals nc3.2)) (loop3.2 (cdr rads2.2) lst.14))))) loop3.2))) (if (= nc1.3 nc2.3) rads1.2 (vector-ref radicals nc2.3)) (loop2.4 (cdr rads1.2) lst.13))))) loop2.4))) (vector-ref radicals nc1.3) (loop1.4 (cdr ps.1) lst.12))))) (vector-ref p.1 2))) (vector-ref p.1 1))) (vector-ref p.1 0))) (car ps.1))))) loop1.4))) (three-partitions (- n.2 1)) (quote ())))) (define bcp-generator (lambda (j.1) (if (odd? j.1) (quote ()) (((lambda () (begin (define loop1.3 (lambda (rads1.1 lst.10) (if (null? rads1.1) lst.10 (((lambda () (begin (define loop2.3 (lambda (rads2.1 lst.11) (if (null? rads2.1) lst.11 (cons (BCP (car rads1.1) (car rads2.1)) (loop2.3 (cdr rads2.1) lst.11))))) loop2.3))) rads1.1 (loop1.3 (cdr rads1.1) lst.10))))) loop1.3))) (vector-ref radicals (quotient j.1 2)) (quote ()))))) (define ccp-generator (lambda (j) (((lambda () (begin (define loop1.2 (lambda (ps lst.5) (if (null? ps) lst.5 ((lambda (p) ((lambda (nc1.2) ((lambda (nc2.2) ((lambda (nc3.1) ((lambda (nc4) ((lambda () (((lambda () (begin (define loop2.2 (lambda (rads1 lst.6) (if (null? rads1) lst.6 (((lambda () (begin (define loop3.1 (lambda (rads2 lst.7) (if (null? rads2) lst.7 (((lambda () (begin (define loop4 (lambda (rads3 lst.8) (if (null? rads3) lst.8 (((lambda () (begin (define loop5 (lambda (rads4 lst.9) (if (null? rads4) lst.9 (cons (CCP (car rads1) (car rads2) (car rads3) (car rads4)) (loop5 (cdr rads4) lst.9))))) loop5))) (if (= nc3.1 nc4) rads3 (vector-ref radicals nc4)) (loop4 (cdr rads3) lst.8))))) loop4))) (if (= nc2.2 nc3.1) rads2 (vector-ref radicals nc3.1)) (loop3.1 (cdr rads2) lst.7))))) loop3.1))) (if (= nc1.2 nc2.2) rads1 (vector-ref radicals nc2.2)) (loop2.2 (cdr rads1) lst.6))))) loop2.2))) (vector-ref radicals nc1.2) (loop1.2 (cdr ps) lst.5))))) (vector-ref p 3))) (vector-ref p 2))) (vector-ref p 1))) (vector-ref p 0))) (car ps))))) loop1.2))) (four-partitions (- j 1)) (quote ())))) (((lambda () (begin (define loop.1 (lambda (i.1) (if (> i.1 n/2) (vector (bcp-generator n.1) (ccp-generator n.1)) (begin (vector-set! radicals i.1 (rads-of-size i.1)) (loop.1 (+ i.1 1)))))) loop.1))) 1))))) (make-vector (+ n/2 1) (cons (H) (quote ())))))
+    ((lambda (n/2) ((lambda (radicals) ((lambda () (begin (def rads-of-size (lambda (n.2) (((lambda () (begin (def loop1.4 (lambda (ps.1 lst.12) (if (null? ps.1) lst.12 ((lambda (p.1) ((lambda (nc1.3) ((lambda (nc2.3) ((lambda (nc3.2) ((lambda () (((lambda () (begin (def loop2.4 (lambda (rads1.2 lst.13) (if (null? rads1.2) lst.13 (((lambda () (begin (def loop3.2 (lambda (rads2.2 lst.14) (if (null? rads2.2) lst.14 (((lambda () (begin (def loop4.1 (lambda (rads3.1 lst.15) (if (null? rads3.1) lst.15 (cons (C (car rads1.2) (car rads2.2) (car rads3.1)) (loop4.1 (cdr rads3.1) lst.15))))) loop4.1))) (if (= nc2.3 nc3.2) rads2.2 (vector-ref radicals nc3.2)) (loop3.2 (cdr rads2.2) lst.14))))) loop3.2))) (if (= nc1.3 nc2.3) rads1.2 (vector-ref radicals nc2.3)) (loop2.4 (cdr rads1.2) lst.13))))) loop2.4))) (vector-ref radicals nc1.3) (loop1.4 (cdr ps.1) lst.12))))) (vector-ref p.1 2))) (vector-ref p.1 1))) (vector-ref p.1 0))) (car ps.1))))) loop1.4))) (three-partitions (- n.2 1)) (empty-list )))) (def bcp-generator (lambda (j.1) (if (odd? j.1) (empty-list ) (((lambda () (begin (def loop1.3 (lambda (rads1.1 lst.10) (if (null? rads1.1) lst.10 (((lambda () (begin (def loop2.3 (lambda (rads2.1 lst.11) (if (null? rads2.1) lst.11 (cons (BCP (car rads1.1) (car rads2.1)) (loop2.3 (cdr rads2.1) lst.11))))) loop2.3))) rads1.1 (loop1.3 (cdr rads1.1) lst.10))))) loop1.3))) (vector-ref radicals (quotient j.1 2)) (empty-list ))))) (def ccp-generator (lambda (j) (((lambda () (begin (def loop1.2 (lambda (ps lst.5) (if (null? ps) lst.5 ((lambda (p) ((lambda (nc1.2) ((lambda (nc2.2) ((lambda (nc3.1) ((lambda (nc4) ((lambda () (((lambda () (begin (def loop2.2 (lambda (rads1 lst.6) (if (null? rads1) lst.6 (((lambda () (begin (def loop3.1 (lambda (rads2 lst.7) (if (null? rads2) lst.7 (((lambda () (begin (def loop4 (lambda (rads3 lst.8) (if (null? rads3) lst.8 (((lambda () (begin (def loop5 (lambda (rads4 lst.9) (if (null? rads4) lst.9 (cons (CCP (car rads1) (car rads2) (car rads3) (car rads4)) (loop5 (cdr rads4) lst.9))))) loop5))) (if (= nc3.1 nc4) rads3 (vector-ref radicals nc4)) (loop4 (cdr rads3) lst.8))))) loop4))) (if (= nc2.2 nc3.1) rads2 (vector-ref radicals nc3.1)) (loop3.1 (cdr rads2) lst.7))))) loop3.1))) (if (= nc1.2 nc2.2) rads1 (vector-ref radicals nc2.2)) (loop2.2 (cdr rads1) lst.6))))) loop2.2))) (vector-ref radicals nc1.2) (loop1.2 (cdr ps) lst.5))))) (vector-ref p 3))) (vector-ref p 2))) (vector-ref p 1))) (vector-ref p 0))) (car ps))))) loop1.2))) (four-partitions (- j 1)) (empty-list )))) (((lambda () (begin (def loop.1 (lambda (i.1) (if (> i.1 n/2) (vector (bcp-generator n.1) (ccp-generator n.1)) (begin (vector-set! radicals i.1 (rads-of-size i.1)) (loop.1 (+ i.1 1)))))) loop.1))) 1))))) (make-vector (+ n/2 1) (cons (H) (empty-list )))))
       (quotient n.1 2))))
 
-(define three-partitions
+(def three-partitions
   (lambda (m.1)
-    (((lambda () (begin (define loop1.1 (lambda (lst.3 nc1.1) (if (< nc1.1 0) lst.3 (((lambda () (begin (define loop2.1 (lambda (lst.4 nc2.1) (if (< nc2.1 nc1.1) (loop1.1 lst.4 (- nc1.1 1)) (loop2.1 (cons (vector nc1.1 nc2.1 (- m.1 (+ nc1.1 nc2.1))) lst.4) (- nc2.1 1))))) loop2.1))) lst.3 (quotient (- m.1 nc1.1) 2))))) loop1.1)))
-      (quote ())
+    (((lambda () (begin (def loop1.1 (lambda (lst.3 nc1.1) (if (< nc1.1 0) lst.3 (((lambda () (begin (def loop2.1 (lambda (lst.4 nc2.1) (if (< nc2.1 nc1.1) (loop1.1 lst.4 (- nc1.1 1)) (loop2.1 (cons (vector nc1.1 nc2.1 (- m.1 (+ nc1.1 nc2.1))) lst.4) (- nc2.1 1))))) loop2.1))) lst.3 (quotient (- m.1 nc1.1) 2))))) loop1.1)))
+      (empty-list )
       (quotient m.1 3))))
 
-(define four-partitions
+(def four-partitions
   (lambda (m)
-    (((lambda () (begin (define loop1 (lambda (lst nc1) (if (< nc1 0) lst (((lambda () (begin (define loop2 (lambda (lst.1 nc2) (if (< nc2 nc1) (loop1 lst.1 (- nc1 1)) ((lambda (start) (((lambda () (begin (define loop3 (lambda (lst.2 nc3) (if (< nc3 start) (loop2 lst.2 (- nc2 1)) (loop3 (cons (vector nc1 nc2 nc3 (- m (+ nc1 (+ nc2 nc3)))) lst.2) (- nc3 1))))) loop3))) lst.1 (quotient (- m (+ nc1 nc2)) 2))) (max nc2 (- (quotient (+ m 1) 2) (+ nc1 nc2))))))) loop2))) lst (quotient (- m nc1) 3))))) loop1)))
-      (quote ())
+    (((lambda () (begin (def loop1 (lambda (lst nc1) (if (< nc1 0) lst (((lambda () (begin (def loop2 (lambda (lst.1 nc2) (if (< nc2 nc1) (loop1 lst.1 (- nc1 1)) ((lambda (start) (((lambda () (begin (def loop3 (lambda (lst.2 nc3) (if (< nc3 start) (loop2 lst.2 (- nc2 1)) (loop3 (cons (vector nc1 nc2 nc3 (- m (+ nc1 (+ nc2 nc3)))) lst.2) (- nc3 1))))) loop3))) lst.1 (quotient (- m (+ nc1 nc2)) 2))) (max nc2 (- (quotient (+ m 1) 2) (+ nc1 nc2))))))) loop2))) lst (quotient (- m nc1) 3))))) loop1)))
+      (empty-list )
       (quotient m 4))))
 
-(define nb
+(def nb
   (lambda (n) ((lambda (x) (+ (length (vector-ref x 0)) (length (vector-ref x 1)))) (gen n))))
 
-(define input0 (native-input-i64 (ann 0 I32)))
+(def input0 (native-input-i64 (ann 0 I32)))
 
-(define bench (-> I64 I64)
+(def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (nb (hide count input0))) result))) loop)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (nb (hide count input0))) result))) loop)))
       0
       0)))
 

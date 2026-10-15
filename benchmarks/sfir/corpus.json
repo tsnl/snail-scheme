@@ -1490,5 +1490,12 @@
       "native_optimized_program_parity": "not-established"
     }
   ],
-  "measurement_status_meaning": "Measured status names only the listed routes and exact evidence protocol; unavailable and failed routes remain visible. It never establishes all-57 coverage."
+  "measurement_status_meaning": "Measured status names only the listed routes and exact evidence protocol; unavailable and failed routes remain visible. It never establishes all-57 coverage.",
+  "current_surface": {
+    "specification_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "source_manifest": "tests/sfir/surface-migration.json",
+    "validation": "pending",
+    "evidence_scope": "Existing per-case execution and timing fields refer to the preceding source surface; archived evidence and external controls are unchanged.",
+    "source_presence": "55 complete static main sources exist. Dynamic and Scheme await frozen-runner lifecycle registration; Compiler and SLaTeX remain pending full validation in preserved drafts."
+  }
 }

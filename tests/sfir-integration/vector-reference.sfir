@@ -1,12 +1,12 @@
-(import (sfir core))
-(define shared
-  (ref 0))
-(define original
-  (make-vector 2 shared))
-(define copied
-  (vector-copy original))
-(define appended
-  (vector-append (empty-vector) original copied (empty-vector)))
+(import (sfir base))
+(def shared
+     (ref 0))
+(def original
+     (make-vector 2 shared))
+(def copied
+     (vector-copy original))
+(def appended
+     (vector-append (empty-vector) original copied (empty-vector)))
 (ref-set! (vector-ref appended 3) 42)
 (vector-set! original 0 (ref 7))
 (if (if (ref-eq? (vector-ref copied 0) (vector-ref original 1))

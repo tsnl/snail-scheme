@@ -18,6 +18,7 @@ library and build model.
 - [Compilers as libraries](book/sfir/compilers.md): compilation, loading,
   instantiation, generator execution and staging.
 - [Notable omissions](book/sfir/omissions.md)
+- [Implementation extensions](book/sfir/extensions.md)
 - [References](book/sfir/references.md)
 
 ## Reading locally

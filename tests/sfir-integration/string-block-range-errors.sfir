@@ -1,39 +1,39 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; ---- Complete range rejection before the first block write ----
 
-(define target
-  (make-string 16385 #\λ))
-(define source
-  (make-string 16385 #\x1f600))
+(def target
+     (make-string 16385 #\λ))
+(def source
+     (make-string 16385 #\x1f600))
 
-(define partial-source (-> Unit)
-  (lambda () (string-copy! target 0 source 8191 16386)))
+(def partial-source (-> Unit)
+     (lambda () (string-copy! target 0 source 8191 16386)))
 
-(define partial-target (-> Unit)
-  (lambda () (string-copy! target 8191 source 0 8195)))
+(def partial-target (-> Unit)
+     (lambda () (string-copy! target 8191 source 0 8195)))
 
-(define negative-start (-> Unit)
-  (lambda () (string-copy! target 0 source -1 8192)))
+(def negative-start (-> Unit)
+     (lambda () (string-copy! target 0 source -1 8192)))
 
-(define negative-end (-> Unit)
-  (lambda () (string-copy! target 0 source 0 -1)))
+(def negative-end (-> Unit)
+     (lambda () (string-copy! target 0 source 0 -1)))
 
-(define wrapped-target (-> Unit)
-  (lambda () (string-copy! target 4294967295 source 0 0)))
+(def wrapped-target (-> Unit)
+     (lambda () (string-copy! target 4294967295 source 0 0)))
 
-(define wrapped-start (-> Unit)
-  (lambda () (string-copy! target 0 source 4294967295 4294967295)))
+(def wrapped-start (-> Unit)
+     (lambda () (string-copy! target 0 source 4294967295 4294967295)))
 
-(define empty-past-target (-> Unit)
-  (lambda () (string-copy! target 16386 source 16385 16385)))
+(def empty-past-target (-> Unit)
+     (lambda () (string-copy! target 16386 source 16385 16385)))
 
-(define empty-past-source (-> Unit)
-  (lambda () (string-copy! target 16385 source 16386 16386)))
+(def empty-past-source (-> Unit)
+     (lambda () (string-copy! target 16385 source 16386 16386)))
 
-(define endpoint-index (-> Unit)
-  (lambda () (string-set! target 16385 #\Z)))
+(def endpoint-index (-> Unit)
+     (lambda () (string-set! target 16385 #\Z)))
 
-(define unchanged (-> Bool)
-  (lambda () (string=? target (make-string 16385 #\λ))))
+(def unchanged (-> Bool)
+     (lambda () (string=? target (make-string 16385 #\λ))))
 42

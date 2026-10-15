@@ -1,6 +1,6 @@
-(import (sfir core))
-(define mixed
-  (inst + (-> I64 F64 F64)))
+(import (sfir base))
+(def mixed
+     (inst + (-> I64 F64 F64)))
 (if (if (= (mixed 20 22.0) 42.0) (= ((ann + (-> I32 I32 I32)) 20 22) (ann 42 I32)) #f)
     42
     (unreachable))

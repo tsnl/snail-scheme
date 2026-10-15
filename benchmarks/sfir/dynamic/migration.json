@@ -11,7 +11,7 @@
     "chez-adapted.scm": "3c29eb6764f06dbe71e1e488d2c8f447ba3ba0ae1e59195e2a692785692ecb24"
   },
   "representation": "Closed benchmark-local Value with explicit mutable pair cells, fixed element types, concrete closure signatures, arbitrary Integer/Rational/Number arithmetic and typed scalar I/O. Original and adapted Chez remain separate controls.",
-  "sfir_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+  "sfir_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
   "source_coverage_sha256": "44241b205ae28f168bd5a0d7a20b33fffdd4513ba3da5d29eb2e193a3937f8f8",
   "lifecycle_sha256": "74efc12fd008e2dd169d4b3086eaf01595c0096d2730be9cab73fca1ef13b2c6",
   "authoring_tools": {
@@ -33,5 +33,18 @@
     "native_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-native-4/run.stdout",
     "original_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-original-final/run.stdout",
     "adapted_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-adapted-final/run.stdout"
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+    "migrated_unformatted_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+    "after_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
   }
 }

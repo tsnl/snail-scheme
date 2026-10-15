@@ -1,10 +1,10 @@
-(import (sfir core))
-(define exercise
-  (lambda ()
-    (begin
-      (define delayed
-        (lambda () (later 42)))
-      (define later
-        (lambda (x) x))
-      (delayed))))
+(import (sfir base))
+(def exercise
+     (lambda ()
+       (begin
+         (def delayed
+              (lambda () (later 42)))
+         (def later
+              (lambda (x) x))
+         (delayed))))
 (exercise)
