@@ -25,16 +25,17 @@ import simplex_port
 import deriv_port
 import mbrotz_port
 import string_port
+import puzzle_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string') + DATA_PORTS + ENUMERATION_PORTS
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -85,6 +86,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'puzzle':
+        return puzzle_port.specification(data)
     if name == 'string':
         return string_port.specification(data)
     if name == 'deriv':
@@ -159,6 +162,8 @@ def upstream_kernel(source):
 
 
 def kernel_source(name, source):
+    if name == 'puzzle':
+        return puzzle_port.kernel(source)
     source = upstream_kernel(source)
     if name in FLOATS:
         for operation, native in (('+', 'f64-add'), ('-', 'f64-sub'), ('<', 'f64-lt')):
@@ -443,6 +448,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'puzzle':
+        return puzzle_port.WORKER
     if name == 'string':
         return string_port.WORKER
     if name == 'deriv':
@@ -487,6 +494,8 @@ def strict_program(name, spec, upstream):
         prelude += deriv_port.strict_types() + deriv_port.input_prelude()
     if name == 'mbrotZ':
         prelude += mbrotz_port.strict_prelude()
+    if name == 'puzzle':
+        prelude = puzzle_port.control_prelude(prelude) + puzzle_port.STRICT_TYPES + puzzle_port.COMMON
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
     if name == 'quicksort':
@@ -679,7 +688,7 @@ def quicksort_validation_specifications(spec):
 def validation_specifications(spec):
     if spec['name'] in ENUMERATION_PORTS:
         return [('canonical-count', spec)]
-    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string'):
+    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
         return [(str(count), dict(spec, count=count)) for count in (1, 2, spec['count'])]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
@@ -726,7 +735,8 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-get cell) (vector-ref cell 0))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
-CHEZ_HELPERS = dict(string=CHEZ_REF_HELPERS, paraffins=data_ports.PARAFFINS_CHEZ,
+CHEZ_HELPERS = dict(puzzle=CHEZ_REF_HELPERS + puzzle_port.CHEZ_RESULTS + puzzle_port.COMMON,
+                   string=CHEZ_REF_HELPERS, paraffins=data_ports.PARAFFINS_CHEZ,
                    simplex=CHEZ_REF_HELPERS + simplex_port.CHEZ_RESULTS,
                    deriv=deriv_port.chez_helpers(),
                    mbrotZ=mbrotz_port.chez_helpers(),
@@ -758,6 +768,9 @@ def quicksort_original_predicate(upstream):
 
 def matched_chez_source(name, directory):
     upstream = (directory / 'upstream.scm').read_text()
+    if name == 'puzzle':
+        return puzzle_port.matched_source(upstream, (directory / 'program.scm').read_text(),
+                                          (directory / 'strict.scm').read_text(), CHEZ_HELPERS[name])
     original_kernel = upstream_kernel(upstream)
     adapted_kernel = kernel_source(name, upstream)
     original = (directory / 'program.scm').read_text()
@@ -822,7 +835,7 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string'):
+    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
         patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
                                      fromfile='original-program', tofile='adapted-program')
         (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
@@ -835,10 +848,13 @@ def prepare_adapted_chez(name, directory, runner, environment):
     else:
         build_chez(control, runner, environment, 'build.json')
     save(directory / 'source-proof.json', dict(kernel_exact_match=True,
-         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string'),
-         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string'),
+         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string', 'puzzle'),
+         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string', 'puzzle'),
          input_datum_and_initial_false_adapters=name == 'deriv',
          scalar_initial_false_adapter=name == 'string',
+         local_escape_boolean_adapter=name == 'puzzle',
+         trailing_setup_region_preserved=name == 'puzzle',
+         kernel_source_regions=2 if name == 'puzzle' else 1,
          result_predicate_early_exit_adaptation=name == 'quicksort',
          per_element_map_compatibility_adapter=name == 'quicksort',
          complete_original_adapted_source_equal=adapted == (directory / 'program.scm').read_text(),
@@ -857,7 +873,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string'):
+    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -1606,6 +1622,92 @@ def validate_string_outputs(directory, runner, tools, environment):
     validate_string_harness(directory, runner, tools, environment)
 
 
+# ---- Puzzle board, masks, search effects and scalar harness boundaries ----
+
+
+def build_puzzle_chez_probe(directory, adapted, runner, environment):
+    target = directory / ('chez-state-' + ('adapted' if adapted else 'original'))
+    target.mkdir()
+    kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+    (target / 'program.scm').write_text(puzzle_port.chez_probe(kernel, adapted, CHEZ_HELPERS['puzzle']))
+    return target, build_chez(target, runner, environment, 'build.json')
+
+
+def build_puzzle_wasm_probe(directory, tools, environment):
+    target = directory / 'strict-state-probe'
+    target.mkdir()
+    source = puzzle_port.strict_probe((directory / 'adapted-kernel.scm').read_text(), PRELUDE)
+    save(target / 'spec.json', dict(name='puzzle-probe', export='probe-command', additional_exports=['probe-state']))
+    (target / 'strict.scm').write_text(source)
+    (target / 'host.mjs').write_text(puzzle_port.PROBE_HOST)
+    build_strict(target, tools, environment)
+    return target
+
+
+def validate_puzzle_case(targets, strict, case, tools, environment):
+    path = strict / ('spec-' + case['label'] + '.json')
+    save(path, case)
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], strict / 'host.mjs', strict / ('strict.wasm' + suffix), path], strict, environment)
+        save(strict / (case['label'] + ('.raw' if suffix else '') + '.json'), record)
+        require_success(record)
+        shutil.move(str(path) + '.actual.json', strict / (case['label'] + ('.raw' if suffix else '') + '.actual.json'))
+    for target, command in targets:
+        data = puzzle_port.probe_input(case)
+        record = execute(command, target, environment, stdin=data)
+        save(target / ('validation-' + case['label'] + '.json'), dict(record, stdin=data))
+        require_success(record)
+        if record['stderr'] or input_values(record['stdout'])[0] != case['expected']:
+            raise ValueError('puzzle state or ordered effects differ: ' + case['label'])
+
+
+def validate_puzzle_harness(directory, runner, tools, environment):
+    for label, count, size, expected, accepted in puzzle_port.harness_fixtures():
+        data = f'{count}\n{size}\n{expected}\n'
+        validate_data_wasm_probe(directory, tools, environment, puzzle_port.specification(data.encode()), label, accepted)
+        for target in (directory, directory / 'same-source-chez'):
+            record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
+            save(target / ('validation-' + label + '.json'), dict(record, stdin=data, accepted=accepted))
+            require_success(record)
+            if record['stderr'] or (runner.parse_result(record['stdout'], 'chez', 'puzzle')['status'] == 'ok') != accepted:
+                raise ValueError('puzzle false/count predicate or repeat boundary differs')
+
+
+def validate_puzzle_identity(directory, runner, tools, environment):
+    host = (directory.parent / 'host.mjs').read_text()
+    host = replace_exact(host, 'hide_i64: opacity,', 'hide_i64: value => { assert.equal(value, 512n); return opacity(511n); },')
+    (directory / 'returned-size-host.mjs').write_text(host)
+    path = directory / 'returned-size-spec.json'
+    save(path, puzzle_port.specification(b'1\n512\n2005\n'))
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], directory / 'returned-size-host.mjs', directory / ('strict.wasm' + suffix), path, '--validate'], directory, environment)
+        save(directory / ('returned-size' + ('.raw' if suffix else '') + '.json'), record)
+        require_success(record)
+    for original in (directory, directory / 'same-source-chez'):
+        target = original / 'returned-size'
+        target.mkdir()
+        source = (original / 'program.scm').read_text()
+        hide = data_ports.form(source, '(define (hide ')
+        (target / 'program.scm').write_text(replace_exact(source, hide, '(define (hide count value) (if (= value 512) 511 (error \'probe "unexpected input")))'))
+        command = build_chez(target, runner, environment, 'build.json')
+        record = execute(command, target, environment, stdin='1\n512\n2005\n')
+        save(target / 'validation.json', record)
+        require_success(record)
+        if record['stderr'] or runner.parse_result(record['stdout'], 'chez', 'puzzle')['status'] != 'ok':
+            raise ValueError('puzzle must use the returned hidden size')
+
+
+def validate_puzzle_outputs(directory, runner, tools, environment):
+    targets = [build_puzzle_chez_probe(directory, adapted, runner, environment) for adapted in (False, True)]
+    strict = build_puzzle_wasm_probe(directory, tools, environment)
+    cases = puzzle_port.fixtures()
+    save(directory / 'complete-state-oracles.json', cases)
+    for case in cases:
+        validate_puzzle_case(targets, strict, case, tools, environment)
+    validate_puzzle_harness(directory, runner, tools, environment)
+    validate_puzzle_identity(directory, runner, tools, environment)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1637,9 +1739,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_mbrotz_outputs(directory, runner, tools, environment)
     if name == 'string':
         validate_string_outputs(directory, runner, tools, environment)
+    if name == 'puzzle':
+        validate_puzzle_outputs(directory, runner, tools, environment)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1673,6 +1777,7 @@ def prepare(options):
     shutil.copy2(HERE / 'deriv_port.py', options.output / 'deriv_port.py')
     shutil.copy2(HERE / 'mbrotz_port.py', options.output / 'mbrotz_port.py')
     shutil.copy2(HERE / 'string_port.py', options.output / 'string_port.py')
+    shutil.copy2(HERE / 'puzzle_port.py', options.output / 'puzzle_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
@@ -1690,6 +1795,7 @@ def prepare(options):
                   deriv_port_sha256=digest(HERE / 'deriv_port.py'),
                   mbrotz_port_sha256=digest(HERE / 'mbrotz_port.py'),
                   string_port_sha256=digest(HERE / 'string_port.py'),
+                  puzzle_port_sha256=digest(HERE / 'puzzle_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -1759,6 +1865,8 @@ def checked_preparation(output):
         raise ValueError('mbrotZ port source adapter changed')
     if prepared.get('string_port_sha256', digest(HERE / 'string_port.py')) != digest(HERE / 'string_port.py'):
         raise ValueError('string port source adapter changed')
+    if prepared.get('puzzle_port_sha256', digest(HERE / 'puzzle_port.py')) != digest(HERE / 'puzzle_port.py'):
+        raise ValueError('puzzle port source adapter changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')

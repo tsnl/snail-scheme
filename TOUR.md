@@ -570,6 +570,12 @@ only its mutable global to Ref. It preserves the initial false result and
 Boolean-or-I64 predicate through scalar inputs. Separate modules check complete
 characters, replacement order and copy independence; canonical retained payload
 work remains a separate evidence question from the original length predicate.
+[`puzzle_port.py`](benchmarks/strict-suite/puzzle_port.py) keeps puzzle's complete
+board search and both untimed setup regions. Its local escape becomes explicit
+Boolean search control; mutable scalars use Ref and false-or-count results use a
+closed variant. Separate probes compare every board/mask cell, retained row
+identities, ordered effects and bounds-failure prefixes against original Chez
+and an independent board model. This does not add continuation support.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its

@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-six original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-eight original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, and `string`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, and `puzzle`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -468,3 +468,44 @@ stores after setup. The unchanged optimized binary retains both growth stores,
 array allocation/zero-fill paths and scalar/bulk copying in V8 native code.
 These observations support retained payload work without equating WasmGC and
 Chez physical representations or claiming an exact engine allocation total.
+
+Select `--benchmarks puzzle` for all 1,000 original searches at size 511, with
+expected counter 2,005. The search keeps candidate order, inclusive mask scans,
+conditional board reads/writes and every reset. Its one local escape continuation
+becomes ordinary Boolean search control: test a nonzero class count before fit,
+place before recursive search, run that search before checking the zero sentinel,
+remove only a failed candidate, and increment the counter exactly once on each
+normal trial return. No continuation capability is added to the compiler.
+
+Global vectors still allocate before the harness definition. The original list
+construction and `for-each` allocate thirteen distinct rows after that definition
+and before timing. Strict requires explicit fills: Boolean true preserves the
+pinned Chez implementation's truthy numeric-zero fill for board and mask tests.
+The canonical full reset overwrites every such cell before use; probes project
+initial and partially reset cells through truthiness rather than claiming raw
+numeric-zero/Boolean identity. The typed outer vector also gets one shared empty
+row sentinel, replaced by all thirteen real rows before timing.
+
+The global piece cursor and search counter use two explicit Ref cells. The
+assigned orientation index and initial next-hole binding also use Refs; trial's
+local placement result is immutable because its old zero is never read. A
+shared false variant and a count constructor preserve false versus integer zero.
+The adapted Chez control has identical kernel regions and the same representations;
+three harness edits unwrap results for the original predicate and diagnostics.
+Reversing all edits recovers the complete original program, including trailing
+setup. These representation costs are not claims of equal physical allocation.
+
+Preparation checks all canonical counts in four forms and separately compares
+7,202 scalar observations after every probe step: both globals, 512 board cells,
+13 × 512 mask cells, counts/classes/maxima, retained row identities and row
+independence. Fifteen state/trace cases include full search, place/remove round
+trips, terminal recursive trial zero, failed-branch restoration, count/mask
+short-circuiting, partial stores before bounds errors, partial/repeated resets
+and initial placement failure with its original newline/`Error.` effects and
+continued search. Fourteen harness cases preserve nonpositive-repeat false,
+Boolean-versus-I64 equality, signed I64 boundaries and wrong expected values.
+A separate hiding control returns known-valid size 511 from requested size 512
+and checks that the returned value drives the search. Inputs accept decimal I64
+counts/sizes and Boolean-or-I64 expectations; oversized active resets retain
+the original first failing access. The canonical predicate observes the counter,
+so optimized retained-work evidence remains separate from these extra probes.
