@@ -3,8 +3,9 @@
 //! Legacy dynamic primitives borrow a rooted argument vector and return one
 //! owned result handle. Rust sees table indices, never WasmGC pointers. Their
 //! Wasm runtime uses the Scheme module's engine-visible root table. Strict
-//! scalar services in strict_io instead own files behind integer IDs and hold
-//! no Scheme values. A node owns one instance; the engine collects Scheme memory.
+//! scalar services in strict_io own files behind integer IDs; strict_math
+//! operates on unboxed numbers. Neither holds Scheme values. A node owns one
+//! instance; the engine collects Scheme memory.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -20,6 +21,7 @@ mod iverson;
 mod native;
 mod platform;
 mod strict_io;
+mod strict_math;
 mod symbols;
 mod text;
 mod unicode;
