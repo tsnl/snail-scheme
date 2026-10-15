@@ -14,15 +14,16 @@ import re
 import shutil
 import statistics
 import subprocess
+import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
-MATCHED_PORTS = NEXT_PORTS + ('fft',)
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort')
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -31,7 +32,7 @@ KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', pnpoly='run', fft='run')
+               mbrot='test', pnpoly='run', fft='run', quicksort='quick-1')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -73,6 +74,15 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'quicksort':
+        # The fourth datum is a symbol read but never used by the upstream
+        # predicate. Preserve it in input.txt instead of coercing it to a number.
+        count, size, limit, unused = re.sub(r';[^\n]*', '', data.decode()).split()
+        if unused != 'ignored':
+            raise ValueError('unexpected canonical quicksort output datum')
+        return dict(name=name, count=int(count), inputs=[int(size), int(limit)],
+                    expected=1, unused_output_datum=unused,
+                    barriers_per_iteration=0, setup_barriers=3)
     values = input_values(data.decode())
     if name == 'array1':
         repeats, size, expected = values
@@ -129,6 +139,8 @@ def kernel_source(name, source):
         source = '(: create-n (-> I64 (List (List Never))))\n' + source
     if name == 'array1':
         source = array1_kernel(source)
+    elif name == 'quicksort':
+        source = quicksort_kernel(source)
     elif name in NEXT_PORTS:
         source = next_kernel(name, source)
     return source
@@ -173,6 +185,23 @@ def triangl_kernel(source):
     source = replace_exact(source, '*sequence*)) *answer*))', '*sequence*)) (ref-get *answer*)))')
     source = replace_exact(source, '(car *answer*)', '(car (ref-get *answer*))')
     return replace_exact(source, '(depth (+ depth 1))', '(depth (+ depth 1) depth)')
+
+
+def quicksort_kernel(source):
+    # The false procedure values are never read: initialization installs all
+    # three closures before vector generation. Concrete cells use typed traps
+    # for that uninitialized interval, without a Bool-to-procedure conversion.
+    for name in ('seed-set!', 'seed-ref', 'random-flonum'):
+        stub = {'seed-set!': 'uninitialized-seed-set', 'seed-ref': 'uninitialized-seed-ref',
+                'random-flonum': 'uninitialized-random-flonum'}[name]
+        source = replace_exact(source, f'(define {name} #f)', f'(define {name} (ref {stub}))')
+        source = replace_exact(source, f'(set! {name}', f'(ref-set! {name}')
+    source = replace_exact(source, '(seed (vector 1.0 0.0 0.0 1.0 0.0 0.0))',
+                           '(seed (ref (vector 1.0 0.0 0.0 1.0 0.0 0.0)))')
+    source = replace_exact(source, '(let ((seed seed))', '(let ((seed (ref-get seed)))')
+    source = replace_exact(source, '(vector->list seed)', '(vector->list (ref-get seed))')
+    source = replace_exact(source, '(set! seed (list->vector l))', '(ref-set! seed (list->vector l))')
+    return replace_exact(source, '(random-flonum)', '((ref-get random-flonum))')
 
 
 NEXT_PRELUDE = '''(define (list . elements) elements)
@@ -225,8 +254,111 @@ FFT_PRELUDE = '''(define (inexact value) (i64->f64 value))
         1 0)))
 '''
 
+QUICKSORT_STUBS = ''';; ---- Typed placeholders for staged initialization ----
+
+(: uninitialized-seed-set (-> (Rest F64) Unit))
+(define (uninitialized-seed-set . state) (unreachable))
+(: uninitialized-seed-ref (-> (List F64)))
+(define (uninitialized-seed-ref) (unreachable))
+(: uninitialized-random-flonum (-> F64))
+(define (uninitialized-random-flonum) (unreachable))
+'''
+QUICKSORT_COMMON = ''';; ---- Per-element mapping and adjacent-pair validation ----
+
+(define (map-vector-elements function source)
+  ;; The first mapped value initializes slots; visit every remaining element
+  ;; once in increasing order. No bulk-copy operation implements this map.
+  (let ((n (vector-length source)))
+    (if (= n 0) (empty-vector)
+        (let ((result (make-vector n (function (vector-ref source 0)))))
+          (let loop ((i 1))
+            (if (= i n) result
+                (begin (vector-set! result i (function (vector-ref source i)))
+                       (loop (+ i 1)))))))))
+(define (sorted-i64-vector? source)
+  (let loop ((i 1))
+    (or (>= i (vector-length source))
+        (and (<= (vector-ref source (- i 1)) (vector-ref source i))
+             (loop (+ i 1))))))
+'''
+QUICKSORT_PRELUDE = ''';; ---- Quicksort host inputs and numeric bindings ----
+
+(define-extern native-count "benchmark" "count" (-> I64))
+(define-extern native-vector-length "benchmark" "vector_length" (-> I32 I64))
+(define-extern native-vector-i64 "benchmark" "vector_i64" (-> I32 I64 I64))
+(define-extern native-expected-length "benchmark" "expected_length" (-> I64))
+(define-extern native-expected-i64 "benchmark" "expected_i64" (-> I64 I64))
+(define (inexact value) (i64->f64 value))
+(define (exact value) (f64->i64 value))
+(define (values value) value)
+(define (input-i64-vector index)
+  (let ((n (native-vector-length index)))
+    (let ((result (make-vector n 0)))
+      (let loop ((i 0))
+        (if (= i n) result
+            (begin (vector-set! result i (native-vector-i64 index i))
+                   (loop (+ i 1))))))))
+(define (same-expected-i64-vector? source)
+  (and (= (vector-length source) (native-expected-length))
+       (let loop ((i 0))
+         (or (= i (vector-length source))
+             (and (= (vector-ref source i) (native-expected-i64 i))
+                  (loop (+ i 1)))))))
+(define (same-input-i64-vector? source index)
+  (and (= (vector-length source) (native-vector-length index))
+       (let loop ((i 0))
+         (or (= i (vector-length source))
+             (and (= (vector-ref source i) (native-vector-i64 index i))
+                  (loop (+ i 1)))))))
+(define (same-f64-list? xs ys)
+  (if (null? xs) (null? ys)
+      (and (not (null? ys)) (= (car xs) (car ys))
+           (same-f64-list? (cdr xs) (cdr ys)))))
+'''
+QUICKSORT_PROBES = ''';; ---- Supplemental full-output and initialization probes ----
+
+(: quicksort-probe (-> I64 I64))
+(define (quicksort-probe count)
+  (let* ((source (input-i64-vector (ann 2 I32)))
+         (result (quick-1 (map-vector-elements values source) less?)))
+    (if (and (same-expected-i64-vector? result)
+             (sorted-i64-vector? result)
+             (same-input-i64-vector? source (ann 2 I32))
+             (or (= (vector-length source) 0)
+                 (not (vector-eq? result source)))) 1 0)))
+(: quicksort-rng-probe (-> I64 I64))
+(define (quicksort-rng-probe count)
+  (if (same-expected-i64-vector? quicksort-input) 1 0))
+(: quicksort-seed-probe (-> I64 I64))
+(define (quicksort-seed-probe count)
+  ((ref-get seed-set!) 1.0 0.0 0.0 1.0 0.0 0.0)
+  (if (and (same-f64-list? ((ref-get seed-ref))
+                          (vector->list (vector 1.0 0.0 0.0 1.0 0.0 0.0)))
+           (= (random input1) (native-expected-i64 0))) 1 0))
+(: quicksort-sorted-probe (-> I64 I64))
+(define (quicksort-sorted-probe count)
+  (if (sorted-i64-vector? (input-i64-vector (ann 2 I32))) 1 0))
+'''
+
+
+def quicksort_input_bindings():
+    return ''';; ---- Original vector generation before timing ----
+
+(define setup-count (native-count))
+(define input0 (hide setup-count (native-input-i64 (ann 0 I32))))
+(define input1 (hide setup-count (native-input-i64 (ann 1 I32))))
+(define less? (hide setup-count (ann (lambda (x y) (< x y)) (-> I64 I64 Bool))))
+(define quicksort-input
+  (let ((v (ann (make-vector input0) (Vector I64))))
+    (let loop ((i 0))
+      (if (= i input0) v
+          (begin (vector-set! v i (random input1)) (loop (+ i 1)))))))
+'''
+
 
 def input_bindings(name, spec):
+    if name == 'quicksort':
+        return quicksort_input_bindings()
     bindings = [f'(define input{index} {input_expression(name, index)})'
                 for index in range(len(spec['inputs']))]
     if name in FULL_LISTS:
@@ -249,6 +381,8 @@ def input_expression(name, index):
 def kernel_call(name, spec):
     if name == 'fft':
         return '(run (hide count (make-vector input0 input1)))'
+    if name == 'quicksort':
+        return '(quick-1 (map-vector-elements values quicksort-input) less?)'
     arguments = [f'input{i}' for i in range(len(spec['inputs']))]
     if spec['barriers_per_iteration']:
         opacity_count = 'input0' if name == 'array1' else 'count'
@@ -257,24 +391,29 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
-    initial = "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOAT_RESULTS else '0'
+    initial = 'quicksort-input' if name == 'quicksort' else "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOAT_RESULTS else '0'
     loop = f'''(let loop ((i 0) (result {initial}))
     (if (< i count) (loop (+ i 1) {kernel_call(name, spec)}) result))'''
     if name in LISTS:
         return f'(length {loop})'
     if name in FULL_LISTS:
         return f'(if (same-i64-list? {loop} expected) 1 0)'
+    if name == 'quicksort':
+        return f'(if (sorted-i64-vector? {loop}) 1 0)'
     return loop
 
 
 def strict_program(name, spec, upstream):
     result = 'F64' if name in FLOAT_RESULTS else 'I64'
     worker = f'(: bench (-> I64 {result}))\n(define (bench count) {worker_body(name, spec)})\n(unit)\n'
-    hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft') else f'(hide-{"f64" if name in FLOATS else "i64"} x)'
+    hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft', 'quicksort') else f'(hide-{"f64" if name in FLOATS else "i64"} x)'
     prelude = PRELUDE + (NEXT_PRELUDE if name in NEXT_PORTS else '')
     prelude += EXPECTED_PRELUDE if name in FULL_LISTS else VECTOR_PRELUDE if name == 'pnpoly' else ''
     if name == 'fft':
         prelude += VECTOR_PRELUDE + FFT_PRELUDE
+    if name == 'quicksort':
+        prelude += QUICKSORT_PRELUDE + QUICKSORT_STUBS + QUICKSORT_COMMON
+        worker = QUICKSORT_PROBES + '\n;; ---- Canonical timed workload ----\n\n' + worker
     return (prelude + f'(define (hide count x) {hide})\n' + kernel_source(name, upstream)
             + input_bindings(name, spec) + '\n' + worker)
 
@@ -301,10 +440,11 @@ def require_success(record):
 
 def tool_paths(benchmarks=()):
     names = dict(CHIBI='chibi-scheme', NODE='node', WASM_AS='wasm-as', WASM_OPT='wasm-opt',
-                 WASM_DIS='wasm-dis', CHEZ='scheme')
+                 WASM_DIS='wasm-dis', CHEZ='scheme', TASKSET='taskset')
     if 'fft' in benchmarks:
         names['RUSTC'] = 'rustc'
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
+    paths['PYTHON'] = sys.executable
     if not all(paths.values()):
         raise ValueError(f'missing tools: {paths}')
     return paths
@@ -315,6 +455,10 @@ def build_strict(directory, tools, environment):
                directory / 'strict.scm', directory / 'strict.wasm']
     if load(directory / 'spec.json')['name'] == 'fft':
         command[3:3] = ['--export', 'fft-probe']
+    if load(directory / 'spec.json')['name'] == 'quicksort':
+        command[3:3] = [part for name in ('quicksort-probe', 'quicksort-rng-probe',
+                                        'quicksort-seed-probe', 'quicksort-sorted-probe')
+                       for part in ('--export', name)]
     record = execute(command, ROOT, environment)
     save(directory / 'strict-build.json', record)
     require_success(record)
@@ -373,6 +517,11 @@ def validate_strict(directory, tools, environment):
         validate_sequence_failures(directory, tools, environment, spec)
     if spec['name'] == 'fft':
         validate_sequence_failures(directory, tools, environment, fft_probe_specification(spec, FFT_NONZERO))
+    if spec['name'] == 'quicksort':
+        validate_sequence_failures(directory, tools, environment,
+                                   quicksort_probe_specification(spec, QUICKSORT_VALUES))
+        validate_sequence_failures(directory, tools, environment,
+                                   quicksort_rng_specification(spec), prefix='rng-')
 
 
 FFT_NONZERO = [1.0, 0.0, 2.0, 0.5, -1.0, 1.0, 0.0, -2.0,
@@ -395,7 +544,59 @@ def fft_probe_specification(spec, values):
                 result_kind='f64-vector-values', export='fft-probe', tolerance=1e-12, barriers_per_iteration=0)
 
 
+QUICKSORT_VALUES = [3, 1, 2, 3, 0, 2, 1, -4]
+
+
+def quicksort_random_values(size, limit):
+    # Independent binary64 reference for the six-state canonical generator.
+    # Keep the expression order visible; truncation returns an inexact integer
+    # in Scheme, so convert its Python result back to float before multiplying.
+    seed, result = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], []
+    norm, m1, m2 = 2.328306549295728e-10, 4294967087.0, 4294944443.0
+    for _ in range(size):
+        p1 = 1403580.0 * seed[1] - 810728.0 * seed[0]
+        p2 = 527612.0 * seed[5] - 1370589.0 * seed[3]
+        k1, k2 = float(math.trunc(p1 / m1)), float(math.trunc(p2 / m2))
+        seed[0], seed[3] = seed[1], seed[4]
+        p1, p2 = p1 - k1 * m1, p2 - k2 * m2
+        seed[1], seed[4] = seed[2], seed[5]
+        p1, p2 = p1 + m1 if p1 < 0.0 else p1, p2 + m2 if p2 < 0.0 else p2
+        seed[2], seed[5] = p1, p2
+        value = norm * ((p1 - p2) + m1) if p1 <= p2 else norm * (p1 - p2)
+        result.append(math.trunc(float(limit) * value))
+    return result
+
+
+def quicksort_probe_specification(spec, values):
+    return dict(spec, count=1, inputs=[*spec['inputs'], values], expected=sorted(values),
+                result_kind='i64-vector-values', export='quicksort-probe')
+
+
+def quicksort_rng_specification(spec):
+    return dict(spec, count=1, expected=quicksort_random_values(*spec['inputs']),
+                result_kind='i64-vector-values', export='quicksort-rng-probe')
+
+
+def quicksort_validation_specifications(spec):
+    probes = [(str(count), dict(spec, count=count)) for count in (1, 2)]
+    probes.append(('canonical-count', spec))
+    values = [('empty', []), ('singleton', [7]), ('duplicates', QUICKSORT_VALUES),
+              ('ordered', list(range(8))), ('reversed', list(range(7, -1, -1))),
+              ('all-equal', [2] * 8)]
+    probes += [(label, quicksort_probe_specification(spec, data)) for label, data in values]
+    rng = quicksort_rng_specification(spec)
+    probes += [('rng', rng), ('seed-reset', dict(rng, export='quicksort-seed-probe'))]
+    for label, data, expected in [('sorted-empty', [], 1), ('sorted-duplicates', [1, 1, 2], 1),
+                                  ('inversion-first', [2, 1, 3, 4], 0), ('inversion-middle', [1, 3, 2, 4], 0),
+                                  ('inversion-last', [1, 2, 4, 3], 0)]:
+        probes.append((label, dict(spec, count=1, inputs=[*spec['inputs'], data], expected=expected,
+                                  export='quicksort-sorted-probe')))
+    return probes
+
+
 def validation_specifications(spec):
+    if spec['name'] == 'quicksort':
+        return quicksort_validation_specifications(spec)
     if spec['name'] == 'fft':
         return [(str(count), dict(spec, count=count)) for count in (1, 2)] + [
             ('nonzero', fft_probe_specification(spec, FFT_NONZERO)),
@@ -415,21 +616,21 @@ def validation_specifications(spec):
             for count, repeats, size in ((1, 1, 0), (1, 1, 1), (2, 3, 7), (1, 0, 7))]
 
 
-def validate_sequence_failures(directory, tools, environment, spec):
+def validate_sequence_failures(directory, tools, environment, spec, prefix=''):
     changed = list(spec['expected'])
     changed[len(changed) // 2] += 1
     probes = [('wrong-value', changed), ('short', spec['expected'][:-1]),
               ('long', spec['expected'] + [0])]
     checks = []
     for label, expected in probes:
-        path = directory / f'validation-spec-{label}.json'
+        path = directory / f'validation-spec-{prefix}{label}.json'
         save(path, dict(spec, count=1, expected=expected))
         for suffix in ('.raw.wasm', ''):
             record = execute([tools['NODE'], directory.parent / 'host.mjs',
                               directory / ('strict.wasm' + suffix), path, '--validate'], directory, environment)
             rejected = record.get('returncode') != 0 and "actual: '0'" in record.get('stderr', '')
             checks.append(dict(record, label=label, rejected=rejected, checked_flag=0 if rejected else None))
-            save(directory / 'validation-negative.json', checks)
+            save(directory / f'validation-negative{ "-" + prefix.rstrip("-") if prefix else ""}.json', checks)
             if not rejected or 'AssertionError' not in record.get('stderr', ''):
                 raise ValueError('full result predicate must reject the changed expected result')
 
@@ -442,9 +643,24 @@ CHEZ_HELPERS = dict(primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
                    triangl='''(define-syntax ann
   (syntax-rules () ((_ expression type) expression)))
 ''' + CHEZ_REF_HELPERS,
+                   quicksort='''(define-syntax :
+  (syntax-rules () ((_ . signature) (begin))))
+(define (unreachable) (error 'quicksort "uninitialized procedure called"))
+(define (empty-vector) (vector))
+''' + CHEZ_REF_HELPERS + QUICKSORT_STUBS + QUICKSORT_COMMON,
                    mbrot='''(define (empty-vector) (vector))
 (define (i64->f64 value) (inexact value))
 ''')
+
+
+def quicksort_original_predicate(upstream):
+    start = upstream.index('(lambda (v)\n')
+    depth = 0
+    for index, char in enumerate(upstream[start:]):
+        depth += (char == '(') - (char == ')')
+        if depth == 0:
+            return upstream[start:start + index + 1]
+    raise ValueError('unclosed canonical quicksort result predicate')
 
 
 def matched_chez_source(name, directory):
@@ -456,11 +672,31 @@ def matched_chez_source(name, directory):
     if original.count(original_kernel) != 1 or strict.count(adapted_kernel) != 1:
         raise ValueError('kernel text must occur exactly once in each complete program')
     adapted = replace_exact(original, original_kernel, CHEZ_HELPERS[name] + adapted_kernel)
-    if replace_exact(adapted, CHEZ_HELPERS[name] + adapted_kernel, original_kernel) != original:
+    if name == 'quicksort':
+        predicate = quicksort_original_predicate(upstream)
+        adapted = replace_exact(adapted, predicate, '(lambda (v) (sorted-i64-vector? v))')
+        adapted = replace_exact(adapted, '(vector-map values v)', '(map-vector-elements values v)')
+    restored = replace_exact(adapted, CHEZ_HELPERS[name] + adapted_kernel, original_kernel)
+    if name == 'quicksort':
+        restored = replace_exact(restored, '(lambda (v) (sorted-i64-vector? v))', predicate)
+        restored = replace_exact(restored, '(map-vector-elements values v)', '(vector-map values v)')
+    if restored != original:
         raise ValueError('adapted Chez source changed outside the kernel and compatibility helpers')
     if name in ('primes', 'fft') and adapted != original:
         raise ValueError('this kernel must have identical complete original/adapted Chez source')
     return adapted, original_kernel, adapted_kernel
+
+
+def quicksort_source_proof(original, adapted):
+    sort = lambda source: source[:source.index(";;; Hansen's original code")]
+    def rng(source):
+        start = source.index('            (let ((p1 ')
+        return source[start:source.index('\n  (', start)]
+    if sort(original) != sort(adapted) or rng(original) != rng(adapted):
+        raise ValueError('quicksort partition/sort text and RNG arithmetic/seed transitions must be unchanged')
+    return dict(sorting_kernel_exact_match=True, rng_arithmetic_and_seed_transitions_exact_match=True,
+                sorting_kernel_sha256=hashlib.sha256(sort(original).encode()).hexdigest(),
+                rng_arithmetic_and_seed_transitions_sha256=hashlib.sha256(rng(original).encode()).hexdigest())
 
 
 def build_chez(directory, runner, environment, record_name):
@@ -481,6 +717,11 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
+    if name == 'quicksort':
+        patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
+                                     fromfile='original-program', tofile='adapted-program')
+        (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
+        save(directory / 'quicksort-source-proof.json', quicksort_source_proof(original_kernel, adapted_kernel))
     if name == 'fft':
         shutil.copyfile(directory / 'program.so', control / 'program.so')
         shutil.copyfile(directory / 'compile.scm', control / 'compile.scm')
@@ -488,7 +729,9 @@ def prepare_adapted_chez(name, directory, runner, environment):
     else:
         build_chez(control, runner, environment, 'build.json')
     save(directory / 'source-proof.json', dict(kernel_exact_match=True,
-         complete_source_only_kernel_edits_and_helpers=True,
+         complete_source_only_kernel_edits_and_helpers=name != 'quicksort',
+         result_predicate_early_exit_adaptation=name == 'quicksort',
+         per_element_map_compatibility_adapter=name == 'quicksort',
          complete_original_adapted_source_equal=adapted == (directory / 'program.scm').read_text(),
          original_kernel_sha256=hashlib.sha256(original_kernel.encode()).hexdigest(),
          adapted_kernel_sha256=hashlib.sha256(adapted_kernel.encode()).hexdigest(),
@@ -503,6 +746,8 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
+    if spec['name'] == 'quicksort':
+        probes.append(('canonical-count', original.decode()))
     return probes
 
 
@@ -530,6 +775,85 @@ CHEZ_FFT_PROBE = '''(let* ((data (read)) (expected (read)) (tolerance (read)))
                    (loop (+ i 1)))))))
   (newline))
 '''
+
+CHEZ_QUICKSORT_PROBE = ''';; ---- Supplemental complete-output probes ----
+
+(define (validate-sort data expected)
+  (let* ((original (vector->list data))
+         (result (quick-1 (vector-map values data) (lambda (x y) (< x y)))))
+    (and (equal? result expected)
+         (equal? (vector->list data) original)
+         (or (= (vector-length data) 0) (not (eq? result data))))))
+(define (validate-rng size expected limit)
+  (let ((v (make-vector size)))
+    (do ((i 0 (+ i 1))) ((= i (vector-length v)))
+      (vector-set! v i (random limit)))
+    (equal? v expected)))
+(define (validate-seed expected limit)
+  (seed-set! 1.0 0.0 0.0 1.0 0.0 0.0)
+  (and (equal? (seed-ref) '(1.0 0.0 0.0 1.0 0.0 0.0))
+       (= (random limit) (vector-ref expected 0))))
+(let* ((mode (read)) (limit (read)) (data (read)) (expected (read)))
+  (display
+   (case mode
+     ((sort) (validate-sort data expected))
+     ((rng) (validate-rng data expected limit))
+     ((seed) (validate-seed expected limit))
+     ((sorted) (= (if (sorted-i64-vector? data) 1 0) expected))))
+  (newline))
+'''
+
+
+def quicksort_chez_probe_source(directory, system):
+    kernel_file = 'original-kernel.scm' if system == 'original' else 'adapted-kernel.scm'
+    helpers = '' if system == 'original' else CHEZ_HELPERS['quicksort']
+    wrapper = CHEZ_QUICKSORT_PROBE
+    if system == 'original':
+        predicate = quicksort_original_predicate((directory / 'upstream.scm').read_text())
+        helpers += '(define sorted-i64-vector? ' + predicate + ')\n'
+    else:
+        wrapper = replace_exact(wrapper, '(seed-set! ', '((ref-get seed-set!) ')
+        wrapper = replace_exact(wrapper, '(seed-ref)', '((ref-get seed-ref))')
+        wrapper = replace_exact(wrapper, '(vector-map values data)', '(map-vector-elements values data)')
+    return '(import (except (chezscheme) partition random))\n' + helpers + (directory / kernel_file).read_text() + wrapper
+
+
+def quicksort_chez_output_probes(spec):
+    probes = [(label, probe, True) for label, probe in quicksort_validation_specifications(spec)
+              if 'export' in probe and label != 'sorted-empty']
+    for prefix, base in [('sort', quicksort_probe_specification(spec, QUICKSORT_VALUES)),
+                         ('rng', quicksort_rng_specification(spec))]:
+        changed = list(base['expected'])
+        changed[len(changed) // 2] += 1
+        probes += [(prefix + '-' + label, dict(base, expected=expected), False) for label, expected in
+                   [('wrong-value', changed), ('short', base['expected'][:-1]), ('long', base['expected'] + [0])]]
+    return probes
+
+
+def quicksort_chez_probe_input(probe):
+    modes = {'quicksort-probe': 'sort', 'quicksort-rng-probe': 'rng',
+             'quicksort-seed-probe': 'seed', 'quicksort-sorted-probe': 'sorted'}
+    vector = lambda values: '#(' + ' '.join(map(str, values)) + ')'
+    data = vector(probe['inputs'][2]) if len(probe['inputs']) == 3 else str(probe['inputs'][0])
+    expected = vector(probe['expected']) if isinstance(probe['expected'], list) else str(probe['expected'])
+    return '\n'.join([modes[probe['export']], str(probe['inputs'][1]), data, expected]) + '\n'
+
+
+def validate_quicksort_chez_outputs(directory, runner, tools, environment, spec):
+    for system in ('original', 'same-source-chez'):
+        target = directory / ('chez-output-probe-' + system)
+        target.mkdir()
+        (target / 'program.scm').write_text(quicksort_chez_probe_source(directory, system))
+        command = build_chez(target, runner, environment, 'build.json')
+        checks = []
+        for label, probe, expected_flag in quicksort_chez_output_probes(spec):
+            data = quicksort_chez_probe_input(probe)
+            record = execute(command, target, environment, stdin=data)
+            checks.append(dict(record, label=label, stdin=data, expected_flag=expected_flag))
+            save(target / 'validation.json', checks)
+            require_success(record)
+            if record['stderr'] or record['stdout'].strip() != ('#t' if expected_flag else '#f'):
+                raise ValueError('Chez quicksort must check complete outputs and reject changed expectations')
 
 
 def validate_fft_chez_dft(directory, runner, tools, environment, spec):
@@ -572,8 +896,10 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_chez(directory, runner, tools, environment, spec)
     if name == 'fft':
         validate_fft_chez_dft(directory, runner, tools, environment, spec)
+    if name == 'quicksort':
+        validate_quicksort_chez_outputs(directory, runner, tools, environment, spec)
     return dict(name=name, status='ready', spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort',) else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -592,6 +918,7 @@ def prepare(options):
     options.output.mkdir(parents=True, exist_ok=False)
     shutil.copy2(HERE / 'host.mjs', options.output / 'host.mjs')
     shutil.copy2(__file__, options.output / 'measure.py')
+    shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
         target = options.output / 'compiler-source' / source.relative_to(ROOT)
@@ -602,6 +929,7 @@ def prepare(options):
                   compiler_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
+                  runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
                   driver_sha256=digest(__file__))
     for name in options.benchmarks:
         try:
@@ -635,7 +963,8 @@ def run_case(case, system, output, cpu, tools):
         target = directory / 'same-source-chez' if system == 'chez-adapted' else directory
         command = [tools['CHEZ']['path'], '--program', target / 'program.so']
         data = (directory / 'input.txt').read_text()
-    result = execute(['taskset', '-c', str(cpu), *command], directory, os.environ, stdin=data)
+    taskset = tools.get('TASKSET', {}).get('path', 'taskset')
+    result = execute([taskset, '-c', str(cpu), *command], directory, os.environ, stdin=data)
     if result.get('returncode') != 0 or result.get('stderr'):
         return dict(result, valid=False)
     try:
@@ -660,6 +989,10 @@ def checked_preparation(output):
             raise ValueError('tool changed')
     if digest(output / 'host.mjs') != prepared['host_sha256']:
         raise ValueError('host changed')
+    if 'runner_sha256' in prepared:
+        if any(digest(path) != prepared['runner_sha256'] for path in
+               (output / 'r7rs.py', ROOT / 'benchmarks/r7rs.py')):
+            raise ValueError('upstream runner changed')
     return prepared
 
 
