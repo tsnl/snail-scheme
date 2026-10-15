@@ -148,3 +148,19 @@ Retained commands contain their actual absolute paths. Replaying an extracted
 archive elsewhere requires verified path mapping. Seven clean comparison
 commands are frozen in maze/controls/commands.json; their execution remains
 the coordinator's next step.
+
+## Integration review
+
+The root independently replayed all 68 source edits in both directions and
+checked the complete retained observation streams against original Chez. All
+five Scheme paths agree on the ordered walls, mutations, full character output,
+and complete 10,000-invocation work counts. The [review record](integration-review.json)
+retains the source and trace identities.
+
+After integration above the Conform reports and growing native collector, the
+current adapter regenerates the exact same production Scheme source. A fresh
+build passes the complete canonical input on raw linked Wasm, Binaryen optimized
+linked Wasm, and native64, with the expected result, 20,000 opacity calls, and
+input lifetime markers. The actual build-and-execution tool session reached
+exit zero; `make check` also passes. These are correctness checks, with no new
+performance samples or increase in historical measured coverage.

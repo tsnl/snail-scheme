@@ -1,0 +1,129 @@
+{
+  "reversible_edits": 68,
+  "shared_kernel": true,
+  "systems": 5,
+  "observations": {
+    "once": {
+      "fields": 8567,
+      "sha256": "8becabff7179b9ee6b60618c16943939aa096f866d45925aaa4376ec4bf82d1e",
+      "one": [
+        1,
+        140,
+        367,
+        365,
+        3213,
+        5827,
+        736,
+        1267,
+        139,
+        286,
+        8,
+        49,
+        668,
+        224,
+        55,
+        130
+      ],
+      "full": [
+        1,
+        140,
+        367,
+        365,
+        3213,
+        5827,
+        736,
+        1267,
+        139,
+        286,
+        8,
+        49,
+        668,
+        224,
+        55,
+        130
+      ]
+    },
+    "full-count": {
+      "fields": 8567,
+      "sha256": "9d484738b6f58cc95b86ba0e35a67700f0d0a617fa16cdde495142209b8239a6",
+      "one": [
+        1,
+        140,
+        367,
+        365,
+        3213,
+        5827,
+        736,
+        1267,
+        139,
+        286,
+        8,
+        49,
+        668,
+        224,
+        55,
+        130
+      ],
+      "full": [
+        10000,
+        1400000,
+        3670000,
+        3650000,
+        32130000,
+        58270000,
+        7360000,
+        12670000,
+        1390000,
+        2860000,
+        80000,
+        490000,
+        6680000,
+        2240000,
+        550000,
+        1300000
+      ]
+    }
+  },
+  "terminal_records": 161,
+  "terminal_statuses": {
+    "0": 145,
+    "70": 2,
+    "255": 2,
+    "1": 8,
+    "-6": 4
+  },
+  "scope": "Independent retained-source and trace audit; no clean timings or new guest execution.",
+  "integration": {
+    "basis": "e9cdcd4addd153379542f20735e5636639a3c09a",
+    "source_basis": {
+      "commit": "e9cdcd4addd153379542f20735e5636639a3c09a",
+      "canonical_source_byte_identical": true,
+      "upstream_sha256": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
+      "input_sha256": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+      "strict_sha256": "9ea617c031d29e1cec0fc5ded561011d69a588fe03752898710ceb180328f184"
+    },
+    "complete_count": 10000,
+    "systems": [
+      "raw linked Wasm",
+      "Binaryen optimized linked Wasm",
+      "native64 with growing collector"
+    ],
+    "result": 1,
+    "recorded_barriers": 20000,
+    "make_check_exit": 0,
+    "actual_tool_session": 81243,
+    "actual_tool_terminal": {
+      "chunk_id": "d81d4e",
+      "exit_code": 0
+    },
+    "artifact_sha256": {
+      "strict.scm": "9ea617c031d29e1cec0fc5ded561011d69a588fe03752898710ceb180328f184",
+      "input.txt": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+      "strict-native.wasm": "94c8f860d79686a879e8894b915560a9b8012a910762985ac1146ca52724e46a",
+      "raw.wasm": "1e16db5670ab9b996655a3d858d8a00db48761d566d4beab6480dfcbe071e91b",
+      "optimized.wasm": "4d6393601101f54d36f661c799b06a9b3d3c0f9b6cc3c434e1fac0195b4b1b5b",
+      "native": "ddc31d5504dd622dca0e4b0ca72891c5025fd9be2fc7e2b70158eca6eab52eb2"
+    },
+    "performance_samples": false
+  }
+}
