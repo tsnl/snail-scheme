@@ -49,9 +49,14 @@ and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills
 and drains the process group. A successful compile does not establish successful
 execution. The integrated routes handle scalar/typed-container kernels and Datum/I/O
-programs with their complete predicates. The current runner supplies V8's
-optimized SFIR Wasm to the native helper, which runs Binaryen again before LLVM
-lowering. The effective optimized modules therefore differ; the
+programs with their complete predicates. Native builds require the retained raw
+SFIR Wasm. The helper's mandatory Binaryen pass must produce byte-identical
+optimized guest Wasm to the V8 program before native execution is accepted.
+`native-parity.json` retains raw/program/native-optimized/LLVM/executable hashes,
+the actual build command and configuration, including failed build or parity
+outcomes. This equality concerns the guest program, with separate target runtime
+providers. Earlier freezes supplied already optimized input and ran Binaryen
+twice on the native route; their effective optimized modules differ. The
 [retrospective audit](evidence/20261015-native-optimization-audit.json) records
 this for all six measured workloads. Runtime-backed Wasm supplies concrete scalar
 services from a separately pruned Rust provider; the retained provider imports
@@ -77,7 +82,9 @@ selected Rust sysroot and vendors the exact locked crates, invokes the copied
 Cargo/Rust compiler, and rebuilds all available routes. It then builds a separate
 native entry/provider with observation counters disabled. Each actual clean
 executable/provider must pass its complete canonical predicate before it earns
-a place in the frozen schedule. All original validation outcomes remain visible,
+a place in the frozen schedule. Its native build also consumes the copied raw
+sidecar and independently verifies optimized-program parity; the plan preserves
+that proof and checks its artifacts before execution. All original validation outcomes remain visible,
 including default Rust Wasm Ack's stack overflow and unavailable adapted Chez
 controls. Preparation and clean-artifact validation are never timing samples.
 
@@ -210,3 +217,14 @@ present adapted controls pass, and Rust Wasm retains Ack's stack failure among
 the frozen manifest and separately corrected outcomes are archived; these
 contended executions add no performance measurements and retain the disclosed
 second native optimization pass.
+
+The native parity correction received a local behavioral explanation, an
+artifact audit and context-informed critique from the coordinating agent. A
+fresh independent review was unavailable: both new and existing reviewer calls
+hit the tool's conversation limit. The review kept raw input, actual optimized
+output and executable identity together, and covered scalar, Integer and clean
+build routes. It rejected a skip-optimization flag and fallback to an already
+optimized input. Tests cover missing raw input, differing optimized bytes,
+replaced executables, ambiguous build attempts and ineligible timing evidence.
+The build-evidence checks stay together despite exceeding the ten-line guideline
+because they establish one artifact-identity guarantee.
