@@ -24,5 +24,14 @@
       },
       "exact_reverse_verified": true
     }
+  ],
+  "observation_corrections": [
+    {
+      "before_spec_sha256": "824d6b1c5e960497dd963debc85a11f083903f957565e6ccb61803da3cfea01c",
+      "after_spec_sha256": "f1be05dbfd2f684f5a6c840280b9a9939c4fe097bf8d069af0f1a9db64f504f6",
+      "change": "Declare whole-run reader observations: two opacity calls and one complete input-file cycle around 2500 in-memory parser iterations. Source, canonical input, full result predicate and count are unchanged.",
+      "field": "observation_basis",
+      "value": "whole-run"
+    }
   ]
 }

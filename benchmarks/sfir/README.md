@@ -182,3 +182,21 @@ existing character writer and its import names. It rejected a generic import
 registry and a canonical-only check, which could not distinguish output from a
 no-op when progress printing is disabled. Two failed synthetic probe attempts
 remain visible alongside the final passing fixture.
+
+Reader-host observations normally scale with the canonical count. Parsing
+declares `observation_basis: "whole-run"`: it reads its input once and makes
+two opacity calls around 2,500 parses of the resulting string. This changes
+only expected observations; the canonical count still reaches the unchanged
+worker. Barrier quantities describe one selected observation basis. Setup and
+cleanup expectations remain independent. Unknown observation bases fail.
+[Parsing evidence](evidence/20261015-parsing-observations.json) retains the old
+count-mismatch failures and actual corrected Wasm/native executions. Node also
+rejects wrong barrier totals, missing and extra cycles, a wrong result and an
+invalid basis. Its byte/EOF/close/live-handle predicates remain intact; native
+checks the full result, barriers and exact resource-close totals.
+
+The fresh no-files observation review and informed critique selected this one
+basis declaration, preserving the existing complete file-cycle checks. It
+rejected a second benchmark count and independently configurable observation
+formulas. Canonical artifacts remain separate from the corrected metadata and
+host evidence; no performance samples were added.
