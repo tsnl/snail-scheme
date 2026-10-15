@@ -117,9 +117,13 @@ It checks that native lowering consumes exactly the same mandatory-Binaryen
 guest bytes, retains all command attempts and source/tool/artifact identities,
 and verifies packet boundaries, Unicode buffer splits, aliases, mixed readers,
 borrowed scalar interoperation, closed cached input, file growth after EOF,
-valid output before malformed input, and resource release. These are correctness
-checks; no current performance result is implied. The historical character-buffer
-prototype and its timing artifacts are separate from this implementation.
+valid output before malformed input, and resource release. The separate
+[paired Cat/WC measurement](../../benchmarks/sfir/evidence/20261015-input-packets.md)
+retains the original sources, count 50 and full predicates. Median scalar/packet
+workload-time ratios were 1.49×/1.51× for Cat and 2.31×/1.80× for WC (V8/native);
+all 48 attempts passed on CPU 2 with ordinary desktop background activity.
+These results cover those two workloads. The historical character-buffer
+prototype and its timing artifacts remain separate.
 
 ## Tests and current validation
 
