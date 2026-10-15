@@ -139,10 +139,24 @@ opens retained evidence in Perfetto.
 The source CLI keeps its existing script behavior and `--export` selector for
 unique flattened binding names. The library API uses public Entry selection.
 SFIR producers can construct, inspect and transfer the complete library syntax
-described below. General compiler functions callable from SFIR remain
-unimplemented. The Wasm execution adapter below provides loading, independent
-instances and checked scalar invocation to JavaScript hosts; these operations
-are not yet Chibi or SFIR library functions.
+described below. [`(sfir compiler)`](lib/sfir/compiler.sfir) also exposes explicit
+map assembly, compilation, Wasm loading, independent instantiation and checked
+scalar entry invocation as ordinary SFIR calls. Every fallible operation returns
+an ordinary `CompilerResult` success or diagnostic string.
+
+[`compiler-service.mjs`](src/snail-sfir/compiler-service.mjs) owns one Chibi
+process, the matching builder arena, copied artifacts and runtime instances.
+[`serve-sfir-compiler.scm`](scripts/serve-sfir-compiler.scm) parses supplied source
+once or receives constructed syntax and retains unresolved library values in
+immutable maps. Compilation resolves only the supplied map; provider linkage
+remains a separate execution operation. Failed initialization publishes no
+instance; a trapped call retains its instance and preceding effects. A lost
+compiler process invalidates map operations while copied artifacts and existing
+runtime instances remain owned by the service scope. See the
+[service API](doc/sfir-compiler-service.md) for lifecycle rules, supported targets
+and the pending first-class parsed `SfirLibrary` return path. The Python native
+loading adapter is described below; native target support in this SFIR service
+remains pending.
 
 [`run-sfir-generator.mjs`](scripts/run-sfir-generator.mjs) executes compiled
 recipes through the checked builder boundary. An explicit provider factory
@@ -180,7 +194,7 @@ identities.
 Output imports need their own supplied map. The receiver neither discovers
 dependencies nor accepts inferred IR as evidence. See the [builder API and
 executable example](doc/sfir-builder.md) for ownership, supported constructors,
-typed inspection and remaining compiler-service work.
+and typed inspection.
 
 ## Targets and runtime
 
@@ -316,7 +330,11 @@ Its complete-library fixture rebuilds syntax through typed inspection and compar
 with ordinary source on linked Wasm and native execution with frequent collection;
 malicious packets test lexical ownership, static roles, Unicode and unforgeable
 checking evidence.
-`scripts/test-sfir-integration` executes 307 authored SFIR fixtures retaining the
+`scripts/test-sfir-compiler-service` executes compilation and the full Wasm
+execution lifecycle from an SFIR build program. It checks recoverable diagnostics,
+source and constructed dependencies, provider signatures, instance ownership and
+continued artifact execution after the owned Chibi process is lost.
+`scripts/test-sfir-integration` executes 315 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises
 mechanical lowering, collection, C signatures and resource cleanup.
