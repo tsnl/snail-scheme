@@ -1,0 +1,98 @@
+{
+  "preparation_path": "/tmp/snail-strict-next-suite-ports-20261013/build/strict-next-five-interim-320987e",
+  "driver_sha256": "74624e48c71eb825983de69df03ae876fcaf23dbec85a54e8c92ae72823660cf",
+  "host_sha256": "38b16279c4c82ba16cca385d5f6cdee4aa9ada448144a6ad8189487aa884a9bf",
+  "prepared_json_sha256": "8669bcd349f0b9c102a162d3dab77cd1b083b6834ec51ed48867f6d69b5de774",
+  "compiler_commit": "39d68ff0702d20857a5f42d8ff3170335e67cc8a",
+  "cases": [
+    {
+      "name": "primes",
+      "canonical_inputs": true,
+      "canonical_source": true,
+      "strict_generated_source_equal": true,
+      "complete_chez_reconstructed": true,
+      "exact_shared_kernel": true,
+      "probe_stale_files": []
+    },
+    {
+      "name": "nqueens",
+      "canonical_inputs": true,
+      "canonical_source": true,
+      "strict_generated_source_equal": true,
+      "complete_chez_reconstructed": true,
+      "exact_shared_kernel": true,
+      "probe_stale_files": []
+    },
+    {
+      "name": "triangl",
+      "canonical_inputs": true,
+      "canonical_source": true,
+      "strict_generated_source_equal": true,
+      "complete_chez_reconstructed": true,
+      "exact_shared_kernel": true,
+      "probe_stale_files": []
+    },
+    {
+      "name": "mbrot",
+      "canonical_inputs": true,
+      "canonical_source": true,
+      "strict_generated_source_equal": true,
+      "complete_chez_reconstructed": true,
+      "exact_shared_kernel": true,
+      "probe_stale_files": []
+    },
+    {
+      "name": "pnpoly",
+      "canonical_inputs": true,
+      "canonical_source": true,
+      "strict_generated_source_equal": true,
+      "complete_chez_reconstructed": true,
+      "exact_shared_kernel": true,
+      "probe_stale_files": []
+    }
+  ],
+  "provenance": {
+    "compiler_source_files": 50,
+    "compiler_commit": "39d68ff0702d20857a5f42d8ff3170335e67cc8a",
+    "compiler_snapshot_matches_commit": true,
+    "all_recorded_tool_hashes_equal": true,
+    "host_equal": true,
+    "probe_driver_current": true
+  },
+  "evidence": [
+    {
+      "name": "primes",
+      "strict_successes": 6,
+      "chez_successes": 6,
+      "list_rejections": 6
+    },
+    {
+      "name": "nqueens",
+      "strict_successes": 4,
+      "chez_successes": 4,
+      "list_rejections": 0
+    },
+    {
+      "name": "triangl",
+      "strict_successes": 4,
+      "chez_successes": 4,
+      "list_rejections": 6
+    },
+    {
+      "name": "mbrot",
+      "strict_successes": 4,
+      "chez_successes": 4,
+      "list_rejections": 0
+    },
+    {
+      "name": "pnpoly",
+      "strict_successes": 6,
+      "chez_successes": 6,
+      "list_rejections": 0
+    }
+  ],
+  "source_proofs_match": true,
+  "modules_and_inputs_equal_reviewed_exploratory_artifacts": true,
+  "total_case_file_hashes_verified": 140,
+  "readiness": "Fresh frozen preparation passed independent audit; ready for coordinated quiet-window measurement of the unmerged interim numeric baseline."
+}

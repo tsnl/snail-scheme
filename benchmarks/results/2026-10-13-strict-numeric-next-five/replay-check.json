@@ -1,0 +1,351 @@
+{
+  "restored_directory": "/tmp/snail-strict-next-five-replay-20261013",
+  "files_verified": 385,
+  "archive_sha256": "7a5d8a0cd7b71c4ec6da44e0f5e84c420a24d7f6a3cc6fab68bee9d57811d3da",
+  "tools_and_driver_verified": true,
+  "all_case_hashes_verified": true,
+  "runtime_checks": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.004368314,\"result\":\"1\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.03583600599085912,
+      "name": "primes",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/strict.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001147257,\"result\":\"1\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.02513019205071032,
+      "name": "primes",
+      "system": "strict",
+      "suffix": "",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running primes:1000:1\nElapsed time: 5.0503e-5 seconds (0.0) for primes:1000:1\n+!CSVLINE!+chez,primes:1000:1,5.0503e-5\n",
+      "stderr": "",
+      "process_seconds": 0.03797205805312842,
+      "name": "primes",
+      "system": "chez",
+      "valid": true,
+      "stdin": "1\n1000\n(2 3 5 7 11 13 17 19 23 29 31 37 41 43 47 53 59 61 67 71 73 79\n 83 89 97 101 103 107 109 113 127 131 137 139 149 151 157 163\n 167 173 179 181 191 193 197 199 211 223 227 229 233 239 241 251\n 257 263 269 271 277 281 283 293 307 311 313 317 331 337 347 349\n 353 359 367 373 379 383 389 397 401 409 419 421 431 433 439 443\n 449 457 461 463 467 479 487 491 499 503 509 521 523 541 547 557\n 563 569 571 577 587 593 599 601 607 613 617 619 631 641 643 647\n 653 659 661 673 677 683 691 701 709 719 727 733 739 743 751 757\n 761 769 773 787 797 809 811 821 823 827 829 839 853 857 859 863\n 877 881 883 887 907 911 919 929 937 941 947 953 967 971 977 983\n 991 997)\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/primes/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running primes:1000:1\nElapsed time: 4.6053e-5 seconds (0.0) for primes:1000:1\n+!CSVLINE!+chez,primes:1000:1,4.6053e-5\n",
+      "stderr": "",
+      "process_seconds": 0.03665032598655671,
+      "name": "primes",
+      "system": "chez-adapted",
+      "valid": true,
+      "stdin": "1\n1000\n(2 3 5 7 11 13 17 19 23 29 31 37 41 43 47 53 59 61 67 71 73 79\n 83 89 97 101 103 107 109 113 127 131 137 139 149 151 157 163\n 167 173 179 181 191 193 197 199 211 223 227 229 233 239 241 251\n 257 263 269 271 277 281 283 293 307 311 313 317 331 337 347 349\n 353 359 367 373 379 383 389 397 401 409 419 421 431 433 439 443\n 449 457 461 463 467 479 487 491 499 503 509 521 523 541 547 557\n 563 569 571 577 587 593 599 601 607 613 617 619 631 641 643 647\n 653 659 661 673 677 683 691 701 709 719 727 733 739 743 751 757\n 761 769 773 787 797 809 811 821 823 827 829 839 853 857 859 863\n 877 881 883 887 907 911 919 929 937 941 947 953 967 971 977 983\n 991 997)\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.311150829,\"result\":\"73712\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.3408647119649686,
+      "name": "nqueens",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/strict.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.267029184,\"result\":\"73712\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.29333396500442177,
+      "name": "nqueens",
+      "system": "strict",
+      "suffix": "",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running nqueens:13:1\nElapsed time: 0.26407858 seconds (0.264) for nqueens:13:1\n+!CSVLINE!+chez,nqueens:13:1,0.26407858\n",
+      "stderr": "",
+      "process_seconds": 0.3006246369914152,
+      "name": "nqueens",
+      "system": "chez",
+      "valid": true,
+      "stdin": "1\n13\n73712\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/nqueens/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running nqueens:13:1\nElapsed time: 0.262466335 seconds (0.262) for nqueens:13:1\n+!CSVLINE!+chez,nqueens:13:1,0.262466335\n",
+      "stderr": "",
+      "process_seconds": 0.30017660901648924,
+      "name": "nqueens",
+      "system": "chez-adapted",
+      "valid": true,
+      "stdin": "1\n13\n73712\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.037135195,\"result\":\"1\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.0628070660168305,
+      "name": "triangl",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/strict.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.035367645,\"result\":\"1\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.061532375984825194,
+      "name": "triangl",
+      "system": "strict",
+      "suffix": "",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running triangl:22:1:1\nElapsed time: 0.017053296 seconds (0.017) for triangl:22:1:1\n+!CSVLINE!+chez,triangl:22:1:1,0.017053296\n",
+      "stderr": "",
+      "process_seconds": 0.05408875900320709,
+      "name": "triangl",
+      "system": "chez",
+      "valid": true,
+      "stdin": "1\n22\n1\n(22 34 31 15 7 1 20 17 25 6 5 13 32)\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/triangl/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running triangl:22:1:1\nElapsed time: 0.019919705 seconds (0.02) for triangl:22:1:1\n+!CSVLINE!+chez,triangl:22:1:1,0.019919705\n",
+      "stderr": "",
+      "process_seconds": 0.056441282969899476,
+      "name": "triangl",
+      "system": "chez-adapted",
+      "valid": true,
+      "stdin": "1\n22\n1\n(22 34 31 15 7 1 20 17 25 6 5 13 32)\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.002606008,\"result\":\"5\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.028508496994618326,
+      "name": "mbrot",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/strict.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001439391,\"result\":\"5\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.028186921030282974,
+      "name": "mbrot",
+      "system": "strict",
+      "suffix": "",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running mbrot:75:1\nElapsed time: 0.004239207 seconds (0.004) for mbrot:75:1\n+!CSVLINE!+chez,mbrot:75:1,0.004239207\n",
+      "stderr": "",
+      "process_seconds": 0.04297495499486104,
+      "name": "mbrot",
+      "system": "chez",
+      "valid": true,
+      "stdin": "1\n75\n5\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/mbrot/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running mbrot:75:1\nElapsed time: 0.003922934 seconds (0.004) for mbrot:75:1\n+!CSVLINE!+chez,mbrot:75:1,0.003922934\n",
+      "stderr": "",
+      "process_seconds": 0.040283276000991464,
+      "name": "mbrot",
+      "system": "chez-adapted",
+      "valid": true,
+      "stdin": "1\n75\n5\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000436058,\"result\":\"6\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.025414611969608814,
+      "name": "pnpoly",
+      "system": "strict",
+      "suffix": ".raw.wasm",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/host.mjs",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/strict.wasm",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000208843,\"result\":\"6\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.028944521967787296,
+      "name": "pnpoly",
+      "system": "strict",
+      "suffix": "",
+      "valid": true,
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running pnpoly:1\nElapsed time: 6.99e-6 seconds (0.0) for pnpoly:1\n+!CSVLINE!+chez,pnpoly:1,6.99e-6\n",
+      "stderr": "",
+      "process_seconds": 0.037010321975685656,
+      "name": "pnpoly",
+      "system": "chez",
+      "valid": true,
+      "stdin": "1\n#(0. 1. 1. 0. 0. 1. -.5 -1. -1. -2. -2.5 -2. -1.5 -.5 1. 1. 0. -.5 -1. -.5)\n#(0. 0. 1. 1. 2. 3. 2. 3. 0. -.5 -1.  -1.5 -2. -2. -1.5 -1. -.5 -1. -1. -.5)\n6\n",
+      "purpose": "Restored artifact correctness only."
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-next-five-replay-20261013/strict-next-five-interim-320987e/pnpoly/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running pnpoly:1\nElapsed time: 5.3e-6 seconds (0.0) for pnpoly:1\n+!CSVLINE!+chez,pnpoly:1,5.3e-6\n",
+      "stderr": "",
+      "process_seconds": 0.037183409032877535,
+      "name": "pnpoly",
+      "system": "chez-adapted",
+      "valid": true,
+      "stdin": "1\n#(0. 1. 1. 0. 0. 1. -.5 -1. -1. -2. -2.5 -2. -1.5 -.5 1. 1. 0. -.5 -1. -.5)\n#(0. 0. 1. 1. 2. 3. 2. 3. 0. -.5 -1.  -1.5 -2. -2. -1.5 -1. -.5 -1. -1. -.5)\n6\n",
+      "purpose": "Restored artifact correctness only."
+    }
+  ],
+  "all_runtime_checks_valid": true,
+  "performance_measurement": false
+}

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "/tmp/snail-strict-return-review-20261013/scripts/build-strict",
+    "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-8.scm",
+    "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-8-before.wasm"
+  ],
+  "status": 0,
+  "stdout": "",
+  "stderr": "",
+  "seconds": 20.99104619701393
+}
