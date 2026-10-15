@@ -270,9 +270,14 @@ procedure inside its lexical scope. This also keeps named-let recursion direct
 without changing the expanded or checked frontend forms.
 Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array
-instructions own bounds and overlapping-copy behavior. Each String is one native
-character array with a private writability word. Checked offsets exclude that
-word; readonly literal globals and fresh mutable strings share the same layout.
+instructions own bounds and overlapping-copy behavior. Each String has an
+immutable owner containing writability, unsigned scalar length, a direct first
+character block and an optional directory of remaining blocks. Its private i32
+arrays each hold at most 8,192 Unicode scalars; short and empty strings omit the
+directory. Constructors publish only fully initialized, independently owned
+blocks. Copies validate both complete I64 ranges before traversing bounded native
+array-copy spans in the overlap-safe direction. Readonly literal globals and
+fresh mutable strings share the same layout.
 Unicode scalar conversions reject surrogate and out-of-range values. Nominal records use immutable native fields;
 closed sums add a constructor tag and typed case subtypes. The layout registry
 reserves applications before following recursive fields, and accessors explicitly
