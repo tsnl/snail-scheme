@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-data (Route T) (done (value T)) (next (rest (Route I64))))
+(define value (ann (next (done 21)) (Route Bool)))
+(match value ((done flag) (if flag 1 0))
+       ((next rest) (match rest ((done value) value) ((next again) 0))))

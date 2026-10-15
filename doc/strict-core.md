@@ -71,6 +71,83 @@ mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
 
+## Nominal records and closed recursive variants
+
+`define-data` declares a closed sum of immutable products. A single constructor
+is a nominal record. Each field gives its name and type, followed by an optional
+accessor name; constructor arguments follow the declared field order.
+
+```scheme
+(define-data Point
+  (point (x F64 point-x) (y F64 point-y)))
+(define-data (Tree T)
+  (leaf (value T))
+  (branch (left (Tree T)) (right (Tree T))))
+(define (first tree)
+  (match tree
+    ((leaf value) value)
+    ((branch left right) (first left))))
+(first (branch (leaf 12) (leaf 19)))
+```
+
+The type name, constructors, and accessors have resolved declaration identities.
+Renamed imports keep those identities; another local or hygienically introduced
+declaration with the same spelling creates a distinct type. Type parameters are
+explicit and scope the declaration's field types. Constructors and accessors
+have ordinary rank-one schemes and can be passed as fixed-signature functions.
+Every runtime instance and stored field is monomorphic. A constructor allocation
+obeys the existing value restriction, including when a field contains a `Ref`.
+No unresolved field becomes `Top`.
+
+These are static declarations: their constructors and accessors are available
+throughout the containing body. A constructed value still evaluates every
+argument once, left to right, and reads source bindings at its original runtime
+position. A forward read of an uninitialized value still traps. Every constructor
+requires all its fields; no implicit field initialization or setters are added.
+An ordinary constructor alias still has its own value-binding initialization.
+An effectful alias initializer remains monomorphic; an `All` annotation cannot
+override the existing value restriction.
+Explicit `Default` instances can name these concrete nominal types and use the
+same class selection and specialization as scalar and container instances.
+
+`match` evaluates its subject once. Each shallow pattern names a declared
+constructor followed by one distinct variable per field. Every constructor must
+appear exactly once after name resolution, including constructors with a `Never`
+field. Missing, repeated, mixed-type and wrong-arity arms are rejected. Nested
+patterns, guards and wildcard arms are outside this slice. Arm bodies use normal
+binding and result-type rules; a `Never` arm does not widen another arm's result.
+An optional accessor on a multi-constructor type checks its constructor tag and
+traps when applied to another case, including one with identical field types.
+
+A record has one WasmGC struct with immutable native fields and no constructor
+tag. A sum has a tagged base struct and one subtype per constructor, each holding
+only that constructor's concrete payload. A native integer field stays an integer;
+a managed field stays a typed GC reference. `Unit` uses an i32 slot; `Never` is an
+uninhabited reference type and cannot supply a constructor argument by returning
+normally. Wasm may canonicalize structurally identical layouts, so accessor tag
+checks and explicit `Top` projection tags preserve nominal and case distinctions.
+
+Recursive and mutually recursive declarations may refer through records, sums,
+lists, vectors, cells and fixed-signature functions. The registry reserves each
+concrete nominal application before following its fields, terminating exact
+cycles. Different applications remain distinct; finite graphs that change to a
+fixed argument type also work. A declaration is limited to 64 demanded concrete
+layout applications, matching the existing per-site value-specialization budget.
+This is a resource limit, not a termination proof: a sufficiently large finite
+graph is also rejected. Recursive arguments that keep growing eventually reach
+this bound instead of consuming unbounded compiler memory.
+
+Fields are immutable. Use a `Ref T` field for a mutable edge, with the usual
+invariant element type and shared alias identity. The small `data-gcbench` fixture
+preserves the original benchmark's top-down child assignment and bottom-up tree
+construction using two explicit child cells. Each node therefore allocates a
+tagged node plus two `Ref` objects; one shared `Nil` replaces the numeric zero
+sentinel. This changes allocation cost from a mutable record and is not a timing
+comparison. The `data-paraffins` fixture preserves the canonical partitions,
+loop order and accumulation, replacing H/C and BCP/CCP tagged vectors with closed
+variants. It checks the canonical count of 75 for ten carbon atoms without `Top`.
+Ray and nucleic ports remain follow-up work.
+
 ## Free overloads and numeric operations
 
 `define-overload` gives one name several function signatures. Argument types,
@@ -396,11 +473,11 @@ belong to their provider's resource interface and never represent GC addresses.
 ## Current boundary
 
 This slice supports scalar arithmetic, concrete higher-order closures, recursive
-functions, explicit cells, immutable lists, concrete mutable vectors, static
-classes and explicit Top.
+functions, explicit cells, immutable lists, concrete mutable vectors, nominal
+records, closed recursive variants, static classes and explicit Top.
 It also provides native scalar foreign declarations and reusable exported
 workers. It does not yet provide strings, arbitrary integers, rationals,
-records, dynamic `apply`, or universal-value operation dispatch. The
+dynamic `apply`, or universal-value operation dispatch. The
 existing parser may recognize forms outside this surface; the strict checker
 rejects unsupported expressions. No benchmark speedup is claimed from
 correctness tests alone.

@@ -230,6 +230,12 @@ available. Declared schemes can break signature cycles; all bodies still check.
 Runtime initializer order stays in the original block sequence. Abstract obligations bound by a generalized
 initializer stay in its template; concrete uses instantiate them. Call operands
 are inferred in source order without using overload candidates to choose widths.
+The checker also reserves closed `define-data` schemas before checking fields,
+then assigns ordinary binding schemes to constructors and optional accessors.
+Exhaustive shallow `match` lowers to the existing typed lets and conditionals,
+with one subject binding. [`strict-data.sld`](src/snail-scheme/strict-data.sld)
+defines nominal applications of resolved declaration identities and substitutes
+their field types; recursive fields retain identities instead of expanding a tree.
 [`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
 supplies complete concrete primitive signatures and opcodes, including unary
 conversions. [`(snail strict)`](src/snail/strict.sld) provides numeric overload
@@ -251,8 +257,12 @@ readiness tokens and payload copies therefore have one definition.
 assigns native signatures and GC layouts, preserves initialization readiness,
 and emits explicit universal-value conversions. Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array
-instructions own bounds and overlapping-copy behavior. Native foreign declarations
-retain their resolved identity in IR. [`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
+instructions own bounds and overlapping-copy behavior. Nominal records use immutable native fields;
+closed sums add a constructor tag and typed case subtypes. The layout registry
+reserves applications before following recursive fields, and accessors explicitly
+check tags because Wasm can canonicalize cases with identical shapes.
+Native foreign declarations retain their resolved identity in IR.
+[`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
 validates the concrete scalar boundary shared by imports and selected worker
 exports; the emitter adapts Unit results without introducing an object carrier.
 [`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
