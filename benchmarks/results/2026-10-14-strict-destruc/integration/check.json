@@ -1,0 +1,23 @@
+{
+  "new_sha256": "9f6b1063521eb457e6849e67d0704fdf070182a0dfd3e391ab80062f7b4be8ff",
+  "frozen_sha256": "59981f469f785d37662e3a60149f8a79b5e4e1c2bbaf94aaf30d347977717832",
+  "byte_identical": false,
+  "execution": {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-strict-destruc-preparation-20261014-r3/host.mjs",
+      "build/destruc-integration/strict.wasm",
+      "build/destruc-integration/spec.json",
+      "--validate"
+    ],
+    "returncode": 0,
+    "stdout": "{\"seconds\":0.00293777,\"result\":\"1\",\"barriers\":2,\"setup_barriers\":0}\n",
+    "stderr": ""
+  },
+  "publication_basis": "f4027fe073f0aebf287145ce181d0545078860eb",
+  "compiler_basis": "5abc65d44925d8b36ccc0f6b79a1efb98ba8051a",
+  "wat_matches_after_generated_name_renaming": true,
+  "normalization": "Subtract2 from generated type IDs >=27 and from generated call type IDs. No instructions, fields or control flow changed.",
+  "normalized_wat_sha256": "0d433ef3455f1a7e7b26c42dcf3e4c3b9e2ea7f5a81a85fe81d7e94929a5d1ae",
+  "scope": "Current-stack linked Wasm integration and static comparison; not a performance sample."
+}

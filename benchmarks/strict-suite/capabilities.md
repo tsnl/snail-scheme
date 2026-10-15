@@ -3,11 +3,12 @@
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
 `capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `fbb3972`: result-context overloads, `Default T`, rank-one
+compiler basis is `5abc65d`: result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
 calls to nonescaping local procedures and structured operators, plus direct captures
 of initialized let values, are implemented. Native Unicode strings have
-checked mutable storage and Scheme append/copy helpers. Mutable bindings use
+checked owned blocks and Scheme append/copy helpers; measured short-string
+overhead remains under investigation. Mutable bindings use
 explicit `Ref` cells. Symbols, general mutable
 pairs, first-class continuations and a full numeric tower are still outside this
 strict subset. Representation support alone does not establish a completed port.
@@ -19,9 +20,12 @@ Chez controls and Rust/Wasm in the
 Deriv and complex Mandelbrot have additional four-system measurements in the
 [runtime comparison report](../results/2026-10-14-strict-runtime-comparisons/README.md),
 which also records callback and collector-policy ablations.
-String has a [four-system comparison](../results/2026-10-14-strict-string-comparison/README.md)
-and separate allocation diagnostics. Later [String storage controls](../results/2026-10-14-string-storage/README.md)
-compare element width, fresh buffers and zeroing. Puzzle now has its
+String has a [bounded-storage comparison](../results/2026-10-14-string-block-comparison/README.md):
+the original workload improves 5.04×, with Unicode and fresh copies preserved.
+[Size controls](../results/2026-10-14-string-size-controls/README.md) disclose
+2–22% overhead for smaller growth/copy inputs. Its [same-Wasm executor comparison](../results/2026-10-14-string-block-native-comparison/README.md)
+now favors V8 over archived LLVM/Immix by 2.27×. The earlier [storage controls](../results/2026-10-14-string-storage/README.md)
+separate element width, fresh buffers and zeroing. Puzzle now has its
 [complete four-system comparison](../results/2026-10-14-strict-puzzle-comparison/README.md).
 Lattice has a [full-count four-system comparison](../results/2026-10-14-strict-lattice-comparison/README.md)
 with its mutable-list/closure and Rust vector/enum/Rc differences disclosed.
@@ -53,7 +57,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
-| string | Measured original 100 × 10-trial growth/copy workload: 3.110× original Chez time, 3.472× adapted Chez and 86.661× Rust/Wasm. Four-byte Unicode-scalar GC arrays and fresh appends differ from Rust UTF-8 storage and buffer reuse. Complete payload/alias checks and original final predicate retained. Wide Chez ranges and separate kernel CPU/page-fault diagnostics are disclosed. |
+| string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
 | sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
 | tail | Line/string file input and output, EOF and a list of strings; preserve reverse-file behavior. |
 | read1 | General datum reader and file ports, EOF and heterogeneous parsed data. |

@@ -53,8 +53,10 @@ Later strict ports and their measurement checkpoints are tracked in the
 problem 44 and result 120549, with source/storage differences documented. The
 [Puzzle report](results/2026-10-14-strict-puzzle-comparison/README.md) records
 1.157× original Chez time and 2.434× Rust/Wasm time. The
-[String storage controls](results/2026-10-14-string-storage/README.md) compare
-element width, fresh buffers and zeroing, with separate allocation diagnostics.
+[String block comparison](results/2026-10-14-string-block-comparison/README.md)
+improves the original Unicode workload 5.04×. Separate
+[size controls](results/2026-10-14-string-size-controls/README.md) expose 2–22%
+overhead on smaller growth/copy inputs; the representation remains under review.
 The preceding
 [runtime comparison report](results/2026-10-14-strict-runtime-comparisons/README.md)
 adds full symbolic differentiation and complex Mandelbrot, plus callback and
@@ -62,7 +64,9 @@ collector-policy ablations.
 
 The [restored LLVM/Immix comparison](results/2026-10-14-current-wasm-llvm/README.md)
 runs four current optimized Wasm artifacts on both V8 and native LLVM. It records
-three native wins, one V8 win, and the archived emitter/capacity failures. The
+three native wins, one V8 win, and the archived emitter/capacity failures at that
+checkpoint. A later [String layout comparison](results/2026-10-14-string-block-native-comparison/README.md)
+changes that workload's winner: V8 runs the improved Wasm 2.27× faster. The
 restored emitter remains an isolated experiment.
 
 ## Compiler throughput
