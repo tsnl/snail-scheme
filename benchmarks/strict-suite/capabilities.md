@@ -10,8 +10,8 @@ of initialized let values, are implemented. Native Unicode strings have
 checked owned blocks and Scheme append/copy helpers; measured short-string
 overhead remains under investigation. Mutable bindings use
 explicit `Ref` cells. The typed datum and reader libraries now provide symbols,
-mutable datum pairs and incremental input; their structural equality covers
-finite acyclic data. The immutable Integer library now supplies exact
+mutable datum pairs and incremental input; structural equality now covers
+finite cyclic graphs and shared data with explicit traversal state. The immutable Integer library supplies exact
 arbitrary-precision arithmetic over specialized I32 limbs. The datum reader's
 exact numbers remain bounded to I64; rational numbers and first-class
 continuations remain outside this strict subset. Representation support alone
@@ -171,7 +171,7 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | nboyer | Symbolic term/lemma trees, heterogeneous associations and mutable pairs; preserve rewrite-count check, not only the boolean theorem result. Kernel definitions follow its harness definition. |
 | sboyer | Symbolic terms and sharing-cons structures with heterogeneous data; preserve rewrite-count check and sharing behavior. Kernel definitions follow its harness definition. |
 | gcbench | Correctness validated; timing blocked by lost live-heap overlap. Top-down mutation and bottom-up construction are preserved with two child Ref cells per node and one empty sentinel per invocation. Optimized code retains the array but releases the intended long-lived tree early. |
-| equal | Recursive heterogeneous trees and cyclic mutable pairs; requires cycle-safe structural equality and symbols, including improper tails. |
+| equal | Full pinned source port with reusable cycle-aware datum equality. Retains shared DAG parameter 100, unshared tree height 8, vectors 1000, shallow lists 2000, and deep car-chain 5000 with all original repetitions. Original cyclic case stays disabled in the clean workload and runs in separate probes. Private recursive-view IDs support query-local pair memoization without changing Ref or vector storage; coprime-cycle product and deterministic hash-collision worst cases are disclosed. Clean timing pending. |
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current

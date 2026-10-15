@@ -3,7 +3,7 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, and `browse`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, and `equal`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -23,6 +23,32 @@ Later ports record their library prerequisites separately. Tail adds scalar
 text-file input to the existing strict I/O library.
 Nucleic adds scalar binary64 sine, cosine and unary arctangent to `(snail math)`;
 both production targets call the same Rust implementations.
+
+`equal` uses the complete pinned source and inputs `100, 100, 8, 1000, 2000,
+5000, #t`, with one outer harness invocation. Its five enabled cases retain all
+100, 8, 1000, 2000 and 5000 equality calls. The defined circular-list case is
+still commented out in the clean aggregate. Separate probes execute that case,
+check the complete graph shapes and sharing, and count every equality call.
+The source predicate remains `(eq? result #t)`; the final input datum is read
+but unused, as upstream specifies. Preparation checks zero-repetition phase
+failures, then separately introduces a real unequal operand in each phase and
+checks its one-call prefix and false aggregate. Mutation, alias, cyclic-mismatch
+and depth tests execute on linked raw Wasm, optimized Wasm and native.
+
+Shape probes count every pair occurrence and check the intended shared spines.
+Unshared construction also relies on the preserved recursive algorithm and
+`datum-cons` allocating two fresh Ref cells per call; adjacent sibling checks
+alone are not a global identity census. A separate native collection probe
+compares the full workload's post-return live bytes/object count with the same
+module's setup-only footprint.
+
+The adapted Chez control executes the exact Scheme datum/equality bodies and
+adapted workload. Its record representation differs from strict WasmGC. The
+unchanged Rust control uses immutable `Rc` pairs/vectors and a pointer-pair
+`HashSet`, with different constructors and destruction. These controls compare
+implementations, without an equal-allocation or isolated-collector claim.
+Use `--benchmarks equal` for correctness/control preparation; clean timing
+requires a separately coordinated frozen plan, as for the reader and Browse.
 
 ## Run
 
