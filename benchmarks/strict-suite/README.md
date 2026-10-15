@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-nine original R7RS kernels to the strict compiler:
+This diagnostic adapts thirty original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, and `lattice`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, and `destruc`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -546,3 +546,42 @@ shared elements, untouched input spines, and append's final-tail identity.
 Counts 1, 2 and 10 execute the complete canonical workload in all four forms;
 wrong expected results are rejected. These probes and optimized-work diagnostics
 remain outside the canonical artifact and clean measurements.
+
+Select `--benchmarks destruc` for the original 4,000 calls to `destructive(600,50)`.
+Each call constructs ten outer nodes, refills empty rows, marks inner prefixes,
+detaches left suffixes and attaches them to the next row. The final predicate
+compares all ten rows and every item, including list termination. Both scalar
+inputs pass through returned opaque values on every invocation. Expected data
+decodes before timing; the final comparison stays inside the workload. Zero and
+negative repeat counts compare the original initial false result without calling
+the kernel or hiding inputs.
+
+A parametric mutable-list variant supplies fresh head and tail Ref cells.
+The two concrete instances hold rows and items; items distinguish integers from
+the empty-list datum. General list operations and append have rigid `All`
+contracts. This represents the original proper-list operations with additional
+Ref, item-variant and empty objects; physical layouts and allocations differ from
+Scheme pairs. It adds no compiler capability or dynamic fallback. The bounded
+input adapter accepts nonnegative I64 `n,m` and an expected `#f` or proper nested
+rows of I64/empty-list items; it is not a general Scheme datum reader.
+
+Scheme leaves the final `set-cdr!` operand order unspecified. Compiled original
+and adapted Chez diagnostic traces evaluate the left-row split before locating
+and marking the right-row target. A narrow `let*` makes that order explicit in
+the adapted source, retaining both operand bodies exactly. The rows are disjoint,
+so either permitted operand order produces the same complete node graph; the
+final tail store follows both. The trace evidence concerns instrumented controls,
+not uninstrumented native instruction scheduling. Original Chez source remains
+unchanged, and reversing the recorded representation, sequencing and boundary
+patches recovers its complete source exactly.
+
+Separate probes compare full outputs, ordered logical node allocations/stores,
+and snapshots of every allocated node against an independent Python graph model.
+Identity comes from actual Ref locations in strict and pair identity in Chez.
+The diagnostic registries retain abandoned suffixes and cleared singleton rows;
+they do not enter the canonical module. Small cases cover empty rows, empty-list
+items, odd/even splits, later refills and consecutive calls with fresh nodes.
+The complete canonical output is also observed separately. Predicate probes
+reject changed late items, item tags, inner/outer lengths and false expectations.
+Counts 1, 2 and 4,000 run the original workload in raw/optimized Wasm and both
+Chez forms. No clean measurement is produced during preparation.

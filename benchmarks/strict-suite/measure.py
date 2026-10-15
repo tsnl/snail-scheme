@@ -27,16 +27,17 @@ import mbrotz_port
 import string_port
 import puzzle_port
 import lattice_port
+import destruc_port
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft', 'quicksort', 'paraffins', 'gcbench', 'graphs', 'mperm', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
 DATA_PORTS = ('paraffins', 'gcbench')
 ENUMERATION_PORTS = ('graphs', 'mperm')
-MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice') + DATA_PORTS + ENUMERATION_PORTS
+MATCHED_PORTS = NEXT_PORTS + ('fft', 'quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc') + DATA_PORTS + ENUMERATION_PORTS
 FLOATS = ('fibfp', 'sumfp')
 FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
@@ -87,6 +88,8 @@ def input_values(text):
 
 
 def case_specification(name, data):
+    if name == 'destruc':
+        return destruc_port.specification(data)
     if name == 'puzzle':
         return puzzle_port.specification(data)
     if name == 'string':
@@ -191,6 +194,8 @@ def kernel_source(name, source):
         source = mbrotz_port.kernel(source)
     elif name == 'string':
         source = string_port.kernel(source)
+    elif name == 'destruc':
+        source = destruc_port.kernel(source)
     elif name == 'lattice':
         source = lattice_port.kernel(source)
     elif name in NEXT_PORTS:
@@ -409,6 +414,8 @@ def quicksort_input_bindings():
 
 
 def input_bindings(name, spec):
+    if name == 'destruc':
+        return destruc_port.INPUTS
     if name == 'deriv':
         return deriv_port.INPUT_BINDINGS
     if name == 'quicksort':
@@ -451,6 +458,8 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
+    if name == 'destruc':
+        return destruc_port.WORKER
     if name == 'lattice':
         return lattice_port.WORKER
     if name == 'puzzle':
@@ -501,6 +510,8 @@ def strict_program(name, spec, upstream):
         prelude += mbrotz_port.strict_prelude()
     if name == 'puzzle':
         prelude = puzzle_port.control_prelude(prelude) + puzzle_port.STRICT_TYPES + puzzle_port.COMMON
+    if name == 'destruc':
+        prelude = puzzle_port.control_prelude(prelude) + destruc_port.STRICT_TYPES + destruc_port.COMMON
     if name == 'lattice':
         prelude += lattice_port.STRICT_TYPES + lattice_port.COMMON
     if name == 'fft':
@@ -695,7 +706,7 @@ def quicksort_validation_specifications(spec):
 def validation_specifications(spec):
     if spec['name'] in ENUMERATION_PORTS:
         return [('canonical-count', spec)]
-    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
+    if spec['name'] in ('simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc'):
         return [(str(count), dict(spec, count=count)) for count in (1, 2, spec['count'])]
     if spec['name'] == 'quicksort':
         return quicksort_validation_specifications(spec)
@@ -742,7 +753,8 @@ CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-get cell) (vector-ref cell 0))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
-CHEZ_HELPERS = dict(puzzle=CHEZ_REF_HELPERS + puzzle_port.CHEZ_RESULTS + puzzle_port.COMMON,
+CHEZ_HELPERS = dict(destruc=destruc_port.CHEZ_TYPES + destruc_port.COMMON + destruc_port.CHEZ_BOUNDARY,
+                   puzzle=CHEZ_REF_HELPERS + puzzle_port.CHEZ_RESULTS + puzzle_port.COMMON,
                    lattice=lattice_port.CHEZ_TYPES + lattice_port.COMMON,
                    string=CHEZ_REF_HELPERS, paraffins=data_ports.PARAFFINS_CHEZ,
                    simplex=CHEZ_REF_HELPERS + simplex_port.CHEZ_RESULTS,
@@ -792,6 +804,8 @@ def matched_chez_source(name, directory):
         adapted = replace_exact(adapted, '(vector-map values v)', '(map-vector-elements values v)')
     if name == 'simplex':
         adapted = replace_exact(adapted, '(equal? result output)', '(equal? (simplex-original-value result) output)')
+    if name == 'destruc':
+        adapted = destruc_port.adapt_harness(adapted)
     if name == 'deriv':
         adapted = deriv_port.adapt_chez_harness(adapted)
     if name == 'string':
@@ -802,6 +816,8 @@ def matched_chez_source(name, directory):
         restored = replace_exact(restored, '(map-vector-elements values v)', '(vector-map values v)')
     if name == 'simplex':
         restored = replace_exact(restored, '(equal? (simplex-original-value result) output)', '(equal? result output)')
+    if name == 'destruc':
+        restored = destruc_port.adapt_harness(restored, reverse=True)
     if name == 'deriv':
         restored = deriv_port.adapt_chez_harness(restored, reverse=True)
     if name == 'string':
@@ -843,7 +859,7 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
+    if name in ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc'):
         patch = difflib.unified_diff((directory / 'program.scm').read_text().splitlines(True), adapted.splitlines(True),
                                      fromfile='original-program', tofile='adapted-program')
         (directory / 'complete-source-adaptation.patch').write_text(''.join(patch))
@@ -856,8 +872,10 @@ def prepare_adapted_chez(name, directory, runner, environment):
     else:
         build_chez(control, runner, environment, 'build.json')
     save(directory / 'source-proof.json', dict(kernel_exact_match=True,
-         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string', 'puzzle'),
-         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string', 'puzzle'),
+         complete_source_only_kernel_edits_and_helpers=name not in ('quicksort', 'simplex', 'deriv', 'string', 'puzzle', 'destruc'),
+         result_representation_predicate_adapter=name in ('simplex', 'deriv', 'string', 'puzzle', 'destruc'),
+         expected_datum_setup_adapter=name == 'destruc',
+         explicit_splice_operand_order=name == 'destruc',
          input_datum_and_initial_false_adapters=name == 'deriv',
          scalar_initial_false_adapter=name == 'string',
          local_escape_boolean_adapter=name == 'puzzle',
@@ -881,7 +899,7 @@ def chez_validation_inputs(directory, runner, spec):
     if spec['name'] == 'pnpoly':
         vector = '#(' + ' '.join(['0.0'] * 20) + ')\n'
         probes.append(('zero-vectors', '1\n' + vector + vector + '0\n'))
-    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice'):
+    if spec['name'] in ('quicksort', 'paraffins', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc'):
         probes.append(('canonical-count', original.decode()))
     return probes
 
@@ -1788,6 +1806,63 @@ def validate_lattice_outputs(directory, runner, tools, environment):
     validate_lattice_harness(directory, runner, tools, environment)
 
 
+def build_destruc_probes(directory, runner, tools, environment):
+    for adapted in (False, True):
+        target = directory / ('probe-adapted-chez' if adapted else 'probe-original-chez')
+        target.mkdir()
+        kernel = (directory / ('adapted-kernel.scm' if adapted else 'original-kernel.scm')).read_text()
+        (target / 'program.scm').write_text(destruc_port.chez_probe(kernel, adapted))
+        build_chez(target, runner, environment, 'build.json')
+    target = directory / 'probe-strict'
+    target.mkdir()
+    (target / 'strict.scm').write_text(destruc_port.strict_probe((directory / 'adapted-kernel.scm').read_text(), PRELUDE))
+    (target / 'host.mjs').write_text(destruc_port.PROBE_HOST)
+    save(target / 'spec.json', dict(name='destruc-probe', export='probe'))
+    build_strict(target, tools, environment)
+
+
+def destruc_probe_observations(directory, tools, environment, case):
+    label, observations = '-'.join(map(str, case)), []
+    for system in ('original', 'adapted'):
+        target = directory / ('probe-' + system + '-chez')
+        record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment,
+                         stdin=' '.join(map(str, case)))
+        save(target / f'case-{label}.json', record)
+        require_success(record)
+        observations.append(list(map(int, record['stdout'].split())))
+    target = directory / 'probe-strict'
+    for suffix in ('.raw.wasm', ''):
+        record = execute([tools['NODE'], target / 'host.mjs', target / ('strict.wasm' + suffix), *case], target, environment)
+        save(target / f'case-{label}{suffix or ".optimized"}.json', record)
+        require_success(record)
+        observations.append(json.loads(record['stdout']))
+    return observations
+
+
+def validate_destruc_harness(directory, runner, tools, environment):
+    for label, data, accepted in destruc_port.harness_fixtures():
+        spec = destruc_port.specification(data.encode())
+        validate_data_wasm_probe(directory, tools, environment, spec, label, accepted)
+        for target in (directory, directory / 'same-source-chez'):
+            record = execute([tools['CHEZ'], '--program', target / 'program.so'], target, environment, stdin=data)
+            save(target / f'chez-validation-{label}.json', dict(record, stdin=data, accepted=accepted))
+            require_success(record)
+            if record['stderr'] or (runner.parse_result(record['stdout'], 'chez', 'destruc')['status'] == 'ok') != accepted:
+                raise ValueError('destruc full predicate or initial false differs')
+
+
+def validate_destruc_outputs(directory, runner, tools, environment):
+    build_destruc_probes(directory, runner, tools, environment)
+    for case in destruc_port.fixtures():
+        expected = destruc_port.oracle(*case)[1]
+        observations = destruc_probe_observations(directory, tools, environment, case)
+        save(directory / ('probe-oracle-' + '-'.join(map(str, case)) + '.json'),
+             dict(expected=expected, observations=observations))
+        if any(actual != expected for actual in observations):
+            raise ValueError('destruc full values, ordered mutations or node graph differ: ' + str(case))
+    validate_destruc_harness(directory, runner, tools, environment)
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
@@ -1823,9 +1898,11 @@ def prepare_case(name, files, output, runner, tools, environment):
         validate_puzzle_outputs(directory, runner, tools, environment)
     if name == 'lattice':
         validate_lattice_outputs(directory, runner, tools, environment)
+    if name == 'destruc':
+        validate_destruc_outputs(directory, runner, tools, environment)
     status = 'retention-blocked' if name == 'gcbench' else 'ready'
     return dict(name=name, status=status, spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS + ('quicksort', 'simplex', 'deriv', 'mbrotZ', 'string', 'puzzle', 'lattice', 'destruc') + DATA_PORTS + ENUMERATION_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -1861,6 +1938,7 @@ def prepare(options):
     shutil.copy2(HERE / 'string_port.py', options.output / 'string_port.py')
     shutil.copy2(HERE / 'puzzle_port.py', options.output / 'puzzle_port.py')
     shutil.copy2(HERE / 'lattice_port.py', options.output / 'lattice_port.py')
+    shutil.copy2(HERE / 'destruc_port.py', options.output / 'destruc_port.py')
     shutil.copy2(ROOT / 'benchmarks/r7rs.py', options.output / 'r7rs.py')
     sources = [*ROOT.glob('src/**/*.sld'), ROOT / 'scripts/build-strict', ROOT / 'tests/build-strict-program.scm']
     for source in sources:
@@ -1880,6 +1958,7 @@ def prepare(options):
                   string_port_sha256=digest(HERE / 'string_port.py'),
                   puzzle_port_sha256=digest(HERE / 'puzzle_port.py'),
                   lattice_port_sha256=digest(HERE / 'lattice_port.py'),
+                  destruc_port_sha256=digest(HERE / 'destruc_port.py'),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -1953,6 +2032,8 @@ def checked_preparation(output):
         raise ValueError('puzzle port source adapter changed')
     if prepared.get('lattice_port_sha256', digest(HERE / 'lattice_port.py')) != digest(HERE / 'lattice_port.py'):
         raise ValueError('lattice port source adapter changed')
+    if prepared.get('destruc_port_sha256', digest(HERE / 'destruc_port.py')) != digest(HERE / 'destruc_port.py'):
+        raise ValueError('destruc port source adapter changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')

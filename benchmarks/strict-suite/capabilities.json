@@ -35,12 +35,14 @@
     },
     {
       "name": "destruc",
-      "status": "additional-capabilities",
+      "status": "prepared-canonical-source",
       "source_lines": 61,
       "files": {
         "src/destruc.scm": "4582b733af6d449ab5f5ad7aa745e2504b855c37d8355e253bccd6b1f98bd913",
         "inputs/destruc.input": "f9b248ac8534b9740b3df348a58211949c8ae65000f07021fdb6e8a56f946596"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-destruc/README.md",
+      "representation_note": "Two concrete mutable-list instances, fresh head/tail Ref cells and empty/integer item variants preserve complete destructive splices with rigid All helpers. Original 4000 by destructive(600,50), full ten-row predicate, original/adapted Chez, independent graph/order/identity probes and negative expectations pass. Explicit operand order follows the instrumented original Chez control; original Scheme leaves it unspecified. Additional physical Ref/variant costs are disclosed. No compiler change; clean timing pending."
     },
     {
       "name": "puzzle",
