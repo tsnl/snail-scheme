@@ -442,12 +442,16 @@
     },
     {
       "name": "bv2string",
-      "status": "additional-capabilities",
+      "status": "measured-canonical-source",
       "source_lines": 133,
       "files": {
         "src/bv2string.scm": "35f0046a3170258c6ed37aafce34676fada15b6cd4d340fbff92eeb22049b125",
         "inputs/bv2string.input": "d024a11a192c89d8353c52144a35a292077f4a702f9ab262fbaaf52c015ae2a9"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-bv2string-preparation/README.md",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md",
+      "representation_note": "Original 100 invocations, each with one sanity and 1000 random roundtrips, RNG order, three conversions, string comparisons and failure diagnostics remain. Wasm bytevectors use packed i8 arrays; Scheme Strings store Unicode scalars, native arrays use eight-byte slots, and Rust uses owned UTF-8 buffers. The complete internal trace covers one invocation; full-count runs and retained-work inspection support the outer loop.",
+      "note": "All 42 clean processes pass; six retained observations per system. Medians: V8 0.939190951 seconds, native 1.0295864585, original Chez 0.4714261775, adapted Chez 0.473761173, Rust native 0.0266314795 and Rust/Wasm 0.0456596115. V8 takes 1.992 times original Chez time and 20.569 times Rust/Wasm time. All 384 identities remain unchanged; hardware/governor metadata was captured after the campaign. These comparisons do not isolate encoding, collection, ownership or code generation."
     }
   ],
   "compiler_basis": "5abc65d44925d8b36ccc0f6b79a1efb98ba8051a",
@@ -455,8 +459,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 34,
-  "historical_paired_chez_count": 33,
+  "historical_measured_strict_count": 35,
+  "historical_paired_chez_count": 34,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -485,5 +489,6 @@
   "ray_measurement_report": "benchmarks/results/2026-10-14-strict-ray-comparison/README.md",
   "mazefun_measurement_report": "benchmarks/results/2026-10-14-strict-mazefun-comparison/README.md",
   "tail_measurement_report": "benchmarks/results/2026-10-14-strict-tail-comparison/README.md",
-  "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md"
+  "nucleic_measurement_report": "benchmarks/results/2026-10-14-strict-nucleic-comparison/README.md",
+  "bv2string_measurement_report": "benchmarks/results/2026-10-14-strict-bv2string-comparison/README.md"
 }
