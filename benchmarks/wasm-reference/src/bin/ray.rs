@@ -1,4 +1,4 @@
-use r7rs_wasm_reference::{input, report};
+use r7rs_wasm_reference::{Datum, input, report};
 use std::fs::{File, remove_file};
 use std::hint::black_box;
 use std::io::{self, BufWriter, Write};
@@ -166,15 +166,21 @@ fn trace(filename: &str, resolution: usize) -> io::Result<()> {
 
 // ---- Benchmark driver ----
 
+fn matches_result(result: &str, expected: &Datum) -> bool {
+    matches!(expected, Datum::Atom(symbol) if symbol == result)
+}
+
 fn main() -> io::Result<()> {
     let values = input()?;
-    let (count, resolution, filename) = (values[0].number(), values[1].number(), values[2].atom());
+    let (count, resolution, filename) = (values[0].integer(), values[1].number(), values[2].atom());
     let start = Instant::now();
+    let mut result = "#f";
     for _ in 0..count {
         trace(black_box(filename), black_box(resolution))?;
+        result = "ok";
     }
-    assert_eq!(values[3].atom(), "ok");
-    report("ray", count, start, "ok");
+    assert!(matches_result(result, &values[3]), "incorrect Ray result");
+    report("ray", count, start, result);
     Ok(())
 }
 
@@ -183,6 +189,18 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn supplied_expectation_preserves_symbol_and_false_values() {
+        assert!(matches_result("ok", &Datum::Atom("ok".into())));
+        assert!(matches_result("#f", &Datum::Atom("#f".into())));
+        assert!(!matches_result("ok", &Datum::String("ok".into())));
+        assert!(!matches_result("#f", &Datum::String("#f".into())));
+        assert!(!matches_result("#f", &Datum::Atom("ok".into())));
+        assert!(!matches_result("ok", &Datum::Atom("wrong".into())));
+        assert!(!matches_result("ok", &Datum::List(Vec::new())));
+    }
+
     #[test]
     fn closest_root_hit_and_missing_surface() {
         assert_eq!(minimum_root(1.0, -5.0, 6.0), Some(2.0));

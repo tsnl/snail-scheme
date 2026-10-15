@@ -256,6 +256,47 @@
       "compare_files": [
         "outputs/ray.output"
       ]
+    },
+    {
+      "name": "expected-symbol-kind",
+      "input": "1\n1\n\"outputs/ray.output\"\n|ok|\n",
+      "wrong": "1\n1\n\"outputs/ray.output\"\n\"ok\"\n",
+      "wrong_meaning": "The expected string ok is distinct from the returned symbol ok.",
+      "compare_files": [
+        "outputs/ray.output"
+      ]
+    },
+    {
+      "name": "zero-count-initial-false",
+      "input": "0\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "0\n1\n\"outputs/ray.output\"\nok\n",
+      "wrong_meaning": "No invocation leaves the original harness result false.",
+      "files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:0,"
+      ]
+    },
+    {
+      "name": "negative-count-initial-false",
+      "input": "-1\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "-1\n1\n\"outputs/ray.output\"\n\"#f\"\n",
+      "wrong_meaning": "False is not the expected string #f; signed count labels are preserved.",
+      "files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:-1,"
+      ]
     }
   ],
   "simplex": [
