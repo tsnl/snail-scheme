@@ -150,10 +150,17 @@ static uint64_t *allocate_large(size_t bytes) {
     return header ? header : find_large(0, search_large, span);
 }
 
-static uint64_t *allocate_header(size_t bytes) {
+static __attribute__((noinline)) uint64_t *allocate_slow(size_t bytes) {
     if (bytes > BLOCK_SIZE) return allocate_large(bytes);
-    if (!cursor || (size_t)(limit - cursor) < bytes)
-        if (!acquire_hole(bytes)) return NULL;
+    if (!acquire_hole(bytes)) return NULL;
+    uint64_t *header = (uint64_t *)cursor;
+    cursor += bytes;
+    return header;
+}
+
+static uint64_t *allocate_header(size_t bytes) {
+    // Each bump range stays inside one block, so large requests always miss.
+    if (!cursor || (size_t)(limit - cursor) < bytes) return allocate_slow(bytes);
     uint64_t *header = (uint64_t *)cursor;
     cursor += bytes;
     return header;
