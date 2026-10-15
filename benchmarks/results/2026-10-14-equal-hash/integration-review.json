@@ -1,0 +1,50 @@
+{
+  "source_basis": {
+    "commit": "da8519f83f54dabb9cbfef1297bb46a29d7683b7",
+    "source_byte_identical": true,
+    "parameters": [
+      100,
+      100,
+      8,
+      1000,
+      2000,
+      5000
+    ],
+    "input_sha256": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03",
+    "strict_sha256": "4dce5ea34e37d9f789283f32b4ba0e326c6e0544122b114eab0dd800f6c8cc04"
+  },
+  "canonical_parameters": [
+    100,
+    100,
+    8,
+    1000,
+    2000,
+    5000
+  ],
+  "canonical_results": {
+    "raw": 1,
+    "optimized": 1,
+    "native": 1
+  },
+  "datum_results": {
+    "raw": 42,
+    "optimized": 42,
+    "native": 42
+  },
+  "actual_tool_session": 82786,
+  "actual_tool_terminal": {
+    "chunk_id": "89f3f7",
+    "exit_code": 0
+  },
+  "optimized_production_wasm_identical_to_measured_candidate": true,
+  "artifact_sha256": {
+    "strict.scm": "4dce5ea34e37d9f789283f32b4ba0e326c6e0544122b114eab0dd800f6c8cc04",
+    "input.txt": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03",
+    "strict-native.wasm": "65536074ef36311c5ba9d1fbf0dbe1c5a36476f5981033c426d84632ddf3ee6a",
+    "raw.wasm": "7658f5c5bdc891eee19b8640321a359917bc828357de5e78498363699b8ff3bd",
+    "optimized.wasm": "40e7d1e3742d8d43fea3226298a5ba18751f2480cb2747f2f5c0ee8660d91735",
+    "native": "cbbf8cbedcfa31755177762b5e6cb2de7e81a4917070dfd2e359aeb54102a7e9"
+  },
+  "performance_samples": false,
+  "scope": "Fresh integration correctness with growing native collector; frozen timing comparison retains its earlier collector basis. These post-archive checks are outer report metadata."
+}

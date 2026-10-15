@@ -1,0 +1,8 @@
+{
+  "post_freeze_source_commit": "86fcb332d6b0ca76bf5345fdaa4a3b488abbc5a5",
+  "source_files_checked": 466,
+  "compiled_source_files_checked": 79,
+  "measured_candidate_bytes_unchanged": true,
+  "provenance": "Candidate was uncommitted at freeze and clean measurement. This later commit contains exactly the frozen candidate source snapshot; it does not relabel the measurement as a fresh committed-source build.",
+  "scope": "Source identity only, no guest execution. Original dirty source provenance remains in the frozen plan and archive."
+}
