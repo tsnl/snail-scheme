@@ -96,13 +96,13 @@ def link(options):
     check_exports(disassemble(source, Path(str(output) + '.input.wat'), records, log))
     provider = runtime(options, records, log)
     linked = merge(source, provider, output, records, log)
-    prune(linked, output, options.raw, records, log)
+    prune(linked, output, options.diagnostic_prune_only, records, log)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', type=Path, help='reuse a prebuilt Rust runtime')
-    parser.add_argument('--raw', action='store_true', help='prune exports without optimizing Scheme code')
+    parser.add_argument('--diagnostic-prune-only', action='store_true', help='TEST ONLY: retain unoptimized Wasm as a diagnostic intermediate')
     parser.add_argument('source', type=Path)
     parser.add_argument('output', type=Path)
     link(parser.parse_args())
