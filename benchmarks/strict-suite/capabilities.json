@@ -588,11 +588,12 @@
     "wc"
   ],
   "coverage_exclusions": {
-    "ack": "Prior default-stack failure; larger-stack diagnostic excluded.",
+    "ack": "Current raw/optimized Wasm and native64 pass the original full input without stack flags. Clean timing pending; historical failed optimized artifact retained. Recursive Rust/Wasm still fails the default stack, while its separately labeled heap-frame control passes.",
     "gcbench": "Correctness ready; intended live-heap retention unproven, no timing.",
     "cat": "Measured strict worker, without same-window Chez comparison."
   },
   "earley_measurement_report": "benchmarks/results/2026-10-14-strict-earley-comparison/README.md",
   "matrix_measurement_report": "benchmarks/results/2026-10-14-strict-matrix-comparison/README.md",
-  "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md"
+  "reader_measurement_report": "benchmarks/results/2026-10-14-strict-reader-comparison/README.md",
+  "ack_preparation_report": "benchmarks/results/2026-10-14-strict-ack-preparation/README.md"
 }
