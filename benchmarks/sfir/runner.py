@@ -447,8 +447,9 @@ def fft_provider(directory, target, manifest, environment, wasm):
 def integer_validation(directory, source, target, manifest, environment, native):
     if native:
         built = integer_native_build(directory, source, target, manifest, environment)
-        if not succeeded(built):
-            return 'failed-build'
+        parity = native_build_status(target, built, load(target / 'status.json'))
+        if parity != 'passed':
+            return parity
     working = execution_directory(directory, target, 'sfir-native' if native else 'sfir-wasm')
     command = ([target / 'program.native', target / 'native-input.txt'] if native else
                [manifest['tools']['NODE']['path'], directory / 'source/benchmarks/sfir/support/integer-host.mjs',
@@ -465,9 +466,59 @@ def integer_native_build(directory, source, target, manifest, environment):
     (target / 'native-input.txt').write_text(data + '\n' + '\n'.join(spec['expected']) + '\n')
     command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
                '--entry-c', target / 'integer-entry.c', '--c-provider', 'benchmark', target / 'integer-provider.h',
-               target / 'integer-provider.c', target / 'program.wasm', target / 'program.native']
+               target / 'integer-provider.c', target / 'program.wasm.raw.wasm', target / 'program.native']
     return record(target, 'native-build', command, environment, target, manifest['config']['compile_timeout'])
 
+
+# ---- Both targets must consume the same optimized guest program ----
+
+def native_artifact_files(target):
+    paths = [target / name for name in ('program.wasm.raw.wasm', 'program.wasm', 'program.native')]
+    for attempt in sorted(target.glob('program.native.native-*')):
+        paths += [attempt / name for name in ('optimized.wasm', 'module.ll', 'build.json', 'build.scm')]
+    if any(path.is_symlink() for path in paths):
+        raise ValueError('native build artifacts must be ordinary files')
+    return {str(path.relative_to(target)): digest(path) for path in paths if path.is_file()}
+
+
+def native_optimizer_output(target, files):
+    attempts = list(target.glob('program.native.native-*'))
+    if len(attempts) != 1 or not attempts[0].is_dir() or attempts[0].is_symlink():
+        raise ValueError('native parity requires exactly one retained build attempt')
+    attempt = attempts[0]
+    if str((attempt / 'build.scm').relative_to(target)) not in files:
+        raise ValueError('native parity requires the actual retained build configuration')
+    evidence = load(attempt / 'build.json')
+    paths = [target / 'program.wasm.raw.wasm', target / 'program.native', attempt / 'optimized.wasm', attempt / 'module.ll']
+    for path in paths:
+        if evidence['sha256'].get(str(path.resolve())) != files[str(path.relative_to(target))]:
+            raise ValueError(f'native build evidence does not identify the retained artifact: {path}')
+    return attempt / 'optimized.wasm'
+
+
+def check_native_parity(target, expected, files):
+    verify_files(target, {'program.wasm.raw.wasm': expected['raw_sha256'],
+                          'program.wasm': expected['optimized_sha256']})
+    optimized = native_optimizer_output(target, files)
+    if optimized.read_bytes() != (target / 'program.wasm').read_bytes():
+        raise ValueError('native optimized guest Wasm differs from the V8 program')
+
+
+def native_build_status(target, built, expected):
+    # One evidence transition preserves failed builds as well as rejected parity.
+    report = dict(status='failed-parity' if succeeded(built) else 'failed-build', command=built['command'])
+    try:
+        report['files'] = native_artifact_files(target)
+        if succeeded(built):
+            check_native_parity(target, expected, report['files'])
+            report['status'] = 'passed'
+    except (OSError, ValueError, KeyError) as error:
+        report['reason'] = str(error)
+    save(target / 'native-parity.json', report)
+    return report['status']
+
+
+# ---- Concrete native benchmark configuration ----
 
 def c_array(name, kind, values):
     values = values or [0]
@@ -558,13 +609,14 @@ def native_validation(directory, source, target, manifest, environment):
         return 'unsupported-configuration'
     command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
                '--entry-c', target / 'scalar-entry.c', '--c-provider', 'benchmark',
-               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm', target / 'program.native']
+               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm.raw.wasm', target / 'program.native']
     if source.name == 'fft':
         fft_provider(directory, target, manifest, environment, False)
         command[2:2] = ['--c-provider', 'math', directory / 'source/benchmarks/sfir/support/fft-math.h', target / 'math-provider.o']
     built = record(target, 'native-build', command, environment, target, manifest['config']['compile_timeout'])
-    if not succeeded(built):
-        return 'failed-build'
+    parity = native_build_status(target, built, load(target / 'status.json'))
+    if parity != 'passed':
+        return parity
     return native_execution(directory, source, target, manifest, environment)
 
 
@@ -879,6 +931,58 @@ class FrozenInputTests(unittest.TestCase):
         self.assertTrue(edits['complete_reverse_verified'])
         with self.assertRaises(ValueError):
             select_runtime_exports(text, {'keep', 'drop'}, {'absent'})
+
+
+class NativeParityTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.target = Path(temporary.name)
+        self.attempt = self.target / 'program.native.native-test'
+        self.attempt.mkdir()
+        for path, contents in ((self.target / 'program.wasm.raw.wasm', b'raw'), (self.target / 'program.wasm', b'optimized'),
+                               (self.target / 'program.native', b'executable'), (self.attempt / 'optimized.wasm', b'optimized'),
+                               (self.attempt / 'module.ll', b'LLVM'), (self.attempt / 'build.scm', b'configuration')):
+            path.write_bytes(contents)
+        self.expected = dict(raw_sha256=digest(self.target / 'program.wasm.raw.wasm'), optimized_sha256=digest(self.target / 'program.wasm'))
+        self.built = dict(returncode=0, command=['native-builder', 'program.wasm.raw.wasm'])
+        self.record_build_artifacts()
+
+    def record_build_artifacts(self):
+        paths = [self.target / 'program.wasm.raw.wasm', self.target / 'program.native',
+                 self.attempt / 'optimized.wasm', self.attempt / 'module.ll']
+        save(self.attempt / 'build.json', dict(sha256={str(path): digest(path) for path in paths}))
+
+    def test_matching_native_program_records_exact_inputs_and_output(self):
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'passed')
+        report = load(self.target / 'native-parity.json')
+        self.assertEqual(report['files']['program.wasm'], report['files']['program.native.native-test/optimized.wasm'])
+        self.assertEqual(report['files']['program.wasm.raw.wasm'], self.expected['raw_sha256'])
+        verify_files(self.target, report['files'])
+
+    def test_missing_raw_input_never_substitutes_the_optimized_program(self):
+        (self.target / 'program.wasm.raw.wasm').unlink()
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'failed-parity')
+        self.assertIn('program.wasm.raw.wasm', load(self.target / 'native-parity.json')['reason'])
+
+    def test_successful_native_build_with_different_optimized_bytes_is_rejected(self):
+        (self.attempt / 'optimized.wasm').write_bytes(b'optimized-again')
+        self.record_build_artifacts()
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'failed-parity')
+        self.assertIn('differs from the V8 program', load(self.target / 'native-parity.json')['reason'])
+
+    def test_replaced_executable_or_multiple_builds_cannot_reuse_success_evidence(self):
+        (self.target / 'program.native').write_bytes(b'replaced executable')
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'failed-parity')
+        self.record_build_artifacts()
+        (self.target / 'program.native.native-other').mkdir()
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'failed-parity')
+        self.assertIn('exactly one', load(self.target / 'native-parity.json')['reason'])
+
+    def test_failed_build_is_retained_even_if_old_matching_files_exist(self):
+        self.built['returncode'] = 1
+        self.assertEqual(native_build_status(self.target, self.built, self.expected), 'failed-build')
+        self.assertIn('program.wasm.raw.wasm', load(self.target / 'native-parity.json')['files'])
 
 
 if __name__ == '__main__':
