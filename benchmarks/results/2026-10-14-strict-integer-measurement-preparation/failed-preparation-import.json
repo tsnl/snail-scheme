@@ -1,0 +1,8 @@
+{
+  "command": ["python3", "-I", "-B", "benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py"],
+  "returncode": 1,
+  "error": "ValueError: preparation import loaded outside the frozen directory",
+  "reason": "The frozen supervisor imported data_ports first. The source-regeneration check correctly rejected that cached module because it came from the supervisor directory rather than the separate original frozen preparation directory.",
+  "benchmark_processes_started": 0,
+  "correction": "Source regeneration now runs in a separate isolated Python process and checks all three frozen preparation module origins. The supervisor import closure and origins are still checked in the parent process. No guest, workload command, source or original artifact changed."
+}

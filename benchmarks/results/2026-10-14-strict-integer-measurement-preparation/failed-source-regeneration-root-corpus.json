@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-I",
+    "-B",
+    "/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py",
+    "--audit-sources"
+  ],
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py\", line 230, in <module>\n    main()\n    ~~~~^^\n  File \"/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py\", line 195, in main\n    print(json.dumps(audit_sources(measure)))\n                     ~~~~~~~~~~~~~^^^^^^^^^\n  File \"/tmp/snail-strict-integer-measurement-20261014/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/prepare.py\", line 110, in audit_sources\n    if original != (CORPUS / 'src' / (name + '.scm')).read_text():\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/pathlib/__init__.py\", line 787, in read_text\n    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:\n         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/pathlib/__init__.py\", line 771, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: '/home/nti/Developer/snail-scheme/benchmarks/r7rs-benchmarks/src/pi.scm'\n",
+  "timeout": false,
+  "process_group": 3,
+  "executing_descendants": [],
+  "process_seconds": 0.05760144698433578
+}

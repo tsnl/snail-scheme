@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-I",
+    "-B",
+    "-c",
+    "import subprocess,sys,time,os,signal; child=subprocess.Popen([sys.executable,\"-I\",\"-B\",\"-c\",\"import time; time.sleep(60)\"]); print(child.pid,flush=True); time.sleep(60)"
+  ],
+  "diagnostic_only": true,
+  "pid": 4,
+  "process_group": 4,
+  "status": "running",
+  "returncode": -9,
+  "stdout": "5\n",
+  "stderr": "",
+  "timeout": true,
+  "executing_descendants": [],
+  "process_seconds": 0.22244223300367594,
+  "cleanup": {
+    "process_group": 4,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  }
+}
