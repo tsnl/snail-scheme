@@ -3,7 +3,7 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, and `sboyer`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, and `conform`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -103,6 +103,27 @@ implementations and allocation behavior differ.
 
 Use `--benchmarks nboyer sboyer` for correctness/control preparation. Clean
 timing requires a separately coordinated frozen plan.
+
+`conform` retains the original 500 invocations with names `(a b "c" "d")`
+and the complete ordered 31-string result predicate. Concrete Node, BlueEdge,
+Graph, Table and Row records expose the source's mutable vector and pair fields
+as Refs. Name, unfinished/NONE/ready blue edges, and optional lookup results are
+closed variants. The graph algorithm uses typed functional lists; Datum is
+confined to the input boundary. The original alternating split/merge sort,
+functional sets, copied node-list construction, shared memo tables, insertion
+before recursive construction, and temporary red-edge lifecycle remain.
+
+Preparation executes original Chez and the exact adapted Scheme kernel on Chez,
+raw and optimized Wasm, and mechanical native64. Separate probes compare ordered
+graph/table snapshots, 38 identity/alias/order assertions, and every iteration's
+complete result and 30 work-counter deltas across all 500 invocations. A native
+run lowers the collection threshold to exercise exact tracing during that work.
+The list-copy expression remains verbatim; strict List has no pair-identity
+predicate, so physical list-spine identity is not directly observed. Clean
+artifacts have no probe counters. The unchanged Rust control uses arena indices,
+Vec tables/sets, VecDeque sorting and Rc names, with different allocation and
+reclamation. Use `--benchmarks conform` for preparation; clean timing uses the
+separately frozen seven-system commands and needs a coordinated quiet window.
 
 ## Run
 
