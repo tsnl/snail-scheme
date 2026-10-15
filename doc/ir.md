@@ -238,8 +238,10 @@ Only monomorphic uses, including unannotated recursive references, constrain
 their definition's existing cells.
 
 Strict inference first clones the complete graph of ordered items and primitive
-bindings using one temporary identity map. It reserves each copy before visiting
-its fields, preserving cycles and aliases. Nodes, definitions, schemes, holes,
+bindings using one temporary identity hash table. Lookup does not scan previously
+copied objects, and table iteration never determines traversal order. It reserves
+each copy before visiting its fields, preserving cycles and aliases. Nodes,
+definitions, schemes, holes,
 substitution lists and mutable literal data belong to that compilation; immutable
 source locations and source binder tokens may be shared. Unused initializers are
 roots too. Cached libraries therefore retain unsolved source holes when another
