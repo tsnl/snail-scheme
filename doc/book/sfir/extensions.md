@@ -45,6 +45,10 @@ An overload signature can be inferred; unresolved captures that prevent a stable
 signature are errors. Implementations retain their ordinary initialization
 sites and effects.
 
+A qualified signature can require a family at a complete function type, for
+example `(All (T) (=> ((add (-> T T T))) (-> T T T)))`. This reuses class evidence
+and specialization; it does not introduce runtime dispatch.
+
 ## Standard operations
 
 `(sfir base)` supplies the ordinary numeric and collection operations used in
