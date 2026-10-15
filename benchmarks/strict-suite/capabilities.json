@@ -253,12 +253,14 @@
     },
     {
       "name": "lattice",
-      "status": "additional-capabilities",
+      "status": "prepared-canonical-source",
       "source_lines": 237,
       "files": {
         "src/lattice.scm": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
         "inputs/lattice.input": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
-      }
+      },
+      "preparation_report": "benchmarks/results/2026-10-14-strict-lattice/README.md",
+      "representation_note": "Parametric lattice/binding products, mutable-tail list variants with explicit Ref cells, finite I64 comparison codes, and rigid All contracts preserve all original enumeration, reversal, branch-list and append-sharing operations. Original 10 by run(44), result 120549; original/adapted Chez and complete-poset/order/identity probes pass. No compiler change. Additional Ref/empty objects and layout costs are disclosed; clean timing pending."
     },
     {
       "name": "matrix",

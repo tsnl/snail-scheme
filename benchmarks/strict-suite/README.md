@@ -1,9 +1,9 @@
 # Strict Scheme kernel measurements
 
-This diagnostic adapts twenty-eight original R7RS kernels to the strict compiler:
+This diagnostic adapts twenty-nine original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, and `puzzle`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, and `lattice`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -509,3 +509,40 @@ and checks that the returned value drives the search. Inputs accept decimal I64
 counts/sizes and Boolean-or-I64 expectations; oversized active resets retain
 the original first failing access. The canonical predicate observes the counter,
 so optimized retained-work evidence remains separate from these extra probes.
+
+Select `--benchmarks lattice` for the original ten invocations of `run(44)` and
+the result predicate `120549`. Each invocation constructs the same successive
+lattices, performs all four preliminary counts, then enumerates maps from the
+ten-element lattice to itself. Runtime scalar input passes through the returned
+hiding value. The original `33`, `45`, `54` and `55` branches remain in the source;
+the supplemental `33` check returns `10`. The larger alternatives are not claimed
+to have been executed or to fit I64. Nonpositive repeat counts trap, matching the
+original harness's numeric predicate error on its initial false result.
+
+Parametric lattice and binding products replace the two improper-pair roles.
+A closed mutable-list type carries each proper-list head and an explicit Ref
+tail. Selection retains its fresh reversed accumulator and destructively reverses
+those exact nodes. Both constraint scans, lower-before-upper short-circuit tests,
+mapped branch-result lists, recursive summation and append's final-tail sharing
+remain. Four finite I64 comparison codes replace symbols; membership still
+traverses the two original constant tag lists and yields Bool. Quoted base/tag
+lists are initialized before timing. The outer initializer of `xreverse!` is
+eta-expanded to a function value so its explicit `All` contract satisfies the
+value restriction; its local rotation body is unchanged.
+
+The adapted Chez control shares the complete adapted kernel and list helpers.
+Its list node uses a pair and one-element mutable vector, whereas strict uses
+a concrete variant and Ref. Strict may also allocate explicit empty variants.
+The extra Ref and closure/layout differences preclude equal-allocation claims.
+Preparation reverses the full kernel/helper replacement to recover the original
+Chez source exactly and archives both complete-source and kernel patches.
+
+Separate modules compare every ordered element of the three- and ten-element
+lattices, every comparison pair, and the four preliminary counts. An exhaustive
+Python assignment oracle checks empty, reversed-source and diamond-poset maps.
+Original/adapted Chez and raw/optimized Wasm agree on comparator callback traces,
+selector/map callback ordering, short-circuiting, original reverse-node identity,
+shared elements, untouched input spines, and append's final-tail identity.
+Counts 1, 2 and 10 execute the complete canonical workload in all four forms;
+wrong expected results are rejected. These probes and optimized-work diagnostics
+remain outside the canonical artifact and clean measurements.
