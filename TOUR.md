@@ -78,8 +78,9 @@ and its class evidence.
 [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) checks every body, including
 unused functions, on an owned copy of the resolved graph. Each lexical block
 builds direct dependencies once and groups mutually recursive bindings. Group
-members retain source order. Overload-row readiness is checked separately as
-signatures become known; this never reorders runtime initializers. Mutable
+members retain source order. Every overload row supplies an explicit signature,
+so checking can use the complete family before checking implementation bodies.
+There is no separate scheduler for inferred overload rows. Mutable
 allocations obey the value restriction. Concrete calls have positional arguments
 and an optional typed rest parameter. Declared initializer proofs retain their
 lexical scope until enclosing monotypes settle. Their own quantified requirements
