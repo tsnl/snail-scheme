@@ -147,6 +147,21 @@ on Rust/Wasm. Native takes 1.901276 s, or 2.713× V8 time on the identical final
 Wasm. All 56 complete runs pass. The full ordered results, original repetition
 count and separate Rust algorithm/layout differences are recorded.
 
+The [native Matrix attribution](results/2026-10-14-strict-matrix-native-diagnostics/README.md)
+finds that 99.88% of allocation requests use an existing bump range, while native
+code still calls a large reservation helper for each object. Two sampling
+methods place about 51–57% of native samples in allocator/header/memset paths;
+collection phase clocks account for about 12% in a separate diagnostic run.
+
+The [allocation-path comparison](results/2026-10-14-native-allocation-path/README.md)
+separates those searches so LLVM can inline the bump operation. Matrix improves
+from 1.899358 s to 1.685207 s, 11.27%, while V8 takes 0.704987 s on the same
+Wasm. The bytevector control, including the later scalar/readiness improvements,
+changes from 0.901071 s to 0.904118 s, 0.34% slower; V8 takes 0.647106 s.
+A separate `cold`-attribute variant regressed bytevectors more and was omitted.
+All 114 planned processes passed, with source, counts, negative results and
+machine code retained. These are two-workload measurements, not a suite rerun.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling

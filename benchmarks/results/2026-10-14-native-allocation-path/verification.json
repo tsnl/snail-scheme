@@ -1,0 +1,43 @@
+{
+  "complete": true,
+  "campaigns": [
+    {
+      "workload": "matrix",
+      "phase": "initial",
+      "samples": 21,
+      "retained": 18,
+      "plan_sha256": "6030c16226a41d5058467c1fef4a5592470d7ea1f757a43a0dddf2184bad959e",
+      "identities_verified": 16,
+      "policy_stable": true
+    },
+    {
+      "workload": "matrix",
+      "phase": "-attribute",
+      "samples": 36,
+      "retained": 32,
+      "plan_sha256": "a25ae19f930f45a0b7a86a7be3c6a8273d62f4494fd2146ac3148951b19efc0d",
+      "identities_verified": 17,
+      "policy_stable": true
+    },
+    {
+      "workload": "bv2string",
+      "phase": "initial",
+      "samples": 21,
+      "retained": 18,
+      "plan_sha256": "508b02fa0e3ff8c6037e38cef826421128e65edc36d8a9db740be62c873d519c",
+      "identities_verified": 16,
+      "policy_stable": true
+    },
+    {
+      "workload": "bv2string",
+      "phase": "-attribute",
+      "samples": 36,
+      "retained": 32,
+      "plan_sha256": "330148f7a0def3c33cf7df113ad8e7d7f120d93d5fa9598eaa9cf3e343d589f3",
+      "identities_verified": 17,
+      "policy_stable": true
+    }
+  ],
+  "processes": 114,
+  "retained": 100
+}
