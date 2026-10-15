@@ -73,7 +73,7 @@ and an independent simplify review passed at checkpoint `2c04755`.
 ## Preserved evidence
 
 - [Clean runs](clean.json) and [linked checks](validation.json).
-- [Frozen archive](artifacts.tar.gz), hashed by [manifest](manifest.json).
+- [Frozen archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-cat-scalar-extern/artifacts.tar.gz), hashed by [manifest](manifest.json).
 - [Earlier cat profiling and EOF-array ablation](../2026-10-13-cat-abi/README.md).
 - [Five Rust/Wasm references and Chez controls](../2026-10-13-wasm-five-reference/README.md).
 

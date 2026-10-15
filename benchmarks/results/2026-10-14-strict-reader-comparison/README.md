@@ -65,7 +65,7 @@ Upstream suite revision is `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`.
 
 The corrected [plan](../2026-10-14-strict-reader-timing-correction/timing-plan.json)
 has SHA-256 `f23d33d0620bc56698f4519aa4b2e03e9e11e5440d1c9fd4e1417e6a5eaf90f3`;
-its [runner](../2026-10-14-strict-reader-timing-correction/measure-seven.py) has
+its [runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-timing-correction/measure-seven.py) has
 SHA-256 `e2ddab6bec989227cf9b639fd98f16ad75dfced6e11b414395a2ca3d0645ccfd`.
 It verifies 111 identities before every sample and after the campaign. These
 include the selected executables, both native-final modules, generated LLVM,
@@ -205,7 +205,7 @@ not replacement samples selected from a failed measurement set.
 immediate host snapshots. `package.py` independently rechecks output framing,
 commands, environments, order and cleanup, and recomputes all medians/ranges.
 The separately written [root review](independent-review.json) independently
-checks all 112 records and 111 frozen hashes; its [script](independent-review.py)
+checks all 112 records and 111 frozen hashes; its [script](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-comparison/independent-review.py)
 hardcodes the original preparation paths. That review validates records and
 flags, while live process ownership and quiet-window release come from the
 owned terminal session recorded in `quiet-window.json`.

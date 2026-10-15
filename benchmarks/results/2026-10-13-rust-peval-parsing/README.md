@@ -28,7 +28,7 @@ original EOF recovery and zero inner repetitions. The generated lexer/LL(1)
 algorithm retains temporary list-tail copying and source action quirks. Native
 checks additionally cover copying/sharing identity and lexer errors/limits.
 
-[Artifacts](artifacts.tar.xz) freeze both Rust source snapshots, quoted data,
+[Artifacts](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-peval-parsing/artifacts.tar.xz) freeze both Rust source snapshots, quoted data,
 small-input fixtures, original Scheme source/compiled controls, Wasm executables,
 input files, native check logs and separate original-source oracles. `files.json`
 inside the archive hashes every regular file. Archive SHA-256:

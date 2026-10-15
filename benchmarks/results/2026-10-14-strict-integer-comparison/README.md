@@ -109,7 +109,7 @@ CPU policy and affinity agree; this does not establish fixed frequency.
 The [reviewed timing preparation](../2026-10-14-strict-integer-measurement-preparation/README.md)
 freezes 107 identities, all sixteen exact commands, the complete eighteen-module
 supervisor closure and environment guards. All remain unchanged after the run.
-The independently written [`review.py`](review.py) rechecks all 144 individual
+The independently written [`review.py`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-integer-comparison/review.py) rechecks all 144 individual
 records, complete result framing, command/environment/schedule fields, cleanup,
 balanced positions and medians against the recorded campaign summary. It also
 checked every live frozen identity before packaging.

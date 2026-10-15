@@ -22,7 +22,7 @@ regression forms also pass. These are correctness checks, with no performance
 measurement or claim that the complete compiler benchmark is ready.
 
 [checks.json](checks.json) records commands, identities and validation summaries.
-[diagnostics.tar.gz](diagnostics.tar.gz) retains 857 source, capture and command
+[diagnostics.tar.gz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-output-integration/diagnostics.tar.gz) retains 857 source, capture and command
 files; every member was read back against [archive.json](archive.json).
 The archive also records identities of 98 omitted Wasm/LLVM/native artifacts
 that remain in the isolated build tree. Artifact inspection and the individual

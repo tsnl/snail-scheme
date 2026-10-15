@@ -124,7 +124,7 @@ Nix dependencies; the archived source/build commands support rebuilding them.
 Unset `NODE_OPTIONS`, `SNAIL_NATIVE_GC_INTERVAL`, and collector diagnostic/policy
 environment overrides before applying the recorded arena capacity.
 
-[measure.py](measure.py) implements the fresh-process schedule and validation;
+[measure.py](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-current-wasm-llvm/measure.py) implements the fresh-process schedule and validation;
 [plan.json](plan.json) preserves exact original paths and hashes. Relocating the
 archive requires adjusting those paths and freezing a new plan. Results from a
 different machine or toolchain belong to a new observation set. The experiment

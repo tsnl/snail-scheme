@@ -15,7 +15,7 @@ unchanged default canonical Node/Wasm execution. Default Ackermann retains its
 stack failure, with the heap-frame variant recorded separately. Source coverage,
 canonical success, outstanding independent reviews and performance remain distinct.
 
-`suite.py` checks independent small inputs against the original Chez source,
+`suite.scm` checks independent small inputs against the original Chez source,
 rejects deliberately wrong expected answers when the predicate consumes them,
 then executes unchanged canonical inputs/counts with `--checks full`. The
 original predicates for `cat`, `tail`, `gcbench`, `slatex`, and `quicksort` ignore some or

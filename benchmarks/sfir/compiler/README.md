@@ -57,7 +57,7 @@ operand-order probes explicitly choose the same permitted left-to-right order in
 the original observer. `chez-original.scm` remains unchanged.
 
 `verify.mjs` runs those observations and the complete canonical worker on V8;
-`native-entry.c` supplies the corresponding native invocation. Each accepts a
+`native-entry.rs` supplies the corresponding native invocation. Each accepts a
 separate `fatal` invocation that must exit unsuccessfully through the initial
 handler. The runner requires exit 1, the exact source diagnostic, and the expected
 runtime error; signals or a returning handler cannot pass. The current directory
@@ -94,9 +94,9 @@ boundaries remain visible instead of splitting them into numbered fragments.
 To reproduce all six correctness routes from a fresh freeze:
 
 ```sh
-python3 benchmarks/sfir/runner.py prepare --benchmarks compiler \
+chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm prepare --benchmarks compiler \
   --output /tmp/sfir-compiler --compile-timeout 7200 --run-timeout 1800
-python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-compiler
+chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-compiler
 ```
 
 The explicit timeout accommodates the complete source; it does not reduce the

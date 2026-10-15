@@ -13,7 +13,7 @@ samples. GVM generation, register/stack contexts, basic-block purification/order
 slot analysis and 68000 emission remain to be ported.
 
 [Validation](validation.json) records each complete serialized tree, actual
-commands, diagnostics, and source/tool/binary hashes. [The archive](artifacts.tar.xz)
+commands, diagnostics, and source/tool/binary hashes. [The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-compiler-frontend/artifacts.tar.xz)
 freezes the Rust module, linked Wasm, original Chez programs/binaries, complete
 inputs/results and oracle support. Its [manifest replay](archive.json) verifies
 55 regular files. The original compiler functions are unchanged; private oracle

@@ -117,7 +117,7 @@ wrong-list fixtures on three targets. Its input boundary requires an unsigned
 count and character-list expectation; the false/non-character expected cases
 are checked on the five Scheme paths.
 
-[The archive](artifacts.tar.gz) retains compiler and supervisor sources,
+[The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-maze-preparation/artifacts.tar.gz) retains compiler and supervisor sources,
 complete original inputs and programs, ledgers and diffs, raw/optimized Wasm,
 native executables and generated LLVM, exact native-final module and scalar
 provider, Rust sources/binaries/LLVM, every ordered stream, and full command,

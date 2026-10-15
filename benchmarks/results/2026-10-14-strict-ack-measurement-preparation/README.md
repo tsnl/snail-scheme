@@ -30,7 +30,7 @@ metadata. [That provenance gap](diagnostic-provenance-gap.json) remains explicit
 The new diagnostics validate the new configurations; they do not reconstruct
 the missing historical metadata.
 
-The [runner](measure.py) guards 250 identities, including all 225 original
+The [runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-ack-measurement-preparation/measure.py) guards 250 identities, including all 225 original
 archived preparation files, the executable/module inputs, original sources,
 hosts and entry/provider interfaces, its own source, external tools, and the
 unchanged Matrix supervisor's complete 18-module local import closure. The

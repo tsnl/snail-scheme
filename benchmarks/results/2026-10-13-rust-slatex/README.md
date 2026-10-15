@@ -10,7 +10,7 @@ These runs are correctness evidence and contain no performance samples.
 [Validation summary](validation-summary.json) retains source/tool/binary hashes,
 execution diagnostics and complete-file-set hashes. The exact original report,
 including every file digest, is [compressed separately](validation.json.xz).
-[The archive](artifacts.tar.xz) contains frozen Rust sources, original inputs,
+[The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-slatex/artifacts.tar.xz) contains frozen Rust sources, original inputs,
 the compiled original Chez source/binary, the linked Wasm binary, every generated
 Rust/Chez file, and retained-work disassembly. All 57,178 regular files and nine
 normalized relative links were independently replayed against its manifest.

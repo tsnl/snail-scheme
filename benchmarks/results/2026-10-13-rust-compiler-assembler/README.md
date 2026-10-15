@@ -11,7 +11,7 @@ full Compiler workload and its unchanged 2,000 iterations remain pending.
 [Validation](validation.json) retains actual commands, complete outputs and
 source/tool/binary hashes. [GVM regression](gvm-regression.json) checks the
 earlier stages with the same emitter-enabled executable. The
-[archive](artifacts.tar.xz) freezes sources, catalogs, original Chez oracles and
+[archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-compiler-assembler/artifacts.tar.xz) freezes sources, catalogs, original Chez oracles and
 binaries, Wasm, inputs, complete outputs and check logs. Its
 [replay manifest](archive.json) verifies every archived regular file. Historical
 frontend/GVM/block artifacts remain unchanged.

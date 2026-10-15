@@ -20,7 +20,7 @@ multioperand comparisons, vectors and pair mutation. All 26 complete
 These are correctness observations; their embedded elapsed times are not clean
 performance samples.
 
-The [archive](artifacts.tar.xz) freezes exact source/catalog/manifest/lock/input
+The [archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-compiler/artifacts.tar.xz) freezes exact source/catalog/manifest/lock/input
 files, runtime and diagnostic Wasm, original Chez programs/binaries, complete
 outputs, check logs, the focused review and retained-work disassembly. Its
 [manifest replay](archive.json) verifies every retained regular file. Historical

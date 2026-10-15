@@ -49,7 +49,7 @@ They provide no performance comparison. Original/adapted native-bigint Chez,
 checked limb-body Chez and Rust retain the arithmetic, scalar, layout, opacity,
 allocation and ownership differences described in the original report.
 
-The [runner](measure.py) reuses the unchanged Matrix process supervisor, with
+The [runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-integer-measurement-preparation/measure.py) reuses the unchanged Matrix process supervisor, with
 its complete 18-module local import closure in `supervisor/`. Default verification
 checks the closure, actual module origins, helper contracts, exact commands,
 environment guards and artifact identities before launching a guest. Each row

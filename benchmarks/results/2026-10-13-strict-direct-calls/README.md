@@ -77,7 +77,7 @@ median, not a claim about a stable regression. The separate handwritten
 [quicksort ablation](../2026-10-13-strict-quicksort-profile/README.md) remains a
 different experiment with more aggressive private lowering.
 
-The [archive](artifacts.tar.xz) and [manifest](manifest.json) contain 663 exact
+The [archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-strict-direct-calls/artifacts.tar.xz) and [manifest](manifest.json) contain 663 exact
 files: before/after modules, compiler source, original/adapted controls, input
 and host files, checks, static inspection, and the measurement driver. The
 [replay check](replay-check.json) independently verifies all members and runs

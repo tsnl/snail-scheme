@@ -1,6 +1,6 @@
 # SFIR commands
 
-`snail-sfir` is hosted by Python and Chibi. Help works before dependency checks.
+`snail-sfir` is hosted by Chibi. Help works before dependency checks.
 
 ```sh
 ./snail-sfir run [-I DIRECTORY] [--target wasm|native] SOURCE.sfir [ARGUMENT ...]
@@ -35,7 +35,8 @@ may expose other concrete signatures for custom hosts.
 optimizes the complete Wasm reactor. `scripts/run-sfir.mjs` executes that reactor.
 
 `scripts/build-native` takes SFIR by default. `--wasm` consumes an existing Wasm
-module and still runs Binaryen before mechanical LLVM lowering. `--c-provider
-MODULE HEADER SOURCE_OR_ARCHIVE` supplies authoritative C declarations;
-`--entry-c FILE` supplies a custom invocation host. There is no `--strict` split
+module and still runs Binaryen before mechanical LLVM lowering. `--rust-provider
+MODULE SOURCE.rs` supplies concrete scalar Rust exports compiled by Cargo;
+`--entry-rust FILE` supplies a Rust executable crate root as the invocation host.
+There is no `--strict` split
 or dynamic Scheme foreign-call convention.

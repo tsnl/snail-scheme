@@ -3,12 +3,24 @@ name = "snail-runtime"
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
+autotests = false
 
 [lib]
 crate-type = ["rlib"]
 
 [features]
-native-runtime = []
+native-runtime = ["dep:libc"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+libc = { version = "0.2.186", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+libc = "0.2.186"
+
+[[bin]]
+name = "snail-native-supervisor"
+path = "src/native-worker.rs"
+required-features = ["native-runtime"]
 
 [profile.release]
 panic = "abort"

@@ -77,7 +77,7 @@ harness prints elapsed durations, retained as diagnostics only.
 
 ## Retained failures and corrections
 
-All attempts remain in [diagnostics.tar.gz](diagnostics.tar.gz), indexed by
+All attempts remain in [diagnostics.tar.gz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-chez-numeric-bridge/diagnostics.tar.gz), indexed by
 [archive.json](archive.json). [checks.json](checks.json) lists every retained
 command record, source hashes, terminal status and the two outer-driver failures.
 No failure was replaced by a success record.

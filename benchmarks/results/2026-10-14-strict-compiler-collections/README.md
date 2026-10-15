@@ -93,7 +93,7 @@ formatter or reduced input.
 
 [checks.json](checks.json) contains 120 terminal command records, source hashes,
 artifact provenance and actual outer-tool completion records.
-[diagnostics.tar.gz](diagnostics.tar.gz), indexed by [archive.json](archive.json),
+[diagnostics.tar.gz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-compiler-collections/diagnostics.tar.gz), indexed by [archive.json](archive.json),
 retains 485 files including every failed attempt, original/adapted source,
 unchanged input, expected output data, commands, raw output streams, source
 ledgers, compiler traces, link records and native build metadata. Executables
