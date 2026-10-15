@@ -1,0 +1,66 @@
+;; Unicode scalar services and ordinary SFIR string ordering. Foreign calls
+;; carry only Char/I32 scalars; strings remain in traced SFIR storage.
+(library (sfir text)
+  (export char-downcase char-alphabetic? char-numeric? char-whitespace? string<?
+          test-text)
+  (import (sfir core))
+
+  ;; ---- Existing Unicode properties through the scalar ABI ----
+
+  (define-extern char-downcase "snail.library" "snail:text/downcase" (-> Char Char))
+  (define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> Char I32))
+  (define-extern raw-numeric "snail.library" "snail:text/numeric" (-> Char I32))
+  ;; This is the reader's exact provider, including scalar validation/cleanup.
+  (define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> Char I32))
+
+  (define char-alphabetic? (-> Char Bool)
+    (lambda (character) (i32-eq (raw-alphabetic character) (ann 1 I32))))
+
+  (define char-numeric? (-> Char Bool)
+    (lambda (character) (i32-eq (raw-numeric character) (ann 1 I32))))
+
+  (define char-whitespace? (-> Char Bool)
+    (lambda (character) (i32-eq (raw-whitespace character) (ann 1 I32))))
+
+  ;; ---- First unequal scalar or proper prefix decides ordering ----
+
+  ;; Every scalar before index is equal. Check both ends before either read;
+  ;; no callback or mutation occurs during this invocation's character loop.
+
+  (define string<? (-> String String Bool)
+    (lambda (left right)
+      (let ((left-count (string-length left)) (right-count (string-length right)))
+        (begin
+          (define loop
+            (lambda (index)
+              (if (= index left-count)
+                  (< index right-count)
+                  (if (= index right-count)
+                      #f
+                      (let ((a (string-ref left index)) (b (string-ref right index)))
+                        (if (char=? a b) (loop (+ index 1)) (char<? a b)))))))
+          (loop 0)))))
+
+  ;; ---- Tests ----
+
+  ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
+
+  (define test-text (-> I64)
+    (lambda ()
+      (if (if (not (string<? "" ""))
+              (if (string<? "" "a")
+                  (if (not (string<? "a" ""))
+                      (if (not (string<? "same" "same"))
+                          (if (string<? "a" "aa")
+                              (if (not (string<? "aa" "a"))
+                                  (if (string<? "Z" "a")
+                                      (if (string<? "\xe000;" "\x10000;") (string<? "e\x301;" "é") #f)
+                                      #f)
+                                  #f)
+                              #f)
+                          #f)
+                      #f)
+                  #f)
+              #f)
+          42
+          0))))
