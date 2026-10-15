@@ -38,6 +38,12 @@ artifact hashes, compiler snapshot, terminal results and the parity proof.
 Both frozen Rust routes also passed the canonical 500 and every output file.
 These concurrent correctness executions are not performance samples.
 
+The [public runner replay and integration check](integration.json) also pass.
+The public build reproduces the validated raw and optimized Wasm exactly and
+executes the full Wasm/native workload through the shared runner. Rebuilding
+against the later library-builder and book-example updates retains those exact
+guest bytes; the runner's 16 tests and frozen-input checks pass as well.
+
 The syntax-only migration preserves literal spellings. Its checked numeric
 inventory accounts for all 373 literals; 338 explicit I64 annotations preserve
 the old widths, and every current typed value matches at its target IEEE width.
