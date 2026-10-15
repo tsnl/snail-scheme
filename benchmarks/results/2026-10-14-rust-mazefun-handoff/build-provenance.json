@@ -1,0 +1,208 @@
+{
+  "kind": "Corrected Mazefun actual offline release build",
+  "performance_samples": false,
+  "source_commit": "cbbe0cc7e13d82315f46d01fa90e61ab489a31e6",
+  "intended_base": "c7a7a68",
+  "tools": {
+    "rustc": {
+      "path": "/run/current-system/sw/bin/rustc",
+      "resolved_path": "/nix/store/cdgc1rh9s22n5i5cgr96vda0pjx1xg3x-rustup-1.29.0/bin/rustup",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2"
+    },
+    "cargo": {
+      "path": "/run/current-system/sw/bin/cargo",
+      "resolved_path": "/nix/store/cdgc1rh9s22n5i5cgr96vda0pjx1xg3x-rustup-1.29.0/bin/rustup",
+      "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "version": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "resolved_path": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "version": "{\"node\":\"24.19.0\",\"acorn\":\"8.17.0\",\"ada\":\"4.0.0\",\"amaro\":\"1.1.10\",\"ares\":\"1.34.8\",\"brotli\":\"1.2.0\",\"cldr\":\"48.0\",\"icu\":\"78.3\",\"llhttp\":\"9.4.3\",\"merve\":\"1.2.2\",\"modules\":\"137\",\"napi\":\"10\",\"nbytes\":\"0.1.4\",\"ncrypto\":\"0.0.1\",\"nghttp2\":\"1.70.0\",\"nghttp3\":\"\",\"ngtcp2\":\"\",\"openssl\":\"3.6.3\",\"simdjson\":\"4.6.5\",\"simdutf\":\"6.5.0\",\"sqlite\":\"3.53.3\",\"tz\":\"2026a\",\"undici\":\"7.29.0\",\"unicode\":\"17.0\",\"uv\":\"1.52.1\",\"uvwasi\":\"0.0.23\",\"v8\":\"13.6.233.17-node.51\",\"zlib\":\"1.3.2\",\"zstd\":\"1.5.7\"}"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "resolved_path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "version": "10.4.1"
+    },
+    "wasm_dis": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "resolved_path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "version": "wasm-dis version 132"
+    },
+    "wasm_as": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "resolved_path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "version": "wasm-as version 132"
+    }
+  },
+  "actual_rustup_tools": {
+    "rustc": {
+      "path": "/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+      "sha256": "6a10a7ab7c9e3a89c4a59e2355d412404be18c6f35b9170d6752d84ee91af5ed"
+    },
+    "cargo": {
+      "path": "/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+      "sha256": "6956b6146104c982b02ab27fdd246d43ab1171c2ac4235cade81cd87fd3428ad"
+    }
+  },
+  "build_command": {
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--release",
+      "--target",
+      "wasm32-wasip1",
+      "--bin",
+      "mazefun",
+      "--verbose",
+      "--manifest-path",
+      "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/Cargo.toml"
+    ],
+    "cwd": "/tmp/snail-rust-mazefun-handoff-20261014",
+    "explicit_environment": {
+      "CARGO_TARGET_DIR": "/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target"
+    },
+    "removed_environment": [
+      "RUSTFLAGS",
+      "CARGO_ENCODED_RUSTFLAGS"
+    ],
+    "selected_effective_environment": {
+      "PATH": "/home/nti/.codex/packages/standalone/releases/0.162.1-x86_64-unknown-linux-musl/codex-path:/home/nti/.codex/tmp/arg0/codex-arg0SRzU9e:/home/nti/.codex/tmp/arg0/codex-arg0cHlh73:/home/nti/.cargo/bin:/nix/store/8yjpgadavqdwphcd2kw4dfvxmgdp5sb3-git-2.55.0/bin:/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin:/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin:/nix/store/ahg47ls1asvn6l0sk26gff6d1yhmndpb-direnv-2.37.1/bin:/nix/store/7ydf0dzbsq7w35bxifci2mslm76pw1qf-gnumake-4.4.1/bin:/nix/store/81mvb88s7l4ciq2sicr0zsadazkd49yn-nixfmt-1.4.0/bin:/nix/store/hgpx6i7cggp8wss3rya64s870py8l3zv-emacs-nox-31.1/bin:/nix/store/zc6fy62c341aibk36p4ywff7rf9wn4wx-ripgrep-15.2.0/bin:/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin:/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin:/nix/store/fpig164lz7fcipbndn61sfd2y2yq363n-patchelf-0.15.2/bin:/nix/store/w88q44gqd1qg5wmkk7v0h97rpiqvam0l-gcc-wrapper-15.3.0/bin:/nix/store/4yxdxw3kppr2pbic95p4mri520rkdag2-gcc-15.3.0/bin:/nix/store/axmdd5wlxg1c9dbblvj09pjhkawqxmqx-glibc-2.42-84-bin/bin:/nix/store/3qgy8q2j64v2m9jy3a5jmssacbblhd4r-coreutils-9.11/bin:/nix/store/rm982p6i9ry7rwq5jn638kdpv0a2331f-binutils-wrapper-2.46/bin:/nix/store/5pa1282x1sasbwhmnah6bny1g9pc2lj1-binutils-2.46/bin:/nix/store/i4kjidyvl8ciwbcwm75g75sriq3knav0-findutils-4.11.0/bin:/nix/store/xw09m9cnc9ayb2j53y2rj8jhm1h7kkxa-diffutils-3.12/bin:/nix/store/4nylac9gazdpsid79qyk0jpqm312b2jx-gnused-4.10/bin:/nix/store/yhr4ps9rdmb55pgqaq246vlh7xfac1dx-gnugrep-3.12/bin:/nix/store/bpy2ps3f0f3gvgvqjwgqriw1j1n840wd-gawk-5.4.1/bin:/nix/store/w2mbg6mcq7k3j088sbwfziy8vsdhyk7v-gnutar-1.35/bin:/nix/store/sd9qcv5s2gxvd6hpp5hk5cixq2bd4jd1-gzip-1.14/bin:/nix/store/622jkvg8hgffly7dca6iif9drvimingx-bzip2-1.0.8-bin/bin:/nix/store/hd36xbvbc0vrn9f9idrfwxznri0ax427-gnumake-4.4.1/bin:/nix/store/9ipfvwnqp1q8ijnmi5sxvlx9r8w34lw3-bash-5.3p15/bin:/nix/store/1rcr9yyj9qlgm3dyin1j37xl7q84h15i-patch-2.8/bin:/nix/store/0fb3jrf20z28598alm6g7rrsw6dz2cqj-xz-5.8.3-bin/bin:/nix/store/xcab8m6wdrd30l10bw3hkz32yiibynzv-file-5.48/bin:/home/nti/Developer/snail-scheme/.direnv/bin:/home/nti/.cargo/bin:/home/nti/.local/bin:/run/wrappers/bin:/home/nti/.nix-profile/bin:/nix/profile/bin:/home/nti/.local/state/nix/profile/bin:/etc/profiles/per-user/nti/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin",
+      "CARGO_TARGET_DIR": "/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target"
+    },
+    "profile": {
+      "opt-level": 3,
+      "lto": true,
+      "codegen-units": 1,
+      "panic": "abort"
+    },
+    "returncode": 0
+  },
+  "source_hashes": {
+    "Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+    "Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+    "PORTING.md": "36914bda6d3fbf0c804c4151a2dd2e028452eea66613b940f015d5cc55314139",
+    "README.md": "b21f3801aa649d240dde31040d3e2313a44b941806900a8c9431c0223a501992",
+    "audit_alpha.py": "479d8ba18f6962070ec42937c5e596cb8095ec38581b345c6c942cd1f5d5df72",
+    "audit_nucleic.py": "1b665f2e7fd5ec622c39ff0e39c6cb4a8a10d4d7db3dc8cbbdc81a3da9f2f83e",
+    "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "small-inputs.json": "eed428e6391864e11d0ac513f280d8e62978374313521aee471ef0e339cdd7d7",
+    "src/bin/ack.rs": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+    "src/bin/array1.rs": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+    "src/bin/browse.rs": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+    "src/bin/bv2string.rs": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+    "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+    "src/bin/chudnovsky.rs": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555",
+    "src/bin/compiler.rs": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d",
+    "src/bin/conform.rs": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84",
+    "src/bin/cpstak.rs": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+    "src/bin/ctak.rs": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+    "src/bin/deriv.rs": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+    "src/bin/destruc.rs": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+    "src/bin/diviter.rs": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+    "src/bin/divrec.rs": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+    "src/bin/dynamic.rs": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad",
+    "src/bin/earley.rs": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd",
+    "src/bin/equal.rs": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+    "src/bin/fft.rs": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+    "src/bin/fib.rs": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+    "src/bin/fibc.rs": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+    "src/bin/fibfp.rs": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+    "src/bin/gcbench.rs": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+    "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+    "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+    "src/bin/matrix.rs": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+    "src/bin/maze.rs": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa",
+    "src/bin/mazefun.rs": "4418df981dfc3a25c0b303e095c799f04abb50b0f7d35483b55fe1f7e0cd8a19",
+    "src/bin/mbrot.rs": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+    "src/bin/mbrotZ.rs": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+    "src/bin/mperm.rs": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+    "src/bin/nboyer.rs": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347",
+    "src/bin/nqueens.rs": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+    "src/bin/ntakl.rs": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+    "src/bin/nucleic.rs": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8",
+    "src/bin/paraffins.rs": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1",
+    "src/bin/parsing.rs": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9",
+    "src/bin/peval.rs": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b",
+    "src/bin/pi.rs": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca",
+    "src/bin/pnpoly.rs": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+    "src/bin/primes.rs": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+    "src/bin/puzzle.rs": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+    "src/bin/quicksort.rs": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+    "src/bin/ray.rs": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+    "src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+    "src/bin/sboyer.rs": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e",
+    "src/bin/scheme.rs": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed",
+    "src/bin/simplex.rs": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+    "src/bin/slatex.rs": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a",
+    "src/bin/string.rs": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+    "src/bin/sum.rs": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+    "src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+    "src/bin/sumfp.rs": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+    "src/bin/tail.rs": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+    "src/bin/tak.rs": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+    "src/bin/takl.rs": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+    "src/bin/triangl.rs": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+    "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+    "src/boyer-data.scm": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879",
+    "src/boyer.rs": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8",
+    "src/compiler-common-procedures.scm": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9",
+    "src/compiler-multilisp-specific-procedures.scm": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638",
+    "src/compiler-prim-procs.scm": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac",
+    "src/compiler-primitive-recipes.scm": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79",
+    "src/compiler-r4rs-scheme-specific-procedures.scm": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9",
+    "src/compiler.rs": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101",
+    "src/compiler_68000.rs": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222",
+    "src/compiler_asm.rs": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c",
+    "src/compiler_blocks.rs": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2",
+    "src/compiler_gvm.rs": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee",
+    "src/dynamic-types.scm": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b",
+    "src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+    "src/list.rs": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8",
+    "src/nucleic-data.scm": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214",
+    "src/peval-data.scm": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2",
+    "src/scheme-primitives.txt": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955",
+    "src/slatex-keywords.txt": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98",
+    "suite.py": "f3c4088a4cbfad473ae1a7434c960422110aa2abb8ce3d6e742275197091f553",
+    "tests/compiler-asm-oracle-tail.scm": "6c3e5d268677fa7ff87a3cd49ccdbf2ce410764be05934696cc02b35b183cb8b",
+    "tests/compiler-assembly-fixtures.json": "a3df3f90b54a766296851b7b13f3fafebece9287138d040f333815467905a73a",
+    "tests/compiler-assembly-oracle-tail.scm": "fd7dbe1579191d93496e425aff639b053b199bf95e6505f62d58d30c20123043",
+    "tests/compiler-blocks-fixtures.json": "7c1c094153ba21d578f2deb1cfde77ffed6c8c0896143241410ad5182f2fc724",
+    "tests/compiler-front-fixtures.json": "158d9341e30826fb6fe6f04c92eeb53dccbe3403d81ec4ff65c872711a0ec090",
+    "tests/compiler-front-oracle-tail.scm": "e6521f8d4375109ec839f28076482b752bc5239dbc855fc8ec12149869cf9625",
+    "tests/compiler-gvm-fixtures.json": "5c34c445f7435809b7a6093d44f46d42f1e301b02a2cb1f0b90078837cf25afe",
+    "tests/compiler-gvm-oracle-tail.scm": "4f0abcd6420b3f74d9f931a62e94601c56a8b967eb54cb8cbc1be7614928f4ad",
+    "tests/compiler_asm.py": "681e6e12a6ddea12119285bb960c8ff1772ed5a829f12f7f8287f27c00fbadab",
+    "tests/compiler_assembly.py": "20c587a05321fc72a629c21b62c25147d534c22f0b4818d3b48d1eb204656b8a",
+    "tests/compiler_frontend.py": "b5974dd16a79b0cd59c60a86b9d05164166d16e2e644a2756817b5217aa7bf63",
+    "tests/compiler_gvm.py": "0dd0c64700c3bbde922b3ef1051239e84a918bd5bbd654ae74bc9da8ca597fcc",
+    "tests/dynamic-oracle-meta.json": "0405f87b424d1c9c817bbc0c1118bc7dafb109bba0253e2dc4bf76c877c92266",
+    "tests/dynamic-oracle-tail.scm": "4f9aad179a07e056d0a7e2bbfb78163a18b6c9fe8262da3cf8b4a3a104e4d355",
+    "tests/dynamic-program.scm": "492e5ca2fe0841b126c2a3bfefe25fcc98932fea13d3f63117de2a0e18550170",
+    "tests/nucleic-solutions.scm": "3e0c3dabb22c83ff6ba3bbe366bd214da3d5c17a85a2202f4238c122a008d646"
+  },
+  "build_log_sha256": "10587d8eaeb3710f02b16ed082a89b1eadfcc0d5849def50580ca8c5a18cbbfc",
+  "actual_verbose_rustc_commands": [
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name autocfg --edition=2015 /home/nti/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/autocfg-1.5.1/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=fbbbc5b6ab0ef052 -C extra-filename=-f4858c0c4116f16c --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --cap-lints allow`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/nti/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-traits-0.2.19/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature=\"i128\"' --cfg 'feature=\"std\"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values(\"default\", \"i128\", \"libm\", \"std\"))' -C metadata=c346b42c70a4b6b1 -C extra-filename=-5a105139f6a17291 --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/build/num-traits-5a105139f6a17291 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --extern autocfg=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps/libautocfg-f4858c0c4116f16c.rlib --cap-lints allow`",
+    "     Running `/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/build/num-traits-5a105139f6a17291/build-script-build`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name num_traits --edition=2021 /home/nti/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-traits-0.2.19/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C panic=abort -C linker-plugin-lto -C codegen-units=1 --cfg 'feature=\"i128\"' --cfg 'feature=\"std\"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values(\"default\", \"i128\", \"libm\", \"std\"))' -C metadata=6fdf2b9a3c988fe2 -C extra-filename=-572cc9864f33dc57 --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps --target wasm32-wasip1 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --cap-lints allow --cfg has_total_cmp --check-cfg 'cfg(has_total_cmp)'`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name num_integer --edition=2018 /home/nti/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-integer-0.1.47/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C panic=abort -C linker-plugin-lto -C codegen-units=1 --cfg 'feature=\"i128\"' --cfg 'feature=\"std\"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values(\"default\", \"i128\", \"std\"))' -C metadata=7662361abe238551 -C extra-filename=-f577d059272baef0 --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps --target wasm32-wasip1 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --extern num_traits=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libnum_traits-572cc9864f33dc57.rmeta --cap-lints allow`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name num_bigint --edition=2021 /home/nti/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-bigint-0.4.8/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C panic=abort -C linker-plugin-lto -C codegen-units=1 --cfg 'feature=\"default\"' --cfg 'feature=\"std\"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values(\"arbitrary\", \"default\", \"quickcheck\", \"rand\", \"serde\", \"std\"))' -C metadata=3ec2eef52fd15c2b -C extra-filename=-54d8c8158f3ff970 --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps --target wasm32-wasip1 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --extern num_integer=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libnum_integer-f577d059272baef0.rmeta --extern num_traits=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libnum_traits-572cc9864f33dc57.rmeta --cap-lints allow`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name r7rs_wasm_reference --edition=2024 src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C panic=abort -C linker-plugin-lto -C codegen-units=1 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=eb38ad251e4d1f4a -C extra-filename=-ed9243a17c8f948e --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps --target wasm32-wasip1 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --extern num_bigint=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libnum_bigint-54d8c8158f3ff970.rmeta`",
+    "     Running `/home/nti/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name mazefun --edition=2024 src/bin/mazefun.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C opt-level=3 -C panic=abort -C lto -C codegen-units=1 --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=81d59a40bf602071 -C extra-filename=-57e9205bf677ca88 --out-dir /tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps --target wasm32-wasip1 -C strip=debuginfo -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps -L dependency=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/release/deps --extern num_bigint=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libnum_bigint-54d8c8158f3ff970.rlib --extern r7rs_wasm_reference=/tmp/snail-rust-mazefun-handoff-20261014/build/mazefun-cargo-target/wasm32-wasip1/release/deps/libr7rs_wasm_reference-ed9243a17c8f948e.rlib`"
+  ],
+  "artifact": {
+    "path": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm",
+    "bytes": 125246,
+    "sha256": "4e1f45f9c925dde00788408ab97b262c77c7201967c7b49768970bcd50efd885"
+  },
+  "external_inputs": "Full project source is frozen; registry dependencies and Rust sysroot binaries are not vendored. Cargo.lock pins dependency versions. Full inherited environment is not archived."
+}

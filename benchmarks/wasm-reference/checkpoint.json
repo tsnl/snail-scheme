@@ -515,13 +515,21 @@
     {
       "name": "mazefun",
       "source_present": true,
-      "source_sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481",
-      "canonical_status": "passed canonical frozen artifact",
+      "source_sha256": "4418df981dfc3a25c0b303e095c799f04abb50b0f7d35483b55fe1f7e0cd8a19",
+      "canonical_status": "passed corrected canonical artifact; historical artifact preserved separately",
       "canonical_evidence": {
+        "artifact_sha256": "4e1f45f9c925dde00788408ab97b262c77c7201967c7b49768970bcd50efd885",
+        "source_sha256": "4418df981dfc3a25c0b303e095c799f04abb50b0f7d35483b55fe1f7e0cd8a19",
+        "evidence": "build/rust-mazefun-timing-handoff/validation.json",
+        "committed_report": "benchmarks/results/2026-10-14-rust-mazefun-handoff/README.md"
+      },
+      "historical_canonical_evidence": {
         "artifact_sha256": "3135aee9c875779a11061aa679e5734d4d8e1fb90e529c48b2bba06ac6679cd8",
         "source_sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481",
         "evidence": "build/rust-mazefun-full/validation.json"
-      }
+      },
+      "independent_review": "Fresh no-history/no-files Mazefun explanation, one informed critique and source comparison; direct result/signed-input correction, canonical persistent kernel retained.",
+      "semantic_adaptation": "Persistent Rc cave/shuffle/result lists, inline coordinates/marks and Vec scratch; reverse pure initializer order and last-owner reclamation differ; full timed proper-list/Atom predicate within canonical reader domain."
     },
     {
       "name": "nqueens",
@@ -731,7 +739,8 @@
     "scheme/dynamic source and simplify ownership debate",
     "Compiler GVM/block behavioral simplify explanation/debate and source comparison",
     "Compiler frontend/assembly/emitter behavioral simplify explanation, informed source critique and complete linked checks",
-    "Ray result-kind/signed-count correction and unchanged rendering source; fresh no-files explanation/critique and linked image/lifecycle checks"
+    "Ray result-kind/signed-count correction and unchanged rendering source; fresh no-files explanation/critique and linked image/lifecycle checks",
+    "Mazefun result-kind/signed-input correction and retained persistent kernel; fresh no-files explanation/critique, full linked output/predicate/retention checks"
   ],
   "frozen_full_suite_evidence": "benchmarks/results/2026-10-13-rust-full-suite/manifest.json"
 }

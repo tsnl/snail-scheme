@@ -1,0 +1,95 @@
+{
+  "performance_samples": false,
+  "checks": [
+    {
+      "name": "string-mark",
+      "historical_accepts": true,
+      "run": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/reference-source/run-wasi.mjs",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/case/program.wasm"
+        ],
+        "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/string-mark",
+        "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/string-mark/input.txt",
+        "input_sha256": "5f732f04a37aeae1a119bbf5b5ff4b0a41af858bf66dedfc20fd72310c74cb1c",
+        "returncode": 0,
+        "stdout": "Result: ((_))\n+!CSVLINE!+rust-wasm,mazefun:1,0.000040234\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "long-symbol-mark",
+      "historical_accepts": true,
+      "run": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/reference-source/run-wasi.mjs",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/case/program.wasm"
+        ],
+        "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/long-symbol-mark",
+        "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/long-symbol-mark/input.txt",
+        "input_sha256": "80be0ddc19e3fd351559292d6d6780c324e29b110800339877191586929e2710",
+        "returncode": 0,
+        "stdout": "Result: ((_))\n+!CSVLINE!+rust-wasm,mazefun:1,0.000038251\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "outer-vector",
+      "historical_accepts": true,
+      "run": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/reference-source/run-wasi.mjs",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/case/program.wasm"
+        ],
+        "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/outer-vector",
+        "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/outer-vector/input.txt",
+        "input_sha256": "1ce7cfe95d75b3b5c76dc9970adf2be2b655dd69044bb0cf7307c46208c7b744",
+        "returncode": 0,
+        "stdout": "Result: ((_))\n+!CSVLINE!+rust-wasm,mazefun:1,0.000038673\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "zero-false",
+      "historical_accepts": false,
+      "run": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/reference-source/run-wasi.mjs",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/case/program.wasm"
+        ],
+        "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/zero-false",
+        "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/zero-false/input.txt",
+        "input_sha256": "1f143deb6ca8dd209dde213a318e482b4ca046e2950adcd023f513ff068eb4bd",
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "\nthread 'main' (1) panicked at src/lib.rs:43:18:\nexpected a list or vector\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:1\n\n\nRuntimeError: unreachable\n    at mazefun-57e9205bf677ca88.wasm.abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[196]:0x1392a)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[132]:0x10fb9)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[131]:0x10faf)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[103]:0xd930)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[102]:0xd926)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[130]:0x10fa5)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[122]:0x109d1)\n    at mazefun-57e9205bf677ca88.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[150]:0x11b00)\n    at mazefun-57e9205bf677ca88.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[149]:0x11a9a)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[72]:0x6e3a)\n\nNode.js v24.19.0\n"
+      }
+    },
+    {
+      "name": "even-error",
+      "historical_accepts": false,
+      "run": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/reference-source/run-wasi.mjs",
+          "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical/case/program.wasm"
+        ],
+        "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/even-error",
+        "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/historical-defects/even-error/input.txt",
+        "input_sha256": "d296186c121164693ebafe670788f7d32d0cd343f859f4989d9f578e6a026bf8",
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "\nthread 'main' (1) panicked at src/lib.rs:43:18:\nexpected a list or vector\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:1\n\n\nRuntimeError: unreachable\n    at mazefun-57e9205bf677ca88.wasm.abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[196]:0x1392a)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[132]:0x10fb9)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[131]:0x10faf)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[103]:0xd930)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[102]:0xd926)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[130]:0x10fa5)\n    at mazefun-57e9205bf677ca88.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[122]:0x109d1)\n    at mazefun-57e9205bf677ca88.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[150]:0x11b00)\n    at mazefun-57e9205bf677ca88.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[149]:0x11a9a)\n    at mazefun-57e9205bf677ca88.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/mazefun-57e9205bf677ca88.wasm-0007b1da:wasm-function[72]:0x6e3a)\n\nNode.js v24.19.0\n"
+      }
+    }
+  ]
+}
