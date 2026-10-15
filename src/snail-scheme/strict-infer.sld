@@ -199,17 +199,12 @@
             ((data-type? type) (cons 'record (cons (cadr type) (map surface-type (cddr type)))))
             ((pair? type) (map surface-type type)) (else type)))
     (define (prepare-member method types class expression loc)
-      (unless (or (ir:lambda? expression) (ir:name? expression))
-        (strict-error loc "instance member must be a lambda or stable function binding"))
-      (if (ir:name? expression)
-          (list (cons method (ir:name-definition expression)))
-          (let* ((definition (ir:make-value-definition (ir:value-definition-name method) loc))
-                 (type (substitute (scheme-type (binding-scheme method)) (map cons (class-variables class) types))))
-            (cons (cons method definition)
-                  (begin
-                    (set-binding-declaration! definition
-                                              (ir:make-type-declaration definition (surface-type type) loc))
-                    (list (ir:make-value-binding definition expression loc)))))))
+      ;; Evidence names this concrete source binding. Even a name expression
+      ;; must read its target here, once, rather than when a method is called.
+      (let* ((definition (ir:make-value-definition (ir:value-definition-name method) loc))
+             (type (substitute (scheme-type (binding-scheme method)) (map cons (class-variables class) types))))
+        (set-binding-declaration! definition (ir:make-type-declaration definition (surface-type type) loc))
+        (list (cons method definition) (ir:make-value-binding definition expression loc))))
     (define (prepare-instance node classes prior)
       (let* ((loc (node-loc node)) (class (find-class (ir:instance-declaration-class node) classes loc))
              (types (map (lambda (type) (require-concrete (source-type type '() loc) loc)) (ir:instance-declaration-types node)))
@@ -218,8 +213,8 @@
         (unless (= (length types) (length (class-variables class))) (strict-error loc "wrong number of static typeclass arguments"))
         (when (find-instance class types prior) (strict-error loc "duplicate static typeclass instance"))
         (check-member-names rows (class-methods class) loc)
-        (let ((members (map (lambda (method) (prepare-member method types class (cdr (assq method rows)) loc))
-                            (class-methods class))))
+        ;; Class order checks completeness; row order controls initialization.
+        (let ((members (map (lambda (row) (prepare-member (car row) types class (cdr row) loc)) rows)))
           (values (make-instance class types (map car members) #f #f) (apply append (map cdr members))))))
     (define (check-member-names rows methods loc)
       (unless (and (= (length rows) (length methods))
