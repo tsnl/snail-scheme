@@ -1,0 +1,397 @@
+{
+  "valid": [
+    {
+      "name": "empty",
+      "oracle_compatibility": false,
+      "fields": 0,
+      "result": "result:0"
+    },
+    {
+      "name": "line-comment-eof",
+      "oracle_compatibility": false,
+      "fields": 0,
+      "result": "result:0"
+    },
+    {
+      "name": "atoms",
+      "oracle_compatibility": false,
+      "fields": 36,
+      "result": "result:11"
+    },
+    {
+      "name": "dotted",
+      "oracle_compatibility": false,
+      "fields": 31,
+      "result": "result:3"
+    },
+    {
+      "name": "abbreviations",
+      "oracle_compatibility": false,
+      "fields": 95,
+      "result": "result:3"
+    },
+    {
+      "name": "vectors",
+      "oracle_compatibility": false,
+      "fields": 23,
+      "result": "result:2"
+    },
+    {
+      "name": "comments",
+      "oracle_compatibility": false,
+      "fields": 12,
+      "result": "result:2"
+    },
+    {
+      "name": "escaped-symbols",
+      "oracle_compatibility": true,
+      "fields": 31,
+      "result": "result:7"
+    },
+    {
+      "name": "strings",
+      "oracle_compatibility": false,
+      "fields": 29,
+      "result": "result:5"
+    },
+    {
+      "name": "continuations",
+      "oracle_compatibility": false,
+      "fields": 8,
+      "result": "result:2"
+    },
+    {
+      "name": "characters",
+      "oracle_compatibility": false,
+      "fields": 18,
+      "result": "result:9"
+    },
+    {
+      "name": "integers",
+      "oracle_compatibility": false,
+      "fields": 21,
+      "result": "result:7"
+    },
+    {
+      "name": "exact-decimals",
+      "oracle_compatibility": false,
+      "fields": 15,
+      "result": "result:5"
+    },
+    {
+      "name": "reals",
+      "oracle_compatibility": false,
+      "fields": 39,
+      "result": "result:13"
+    },
+    {
+      "name": "complex",
+      "oracle_compatibility": false,
+      "fields": 60,
+      "result": "result:12"
+    },
+    {
+      "name": "polar-axes",
+      "oracle_compatibility": false,
+      "fields": 66,
+      "result": "result:15"
+    },
+    {
+      "name": "bytevectors",
+      "oracle_compatibility": true,
+      "fields": 9,
+      "result": "result:2"
+    },
+    {
+      "name": "long-booleans",
+      "oracle_compatibility": true,
+      "fields": 8,
+      "result": "result:4"
+    },
+    {
+      "name": "named-characters",
+      "oracle_compatibility": true,
+      "fields": 14,
+      "result": "result:7"
+    },
+    {
+      "name": "growth-31",
+      "oracle_compatibility": false,
+      "fields": 66,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-32",
+      "oracle_compatibility": false,
+      "fields": 68,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-33",
+      "oracle_compatibility": false,
+      "fields": 70,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-63",
+      "oracle_compatibility": false,
+      "fields": 130,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-64",
+      "oracle_compatibility": false,
+      "fields": 132,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-65",
+      "oracle_compatibility": false,
+      "fields": 134,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-8191",
+      "oracle_compatibility": false,
+      "fields": 16386,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-8192",
+      "oracle_compatibility": false,
+      "fields": 16388,
+      "result": "result:2"
+    },
+    {
+      "name": "growth-8193",
+      "oracle_compatibility": false,
+      "fields": 16390,
+      "result": "result:2"
+    },
+    {
+      "name": "canonical-read1",
+      "oracle_compatibility": false,
+      "fields": 16576,
+      "result": "result:5"
+    },
+    {
+      "name": "canonical-sum1",
+      "oracle_compatibility": false,
+      "fields": 300000,
+      "result": "result:100000"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "error-0",
+      "input": ")"
+    },
+    {
+      "name": "error-1",
+      "input": "."
+    },
+    {
+      "name": "error-2",
+      "input": "(. a)"
+    },
+    {
+      "name": "error-3",
+      "input": "(a .)"
+    },
+    {
+      "name": "error-4",
+      "input": "(a . b c)"
+    },
+    {
+      "name": "error-5",
+      "input": "(a . b . c)"
+    },
+    {
+      "name": "error-6",
+      "input": "(a"
+    },
+    {
+      "name": "error-7",
+      "input": "#(a . b)"
+    },
+    {
+      "name": "error-8",
+      "input": "\"unfinished"
+    },
+    {
+      "name": "error-9",
+      "input": "|unfinished"
+    },
+    {
+      "name": "error-10",
+      "input": "\"bad\\q\""
+    },
+    {
+      "name": "error-11",
+      "input": "\"\\x;\""
+    },
+    {
+      "name": "error-12",
+      "input": "\"\\xd800;\""
+    },
+    {
+      "name": "error-13",
+      "input": "\"\\x110000;\""
+    },
+    {
+      "name": "error-14",
+      "input": "\"\\x12345678901234567890;\""
+    },
+    {
+      "name": "error-15",
+      "input": "\"a\\  b\""
+    },
+    {
+      "name": "error-16",
+      "input": "#\\"
+    },
+    {
+      "name": "error-17",
+      "input": "#\\unknown"
+    },
+    {
+      "name": "error-18",
+      "input": "#\\xdfff"
+    },
+    {
+      "name": "error-19",
+      "input": "#\\x110000"
+    },
+    {
+      "name": "error-20",
+      "input": "#| unfinished"
+    },
+    {
+      "name": "error-21",
+      "input": "#;"
+    },
+    {
+      "name": "error-22",
+      "input": "'"
+    },
+    {
+      "name": "error-23",
+      "input": "#; )"
+    },
+    {
+      "name": "error-24",
+      "input": "#u8(256)"
+    },
+    {
+      "name": "error-25",
+      "input": "#u8(-1)"
+    },
+    {
+      "name": "error-26",
+      "input": "#u8(1.0)"
+    },
+    {
+      "name": "error-27",
+      "input": "#u8(a)"
+    },
+    {
+      "name": "error-28",
+      "input": "#u9()"
+    },
+    {
+      "name": "error-29",
+      "input": "#"
+    },
+    {
+      "name": "error-30",
+      "input": "#tfoo"
+    },
+    {
+      "name": "error-31",
+      "input": "#e#e1"
+    },
+    {
+      "name": "error-32",
+      "input": "#x#b10"
+    },
+    {
+      "name": "error-33",
+      "input": "123abc"
+    },
+    {
+      "name": "error-34",
+      "input": "+2oops"
+    },
+    {
+      "name": "error-35",
+      "input": "1e"
+    },
+    {
+      "name": "error-36",
+      "input": "1/2"
+    },
+    {
+      "name": "error-37",
+      "input": "4/2"
+    },
+    {
+      "name": "error-38",
+      "input": "9223372036854775808"
+    },
+    {
+      "name": "error-39",
+      "input": "-9223372036854775809"
+    },
+    {
+      "name": "error-40",
+      "input": "#e1.5"
+    },
+    {
+      "name": "error-41",
+      "input": "#e9007199254740993.1"
+    },
+    {
+      "name": "error-42",
+      "input": "#e1e999"
+    },
+    {
+      "name": "error-43",
+      "input": "#e1@1"
+    },
+    {
+      "name": "error-44",
+      "input": "#0=(a)"
+    },
+    {
+      "name": "error-45",
+      "input": "#0#"
+    },
+    {
+      "name": "error-46",
+      "input": "#!fold-case abc"
+    },
+    {
+      "name": "error-47",
+      "input": "#!no-fold-case abc"
+    },
+    {
+      "name": "error-48",
+      "input": "[a]"
+    },
+    {
+      "name": "error-49",
+      "input": "42 #e1.5"
+    },
+    {
+      "name": "error-50",
+      "input": "#; #| unfinished"
+    }
+  ],
+  "utf8_errors": 3,
+  "systems": [
+    "raw linked Wasm",
+    "Binaryen-optimized linked Wasm",
+    "native64"
+  ],
+  "trace_scope": "every field of one complete canonical read1 and sum1 invocation"
+}

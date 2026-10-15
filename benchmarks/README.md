@@ -49,6 +49,10 @@ Later strict ports and their measurement checkpoints are tracked in the
 [coverage inventory](strict-suite/capabilities.md): 37 measured workloads,
 36 with paired Chez controls. These are individual checkpoints, not a complete
 rerun on the current compiler. The
+[typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
+checks the complete `sum1` and `read1` input streams against Chez on linked raw
+Wasm, optimized Wasm and native. Full workload preparation is still underway;
+these library checks add no measured coverage. The
 [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
 4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
 time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate

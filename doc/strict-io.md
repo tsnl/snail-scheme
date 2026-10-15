@@ -11,6 +11,9 @@ reference, value wrapper, root table, or dynamic dispatch.
 | `delete-file` | `String -> Unit` |
 | `open-input-file` | `String -> InputPort` |
 | `close-input-port` | `InputPort -> Unit` |
+| `read-char` / `peek-char` | `InputPort -> CharacterResult` |
+| `character-end?` | `CharacterResult -> Bool` |
+| `character-text` | `CharacterResult -> Char` (character case only) |
 | `read-line` | `InputPort -> LineResult` |
 | `eof-object?` | `LineResult -> Bool` |
 | `line-text` | `LineResult -> String` (line case only) |
@@ -62,6 +65,12 @@ is returned once. Empty lines contain a fresh mutable empty String, so they stay
 distinct from EOF. NUL and all other Unicode scalars are preserved. Invalid or
 truncated UTF-8 and I/O failures report errors; they do not become EOF.
 
+`CharacterResult` has the cases `(character-end)` and `(character-value text)`.
+`peek-char` preserves the next scalar for subsequent character, line or datum
+reads on the same port; repeated EOF reads remain EOF. Its typed EOF is separate
+from the line result. The [datum reader](strict-reader.md) builds on these same
+incremental operations.
+
 The Rust scalar reads return a Unicode code point or `-1` for EOF. Its existing
 `TextInput` owns one lookahead, so a CR followed by a non-LF character leaves that
 character for the next read. Scheme grows each line's private String buffer by
@@ -94,7 +103,7 @@ Both forms must eliminate imports from `snail.abi`, `snail.library`, and
 The host supplies WASI, initializes the reactor, and then invokes Scheme `main`
 once before any selected worker. The retained `close-resources` export returns
 zero if all remaining files close successfully and one if a close fails. It
-clears pending pathname text, detaches the live registry, and attempts every
+clears pending pathname text and unfinished strict-reader tokens, detaches the live registry, and attempts every
 close and drop. It is safe to call when no resources remain.
 
 ## Failure and ownership

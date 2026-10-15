@@ -2,16 +2,18 @@
 
 This inventory began with the 43 workloads left after the frozen array1
 reports. Sources remain pinned to `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`;
-`capabilities.json` preserves their source/input hashes. The current unmerged
-compiler basis is `fd29b6c`: result-context overloads, `Default T`, rank-one
+`capabilities.json` preserves their source/input hashes. The unmerged compiler
+supports result-context overloads, `Default T`, rank-one
 specialization, concrete nominal products, closed recursive variants and direct
 calls to nonescaping local procedures and structured operators, plus direct captures
 of initialized let values, are implemented. Native Unicode strings have
 checked owned blocks and Scheme append/copy helpers; measured short-string
 overhead remains under investigation. Mutable bindings use
-explicit `Ref` cells. Symbols, general mutable
-pairs, first-class continuations and a full numeric tower are still outside this
-strict subset. Representation support alone does not establish a completed port.
+explicit `Ref` cells. The typed datum and reader libraries now provide symbols,
+mutable datum pairs and incremental input; their structural equality covers
+finite acyclic data. First-class continuations and a full numeric tower remain
+outside this strict subset. Representation support alone does not establish a
+completed port.
 
 The five selected ports and FFT have preceding measured reports. Quicksort,
 graphs, mperm and simplex have reviewed canonical measurements against both
@@ -74,6 +76,10 @@ timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
 intended long-lived
 tree root during later allocation. That lifetime issue blocks its GC comparison.
+The [typed reader library report](../results/2026-10-14-strict-reader-library/README.md)
+checks complete canonical `sum1` and `read1` input streams on linked raw Wasm,
+optimized Wasm and native against Chez. Their complete workload adapters and
+timings remain in preparation, so this adds no measured coverage.
 
 | Workload | Capability and required source work |
 | --- | --- |
@@ -98,9 +104,9 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
 | ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
-| sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
+| sum1 | Typed input and reader libraries pass all 100,000 canonical numeric values against Chez. Full 25-invocation adapter and timings remain in preparation; each file read belongs inside the workload clock. |
 | tail | Measured all 50 complete 4,460,056-byte bibliography reversals: 5.173× original Chez time, 2.712× adapted Chez and 22.658× Rust/Wasm. Full outputs and separate file-lifecycle/byte observations pass. Strict Unicode-scalar lists/scalar I/O, adapted Chez helpers and Rust UTF8 Vec<String>/buffered I/O/earlier input-close differ. |
-| read1 | General datum reader and file ports, EOF and heterogeneous parsed data. |
+| read1 | Typed datum reader passes every field of the complete canonical file against Chez. Full 2,500-invocation adapter and timings remain in preparation; preserve every open/read/close. |
 | compiler | Symbolic heterogeneous compiler IR, mutable pairs/vectors, strings, files and binary/text output; a scalar kernel slice would not port this compiler workload. |
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
@@ -122,8 +128,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 36 of 57 workloads,
-with 35 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 37 of 57 workloads,
+with 36 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
