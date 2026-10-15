@@ -3,7 +3,7 @@
 This diagnostic adapts selected original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, `conform`, and `maze`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, `ray`, `mazefun`, `tail`, `nucleic`, `bv2string`, `earley`, `matrix`, `browse`, `equal`, `nboyer`, `sboyer`, `conform`, `maze`, and `parsing`.
 
 `--benchmarks maze` prepares the complete Olin Shivers hexagonal Maze workload:
 10,000 constructions of a 20 × 7 grid, with the supplied 668-character result.
@@ -158,6 +158,25 @@ passes all 56 planned processes. Production V8 takes 1.599663 s, original Chez
 Default engine/collector settings and all seven serial position rotations remain.
 Separate counted/GC observations are outside clean timings. This artifact basis
 is `43322a2`, with ledger-only correction `7bd327f` recorded independently.
+
+`parsing` retains all 936 source lines, the complete 28,300-byte input, all
+2,500 parses and the full `(should return this list)` predicate. Its actual
+timed worker loads the entire file once through the original character-list
+algorithm, despite a source comment describing that load as untimed. Generated
+scanner states, the LL(1) grammar, simultaneous `do` updates and original EOF,
+string and character quirks remain. Eight explicit `Ref` bindings and the
+existing Symbol/Datum libraries expose the supported representations.
+
+The [Parsing preparation](../results/2026-10-14-strict-parsing-preparation/README.md)
+passes original/adapted Chez, raw/optimized linked Wasm, actual native and
+unchanged Rust controls. Separate probes compare complete accepted-token and
+top-level-datum streams, entry counts for 79 named procedures, and prefix-copy,
+suffix-sharing, mutation and parser-reset behavior. The adapted kernel and
+complete Chez program reverse exactly to their original sources. Numeric
+support remains bounded by the existing Datum library; rational and oversized
+exact values are outside this port's supported domain. Use `--benchmarks parsing`
+for preparation. Clean timing remains pending and requires a separately frozen
+plan, so this preparation does not increase historical measured coverage.
 
 ## Run
 

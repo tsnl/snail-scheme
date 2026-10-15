@@ -822,6 +822,18 @@ mutations, identities, every output character, and full-count source operations.
 The module prepares original/adapted Chez, raw/optimized linked Wasm, native64,
 the exact native-final Wasm on V8, and the unchanged indexed Rust reference.
 
+[`parsing_port.py`](benchmarks/strict-suite/parsing_port.py) keeps Parsing's
+complete generated scanner and LL(1) parser. Counted reversible edits expose
+the existing `Datum`, Symbol and eight `Ref` bindings without replacing the
+grammar or character-list file loader. The full 2,500-parse worker retains its
+actual timed file load, simultaneous updates, EOF quirks and complete result
+predicate. Preparation compares original/adapted Chez, raw/optimized Wasm,
+native and the independent Rust control. Separate token/datum streams, named
+procedure counters and alias/reset checks remain outside clean timing. The
+[observation fixture](tests/strict-parsing/probe.scm) and its native entry live
+under `tests/`; preparation records them as driver inputs separately from the
+historical compiler-source basis.
+
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its

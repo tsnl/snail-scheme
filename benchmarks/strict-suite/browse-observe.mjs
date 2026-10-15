@@ -21,7 +21,8 @@ const observer = {
 };
 const module = new WebAssembly.Module(fs.readFileSync(artifact));
 assert(WebAssembly.Module.imports(module).every(item => ['benchmark', 'reader.test', 'wasi_snapshot_preview1'].includes(item.module)));
-const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1},
+const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1,
+  write_character: value => fs.writeSync(1, String.fromCodePoint(value))},
   'reader.test': observer, wasi_snapshot_preview1: wasi.wasiImport});
 try {
   wasi.initialize(instance);
