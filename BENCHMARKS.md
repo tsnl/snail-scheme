@@ -50,6 +50,12 @@ cover symbolic differentiation and complex Mandelbrot. The strict ports preserve
 inputs and repetition counts while documenting their source and representation
 adaptations. This is separate from the historical complete-suite runner above.
 
+A separate [current-Wasm LLVM/Immix experiment](benchmarks/results/2026-10-14-current-wasm-llvm/README.md)
+executes identical optimized Wasm on both backends. LLVM wins String by 2.19×,
+permutations by 2.55× and quicksort by 1.12×; V8 wins complex Mandelbrot by 1.79×.
+The permutation result requires a 1 GiB native arena, and deriv cannot compile
+through the archived emitter. This is a bounded experiment, not a suite result.
+
 For a smoke check of the entire suite on the reference implementations:
 
 ```sh
