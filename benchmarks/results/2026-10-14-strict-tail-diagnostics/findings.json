@@ -1,0 +1,667 @@
+{
+  "kind": "Separate diagnostics; no clean timing samples",
+  "interval_us": 1000,
+  "observed_samples": 4610,
+  "weighted_intervals_us": 4943758,
+  "profile_span_us": 4944594,
+  "unsampled_tail_us": 836,
+  "exclusive_frames": [
+    {
+      "function": "snail:io/read-character",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 51832,
+      "weighted_interval_us": 1980013,
+      "percent": 40.050767048063435
+    },
+    {
+      "function": "snail:io/write-character",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 52673,
+      "weighted_interval_us": 1147592,
+      "percent": 23.212948530247637
+    },
+    {
+      "function": "function57",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4574,
+      "weighted_interval_us": 367514,
+      "percent": 7.433899474852936
+    },
+    {
+      "function": "function52",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 3363,
+      "weighted_interval_us": 356587,
+      "percent": 7.2128732838460135
+    },
+    {
+      "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 25032,
+      "weighted_interval_us": 324116,
+      "percent": 6.556065244293916
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 256117,
+      "percent": 5.180613614177717
+    },
+    {
+      "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 27781,
+      "weighted_interval_us": 163988,
+      "percent": 3.3170717498712516
+    },
+    {
+      "function": "function63",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 6160,
+      "weighted_interval_us": 68196,
+      "percent": 1.3794364529979015
+    },
+    {
+      "function": "function61",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4704,
+      "weighted_interval_us": 60896,
+      "percent": 1.2317755035744065
+    },
+    {
+      "function": "fd_write",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 48715,
+      "percent": 0.9853839933103522
+    },
+    {
+      "function": "string-copy-forward",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 1984,
+      "weighted_interval_us": 44376,
+      "percent": 0.8976167522763048
+    },
+    {
+      "function": "function64",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 6247,
+      "weighted_interval_us": 32618,
+      "percent": 0.659781486067886
+    },
+    {
+      "function": "string-new",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 1842,
+      "weighted_interval_us": 29430,
+      "percent": 0.595296128977187
+    },
+    {
+      "function": "fd_read",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 20013,
+      "percent": 0.40481350422087814
+    },
+    {
+      "function": "path_unlink_file",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 14304,
+      "percent": 0.2893345507607775
+    },
+    {
+      "function": "post",
+      "url": "node:inspector",
+      "line": 114,
+      "column": 6,
+      "weighted_interval_us": 7325,
+      "percent": 0.1481666376064524
+    },
+    {
+      "function": "wasm-to-js",
+      "url": "",
+      "line": 0,
+      "column": 0,
+      "weighted_interval_us": 4948,
+      "percent": 0.10008580517088417
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.fd_read",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 45,
+      "column": 43,
+      "weighted_interval_us": 3365,
+      "percent": 0.06806562942603582
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.fd_write",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 54,
+      "column": 44,
+      "weighted_interval_us": 3155,
+      "percent": 0.06381784868919554
+    },
+    {
+      "function": "get buffer",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 2105,
+      "percent": 0.04257894500499418
+    },
+    {
+      "function": "path_open",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1054,
+      "percent": 0.02131981379347452
+    },
+    {
+      "function": "wasm-to-js",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1054,
+      "percent": 0.02131981379347452
+    },
+    {
+      "function": "dlfree",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 108676,
+      "weighted_interval_us": 1053,
+      "percent": 0.02129958626615623
+    },
+    {
+      "function": "path_filestat_get",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "decodeUTF8",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "_ZN4core3ptr46drop_in_place$LT$snail_runtime..host..Port$GT$17hc4c6f08ddf91d2e7E",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 31652,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "snail:io/close",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 48216,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "function62",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4880,
+      "weighted_interval_us": 1016,
+      "percent": 0.02055116775537961
+    }
+  ],
+  "inclusive_frames": [
+    {
+      "function": "(root)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 4943758,
+      "percent": 100.0
+    },
+    {
+      "function": "processTicksAndRejections",
+      "url": "node:internal/process/task_queues",
+      "line": 71,
+      "column": 34,
+      "weighted_interval_us": 4685539,
+      "percent": 94.77686812339924
+    },
+    {
+      "function": "",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 4685539,
+      "percent": 94.77686812339924
+    },
+    {
+      "function": "js-to-wasm::i",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 49675,
+      "weighted_interval_us": 4678214,
+      "percent": 94.62870148579279
+    },
+    {
+      "function": "function74",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 7622,
+      "weighted_interval_us": 4677161,
+      "percent": 94.60740189952664
+    },
+    {
+      "function": "function62",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4880,
+      "weighted_interval_us": 2989585,
+      "percent": 60.4719122578411
+    },
+    {
+      "function": "function61",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4704,
+      "weighted_interval_us": 2957624,
+      "percent": 59.82542025722133
+    },
+    {
+      "function": "function52",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 3363,
+      "weighted_interval_us": 2830463,
+      "percent": 57.253267655900636
+    },
+    {
+      "function": "snail:io/read-character",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 51832,
+      "weighted_interval_us": 2495714,
+      "percent": 50.482123113631374
+    },
+    {
+      "function": "function64",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 6247,
+      "weighted_interval_us": 1666956,
+      "percent": 33.71839802838246
+    },
+    {
+      "function": "function63",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 6160,
+      "weighted_interval_us": 1583396,
+      "percent": 32.02818584566639
+    },
+    {
+      "function": "function57",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 4574,
+      "weighted_interval_us": 1554114,
+      "percent": 31.435883390732315
+    },
+    {
+      "function": "snail:io/write-character",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 52673,
+      "weighted_interval_us": 1202296,
+      "percent": 24.319475184667212
+    },
+    {
+      "function": "_ZN13snail_runtime4host14read_utf8_char17h1424800813a09523E",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 25032,
+      "weighted_interval_us": 515701,
+      "percent": 10.431356065567934
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 256117,
+      "percent": 5.180613614177717
+    },
+    {
+      "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 27781,
+      "weighted_interval_us": 163988,
+      "percent": 3.3170717498712516
+    },
+    {
+      "function": "wasm-to-js",
+      "url": "",
+      "line": 0,
+      "column": 0,
+      "weighted_interval_us": 81401,
+      "percent": 1.6465409512358817
+    },
+    {
+      "function": "_ZN3std2io8buffered9bufwriter18BufWriter$LT$W$GT$9flush_buf17h05b866eb6182ac6cE",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 32403,
+      "weighted_interval_us": 54704,
+      "percent": 1.106526654419573
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.fd_write",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 54,
+      "column": 44,
+      "weighted_interval_us": 52922,
+      "percent": 1.0704812007383857
+    },
+    {
+      "function": "fd_write",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 48715,
+      "percent": 0.9853839933103522
+    },
+    {
+      "function": "string-copy-forward",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 1984,
+      "weighted_interval_us": 44376,
+      "percent": 0.8976167522763048
+    },
+    {
+      "function": "write",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 100192,
+      "weighted_interval_us": 36807,
+      "percent": 0.7445145980041903
+    },
+    {
+      "function": "string-new",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 1842,
+      "weighted_interval_us": 29430,
+      "percent": 0.595296128977187
+    },
+    {
+      "function": "_RNvXsa_NtCset5xJoy1xWQ_3std2fsNtB5_4FileNtNtB7_2io4Read8read_buf",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 98443,
+      "weighted_interval_us": 27597,
+      "percent": 0.5582190714027668
+    },
+    {
+      "function": "read",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 100100,
+      "weighted_interval_us": 27597,
+      "percent": 0.5582190714027668
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.fd_read",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 45,
+      "column": 43,
+      "weighted_interval_us": 24431,
+      "percent": 0.49417871991307016
+    },
+    {
+      "function": "fd_read",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 20013,
+      "percent": 0.40481350422087814
+    },
+    {
+      "function": "wasm-to-js",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 19416,
+      "percent": 0.39273767041186075
+    },
+    {
+      "function": "snail:io/delete-file",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 49734,
+      "weighted_interval_us": 14304,
+      "percent": 0.2893345507607775
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.path_unlink_file",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 67,
+      "column": 52,
+      "weighted_interval_us": 14304,
+      "percent": 0.2893345507607775
+    },
+    {
+      "function": "path_unlink_file",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 14304,
+      "percent": 0.2893345507607775
+    },
+    {
+      "function": "",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 5,
+      "column": 58,
+      "weighted_interval_us": 7325,
+      "percent": 0.1481666376064524
+    },
+    {
+      "function": "post",
+      "url": "node:inspector",
+      "line": 114,
+      "column": 6,
+      "weighted_interval_us": 7325,
+      "percent": 0.1481666376064524
+    },
+    {
+      "function": "profiler",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 5,
+      "column": 17,
+      "weighted_interval_us": 7325,
+      "percent": 0.1481666376064524
+    },
+    {
+      "function": "_RNCNvMsi_NtNtNtCset5xJoy1xWQ_3std3sys2fs4unixNtB7_4File4open0Bd_",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 90822,
+      "weighted_interval_us": 3160,
+      "percent": 0.06391898632578698
+    },
+    {
+      "function": "_RNvMsl_NtCset5xJoy1xWQ_3std2fsNtB5_11OpenOptions5__open",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 29097,
+      "weighted_interval_us": 3160,
+      "percent": 0.06391898632578698
+    },
+    {
+      "function": "imports.wasi_snapshot_preview1.path_open",
+      "url": "file:///tmp/snail-tail-diagnostics-20261014/build/tail-diagnostics/profile-host.mjs",
+      "line": 34,
+      "column": 45,
+      "weighted_interval_us": 2106,
+      "percent": 0.04259917253231246
+    },
+    {
+      "function": "get buffer",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 2105,
+      "percent": 0.04257894500499418
+    },
+    {
+      "function": "snail:io/close",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 48216,
+      "weighted_interval_us": 2104,
+      "percent": 0.04255871747767589
+    },
+    {
+      "function": "path_open",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1054,
+      "percent": 0.02131981379347452
+    },
+    {
+      "function": "dlfree",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 108676,
+      "weighted_interval_us": 1053,
+      "percent": 0.02129958626615623
+    },
+    {
+      "function": "path_filestat_get",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "__wasilibc_nocwd_fstatat",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 100285,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "decodeUTF8",
+      "url": "",
+      "line": -1,
+      "column": -1,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "decode",
+      "url": "node:internal/encoding",
+      "line": 481,
+      "column": 8,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "_ZN13snail_runtime4host4Port5close17hec9fd31eb8133fdbE",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 29750,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    },
+    {
+      "function": "_ZN4core3ptr46drop_in_place$LT$snail_runtime..host..Port$GT$17hc4c6f08ddf91d2e7E",
+      "url": "wasm://wasm/000d7fba",
+      "line": 0,
+      "column": 31652,
+      "weighted_interval_us": 1052,
+      "percent": 0.021279358738837944
+    }
+  ],
+  "inclusive_warning": "Overlapping ancestors; do not sum as separate costs",
+  "work_checks": {
+    "scalar_read_requests": {
+      "actual": 223002850,
+      "predicted": 223002850
+    },
+    "scalar_write_requests": {
+      "actual": 223002800,
+      "predicted": 223002800
+    },
+    "line_values_completed": {
+      "actual": 1555100,
+      "predicted": 1555100
+    },
+    "eof_values_completed": {
+      "actual": 50,
+      "predicted": 50
+    },
+    "list_nodes_completed": {
+      "actual": 1555100,
+      "predicted": 1555100
+    },
+    "growth_requests": {
+      "actual": 3939050,
+      "predicted": 3939050
+    },
+    "trim_requests": {
+      "actual": 1538300,
+      "predicted": 1538300
+    },
+    "string_requests": {
+      "actual": 7032450,
+      "predicted": 7032450
+    },
+    "requested_i32_cells": {
+      "actual": 754545300,
+      "predicted": 754545300
+    },
+    "copy_service_cells": {
+      "actual": 437191700,
+      "predicted": 437191700
+    },
+    "primary_arrays_completed": {
+      "actual": 7032450,
+      "predicted": 7032450
+    },
+    "primary_arrays_completed_cells": {
+      "actual": 754545300,
+      "predicted": 754545300
+    },
+    "array_copy_cells": {
+      "actual": 437191700,
+      "predicted": 437191700
+    }
+  }
+}
