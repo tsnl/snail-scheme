@@ -7,7 +7,8 @@
           value-binding? value-type value-site value-initializer value-index
           value-parameter? value-source value-ready-at-capture?
           function-index function-type* function-parameters function-rest-binding
-          function-body function-captures function-source function-direct? direct-value-function)
+          function-body function-captures function-source function-direct? direct-value-function
+          function-ready-globals)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
           (only (snail-scheme ir)
                 make-node node? node-kind node-type node-loc node-data node-constraints
@@ -45,7 +46,7 @@
       (index value-index)
       (parameter? value-parameter?))
     (define-record-type <function>
-      (make-function index source type parameters rest body captures direct?) function?
+      (make-function index source type parameters rest body captures direct? ready-globals) function?
       (index function-index)
       (source function-source)
       (type function-type*)
@@ -53,7 +54,8 @@
       (rest function-rest-binding set-function-rest-binding!)
       (body function-body set-function-body!)
       (captures function-captures set-function-captures!)
-      (direct? function-direct? set-function-direct!))
+      (direct? function-direct? set-function-direct!)
+      (ready-globals function-ready-globals set-function-ready-globals!))
     (define-record-type <program>
       (make-mono-program body functions globals exports) mono-program?
       (body mono-program-body)
@@ -253,7 +255,7 @@
     ;; A function is reserved before cloning its body. References to a recursive
     ;; binding therefore reuse its pending value rather than expanding forever.
     (define (clone-lambda node type parent state)
-      (let* ((function (make-function (length (state-functions state)) node type '() #f #f '() #f))
+      (let* ((function (make-function (length (state-functions state)) node type '() #f #f '() #f '()))
              (fixed (car (node-data node))) (rest (cadr (node-data node)))
              (bindings (append fixed (if rest (list rest) '())))
              (types (append (function-domains type) (if rest (list (list 'List (function-rest type))) '())))
@@ -381,6 +383,33 @@
           (and (pair? left) (pair? right) (eq? (car left) (car right))
                (same-values? (cdr left) (cdr right)))))
 
+    ;; ---- Global initialization before code becomes callable ----
+
+    ;; A concrete function has one creation node. A closure must be created
+    ;; before invocation; direct-only calls instead check the binding token
+    ;; published at that same source event. Exports retain that closure and
+    ;; require successful main completion. These entry rules are preconditions
+    ;; for inheriting globals initialized before the creation node can execute.
+    ;; Main is one-shot; completed globals never become unready. Nested
+    ;; functions inherit only that proof, even if called much later.
+    (define (inherit-global-readiness! node globals)
+      (if (eq? (node-kind node) 'closure)
+          (let ((function (car (node-data node))))
+            (set-function-ready-globals! function globals)
+            (inherit-global-readiness! (function-body function) globals))
+          (for-each (lambda (child) (inherit-global-readiness! child globals)) (execution-children node))))
+    ;; Global binds are direct items of the program block. Add a site only
+    ;; after its complete source event; none of its concrete initializers can
+    ;; assume that site ready. Demand is settled, so later-added payload copies
+    ;; and readiness tokens share the same proof. Local binds never add facts.
+    (define (mark-ready-globals! body)
+      (let visit ((nodes (cadr (node-data body))) (globals '()))
+        (unless (null? nodes)
+          (let* ((node (car nodes))
+                 (site (and (eq? (node-kind node) 'bind) (car (node-data node)))))
+            (inherit-global-readiness! node globals)
+            (visit (cdr nodes) (if (and site (site-global? site)) (cons site globals) globals))))))
+
     ;; ---- Select public scalar workers ----
 
     ;; A selected worker may capture managed values, but its public signature
@@ -420,5 +449,44 @@
         (check-export-names export-names (node-loc body))
         (select-direct-procedures! body (state-functions state))
         (settle-captures! (state-functions state))
+        (mark-ready-globals! body)
         (make-mono-program body (state-functions state) (state-globals state)
-                           (map (lambda (name) (selected-export name (state-globals state) (node-loc body))) export-names))))))
+                           (map (lambda (name) (selected-export name (state-globals state) (node-loc body))) export-names)))))
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-strict-specialize)
+    (import (snail-scheme test-utils))
+    (begin
+      (define (test-site global? initializers)
+        (let ((site (make-site #f #f global? '() #f #f)))
+          (set-site-instances! site
+                               (map (lambda (initializer)
+                                      (cons 'concrete (make-value #f (node-type initializer) site initializer 0 #f))) initializers))
+          site))
+      (define (test-block sites)
+        (make-node 'block 'Unit #f
+                   (list sites (map (lambda (site) (make-node 'bind 'Unit #f (list site) '())) sites)) '()))
+      (define (test-closure body)
+        (let* ((type (function-type '() #f (node-type body)))
+               (function (make-function 0 #f type '() #f body '() #f '())))
+          (make-node 'closure type #f (list function) '())))
+      (define (test-global-readiness-prefix)
+        (let* ((unit (make-node 'unit 'Unit #f '() '()))
+               (nested (test-closure unit)) (local (test-site #f (list nested)))
+               (first-copy (test-closure (test-block (list local)))) (second-copy (test-closure unit))
+               (last (test-closure unit)) (before (test-site #t (list unit)))
+               (current (test-site #t (list first-copy second-copy))) (after (test-site #t (list last)))
+               (body (test-block (list before current after))))
+          ;; Multiple demanded copies share the complete source event. A local
+          ;; direct worker still inherits only its creator's global prefix.
+          (set-function-direct! (car (node-data nested)) #t)
+          (mark-ready-globals! body)
+          (for-each (lambda (closure) (expect (function-ready-globals (car (node-data closure))) (list before)))
+                    (list first-copy second-copy nested))
+          (expect (function-ready-globals (car (node-data last))) (list current before))))
+      (define (test-strict-specialize)
+        (run-test test-global-readiness-prefix))))
+   (else)))
