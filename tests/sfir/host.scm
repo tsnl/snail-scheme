@@ -17,6 +17,8 @@
         (only (snail-sfir source-driver) test-source-driver)
         (only (snail-sfir artifact) test-artifact)
         (only (snail-sfir library-transfer) test-library-transfer)
+        (only (snail-sfir execute-native) test-native-execution)
+        (only (snail-tools native-build) test-native-build)
         (only (snail-sfir numeric-literals) test-numeric-literals)
         (only (snail-scheme strict-types) test-strict-types)
         (only (snail-scheme strict-infer) test-strict-infer)
@@ -27,6 +29,8 @@
 (test-compiler)
 (test-artifact)
 (test-library-transfer)
+(test-native-execution)
+(test-native-build)
 (call-with-temp-dir
  "sfir-unit-traces"
  (lambda (directory preserve)
