@@ -8,4 +8,5 @@
 - [Libraries](sfir/libraries.md)
 - [Compilers as libraries](sfir/compilers.md)
 - [Notable omissions](sfir/omissions.md)
+- [Implementation extensions](sfir/extensions.md)
 - [References](sfir/references.md)

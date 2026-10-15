@@ -1,2 +1,2 @@
-(import (sfir core))
+(import (sfir base))
 (empty-vector)

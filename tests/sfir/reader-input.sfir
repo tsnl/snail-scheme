@@ -1,2 +1,2 @@
-(define answer I64 42)
+(def answer I64 42)
 answer

@@ -58,8 +58,8 @@ def publication(target):
 
 def cleanup(target):
     output = OUTPUT / ('cleanup-' + target + '.txt')
-    path = source('cleanup-' + target, f'''(import (sfir core) (sfir io))
-(define port (open-output-file {json.dumps(str(output))}))
+    path = source('cleanup-' + target, f'''(import (sfir base) (sfir io))
+(def port (open-output-file {json.dumps(str(output))}))
 (write-string "buffered before trap" port)
 (vector-ref (vector 1) 2)''')
     invoke([ROOT / 'snail-sfir', 'run', '--target', target, path], 1)

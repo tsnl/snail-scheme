@@ -1,7 +1,7 @@
 ;; SFIR rejects detached signatures as syntax. The original binding context is retained.
-(import (sfir core))
+(import (sfir base))
 (: answer I64)
 (: answer I64)
-(define answer
-  42)
+(def answer
+     42)
 answer

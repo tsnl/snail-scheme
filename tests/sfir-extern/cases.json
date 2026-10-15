@@ -5,7 +5,7 @@
   {"name": "unit-main", "exports": ["worker"]},
   {"name": "round", "exports": ["worker", "round32", "native64", "native32", "view64", "view32"]},
   {"name": "reentrant-main", "exports": ["worker"]},
-  {"name": "reject-polymorphic", "error": "complete monomorphic"},
+  {"name": "reject-polymorphic", "error": "All and constraints belong to an attached binding signature"},
   {"name": "reject-rest", "error": "unsupported concrete extern type"},
   {"name": "reject-reference", "error": "unsupported concrete extern type"},
   {"name": "reject-top", "error": "unsupported concrete extern type"},

@@ -1,2 +1,2 @@
-(import (sfir core))
+(import (sfir base))
 (round 1.25 2.5)

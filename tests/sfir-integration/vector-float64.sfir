@@ -1,6 +1,6 @@
-(import (sfir core))
-(define values
-  (vector 1.25 2.5))
-(define copy
-  (vector-append (empty-vector) values (vector-copy values)))
+(import (sfir base))
+(def values
+     (vector 1.25 2.5))
+(def copy
+     (vector-append (empty-vector) values (vector-copy values)))
 (f64-add (vector-ref copy 0) (vector-ref copy 3))

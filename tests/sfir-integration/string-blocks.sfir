@@ -1,59 +1,59 @@
-(import (sfir core))
+(import (sfir base))
 
 ;; ---- Independent scalar oracle ----
 
-(define pattern-character
-  (lambda (index)
-    (let ((choice (remainder index 5)))
-      (if (= choice 0)
-          #\null
-          (if (= choice 1) #\é (if (= choice 2) #\x1f600 (if (= choice 3) #\x10ffff #\x301)))))))
-(define pattern-string
-  (lambda (length)
-    (let ((value (make-string length)))
-      (begin
-        (begin
-          (define loop
-            (lambda (index)
-              (if (= index length)
-                  (unit)
-                  (begin
-                    (string-set! value index (pattern-character index))
-                    (loop (+ index 1))
-                    (unit)))))
-          (loop 0))
-        value))))
-(define copied-range?
-  (lambda (length at start end)
-    (let ((value (pattern-string length)))
-      (let ((before (string-copy value)))
-        (let ((expected (string-copy value)))
-          (begin
-            (begin
-              (define loop
-                (lambda (index)
-                  (if (= index end)
-                      (unit)
-                      (begin
-                        (string-set! expected (+ at (- index start)) (string-ref before index))
-                        (loop (+ index 1))
-                        (unit)))))
-              (loop start))
-            (string-copy! value at value start end)
-            (string=? value expected)))))))
+(def pattern-character
+     (lambda (index)
+       (begin (let choice (remainder index 5))
+              (if (= choice 0)
+                  #\null
+                  (if (= choice 1) #\é (if (= choice 2) #\x1f600 (if (= choice 3) #\x10ffff #\x301)))))))
+(def pattern-string
+     (lambda (length)
+       (begin (let value (make-string length))
+              (begin
+                (begin
+                  (def loop
+                       (lambda (index)
+                         (if (= index length)
+                             (unit)
+                             (begin
+                               (string-set! value index (pattern-character index))
+                               (loop (+ index 1))
+                               (unit)))))
+                  (loop 0))
+                value))))
+(def copied-range?
+     (lambda (length at start end)
+       (begin (let value (pattern-string length))
+              (begin (let before (string-copy value))
+                     (begin (let expected (string-copy value))
+                            (begin
+                              (begin
+                                (def loop
+                                     (lambda (index)
+                                       (if (= index end)
+                                           (unit)
+                                           (begin
+                                             (string-set! expected (+ at (- index start)) (string-ref before index))
+                                             (loop (+ index 1))
+                                             (unit)))))
+                                (loop start))
+                              (string-copy! value at value start end)
+                              (string=? value expected)))))))
 
 ;; ---- Fresh buffers, aliases and block-edge overlap ----
 
-(define original
-  (pattern-string 16385))
-(define alias
-  original)
-(define copied
-  (string-copy original))
-(define middle
-  (substring original 8191 16385))
-(define joined
-  (string-append "[" original "]"))
+(def original
+     (pattern-string 16385))
+(def alias
+     original)
+(def copied
+     (string-copy original))
+(def middle
+     (substring original 8191 16385))
+(def joined
+     (string-append "[" original "]"))
 (string-set! alias 8192 #\Z)
 (if (if (string-eq? alias original)
         (if (not (string-eq? copied original))

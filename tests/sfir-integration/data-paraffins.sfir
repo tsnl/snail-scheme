@@ -2,191 +2,191 @@
 ;; r7rs-benchmarks 85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1. Tagged H/C and
 ;; BCP/CCP vectors become closed immutable variants; numeric partition vectors
 ;; and the two-list result retain their original homogeneous representation.
-(import (sfir core))
-(define-data Radical (H) (C (first Radical) (second Radical) (third Radical)))
-(define-data Paraffin
-  (BCP (first Radical) (second Radical))
-  (CCP (first Radical) (second Radical) (third Radical) (fourth Radical)))
-(define max
-  (lambda (a b) (if (> a b) a b)))
-(define list-length
-  (lambda (xs) (if (null? xs) 0 (+ 1 (list-length (cdr xs))))))
-(define gen
-  (lambda (n)
-    (let ((n/2 (quotient n 2)))
-      (let ((radicals (make-vector (+ n/2 1) (cons (H) (quote ())))))
-        (begin
+(import (sfir base))
+(def Radical (datatype () (H) (C (first Radical) (second Radical) (third Radical))))
+(def Paraffin (datatype ()
+                        (BCP (first Radical) (second Radical))
+                        (CCP (first Radical) (second Radical) (third Radical) (fourth Radical))))
+(def max
+     (lambda (a b) (if (> a b) a b)))
+(def list-length
+     (lambda (xs) (if (null? xs) 0 (+ 1 (list-length (cdr xs))))))
+(def gen
+     (lambda (n)
+       (begin (let n/2 (quotient n 2))
+              (begin (let radicals (make-vector (+ n/2 1) (cons (H) (empty-list ))))
+                     (begin
 
-          (define rads-of-size
-            (lambda (n)
-              (begin
-                (define loop1
-                  (lambda (ps lst)
-                    (if (null? ps)
-                        lst
-                        (let ((p (car ps)))
-                          (let ((nc1 (vector-ref p 0)))
-                            (let ((nc2 (vector-ref p 1)))
-                              (let ((nc3 (vector-ref p 2)))
-                                (begin
-                                  (define loop2
-                                    (lambda (rads1 lst)
-                                      (if (null? rads1)
-                                          lst
-                                          (begin
-                                            (define loop3
-                                              (lambda (rads2 lst)
-                                                (if (null? rads2)
-                                                    lst
-                                                    (begin
-                                                      (define loop4
-                                                        (lambda (rads3 lst)
-                                                          (if (null? rads3)
-                                                              lst
-                                                              (cons (C
-                                                                     (car rads1)
-                                                                     (car rads2)
-                                                                     (car rads3))
-                                                                    (loop4 (cdr rads3)
-                                                                           lst)))))
-                                                      (loop4 (if (= nc2 nc3) rads2 (vector-ref radicals nc3)) (loop3 (cdr rads2)
-                                                                                                                     lst))))))
-                                            (loop3 (if (= nc1 nc2) rads1 (vector-ref radicals nc2)) (loop2 (cdr rads1)
-                                                                                                           lst))))))
-                                  (loop2 (vector-ref radicals nc1) (loop1 (cdr ps)
-                                                                          lst))))))))))
-                (loop1 (three-partitions (- n 1)) (quote ())))))
+                       (def rads-of-size
+                            (lambda (n)
+                              (begin
+                                (def loop1
+                                     (lambda (ps lst)
+                                       (if (null? ps)
+                                           lst
+                                           (begin (let p (car ps))
+                                                  (begin (let nc1 (vector-ref p 0))
+                                                         (begin (let nc2 (vector-ref p 1))
+                                                                (begin (let nc3 (vector-ref p 2))
+                                                                       (begin
+                                                                         (def loop2
+                                                                              (lambda (rads1 lst)
+                                                                                (if (null? rads1)
+                                                                                    lst
+                                                                                    (begin
+                                                                                      (def loop3
+                                                                                           (lambda (rads2 lst)
+                                                                                             (if (null? rads2)
+                                                                                                 lst
+                                                                                                 (begin
+                                                                                                   (def loop4
+                                                                                                        (lambda (rads3 lst)
+                                                                                                          (if (null? rads3)
+                                                                                                              lst
+                                                                                                              (cons (C
+                                                                                                                     (car rads1)
+                                                                                                                     (car rads2)
+                                                                                                                     (car rads3))
+                                                                                                                    (loop4 (cdr rads3)
+                                                                                                                           lst)))))
+                                                                                                   (loop4 (if (= nc2 nc3) rads2 (vector-ref radicals nc3)) (loop3 (cdr rads2)
+                                                                                                                                                                  lst))))))
+                                                                                      (loop3 (if (= nc1 nc2) rads1 (vector-ref radicals nc2)) (loop2 (cdr rads1)
+                                                                                                                                                     lst))))))
+                                                                         (loop2 (vector-ref radicals nc1) (loop1 (cdr ps)
+                                                                                                                 lst))))))))))
+                                (loop1 (three-partitions (- n 1)) (empty-list )))))
 
-          (define bcp-generator
-            (lambda (j)
-              (if (not (= (remainder j 2) 0))
-                  (quote ())
-                  (begin
-                    (define loop1
-                      (lambda (rads1 lst)
-                        (if (null? rads1)
-                            lst
-                            (begin
-                              (define loop2
-                                (lambda (rads2 lst)
-                                  (if (null? rads2)
-                                      lst
-                                      (cons (BCP
-                                             (car rads1)
-                                             (car rads2))
-                                            (loop2 (cdr rads2)
-                                                   lst)))))
-                              (loop2 rads1 (loop1 (cdr rads1)
-                                                  lst))))))
-                    (loop1 (vector-ref radicals (quotient j 2)) (quote ()))))))
-
-          (define ccp-generator
-            (lambda (j)
-              (begin
-                (define loop1
-                  (lambda (ps lst)
-                    (if (null? ps)
-                        lst
-                        (let ((p (car ps)))
-                          (let ((nc1 (vector-ref p 0)))
-                            (let ((nc2 (vector-ref p 1)))
-                              (let ((nc3 (vector-ref p 2)))
-                                (let ((nc4 (vector-ref p 3)))
+                       (def bcp-generator
+                            (lambda (j)
+                              (if (not (= (remainder j 2) 0))
+                                  (empty-list )
                                   (begin
-                                    (define loop2
-                                      (lambda (rads1 lst)
-                                        (if (null? rads1)
-                                            lst
-                                            (begin
-                                              (define loop3
-                                                (lambda (rads2 lst)
-                                                  (if (null? rads2)
-                                                      lst
-                                                      (begin
-                                                        (define loop4
-                                                          (lambda (rads3 lst)
-                                                            (if (null? rads3)
-                                                                lst
-                                                                (begin
-                                                                  (define loop5
-                                                                    (lambda (rads4 lst)
-                                                                      (if (null? rads4)
-                                                                          lst
-                                                                          (cons (CCP
-                                                                                 (car rads1)
-                                                                                 (car rads2)
-                                                                                 (car rads3)
-                                                                                 (car rads4))
-                                                                                (loop5 (cdr rads4)
-                                                                                       lst)))))
-                                                                  (loop5 (if (= nc3 nc4) rads3 (vector-ref radicals nc4)) (loop4 (cdr rads3)
-                                                                                                                                 lst))))))
-                                                        (loop4 (if (= nc2 nc3) rads2 (vector-ref radicals nc3)) (loop3 (cdr rads2)
-                                                                                                                       lst))))))
-                                              (loop3 (if (= nc1 nc2) rads1 (vector-ref radicals nc2)) (loop2 (cdr rads1)
-                                                                                                             lst))))))
-                                    (loop2 (vector-ref radicals nc1) (loop1 (cdr ps)
-                                                                            lst)))))))))))
-                (loop1 (four-partitions (- j 1)) (quote ())))))
+                                    (def loop1
+                                         (lambda (rads1 lst)
+                                           (if (null? rads1)
+                                               lst
+                                               (begin
+                                                 (def loop2
+                                                      (lambda (rads2 lst)
+                                                        (if (null? rads2)
+                                                            lst
+                                                            (cons (BCP
+                                                                   (car rads1)
+                                                                   (car rads2))
+                                                                  (loop2 (cdr rads2)
+                                                                         lst)))))
+                                                 (loop2 rads1 (loop1 (cdr rads1)
+                                                                     lst))))))
+                                    (loop1 (vector-ref radicals (quotient j 2)) (empty-list ))))))
 
-          (begin
-            (define loop
-              (lambda (i)
-                (if (> i n/2)
-                    (vector (bcp-generator n)
-                            (ccp-generator n))
+                       (def ccp-generator
+                            (lambda (j)
+                              (begin
+                                (def loop1
+                                     (lambda (ps lst)
+                                       (if (null? ps)
+                                           lst
+                                           (begin (let p (car ps))
+                                                  (begin (let nc1 (vector-ref p 0))
+                                                         (begin (let nc2 (vector-ref p 1))
+                                                                (begin (let nc3 (vector-ref p 2))
+                                                                       (begin (let nc4 (vector-ref p 3))
+                                                                              (begin
+                                                                                (def loop2
+                                                                                     (lambda (rads1 lst)
+                                                                                       (if (null? rads1)
+                                                                                           lst
+                                                                                           (begin
+                                                                                             (def loop3
+                                                                                                  (lambda (rads2 lst)
+                                                                                                    (if (null? rads2)
+                                                                                                        lst
+                                                                                                        (begin
+                                                                                                          (def loop4
+                                                                                                               (lambda (rads3 lst)
+                                                                                                                 (if (null? rads3)
+                                                                                                                     lst
+                                                                                                                     (begin
+                                                                                                                       (def loop5
+                                                                                                                            (lambda (rads4 lst)
+                                                                                                                              (if (null? rads4)
+                                                                                                                                  lst
+                                                                                                                                  (cons (CCP
+                                                                                                                                         (car rads1)
+                                                                                                                                         (car rads2)
+                                                                                                                                         (car rads3)
+                                                                                                                                         (car rads4))
+                                                                                                                                        (loop5 (cdr rads4)
+                                                                                                                                               lst)))))
+                                                                                                                       (loop5 (if (= nc3 nc4) rads3 (vector-ref radicals nc4)) (loop4 (cdr rads3)
+                                                                                                                                                                                      lst))))))
+                                                                                                          (loop4 (if (= nc2 nc3) rads2 (vector-ref radicals nc3)) (loop3 (cdr rads2)
+                                                                                                                                                                         lst))))))
+                                                                                             (loop3 (if (= nc1 nc2) rads1 (vector-ref radicals nc2)) (loop2 (cdr rads1)
+                                                                                                                                                            lst))))))
+                                                                                (loop2 (vector-ref radicals nc1) (loop1 (cdr ps)
+                                                                                                                        lst)))))))))))
+                                (loop1 (four-partitions (- j 1)) (empty-list )))))
+
+                       (begin
+                         (def loop
+                              (lambda (i)
+                                (if (> i n/2)
+                                    (vector (bcp-generator n)
+                                            (ccp-generator n))
+                                    (begin
+                                      (vector-set! radicals i (rads-of-size i))
+                                      (loop (+ i 1))))))
+                         (loop 1)))))))
+
+(def three-partitions
+     (lambda (m)
+       (begin
+         (def loop1
+              (lambda (lst nc1)
+                (if (< nc1 0)
+                    lst
                     (begin
-                      (vector-set! radicals i (rads-of-size i))
-                      (loop (+ i 1))))))
-            (loop 1)))))))
+                      (def loop2
+                           (lambda (lst nc2)
+                             (if (< nc2 nc1)
+                                 (loop1 lst
+                                        (- nc1 1))
+                                 (loop2 (cons (vector nc1 nc2 (- m (+ nc1 nc2))) lst)
+                                        (- nc2 1)))))
+                      (loop2 lst (quotient (- m nc1) 2))))))
+         (loop1 (empty-list ) (quotient m 3)))))
 
-(define three-partitions
-  (lambda (m)
-    (begin
-      (define loop1
-        (lambda (lst nc1)
-          (if (< nc1 0)
-              lst
-              (begin
-                (define loop2
-                  (lambda (lst nc2)
-                    (if (< nc2 nc1)
-                        (loop1 lst
-                               (- nc1 1))
-                        (loop2 (cons (vector nc1 nc2 (- m (+ nc1 nc2))) lst)
-                               (- nc2 1)))))
-                (loop2 lst (quotient (- m nc1) 2))))))
-      (loop1 (quote ()) (quotient m 3)))))
+(def four-partitions
+     (lambda (m)
+       (begin
+         (def loop1
+              (lambda (lst nc1)
+                (if (< nc1 0)
+                    lst
+                    (begin
+                      (def loop2
+                           (lambda (lst nc2)
+                             (if (< nc2 nc1)
+                                 (loop1 lst
+                                        (- nc1 1))
+                                 (begin (let start (max nc2 (- (quotient (+ m 1) 2) (+ nc1 nc2))))
+                                        (begin
+                                          (def loop3
+                                               (lambda (lst nc3)
+                                                 (if (< nc3 start)
+                                                     (loop2 lst (- nc2 1))
+                                                     (loop3 (cons (vector nc1 nc2 nc3 (- m (+ nc1 (+ nc2 nc3)))) lst)
+                                                            (- nc3 1)))))
+                                          (loop3 lst (quotient (- m (+ nc1 nc2)) 2)))))))
+                      (loop2 lst (quotient (- m nc1) 3))))))
+         (loop1 (empty-list ) (quotient m 4)))))
 
-(define four-partitions
-  (lambda (m)
-    (begin
-      (define loop1
-        (lambda (lst nc1)
-          (if (< nc1 0)
-              lst
-              (begin
-                (define loop2
-                  (lambda (lst nc2)
-                    (if (< nc2 nc1)
-                        (loop1 lst
-                               (- nc1 1))
-                        (let ((start (max nc2 (- (quotient (+ m 1) 2) (+ nc1 nc2)))))
-                          (begin
-                            (define loop3
-                              (lambda (lst nc3)
-                                (if (< nc3 start)
-                                    (loop2 lst (- nc2 1))
-                                    (loop3 (cons (vector nc1 nc2 nc3 (- m (+ nc1 (+ nc2 nc3)))) lst)
-                                           (- nc3 1)))))
-                            (loop3 lst (quotient (- m (+ nc1 nc2)) 2)))))))
-                (loop2 lst (quotient (- m nc1) 3))))))
-      (loop1 (quote ()) (quotient m 4)))))
-
-(define nb
-  (lambda (n)
-    (let ((x (gen n)))
-      (+ (list-length (vector-ref x 0))
-         (list-length (vector-ref x 1))))))
+(def nb
+     (lambda (n)
+       (begin (let x (gen n))
+              (+ (list-length (vector-ref x 0))
+                 (list-length (vector-ref x 1))))))
 
 (nb 10)

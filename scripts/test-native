@@ -165,7 +165,7 @@ def check_scalar_providers():
 def bytevector_trap_entry(source, names):
     # The fixtures declare zero-argument scalar observers. Match their real C
     # result types even though trap probes must never return a result.
-    signatures = dict(re.findall(r'\(define\s+([\w!?-]+)\s+\(->\s+(I64|Bool|Unit)\s*\)', source))
+    signatures = dict(re.findall(r'\(def\s+([\w!?-]+)\s+\(->\s+(I64|Bool|Unit)\s*\)', source))
     types = {'I64': 'int64_t', 'Bool': 'int32_t', 'Unit': 'void'}
     declarations = [f'extern {types[signatures[name]]} probe{i}(void) __asm__("wasm.{name}");'
                     for i, name in enumerate(names)]
@@ -304,6 +304,10 @@ def check_build_ownership():
     print('PASS native input protection and failed-publication preservation', flush=True)
 
 
+def check_instance_and_call_order():
+    run([sys.executable, ROOT / 'tests/sfir-instances/check.py'], stdout=None)
+    print('PASS instance initialization and ordinary call ordering on Wasm and native', flush=True)
+
 
 def main():
     BUILD.mkdir(parents=True, exist_ok=True)
@@ -315,6 +319,7 @@ def main():
     check_io()
     check_input()
     check_build_ownership()
+    check_instance_and_call_order()
     files = [path for directory in ['src', 'lib', 'tests'] for path in (ROOT / directory).rglob('*') if path.is_file()]
     files += [ROOT / 'scripts/build-native', ROOT / 'scripts/test-native', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock']
     (BUILD / 'source-hashes.json').write_text(json.dumps({str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()

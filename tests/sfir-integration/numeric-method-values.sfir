@@ -1,15 +1,15 @@
-(import (sfir core))
-(define plus
-  +)
-(define invoke
-  (lambda (operation a b) (operation a b)))
-(define choose
-  (lambda (flag) (if flag + -)))
-(define apply-vector
-  (lambda (operation source)
-    (vector (operation (vector-ref source 0) (vector-ref source 1)))))
-(define result
-  (apply-vector plus (vector 1.5 2.25)))
+(import (sfir base))
+(def plus
+     +)
+(def invoke
+     (lambda (operation a b) (operation a b)))
+(def choose
+     (lambda (flag) (if flag + -)))
+(def apply-vector
+     (lambda (operation source)
+       (vector (operation (vector-ref source 0) (vector-ref source 1)))))
+(def result
+     (apply-vector plus (vector 1.5 2.25)))
 (if (if (= (vector-ref result 0) 3.75)
         (if (= (invoke (choose #f) (ann 44 I32) (ann 2 I32)) (ann 42 I32)) (invoke = 3.0 3.0) #f)
         #f)

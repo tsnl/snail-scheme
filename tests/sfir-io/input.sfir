@@ -1,77 +1,79 @@
-(import (sfir core) (sfir io))
+(import (sfir base) (sfir io))
 
 ;; ---- Observable line values, storage and normal resource lifetimes ----
 
-(define copy-lines (-> I64)
-  (lambda ()
-    (call-with-input-file "λ😀.txt"
-      (lambda (in)
-        (call-with-output-file "lines.txt"
-          (lambda (out)
-            (begin
-              (define loop
-                (lambda (count)
-                  (let ((result (read-line in)))
-                    (if (eof-object? result)
-                        count
-                        (begin
-                          (write-string (line-text result) out) (newline out)
-                          (loop (+ count 1)))))))
-              (loop 0))))))))
+(def copy-lines (-> I64)
+     (lambda ()
+       (call-with-input-file "λ😀.txt"
+         (lambda (in)
+           (call-with-output-file "lines.txt"
+             (lambda (out)
+               (begin
+                 (def loop
+                      (lambda (count)
+                        (begin (let result (read-line in))
+                               (if (eof-object? result)
+                                   count
+                                   (begin
+                                     (write-string (line-text result) out) (newline out)
+                                     (loop (+ count 1)))))))
+                 (loop 0))))))))
 
-(define line-storage (-> Bool)
-  (lambda ()
-    (call-with-input-file "λ😀.txt"
-      (lambda (port)
-        (let ((first (line-text (read-line port))))
-          (let ((second (line-text (read-line port))))
-            (begin
-              (string-set! first 0 #\x)
-              (if (not (string-eq? first second))
-                  (if (string=? first "xame")
-                      (if (string=? second "same")
-                          (if (eof-object? (read-line port)) (eof-object? (read-line port)) #f)
-                          #f)
-                      #f)
-                  #f))))))))
+(def line-storage (-> Bool)
+     (lambda ()
+       (call-with-input-file "λ😀.txt"
+         (lambda (port)
+           (begin (let first (line-text (read-line port)))
+                  (begin (let second (line-text (read-line port)))
+                         (begin
+                           (string-set! first 0 #\x)
+                           (if (not (string-eq? first second))
+                               (if (string=? first "xame")
+                                   (if (string=? second "same")
+                                       (if (eof-object? (read-line port)) (eof-object? (read-line port)) #f)
+                                       #f)
+                                   #f)
+                               #f))))))))
 
-(define close-input-alias (-> Unit)
-  (lambda ()
-    (let ((port (open-input-file "λ😀.txt")))
-      (let ((alias port))
-        (begin
-          (read-line alias) (close-input-port port) (close-input-port alias))))))
+(def close-input-alias (-> Unit)
+     (lambda ()
+       (begin (let port (open-input-file "λ😀.txt"))
+              (begin (let alias port)
+                     (begin
+                       (read-line alias) (close-input-port port) (close-input-port alias))))))
 
-(define input-callback-close (-> I64)
-  (lambda ()
-    (call-with-input-file "λ😀.txt"
-      (lambda (port)
-        (begin (close-input-port port) 19)))))
+(def input-callback-close (-> I64)
+     (lambda ()
+       (call-with-input-file "λ😀.txt"
+         (lambda (port)
+           (begin (close-input-port port) 19)))))
 
 ;; ---- Every failure receives a fresh terminal instance ----
 
-(define input-escaped-alias (-> Unit)
-  (lambda ()
-    (let ((port (call-with-input-file "λ😀.txt" (lambda (port) port))))
-      (begin
-        (close-input-port port) (read-line port) (unit)))))
+(def input-escaped-alias (-> Unit)
+     (lambda ()
+       (begin (let port (call-with-input-file "λ😀.txt" (lambda (port) port)))
+              (begin
+                (close-input-port port) (read-line port) (unit)))))
 
-(define input-missing (-> Unit)
-  (lambda ()
-    (call-with-input-file "absent.txt" (lambda (port)
-                                         (begin (read-line port) (unit))))))
+(def input-missing (-> Unit)
+     (lambda ()
+       (call-with-input-file "absent.txt" (lambda (port)
+                                            (begin (read-line port) (unit))))))
 
-(define input-callback-trap (-> Unit)
-  (lambda ()
-    (call-with-input-file "λ😀.txt" (lambda (port)
-                                      (begin (read-line port) (unreachable))))))
+(def input-callback-trap (-> Unit)
+     (lambda ()
+       (call-with-input-file "λ😀.txt" (lambda (port)
+                                         (begin (read-line port) (unreachable))))))
 
-(define read-invalid (-> Unit)
-  (lambda ()
-    (let ((out (open-output-file "buffered.txt")) (in (open-input-file "λ😀.txt")))
-      (begin
-        (write-string "released after read failure" out)
-        (read-line in) (unit)))))
+(def read-invalid (-> Unit)
+     (lambda ()
+       (begin (let sfir-migration-let-1 (open-output-file "buffered.txt")) (let sfir-migration-let-2 (open-input-file "λ😀.txt"))
+              (let out sfir-migration-let-1)
+              (let in sfir-migration-let-2)
+              (begin
+                (write-string "released after read failure" out)
+                (read-line in) (unit)))))
 
 (define-extern raw-begin "snail.library" "snail:io/path-begin" (-> Unit))
 (define-extern raw-character "snail.library" "snail:io/path-character" (-> Char Unit))
@@ -80,23 +82,23 @@
 (define-extern raw-read "snail.library" "snail:io/read-character" (-> I32 I32))
 (define-extern raw-peek "snail.library" "snail:io/peek-character" (-> I32 I32))
 
-(define input-raw-output (-> Unit)
-  (lambda ()
-    (begin
-      (raw-begin) (raw-character #\x) (raw-read (raw-output)) (unit))))
+(def input-raw-output (-> Unit)
+     (lambda ()
+       (begin
+         (raw-begin) (raw-character #\x) (raw-read (raw-output)) (unit))))
 
-(define input-stale-handle (-> Unit)
-  (lambda ()
-    (begin
-      (raw-begin) (raw-character #\x)
-      (let ((handle (raw-output)))
-        (begin (raw-close handle) (raw-read handle) (unit))))))
+(def input-stale-handle (-> Unit)
+     (lambda ()
+       (begin
+         (raw-begin) (raw-character #\x)
+         (begin (let handle (raw-output))
+                (begin (raw-close handle) (raw-read handle) (unit))))))
 
-(define input-invalid-handle (-> Unit)
-  (lambda ()
-    (begin (raw-read (ann -1 I32)) (unit))))
+(def input-invalid-handle (-> Unit)
+     (lambda ()
+       (begin (raw-read (ann -1 I32)) (unit))))
 
-(define input-invalid-peek (-> Unit)
-  (lambda ()
-    (begin (raw-peek (ann -1 I32)) (unit))))
+(def input-invalid-peek (-> Unit)
+     (lambda ()
+       (begin (raw-peek (ann -1 I32)) (unit))))
 (unit)

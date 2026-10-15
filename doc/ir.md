@@ -17,10 +17,17 @@ initializers. This admits recursion and forward references without reordering
 runtime initialization. A premature value read remains a checked failure.
 Nested `begin` blocks create scopes and must not be flattened into their parents.
 
-A `let` resolves every initializer in the enclosing scope, left to right, then
-introduces all its local bindings for its one body expression. Its IR is an
-immediate lambda application. The inference pass recognizes this local-binding
-shape when deciding which definitions may generalize.
+A sequential `let` resolves its initializer before introducing a fresh identity
+for subsequent statements. A `def` initializer sees every definition and only
+the preceding lets. Both resolve to ordinary binding nodes; their distinct scope
+rules have already selected the identities used by every reference. Runtime
+storage can be reserved conservatively without making a later let visible.
+
+Value and type scopes are separate. An attached `All` scopes its type-variable
+identities over its initializer, including nested annotations; lambda parameters
+only extend the value scope. Static definitions retain nominal, class and named
+instance identities. Library body clauses concatenate before resolution, while
+an expression `begin` remains a nested scope.
 
 ## Records and evidence
 
@@ -37,7 +44,7 @@ shape when deciding which definitions may generalize.
 | Data/class/instance/overload/extern declaration | Identities and contracts needed by checking and specialization |
 
 A hole means that inference must solve a type, never that a value should be
-boxed into `Top`. Declared signatures belong to their definitions; no later
+boxed into `Any` (currently spelled `Top` inside the solver). Declared signatures belong to their definitions; no later
 pass must guess which same-named overload a detached annotation describes.
 
 ## Pass ownership

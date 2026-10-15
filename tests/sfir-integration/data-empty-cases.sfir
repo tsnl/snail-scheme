@@ -1,22 +1,22 @@
-(import (sfir core))
-(define-data Empty (empty))
-(define-data (Choice T)
-  (absent) (alternate) (value (item T choice-value)))
-(define make-choice
-  absent)
-(define call-constructor
-  (lambda (procedure) (procedure)))
-(define first
-  (ann (call-constructor make-choice) (Choice I32)))
-(define second
-  (ann (call-constructor make-choice) (Choice Char)))
-(define marker
-  (call-constructor empty))
+(import (sfir base))
+(def Empty (datatype () (empty)))
+(def Choice (datatype ( T)
+                      (absent) (alternate) (value (item T choice-value))))
+(def make-choice
+     absent)
+(def call-constructor
+     (lambda (procedure) (procedure)))
+(def first
+     (ann (call-constructor make-choice) (Choice I32)))
+(def second
+     (ann (call-constructor make-choice) (Choice Char)))
+(def marker
+     (call-constructor empty))
 ;; Shared immutable values must not merge the explicit mutable cells around them.
-(define left
-  (ref first))
-(define right
-  (ref first))
+(def left
+     (ref first))
+(def right
+     (ref first))
 (ref-set! left (alternate))
 (+ (+ (if (ref-eq? left right) -100 10)
       (match (ref-get left) ((absent) -100) ((alternate) 12) ((value item) -100)))

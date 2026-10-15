@@ -1,6 +1,6 @@
-(import (sfir core))
-(define values
-  (ann (make-vector 100000) (Vector I64)))
+(import (sfir base))
+(def values
+     (ann (make-vector 100000) (Vector I64)))
 (if (if (= (vector-length values) 100000)
         (if (= (vector-ref values 0) 0) (= (vector-ref values 99999) 0) #f)
         #f)

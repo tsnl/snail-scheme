@@ -1,2 +1,2 @@
-(import (sfir core))
-(ann (ann #\λ Top) Char)
+(import (sfir base))
+(ann (ann #\λ Any) Char)

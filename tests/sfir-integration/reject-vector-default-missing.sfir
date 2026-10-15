@@ -1,2 +1,2 @@
-(import (sfir core))
+(import (sfir base))
 (ann (make-vector 1) (Vector (Ref Bool)))

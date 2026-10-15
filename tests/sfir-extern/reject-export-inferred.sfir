@@ -1,4 +1,4 @@
-(import (sfir core))
-(define worker
-  (lambda (x) (i32-add x (ann 1 I32))))
+(import (sfir base))
+(def worker
+     (lambda (x) (i32-add x (ann 1 I32))))
 42

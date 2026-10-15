@@ -169,28 +169,47 @@
           (strict-error loc "wrong number of static typeclass arguments")) class))
     (define (assumed? constraint assumptions)
       (and (pair? assumptions) (or (type-equal? constraint (car assumptions)) (assumed? constraint (cdr assumptions)))))
-    (define (check-obligations obligations scope loc declared?)
+    (define-record-type <declaration-check>
+      (make-declaration-check binding scope) declaration-check?
+      (binding declaration-binding) (scope declaration-scope))
+    ;; Each owned compilation discharges its own sites after inference settles.
+    (define pending-declarations (make-parameter '()))
+    (define (check-obligations obligations scope loc declared? . enclosing)
       (for-each (lambda (constraint) (constraint-class constraint scope loc)) (scope-assumptions scope))
       (improve-overloads! obligations (scope-assumptions scope) (scope-classes scope) (scope-instances scope) loc)
-      (for-each (lambda (constraint) (check-obligation constraint scope loc declared? '())) obligations))
-    (define (check-obligation constraint scope loc declared? seen)
+      (for-each (lambda (constraint)
+                  (check-obligation constraint scope loc declared? '() (if (null? enclosing) '() (car enclosing)))) obligations))
+    (define (enclosing-obligation? constraint schemes)
+      ;; Only flexible variables free in enclosing bindings can remain their
+      ;; inference problem. Own quantified variables and private holes require
+      ;; evidence at this declaration's boundary.
+      (let ((variables (type-variables (cdr constraint)))
+            (free (apply append (map free-scheme-variables schemes))))
+        (and (pair? variables)
+             (let all ((variables variables))
+               (or (null? variables)
+                   (and (hole? (car variables)) (memq (car variables) free) (all (cdr variables))))))))
+    (define (require-declared-obligation constraint loc declared? enclosing)
+      (when (and declared? (not (enclosing-obligation? constraint enclosing)))
+        (strict-error loc "typeclass obligation is absent from declared constraints" constraint)))
+    (define (check-obligation constraint scope loc declared? seen enclosing)
       (let ((class (constraint-class constraint scope loc)))
         (cond ((assumed? constraint (scope-assumptions scope)))
               ((assumed? constraint seen) (strict-error loc "cyclic overload obligations" constraint))
               ((class-overload? class)
                (let ((view (select-overload-view class (cadr constraint) (scope-instances scope) loc #f)))
-                 (cond (view (check-overload-view! view scope loc declared? (cons constraint seen)))
-                       (declared? (strict-error loc "typeclass obligation is absent from declared constraints" constraint)))))
+                 (if view (check-overload-view! view scope loc declared? (cons constraint seen) enclosing)
+                     (require-declared-obligation constraint loc declared? enclosing))))
               ((concrete-type? (cdr constraint))
                (unless (find-instance class (cdr constraint) (scope-instances scope))
                  (strict-error loc "no exact static typeclass instance" constraint)))
-              (declared? (strict-error loc "typeclass obligation is absent from declared constraints" constraint)))))
-    (define (check-overload-view! view scope loc declared? seen)
+              (else (require-declared-obligation constraint loc declared? enclosing)))))
+    (define (check-overload-view! view scope loc declared? seen enclosing)
       ;; Keep one fresh row view: a sibling prerequisite may determine a type
       ;; absent from the selected arrow but needed by another prerequisite.
       (let ((goals (overload-view-constraints view)))
         (improve-overloads! goals (scope-assumptions scope) (scope-classes scope) (scope-instances scope) loc)
-        (for-each (lambda (goal) (check-obligation goal scope loc declared? seen)) goals)))
+        (for-each (lambda (goal) (check-obligation goal scope loc declared? seen enclosing)) goals)))
     (define (surface-type type)
       (cond ((function-type? type)
              `(-> ,@(map surface-type (function-domains type))
@@ -199,17 +218,12 @@
             ((data-type? type) (cons 'record (cons (cadr type) (map surface-type (cddr type)))))
             ((pair? type) (map surface-type type)) (else type)))
     (define (prepare-member method types class expression loc)
-      (unless (or (ir:lambda? expression) (ir:name? expression))
-        (strict-error loc "instance member must be a lambda or stable function binding"))
-      (if (ir:name? expression)
-          (list (cons method (ir:name-definition expression)))
-          (let* ((definition (ir:make-value-definition (ir:value-definition-name method) loc))
-                 (type (substitute (scheme-type (binding-scheme method)) (map cons (class-variables class) types))))
-            (cons (cons method definition)
-                  (begin
-                    (set-binding-declaration! definition
-                                              (ir:make-type-declaration definition (surface-type type) loc))
-                    (list (ir:make-value-binding definition expression loc)))))))
+      ;; Evidence names this concrete source binding. Even a name expression
+      ;; must read its target here, once, rather than when a method is called.
+      (let* ((definition (ir:make-value-definition (ir:value-definition-name method) loc))
+             (type (substitute (scheme-type (binding-scheme method)) (map cons (class-variables class) types))))
+        (set-binding-declaration! definition (ir:make-type-declaration definition (surface-type type) loc))
+        (list (cons method definition) (ir:make-value-binding definition expression loc))))
     (define (prepare-instance node classes prior)
       (let* ((loc (node-loc node)) (class (find-class (ir:instance-declaration-class node) classes loc))
              (types (map (lambda (type) (require-concrete (source-type type '() loc) loc)) (ir:instance-declaration-types node)))
@@ -218,8 +232,8 @@
         (unless (= (length types) (length (class-variables class))) (strict-error loc "wrong number of static typeclass arguments"))
         (when (find-instance class types prior) (strict-error loc "duplicate static typeclass instance"))
         (check-member-names rows (class-methods class) loc)
-        (let ((members (map (lambda (method) (prepare-member method types class (cdr (assq method rows)) loc))
-                            (class-methods class))))
+        ;; Class order checks completeness; row order controls initialization.
+        (let ((members (map (lambda (row) (prepare-member (car row) types class (cdr row) loc)) rows)))
           (values (make-instance class types (map car members) #f #f) (apply append (map cdr members))))))
     (define (check-member-names rows methods loc)
       (unless (and (= (length rows) (length methods))
@@ -569,8 +583,21 @@
           (strict-error (node-loc value) "polymorphic annotation requires a nonexpansive value"))
         (check-skolem-escape binding scope)
         (check-obligations (scheme-constraints scheme) checking (node-loc value) #f)
-        (check-obligations (node-constraints value) checking (node-loc value) (and annotation #t))
+        (check-obligations (node-constraints value) checking (node-loc value) #f)
+        ;; The enclosing body or later call arguments can still constrain captured
+        ;; monotypes. Keep this declaration's own proof scope until that inference
+        ;; finishes, including obligations mentioning its private quantified types.
+        (when annotation
+          (pending-declarations (cons (make-declaration-check binding scope) (pending-declarations))))
         (set-binding-initializer! binding value)))
+    (define (finish-declaration-check! check)
+      (let* ((binding (declaration-binding check)) (scope (declaration-scope check))
+             (value (binding-initializer binding)))
+        (check-obligations (node-constraints value) (initializer-scope binding scope) (node-loc value) #t
+                           (environment-schemes scope (list binding)))
+        ;; Keep the escape check after proof improvement, which may link an
+        ;; enclosing hole to a private rigid type since the initializer's check.
+        (check-skolem-escape binding scope)))
     (define (check-skolem-escape binding scope)
       (let ((variables (scheme-variables (binding-scheme binding))))
         (for-each (lambda (scheme)
@@ -614,7 +641,7 @@
       (cond ((ir:literal? node) (infer-literal node expected))
             ((ir:name? node) (infer-name node scope))
             ((ir:lambda? node) (infer-lambda node scope expected))
-            ((ir:application? node) (infer-application node scope expected))
+            ((ir:application? node) (infer-call node scope))
             ((ir:block? node) (infer-block (ir:block-items node) scope expected node))
             ((ir:conditional? node) (infer-conditional node scope expected))
             ((ir:annotation? node) (infer-annotation node scope))
@@ -677,12 +704,6 @@
              (rest-binding (and rest (parameter-binding (ir:lambda-opt-rest-parameter node) (list 'List rest))))
              (body (infer (ir:lambda-body node) (extend-scope scope (append fixed (if rest-binding (list rest-binding) '()))) expected)))
         (typed 'lambda (function-type types rest (node-type body)) node (list fixed rest-binding body) body)))
-    (define (infer-application node scope expected)
-      (let ((operator (ir:application-operator node)) (arguments (ir:application-operands node)))
-        (if (and (ir:lambda? operator) (not (ir:lambda-opt-rest-parameter operator))
-                 (= (length arguments) (length (ir:lambda-parameters operator))))
-            (infer-direct-let node scope expected)
-            (infer-call node scope))))
     (define (call-signature operator count loc)
       (let ((type (resolve (node-type operator))))
         (when (variable? type)
@@ -707,22 +728,6 @@
       (if (null? operands) '()
           (let ((operand (infer (car operands) scope (car domains))))
             (cons operand (infer-operands (cdr operands) (cdr domains) scope)))))
-
-    ;; Expansion represents let as a direct lambda application. Elaborate that
-    ;; exact form to typed bindings, not polymorphic native function parameters.
-    ;; All actuals see the caller scope and execute once in their original order.
-    (define (infer-direct-let node scope expected)
-      (let* ((operator (ir:application-operator node))
-             (actuals (map (lambda (node) (infer node scope #f)) (ir:application-operands node)))
-             (bindings (map (lambda (definition value source)
-                              (prepare-binding! definition
-                                                (generalize (node-type value) (proof-set (node-constraints value))
-                                                            (environment-schemes scope '()) (nonexpansive? source))
-                                                value 'let #f))
-                            (ir:lambda-parameters operator) actuals (ir:application-operands node)))
-             (body (infer (ir:lambda-body operator) (extend-scope scope bindings) expected)))
-        (refine-node! node 'let (node-type body) (list bindings actuals body)
-                      (append (apply append (map initialization-constraints bindings)) (node-constraints body)))))
 
     ;; ---- Exhaustive matching lowers to ordinary binding and control flow ----
 
@@ -834,20 +839,24 @@
       (let ((owned (copy-ir-graph (list items primitive-bindings))))
         (infer-owned-program (car owned) (cadr owned) loc)))
     (define (infer-owned-program items primitive-bindings loc)
-      (let* ((primitives (map (lambda (entry)
-                                (prepare-binding! (car entry) (primitive-scheme (cdr entry)) #f 'primitive (cdr entry))) primitive-bindings))
-             (data (prepare-data-schemas! items))
-             (classes (collect-program-classes items)))
-        (check-overload-names items classes primitives)
-        (let-values (((items instances) (prepare-class-items items classes)))
-          (let* ((scope (extend-scope (make-scope '() '() '() classes instances) (append primitives data (apply append (map class-methods classes)))))
-                 (body (infer-block items scope #f (ir:make-block items loc)))
-                 (globals (car (node-data body)))
-                 (members (resolve-instance-members instances (append globals primitives data) scope)))
-            (let repeat () (when (recheck-templates! body scope) (repeat)))
-            (check-obligations (node-constraints body) scope loc #f)
-            (require-overloads! (node-constraints body) classes instances loc)
-            (make-program body globals classes members)))))
+      (parameterize ((pending-declarations '()))
+        (let* ((primitives (map (lambda (entry)
+                                  (prepare-binding! (car entry) (primitive-scheme (cdr entry)) #f 'primitive (cdr entry))) primitive-bindings))
+               (data (prepare-data-schemas! items))
+               (classes (collect-program-classes items)))
+          (check-overload-names items classes primitives)
+          (let-values (((items instances) (prepare-class-items items classes)))
+            (let* ((scope (extend-scope (make-scope '() '() '() classes instances) (append primitives data (apply append (map class-methods classes)))))
+                   (body (infer-block items scope #f (ir:make-block items loc)))
+                   (globals (car (node-data body)))
+                   (members (resolve-instance-members instances (append globals primitives data) scope)))
+              (let repeat () (when (recheck-templates! body scope) (repeat)))
+              ;; Every saved initializer was visited with its declared scope
+              ;; above; saturate their inference before final proof verification.
+              (for-each finish-declaration-check! (reverse (pending-declarations)))
+              (check-obligations (node-constraints body) scope loc #f)
+              (require-overloads! (node-constraints body) classes instances loc)
+              (make-program body globals classes members))))))
     ;; Later uses can constrain a captured monomorphic value after an unused
     ;; function was generalized. Revisit every body, including those templates,
     ;; until no type changes; dropping private obligations must not skip checking.
@@ -934,8 +943,8 @@
       (define (test-no-load name) (error "unexpected library load" name))
       (define (test-cached-library)
         (syntax->ir-library
-         (car (test-forms "(library (cache) (export identity)
-                           (define identity (lambda (x) x)))")) test-no-load '()))
+         (car (test-forms "(define-library (cache) (export identity)
+                           (begin (def identity (lambda (x) x))))")) test-no-load '()))
       (define (test-cached-program cache text)
         (syntax-list->ir-library (test-forms text) test-no-load (library:library-dependency-order cache)))
       (define (test-infer-library library)
@@ -977,8 +986,8 @@
           (expect (eq? (resolve (function-result (node-type (binding-initializer binding)))) variable) #t)))
       (define (test-imported-declaration-owner)
         (let ((cache (syntax->ir-library
-                      (car (test-forms "(library (cache) (export identity)
-                       (define identity (All (A) (-> A A)) (lambda (x) x)))")) test-no-load '())))
+                      (car (test-forms "(define-library (cache) (export identity)
+                       (begin (def identity (All (A) (-> A A)) (lambda (x) x))))")) test-no-load '())))
           (expect (guard (failure (else (error-object-message failure)))
                     (test-cached-program cache "(import (cache)) (: identity (-> I64 I64)) (identity #t)"))
                   "declaration is not an expression")
@@ -986,8 +995,8 @@
                                        (test-infer-library (test-cached-program cache "(import (cache)) (identity #t)"))))) 'Bool)))
       (define (test-cached-inferred-overloads)
         (let* ((cache (syntax->ir-library
-                       (car (test-forms "(library (cache) (export choose)
-                                         (define-overload choose (lambda (value) value)))")) test-no-load '()))
+                       (car (test-forms "(define-library (cache) (export choose)
+                         (begin (define-overload choose (lambda (value) value))))")) test-no-load '()))
                (row (car (library:library-body cache))) (member (ir:overload-declaration-member row))
                (hole (scheme-type (binding-scheme member)))
                (integer (test-infer-library (test-cached-program cache "(import (cache)) (choose 42)")))
@@ -1001,8 +1010,8 @@
           (expect (hole-link hole) #f)))
       (define (test-cached-data-identities)
         (let* ((cache (syntax->ir-library
-                       (car (test-forms "(library (cache) (export Box box unbox)
-                                         (define-data (Box T) (box (value T unbox))))")) test-no-load '()))
+                       (car (test-forms "(define-library (cache) (export Box box unbox)
+                         (begin (def Box (datatype (T) (box (value T unbox))))))")) test-no-load '()))
                (schema (car (library:library-body cache)))
                (source (ir:data-schema-definition schema))
                (integer (test-infer-library
@@ -1014,7 +1023,7 @@
                          (test-cached-program cache "(import (cache)) (unbox (box #t))"))))
           (expect (resolve (node-type (program-body integer))) 'I64)
           (expect (resolve (node-type (program-body boolean))) 'Bool)
-          (expect (binding-kind source) 'source)
+          (expect (binding-kind source) 'datatype)
           (expect (hole? (node-type schema)) #t)))
       (define (test-strict-infer)
         (run-test test-dependency-cycles)

@@ -1,2 +1,2 @@
-(import (sfir core))
-(ann (ann #t Top) I32)
+(import (sfir base))
+(ann (ann #t Any) I32)

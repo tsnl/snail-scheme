@@ -607,6 +607,7 @@
           ((ref-get) `(struct.get ,(layout-name (car domains) state) 0 ,@arguments))
           ((ref-set!) `(block (result i32) (struct.set ,(layout-name (car domains) state) 0 ,@arguments) (i32.const 0)))
           ((ref-eq?) `(ref.eq ,@arguments))
+          ((empty-list) `(ref.null ,(layout-name (function-result signature) state)))
           ((cons) `(struct.new ,(layout-name (function-result signature) state) ,@arguments))
           ((car cdr) `(struct.get ,(layout-name (car domains) state) ,(if (eq? name 'car) 0 1) ,@arguments))
           ((null?) `(ref.is_null ,@arguments))

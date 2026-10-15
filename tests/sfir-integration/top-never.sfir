@@ -1,2 +1,2 @@
-(import (sfir core))
-(ann (ann 42 Top) Never)
+(import (sfir base))
+(ann (ann 42 Any) Never)

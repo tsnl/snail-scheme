@@ -1,3 +1,3 @@
-(import (sfir core))
-(define-data Choice (live (value I64)) (dead (impossible Never)))
+(import (sfir base))
+(def Choice (datatype () (live (value I64)) (dead (impossible Never))))
 (match (live 7) ((live value) value) ((dead impossible) impossible))

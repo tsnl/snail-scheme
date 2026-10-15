@@ -1,25 +1,25 @@
-(import (sfir core) (sfir io))
+(import (sfir base) (sfir io))
 
-(define input (current-input-port))
-(define alias (current-input-port))
-(define output (current-output-port))
+(def input (current-input-port))
+(def alias (current-input-port))
+(def output (current-output-port))
 
 ;; Peek, close and read through different aliases. Closing stdin must preserve
 ;; both the process descriptor and its buffered lookahead, including at EOF.
-(define copy (-> I64)
-  (lambda ()
-    (let ((first (peek-char input)))
-      (begin
-        (close-input-port input)
-        (match first
-          ((character-end)
-           (if (character-end? (read-char alias)) 0 (unreachable)))
-          ((character-value expected)
-           (match (read-char alias)
-             ((character-end) (unreachable))
-             ((character-value actual)
-              (if (char=? actual expected)
-                  (begin (write-char actual output) (copy))
-                  (unreachable))))))))))
+(def copy (-> I64)
+     (lambda ()
+       (begin (let first (peek-char input))
+              (begin
+                (close-input-port input)
+                (match first
+                  ((character-end)
+                   (if (character-end? (read-char alias)) 0 (unreachable)))
+                  ((character-value expected)
+                   (match (read-char alias)
+                     ((character-end) (unreachable))
+                     ((character-value actual)
+                      (if (char=? actual expected)
+                          (begin (write-char actual output) (copy))
+                          (unreachable))))))))))
 
 (copy)

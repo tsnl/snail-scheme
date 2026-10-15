@@ -1,2 +1,2 @@
-(import (sfir core))
-(string-length (ann (ann (vector #\A #\B) Top) String))
+(import (sfir base))
+(string-length (ann (ann (vector #\A #\B) Any) String))

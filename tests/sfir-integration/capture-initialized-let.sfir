@@ -1,20 +1,23 @@
-(import (sfir core))
+(import (sfir base))
 
-(define make-probe
-  (lambda (start)
-    (let ((value (+ start 1))
-          (items (vector start (+ start 2)))
-          (shared (ref start)))
-      (begin
-        (define advance
-          (lambda (delta)
-            (begin
-              (ref-set! shared (+ (ref-get shared) delta))
-              (+ value (+ (vector-ref items 1) (ref-get shared))))))
-        (lambda (delta) (advance delta))))))
+(def make-probe
+     (lambda (start)
+       (begin (let sfir-migration-let-1 (+ start 1))
+              (let sfir-migration-let-2 (vector start (+ start 2)))
+              (let sfir-migration-let-3 (ref start))
+              (let value sfir-migration-let-1)
+              (let items sfir-migration-let-2)
+              (let shared sfir-migration-let-3)
+              (begin
+                (def advance
+                     (lambda (delta)
+                       (begin
+                         (ref-set! shared (+ (ref-get shared) delta))
+                         (+ value (+ (vector-ref items 1) (ref-get shared))))))
+                (lambda (delta) (advance delta))))))
 
-(define first
-  (make-probe 10))
-(define second
-  (make-probe 20))
+(def first
+     (make-probe 10))
+(def second
+     (make-probe 20))
 (+ (first 1) (+ (first 2) (second 3)))

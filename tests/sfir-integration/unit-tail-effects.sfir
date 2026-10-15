@@ -1,15 +1,15 @@
-(import (sfir core))
+(import (sfir base))
 
-(define digits
-  (ref 0))
-(define visit
-  (lambda (n)
-    (if (> n 0)
-        (begin
-          (visit (- n 1))
-          (ref-set! digits (+ (* 10 (ref-get digits)) n))
-          (unit))
-        (unit))))
+(def digits
+     (ref 0))
+(def visit
+     (lambda (n)
+       (if (> n 0)
+           (begin
+             (visit (- n 1))
+             (ref-set! digits (+ (* 10 (ref-get digits)) n))
+             (unit))
+           (unit))))
 
 (visit 9)
 (ref-get digits)

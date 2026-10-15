@@ -1,2 +1,2 @@
-(import (sfir core))
+(import (sfir base))
 (ann (+ 20 22) F64)

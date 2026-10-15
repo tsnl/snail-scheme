@@ -1,9 +1,9 @@
-(import (sfir core))
+(import (sfir base))
 
-(define state
-  (ref 0))
+(def state
+     (ref 0))
 (ann (unit) Unit)
-(ann (ann (unit) Top) Unit)
+(ann (ann (unit) Any) Unit)
 (if #t
     (begin (ref-set! state 40)
            (unit))

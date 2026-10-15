@@ -1,19 +1,19 @@
-(import (sfir core))
-(define allocate
-  (lambda (maker) (maker 2 #\λ)))
-(define edit
-  (lambda (writer target) (writer target 1 #\é)))
-(define copy
-  (lambda (copier target source) (copier target 0 source 0 2)))
-(define value
-  (allocate (ann make-string (-> I64 Char String))))
-(define result
-  (make-string 2))
+(import (sfir base))
+(def allocate
+     (lambda (maker) (maker 2 #\λ)))
+(def edit
+     (lambda (writer target) (writer target 1 #\é)))
+(def copy
+     (lambda (copier target source) (copier target 0 source 0 2)))
+(def value
+     (allocate (ann make-string (-> I64 Char String))))
+(def result
+     (make-string 2))
 (edit string-set! value)
 (copy string-copy! result value)
-(define-instance (Default String) (default (lambda () (string))))
-(define values
-  (ann (make-vector 2) (Vector String)))
+(def sfir-migration-instance-1 (instance (Default String) (default (lambda () (string)))))
+(def values
+     (ann (make-vector 2) (Vector String)))
 (if (if (string=? result "λé")
         (not (string-eq? (vector-ref values 0) (vector-ref values 1)))
         #f)

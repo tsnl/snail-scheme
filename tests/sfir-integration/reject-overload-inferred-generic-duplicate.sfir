@@ -1,4 +1,4 @@
-(import (sfir core))
+(import (sfir base))
 (define-overload identity (lambda (first) first))
 (define-overload identity (lambda (second) second))
 42

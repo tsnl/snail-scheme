@@ -1,119 +1,124 @@
 ;; Unicode scalar services and ordinary SFIR string ordering. Foreign calls
 ;; carry only Char/I32 scalars; strings remain in traced SFIR storage.
-(library (sfir text)
+(define-library (sfir text)
   (export char-downcase char-upcase char-foldcase char-lower-case?
           char-alphabetic? char-numeric? char-whitespace? string<? string-foldcase
           test-text)
-  (import (sfir core))
+  (import (sfir base))
 
   ;; ---- Existing Unicode properties through the scalar ABI ----
 
-  (define-extern char-downcase "snail.library" "snail:text/downcase" (-> Char Char))
-  (define-extern char-upcase "snail.library" "snail:text/upcase" (-> Char Char))
-  (define-extern char-foldcase "snail.library" "snail:text/foldcase" (-> Char Char))
-  (define-extern full-fold-length "snail.library" "snail:text/full-fold-length" (-> Char I32))
-  (define-extern full-fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> Char I32 Char))
-  (define-extern raw-lowercase "snail.library" "snail:text/lowercase" (-> Char I32))
-  (define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> Char I32))
-  (define-extern raw-numeric "snail.library" "snail:text/numeric" (-> Char I32))
-  ;; This is the reader's exact provider, including scalar validation/cleanup.
-  (define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> Char I32))
+  (begin
+    (define-extern char-downcase "snail.library" "snail:text/downcase" (-> Char Char))
+    (define-extern char-upcase "snail.library" "snail:text/upcase" (-> Char Char))
+    (define-extern char-foldcase "snail.library" "snail:text/foldcase" (-> Char Char))
+    (define-extern full-fold-length "snail.library" "snail:text/full-fold-length" (-> Char I32))
+    (define-extern full-fold-scalar "snail.library" "snail:text/full-fold-scalar" (-> Char I32 Char))
+    (define-extern raw-lowercase "snail.library" "snail:text/lowercase" (-> Char I32))
+    (define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> Char I32))
+    (define-extern raw-numeric "snail.library" "snail:text/numeric" (-> Char I32))
+    ;; This is the reader's exact provider, including scalar validation/cleanup.
+    (define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> Char I32))
 
-  (define char-alphabetic? (-> Char Bool)
-    (lambda (character) (i32-eq (raw-alphabetic character) (ann 1 I32))))
+    (def char-alphabetic? (-> Char Bool)
+         (lambda (character) (i32-eq (raw-alphabetic character) (ann 1 I32))))
 
-  (define char-lower-case? (-> Char Bool)
-    (lambda (character) (i32-eq (raw-lowercase character) (ann 1 I32))))
+    (def char-lower-case? (-> Char Bool)
+         (lambda (character) (i32-eq (raw-lowercase character) (ann 1 I32))))
 
-  (define char-numeric? (-> Char Bool)
-    (lambda (character) (i32-eq (raw-numeric character) (ann 1 I32))))
+    (def char-numeric? (-> Char Bool)
+         (lambda (character) (i32-eq (raw-numeric character) (ann 1 I32))))
 
-  (define char-whitespace? (-> Char Bool)
-    (lambda (character) (i32-eq (raw-whitespace character) (ann 1 I32))))
+    (def char-whitespace? (-> Char Bool)
+         (lambda (character) (i32-eq (raw-whitespace character) (ann 1 I32))))
 
-  ;; ---- Full case folding owns fresh storage and permits scalar expansions ----
+    ;; ---- Full case folding owns fresh storage and permits scalar expansions ----
 
-  ;; The first traversal computes the exact allocation length. Each prefix is
-  ;; checked against the string representation's U32_MAX - 1 limit before the
-  ;; next small scalar count is added, so the I64 addition cannot wrap.
-  (define folded-length (-> String I64)
-    (lambda (source)
-      (begin
-        (define loop
-          (lambda (index count)
-            (if (> count 4294967294)
-                (unreachable)
-                (if (= index (string-length source))
-                    count
-                    (loop (+ index 1) (+ count (i32->i64 (full-fold-length (string-ref source index)))))))))
-        (loop 0 0))))
+    ;; The first traversal computes the exact allocation length. Each prefix is
+    ;; checked against the string representation's U32_MAX - 1 limit before the
+    ;; next small scalar count is added, so the I64 addition cannot wrap.
+    (def folded-length (-> String I64)
+         (lambda (source)
+           (begin
+             (def loop
+                  (lambda (index count)
+                    (if (> count 4294967294)
+                        (unreachable)
+                        (if (= index (string-length source))
+                            count
+                            (loop (+ index 1) (+ count (i32->i64 (full-fold-length (string-ref source index)))))))))
+             (loop 0 0))))
 
-  (define copy-folded-character! (-> String I64 Char I64)
-    (lambda (target offset character)
-      (let ((count (full-fold-length character)))
-        (begin
-          (define loop
-            (lambda (component position)
-              (if (i32-eq component count)
-                  position
+    (def copy-folded-character! (-> String I64 Char I64)
+         (lambda (target offset character)
+           (begin (let count (full-fold-length character))
                   (begin
-                    (string-set! target position (full-fold-scalar character component))
-                    (loop (i32-add component (ann 1 I32)) (+ position 1))))))
-          (loop (ann 0 I32) offset)))))
+                    (def loop
+                         (lambda (component position)
+                           (if (i32-eq component count)
+                               position
+                               (begin
+                                 (string-set! target position (full-fold-scalar character component))
+                                 (loop (i32-add component (ann 1 I32)) (+ position 1))))))
+                    (loop (ann 0 I32) offset)))))
 
-  ;; No callbacks or source mutations occur between the two traversals. Their
-  ;; counts therefore agree. The source and initialized destination remain live
-  ;; managed references; every foreign call receives and returns only scalars.
-  (define string-foldcase (-> String String)
-    (lambda (source)
-      (let ((result (make-string (folded-length source))))
-        (begin
-          (define loop
-            (lambda (index offset)
-              (if (= index (string-length source))
-                  result
-                  (loop (+ index 1) (copy-folded-character! result offset (string-ref source index))))))
-          (loop 0 0)))))
+    ;; No callbacks or source mutations occur between the two traversals. Their
+    ;; counts therefore agree. The source and initialized destination remain live
+    ;; managed references; every foreign call receives and returns only scalars.
+    (def string-foldcase (-> String String)
+         (lambda (source)
+           (begin (let result (make-string (folded-length source)))
+                  (begin
+                    (def loop
+                         (lambda (index offset)
+                           (if (= index (string-length source))
+                               result
+                               (loop (+ index 1) (copy-folded-character! result offset (string-ref source index))))))
+                    (loop 0 0)))))
 
-  ;; ---- First unequal scalar or proper prefix decides ordering ----
+    ;; ---- First unequal scalar or proper prefix decides ordering ----
 
-  ;; Every scalar before index is equal. Check both ends before either read;
-  ;; no callback or mutation occurs during this invocation's character loop.
+    ;; Every scalar before index is equal. Check both ends before either read;
+    ;; no callback or mutation occurs during this invocation's character loop.
 
-  (define string<? (-> String String Bool)
-    (lambda (left right)
-      (let ((left-count (string-length left)) (right-count (string-length right)))
-        (begin
-          (define loop
-            (lambda (index)
-              (if (= index left-count)
-                  (< index right-count)
-                  (if (= index right-count)
-                      #f
-                      (let ((a (string-ref left index)) (b (string-ref right index)))
-                        (if (char=? a b) (loop (+ index 1)) (char<? a b)))))))
-          (loop 0)))))
+    (def string<? (-> String String Bool)
+         (lambda (left right)
+           (begin (let sfir-migration-let-1 (string-length left)) (let sfir-migration-let-2 (string-length right))
+                  (let left-count sfir-migration-let-1)
+                  (let right-count sfir-migration-let-2)
+                  (begin
+                    (def loop
+                         (lambda (index)
+                           (if (= index left-count)
+                               (< index right-count)
+                               (if (= index right-count)
+                                   #f
+                                   (begin (let sfir-migration-let-3 (string-ref left index)) (let sfir-migration-let-4 (string-ref right index))
+                                          (let a sfir-migration-let-3)
+                                          (let b sfir-migration-let-4)
+                                          (if (char=? a b) (loop (+ index 1)) (char<? a b)))))))
+                    (loop 0)))))
 
-  ;; ---- Tests ----
+    ;; ---- Tests ----
 
-  ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
+    ;; Test entry points are ordinary SFIR exports; no feature expansion is required.
 
-  (define test-text (-> I64)
-    (lambda ()
-      (if (if (not (string<? "" ""))
-              (if (string<? "" "a")
-                  (if (not (string<? "a" ""))
-                      (if (not (string<? "same" "same"))
-                          (if (string<? "a" "aa")
-                              (if (not (string<? "aa" "a"))
-                                  (if (string<? "Z" "a")
-                                      (if (string<? "\xe000;" "\x10000;") (string<? "e\x301;" "é") #f)
-                                      #f)
-                                  #f)
-                              #f)
-                          #f)
-                      #f)
-                  #f)
-              #f)
-          42
-          0))))
+    (def test-text (-> I64)
+         (lambda ()
+           (if (if (not (string<? "" ""))
+                   (if (string<? "" "a")
+                       (if (not (string<? "a" ""))
+                           (if (not (string<? "same" "same"))
+                               (if (string<? "a" "aa")
+                                   (if (not (string<? "aa" "a"))
+                                       (if (string<? "Z" "a")
+                                           (if (string<? "\xe000;" "\x10000;") (string<? "e\x301;" "é") #f)
+                                           #f)
+                                       #f)
+                                   #f)
+                               #f)
+                           #f)
+                       #f)
+                   #f)
+               42
+               0)))))
