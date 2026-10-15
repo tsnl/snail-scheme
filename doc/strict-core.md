@@ -157,9 +157,18 @@ sentinel. This changes allocation cost from a mutable record and is not a timing
 comparison. The `data-paraffins` fixture preserves the canonical partitions,
 loop order and accumulation, replacing H/C and BCP/CCP tagged vectors with closed
 variants. It checks the canonical count of 75 for ten carbon atoms without `Top`.
-Ray and nucleic ports remain follow-up work.
+The complete Ray port and its measured empty-constructor optimization are
+documented in the [benchmark reports](../benchmarks/README.md). The full Nucleic
+port remains in progress.
 
 ## Free overloads and numeric operations
+
+`(snail math)` supplies `sin`, `cos` and one-argument `atan` with signatures
+`(-> F64 F64)`. These ordinary scalar externs call the same Rust implementations
+through linked Wasm or native C linkage. They accept infinities and NaNs according
+to Rust's binary64 operations; `sin` and `atan` retain the sign of zero.
+Two-argument quadrant selection remains ordinary Scheme code. The library does
+not add a complex-number or F32 overload.
 
 `define-overload` gives one name several function signatures. Argument types,
 expected result types, and later uses constrain the complete signature. A unique
