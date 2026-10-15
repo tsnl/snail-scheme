@@ -1,0 +1,17 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/maze.scm",
+  "upstream_sha256": "b5b6307faab776b66f59b602c1327a79b925c64fa08bc421f931abe73bbd0c6e",
+  "canonical_input_sha256": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "461d0f719ee990cb8472789da056709c37fcc14268b0212aeee5d6e82e7dbcf4",
+  "sfir_sha256": "a39ac05093dedd7a5b18a8584e94471a8a8688fc2866608addf01fc36968400b",
+  "controls": {
+    "chez-adapted.scm": "88144b54e58d787589ac34a54e51f0669bdac339bfeee24eff8c701a0f71fc61",
+    "chez-original.scm": "fcc65e6b75615a87888125f91b7f86f624bf5fe5bdcec7ddcbaceef6139d074f"
+  }
+}

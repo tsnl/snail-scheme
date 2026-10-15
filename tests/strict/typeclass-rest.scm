@@ -1,6 +1,0 @@
-(import (snail strict))
-(define-class (Choose T) (: choose (-> T (Rest T) T)))
-(define-instance (Choose I64)
-  (choose (lambda (first . remaining)
-            (if (null? remaining) first (car remaining)))))
-(+ (choose 0 22 99) (choose 20))

@@ -1,0 +1,18 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/ctak.scm",
+  "upstream_sha256": "bebf372e926b8193d7d2fa78cb02a16d9e3b83b00ee3aeff7074e567e8be05da",
+  "canonical_input_sha256": "ec6b1f104d0adeae5c58818aed8e18bfd2730c574f856bff9a31c9518c22e395",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "Authored directly as static SFIR; upstream call/cc contexts are immutable closed continuation variants. No Scheme elaborator is used by preparation, compilation, or execution.",
+  "equivalence_status": "Complete canonical predicate passed on optimized SFIR/V8 and original/adapted Chez; complete small call/capture/invocation traces matched actual call/cc with explicit left-to-right order. Native validation pending.",
+  "controls": {
+    "chez-adapted.scm": "e56105a954b57707f78cc5d0cd74051d415184a8b04362634df677b92c6a75ff",
+    "chez-observe.scm": "1fe176b4a9b64490aea34ce2bd91bea2533dfb82c0402ba77d493f874951308d",
+    "chez-original.scm": "6eabd899513c9230df17ae7f11cb63fe28bd8a367a08f595330c98ff72251749"
+  },
+  "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
+  "sfir_sha256": "131cc176b043f6273fe86c20c485eb4094e673e8fcb8363c05316f0559fccbb5",
+  "observation_sfir_sha256": "1566ae3ab841505eec941a94a309877ad1ce7d22ad0c9caa21c96b0b0955fede"
+}

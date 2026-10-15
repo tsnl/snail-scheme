@@ -19,7 +19,9 @@ explicitly lists the remaining canonical workloads. Neither reduced checks nor
 source presence marks a workload as fully validated. These are correctness
 runs; coordinate a clean window separately before collecting performance data.
 
-The historical five-case measurement driver and report below remain frozen.
+Historical five-case measurements remain in their immutable result archives.
+Active preparation uses the authored Chez controls in `benchmarks/sfir`; no
+Scheme source generator or Snail Scheme compiler is used.
 
 At the latest completed execution checkpoint, all 57 workload executables have
 been built and checked, and 56 pass unchanged canonical inputs/counts in Node/Wasm.
@@ -99,30 +101,9 @@ abort-on-panic. There is no post-compilation Binaryen transformation. The origin
 Scheme controls are the frozen, already compiled Chez programs at safe
 optimization level 2.
 
-Extract the [checked measurement archive](../results/2026-10-13-wasm-five-reference/README.md)
-into `/tmp/five-reference`. It contains the original input fixtures and Chez
-programs, so the historical worktrees are unnecessary for reproduction:
-
-```sh
-mkdir -p /tmp/five-reference
-tar -xJf benchmarks/results/2026-10-13-wasm-five-reference/artifacts.tar.xz \
-  -C /tmp/five-reference
-python3 benchmarks/wasm-reference/measure.py \
-  --source /tmp/five-reference/upstream \
-  --chez-source /tmp/five-reference \
-  --output /tmp/five-rerun/results.json --prepare-only
-python3 benchmarks/wasm-reference/validate.py --prepared /tmp/five-rerun
-```
-
-After coordinating a quiet CPU window, repeat `measure.py` without
-`--prepare-only`. It discards one full preliminary run per implementation and
-retains three fresh-process runs, rotating benchmark order and alternating
-implementation order. Compilation is separate. Whole-process times are recorded
-beside workload times. The defaults select only the five references and Chez,
-with CPU 5 and unchanged original inputs/counts.
-
-`validate.py` additionally checks Unicode copying, tab/CR word behavior, and all
-213,829 graphs in their complete original order. Its graph audit runs one
-generation and compares serialized results after removing ASCII whitespace;
-all graph atoms are single-digit vertex numbers. These audits are functional
-checks and do not contribute timing samples.
+The [checked five-case measurement archive](../results/2026-10-13-wasm-five-reference/README.md)
+retains its historical artifacts and protocol. The old five-case driver was
+removed from the active tree during SFIR migration; its source is available at
+revision `d5c2d06`. New SFIR/Chez/Rust comparisons use the explicit status and
+freezing contracts in [`../sfir`](../sfir/README.md). Historical Rust validation
+and timings do not establish SFIR validation or clean comparison coverage.

@@ -1,0 +1,2 @@
+(import (sfir core))
+(vector-ref "abc" 0)

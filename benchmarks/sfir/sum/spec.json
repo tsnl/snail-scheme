@@ -1,0 +1,9 @@
+{
+  "name": "sum",
+  "count": 200000,
+  "inputs": [
+    10000
+  ],
+  "expected": 50005000,
+  "barriers_per_iteration": 1
+}

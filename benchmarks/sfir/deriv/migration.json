@@ -1,0 +1,17 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/deriv.scm",
+  "upstream_sha256": "0fecc79684014008dc78d520f3dd3b7093d3e4a8e3ab56ec9a88827f812823ba",
+  "canonical_input_sha256": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "9a0d43d5731c328e4243b71aabe223a798ec8897d875b48ed161f97f7a7284df",
+  "sfir_sha256": "686eefce17a596c1e10c250a3fba75f582c9c303d14b2553a5d21008c27e2000",
+  "controls": {
+    "chez-adapted.scm": "711262468c71a8ec297c3cd6f5f68ebe314807a2d8c309955f35c9100f119852",
+    "chez-original.scm": "1a9622a22c63bbf49723f9e7c743404e7668ccc3bd1b79c54aa0b0aef0001197"
+  }
+}

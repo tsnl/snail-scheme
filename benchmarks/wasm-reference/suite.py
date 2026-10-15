@@ -3,7 +3,6 @@
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -42,11 +41,8 @@ def pinned_sources(source):
     changes = subprocess.check_output(["git", "-C", str(source), "status", "--porcelain", "--untracked-files=no"])
     if revision != REVISION or changes:
         raise ValueError("upstream must be clean and pinned to " + REVISION)
-    spec = importlib.util.spec_from_file_location("r7rs", ROOT / "benchmarks/r7rs.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
     paths = subprocess.check_output(["git", "-C", str(source), "ls-files"], text=True).splitlines()
-    return module, {path: (source / path).read_bytes() for path in paths}
+    return {path: (source / path).read_bytes() for path in paths}
 
 
 def freeze_sources(source, output, files):
@@ -88,9 +84,18 @@ def passed(run):
     return run["returncode"] == 0 and "+!CSVLINE!+" in run["stdout"] and "INCORRECT" not in run["stdout"]
 
 
-def compile_chez(module, files, name, directory):
+def chez_source(name):
+    path = ROOT / "benchmarks/sfir" / name
+    provenance = json.loads((path / "migration.json").read_text())
+    source = path / "chez-original.scm"
+    if digest(source) != provenance["controls"]["chez-original.scm"]:
+        raise ValueError("authored Chez control differs from its provenance: " + name)
+    return source.read_text()
+
+
+def compile_chez(name, directory):
     source = directory / "program.scm"
-    source.write_text(module.source_text(files, name, "chez"))
+    source.write_text(chez_source(name))
     artifact = directory / "program.so"
     script = directory / "compile.scm"
     script.write_text('(import (chezscheme))\n(parameterize ((optimize-level 2)) '
@@ -100,7 +105,7 @@ def compile_chez(module, files, name, directory):
     return [shutil.which("scheme"), "--program", str(artifact)], command
 
 
-def prepare_case(module, files, name, output):
+def prepare_case(files, name, output):
     directory = output / "cases" / name
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "outputs").mkdir(exist_ok=True)
@@ -110,15 +115,16 @@ def prepare_case(module, files, name, output):
     shutil.copy2(REFERENCE / "target/wasm32-wasip1/release" / f"{name}.wasm", artifact)
     (directory / "input.txt").write_bytes(files[f"inputs/{name}.input"])
     rust = [shutil.which("node"), "--no-warnings", str(output / "reference-source/run-wasi.mjs"), str(artifact)]
-    chez, compilation = compile_chez(module, files, name, directory)
+    chez, compilation = compile_chez(name, directory)
     return directory, rust, chez, compilation
 
 
-def check_case(module, files, name, output, checks, fixtures):
-    directory, rust, chez, compilation = prepare_case(module, files, name, output)
+def check_case(files, name, output, checks, fixtures):
+    directory, rust, chez, compilation = prepare_case(files, name, output)
     record = {"benchmark": name, "input_sha256": digest(directory / "input.txt"),
               "wasm_sha256": digest(directory / "program.wasm"), "wasm_bytes": (directory / "program.wasm").stat().st_size,
-              "chez_sha256": digest(directory / "program.so"), "chez_compilation": compilation, "checks": []}
+              "chez_sha256": digest(directory / "program.so"), "chez_source_sha256": digest(directory / "program.scm"),
+              "chez_compilation": compilation, "checks": []}
     for fixture in fixtures.get(name, []):
         if not fixture.get("canonical_audit"):
             record["checks"].append(check_fixture(fixture, directory, rust, chez))
@@ -214,7 +220,7 @@ def main():
     parser.add_argument("--build", action="store_true")
     args = parser.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
-    module, files = pinned_sources(source)
+    files = pinned_sources(source)
     available = canonical_names(source)
     implemented = [name for name in available if (REFERENCE / "src/bin" / f"{name}.rs").exists()]
     names = implemented if args.benchmarks == ["all"] else args.benchmarks
@@ -231,7 +237,7 @@ def main():
     fixtures = json.loads((REFERENCE / "small-inputs.json").read_text())
     filename = output / "validation.json"
     for name in names:
-        report["cases"].append(check_case(module, files, name, output, args.checks, fixtures))
+        report["cases"].append(check_case(files, name, output, args.checks, fixtures))
         filename.write_text(json.dumps(report, indent=2) + "\n")
         print(f"checked {name} ({args.checks}): " + ("passed" if report["cases"][-1]["complete"] else "FAILED; retained diagnostics"), flush=True)
     report["complete"] = all(case["complete"] for case in report["cases"])

@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Link SFIR scalar imports to the Rust runtime, removing the legacy value ABI."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+FEATURES = ['--mvp-features', '--enable-gc', '--enable-reference-types', '--enable-tail-call',
+            '--enable-mutable-globals', '--enable-sign-ext', '--enable-bulk-memory',
+            '--enable-nontrapping-float-to-int']
+ADAPTER = '''(module
+  (import "snail.library" "snail:report-error" (func $report (param i32 i32)))
+  (import "snail.library" "snail:io/close-all" (func $close (result i32)))
+  (export "diagnostics/report-error" (func $report))
+  (export "close-resources" (func $close)))
+'''
+
+
+# ---- One concrete link, with retained commands and intermediates ----
+
+
+def tool(variable, default):
+    return os.environ.get(variable, default)
+
+
+def run(command, records, log):
+    result = subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True, text=True)
+    records.append(dict(command=list(map(str, command)), status=result.returncode,
+                        stdout=result.stdout, stderr=result.stderr))
+    log.write_text(json.dumps(records, indent=2) + '\n')
+    if result.returncode:
+        raise RuntimeError(result.stderr or result.stdout)
+
+
+def runtime(options, records, log):
+    if options.runtime:
+        return options.runtime.resolve()
+    run([tool('CARGO', 'cargo'), 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
+         '--release', '--target', 'wasm32-wasip1', '--manifest-path', ROOT / 'Cargo.toml',
+         '--target-dir', ROOT / 'build/wasm-runtime'], records, log)
+    return ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
+
+
+def check_exports(text):
+    names = re.findall(r'\(export "([^"]+)"', text)
+    reserved = {'memory', '_initialize', 'close-resources'}
+    if any(name in reserved or name.startswith(('snail:', 'diagnostics/')) for name in names):
+        raise ValueError('SFIR program uses a reserved runtime export name')
+
+
+def disassemble(source, output, records, log):
+    run([tool('WASM_DIS', 'wasm-dis'), source, '-o', output], records, log)
+    return output.read_text()
+
+
+def assemble_adapter(output, records, log):
+    source = Path(str(output) + '.adapter.wat')
+    artifact = Path(str(output) + '.adapter.wasm')
+    source.write_text(ADAPTER)
+    run([tool('WASM_AS', 'wasm-as'), *FEATURES, source, '-o', artifact], records, log)
+    return artifact
+
+
+def merge(source, provider, output, records, log):
+    adapter = assemble_adapter(output, records, log)
+    linked = Path(str(output) + '.linked.wasm')
+    run([tool('WASM_MERGE', 'wasm-merge'), '-g', *FEATURES, source, 'snail.abi',
+         provider, 'snail.library', adapter, 'snail.platform', '-o', linked], records, log)
+    return linked
+
+
+def prune(linked, output, raw, records, log):
+    # These namespaces belong to the provider and its diagnostic alias. Removing
+    # their exports lets reachability discard every unused legacy Root operation.
+    optimize = ['--remove-unused-module-elements'] if raw else [
+        '-O3', '--closed-world', '--always-inline-max-function-size=40', '--converge']
+    run([tool('WASM_OPT', 'wasm-opt'), '-g', *FEATURES, '--remove-exports',
+         '--pass-arg=remove-exports@snail:*,diagnostics/*', *optimize,
+         linked, '-o', output], records, log)
+    text = disassemble(output, Path(str(output) + '.wat'), records, log)
+    if re.search(r'\(import "snail\.(abi|library|platform)"', text):
+        raise ValueError('linked SFIR program retains an unresolved runtime or legacy Root import')
+
+
+def link(options):
+    source, output = options.source.resolve(), options.output.resolve()
+    if source == output or options.runtime and options.runtime.resolve() == output:
+        raise ValueError('link output must not replace an input')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    records, log = [], Path(str(output) + '.link.json')
+    check_exports(disassemble(source, Path(str(output) + '.input.wat'), records, log))
+    provider = runtime(options, records, log)
+    linked = merge(source, provider, output, records, log)
+    prune(linked, output, options.diagnostic_prune_only, records, log)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--runtime', type=Path, help='reuse a prebuilt Rust runtime')
+    parser.add_argument('--diagnostic-prune-only', action='store_true', help='TEST ONLY: retain unoptimized Wasm as a diagnostic intermediate')
+    parser.add_argument('source', type=Path)
+    parser.add_argument('output', type=Path)
+    link(parser.parse_args())
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError) as error:
+        sys.exit(str(error))

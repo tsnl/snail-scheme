@@ -1,0 +1,16 @@
+{
+  "name": "nboyer",
+  "count": 1,
+  "size": 5,
+  "original_expected": 51507739,
+  "inputs": [],
+  "expected": 1,
+  "setup_barriers": 0,
+  "barriers_per_iteration": 1,
+  "additional_exports": [
+    "configured-count"
+  ],
+  "runtime": "scalar-datum-reader",
+  "native_heap_bytes": 2147483648,
+  "predicate": "number? rewrites and exact rewrite-count equality"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "mbrotZ",
+  "count": 1000,
+  "inputs": [
+    75
+  ],
+  "expected": 5,
+  "barriers_per_iteration": 1
+}

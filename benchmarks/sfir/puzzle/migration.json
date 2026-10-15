@@ -1,0 +1,17 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/puzzle.scm",
+  "upstream_sha256": "6730fba3bd4713d603c72b31970b3aef25881a40ea0b6e8bd175e09d22464129",
+  "canonical_input_sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "416075b0e0446b3e304ff5e336f03c4bb06a7690a617c5ef8c6c47242b379132",
+  "sfir_sha256": "b8f37bd9bdea54a02ca0fb0392dac5c0967a3ac65a764d4dad161a1728c13b2e",
+  "controls": {
+    "chez-adapted.scm": "adb63746a3fc1c0c81edb570b830912f780a90390a110d178617fb463661383c",
+    "chez-original.scm": "3af00a1eefc35a2993d3dfb39e316fbff2b5d1f3cb485352377d6251a21d3e25"
+  }
+}

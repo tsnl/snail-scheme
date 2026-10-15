@@ -1,0 +1,2 @@
+(import (sfir core))
+(vector-ref (ann (ann "AB" Top) (Vector Char)) 0)

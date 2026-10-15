@@ -1,0 +1,16 @@
+(import (sfir core))
+(define log
+  (ref 0))
+(define record
+  (lambda (digit)
+    (begin
+      (ref-set! log (+ (* (ref-get log) 10) digit))
+      (i64->f64 digit))))
+(define operator
+  (lambda ()
+    (begin
+      (record 3)
+      +)))
+(define result
+  ((operator) (record 1) (record 2)))
+(if (if (= result 3.0) (= (ref-get log) 123) #f) 42 (unreachable))

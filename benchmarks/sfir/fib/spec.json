@@ -1,0 +1,9 @@
+{
+  "name": "fib",
+  "count": 5,
+  "inputs": [
+    40
+  ],
+  "expected": 102334155,
+  "barriers_per_iteration": 1
+}

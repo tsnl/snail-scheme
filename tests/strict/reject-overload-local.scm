@@ -1,5 +1,0 @@
-(import (snail strict))
-(define (outer value)
-  (define-overload select (-> I64 I64) (lambda (value) value))
-  (select value))
-(outer 42)

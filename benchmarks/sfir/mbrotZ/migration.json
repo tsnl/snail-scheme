@@ -1,0 +1,17 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/mbrotZ.scm",
+  "upstream_sha256": "5d612880dc3caf39bc84f549e59b5dbddf3e80545f67b54c94d7c9ca816f71f4",
+  "canonical_input_sha256": "347767b5626b9b7220127d7fc9d8f463e4a34dcbc84b1f4849bf158535e41af8",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "25a021c185b6ff77db925bc5efa3d7975a84f9c4c6f89ac093084fecbdaa66c8",
+  "sfir_sha256": "c3a61f7ab46f4637c04cefdb679ff4de4f7ed555b8996aa41ba9b07247efb760",
+  "controls": {
+    "chez-adapted.scm": "897794aee76d1fdcc36c4ab119c55a54605ef1f6c72a71df09f97789fdf8ee5b",
+    "chez-original.scm": "21981374550551d8e2ccdc3691ccfaf50ea40bf83552948243c4dd2c619d38ae"
+  }
+}

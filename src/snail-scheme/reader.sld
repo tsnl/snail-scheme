@@ -105,13 +105,13 @@
         (expect (reader-eof? (list->reader "empty.scm" '())) #t))
 
       (define (test-file->reader)
-        (let* ((filename "tests/programs/p0001.scm")
+        (let* ((filename "tests/sfir/reader-input.sfir")
                (reader (file->reader filename)))
-          (expect (list->string (reader-chars reader)) "(display \"Hello, world\")\n")
+          (expect (list->string (reader-chars reader)) "(define answer I64 42)\nanswer\n")
           (expect (test-value (reader-loc reader)) (list filename 1 1)))
         (expect
          (guard (ex ((file-error? ex) #t))
-           (file->reader "tests/programs/p0001.scm/missing.scm")
+           (file->reader "tests/sfir/reader-input.sfir/missing.sfir")
            #f)
          #t))
 

@@ -1,0 +1,57 @@
+(import (sfir core))
+
+(define calls
+  (ref 0))
+(define make-counter
+  (lambda (seed early?)
+    (begin
+      (define cell
+        (ref seed))
+      (define saved
+        (lambda (amount)
+          ((let ((increment amount))
+             (begin
+               (define apply
+                 (lambda ()
+                   (begin
+                     (ref-set! calls (+ (ref-get calls) 1))
+                     ((let () step) increment))))
+               apply)))))
+      (define early
+        (if early? (saved 1) 0))
+      (define step
+        (lambda (amount)
+          (begin
+            (ref-set! cell (+ (ref-get cell) amount))
+            (ref-get cell))))
+      saved)))
+(define left
+  (make-counter 40 #f))
+(define right
+  (make-counter 100 #f))
+(define make-next
+  (lambda (seed)
+    ((let ((cell (ref seed)))
+       (begin
+         (define step
+           (lambda (amount)
+             (begin
+               (ref-set! cell (+ (ref-get cell) amount))
+               (ref-get cell))))
+         (define build
+           (lambda () (lambda (amount) ((let () step) amount))))
+         build)))))
+(define next
+  (make-next 40))
+
+(define checked (-> I64)
+  (lambda () ((make-counter 0 #t) 1)))
+
+(define observed (-> I64)
+  (lambda () (ref-get calls)))
+
+(if (if (= (left 1) 41)
+        (if (= (right 2) 102) (if (= (left 1) 42) (if (= (next 1) 41) (= (next 1) 42) #f) #f) #f)
+        #f)
+    42
+    0)

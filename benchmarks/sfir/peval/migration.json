@@ -1,0 +1,22 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/peval.scm",
+  "upstream_sha256": "4a29c25654fc85ab8ed76a039cb56a16ccb9c9928c234395ea6b4a2a134eab43",
+  "canonical_input_sha256": "28e8a5fcdd67e7cd48bcebcff0a05677c3fb5a1ff20b796c80a2f5998a508810",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "eb11d439f1e62f11120eb67ad58033e02e5b625f5bc0ad2dde4e8cab4d60b5fc",
+  "sfir_sha256": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+  "controls": {
+    "chez-adapted.scm": "da0b6fe87c1fca25ef8ff30e76be149743eae7acb5bc4e005ff784b187357c11",
+    "chez-original.scm": "0f0af24d3980b2dfb69476f8be750abea84f7f0f568a8740d36ab59c2dcfd920"
+  },
+  "observer": {
+    "sfir_sha256": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
+    "reviewed_port_sha256": "35df83e632d7da849b55cc313e68426a9c252c569ecd77c30408f4a9902b82f8",
+    "status": "SFIR execution pending; earlier strict observation inference timed out at 1800 seconds."
+  }
+}

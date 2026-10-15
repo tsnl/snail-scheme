@@ -1,0 +1,80 @@
+;; Canonical bare SFIR. See migration.json for source provenance.
+
+(import (sfir core) (sfir io) (sfir datum) (sfir read))
+
+(define cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(define length
+  (lambda (xs)
+    (((lambda () (begin (define loop.1 (lambda (xs.1 n) (if (null? xs.1) n (loop.1 (cdr xs.1) (+ n 1))))) loop.1)))
+      xs
+      0)))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(define abs (-> F64 F64) (lambda (value.6) (if (< value.6 0.0) (- 0.0 value.6) value.6)))
+
+(define workload-read (-> InputPort ReadResult)
+  (lambda (port.3)
+    ((lambda (result.1) (match result.1 ((read-error message) (datum-fail (string-append "read: " message))) ((read-value value.5) result.1) ((read-end) result.1)))
+      (read port.3))))
+
+(define real-datum (-> Datum F64)
+  (lambda (value.4)
+    (if (datum-number? value.4)
+      (number->f64 (datum-number-value value.4))
+      (datum-fail "sum1: expected a real number"))))
+
+(define exact-datum (-> Datum I64)
+  (lambda (value.3)
+    (match (datum-number-value value.3)
+      ((exact-number value) value)
+      ((rational-number value.1) (datum-fail "benchmark count must fit an exact I64"))
+      ((inexact-number value.2) (datum-fail "benchmark count must be exact"))
+      ((complex-number real imaginary) (datum-fail "benchmark count must be exact")))))
+
+(define sumport (-> InputPort F64 F64)
+  (lambda (port.2 sum-so-far)
+    ((lambda (x) (if (read-end? x) sum-so-far (sumport port.2 (+ (real-datum (read-value! x)) sum-so-far))))
+      (workload-read port.2))))
+
+(define sum (-> InputPort F64) (lambda (port.1) (sumport port.1 0.0)))
+
+(define go (-> String F64) (lambda (input) (call-with-input-file input sum)))
+
+(define-data Specification
+  (specification
+    (count I64 specification-count)
+    (path String specification-path)
+    (expected Datum specification-expected)))
+
+(define read-specification (-> InputPort Specification)
+  (lambda (port)
+    ((lambda (count.2) ((lambda (path.1) ((lambda (expected.1) ((lambda () (specification count.2 path.1 expected.1)))) (read-value! (workload-read port)))) (datum-string-value (read-value! (workload-read port)))))
+      (exact-datum (read-value! (workload-read port))))))
+
+(define configured (call-with-input-file "input.txt" read-specification))
+
+(define input0 (specification-path configured))
+
+(define expected (specification-expected configured))
+
+(define configured-count (-> I64) (lambda () (specification-count configured)))
+
+(define hide-path (-> I64 String String) (lambda (count.1 path) (if (barrier) path (unreachable))))
+
+(define bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (define loop (lambda (i result) (if (< i count) (loop (+ i 1) (datum-number (inexact-number (go (hide-path count input0))))) (if (<= (abs (- (real-datum result) (real-datum expected))) 1e-09) 1 0)))) loop)))
+      0
+      (datum-boolean #f))))
+
+(unit)

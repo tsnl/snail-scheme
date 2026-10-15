@@ -1,0 +1,6 @@
+(import (sfir core))
+
+(define cell (Ref I64)
+  (ref 40))
+(ref-set! cell (+ (ref-get cell) 2))
+(ref-get cell)

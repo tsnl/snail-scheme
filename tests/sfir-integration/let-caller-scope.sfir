@@ -1,0 +1,3 @@
+(import (sfir core))
+(let ((x 42))
+  (let ((x #t) (y x)) y))

@@ -1,0 +1,35 @@
+(import (sfir core))
+
+(define exercise
+  (lambda ()
+    (begin
+      (define count
+        (ref 0))
+      (define loop (-> I64 Unit)
+        (lambda (remaining)
+          (begin
+            (if (> remaining 0)
+                (begin
+                  ((let ((next (- remaining 1)))
+                     (begin
+                       (define repeat
+                         (lambda ()
+                           (begin
+                             (ref-set! count (+ (ref-get count) 1))
+                             ((let () loop) next))))
+                       repeat)))
+                  (unit))
+                (unit))
+            (unit))))
+      (define add-first (-> I64 (Rest I64) I64)
+        (lambda (first . remaining) (+ first (car remaining))))
+      (loop 100000)
+      (begin
+        (define again
+          (lambda (remaining)
+            (if (= remaining 0)
+                (if (= (ref-get count) 100000) ((let () add-first) 40 2 99) 0)
+                ((let () again) (- remaining 1)))))
+        (again 100000)))))
+
+(exercise)
