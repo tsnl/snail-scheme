@@ -84,8 +84,8 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **45 of 57 measured workloads**, **44 with paired
-Chez controls**, including the later complete Equal and Conform comparisons.
+Historical coverage is now **47 of 57 measured workloads**, **46 with paired
+Chez controls**, including the later complete Equal, Conform, Maze and Parsing comparisons.
 These accumulated compiler revisions are not a whole-suite rerun. The explicit
 name sets are in `capabilities.json`.
 Gcbench's unmeasured retention case is excluded;
@@ -174,7 +174,7 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | maze | [Measured complete canonical workload](../results/2026-10-14-strict-maze-comparison/README.md): all 56 planned processes pass 10,000 constructions of a 20 × 7 grid and all 668 expected characters. Production V8 0.419037 s, native64 0.461827 s, identical-Wasm V8 0.417998 s, original Chez 0.332521 s, adapted Chez 0.500966 s, Rust native 0.229181 s and Rust/Wasm 0.246174 s. V8 takes 1.260× original Chez time; native takes 10.49% more time than its identical-Wasm V8 control. Current source/growing-GC basis is da8519f. Concrete records and Ref fields retain both union-find walks, recursive integer helpers, rendering and the equivalent immediate lexical escape. Separate full ordered observations and work counts remain outside timings; Rust uses its documented independent representations. |
 | mazefun | Measured original 10,000 × make-maze(11,11): 1.619× faster than original Chez, 1.425× faster than adapted Chez and 3.691× faster than this Rust/Wasm reference. Concrete coordinate/dimension products, wall/coordinate and result variants, and persistent nested lists preserve deterministic shuffle, ordered flooding, copied prefixes/shared suffixes and complete 121-cell equality. Original/adapted Chez and raw/optimized Wasm correctness probes plus separate retained-work observers pass. Rust Rc, inline values, temporary vectors and destruction schedules differ; no equal-allocation or isolated collector claim. |
 | paraffins | Measured canonical source program. Closed `H`/`C` and `BCP`/`CCP` variants preserve the source algorithm. Canonical optimized code legally removes unused product payloads and radical child edges; this is not a same-allocation GC comparison. Separate modules check complete ordered structures. |
-| parsing | [Full correctness preparation](../results/2026-10-14-strict-parsing-preparation/README.md): all 2,500 parses of the complete 28,300-byte input and full final-list predicate pass on original/adapted Chez, raw/optimized linked Wasm and native64. The exact generated scanner/LL(1) grammar, one timed character-list file load and eight mutable lexical fields remain. Complete token/datum streams, 79 named procedure counters, prefix/suffix alias checks and unchanged Rust controls pass. Existing Datum numeric bounds remain explicit; clean timing pending. |
+| parsing | [Measured complete canonical workload](../results/2026-10-14-strict-parsing-comparison/README.md): all 56 planned processes pass the complete 28,300-byte timed file load, 2,500 parses and original final proper-list predicate. Production V8 2.361375 s, native64 1.481803 s, identical-Wasm V8 2.392723 s, original Chez 1.195848 s, adapted Chez 1.971951 s, Rust native 0.626001 s and Rust/Wasm 0.759769 s. V8 takes 1.975× original Chez time; native takes 38.07% less time than identical-Wasm V8. Frozen compiler/library/growing-GC basis is `8930aaa`; no per-parse assertion was added. Generated scanner/LL(1) grammar, original loader, eight mutable lexical fields and bounded Datum numbers remain. Separate token/datum/work/alias/reset observations stay outside timings; Rust retains independent representations. |
 | peval | Symbolic recursive expression AST, generated names and destructive pair edits. |
 | scheme | Interpreter/compiler with heterogeneous environments and runtime values, symbolic syntax, mutable pairs and dynamic operations. |
 | slatex | String/character processing, symbolic token state, destructive list edits and actual TeX file IO. |
@@ -186,8 +186,8 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 46 of 57 workloads,
-with 45 paired Chez comparisons; these accumulate different compiler revisions,
+measured coverage. Historical strict measurements now cover 47 of 57 workloads,
+with 46 paired Chez comparisons; these accumulate different compiler revisions,
 not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes

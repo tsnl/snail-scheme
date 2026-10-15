@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {WASI} from 'node:wasi';
 
+// ---- Benchmark characters cross the scalar boundary as UTF-8 bytes ----
+
+function writeCharacter(value) {
+  assert(Number.isInteger(value) && value >= 0 && value <= 0x10ffff && (value < 0xd800 || value > 0xdfff));
+  const bytes = Buffer.from(String.fromCodePoint(value), 'utf8');
+  assert.equal(fs.writeSync(1, bytes), bytes.length);
+}
+
 // ---- Both layouts finish file setup before entering the original clock ----
 
 const [artifact, specification, providerPath] = process.argv.slice(2);
@@ -15,7 +23,7 @@ if (providerPath) {
   provider = new WebAssembly.Instance(scalarModule, {wasi_snapshot_preview1: wasi.wasiImport,
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
-const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1},
+const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1, write_character: writeCharacter},
                                                   'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: wasi.wasiImport});
 const close = () => provider ? provider.exports['snail:io/close-all']() : instance.exports['close-resources']();

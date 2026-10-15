@@ -46,9 +46,15 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 45 measured workloads,
-44 with paired Chez controls. These accumulate individual compiler revisions, not a complete
+[coverage inventory](strict-suite/capabilities.md): 47 measured workloads,
+46 with paired Chez controls. These accumulate individual compiler revisions, not a complete
 rerun on the current compiler. The
+[complete Parsing comparison](results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 processes with the full 28,300-byte timed file load, 2,500 parses
+and original final-list predicate. V8 takes 2.361375 s, native64 1.481803 s and
+original Chez 1.195848 s. Native takes 38.07% less time than V8 on its exact
+native-final Wasm. The frozen `8930aaa` growing-GC basis, adapted Chez and
+independent Rust representations remain explicit. The
 [complete Equal comparison](results/2026-10-14-strict-equal-comparison/README.md)
 records 2.395007 s on V8, 2.133533 s natively and 0.258255 s on original Chez.
 Native takes 11.434% less time than V8 on identical final Scheme Wasm. The

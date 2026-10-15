@@ -360,15 +360,17 @@
     },
     {
       "name": "parsing",
-      "status": "correctness-prepared",
+      "status": "measured-canonical-source",
       "source_lines": 936,
       "files": {
         "src/parsing.scm": "5f984e6e0188b205206f731f41b604d3e10229d8bad975364a32b4bdfbf81f9b",
-        "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65"
+        "inputs/parsing.input": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65",
+        "inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-parsing-preparation/README.md",
-      "note": "Complete original count 2500, 28300-byte input and full (should return this list) predicate pass on raw/optimized linked V8, native64 and original/adapted Chez. Complete token/datum order, 79 named procedure counters and sharing/reset checks pass. Unchanged Rust native/raw/optimized controls pass; clean timing pending.",
-      "representation_note": "Generated scanner and LL(1) grammar remain; existing Symbol and Datum values, eight explicit Ref bindings and the original character-list file loader preserve source control and sharing. Exact reversible source edits; nonnegative I64 counts and existing bounded numeric service. Rust retains independent Rc pairs, interned Rc symbols, LinkedList loading and its own state machine."
+      "note": "All 56 fixed processes pass the complete 28300-byte timed file load, 2500 parses and original final proper-list predicate; seven discarded warmups and 49 retained position-balanced observations. Frozen compiler/library/growing-GC basis 8930aaa. Medians: production V8 2.361375272 s, native64 1.481803339 s, identical-Wasm V8 2.392722683 s, original Chez 1.195848294 s, adapted Chez 1.971950837 s, Rust native 0.626001002 s and optimized Rust/Wasm 0.759768657 s. V8 takes 1.975 times original Chez; native takes 38.0704% less time than identical-Wasm V8. No per-parse assertion, trimming, replacement or rerun. All 919 identities and 56 raw captures independently reviewed twice. Separate token/datum/work/alias/reset observations and 36 current predicate controls remain outside clean timings. Rust binary reuse and independent representation remain explicit.",
+      "representation_note": "Generated scanner and LL(1) grammar remain; existing Symbol and Datum values, eight explicit Ref bindings and the original character-list file loader preserve source control and sharing. Exact reversible source edits; nonnegative I64 counts and existing bounded numeric service. Rust retains independent Rc pairs, interned Rc symbols, LinkedList loading and its own state machine.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md"
     },
     {
       "name": "peval",
@@ -508,9 +510,9 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 46,
-  "historical_paired_chez_count": 45,
-  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector.",
+  "historical_measured_strict_count": 47,
+  "historical_paired_chez_count": 46,
+  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded. Maze is measured separately at da8519f with the growing native collector. Parsing is measured separately at 8930aaa with the growing collector and a narrow UTF8 timing-host import; these accumulated revisions are not a fresh full-suite run.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
@@ -570,6 +572,7 @@
     "ntakl",
     "nucleic",
     "paraffins",
+    "parsing",
     "pi",
     "pnpoly",
     "primes",
@@ -617,6 +620,7 @@
     "ntakl",
     "nucleic",
     "paraffins",
+    "parsing",
     "pi",
     "pnpoly",
     "primes",
@@ -650,5 +654,6 @@
   "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance.",
   "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
   "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md",
-  "maze_measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md"
+  "maze_measurement_report": "benchmarks/results/2026-10-14-strict-maze-comparison/README.md",
+  "parsing_measurement_report": "benchmarks/results/2026-10-14-strict-parsing-comparison/README.md"
 }

@@ -1,0 +1,8 @@
+{
+  "raw_campaign_terminal": true,
+  "clean_run_session_id": 11066,
+  "clean_run_exit_code": 0,
+  "terminal_chunk": "c43e4a",
+  "quiet_window_released": true,
+  "parent_message": "QUIET WINDOW RELEASED:11066 actualterminal0 c43e4a,56fixedprocessescomplete. Proceed independent raw audit/statistics, retain tool transcript, archive/report/localcommit. Numeric/compiler feature work resumes now."
+}
