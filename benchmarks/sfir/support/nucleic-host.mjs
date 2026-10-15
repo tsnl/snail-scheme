@@ -36,8 +36,8 @@ try {
   if (mode === '--validate') assert.equal(barriers, config.setup_barriers);
   const start = process.hrtime.bigint();
   const result = instance.exports[config.export || 'bench'](BigInt(config.command ?? config.count));
-  const seconds = Number(process.hrtime.bigint() - start) / 1e9;
   assert.equal(result, BigInt(config.expected));
+  const seconds = Number(process.hrtime.bigint() - start) / 1e9;
   if (mode === '--validate') assert.equal(barriers, config.barriers_per_iteration * Math.max(0, Number(config.count)));
   observation = {seconds, result: result.toString(), barriers: mode === '--validate' ? barriers : null};
   if (config.export === 'probe') observation.values = values;

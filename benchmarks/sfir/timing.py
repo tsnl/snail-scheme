@@ -8,24 +8,22 @@ from pathlib import Path
 import re
 import shutil
 import statistics
-import subprocess
 import sys
 import time
 
 import runner
 
 
-# ---- A fixed first cohort retains every target and control outcome ----
+# ---- The selected corpus retains every target and control outcome ----
 
-COHORT = ('ack', 'fibfp', 'cat', 'wc', 'ctak', 'fibc')
 ROUTES = {'sfir-wasm': 'wasm_validation', 'sfir-native': 'native_validation',
           'chez-original': 'chez_validation', 'chez-adapted': 'chez_adapted_validation',
           'rust-wasm': 'rust_wasm_validation', 'rust-native': 'rust_native_validation'}
-OBSERVERS = ('NODE_V8_COVERAGE', 'LD_PRELOAD', 'SNAIL_GC_STATS', 'SNAIL_NATIVE_GC_INTERVAL')
+OBSERVERS = ('NODE_OPTIONS', 'NODE_V8_COVERAGE', 'LD_PRELOAD', 'SNAIL_GC_STATS', 'SNAIL_NATIVE_GC_INTERVAL')
 
 
 def require_clean_environment(manifest):
-    active = [name for name in OBSERVERS if manifest['execution_environment'].get(name)]
+    active = {name: manifest['execution_environment'][name] for name in OBSERVERS if manifest['execution_environment'].get(name)}
     if active:
         raise ValueError(f'clean timing excludes active observation settings: {active}')
     if 'TASKSET' not in manifest['tools']:
@@ -42,73 +40,13 @@ def protocol_configuration(cpu, warmups, repeats):
                 failure_policy='retain all attempts; no retries; any failed warmup/sample withholds route comparisons')
 
 
-# ---- Copy the selected Rust installation and only locked dependency sources ----
-
-def freeze_tree(source, destination):
-    files = [path.relative_to(source) for path in sorted(source.rglob('*')) if path.is_file()]
-    if any(path.is_symlink() for path in source.rglob('*')):
-        raise ValueError(f'mutable toolchain tree contains symlinks: {source}')
-    return runner.freeze_files(source, destination, files)
-
-
-def select_rust_sysroot(directory, manifest):
-    environment = runner.frozen_environment(manifest)
-    result = runner.record(directory, 'selected-rust-sysroot', [manifest['tools']['RUSTC']['path'], '--print', 'sysroot'],
-                           environment, directory / 'source', manifest['config']['compile_timeout'])
-    if not runner.succeeded(result):
-        raise RuntimeError('cannot identify the selected Rust sysroot')
-    source = Path(result['stdout'].strip())
-    if not source.is_dir() or not (source / 'bin/rustc').is_file():
-        raise ValueError('selected Rust sysroot is not a complete installation')
-    return source
-
-
-def frozen_rust_tools(directory, manifest, source):
-    prefix = Path('toolchain/rust')
-    files = freeze_tree(source, directory / prefix)
-    manifest['build_dependencies'] = {str(prefix / path): digest for path, digest in files.items()}
-    manifest['selected_rust'] = dict(source=str(source), dispatchers={name: manifest['tools'][name] for name in ('RUSTC', 'CARGO')})
-    for name in ('RUSTC', 'CARGO'):
-        path = directory / prefix / 'bin' / name.lower()
-        manifest['tools'][name] = dict(path=str(path), sha256=runner.digest(path), dispatcher=False)
-    manifest['execution_environment']['CARGO_HOME'] = str(directory / 'toolchain/cargo-home')
-
-
-def vendor_locked_crates(directory, manifest):
-    # Vendoring reads the existing offline cache once; builds then use only this copy.
-    environment = runner.frozen_environment(manifest)
-    environment['CARGO_HOME'] = os.environ.get('CARGO_HOME', str(Path.home() / '.cargo'))
-    source, destination = directory / 'source', directory / 'toolchain/vendor'
-    command = [manifest['tools']['CARGO']['path'], 'vendor', '--offline', '--locked',
-               '--manifest-path', source / 'Cargo.toml', '--sync', source / 'benchmarks/wasm-reference/Cargo.toml', destination]
-    result = runner.record(directory, 'vendor-locked-crates', command, environment, source, manifest['config']['compile_timeout'])
-    if not runner.succeeded(result):
-        raise RuntimeError('cannot freeze the locked Rust dependency sources')
-    install_vendor_configuration(directory, manifest, result['stdout'])
-
-
-def install_vendor_configuration(directory, manifest, configuration):
-    target = directory / 'toolchain/cargo-home/config.toml'
-    target.parent.mkdir(parents=True)
-    target.write_text(configuration)
-    paths = [target, *(directory / 'toolchain/vendor').rglob('*')]
-    for path in paths:
-        if path.is_symlink():
-            raise ValueError('vendored dependencies must be ordinary files')
-        if path.is_file():
-            manifest['build_dependencies'][str(path.relative_to(directory))] = runner.digest(path)
-
-
 def prepare(directory, names, compile_timeout, run_timeout, cpu):
-    if not names or len(set(names)) != len(names) or not set(names) <= set(COHORT):
-        raise ValueError(f'the first timing cohort is {", ".join(COHORT)}')
+    if not names:
+        raise ValueError('choose at least one corpus workload')
     protocol = protocol_configuration(cpu, 1, 5)
     manifest = runner.prepare(runner.ROOT, directory, names, compile_timeout, run_timeout)
     require_clean_environment(manifest)
-    frozen_rust_tools(directory, manifest, select_rust_sysroot(directory, manifest))
-    vendor_locked_crates(directory, manifest)
     manifest['timing_protocol'] = protocol
-    manifest['source_revision'] = subprocess.check_output(['git', '-C', str(runner.ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     runner.save(directory / 'manifest.json', manifest)
 
 
@@ -142,15 +80,25 @@ def copied_artifact(source, destination):
         raise ValueError('copied execution artifact changed')
 
 
-def clean_native_build(directory, source, target, manifest, environment):
+def clean_native_sources(directory, case, source, target):
     support = directory / 'source/benchmarks/sfir/support'
-    for name in ('scalar-provider.h', 'scalar-provider.c', 'scalar-timing-entry.c'):
+    kind = 'integer' if case['host'] == 'integer' else 'scalar'
+    for name in (kind + '-provider.h', kind + '-provider.c', kind + '-timing-entry.c'):
         shutil.copy2(support / name, target / name)
-    header = '#define OBSERVE_BARRIERS 0\n' + runner.native_configuration(runner.load(source / 'spec.json'))
-    (target / 'case-config.h').write_text(header)
+    header = target / ('integer-provider.h' if kind == 'integer' else 'case-config.h')
+    configuration = header.read_text() if kind == 'integer' else runner.native_configuration(runner.load(source / 'spec.json'))
+    header.write_text('#define OBSERVE_BARRIERS 0\n' + configuration)
+    return kind
+
+
+def clean_native_build(directory, case, source, target, manifest, environment):
+    kind = clean_native_sources(directory, case, source, target)
     command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
-               '--entry-c', target / 'scalar-timing-entry.c', '--c-provider', 'benchmark',
-               target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm.raw.wasm', target / 'program.native']
+               '--entry-c', target / (kind + '-timing-entry.c'), '--c-provider', 'benchmark',
+               target / (kind + '-provider.h'), target / (kind + '-provider.c'), target / 'program.wasm.raw.wasm', target / 'program.native']
+    if case['name'] == 'fft':
+        runner.fft_provider(directory, target, manifest, environment, False)
+        command[2:2] = ['--c-provider', 'math', directory / 'source/benchmarks/sfir/support/fft-math.h', target / 'math-provider.o']
     return runner.record(target, 'clean-native-build', command, environment, target, manifest['config']['compile_timeout'])
 
 
@@ -158,27 +106,72 @@ def prepare_case_artifacts(directory, case, status, manifest, environment):
     source = directory / 'source/benchmarks/sfir' / case['name']
     original, target = directory / 'validation' / case['name'], directory / 'timing/artifacts' / case['name']
     target.mkdir(parents=True)
-    for name in ('input.txt', 'spec.json', 'program.wasm', 'program.wasm.raw.wasm', 'provider.wasm'):
+    for name in ('input.txt', 'spec.json', 'program.wasm', 'program.wasm.raw.wasm', 'provider.wasm',
+                 'math-provider.wasm', 'native-input.txt'):
         if (original / name).exists():
             copied_artifact(original / name, target / name)
     if status.get('native_validation') == 'passed':
-        result = clean_native_build(directory, source, target, manifest, environment)
-        parity = runner.native_build_status(target, result, status)
-        if parity != 'passed':
-            status = dict(status, native_validation='failed-clean-' + parity.removeprefix('failed-'))
+        status = prepare_clean_native(directory, case, source, target, status, manifest, environment)
     return target, status
 
 
-def route_command(directory, case, route, target, manifest):
-    tools, support = manifest['tools'], directory / 'source/benchmarks/sfir/support'
+def prepare_clean_native(directory, case, source, target, status, manifest, environment):
+    try:
+        result = clean_native_build(directory, case, source, target, manifest, environment)
+        parity = runner.native_build_status(target, result, status)
+        if parity == 'passed':
+            return status
+        return dict(status, native_validation='failed-clean-' + parity.removeprefix('failed-'))
+    except (OSError, ValueError, RuntimeError) as error:
+        runner.save(target / 'clean-native-preparation.json', dict(status='failed', reason=str(error)))
+        return dict(status, native_validation='failed-clean-preparation')
+
+
+def clean_wasm_command(directory, case, target, tools):
+    # Each host spells its actual scalar ABI; validation-only observers stay absent.
+    host = case['host']
+    if host == 'scalar':
+        name, tail = 'scalar-host.mjs', ['--timing']
+    elif host == 'integer':
+        name, tail = 'integer-timing.mjs', []
+    elif host in ('nucleic', 'tail', 'ray'):
+        name, tail = host + '-host.mjs', ['--timing', target / 'provider.wasm']
+    elif host in ('datum-io', 'compiler', 'dynamic', 'scheme', 'slatex'):
+        name, tail = 'reader-timing.mjs', [target / 'provider.wasm']
+    else:
+        raise ValueError(f'no clean Wasm host for {host}')
+    return [tools['NODE']['path'], '--no-warnings', directory / 'source/benchmarks/sfir/support' / name,
+            target / 'program.wasm', target / 'spec.json', *tail]
+
+
+def decimal_timing_source(source, adapter):
+    text, invocation = source.read_text(), '(run-benchmark)\n'
+    if not text.endswith(invocation):
+        raise ValueError('decimal control must end with one explicit benchmark invocation')
+    return text[:-len(invocation)] + adapter.read_text()
+
+
+def clean_chez_artifact(directory, case, route, target, manifest, environment):
+    original = directory / 'validation' / case['name'] / (route + '.so')
+    if case['host'] != 'integer':
+        copied_artifact(original, target / (route + '.so'))
+        return
+    source = directory / 'source/benchmarks/sfir' / case['name'] / (route + '.scm')
+    adapter = directory / 'source/benchmarks/sfir/support/decimal-timing.scm'
+    (target / (route + '.scm')).write_text(decimal_timing_source(source, adapter))
+    result = runner.compile_chez_control(target, target, manifest, environment, route.removeprefix('chez-'))
+    if not runner.succeeded(result):
+        raise RuntimeError('decimal timing control failed to compile')
+
+
+def route_command(directory, case, route, target, manifest, environment):
+    tools = manifest['tools']
     if route == 'sfir-native':
-        return [target / 'program.native']
+        return [target / 'program.native', *([target / 'native-input.txt'] if case['host'] == 'integer' else [])]
     if route == 'sfir-wasm':
-        host = 'reader-timing.mjs' if case['host'] == 'datum-io' else 'scalar-host.mjs'
-        tail = [target / 'provider.wasm'] if case['host'] == 'datum-io' else ['--timing']
-        return [tools['NODE']['path'], '--no-warnings', support / host, target / 'program.wasm', target / 'spec.json', *tail]
+        return clean_wasm_command(directory, case, target, tools)
     if route.startswith('chez-'):
-        copied_artifact(directory / 'validation' / case['name'] / (route + '.so'), target / (route + '.so'))
+        clean_chez_artifact(directory, case, route, target, manifest, environment)
         return [tools['CHEZ']['path'], '--program', target / (route + '.so')]
     wasm = route == 'rust-wasm'
     binary = directory / 'rust-target' / ('wasm32-wasip1/release' if wasm else 'release') / (case['name'] + ('.wasm' if wasm else ''))
@@ -190,6 +183,8 @@ def route_command(directory, case, route, target, manifest):
 def command_dependencies(directory, command, target):
     paths = [Path(item) for item in command if Path(item).is_absolute() and Path(item).is_file()]
     paths += [target / 'input.txt', target / 'spec.json']
+    paths += [target / name for name in ('math-provider.wasm', 'native-input.txt', 'chez-original.scm', 'chez-adapted.scm')
+              if (target / name).is_file()]
     source = directory / 'source/benchmarks/sfir'
     paths += [source / target.name / 'input.txt', source / target.name / 'spec.json', source / 'runner.py', source / 'timing.py']
     return {str(path.relative_to(directory)): runner.digest(path) for path in paths if directory in path.parents}
@@ -211,7 +206,7 @@ def immutable_execution_dependencies(command, target, route, manifest, environme
 
 
 def prepare_ready_route(directory, case, route, target, row, manifest, environment):
-    command = route_command(directory, case, route, target, manifest)
+    command = route_command(directory, case, route, target, manifest, environment)
     row.update(command=list(map(str, command)), files=command_dependencies(directory, command, target))
     if route == 'sfir-native':
         row['native_parity'] = checked_native_parity(directory, target, row)
@@ -238,27 +233,60 @@ def checked_native_parity(directory, target, row):
 
 # ---- A sample is a successful process with one correct guest timer report ----
 
+def sfir_elapsed(output, spec):
+    rows = [json.loads(line) for line in output.splitlines() if line.startswith('{')]
+    if len(rows) != 1:
+        raise ValueError('guest did not report exactly one correct result')
+    expected = 1 if isinstance(spec['expected'], list) else spec['expected']
+    result = rows[0]['result']
+    correct = float(result) == expected if isinstance(expected, float) else str(result) == str(expected)
+    if not correct:
+        raise ValueError('guest did not report exactly one correct result')
+    return rows[0]['seconds']
+
+
+def timer_name_matches(route, name, spec):
+    canonical = spec.get('timer_names', {}).get(route.split('-')[0])
+    if canonical:
+        return name == canonical
+    parts = name.split(':')
+    return parts[0] == spec['name'] and parts[-1] == str(spec['count'])
+
+
+def control_elapsed(route, output, spec):
+    rows = [line.removeprefix('+!CSVLINE!+').split(',') for line in output.splitlines() if line.startswith('+!CSVLINE!+')]
+    if len(rows) != 1 or len(rows[0]) != 3:
+        raise ValueError('guest timer report does not identify the canonical case and count')
+    if not timer_name_matches(route, rows[0][1], spec):
+        raise ValueError('guest timer report does not identify the canonical case and count')
+    return float(rows[0][2])
+
+
+def check_decimal_output(route, output, spec):
+    if 'output' not in spec:
+        return
+    marker = '{' if route.startswith('sfir-') else '+!CSVLINE!+'
+    observed = ''.join(line for line in output.splitlines(keepends=True) if not line.startswith(marker))
+    expected = ('Result: ' if route.startswith('rust-') else '') + spec['output']
+    if observed.encode('utf-8') != expected.encode('utf-8'):
+        raise ValueError('complete decimal output bytes differ from the canonical predicate')
+
+
 def elapsed_seconds(route, output, spec):
     if 'INCORRECT' in output:
         raise ValueError('guest reported an incorrect result')
-    if route.startswith('sfir-'):
-        rows = [json.loads(line) for line in output.splitlines() if line.startswith('{')]
-        if len(rows) != 1 or float(rows[0]['result']) != float(spec['expected']):
-            raise ValueError('guest did not report exactly one correct result')
-        seconds = rows[0]['seconds']
-    else:
-        rows = [line.removeprefix('+!CSVLINE!+').split(',') for line in output.splitlines() if line.startswith('+!CSVLINE!+')]
-        if len(rows) != 1 or len(rows[0]) != 3 or rows[0][1].split(':')[0] != spec['name'] or rows[0][1].split(':')[-1] != str(spec['count']):
-            raise ValueError('guest timer report does not identify the canonical case and count')
-        seconds = float(rows[0][2])
+    check_decimal_output(route, output, spec)
+    seconds = sfir_elapsed(output, spec) if route.startswith('sfir-') else control_elapsed(route, output, spec)
     return runner.positive_timeout(seconds)
 
 
 def execute_attempt(directory, row, target, manifest, environment):
-    working = runner.execution_directory(directory, target, 'workload')
+    source = directory / 'source/benchmarks/sfir' / row['case']
+    working = runner.workload_execution_directory(directory, source, target, 'workload')
+    active = dict(environment, **row.get('execution_environment', {}))
     cpu = manifest['timing_protocol']['cpu']
     command = [manifest['tools']['TASKSET']['path'], '-c', str(cpu), *row['command']]
-    result = runner.record(target, 'execute', command, environment, working, manifest['config']['run_timeout'],
+    result = runner.record(target, 'execute', command, active, working, manifest['config']['run_timeout'],
                            (target / 'input.txt').read_text())
     if not runner.succeeded(result):
         return dict(status='failed-process', record=str((target / 'commands/execute/record.json').relative_to(directory)))
@@ -289,7 +317,10 @@ def validate_clean_route(directory, row, target, manifest, environment):
 
 def prepare_route(directory, case, route, target, status, manifest, environment):
     row = dict(case=case['name'], route=route, eligibility=status.get(ROUTES[route], 'not-attempted'),
-               correctness_record=f'validation/{case["name"]}/status.json')
+               correctness_record=f'validation/{case["name"]}/status.json', execution_environment={})
+    spec = runner.load(target / 'spec.json')
+    if route == 'sfir-native' and 'native_heap_bytes' in spec:
+        row['execution_environment']['SNAIL_GC_HEAP_BYTES'] = str(spec['native_heap_bytes'])
     if row['eligibility'] != 'passed':
         return row
     try:
@@ -444,7 +475,7 @@ def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('prepare', 'build', 'verify', 'measure'))
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--benchmarks', nargs='+', default=list(COHORT))
+    parser.add_argument('--benchmarks', nargs='+', default=['all'])
     parser.add_argument('--compile-timeout', type=runner.positive_timeout, default=1200)
     parser.add_argument('--run-timeout', type=runner.positive_timeout, default=1200)
     parser.add_argument('--cpu', type=int, default=2)
@@ -478,6 +509,53 @@ import unittest
 
 
 class TimingTests(unittest.TestCase):
+    def test_node_options_cannot_instrument_a_clean_route(self):
+        manifest = dict(tools={'TASKSET': dict(path='/immutable/taskset')}, execution_environment={'NODE_OPTIONS': '--cpu-prof'})
+        with self.assertRaisesRegex(ValueError, 'NODE_OPTIONS.*--cpu-prof'):
+            require_clean_environment(manifest)
+        self.assertEqual(manifest['execution_environment']['NODE_OPTIONS'], '--cpu-prof')
+        manifest['execution_environment']['NODE_OPTIONS'] = ''
+        require_clean_environment(manifest)
+
+    def test_full_corpus_routes_have_explicit_clean_hosts(self):
+        corpus = runner.load(runner.CORPUS / 'corpus.json')
+        cases = runner.selected_cases(corpus, ['all'])
+        self.assertEqual(len(cases), 57)
+        for case in cases:
+            command = clean_wasm_command(Path('/frozen'), case, Path('/artifact'), {'NODE': dict(path='/node')})
+            self.assertNotIn('verify.mjs', ' '.join(map(str, command)))
+            self.assertNotIn('--validate', command)
+        with self.assertRaisesRegex(ValueError, 'no clean Wasm host'):
+            clean_wasm_command(Path('/frozen'), dict(host='unknown'), Path('/artifact'), {'NODE': dict(path='/node')})
+
+    def test_integer_results_do_not_lose_bits_and_sequence_predicates_return_flags(self):
+        spec = dict(name='large', count=1, expected=9007199254740993)
+        self.assertEqual(elapsed_seconds('sfir-native', '{"result":"9007199254740993","seconds":0.1}', spec), 0.1)
+        with self.assertRaises(ValueError):
+            elapsed_seconds('sfir-native', '{"result":"9007199254740992","seconds":0.1}', spec)
+        spec['expected'] = [1, 2, 3]
+        self.assertEqual(elapsed_seconds('sfir-wasm', '{"result":"1","seconds":0.1}', spec), 0.1)
+
+    def test_array1_and_equal_keep_the_controls_actual_timer_names(self):
+        for name in ('array1', 'equal'):
+            spec = runner.load(runner.CORPUS / name / 'spec.json')
+            for route in ('chez-original', 'rust-native', 'rust-wasm'):
+                identity = spec['timer_names'][route.split('-')[0]]
+                output = f'+!CSVLINE!+control,{identity},0.1\n'
+                self.assertEqual(elapsed_seconds(route, output, spec), 0.1)
+                with self.assertRaises(ValueError):
+                    elapsed_seconds(route, output.replace(identity, identity + ':1'), spec)
+
+    def test_decimal_routes_require_every_output_byte(self):
+        spec = dict(name='pi', count=2, expected=['123', '-4'], output='(123 -4)\n')
+        for route in ROUTES:
+            timer = '{"result":"1","seconds":0.1}\n' if route.startswith('sfir-') else '+!CSVLINE!+control,pi:2,0.1\n'
+            output = ('Result: ' if route.startswith('rust-') else '') + spec['output'] + timer
+            self.assertEqual(elapsed_seconds(route, output, spec), 0.1)
+            for changed in (output.replace('-4', '-5'), output.replace(')\n', ')\r\n'), output + 'extra\n'):
+                with self.assertRaisesRegex(ValueError, 'complete decimal output bytes'):
+                    elapsed_seconds(route, changed, spec)
+
     def test_native_route_rejects_incomplete_or_failed_parity_evidence(self):
         import tempfile
         with tempfile.TemporaryDirectory() as temporary:
@@ -538,6 +616,204 @@ class TimingTests(unittest.TestCase):
                 elapsed_seconds('chez-original', output, spec)
         with self.assertRaises(ValueError):
             elapsed_seconds('sfir-native', '{"seconds":0.25,"result":42}', spec)
+
+
+@unittest.skipUnless(all(shutil.which(name) for name in ('node', 'wasm-as', 'clang', 'scheme', 'taskset')),
+                     'clean host execution probes need Node, Binaryen, Clang, Chez and taskset')
+class CleanHostTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+        output = runner.ROOT / 'build/sfir-timing-probes'
+        output.mkdir(parents=True, exist_ok=True)
+        cls.directory = Path(tempfile.mkdtemp(prefix='attempt-', dir=output))
+        support = cls.directory / 'source/benchmarks/sfir/support'
+        shutil.copytree(runner.CORPUS / 'support', support)
+        (cls.directory / 'data/inputs').mkdir(parents=True)
+        cls.environment = dict(os.environ, BINARYEN_CORES='1')
+
+    def probe_directory(self, name):
+        path = self.directory / name
+        path.mkdir()
+        return path
+
+    def record_probe(self, target, label, command, stdin=None):
+        return runner.record(target, label, command, self.environment, target, 30, stdin)
+
+    def assemble(self, target, name, text):
+        source, artifact = target / (name + '.wat'), target / (name + '.wasm')
+        source.write_text(text)
+        result = self.record_probe(target, 'assemble-' + name, [shutil.which('wasm-as'), source, '-o', artifact])
+        self.assertTrue(runner.succeeded(result), result)
+        return artifact
+
+    def runtime_provider(self, target):
+        return self.assemble(target, 'provider', '''(module
+          (memory (export "memory") 1)
+          (func (export "_initialize"))
+          (func (export "snail:io/close-all") (result i32) (i32.const 0)))''')
+
+    def run_wasm_probe(self, target, host, spec, text):
+        self.assemble(target, 'program', text)
+        runner.save(target / 'spec.json', spec)
+        command = clean_wasm_command(self.directory, dict(host=host), target,
+                                     {'NODE': dict(path=shutil.which('node'))})
+        result = self.record_probe(target, 'execute', command)
+        self.assertTrue(runner.succeeded(result), result)
+        self.assertGreater(elapsed_seconds('sfir-wasm', result['stdout'], spec), 0)
+
+    def test_runtime_host_categories_use_typed_inputs_without_diagnostic_exports(self):
+        text = '''(module
+          (import "benchmark" "input_i64" (func $integer (param i32) (result i64)))
+          (import "benchmark" "input_f64" (func $real (param i32) (result f64)))
+          (import "benchmark" "barrier" (func $barrier (result i32)))
+          (func (export "main"))
+          (func (export "configured-count") (result i64) (i64.const 2))
+          (func (export "bench") (param i64) (result i64)
+            (if (i64.ne (call $integer (i32.const 0)) (i64.const 7)) (then unreachable))
+            (if (f64.ne (call $real (i32.const 1)) (f64.const 2.5)) (then unreachable))
+            (drop (call $barrier)) (i64.const 1)))'''
+        spec = dict(name='typed-runtime-probe', inputs=[7, 2.5], count=2, expected=1)
+        for host in ('datum-io', 'compiler', 'dynamic', 'scheme', 'slatex', 'nucleic'):
+            with self.subTest(host=host):
+                target = self.probe_directory(host)
+                self.runtime_provider(target)
+                self.run_wasm_probe(target, host, spec, text)
+
+    def test_file_hosts_preserve_their_distinct_path_arities(self):
+        for host in ('tail', 'ray'):
+            with self.subTest(host=host):
+                target = self.probe_directory(host)
+                self.runtime_provider(target)
+                indexed = host == 'tail'
+                length_type = '(param i32)' if indexed else ''
+                character_type = '(param i32 i64)' if indexed else '(param i64)'
+                length_args = '(i32.const 0)' if indexed else ''
+                character_args = '(i32.const 0) (i64.const 0)' if indexed else '(i64.const 0)'
+                text = f'''(module
+                  (import "benchmark" "path_length" (func $length {length_type} (result i64)))
+                  (import "benchmark" "path_character" (func $character {character_type} (result i32)))
+                  (func (export "main"))
+                  (func (export "bench") (param i64) (result i64)
+                    (if (i64.ne (call $length {length_args}) (i64.const 1)) (then unreachable))
+                    (if (i32.ne (call $character {character_args}) (i32.const 97)) (then unreachable))
+                    (i64.const 1)))'''
+                spec = dict(name=host, inputs=[], count=2, expected=1, pathname='a', pathnames=['a', 'b'])
+                self.run_wasm_probe(target, host, spec, text)
+
+    def test_scalar_sequence_predicate_and_math_provider_execute(self):
+        target = self.probe_directory('scalar-vector')
+        text = '''(module
+          (import "benchmark" "vector_i64" (func $input (param i32 i64) (result i64)))
+          (import "benchmark" "expected_i64" (func $expected (param i64) (result i64)))
+          (func (export "main"))
+          (func (export "bench") (param i64) (result i64)
+            (if (i64.ne (call $input (i32.const 0) (i64.const 1))
+                        (call $expected (i64.const 1))) (then unreachable)) (i64.const 1)))'''
+        spec = dict(name='vector-probe', inputs=[[3, 4]], count=2, expected=[3, 4], result_kind='i64-vector-values')
+        self.run_wasm_probe(target, 'scalar', spec, text)
+        target = self.probe_directory('scalar-math')
+        self.assemble(target, 'math-provider', '(module (func (export "snail_sin") (param f64) (result f64) (local.get 0)))')
+        text = '''(module (import "math" "snail_sin" (func $sin (param f64) (result f64)))
+          (func (export "main"))
+          (func (export "bench") (param i64) (result f64) (call $sin (f64.const 0))))'''
+        spec = dict(name='math-probe', inputs=[], count=2, expected=0.0, math_provider='math-provider.wasm')
+        self.run_wasm_probe(target, 'scalar', spec, text)
+
+    def test_decimal_wasm_host_checks_text_after_the_flag(self):
+        target = self.probe_directory('integer-wasm')
+        output = '(123)\n'
+        emit = ' '.join(f'(call $emit (i32.const {ord(char)}))' for char in output)
+        text = f'''(module
+          (import "benchmark" "expected_character" (func $expected (param i64 i64) (result i32)))
+          (import "benchmark" "emit_character" (func $emit (param i32)))
+          (func (export "main"))
+          (func (export "bench") (param i64) (result i64)
+            (if (i32.ne (call $expected (i64.const 0) (i64.const 2)) (i32.const 51)) (then unreachable))
+            (i64.const 1))
+          (func (export "observe") {emit}))'''
+        self.run_wasm_probe(target, 'integer', dict(name='pi', count=2, inputs=[7, 50, 50], expected=['123'], output=output), text)
+
+    def test_clean_native_scalar_float_and_decimal_entries_execute(self):
+        for kind in ('scalar', 'floating', 'integer'):
+            with self.subTest(kind=kind):
+                target = self.probe_directory('native-' + kind)
+                source = target / 'case'
+                source.mkdir()
+                spec = dict(name='fibfp' if kind == 'floating' else 'probe', count=2, inputs=[7], expected=2.5 if kind == 'floating' else [3, 4])
+                if kind == 'integer':
+                    spec.update(inputs=[7, 50, 50], expected=['123'], output='(123)\n')
+                    (target / 'native-input.txt').write_text('2 7 50 50 1\n123\n')
+                runner.save(source / 'spec.json', spec)
+                provider = clean_native_sources(self.directory, dict(host='integer' if kind == 'integer' else 'scalar'), source, target)
+                result_type = 'double' if kind == 'floating' else 'int64_t'
+                predicate = 'assert(input_i64(0) == 7); assert(expected_character(0,2) == 51);' if kind == 'integer' else 'assert(input_i64(0) == 7);'
+                counter = 'barrier_count' if kind == 'integer' else 'benchmark_barriers'
+                counter_type = 'uint64_t' if kind == 'integer' else 'int64_t'
+                predicate += f' assert(hide_i64(7) == 7); assert({counter}() == 0);'
+                if kind == 'floating':
+                    predicate += ' assert(hide_f64(2.5) == 2.5);'
+                result = '1' if kind == 'integer' else 'expected_result'
+                stub = f'''#include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "{provider}-provider.h"
+extern {counter_type} {counter}(void);
+void native_host_init(int argc, char **argv) {{ (void)argc; (void)argv; }}
+void native_module_init(void) {{}}
+int native_finish(int status) {{ return status; }}
+void guest_main(void) __asm__("wasm.main");
+void guest_main(void) {{}}
+{result_type} guest_bench(int64_t n) __asm__("wasm.bench");
+{result_type} guest_bench(int64_t n) {{ assert(n == 2); {predicate} return getenv("TIMING_PROBE_WRONG") ? 0 : {result}; }}
+void guest_observe(void) __asm__("wasm.observe");
+void guest_observe(void) {{ fputs("(123)\\n", stdout); }}
+'''
+                (target / 'guest.c').write_text(stub)
+                built = self.record_probe(target, 'compile', [shutil.which('clang'), '-std=c11', '-I', target,
+                                          target / (provider + '-timing-entry.c'), target / (provider + '-provider.c'),
+                                          target / 'guest.c', '-o', target / 'program.native'])
+                self.assertTrue(runner.succeeded(built), built)
+                command = [target / 'program.native', *([target / 'native-input.txt'] if kind == 'integer' else [])]
+                executed = self.record_probe(target, 'execute', command)
+                self.assertTrue(runner.succeeded(executed), executed)
+                self.assertGreater(elapsed_seconds('sfir-native', executed['stdout'], spec), 0)
+                failed = runner.record(target, 'wrong-result', command, dict(self.environment, TIMING_PROBE_WRONG='1'), target, 30)
+                self.assertFalse(runner.succeeded(failed))
+                self.assertNotIn('seconds', failed['stdout'])
+
+    def test_untimed_decimal_chez_control_gets_only_a_driver_adapter(self):
+        target = self.probe_directory('decimal-chez')
+        source = self.directory / 'source/benchmarks/sfir/pi'
+        source.mkdir()
+        control = source / 'chez-original.scm'
+        control.write_text('''(import (chezscheme))
+(define (run-r7rs-benchmark name count thunk correct?) (error 'untimed "original driver"))
+(define (run-benchmark) (run-r7rs-benchmark "pi:2" 2 (lambda () '(123)) (lambda (x) (equal? x '(123)))))
+(run-benchmark)
+''')
+        original = runner.digest(control)
+        manifest = dict(tools={'CHEZ': dict(path=shutil.which('scheme'))}, config=dict(compile_timeout=30))
+        clean_chez_artifact(self.directory, dict(name='pi', host='integer'), 'chez-original', target, manifest, self.environment)
+        result = self.record_probe(target, 'execute', [shutil.which('scheme'), '--program', target / 'chez-original.so'])
+        self.assertTrue(runner.succeeded(result), result)
+        spec = dict(name='pi', count=2, expected=['123'], output='(123)\n')
+        self.assertGreater(elapsed_seconds('chez-original', result['stdout'], spec), 0)
+        self.assertEqual(runner.digest(control), original)
+
+    def test_clean_attempt_copies_required_fixtures_and_applies_native_heap(self):
+        target = self.probe_directory('attempt-fixtures')
+        source = self.directory / 'source/benchmarks/sfir/fixture-probe'
+        source.mkdir()
+        runner.save(source / 'spec.json', dict(name='fixture-probe', count=1, expected=1, execution_files=['probes.scm']))
+        (source / 'probes.scm').write_text('required fixture')
+        (target / 'input.txt').write_text('canonical input')
+        code = 'import os,pathlib; assert pathlib.Path("probes.scm").read_text()=="required fixture"; assert os.environ["SNAIL_GC_HEAP_BYTES"]=="1234"; print(\'{"result":"1","seconds":0.1}\')'
+        row = dict(case='fixture-probe', route='sfir-native', command=[sys.executable, '-c', code], execution_environment={'SNAIL_GC_HEAP_BYTES': '1234'})
+        manifest = dict(tools={'TASKSET': dict(path=shutil.which('taskset'))}, timing_protocol=dict(cpu=min(os.sched_getaffinity(0))), config=dict(run_timeout=30))
+        result = execute_attempt(self.directory, row, target, manifest, self.environment)
+        self.assertEqual(result['status'], 'passed', result)
 
 
 if __name__ == '__main__':

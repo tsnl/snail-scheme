@@ -75,8 +75,8 @@ try {
   if (mode === '--validate') assert.equal(barriers, config.setup_barriers);
   const start = process.hrtime.bigint();
   const result = instance.exports.bench(BigInt(config.count));
-  const seconds = Number(process.hrtime.bigint() - start) / 1e9;
   assert.equal(result, 1n); // The original predicate is always true; file checks are separate.
+  const seconds = Number(process.hrtime.bigint() - start) / 1e9;
   if (mode === '--validate') assert.equal(barriers, 2 * Math.max(0, Number(config.count)));
   if (config.trace) {
     assert.equal(live.size, 0, 'each worker closes its own input and output');
