@@ -41,8 +41,8 @@ This separate campaign uses current source/growing-GC basis `da8519f`.
 The preparation driver records failures alongside successful cases. This
 adapted subset is separate from the complete default R7RS benchmark command.
 
-Historical strict measurements cover **46 of 57 workloads**, **45 with paired
-Chez controls**, including the complete Equal, Conform and Maze comparisons.
+Historical strict measurements cover **47 of 57 workloads**, **46 with paired
+Chez controls**, including the complete Equal, Conform, Maze and Parsing comparisons.
 The explicit name sets are in [`capabilities.json`](capabilities.json). These are separate
 compiler checkpoints, not a complete-suite rerun on the current revision.
 
@@ -182,8 +182,15 @@ suffix-sharing, mutation and parser-reset behavior. The adapted kernel and
 complete Chez program reverse exactly to their original sources. Numeric
 support remains bounded by the existing Datum library; rational and oversized
 exact values are outside this port's supported domain. Use `--benchmarks parsing`
-for preparation. Clean timing remains pending and requires a separately frozen
-plan, so this preparation does not increase historical measured coverage.
+for preparation. Preparation clocks remain separate from clean measurements.
+The [complete Parsing comparison](../results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 planned processes at the original count and final predicate.
+Production V8 takes 2.361375 s, native64 1.481803 s, original Chez 1.195848 s,
+adapted Chez 1.971951 s and Rust/Wasm 0.759769 s. Native takes 38.07% less time
+than V8 on the exact native-final Wasm (2.392723 s). The timed file load remains
+inside the worker; no per-parse assertion was added. This separately frozen
+campaign uses `8930aaa` with the growing native collector and counter-free
+provider, and does not remeasure the earlier compiler checkpoints.
 
 ## Run
 

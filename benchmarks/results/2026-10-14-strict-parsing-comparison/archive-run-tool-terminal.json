@@ -1,0 +1,18 @@
+{
+  "actual_tool_terminal": true,
+  "session_id": 23918,
+  "initial": {
+    "chunk_id": "08e503",
+    "wall_time_seconds": 1.001275008,
+    "session_id": 23918,
+    "original_token_count": 0,
+    "output": ""
+  },
+  "terminal": {
+    "chunk_id": "d11179",
+    "wall_time_seconds": 0.000006921,
+    "exit_code": 0,
+    "original_token_count": 26,
+    "output": "PASS compressed bytes, complete decompression and 1526 safe regular-file identities; no guest started\n"
+  }
+}

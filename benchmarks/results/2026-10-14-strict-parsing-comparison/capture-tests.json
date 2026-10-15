@@ -1,0 +1,154 @@
+{
+  "passed": true,
+  "benchmark_guest_started": false,
+  "records": {
+    "descendant": {
+      "status": "running",
+      "pid": 5,
+      "process_group": 5,
+      "timeout": false,
+      "interrupted": false,
+      "executing_descendants": [
+        6
+      ],
+      "cleanup": {
+        "process_group": 5,
+        "live_members": [],
+        "leader_reaped": true,
+        "zombies_count_as_stopped": true,
+        "policy": "SIGKILL, bounded five seconds"
+      },
+      "returncode": 0,
+      "termination": {
+        "exit_status": 0,
+        "signal": null
+      },
+      "capture_handles_closed": true,
+      "process_seconds": 0.037261287041474134,
+      "captures": {
+        "stdout": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/descendant/stdout.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/descendant/stderr.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "capture_complete": true,
+      "stop_signal": null
+    },
+    "interrupted": {
+      "status": "running",
+      "pid": 7,
+      "process_group": 7,
+      "timeout": false,
+      "interrupted": true,
+      "executing_descendants": [],
+      "cleanup": {
+        "process_group": 7,
+        "live_members": [],
+        "leader_reaped": true,
+        "zombies_count_as_stopped": true,
+        "policy": "SIGKILL, bounded five seconds"
+      },
+      "returncode": -9,
+      "termination": {
+        "exit_status": null,
+        "signal": 9
+      },
+      "capture_handles_closed": true,
+      "process_seconds": 0.07463807001477107,
+      "captures": {
+        "stdout": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/interrupted/stdout.bin",
+          "bytes": 8,
+          "sha256": "95aebb28195b8d737effe0df18d71d39c8d8ba6569286fd3930fbc9f9767181e"
+        },
+        "stderr": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/interrupted/stderr.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "capture_complete": true,
+      "stop_signal": 15
+    },
+    "nonzero": {
+      "status": "running",
+      "pid": 3,
+      "process_group": 3,
+      "timeout": false,
+      "interrupted": false,
+      "executing_descendants": [],
+      "cleanup": {
+        "process_group": 3,
+        "live_members": [],
+        "leader_reaped": true,
+        "zombies_count_as_stopped": true,
+        "policy": "SIGKILL, bounded five seconds"
+      },
+      "returncode": 7,
+      "termination": {
+        "exit_status": 7,
+        "signal": null
+      },
+      "capture_handles_closed": true,
+      "process_seconds": 0.019648527028039098,
+      "captures": {
+        "stdout": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/nonzero/stdout.bin",
+          "bytes": 3,
+          "sha256": "1320b5dc13aa91dbac6eabc346cb655592aef8244a8ed04b8c4b3bdd59b8af4c"
+        },
+        "stderr": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/nonzero/stderr.bin",
+          "bytes": 2,
+          "sha256": "66f99a5dae4e1c00a3b222fea7fb86e81232d12b9697c92428746f5262e50dcc"
+        }
+      },
+      "capture_complete": true,
+      "stop_signal": null
+    },
+    "timeout": {
+      "status": "running",
+      "pid": 4,
+      "process_group": 4,
+      "timeout": true,
+      "interrupted": false,
+      "executing_descendants": [],
+      "cleanup": {
+        "process_group": 4,
+        "live_members": [],
+        "leader_reaped": true,
+        "zombies_count_as_stopped": true,
+        "policy": "SIGKILL, bounded five seconds"
+      },
+      "returncode": -9,
+      "termination": {
+        "exit_status": null,
+        "signal": 9
+      },
+      "capture_handles_closed": true,
+      "process_seconds": 0.12399243598338217,
+      "captures": {
+        "stdout": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/timeout/stdout.bin",
+          "bytes": 8,
+          "sha256": "95aebb28195b8d737effe0df18d71d39c8d8ba6569286fd3930fbc9f9767181e"
+        },
+        "stderr": {
+          "path": "/tmp/snail-parsing-measurement-20261014/build/parsing-capture-tests-8930aaa/timeout/stderr.bin",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "capture_complete": true,
+      "stop_signal": null
+    }
+  },
+  "owned_live_handles": [],
+  "scope": "Actual invalid bytes/exit7/timeout/orphan/SIGTERM controls plus exact-frame corruptions and rotation counts."
+}
