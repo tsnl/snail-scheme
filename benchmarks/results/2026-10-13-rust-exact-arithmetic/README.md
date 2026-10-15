@@ -32,7 +32,7 @@ Scheme uses lists and tracing collection. The scalar constant can select a
 different multiplication routine. These representation and library differences
 remain part of the reference comparison.
 
-The source checkpoint is `c14f3f1`. [Artifacts](artifacts.tar.xz) include the
+The source checkpoint is `c14f3f1`. [Artifacts](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-exact-arithmetic/artifacts.tar.xz) include the
 complete source/input snapshots, linked Wasm, compiled Chez controls, independent
 split oracle, and before/after disassemblies. [The manifest](manifest.json) and
 [replay check](replay-check.json) verify all 147 regular files and two relative

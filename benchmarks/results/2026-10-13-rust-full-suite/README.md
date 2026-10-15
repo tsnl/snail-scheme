@@ -15,7 +15,7 @@ reports and 1,675 original file paths in a content-addressed store of 479 verifi
 blobs. The files include frozen sources, Cargo inputs, hosts, Wasm and Chez
 binaries, original inputs, checks and retained-work evidence.
 
-[`artifacts.tar.xz`](artifacts.tar.xz) is 4,001,220 bytes and has SHA-256
+[`artifacts.tar.xz`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-full-suite/artifacts.tar.xz) is 4,001,220 bytes and has SHA-256
 `61f495a71b5a8a6aed43d9f58d4d73b3dbaffab79c468c9998c6a22029030d54`.
 [`replay-check.json`](replay-check.json) records verification of every stored
 blob. The archive contains `manifest.json` and `blobs/<sha256>`; repeated source,

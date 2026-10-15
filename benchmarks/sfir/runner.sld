@@ -1,0 +1,802 @@
+;; Freeze authored workloads and retain actual target execution evidence.
+(define-library (sfir runner)
+  (export benchmark-root selected-cases prepare verify-preparation validate inventory
+          record-command succeeded? frozen-environment tool source-directory case-source
+          execution-directory workload-directory compile-chez native-build native-parity
+          verify-native-parity native-artifact-files runtime-provider fft-provider
+          verify-case-sources freeze-files relative-files runner-main enter-frozen-driver
+          timeout-value compile-timeout run-timeout text-contains? exception-text)
+  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
+          (scheme process-context) (scheme read) (scheme time) (scheme write)
+          (srfi 1) (srfi 95) (except (chibi filesystem) file-exists?)
+          (only (srfi 130) string-contains)
+          (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
+          (chibi json) (snail-tools process) (snail-tools native-build) (sfir support))
+  (begin
+
+    ;; ---- Corpus and explicit configuration ----
+
+    (define benchmark-root (make-parameter (current-directory)))
+    (define (trim text) (string-trim text char-whitespace?))
+    (define tools
+      '((CHIBI . "chibi-scheme") (WASM_OPT . "wasm-opt") (WASM_AS . "wasm-as")
+        (WASM_DIS . "wasm-dis") (WASM_MERGE . "wasm-merge") (NODE . "node")
+        (CHEZ . "scheme") (RUSTC . "rustc") (CARGO . "cargo") (LLC . "llc") (LLVM_OPT . "opt")
+        (TASKSET . "taskset") (LDD . "ldd") (GIT . "git") (ENV . "env")
+        (REALPATH . "realpath") (DATE . "date") (TIMEOUT . "timeout")
+        (CP . "cp") (SHA256SUM . "sha256sum")))
+    (define execution-variables
+      '(BINARYEN_CORES RUSTUP_TOOLCHAIN RUSTUP_HOME CARGO_HOME NODE_OPTIONS NODE_V8_COVERAGE
+                       LD_PRELOAD SNAIL_NATIVE_GC_INTERVAL SNAIL_GC_STATS SNAIL_GC_HEAP_BYTES SNAIL_GC_MIN_BYTES
+                       RUSTFLAGS CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET LD_LIBRARY_PATH LIBRARY_PATH
+                       SNAIL_NATIVE_LIBC SNAIL_NATIVE_GCC SNAIL_NATIVE_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
+    (define runtime-features
+      '("--mvp-features" "--enable-mutable-globals" "--enable-nontrapping-float-to-int"
+        "--enable-bulk-memory" "--enable-sign-ext" "--enable-reference-types"
+        "--enable-multivalue" "--enable-extended-const" "--enable-bulk-memory-opt"
+        "--enable-call-indirect-overlong"))
+
+    (define (source-directory directory) (path-join directory "source"))
+    (define (case-source directory case)
+      (path-join directory "source/benchmarks/sfir" (field case 'name)))
+    (define (tool manifest name) (field (field (field manifest 'tools) name) 'path))
+    (define (timeout-value value)
+      (unless (and (real? value) (finite? value) (positive? value))
+        (error "timeout must be positive and finite" value))
+      value)
+    (define (compile-timeout manifest) (field (field manifest 'config) 'compile_timeout))
+    (define (run-timeout manifest) (field (field manifest 'config) 'run_timeout))
+
+    (define (selected-cases corpus names)
+      (let* ((cases (json-array (field corpus 'cases))) (available (map (lambda (case) (field case 'name)) cases))
+             (names (if (equal? names '("all")) available names)))
+        (unless (and (= (length names) (length (delete-duplicates names)))
+                     (every (lambda (name) (member name available)) names))
+          (error "choose distinct names from corpus.json" names))
+        (map (lambda (name) (find (lambda (case) (string=? (field case 'name) name)) cases)) names)))
+
+    (define (inventory names)
+      (selected-cases (read-json (path-join (benchmark-root) "benchmarks/sfir/corpus.json")) names))
+
+    ;; ---- Source, fixture and tool identities ----
+
+    (define (relative-files root)
+      (filter (lambda (path) (not (string=? path "")))
+              (string-split (run-command! (list "git" "-C" root "ls-files" "-z")) #\null)))
+
+    (define (compiler-file? name)
+      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "lib/" "runtime/" "scripts/"))
+          (member name '("Cargo.toml" "Cargo.lock" "rust-toolchain.toml" "build.rs"))))
+
+    (define (campaign-file? name)
+      (or (compiler-file? name)
+          (and (string-prefix? "benchmarks/sfir/" name)
+               (not (string-prefix? "benchmarks/sfir/evidence/" name)))
+          (string-prefix? "benchmarks/wasm-reference/" name)))
+
+    (define (campaign-paths root)
+      (sort (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
+                    (relative-files root)) string<?))
+
+    (define (freeze-files root destination paths)
+      (map
+       (lambda (relative)
+         (let ((source (path-join root (relative-path relative))) (target (path-join destination relative)))
+           (when (file-link? source) (error "freeze requires an ordinary source" source))
+           (copy-file source target)
+           (cons (string->symbol relative) (file-sha256 target))))
+       (sort (delete-duplicates paths) string<?)))
+
+    (define (verify-case-sources root case)
+      (let* ((corpus (path-join root "benchmarks/sfir"))
+             (provenance (read-json (path-join corpus (field case 'provenance)))))
+        (unless (string=? (file-sha256 (path-join corpus (field case 'input)))
+                          (field provenance 'canonical_input_sha256))
+          (error "canonical input differs from provenance" (field case 'name)))
+        (unless (string=? (file-sha256 (path-join corpus (field case 'sfir))) (field provenance 'sfir_sha256))
+          (error "SFIR source differs from provenance" (field case 'name)))
+        (verify-source-files (path-join corpus (field case 'name)) (field provenance 'controls))))
+
+    (define (canonical-data root destination corpus)
+      (let* ((upstream (path-join root "benchmarks/r7rs-benchmarks"))
+             (revision (trim (run-command! (list "git" "-C" upstream "rev-parse" "HEAD"))))
+             (changes (run-command! (list "git" "-C" upstream "status" "--porcelain" "--untracked-files=no"))))
+        (unless (and (string=? revision (field corpus 'upstream_revision)) (string=? changes ""))
+          (error "benchmark inputs must be clean at the pinned revision" upstream))
+        (freeze-files upstream destination
+                      (filter (lambda (path) (string-prefix? "inputs/" path)) (relative-files upstream)))))
+
+    (define (find-executable variable default)
+      (let* ((name (tool-name (symbol->string variable) default))
+             (found (trim (run-command! (list "which" name))))
+             (parts (string-split found #\/)))
+        ;; Keep argv[0]: Cargo and rustc may both dispatch through rustup.
+        (path-join (absolute-path (path-directory found)) (last parts))))
+
+    (define (tool-identities)
+      (filter-map
+       (lambda (entry)
+         (guard (failure (else #f))
+           (let ((path (find-executable (car entry) (cdr entry))))
+             (cons (car entry) `((path . ,path) (sha256 . ,(file-sha256 path)))))))
+       tools))
+
+    (define (captured-environment)
+      (apply fields-with
+             (map (lambda (name) (cons name (or (get-environment-variable (symbol->string name)) 'null))) execution-variables)
+             (map (lambda (entry) (cons (string->symbol (car entry)) (cdr entry))) (native-system-environment))))
+
+    (define (file-identity path)
+      `((path . ,path) (sha256 . ,(file-sha256 path))))
+
+    (define (prefixed-identities prefix files)
+      (map (lambda (entry) (cons (string->symbol (string-append prefix (symbol->string (car entry)))) (cdr entry))) files))
+
+    (define (freeze-rust directory manifest)
+      (let* ((environment (frozen-environment manifest))
+             (result (record-command directory "selected-rust-sysroot"
+                                     (list (tool manifest 'RUSTC) "--print" "sysroot") environment
+                                     (source-directory directory) (compile-timeout manifest)))
+             (sysroot (trim (field result 'stdout))))
+        (unless (and (succeeded? result) (file-regular? (path-join sysroot "bin/rustc")))
+          (error "cannot identify selected Rust installation" result))
+        (let* ((target (path-join directory "toolchain/rust"))
+               (files (freeze-rust-tree sysroot target))
+               (dependencies (prefixed-identities "toolchain/rust/" files)))
+          (fields-with manifest
+                       (cons 'build_dependencies dependencies)
+                       (cons 'selected_rust `((source . ,sysroot) (dispatchers . ,(filter (lambda (entry) (memq (car entry) '(RUSTC CARGO))) (field manifest 'tools)))))
+                       (cons 'tools (fields-with (field manifest 'tools)
+                                                 (cons 'RUSTC (file-identity (path-join target "bin/rustc")))
+                                                 (cons 'CARGO (file-identity (path-join target "bin/cargo")))))
+                       (cons 'execution_environment (fields-with (field manifest 'execution_environment)
+                                                                 (cons 'CARGO_HOME (path-join directory "toolchain/cargo-home"))))))))
+
+    (define (freeze-rust-tree sysroot target)
+      (for-each (lambda (path) (when (file-link? path) (error "Rust snapshot requires ordinary files" path)))
+                (source-files sysroot))
+      (create-directory* (path-directory target))
+      (run-command! (list (tool-name "CP" "cp") "-a" "--" sysroot target))
+      (map (lambda (entry) (cons (string->symbol (substring (car entry) (+ 1 (string-length target)))) (cdr entry)))
+           (file-digests (source-files target))))
+
+    (define (vendor-rust directory manifest)
+      (let* ((source (source-directory directory)) (destination (path-join directory "toolchain/vendor"))
+             (environment (cons (cons "CARGO_HOME" (or (get-environment-variable "CARGO_HOME")
+                                                       (path-join (get-environment-variable "HOME") ".cargo")))
+                                (filter (lambda (entry) (not (string=? (car entry) "CARGO_HOME"))) (frozen-environment manifest))))
+             (result (record-command directory "vendor-locked-crates"
+                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "Cargo.toml")
+                                           "--sync" (path-join source "benchmarks/wasm-reference/Cargo.toml") destination)
+                                     environment source (compile-timeout manifest))))
+        (unless (succeeded? result) (error "cannot freeze locked Cargo dependencies" result))
+        (create-directory* (path-join directory "toolchain/cargo-home"))
+        (write-text (path-join directory "toolchain/cargo-home/config.toml") (field result 'stdout))
+        (fields-with manifest
+                     (cons 'build_dependencies
+                           (append (field manifest 'build_dependencies)
+                                   (map (lambda (path) (cons (string->symbol (substring path (+ 1 (string-length directory)))) (file-sha256 path)))
+                                        (append (source-files destination) (list (path-join directory "toolchain/cargo-home/config.toml")))))))))
+
+    (define (prepare root destination names compile-seconds run-seconds)
+      (let* ((corpus (read-json (path-join root "benchmarks/sfir/corpus.json"))) (cases (selected-cases corpus names)))
+        (for-each (lambda (case) (verify-case-sources root case)) (json-array (field corpus 'cases)))
+        (when (or (file-exists? destination) (string=? root destination) (string-prefix? (string-append root "/") destination))
+          (error "prepare requires a fresh destination outside the checkout" destination))
+        (create-directory* destination)
+        (current-process-supervisor (ensure-native-supervisor root))
+        (let* ((paths (campaign-paths root))
+               (manifest `((format . 2) (kind . "sfir-preparation")
+                           (config . ((compile_timeout . ,(timeout-value compile-seconds)) (run_timeout . ,(timeout-value run-seconds))))
+                           (files . ,(freeze-files root (source-directory destination) paths))
+                           (inputs . ,(canonical-data root (path-join destination "data") corpus))
+                           (tools . ,(tool-identities)) (cases . ,(list->vector cases)) (measurement . "not-measured")
+                           (source_revision . ,(trim (run-command! (list "git" "-C" root "rev-parse" "HEAD"))))
+                           (source_status . ,(run-command! (list "git" "-C" root "status" "--porcelain" "--ignore-submodules=all")))
+                           (execution_environment . ,(captured-environment))))
+               (manifest (vendor-rust destination (freeze-rust destination manifest)))
+               (supervisor (path-join destination "toolchain/snail-native-supervisor")))
+          (copy-file (current-process-supervisor) supervisor)
+          (set! manifest (fields-with manifest
+                                      (cons 'build_dependencies (cons (cons 'toolchain/snail-native-supervisor (file-sha256 supervisor)) (field manifest 'build_dependencies)))
+                                      (cons 'execution_environment (fields-with (field manifest 'execution_environment) (cons 'SNAIL_NATIVE_SUPERVISOR supervisor)))))
+          (unless (equal? paths (campaign-paths root)) (error "source inventory changed during preparation"))
+          (verify-source-files root (field manifest 'files))
+          (write-json (path-join destination "manifest.json") manifest)
+          manifest)))
+
+    (define (verify-preparation directory)
+      (let ((manifest (read-json (path-join directory "manifest.json"))))
+        (timeout-value (compile-timeout manifest)) (timeout-value (run-timeout manifest))
+        (verify-source-files (source-directory directory) (field manifest 'files))
+        (verify-source-files (path-join directory "data") (field manifest 'inputs))
+        (verify-source-files directory (field manifest 'build_dependencies '()))
+        (for-each (lambda (entry)
+                    (unless (string=? (file-sha256 (field (cdr entry) 'path)) (field (cdr entry) 'sha256))
+                      (error "tool executable changed" (car entry)))) (field manifest 'tools))
+        manifest))
+
+    ;; ---- Bounded commands retain their terminal output and raw bytes ----
+
+    (define (succeeded? record)
+      (and (equal? (field record 'returncode #f) 0) (not (field record 'timeout #f))
+           (eq? (field record 'descendants_gone #f) #t)
+           (zero? (vector-length (field record 'unexpected_descendants '#())))
+           (zero? (vector-length (field record 'executing_descendants '#())))))
+
+    (define (record-command directory label command environment cwd timeout . input)
+      (let* ((folder (path-join directory "commands" (relative-path label)))
+             (started `((command . ,(list->vector command)) (cwd . ,cwd) (timeout_seconds . ,(timeout-value timeout))
+                        (status . "started") (environment . ,(map (lambda (entry) (cons (string->symbol (car entry)) (or (cdr entry) 'null))) environment)))))
+        (when (file-exists? folder) (error "command record already exists; choose a new attempt" folder))
+        (create-directory* folder)
+        (write-bytes (path-join folder "stdout.bin") #u8())
+        (write-bytes (path-join folder "stderr.bin") #u8())
+        (write-json (path-join folder "record.json") started)
+        (guard (failure (else (let ((record (fields-with started (cons 'status "command-error") (cons 'exception (exception-text failure)))))
+                                (write-json (path-join folder "record.json") record) record)))
+          (let* ((captured (run-command/capture command
+                                                `((environment . ,environment) (directory . ,cwd) (timeout . ,timeout)
+                                                  (log-directory . ,folder)
+                                                  (require-supervisor? . #t)
+                                                  (include-output-hex? . #f)
+                                                  (input . ,(if (null? input) "" (car input))))))
+                 (result (fields-with started (cons 'status "finished")
+                                      (cons 'returncode (field captured 'status)) (cons 'timeout (field captured 'timeout #f))
+                                      (cons 'wall_seconds (field captured 'seconds))
+                                      (cons 'descendants_gone (field captured 'descendants_gone #f))
+                                      (cons 'unexpected_descendants (field captured 'unexpected_descendants '#()))
+                                      (cons 'executing_descendants (field captured 'executing_descendants '#()))
+                                      (cons 'stdout (field captured 'stdout)) (cons 'stderr (field captured 'stderr)))))
+            (copy-file (field captured 'stdout_path) (path-join folder "stdout.bin"))
+            (copy-file (field captured 'stderr_path) (path-join folder "stderr.bin"))
+            (let ((result (fields-with result (cons 'stdout_sha256 (file-sha256 (path-join folder "stdout.bin")))
+                                       (cons 'stderr_sha256 (file-sha256 (path-join folder "stderr.bin"))))))
+              (write-json (path-join folder "record.json") result)
+              result)))))
+
+    (define (exception-text failure)
+      (let ((port (open-output-string))) (write failure port) (get-output-string port)))
+
+    (define (frozen-environment manifest)
+      (append
+       (map (lambda (entry) (cons (symbol->string (car entry)) (if (eq? (cdr entry) 'null) #f (cdr entry))))
+            (field manifest 'execution_environment))
+       (map (lambda (entry) (cons (symbol->string (car entry)) (field (cdr entry) 'path))) (field manifest 'tools))
+       (list (cons "PATH" (string-join (delete-duplicates
+                                        (map (lambda (entry) (path-directory (field (cdr entry) 'path))) (field manifest 'tools))) ":")))))
+
+    (define (execution-directory directory target route)
+      (let ((working (path-join target "runs" route)))
+        (when (file-exists? working) (error "execution directory already exists" working))
+        (create-directory* working)
+        (copy-file (path-join target "input.txt") (path-join working "input.txt"))
+        (copy-tree (path-join directory "data/inputs") (path-join working "inputs"))
+        (create-directory* (path-join working "outputs"))
+        working))
+
+    (define (workload-directory directory source target route)
+      (let ((working (execution-directory directory target route)))
+        (for-each (lambda (name) (copy-file (path-join source (relative-path name)) (path-join working name)))
+                  (json-array (field (read-json (path-join source "spec.json")) 'execution_files '#())))
+        working))
+
+    ;; ---- Compile exactly the retained SFIR sources ----
+
+    (define (chibi-command directory manifest script)
+      (list (tool manifest 'CHIBI) "-I" (path-join directory "source/src")
+            "-I" (path-join directory "source/benchmarks") (path-join directory "source" script)))
+
+    (define (sfir-build directory case source target manifest environment)
+      (let ((exports (cons (field case 'entry) (json-array (field (read-json (path-join source "spec.json")) 'additional_exports '#())))))
+        (record-command target "sfir-build"
+                        (append (list (path-join directory "source/scripts/build-sfir"))
+                                (append-map (lambda (name) (list "--export" name)) exports)
+                                (list (path-join source "main.sfir") (path-join target "program.wasm")))
+                        environment (source-directory directory) (compile-timeout manifest))))
+
+    (define (module-interface path target label manifest environment)
+      (let* ((script "const fs=require('fs'),m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));console.log(JSON.stringify({imports:WebAssembly.Module.imports(m),exports:WebAssembly.Module.exports(m)}));")
+             (result (record-command target label (list (tool manifest 'NODE) "-e" script path)
+                                     environment target (compile-timeout manifest))))
+        (unless (succeeded? result) (error "cannot inspect Wasm interface" result))
+        (string->json (field result 'stdout))))
+
+    (define (runtime-provider directory target manifest environment)
+      (let* ((runtime-target (path-join directory "runtime-target"))
+             (build (record-command target "runtime-build"
+                                    (list (tool manifest 'CARGO) "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--locked"
+                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/Cargo.toml")
+                                          "--target-dir" runtime-target) environment (source-directory directory) (compile-timeout manifest))))
+        (unless (succeeded? build) (error "Rust scalar runtime build failed" build))
+        (copy-file (path-join runtime-target "wasm32-wasip1/release/snail_runtime.wasm") (path-join target "runtime.wasm"))
+        (let* ((program (module-interface (path-join target "program.wasm") target "program-interface" manifest environment))
+               (provider (module-interface (path-join target "runtime.wasm") target "runtime-interface" manifest environment))
+               (required (map (lambda (item) (field item 'name))
+                              (filter (lambda (item) (string=? (field item 'module) "snail.library")) (json-array (field program 'imports)))))
+               (keep (delete-duplicates (append required '("memory" "_initialize" "snail:io/close-all" "snail:report-error")))))
+          (optimize-provider target manifest environment keep (map (lambda (item) (field item 'name)) (json-array (field provider 'exports))))
+          (check-provider target manifest environment required keep))))
+
+    (define (required-command target label command environment timeout)
+      (let ((result (record-command target label command environment target timeout)))
+        (unless (succeeded? result) (error "provider construction failed" label result))))
+
+    (define (export-name line)
+      (and (string-prefix? " (export " line)
+           (let ((value (read (open-input-string line))))
+             (and (list? value) (pair? value) (eq? (car value) 'export) (string? (cadr value)) (cadr value)))))
+
+    (define (select-exports text expected keep)
+      (let loop ((lines (string-split text #\newline)) (index 0) (found '()) (selected '()) (removed '()))
+        (if (null? lines)
+            (begin
+              (unless (and (lset= string=? found expected) (lset<= string=? keep found))
+                (error "unexpected provider export set" found expected keep))
+              (unless (equal? (restore-export-lines (reverse selected) (reverse removed)) (string-split text #\newline))
+                (error "runtime export selection did not reverse exactly"))
+              (values (string-join (reverse selected) "\n") (list->vector (reverse removed))))
+            (let* ((line (car lines)) (name (export-name line)) (drop? (and name (not (member name keep)))))
+              (loop (cdr lines) (+ index 1) (if name (cons name found) found)
+                    (if drop? selected (cons line selected))
+                    (if drop? (cons `((index . ,index) (line . ,line)) removed) removed))))))
+
+    (define (restore-export-lines selected removed)
+      (if (null? removed) selected
+          (let ((index (field (car removed) 'index)))
+            (restore-export-lines (append (take selected index) (list (field (car removed) 'line)) (drop selected index)) (cdr removed)))))
+
+    (define (optimize-provider target manifest environment keep names)
+      (let ((timeout (compile-timeout manifest)))
+        (required-command target "runtime-disassemble"
+                          (list (tool manifest 'WASM_DIS) (path-join target "runtime.wasm") "-o" (path-join target "runtime.wat")) environment timeout)
+        (let-values (((text edits) (select-exports (read-text (path-join target "runtime.wat")) names keep)))
+          (write-text (path-join target "provider.wat") text)
+          (write-json (path-join target "provider-export-edits.json") `((removed . ,edits) (complete_reverse_verified . #t))))
+        (required-command target "runtime-assemble"
+                          (append (list (tool manifest 'WASM_AS)) runtime-features (list (path-join target "provider.wat") "-o" (path-join target "provider.raw.wasm"))) environment timeout)
+        (required-command target "runtime-optimize"
+                          (append (list (tool manifest 'WASM_OPT) "-g") runtime-features
+                                  (list "--remove-unused-module-elements" "-O3" (path-join target "provider.raw.wasm") "-o" (path-join target "provider.wasm"))) environment timeout)))
+
+    (define (check-provider target manifest environment required keep)
+      (let ((final (module-interface (path-join target "provider.wasm") target "provider-interface" manifest environment)))
+        (unless (and (every (lambda (item) (member (field item 'module) '("wasi_snapshot_preview1" "snail.platform")))
+                            (json-array (field final 'imports)))
+                     (lset= string=? keep (map (lambda (item) (field item 'name)) (json-array (field final 'exports)))))
+          (error "scalar provider interface changed" final))
+        (write-json (path-join target "provider.json")
+                    `((required . ,(list->vector (sort required string<?))) (retained . ,(list->vector (sort keep string<?)))
+                      (interface . ,final) (program_sha256 . ,(file-sha256 (path-join target "program.wasm")))
+                      (runtime_sha256 . ,(file-sha256 (path-join target "runtime.wasm")))
+                      (provider_sha256 . ,(file-sha256 (path-join target "provider.wasm")))))))
+
+    ;; ---- Cargo scalar providers and native artifact parity ----
+
+    (define (fft-provider directory target manifest environment)
+      (let ((crate (path-join target "math-provider")))
+        (create-directory* crate)
+        (copy-file (path-join directory "source/benchmarks/sfir/support/fft-math.rs") (path-join crate "lib.rs"))
+        (write-text (path-join crate "Cargo.toml")
+                    "[package]\nname='sfir-fft-math'\nversion='0.0.0'\nedition='2024'\n[lib]\npath='lib.rs'\ncrate-type=['cdylib']\n[profile.release]\nopt-level=3\nlto=true\ncodegen-units=1\npanic='abort'\n[workspace]\n")
+        (required-command target "math-wasm-build"
+                          (list (tool manifest 'CARGO) "build" "--offline" "--release" "--target" "wasm32-wasip1"
+                                "--manifest-path" (path-join crate "Cargo.toml")) environment (compile-timeout manifest))
+        (copy-file (path-join crate "target/wasm32-wasip1/release/sfir_fft_math.wasm") (path-join target "math-provider.wasm"))))
+
+    (define (native-build directory source target manifest environment timing?)
+      (let* ((support (path-join directory "source/benchmarks/sfir/support"))
+             (integer? (member (field (read-json (path-join source "spec.json")) 'name) '("pi" "chudnovsky")))
+             (prefix (if integer? "integer" "scalar")))
+        (native-sources support source target timing?)
+        (record-command target "native-build"
+                        (append (list (path-join directory "source/scripts/build-native") "--wasm" "--entry-rust"
+                                      (path-join target (string-append prefix (if timing? "-timing-entry.rs" "-entry.rs"))) "--rust-provider" "benchmark"
+                                      (path-join target (string-append prefix "-provider.rs")))
+                                (if (string=? (field (read-json (path-join source "spec.json")) 'name) "fft")
+                                    (list "--rust-provider" "math" (path-join support "fft-math.rs")) '())
+                                (list (path-join target "program.wasm.raw.wasm") (path-join target "program.native")))
+                        environment target (compile-timeout manifest))))
+
+    (define (native-attempts target)
+      (sort (filter (lambda (path) (string-prefix? "program.native.native-" (last (string-split path #\/))))
+                    (map (lambda (name) (path-join target name)) (directory-files target))) string<?))
+
+    (define (native-artifact-files target)
+      (let ((paths (append (map (lambda (name) (path-join target name)) '("program.wasm.raw.wasm" "program.wasm" "program.native"))
+                           (append-map (lambda (attempt) (map (lambda (name) (path-join attempt name))
+                                                              '("optimized.wasm" "module.ll" "build.json" "build.scm"))) (native-attempts target)))))
+        (when (any file-link? paths) (error "native artifacts must be ordinary files" target))
+        (map (lambda (path) (cons (string->symbol (substring path (+ 1 (string-length target)))) (file-sha256 path)))
+             (filter file-regular? paths))))
+
+    (define (verify-native-parity target expected files)
+      (let ((attempts (native-attempts target)))
+        (unless (and (= 1 (length attempts)) (file-directory? (car attempts)) (not (file-link? (car attempts))))
+          (error "native parity requires exactly one retained build attempt" attempts))
+        (verify-source-files target `((program.wasm.raw.wasm . ,(field expected 'raw_sha256))
+                                      (program.wasm . ,(field expected 'optimized_sha256))))
+        (verify-native-evidence target (car attempts) files)
+        (unless (equal? (read-bytes (path-join (car attempts) "optimized.wasm")) (read-bytes (path-join target "program.wasm")))
+          (error "native optimized guest differs from V8 program" target))))
+
+    (define (verify-native-evidence target attempt files)
+      (let ((evidence (field (read-json (path-join attempt "build.json")) 'sha256)))
+        (field files (string->symbol (substring (path-join attempt "build.scm") (+ 1 (string-length target)))))
+        (for-each
+         (lambda (path)
+           (unless (string=? (field evidence (string->symbol (absolute-path path)))
+                             (field files (string->symbol (substring path (+ 1 (string-length target))))))
+             (error "native evidence does not identify retained artifact" path)))
+         (list (path-join target "program.wasm.raw.wasm") (path-join target "program.native")
+               (path-join attempt "optimized.wasm") (path-join attempt "module.ll")))))
+
+    (define (native-parity target built expected)
+      (let ((report `((status . ,(if (succeeded? built) "failed-parity" "failed-build")) (command . ,(field built 'command)))))
+        (guard (failure (else (set! report (fields-with report (cons 'reason (exception-text failure))))))
+          (let ((files (native-artifact-files target)))
+            (set! report (fields-with report (cons 'files files)))
+            (when (succeeded? built)
+              (verify-native-parity target expected files)
+              (set! report (fields-with report (cons 'status "passed"))))))
+        (write-json (path-join target "native-parity.json") report)
+        (field report 'status)))
+
+    ;; ---- Full workload correctness on each execution route ----
+
+    (define (compile-chez source target manifest environment mode . override)
+      (let* ((name (string-append "chez-" mode)) (script (path-join target (string-append "compile-" name ".scm")))
+             (program (if (pair? override) (car override) (path-join source (string-append name ".scm")))))
+        (let ((port (open-output-string)))
+          (display "(import (chezscheme))\n(parameterize ((optimize-level 2)) (compile-program " port)
+          (write program port) (display " " port) (write (path-join target (string-append name ".so")) port)
+          (display "))\n" port) (write-text script (get-output-string port)))
+        (record-command target (string-append name "-build") (list (tool manifest 'CHEZ) "--script" script)
+                        environment target (compile-timeout manifest))))
+
+    (define (control-result? spec output)
+      (if (member (field spec 'name) '("pi" "chudnovsky")) (string=? output (field spec 'output))
+          (and (text-contains? output "+!CSVLINE!+") (not (text-contains? output "INCORRECT")))))
+
+    (define (text-contains? text part)
+      (and (string-contains text part) #t))
+
+    (define (chez-validation directory source target manifest environment mode)
+      (cond ((not (file-exists? (path-join source (string-append "chez-" mode ".scm")))) "unavailable")
+            ((not (succeeded? (compile-chez source target manifest environment mode))) "failed-build")
+            (else
+             (let* ((route (string-append "chez-" mode)) (working (execution-directory directory target route))
+                    (result (record-command target route (list (tool manifest 'CHEZ) "--program" (path-join target (string-append route ".so")))
+                                            environment working (run-timeout manifest) (read-text (path-join target "input.txt")))))
+               (if (and (succeeded? result) (control-result? (read-json (path-join source "spec.json")) (field result 'stdout))
+                        (output-files-match? source working target route)) "passed" "failed")))))
+
+    (define (rust-validation directory case target manifest environment wasm?)
+      (let* ((route (if wasm? "rust-wasm" "rust-native")) (artifacts (path-join directory "rust-target"))
+             (built (record-command target (string-append route "-build")
+                                    (append (list (tool manifest 'CARGO) "build" "--offline" "--locked" "--release"
+                                                  "--manifest-path" (path-join directory "source/benchmarks/wasm-reference/Cargo.toml")
+                                                  "--target-dir" artifacts "--bin" (field case 'name))
+                                            (if wasm? '("--target" "wasm32-wasip1") '()))
+                                    (if wasm? environment (environment-with environment (native-cargo-environment target)))
+                                    (source-directory directory) (compile-timeout manifest))))
+        (if (succeeded? built) (rust-execution directory case target manifest environment wasm? artifacts route) "failed-build")))
+
+    (define (rust-execution directory case target manifest environment wasm? artifacts route)
+      (let* ((binary (path-join artifacts (if wasm? "wasm32-wasip1/release" "release")
+                                (string-append (field case 'name) (if wasm? ".wasm" ""))))
+             (command (if wasm? (list (tool manifest 'NODE) "--no-warnings" (path-join directory "source/benchmarks/wasm-reference/run-wasi.mjs") binary) (list binary)))
+             (working (execution-directory directory target route))
+             (result (record-command target route command environment working (run-timeout manifest) (read-text (path-join target "input.txt")))))
+        (write-json (path-join target (string-append route "-artifact.json")) (file-identity binary))
+        (if (and (succeeded? result) (text-contains? (field result 'stdout) "+!CSVLINE!+")
+                 (not (text-contains? (field result 'stdout) "INCORRECT"))
+                 (output-files-match? (case-source directory case) working target route)) "passed" "failed")))
+
+    (define (wasm-command directory case source target manifest environment working)
+      (let* ((host (field case 'host)) (support (path-join directory "source/benchmarks/sfir/support"))
+             (program (path-join target "program.wasm")) (spec (path-join target "spec.json"))
+             (provider (path-join target "provider.wasm")) (node (list (tool manifest 'NODE) "--no-warnings")))
+        (unless (member host '("scalar" "integer")) (runtime-provider directory target manifest environment))
+        (cond ((member host '("slatex" "dynamic" "scheme" "compiler"))
+               (when (string=? host "slatex")
+                 (for-each (lambda (name) (copy-file (path-join source name) (path-join working name))) '("lifecycle.json" "output-manifest.json")))
+               (append node (list (path-join source "verify.mjs") program provider)))
+              ((string=? host "datum-io") (append node (list (path-join support "reader-host.mjs") program spec provider)))
+              ((member host '("tail" "ray" "nucleic"))
+               (write-json (path-join target "wasm-spec.json") (fields-with (read-json spec) (cons 'trace #t)))
+               (append node (list (path-join support (string-append host "-host.mjs")) program (path-join target "wasm-spec.json") "--validate" provider)))
+              ((string=? host "integer") (append node (list (path-join support "integer-host.mjs") program spec)))
+              ((string=? host "scalar")
+               (when (string=? (field case 'name) "fft") (fft-provider directory target manifest environment))
+               (append node (list (path-join support "scalar-host.mjs") program spec "--validate")))
+              (else (error "unimplemented Wasm validation host" host)))))
+
+    (define (compiler-fatal? result)
+      (and (succeeded? (fields-with result (cons 'returncode 0))) (= (field result 'returncode -1) 1)
+           (string=? (field result 'stdout "") "(#f \"Internal error, no exception handler at this point\" #f)\n")
+           (string-prefix? "snail-sfir: benchmark primitive error\n" (field result 'stderr ""))
+           (not (text-contains? (field result 'stderr "") "fatal compiler handler returned"))))
+
+    (define (compiler-fatal-validation directory source target manifest environment native?)
+      (let* ((route (if native? "sfir-native-fatal" "sfir-wasm-fatal"))
+             (working (workload-directory directory source target route))
+             (command (if native? (list (path-join target "program.native") "fatal")
+                          (list (tool manifest 'NODE) "--no-warnings" (path-join source "verify.mjs")
+                                (path-join target "program.wasm") (path-join target "provider.wasm") "fatal"))))
+        (if (compiler-fatal? (record-command target route command environment working (run-timeout manifest))) "passed" "failed")))
+
+    (define (wasm-validation directory case source target manifest environment)
+      (let* ((working (workload-directory directory source target "sfir-wasm"))
+             (command (wasm-command directory case source target manifest environment working))
+             (result (record-command target "sfir-wasm" command environment working (run-timeout manifest)))
+             (spec (read-json (path-join source "spec.json"))))
+        (cond ((not (and (succeeded? result) (output-files-match? source working target "sfir-wasm"))) "failed")
+              ((string=? (field case 'host) "integer") (if (string=? (field result 'stdout) (field spec 'output)) "passed" "failed"))
+              ((string=? (field case 'host) "compiler") (compiler-fatal-validation directory source target manifest environment #f))
+              (else "passed"))))
+
+    (define (native-execution directory case source target manifest environment)
+      (let* ((spec (read-json (path-join source "spec.json"))) (working (workload-directory directory source target "sfir-native"))
+             (active (if (assq 'native_heap_bytes spec) (environment-with environment (list (cons "SNAIL_GC_HEAP_BYTES" (number->string (field spec 'native_heap_bytes))))) environment))
+             (command (append (list (path-join target "program.native"))
+                              (if (string=? (field case 'host) "integer") (list (path-join target "native-input.txt")) '())))
+             (result (record-command target "sfir-native" command active working (run-timeout manifest))))
+        (cond ((not (and (succeeded? result) (output-files-match? source working target "sfir-native"))) "failed")
+              ((string=? (field case 'host) "integer") (if (string=? (field result 'stdout) (field spec 'output)) "passed" "failed"))
+              ((string=? (field case 'host) "compiler")
+               (if (string=? (field result 'stdout) (string-append (read-text (path-join source "expected-observations.txt")) "canonical2000 passed\n"))
+                   (compiler-fatal-validation directory source target manifest environment #t) "failed"))
+              (else "passed"))))
+
+    ;; ---- Every attempt remains visible, including rejected and unavailable routes ----
+
+    (define (stage! target status key value)
+      (set-cdr! status (fields-with (cdr status) (cons key value)))
+      (write-json (path-join target "status.json") (cdr status)))
+
+    (define (guard-route target status key thunk)
+      (guard (failure (else (stage! target status key "failed")
+                            (stage! target status (string->symbol (string-append (symbol->string key) "_failure")) (exception-text failure))))
+        (stage! target status key (thunk))))
+
+    (define (sfir-validation directory case source target manifest environment status)
+      (let ((built (sfir-build directory case source target manifest environment)))
+        (stage! target status 'build (if (succeeded? built) "passed" "failed"))
+        (when (succeeded? built)
+          (stage! target status 'raw_sha256 (file-sha256 (path-join target "program.wasm.raw.wasm")))
+          (stage! target status 'optimized_sha256 (file-sha256 (path-join target "program.wasm")))
+          (stage! target status 'optimized "passed")
+          (guard-route target status 'wasm_validation (lambda () (wasm-validation directory case source target manifest environment)))
+          (guard-route target status 'native_validation
+                       (lambda () (let ((parity (native-parity target (native-build directory source target manifest environment #f) (cdr status))))
+                                    (if (string=? parity "passed") (native-execution directory case source target manifest environment) parity)))))))
+
+    (define (initial-case-status case)
+      `((name . ,(field case 'name)) (source . ,(field case 'source)) (build . "not-attempted")
+        (optimized . "not-established") (wasm_validation . "pending") (native_validation . "pending")
+        (chez_validation . "pending") (chez_adapted_validation . "pending")
+        (rust_wasm_validation . "pending") (rust_native_validation . "pending")
+        (measurement . "not-measured") (adapted_control_required . ,(string? (field case 'chez_adapted #f)))))
+
+    (define (validate-case directory case manifest environment)
+      (let* ((source (case-source directory case)) (target (path-join directory "validation" (field case 'name)))
+             (status (cons 'state (initial-case-status case))))
+        (when (file-exists? target) (error "validation cannot reuse an earlier attempt" target))
+        (create-directory* target)
+        (for-each (lambda (name) (copy-file (path-join source name) (path-join target name))) '("input.txt" "spec.json"))
+        (guard (failure (else (stage! target status 'sfir_failure (exception-text failure))))
+          (sfir-validation directory case source target manifest environment status))
+        (for-each (lambda (mode key) (guard-route target status key (lambda () (chez-validation directory source target manifest environment mode))))
+                  '("original" "adapted") '(chez_validation chez_adapted_validation))
+        (for-each (lambda (wasm? key) (guard-route target status key (lambda () (rust-validation directory case target manifest environment wasm?))))
+                  '(#t #f) '(rust_wasm_validation rust_native_validation))
+        (cdr status)))
+
+    (define (save-validation directory rows)
+      (write-json (path-join directory "validation.json")
+                  `((kind . "sfir-target-validation") (performance_samples . #f) (cases . ,rows))))
+
+    (define (validate directory)
+      (let* ((manifest (verify-preparation directory)) (environment (frozen-environment manifest))
+             (cases (json-array (field manifest 'cases))) (rows (list->vector (map initial-case-status cases))))
+        (save-validation directory rows)
+        (for-each
+         (lambda (case index)
+           (vector-set! rows index (validate-case directory case manifest environment))
+           (save-validation directory rows))
+         cases (iota (length cases)))
+        (verify-preparation directory)
+        (read-json (path-join directory "validation.json"))))
+
+    (define (all-routes-passed? report)
+      (every (lambda (case)
+               (every (lambda (key) (string=? (field case key "missing") "passed"))
+                      (append '(wasm_validation native_validation chez_validation rust_wasm_validation rust_native_validation)
+                              (if (field case 'adapted_control_required) '(chez_adapted_validation) '()))))
+             (json-array (field report 'cases))))
+
+    ;; ---- Command line and frozen driver entry ----
+
+    (define (runner-options arguments)
+      (let loop ((arguments arguments) (options '((benchmarks . ("all")) (compile-timeout . 1800) (run-timeout . 1200))))
+        (cond ((null? arguments) options)
+              ((string=? (car arguments) "--benchmarks")
+               (let-values (((names rest) (span (lambda (name) (not (string-prefix? "--" name))) (cdr arguments))))
+                 (when (null? names) (error "--benchmarks requires names"))
+                 (loop rest (fields-with options (cons 'benchmarks names)))))
+              ((and (pair? (cdr arguments)) (member (car arguments) '("--output" "--compile-timeout" "--run-timeout")))
+               (let* ((name (string->symbol (substring (car arguments) 2))) (text (cadr arguments))
+                      (value (if (eq? name 'output) (absolute-path text) (timeout-value (string->number text)))))
+                 (loop (cddr arguments) (fields-with options (cons name value)))))
+              (else (error "unknown or incomplete benchmark option" arguments)))))
+
+    (define (enter-frozen-driver directory script arguments)
+      (unless (string=? (absolute-path (benchmark-root)) (absolute-path (source-directory directory)))
+        (let* ((manifest (verify-preparation directory))
+               (result (run-command/capture (append (chibi-command directory manifest script) arguments)
+                                            `((directory . ,(source-directory directory)) (environment . ,(frozen-environment manifest))))))
+          (display (field result 'stdout)) (display (field result 'stderr) (current-error-port))
+          (exit (field result 'status)))))
+
+    (define (runner-main arguments)
+      (when (null? arguments) (error "expected inventory, prepare, verify, or validate"))
+      (let* ((action (car arguments)) (options (runner-options (cdr arguments))) (directory (field options 'output #f)))
+        (unless (or directory (string=? action "inventory")) (error "--output is required"))
+        (when (member action '("verify" "validate"))
+          (enter-frozen-driver directory "benchmarks/sfir/runner.scm" arguments))
+        (cond ((string=? action "inventory") (json-write (list->vector (inventory (field options 'benchmarks))) (current-output-port)) (newline) 0)
+              ((string=? action "prepare") (prepare (benchmark-root) directory (field options 'benchmarks)
+                                                    (field options 'compile-timeout) (field options 'run-timeout)) 0)
+              ((string=? action "verify") (verify-preparation directory) 0)
+              ((string=? action "validate") (let ((report (validate directory))) (json-write report (current-output-port)) (newline) (if (all-routes-passed? report) 0 1)))
+              (else (error "unknown benchmark action" action)))))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-sfir-runner)
+    (import (snail-scheme test-utils) (chibi temp-file))
+    (begin
+      (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
+
+      (define (test-frozen-source)
+        (call-with-temp-dir "sfir-freeze"
+                            (lambda (root preserve)
+                              (let ((original (path-join root "source")) (frozen (path-join root "frozen")))
+                                (create-directory* original)
+                                (write-text (path-join original "main.sfir") "(define answer 42)\nanswer\n")
+                                (let ((files (freeze-files original frozen '("main.sfir"))))
+                                  (write-text (path-join original "main.sfir") "changed checkout")
+                                  (verify-source-files frozen files)
+                                  (expect (equal? files (freeze-files original (path-join root "next") '("main.sfir"))) #f)
+                                  (write-text (path-join frozen "main.sfir") "changed frozen input")
+                                  (expect (rejected? (lambda () (verify-source-files frozen files))) #t))))))
+
+      (define (test-path-containment)
+        (call-with-temp-dir "sfir-paths"
+                            (lambda (root preserve)
+                              (write-text (path-join root "mutable") "mutable")
+                              (symbolic-link-file (path-join root "mutable") (path-join root "alias"))
+                              (for-each (lambda (name) (expect (rejected? (lambda () (freeze-files root (path-join root "frozen") (list name)))) #t))
+                                        '("alias" "../mutable" "/absolute")))))
+
+      (define (test-timeout-contract)
+        (for-each (lambda (value) (expect (rejected? (lambda () (timeout-value value))) #t))
+                  (list 0 -1 #t (string->number "+nan.0") (string->number "+inf.0")))
+        (expect (timeout-value 1800.5) 1800.5))
+
+      (define (test-execution-files)
+        (call-with-temp-dir "sfir-execution"
+                            (lambda (root preserve)
+                              (create-directory* (path-join root "data/inputs"))
+                              (create-directory* (path-join root "case"))
+                              (write-text (path-join root "input.txt") "canonical input")
+                              (write-text (path-join root "case/probes.scm") "semantic probes")
+                              (write-text (path-join root "case/private.txt") "undeclared")
+                              (write-json (path-join root "case/spec.json") '((execution_files . #("probes.scm"))))
+                              (let ((first (workload-directory root (path-join root "case") root "first"))
+                                    (second (execution-directory root root "second")))
+                                (write-text (path-join first "outputs/stale") "incorrect old answer")
+                                (expect (read-text (path-join first "probes.scm")) "semantic probes")
+                                (expect (file-exists? (path-join first "private.txt")) #f)
+                                (expect (source-files (path-join second "outputs")) '())
+                                (expect (rejected? (lambda () (execution-directory root root "first"))) #t)))))
+
+      (define (test-provider-exports)
+        (let ((text "(module\n (export \"keep\" (func $f))\n (export \"drop\" (func $f))\n)\n"))
+          (let-values (((selected edits) (select-exports text '("keep" "drop") '("keep"))))
+            (expect (text-contains? selected "drop") #f)
+            (expect (vector-length edits) 1))
+          (expect (rejected? (lambda () (select-exports text '("keep" "drop") '("absent")))) #t)))
+
+      (define (test-fatal-result)
+        (let ((record '((status . "finished") (returncode . 1) (timeout . #f) (descendants_gone . #t)
+                        (stdout . "(#f \"Internal error, no exception handler at this point\" #f)\n")
+                        (stderr . "snail-sfir: benchmark primitive error\n"))))
+          (expect (compiler-fatal? record) #t)
+          (for-each (lambda (entry) (expect (compiler-fatal? (fields-with record entry)) #f))
+                    '((returncode . 0) (returncode . 139) (timeout . #t) (stdout . "")
+                      (stderr . "unrelated") (executing_descendants . #(42))
+                      (stderr . "snail-sfir: benchmark primitive error\nfatal compiler handler returned")))))
+
+      (define (test-adapted-result)
+        (let ((passed '((wasm_validation . "passed") (native_validation . "passed")
+                        (chez_validation . "passed") (rust_wasm_validation . "passed")
+                        (rust_native_validation . "passed") (adapted_control_required . #t))))
+          (for-each
+           (lambda (status expected)
+             (expect (all-routes-passed?
+                      `((cases . ,(vector (fields-with passed (cons 'chez_adapted_validation status)))))) expected))
+           '("failed-build" "pending" "unavailable" "passed") '(#f #f #f #t))))
+
+      (define (test-recorded-processes)
+        (current-process-supervisor (ensure-native-supervisor (benchmark-root)))
+        (call-with-temp-dir
+         "sfir-processes"
+         (lambda (root preserve)
+           (let* ((record (record-command root "bytes" '("sh" "-c" "printf 'a\\r\\nb\\n'") '() root 5))
+                  (output (path-join root "commands/bytes/stdout.bin")))
+             (expect (succeeded? record) #t)
+             (expect (field record 'stdout) "a\r\nb\n")
+             (expect (read-bytes output) #u8(97 13 10 98 10))
+             (expect (field record 'stdout_sha256) (file-sha256 output)))
+           (for-each
+            (lambda (label command)
+              (let ((record (record-command root label (list "sh" "-c" command) '() root 0.3)))
+                (expect (succeeded? record) #f)
+                (expect (field record 'descendants_gone) #t)
+                (expect (field record 'executing_descendants) '#())
+                (expect (read-json (path-join root "commands" label "record.json")) record)
+                (if (string=? label "timeout")
+                    (expect (field record 'timeout) #t)
+                    (expect (field record 'returncode) 0))))
+            '("timeout" "orphan")
+            '("sleep 30 & printf 'started\\n'; wait" "sleep 30 & printf 'parent exited\\n'")))))
+
+      (define (parity-fixture target)
+        (let ((attempt (path-join target "program.native.native-test")))
+          (create-directory* attempt)
+          (for-each (lambda (entry) (write-text (path-join target (car entry)) (cdr entry)))
+                    '(("program.wasm.raw.wasm" . "raw") ("program.wasm" . "optimized") ("program.native" . "executable")
+                      ("program.native.native-test/optimized.wasm" . "optimized") ("program.native.native-test/module.ll" . "LLVM")
+                      ("program.native.native-test/build.scm" . "configuration")))
+          (write-parity-evidence target)
+          `((raw_sha256 . ,(file-sha256 (path-join target "program.wasm.raw.wasm")))
+            (optimized_sha256 . ,(file-sha256 (path-join target "program.wasm"))))))
+
+      (define (write-parity-evidence target)
+        (write-json (path-join target "program.native.native-test/build.json")
+                    `((sha256 . ,(map (lambda (name) (let ((path (path-join target name))) (cons (string->symbol path) (file-sha256 path))))
+                                      '("program.wasm.raw.wasm" "program.native" "program.native.native-test/optimized.wasm" "program.native.native-test/module.ll"))))))
+
+      (define (test-native-parity)
+        (call-with-temp-dir "sfir-parity"
+                            (lambda (target preserve)
+                              (let ((expected (parity-fixture target)) (built '((returncode . 0) (descendants_gone . #t) (command . #("native-builder")))))
+                                (expect (native-parity target built expected) "passed")
+                                (delete-file (path-join target "program.wasm.raw.wasm"))
+                                (expect (native-parity target built expected) "failed-parity")
+                                (write-text (path-join target "program.wasm.raw.wasm") "raw")
+                                (write-text (path-join target "program.native") "replaced executable")
+                                (expect (native-parity target built expected) "failed-parity")
+                                (write-parity-evidence target)
+                                (expect (native-parity target (fields-with built (cons 'returncode 1)) expected) "failed-build")
+                                (write-text (path-join target "program.native.native-test/optimized.wasm") "optimized again")
+                                (write-parity-evidence target)
+                                (expect (native-parity target built expected) "failed-parity")
+                                (create-directory* (path-join target "program.native.native-other"))
+                                (expect (native-parity target built expected) "failed-parity")))))
+
+      (define (test-sfir-runner . execute?)
+        (run-test test-frozen-source)
+        (run-test test-path-containment)
+        (run-test test-timeout-contract)
+        (run-test test-execution-files)
+        (run-test test-provider-exports)
+        (run-test test-fatal-result)
+        (run-test test-adapted-result)
+        (run-test test-native-parity)
+        (when (and (pair? execute?) (car execute?)) (run-test test-recorded-processes)))))))

@@ -87,7 +87,7 @@ review; the measured source, modules, and samples remain unchanged.
 - [Raw new samples](results.json) and [comparison summary](summary.json)
 - [Untimed equivalence checks](validation.json)
 - [Original historical Snail/Chez raw report](historical-snail-five.json) and [its summary](historical-five-summary.json)
-- [Exact sources, inputs, modules, and full graph outputs](artifacts.tar.xz), indexed by [manifest](manifest.json)
+- [Exact sources, inputs, modules, and full graph outputs](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-wasm-five-reference/artifacts.tar.xz), indexed by [manifest](manifest.json)
 
 The historical report SHA-256 is
 `02e05c9c0e402046e5b3a9ad0b46fef8860296ec12cb139faedd0c50df4f817c`.

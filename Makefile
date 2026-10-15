@@ -4,14 +4,15 @@
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
-BENCH_OUTPUT ?= build/sfir-benchmarks
+BENCH_OUTPUT ?= /tmp/snail-sfir-benchmarks
 
 test:
 	"$(CHIBI)" -D snail-tests -I src -I tests tests/sfir/host.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests -I benchmarks tests/sfir-benchmarks.scm
 
 benchmark:
-	python3 benchmarks/sfir/runner.py prepare --output "$(BENCH_OUTPUT)"
-	python3 benchmarks/sfir/runner.py validate --output "$(BENCH_OUTPUT)"
+	"$(CHIBI)" -I src -I benchmarks benchmarks/sfir/runner.scm prepare --output "$(BENCH_OUTPUT)"
+	"$(CHIBI)" -I src -I benchmarks benchmarks/sfir/runner.scm validate --output "$(BENCH_OUTPUT)"
 
 format:
 	EMACS="$(EMACS)" find src lib tests examples -type f \( -name '*.scm' -o -name '*.sld' -o -name '*.sfir' \) -exec ./scripts/format-scheme --write {} +

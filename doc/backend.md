@@ -3,7 +3,7 @@
 The compiler implementation runs in Chibi. Product inputs are `.sfir` files;
 `build.scm`, Scheme elaboration and self-hosting are deferred.
 
-`nix-shell` supplies Chibi, Chez, Node, Python, Binaryen, Clang, LLD and Rustup.
+`nix-shell` supplies Chibi, Chez, Node, Binaryen, LLVM and Rustup.
 Install the Rust target used by the shared WASI runtime:
 
 ```sh
@@ -15,13 +15,18 @@ rustup target add wasm32-wasip1
 Binaryen is mandatory for both targets. The preflight checks `wasm-as`,
 `wasm-opt`, `wasm-dis` and `wasm-merge`. Tool overrides are `CHIBI`, `NODE`,
 `CARGO`, `WASM_AS`, `WASM_OPT`, `WASM_DIS` and `WASM_MERGE`; native builds also
-use `CLANG` and `LLD`. An invalid override fails explicitly. Cargo builds the
+use `LLVM_OPT`, `LLC` and `RUSTC`. An invalid override fails explicitly. Cargo builds the
 runtime offline, so dependencies must already be available locally.
 
 Native execution currently validates x86-64 Linux. It lowers the optimized
 Wasm mechanically and links the same Rust externs, the native host, and the
-in-house collector. A C provider requires a concrete nonvariadic declaration;
-unsupported ABI spellings fail before linking. See [command options](options.md).
+in-house Rust collector. Rust providers export concrete `extern "C"` functions;
+unsupported ABI spellings fail before linking. Cargo invokes Rust's bundled
+`rust-lld` directly: no C compiler driver is required. The native executable
+still uses the system C runtime and startup objects; `SNAIL_NATIVE_LIBC` and
+`SNAIL_NATIVE_GCC` select those library directories on Nix. Coreutils supplies
+ordinary file copying and hashing for the Scheme tools.
+See [command options](options.md).
 
 ## Checks
 

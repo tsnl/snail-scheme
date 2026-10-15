@@ -49,7 +49,7 @@ inventory accounts for all 373 literals; 338 explicit I64 annotations preserve
 the old widths, and every current typed value matches at its target IEEE width.
 [`literal-migration.json`](literal-migration.json) records the source locations.
 The shared runner invokes `verify.mjs` for the complete V8 resource/file proof,
-`native-entry.c` for native worker/cleanup checks, and checks every output file
+`native-entry.rs` for native worker/cleanup checks, and checks every output file
 for native, both Chez controls and the Rust routes.
 
 Earlier attempts remain retained: one old-surface build failed in emission;

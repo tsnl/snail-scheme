@@ -101,7 +101,7 @@ and paths for every cell are in the JSON. On another machine, choose an availabl
 CPU and record the changed tools and environment rather than claiming identical
 conditions.
 
-[frozen-inputs.tar.xz](frozen-inputs.tar.xz) contains deduplicated captured Wasm,
+[frozen-inputs.tar.xz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-12-native-v8/frozen-inputs.tar.xz) contains deduplicated captured Wasm,
 WAT, LLVM, and runtime inputs, the compiler source snapshot, reference output,
 and frozen Node host. Original case paths in JSON describe the measurement
 workspace; rebuild them with the archived harness. The capture directory uses

@@ -182,7 +182,7 @@ python3 benchmarks/strict-suite/measure.py prepare \
 
 The [author audit](author-audit.json) revalidates all 158 execution checks and
 183 terminal benchmark-preparation command records. The
-[verified archive](artifacts.tar.zst) retains 620 regular files and is
+[verified archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-parsing-preparation/artifacts.tar.zst) retains 620 regular files and is
 14,774,950 bytes, with SHA-256
 `932284c6a35c287878d201d9b8c2089f7534fa071b092f7d256e31e646241181`.
 The [manifest](manifest.json) lists each file's digest, size and mode; an

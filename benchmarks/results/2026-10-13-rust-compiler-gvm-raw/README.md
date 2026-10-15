@@ -19,7 +19,7 @@ all algorithms through raw GVM generation remain original. It is an intermediate
 oracle, separate from eventual untouched original full-input validation.
 
 [Validation](validation.json) records the complete outputs, input hashes, actual
-commands and exact source/tool/binary hashes. [The archive](artifacts.tar.xz)
+commands and exact source/tool/binary hashes. [The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-compiler-gvm-raw/artifacts.tar.xz)
 retains the Rust sources/catalogs, Wasm, original Chez source/binary, all inputs
 and outputs, oracle support and check logs. [Manifest replay](archive.json)
 verified 57 regular files. The raw GVM source is SHA-256

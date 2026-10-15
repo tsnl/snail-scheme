@@ -85,7 +85,7 @@ supervisor closure. All identities remain unchanged after the run. Its new
 diagnostics validate explicit working-directory/stdin/environment settings;
 the missing metadata in some older preparation records remains disclosed.
 
-The independently written [`review.py`](review.py) rechecks every raw record,
+The independently written [`review.py`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-ack-comparison/review.py) rechecks every raw record,
 complete output, schedule, commands, environment, cleanup and balanced medians.
 A focused pinned simplify pass used a fresh explanation without code access,
 followed by a boundary/identity review. The adjacent manifest and fixed directory

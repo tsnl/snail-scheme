@@ -222,7 +222,7 @@ The compressed WAT and linked Wasm artifacts are frozen inputs. `artifacts.json`
 records their compressed hashes and the native Rust archive's hash. Build records
 retain complete commands and LLVM/source/binary hashes; the original absolute
 paths identify the measurement environment. The common compiler input is exactly
-[the earlier frozen source archive](../2026-10-10-compiler-simplification/after-source.tar.gz)
+[the earlier frozen source archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-10-compiler-simplification/after-source.tar.gz)
 (all 62 archived files were compared byte for byte with the measured tree).
 
 Use a worktree at `12c09c3` and that revision's Nix shell. Copy this report's

@@ -7,7 +7,7 @@ still running; neither a complete timing plan nor measurement samples existed at
 this capture. No performance claim follows from these validation records.
 
 The [machine-readable capture](20261015-full57-correctness.json) and
-[original record archive](20261015-full57-correctness-records.tar.gz) preserve this
+[original record archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/sfir/evidence/20261015-full57-correctness-records.tar.gz) preserve this
 phase independently of the earlier [44-case capture](20261015-full57-pending.md),
 whose Markdown and JSON remain byte-identical. Every result here belongs to
 compiler `8e547bfb353fa5c5aa7c17bc805db13af0d2bca1` in
