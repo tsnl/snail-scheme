@@ -11,7 +11,7 @@ LLVM for a 64-bit native executable with the in-house collector.
 The compiler is written in Scheme and hosted by Chibi. Its input language is
 SFIR. Scheme elaboration, macros and self-hosting are deferred.
 
-The [SFIR chapters](doc/book/sfir/index.md) specify the proposed typed language,
+The [SFIR chapters](doc/book/sfir/index.md) specify the typed language,
 library values and compiler-as-library model, with examples and formal rules.
 
 ## Getting started
