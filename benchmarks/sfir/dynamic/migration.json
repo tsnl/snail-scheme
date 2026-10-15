@@ -5,7 +5,7 @@
   "canonical_input_sha256": "f6b5cc925c2716f0d60d53d16ec87ca21d1f8560e316cc9e24a24b4efbf2ecb6",
   "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
   "conversion": "One-off expansion and binding resolution followed by concrete Value/Procedure authoring and token-preserving SFIR formatting; no conversion is used by the build or runner.",
-  "equivalence_status": "Full canonical500 passed optimized V8 and native64 with byte-identical optimized program modules, plus original/adapted Chez. Rust/frozen-corpus validation pending. No clean timing claim.",
+  "equivalence_status": "The unchanged current SFIR source passes all 500 canonical iterations on Wasm and native with byte-identical optimized guest programs, original/adapted Chez, and Rust Wasm/native. Wasm checks every file byte/EOF cycle; native checks setup/worker/cleanup port releases 1/0/500. Concurrent correctness evidence; not measured.",
   "controls": {
     "chez-original.scm": "6cd7fe3e9026934b03a2353d4da28f1abb0bf1dd474a02d24dc6c451b761da73",
     "chez-adapted.scm": "3c29eb6764f06dbe71e1e488d2c8f447ba3ba0ae1e59195e2a692785692ecb24"
@@ -45,7 +45,7 @@
     "tool": "scripts/migrate-sfir-surface",
     "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
     "numeric_policy": "unchanged",
-    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+    "validation": "The current source after literal-width migration passes canonical execution on both SFIR targets; see evidence/20261015-dynamic-scheme.json. Earlier source hashes and evidence are retained."
   },
   "literal_width_migration": {
     "before_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
@@ -54,6 +54,18 @@
     "manifest": "tests/sfir-literal-widths/migration.json",
     "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
     "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
-    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
-  }
+    "validation": "Fresh canonical Wasm/native execution and all four external control routes pass; main.sfir bytes are unchanged from the landed base. Timing is not established; see evidence/20261015-dynamic-scheme.json."
+  },
+  "prior_equivalence_status": "Full canonical500 passed optimized V8 and native64 with byte-identical optimized program modules, plus original/adapted Chez. Rust/frozen-corpus validation pending. No clean timing claim.",
+  "current_source_validation": {
+    "evidence": "evidence/20261015-dynamic-scheme.json",
+    "runner_revision": "7ab1af2a9ff313ebef8a9d7854c428fbe3384095",
+    "compiler_revision": "552545ae0d87a13a711cc4357f3d826795e10c12",
+    "sfir_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+    "all_six_canonical_routes": "passed",
+    "native_optimized_program_parity": "passed",
+    "measurement": "not-measured"
+  },
+  "verification_harness_sha256": "8c26d5968ac7e2be92b72a3de50131095554c437baf015d8f2ba36a5eda0d5e3",
+  "native_entry_sha256": "bac3bc778dc4c7ce81de3201f346a21bcbc001d6c04e2dd07d109b1ee9149023"
 }

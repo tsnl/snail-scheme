@@ -25,13 +25,19 @@ Wasm Ack's stack failure. The remaining workloads are not measured.
 
 The [canonical validation checkpoint](sfir/evidence/20261015-existing41.md)
 records 53 SFIR Wasm successes and 52 native successes, with GCBench's native
-build timeout preserved. Four source ports remain pending. These correctness
+build timeout preserved. At that checkpoint four source ports remained pending. These correctness
 runs do not add performance coverage.
 
 The subsequent [native parity check](sfir/evidence/20261015-native-parity.md)
 passes GCBench and establishes identical optimized guest programs for nine
-cases, bringing canonical native correctness coverage to all 53 authored
-programs. Earlier failures and measured artifacts remain unchanged.
+cases, bringing canonical native correctness coverage to all 53 programs in that
+checkpoint. Earlier failures and measured artifacts remain unchanged.
+
+Subsequent current-source checks pass complete SLaTeX, Dynamic and Scheme
+workloads. The [Dynamic/Scheme checkpoint](sfir/evidence/20261015-dynamic-scheme.md)
+includes original/adapted Chez, both Rust targets, interpreter probes and source
+resource lifecycles. The runner registers all 56 committed sources; Compiler
+remains pending separately. These runs add no clean timing coverage.
 
 [`wasm-reference`](wasm-reference/README.md) contains the 57 separate Rust ports
 and complete correctness fixtures. Its original Chez controls now come from

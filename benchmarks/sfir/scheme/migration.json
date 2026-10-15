@@ -5,7 +5,7 @@
   "canonical_input_sha256": "13e09802d518125cf9374c90296d973828307d889e23a276207326d07ca8e0b5",
   "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
   "conversion": "One-off expansion and binding resolution followed by concrete Value/Procedure authoring and token-preserving SFIR formatting; no conversion is used by the build or runner.",
-  "equivalence_status": "Full canonical 100000 and 26 supported observations passed optimized V8 and native64 with byte-identical optimized program modules; original/adapted Chez passed. Rust/frozen-corpus validation pending. No clean timing claim.",
+  "equivalence_status": "The unchanged current SFIR source passes the full canonical worker on Wasm and native with byte-identical optimized guest programs, original/adapted Chez, and Rust Wasm/native. All 26 supported Scheme interpreter probes also pass both SFIR targets and the original Chez oracle. Concurrent correctness evidence; not measured.",
   "controls": {
     "chez-adapted.scm": "8e09bcc51cca00490085ec6eabd5b7a37efc759fb6a1c0c4ba3b75367c5d09d5",
     "chez-observe.scm": "212745939d767191bb3bdab16aadf414438558d9951a59882cce53fc086db75b",
@@ -35,7 +35,7 @@
     "earlier_native_attempt": "An already optimized Wasm input was optimized a second time; excluded from module-parity evidence.",
     "checked_harness_result": "/tmp/snail-sfir-large-ports-20261015/scheme-checked-harness-1/run.stdout"
   },
-  "verification_harness_sha256": "1f32d993a51a0085f6ac0572b2c7f08322204bd621a1accfe6a31b48e1fd857f",
+  "verification_harness_sha256": "f5b5199ac6a24d9a45802764ed73634028e6aceaddd58d730926bafe8880bc35",
   "clarity_review": "Independent no-files explanation and focused debate of Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison and actual target verification.",
   "surface_migration": {
     "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
@@ -48,7 +48,7 @@
     "tool": "scripts/migrate-sfir-surface",
     "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
     "numeric_policy": "unchanged",
-    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+    "validation": "The current source after literal-width migration passes canonical execution on both SFIR targets; see evidence/20261015-dynamic-scheme.json. Earlier source hashes and evidence are retained."
   },
   "literal_width_migration": {
     "before_sha256": "2a3c5ef2f1a4d601a387197312981e0c2fed9962dd0aa7e96ff1408a9e34740f",
@@ -57,6 +57,23 @@
     "manifest": "tests/sfir-literal-widths/migration.json",
     "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
     "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
-    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
-  }
+    "validation": "Fresh canonical Wasm/native execution and all four external control routes pass; main.sfir bytes are unchanged from the landed base. Timing is not established; see evidence/20261015-dynamic-scheme.json."
+  },
+  "prior_equivalence_status": "Full canonical 100000 and 26 supported observations passed optimized V8 and native64 with byte-identical optimized program modules; original/adapted Chez passed. Rust/frozen-corpus validation pending. No clean timing claim.",
+  "current_source_validation": {
+    "evidence": "evidence/20261015-dynamic-scheme.json",
+    "runner_revision": "7ab1af2a9ff313ebef8a9d7854c428fbe3384095",
+    "compiler_revision": "552545ae0d87a13a711cc4357f3d826795e10c12",
+    "sfir_sha256": "f5e3fbed1e99b72649f78f4deb135480eac58d5e4262e82842b9c2d4a592a3ff",
+    "all_six_canonical_routes": "passed",
+    "native_optimized_program_parity": "passed",
+    "measurement": "not-measured"
+  },
+  "native_entry_sha256": "9437c1275cef38e0fc8597c14396783daa47b02c1ac27cf25ef8c9126d3a658b",
+  "verification_harness_history": [
+    {
+      "sha256": "1f32d993a51a0085f6ac0572b2c7f08322204bd621a1accfe6a31b48e1fd857f",
+      "scope": "Historical probe/canonical verifier before explicit phase I/O checks."
+    }
+  ]
 }

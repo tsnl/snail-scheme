@@ -15,7 +15,9 @@ variants and matching original call/cc traces. Dynamic and Scheme retain complet
 benchmark-local typed implementations with separate original/adapted Chez controls.
 SLaTeX now passes its complete 500-iteration workload, all 28,500 output files and
 resource checks on the current source; Compiler remains in a preserved draft.
-The runner registers 54 sources; Dynamic and Scheme await its lifecycle integration. The
+The runner registers all 56 sources. Dynamic and Scheme pass their complete
+current-source canonical workloads on both SFIR targets and all four external
+control routes; their workload-local verifiers preserve the source lifecycles. The
 [manifest](corpus.json) distinguishes source presence, Wasm validation, native
 validation and measurement. Source presence proves none of the latter three.
 
@@ -40,7 +42,8 @@ fresh temporaries before aliases bind the original names. Numeric spellings,
 algorithms, canonical inputs, counts, predicates and external controls are unchanged.
 
 Historical evidence referenced below predates this surface migration. The corpus
-records current-surface validation as pending except the explicit SLaTeX result;
+records current-surface validation as pending except the explicit SLaTeX,
+Dynamic and Scheme results;
 the older successful execution and timing records are retained verbatim and do
 not establish results for the migrated sources. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because
@@ -85,6 +88,14 @@ working directory. Per-stage records preserve successful Wasm evidence if a
 later native or comparison step fails. FFT uses a separate scalar Rust sine provider; Tail, Ray and Nucleic use
 concrete runtime services. Pi and Chudnovsky check their entire decimal output
 after running the unchanged canonical count.
+
+Dynamic and Scheme use local `verify.mjs` and `native-entry.c` files with the
+shared frozen build and artifact-parity protocol. Their explicit `execution_files`
+lists copy only declared case fixtures into fresh target working directories;
+escaping paths are rejected. The [current-source checkpoint](evidence/20261015-dynamic-scheme.md)
+records all six canonical routes passing for each workload, all 26 supported
+interpreter probes, and the precise Wasm/native resource evidence. These runs
+add correctness coverage while both workloads remain unmeasured.
 
 ## Clean timing protocol
 
