@@ -8,6 +8,7 @@ const config = JSON.parse(fs.readFileSync(specification, 'utf8'));
 let barriers = 0;
 const opacity = mode === '--validate' ? value => { barriers++; return value; } : value => value;
 const imports = {benchmark: {
+  write_character: scalar => fs.writeSync(1, String.fromCodePoint(scalar)),
   print_text: code => fs.writeSync(1, config.diagnostic_text[Number(code)]),
   print_size: (code, value) => {
     const [prefix, suffix] = config.diagnostic_sizes[Number(code)];

@@ -1,0 +1,201 @@
+{
+  "function40": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.optimized.wat",
+    "source_sha256": "b72f9c74b04fe656094c3ed7a05b43561a49536e3e82c1ca0826bfe6b315f7d5",
+    "excerpt": "scheme-function40.wat",
+    "excerpt_sha256": "3b1b051f9fb1012163dd1aa1c06e98503c8347e7cdf1e4502ef8147b43bdee4f",
+    "calls": {
+      "function40": 0,
+      "function57": 0,
+      "function79": 0,
+      "foreign1": 0
+    },
+    "tail_calls": [
+      "function40"
+    ],
+    "array_allocating_sites": 0
+  },
+  "function57": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.optimized.wat",
+    "source_sha256": "b72f9c74b04fe656094c3ed7a05b43561a49536e3e82c1ca0826bfe6b315f7d5",
+    "excerpt": "scheme-function57.wat",
+    "excerpt_sha256": "1f5fd35c02c773bb7c8402567ea36d69a2d4cdb9f9211659310017a5b15018d9",
+    "calls": {
+      "function40": 0,
+      "function57": 0,
+      "function79": 0,
+      "foreign1": 0
+    },
+    "tail_calls": [],
+    "array_allocating_sites": 3
+  },
+  "function79": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.optimized.wat",
+    "source_sha256": "b72f9c74b04fe656094c3ed7a05b43561a49536e3e82c1ca0826bfe6b315f7d5",
+    "excerpt": "scheme-function79.wat",
+    "excerpt_sha256": "b54f3d8f6604783e4085da333beb913356b728b64aeb4042feba362c58b83075",
+    "calls": {
+      "function40": 0,
+      "function57": 0,
+      "function79": 0,
+      "foreign1": 0
+    },
+    "tail_calls": [],
+    "array_allocating_sites": 1
+  },
+  "function99": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.optimized.wat",
+    "source_sha256": "b72f9c74b04fe656094c3ed7a05b43561a49536e3e82c1ca0826bfe6b315f7d5",
+    "excerpt": "scheme-function99.wat",
+    "excerpt_sha256": "a896ed6a1f580d28a5794528f3245ffccd6312603489a7b5fdca5e21c98a2615",
+    "calls": {
+      "function40": 1,
+      "function57": 2,
+      "function79": 1,
+      "foreign1": 0
+    },
+    "tail_calls": [
+      "function99"
+    ],
+    "array_allocating_sites": 1
+  },
+  "function101": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/strict.optimized.wat",
+    "source_sha256": "b72f9c74b04fe656094c3ed7a05b43561a49536e3e82c1ca0826bfe6b315f7d5",
+    "excerpt": "scheme-function101.wat",
+    "excerpt_sha256": "43ec85b5c25fc06f67bc3b8e73f399081fdc2c7888c00a7230777c0ecc1e14ee",
+    "calls": {
+      "function40": 1,
+      "function57": 2,
+      "function79": 1,
+      "foreign1": 2
+    },
+    "tail_calls": [
+      "function101"
+    ],
+    "array_allocating_sites": 1
+  },
+  "native-f4": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native.native-2al7a4pu/module.ll",
+    "source_sha256": "70ff3898eb560c78cb9ad7dda6510b69014ea84ba10c9e938df2245dc3a76b0a",
+    "excerpt": "native-f4.ll",
+    "excerpt_sha256": "eef58cca35d83500342cee56cf1591992343173a955cce04bbb2418211777feb",
+    "calls": {
+      "f.4": 1,
+      "native_array_slot": 4,
+      "native_roots_enter": 1,
+      "native_roots_leave": 2,
+      "native_trap": 12
+    }
+  },
+  "native-f5": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native.native-2al7a4pu/module.ll",
+    "source_sha256": "70ff3898eb560c78cb9ad7dda6510b69014ea84ba10c9e938df2245dc3a76b0a",
+    "excerpt": "native-f5.ll",
+    "excerpt_sha256": "1843bac8edf38f4e51281180b51e56460f7abe6fa9621fd0d18f4686ef4e5b39",
+    "calls": {
+      "f.11": 1,
+      "f.6": 1,
+      "native_alloc": 1,
+      "native_array_length": 1,
+      "native_array_new": 3,
+      "native_array_slot": 1,
+      "native_roots_enter": 1,
+      "native_roots_leave": 1,
+      "native_trap": 16
+    }
+  },
+  "native-f16": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native.native-2al7a4pu/module.ll",
+    "source_sha256": "70ff3898eb560c78cb9ad7dda6510b69014ea84ba10c9e938df2245dc3a76b0a",
+    "excerpt": "native-f16.ll",
+    "excerpt_sha256": "c59457c9250a80e90d01a59c373c8e9de59ab7a2500f12d8ead93f104dbf9995",
+    "calls": {
+      "f.13": 1,
+      "f.15": 1,
+      "native_alloc": 1,
+      "native_array_new": 1,
+      "native_roots_enter": 1,
+      "native_roots_leave": 1,
+      "native_trap": 15
+    }
+  },
+  "native-f24": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native.native-2al7a4pu/module.ll",
+    "source_sha256": "70ff3898eb560c78cb9ad7dda6510b69014ea84ba10c9e938df2245dc3a76b0a",
+    "excerpt": "native-f24.ll",
+    "excerpt_sha256": "5c4d41920068cbbef5e4ab383c63223e66c6113c46f7892dbda89b1932c39874",
+    "calls": {
+      "f.16": 1,
+      "f.19": 1,
+      "f.23": 1,
+      "f.24": 1,
+      "f.4": 1,
+      "f.5": 2,
+      "native_alloc": 1,
+      "native_array_length": 2,
+      "native_array_new": 1,
+      "native_roots_enter": 1,
+      "native_roots_leave": 2,
+      "native_trap": 28
+    }
+  },
+  "native-f26": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native.native-2al7a4pu/module.ll",
+    "source_sha256": "70ff3898eb560c78cb9ad7dda6510b69014ea84ba10c9e938df2245dc3a76b0a",
+    "excerpt": "native-f26.ll",
+    "excerpt_sha256": "64e908e2280aedbb00f9e322c802d2f6de01acfa781eb8dd2a9979a4238958e2",
+    "calls": {
+      "f.1": 2,
+      "f.16": 1,
+      "f.19": 1,
+      "f.21": 1,
+      "f.23": 1,
+      "f.24": 1,
+      "f.26": 1,
+      "f.27": 1,
+      "f.4": 1,
+      "f.5": 2,
+      "native_alloc": 10,
+      "native_array_length": 2,
+      "native_array_new": 1,
+      "native_roots_enter": 1,
+      "native_roots_leave": 2,
+      "native_trap": 82
+    }
+  },
+  "rust-wasm-roundtrip": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/rust-reference/bv2string.wat",
+    "source_sha256": "3e1959ef3240d0e18c73b9e087343a8b342c8032962b74ff9f1211cb440ace55",
+    "excerpt": "rust-wasm-roundtrip.wat",
+    "excerpt_sha256": "7aadc3a1be6bf4d3f684302048d0a76d2fad5ff1df77451412bc927eecc72810",
+    "malloc": 3,
+    "payload_copies": 3,
+    "utf8_validations": 2,
+    "comparisons": 1
+  },
+  "rust-native-roundtrip": {
+    "source": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/rust-reference/target/release/deps/bv2string-e1f02bcafd81fc9f.ll",
+    "source_sha256": "7ce0948ef89ac107263893940d60faeb55966b5174ae4793a37291e964e9a789",
+    "excerpt": "rust-native-roundtrip.ll",
+    "excerpt_sha256": "6bb8545c83ca51b3130906fba60e925d74990060d1715639ecc106784572d4ba",
+    "calls": {
+      "_RNvNtCsgEmfK2I1SDS_4core6result13unwrap_failed": 2,
+      "_RNvNtCslNYArtu3iFV_5alloc7raw_vec12handle_error": 3,
+      "_RNvNtCslNYArtu3iFV_5alloc7raw_vec17capacity_overflow": 2,
+      "_RNvNtNtCsgEmfK2I1SDS_4core3str8converts9from_utf8": 2,
+      "bcmp": 1,
+      "free": 4,
+      "llvm.experimental.noalias.scope.decl": 3,
+      "llvm.lifetime.end.p0": 2,
+      "llvm.lifetime.start.p0": 5,
+      "llvm.memcpy.p0.p0.i64": 5,
+      "malloc": 3
+    },
+    "payload_copies": 3,
+    "exception_payload_copies": 2
+  },
+  "scope": "Static retained call paths, not dynamic allocation counters; empty buffers may allocate no payload.",
+  "rust_first_sanity_vector": "Optimized into allocation/stores of [42,16,6,43,36,0,21]; stress RNG loops remain.",
+  "native_array_storage": "src/native.c native_array_new reserves 16 + length*8 bytes; all array slots are eight bytes."
+}

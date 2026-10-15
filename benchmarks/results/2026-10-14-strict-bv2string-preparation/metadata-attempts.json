@@ -1,0 +1,12 @@
+[
+  {
+    "command": [
+      "python3",
+      "benchmarks/results/2026-10-14-strict-bv2string-preparation/inspect-retained-work.py"
+    ],
+    "returncode": 1,
+    "error": "ModuleNotFoundError: No module named 'data_ports'",
+    "classification": "Inspection script import path, corrected before successful retained-work inspection; no guest execution",
+    "recorded_from_tool_result": true
+  }
+]
