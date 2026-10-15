@@ -83,7 +83,11 @@ The [checked report](../results/2026-10-13-strict-kernels/README.md) preserves t
 balanced batch and historical default-stack failure. The
 [current Ackermann preparation](../results/2026-10-14-strict-ack-preparation/README.md)
 passes the unchanged full input on V8 and native64 without stack flags; clean
-timing remains pending. `replay.py DESTINATION` verifies and restores the original
+timing now has a [seven-system comparison](../results/2026-10-14-strict-ack-comparison/README.md).
+All 56 processes pass: production V8 takes 1.109322 s, native64 0.757917 s and
+original Chez 0.821724 s. Native uses 32.04% less time than V8 on the exact
+native-final Scheme Wasm. Recursive and heap-frame Rust controls remain separate.
+`replay.py DESTINATION` verifies and restores the original
 archive without executing workloads. `flonum.py` provides a separate
 paired control using the unchanged strict artifacts and explicit Chez flonum
 operations; its `prepare` and `measure` commands take the same `--output` path.
