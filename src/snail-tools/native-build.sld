@@ -5,6 +5,7 @@
           ensure-native-supervisor)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
           (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
+          (only (chibi process) current-process-id)
           (chibi string) (chibi regexp) (chibi json) (srfi 1) (srfi 95) (srfi 151)
           (snail-tools process))
   (begin
@@ -127,10 +128,24 @@
                     (string-append "[package]\nname = " (json->string name) "\nversion = \"0.0.0\"\nedition = \"2024\"\n"
                                    "[lib]\npath = " (json->string (cadr provider)) "\n"))
         (cons name crate)))
+    (define (stage-entry-source entry providers directory)
+      ;; A true crate root preserves inner attributes and module documentation.
+      ;; Its temporary sibling also preserves every Rust relative-path rule.
+      (let ((source (string-append (read-text entry) "\nextern crate snail_runtime as _;\n"
+                                   (apply string-append
+                                          (map (lambda (provider) (string-append "extern crate " (car provider) " as _;\n")) providers)))))
+        (write-text (path-join directory "main.rs") source)
+        (let loop ((index 0))
+          (let* ((path (path-join (path-directory entry)
+                                  (string-append ".snail-native-entry-" (number->string (current-process-id)) "-" (number->string index) ".rs")))
+                 (descriptor (open path (bitwise-ior open/write open/create open/exclusive) #o600)))
+            (cond (descriptor (call-with-port (open-output-file-descriptor descriptor) (lambda (port) (display source port))) path)
+                  ((file-exists? path) (loop (+ index 1)))
+                  (else (error "cannot stage Rust crate root beside entry" entry)))))))
     (define (write-link-package root object entry providers directory)
       (write-text (path-join directory "Cargo.toml")
                   (string-append "[package]\nname = \"sfir-native-program\"\nversion = \"0.0.0\"\nedition = \"2024\"\n"
-                                 "[[bin]]\nname = \"program\"\npath = \"main.rs\""
+                                 "[[bin]]\nname = \"program\"\npath = " (json->string entry)
                                  "\n[dependencies]\nsnail-runtime = { path = " (json->string root)
                                  ", features = [\"native-runtime\"] }\n"
                                  (apply string-append (map (lambda (provider)
@@ -139,28 +154,27 @@
                                  "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1\n"))
       ;; LLVM has already emitted machine code. Rust LTO can optimize its own
       ;; crates but cannot see through the guest's foreign calls to providers.
-      (write-text (path-join directory "main.rs")
-                  (string-append (apply string-append (map (lambda (provider) (string-append "extern crate " (car provider) " as _;\n")) providers))
-                                 "include!(" (json->string entry) ");\n"))
       (write-text (path-join directory "build.rs")
                   (string-append "fn main() {\n    println!(\"cargo:rustc-link-arg={}\", "
                                  (json->string object) ");\n}\n")))
     (define (link-native-object root object entry providers directory)
-      (let ((crates (map (lambda (provider index) (provider-crate provider index directory))
-                         providers (iota (length providers))))
-            (target (path-join root "build" "native-programs")))
-        (write-link-package root object entry crates directory)
+      (let* ((crates (map (lambda (provider index) (provider-crate provider index directory))
+                          providers (iota (length providers))))
+             (target (path-join root "build" "native-programs"))
+             (staged (stage-entry-source entry crates directory)))
         (create-directory* target)
         (let ((lock (open (path-join target "publish.lock") (bitwise-ior open/write open/create) #o600)))
           (unless lock (error "cannot lock the native Cargo output"))
           (dynamic-wind
-              (lambda () (file-lock lock lock/exclusive))
+              (lambda () #f)
               (lambda ()
+                (write-link-package root object staged crates directory)
+                (file-lock lock lock/exclusive)
                 (cargo-build (path-join directory "Cargo.toml") target (path-join root "build/native-runtime"))
                 (let ((program (path-join directory "program")))
                   (write-bytes program (read-bytes (path-join target "release/program")))
                   (chmod program #o755) program))
-              (lambda () (close-file-descriptor lock))))))
+              (lambda () (close-file-descriptor lock) (delete-file staged))))))
     (define (ensure-native-supervisor root)
       (let ((target (path-join root "build" "native-runtime")))
         (create-directory* target)
@@ -261,7 +275,7 @@
                              (append-map directory-files-recursive (cons (path-join root "lib") libraries))
                              (list (path-join root "Cargo.toml") (path-join root "Cargo.lock")))))
         (when (protected-output? root output inputs libraries) (error "native output must not replace an input" output))
-        (let ((directory (make-build-directory (path-directory output) "native-")))
+        (let ((directory (make-build-directory (path-directory output) (string-append (path-strip-directory output) ".native-"))))
           (parameterize ((current-command-records '()) (current-command-log (path-join directory "commands.json")))
             (dynamic-wind
                 (lambda () #f)
