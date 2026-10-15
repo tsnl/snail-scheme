@@ -655,10 +655,10 @@
               (cadr parts))
          (syntax-loc form))))
 
-    ;; An imported family may gain another concrete signature. Repeated local
+    ;; An imported family may gain another signature. Repeated local
     ;; declarations reserve the same identity, including forward references.
     (define (overload-binding form environment)
-      (let* ((name (car (fields form '(_ name type implementation))))
+      (let* ((name (car (overload-parts form)))
              (existing (lookup name environment)))
         (if existing
             (cons (identifier-of name) existing)
@@ -666,14 +666,14 @@
 
     (define (reserve-overload-declaration form remaining outer local reserved macros)
       (let* ((binding (overload-binding form (append local outer)))
-             (next (if (lookup (car (fields form '(_ name type implementation)))
+             (next (if (lookup (car (overload-parts form))
                                (append local outer)) local
                                (add-local-bindings local (list binding) form))))
         (values remaining next (cons (cons form binding) reserved) macros)))
 
     (define (prepare-overload-declaration form outer local reservations transformers fuel)
       (let* ((reserved (assq form reservations))
-             (name (car (fields form '(_ name type implementation))))
+             (name (car (overload-parts form)))
              (next (if (or reserved (lookup name (append local outer))) local
                        (add-local-bindings local (list (reserve-value-identifier name)) form))))
         (values (list (lambda (values transformers)
@@ -681,10 +681,20 @@
                          form (append values (macro-bindings next) outer) transformers fuel)))
                 next transformers)))
 
+    ;; Expansion attaches syntax, including the absence of a signature. The
+    ;; member's fresh Hole is solved later, independently of family use sites.
+    (define (overload-parts form)
+      (let ((parts (cdr (syntax-list form))))
+        (case (length parts)
+          ((2) (list (car parts) #f (cadr parts)))
+          ((3) parts)
+          (else (fail form
+                      "define-overload requires a name, optional signature, and implementation")))))
     (define (expand-overload-declaration form environment transformers fuel)
-      (let* ((parts (fields form '(_ name type implementation)))
-             (type (expand-type (cadr parts) environment)))
-        (if (not (function-type? type)) (fail form "overload requires a function signature"))
+      (let* ((parts (overload-parts form))
+             (type (and (cadr parts) (expand-type (cadr parts) environment))))
+        (when (and type (not (function-type? type)))
+          (fail form "overload requires a function signature"))
         (make-overload-declaration
          (name-definition (resolve-name (car parts) environment)) type
          (expand-expression (caddr parts) environment transformers fuel) (syntax-loc form))))

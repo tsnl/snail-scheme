@@ -1,0 +1,8 @@
+(import (snail strict))
+(define-overload wrapper (lambda (value) (via value)))
+(define-overload wrapper (-> I64 Bool) (lambda (value) #t))
+(define-overload via
+  (All (A R) (=> ((target (-> A R))) (-> A R)))
+  (lambda (value) (target value)))
+(define-overload target (lambda (value) value))
+(if (ann (wrapper 42) Bool) (ann (wrapper 42) I64) (unreachable))

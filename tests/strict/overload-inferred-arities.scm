@@ -1,0 +1,9 @@
+(import (snail strict))
+;; The unfinished unary row cannot compete with binary views in its body.
+(define-overload add
+  (lambda (value)
+    (let ((first (ann add (-> I64 I64 I64)))
+          (second (inst add (-> I64 I64 I64))))
+      (second (first value 1) 1))))
+(define-overload add (-> I64 I64 I64) i64-add)
+(add 40)
