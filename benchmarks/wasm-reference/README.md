@@ -40,6 +40,10 @@ The [SLaTeX archive](../results/2026-10-13-rust-slatex/README.md) records
 all 28,500 canonical generated files and the separate complete-file oracle.
 The [exact-arithmetic archive](../results/2026-10-13-rust-exact-arithmetic/README.md)
 records reviewed Pi/Chudnovsky recurrences and the fixed Chudnovsky setup correction.
+The [Ray handoff](../results/2026-10-14-rust-ray-handoff/README.md) preserves its
+historical artifact and a separately corrected result predicate/signed-count
+driver, with unchanged rendering source, full50 images and per-invocation file
+lifecycle evidence. No clean Ray timings are claimed by that handoff.
 
 The historical measured references port `cat`, `lattice`, `wc`, `graphs`, and `deriv` from
 the pinned R7RS suite at `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each executable
