@@ -23,6 +23,8 @@ String has a [four-system comparison](../results/2026-10-14-strict-string-compar
 and separate allocation diagnostics. Later [String storage controls](../results/2026-10-14-string-storage/README.md)
 compare element width, fresh buffers and zeroing. Puzzle now has its
 [complete four-system comparison](../results/2026-10-14-strict-puzzle-comparison/README.md).
+Lattice has a [full-count four-system comparison](../results/2026-10-14-strict-lattice-comparison/README.md)
+with its mutable-list/closure and Rust vector/enum/Rc differences disclosed.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -59,7 +61,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
 | earley | Symbolic grammar/token data and mixed state/configuration vectors; product/sum data is implemented, while symbolic operations, structural equality and the full port remain. |
-| lattice | Prepared for review, unmeasured. Original count 10, input 44 and result 120549 pass raw/optimized Wasm and untouched/adapted Chez. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and layout differences are disclosed; no compiler changes or dynamic fallback. |
+| lattice | Measured original count 10, input 44 and result 120549: 1.647× original Chez time, 1.504× adapted Chez and 1.815× Rust/Wasm. Raw/optimized Wasm and untouched/adapted Chez correctness checks pass. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and Rust vector/enum/Rc layout/control differences are disclosed; the timed Rust artifact has limited complete-payload checks. No compiler changes or dynamic fallback. |
 | matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
 | mazefun | Improper coordinate pairs, cell-or-false data, symbolic wall markers and structural equality; preserve its functional maze algorithm. |
@@ -76,8 +78,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 28 of 57 workloads,
-with 27 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 29 of 57 workloads,
+with 28 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

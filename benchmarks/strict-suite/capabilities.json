@@ -253,14 +253,15 @@
     },
     {
       "name": "lattice",
-      "status": "prepared-canonical-source",
+      "status": "measured-canonical-source",
       "source_lines": 237,
       "files": {
         "src/lattice.scm": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
         "inputs/lattice.input": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-lattice/README.md",
-      "representation_note": "Parametric lattice/binding products, mutable-tail list variants with explicit Ref cells, finite I64 comparison codes, and rigid All contracts preserve all original enumeration, reversal, branch-list and append-sharing operations. Original 10 by run(44), result 120549; original/adapted Chez and complete-poset/order/identity probes pass. No compiler change. Additional Ref/empty objects and layout costs are disclosed; clean timing pending."
+      "measurement_report": "benchmarks/results/2026-10-14-strict-lattice-comparison/README.md",
+      "representation_note": "Parametric lattice/binding products, mutable-tail list variants with explicit Ref cells, finite I64 comparison codes, and rigid All contracts preserve all original enumeration, reversal, branch-list and append-sharing operations. Original 10 by run(44), result 120549; original/adapted Chez and complete-poset/order/identity probes pass. No compiler change. Clean full-count median 1.913494 seconds: 1.647 times original Chez, 1.504 times adapted Chez and 1.815 times Rust/Wasm. Additional Ref/empty objects and Rust vector/enum/Rc allocation/control differences are disclosed; the frozen timed Rust artifact has limited complete-payload checks."
     },
     {
       "name": "matrix",
@@ -437,8 +438,8 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 28,
-  "historical_paired_chez_count": 27,
+  "historical_measured_strict_count": 29,
+  "historical_paired_chez_count": 28,
   "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
   "direct_call_measurements": [
     "quicksort",
@@ -458,5 +459,6 @@
   "runtime_ablation_report": "benchmarks/results/2026-10-14-strict-runtime-comparisons/README.md",
   "string_measurement_report": "benchmarks/results/2026-10-14-strict-string-comparison/README.md",
   "string_storage_report": "benchmarks/results/2026-10-14-string-storage/README.md",
-  "puzzle_measurement_report": "benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md"
+  "puzzle_measurement_report": "benchmarks/results/2026-10-14-strict-puzzle-comparison/README.md",
+  "lattice_measurement_report": "benchmarks/results/2026-10-14-strict-lattice-comparison/README.md"
 }
