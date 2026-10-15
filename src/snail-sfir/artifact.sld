@@ -1,19 +1,30 @@
 ;; Target adapters consume emitted Wasm and return owned artifact bytes. Both
 ;; routes pass through Binaryen; provider linking and execution stay outside.
 (define-library (snail-sfir artifact)
-  (export target? target-name wasm-target native64-target
+  (export make-entry entry? entry-library entry-export
+          target? target-name wasm-target native64-target
           make-native-import native-import?
           artifact? artifact-target artifact-entry artifact-parameters artifact-result artifact-bytes
           emit-artifact)
   (import (scheme base) (scheme file)
           (only (chibi temp-file) call-with-temp-dir)
+          (only (chibi json) json->string)
           (snail-scheme build-host) (snail-scheme chromium-trace)
           (snail-scheme wasm-optimize) (snail-scheme native)
           (only (snail-scheme llvm) current-native-imports)
           (only (snail-scheme wasm) write-wasm))
   (begin
 
-    ;; ---- Closed target and provider descriptions ----
+    ;; ---- Entry and target descriptions ----
+
+    (define-record-type <entry>
+      (new-entry library export) entry?
+      (library entry-library) (export entry-export))
+    (define (make-entry library export)
+      (unless (and (list? library) (pair? library) (symbol? export))
+        (error "entry requires a nonempty library key and an export name"))
+      (for-each (lambda (name) (unless (symbol? name) (error "entry library key requires names" name))) library)
+      (new-entry (append library '()) export))
 
     ;; Native declarations use physical Wasm scalar types. They describe the
     ;; target's C symbols and signatures; they neither find nor link providers.
@@ -64,6 +75,31 @@
                 (write-bytevector bytes output) (read-chunks (read-bytevector 65536 input))))
             (get-output-bytevector output)))))
 
+    ;; ---- Portable Wasm entry metadata ----
+
+    ;; A custom section retains the semantic types after target optimization.
+    ;; The execution adapter checks their physical signature against the actual
+    ;; Wasm exports before initialization. This is artifact metadata, not a
+    ;; transport for SFIR syntax, bindings, or live compiler objects.
+    (define (write-unsigned-leb value port)
+      (let ((rest (quotient value 128)) (low (remainder value 128)))
+        (write-u8 (if (zero? rest) low (+ low 128)) port)
+        (unless (zero? rest) (write-unsigned-leb rest port))))
+    (define (entry-metadata entry parameters result)
+      (string->utf8
+       (json->string `((version . 1) (library . ,(list->vector (map symbol->string (entry-library entry))))
+                       (export . ,(symbol->string (entry-export entry)))
+                       (parameters . ,(list->vector (map symbol->string parameters)))
+                       (result . ,(symbol->string result))))))
+    (define (wasm-entry-section entry parameters result)
+      (let* ((name (string->utf8 "sfir.entry")) (data (entry-metadata entry parameters result))
+             (payload (open-output-bytevector)) (section (open-output-bytevector)))
+        (write-unsigned-leb (bytevector-length name) payload)
+        (write-bytevector name payload) (write-bytevector data payload)
+        (let ((bytes (get-output-bytevector payload)))
+          (write-u8 0 section) (write-unsigned-leb (bytevector-length bytes) section)
+          (write-bytevector bytes section) (get-output-bytevector section))))
+
     ;; ---- Existing target tool routes ----
 
     (define (wasm-artifact module directory)
@@ -92,7 +128,8 @@
           (lambda ()
             (make-artifact target entry parameters result
                            (case (target-name target)
-                             ((wasm) (wasm-artifact module directory))
+                             ((wasm) (bytevector-append (wasm-artifact module directory)
+                                                        (wasm-entry-section entry parameters result)))
                              ((native64) (native-artifact module target directory))))))))))
 
   ;; ---- Tests ----
@@ -112,6 +149,11 @@
                   "duplicate native import")
           (expect (guard (failure (else #t)) (make-native-import "demo" "read" "demo_read" '(eqref) 'i64) #f) #t)
           (expect (guard (failure (else #t)) (native64-target '((("demo" "read") "demo_read" (i32) (i64)))) #f) #t)))
+      (define (test-wasm-section-lengths)
+        (let ((port (open-output-bytevector)))
+          (for-each (lambda (value) (write-unsigned-leb value port)) '(0 127 128 624485))
+          (expect (get-output-bytevector port) #u8(0 127 128 1 229 142 38))))
       (define (test-artifact)
-        (run-test test-target-descriptions))))
+        (run-test test-target-descriptions)
+        (run-test test-wasm-section-lengths))))
    (else)))

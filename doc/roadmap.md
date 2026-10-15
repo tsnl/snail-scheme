@@ -37,10 +37,12 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Compile a supplied map, public Entry and Target into optimized Wasm bytes
   or an unlinked x86-64 Linux object. Retain the existing scalar entry ABI and
   keep foreign-provider linking separate.
-- [ ] Expose loading, independent instantiation and typed invocation. Make the
-  compiler APIs available to SFIR and implement library generation through an
-  explicit checked data-transfer protocol; Scheme elaboration and macro staging
-  remain deferred.
+- [x] Provide explicit Wasm loading, independent instantiation and checked scalar
+  Entry invocation through a JavaScript host adapter, with provider checks before
+  initialization and no callable instance after failed initialization.
+- [ ] Add native loading with independent state and make compiler/execution APIs
+  available to SFIR. Implement library generation through an explicit checked
+  data-transfer protocol; Scheme elaboration and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.
   Retain the existing source and artifact snapshots as historical baselines.
 
