@@ -6,7 +6,7 @@
   "historical_port_revision": "0cda43f",
   "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
   "conversion": "Authored directly as static SFIR; upstream call/cc contexts are immutable closed continuation variants. No Scheme elaborator is used by preparation, compilation, or execution.",
-  "equivalence_status": "Complete canonical predicate passed on optimized SFIR/V8 and original/adapted Chez; complete small call/capture/invocation traces matched actual call/cc with explicit left-to-right order. Native validation pending.",
+  "equivalence_status": "Complete canonical predicate passed all six frozen routes: SFIR/V8, SFIR/native64, original/adapted Chez, Rust Wasm/native. Complete diagnostic event traces matched actual call/cc with explicit left-to-right order. The recorded native preparation performed an extra optimization pass and is correctness evidence, not optimized-module parity.",
   "controls": {
     "chez-adapted.scm": "e56105a954b57707f78cc5d0cd74051d415184a8b04362634df677b92c6a75ff",
     "chez-observe.scm": "1fe176b4a9b64490aea34ce2bd91bea2533dfb82c0402ba77d493f874951308d",
@@ -14,5 +14,7 @@
   },
   "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
   "sfir_sha256": "131cc176b043f6273fe86c20c485eb4094e673e8fcb8363c05316f0559fccbb5",
-  "observation_sfir_sha256": "1566ae3ab841505eec941a94a309877ad1ce7d22ad0c9caa21c96b0b0955fede"
+  "observation_sfir_sha256": "1566ae3ab841505eec941a94a309877ad1ce7d22ad0c9caa21c96b0b0955fede",
+  "canonical_validation": "/tmp/snail-sfir-continuation-validation-20261015/validation.json",
+  "clarity_review": "Fresh independent no-files explanation and focused critique of closed continuation contexts, CTAK shadowing captures, source operand order, ownership and complete Peano addition; measured sources unchanged."
 }
