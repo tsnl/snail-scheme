@@ -25,9 +25,12 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [ ] Default numeric literals to I32/F64. Only a direct literal annotation or
   binding annotation selects another width; computed values require explicit
   conversion. Check representation overflow at literals and runtime operations.
-- [ ] Audit recursive groups, value restriction, class obligations, complete
-  dynamic type identity, call ordering and proper tail recursion against the
-  book, with executable boundary and rejection tests.
+- [x] Infer recursive groups monomorphically, including annotated and phantom
+  instantiations. Generalize after the group while preserving rigid contracts
+  and the value restriction; retain source-order readiness checks.
+- [ ] Audit class obligations, complete dynamic type identity, call ordering
+  and proper tail recursion against the book, with executable boundary and
+  rejection tests.
 - [x] Separate parsing library data, resolving a supplied library map and
   filesystem discovery. Select an entry through its library's public interface,
   preserving private and re-exported binding identities in the Chibi-hosted API.

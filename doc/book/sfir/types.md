@@ -243,6 +243,13 @@ order and generalize eligible bindings afterward. This is a checking order,
 not a change to initializer execution order. Every body is checked, even if no
 caller uses it.
 
+The monomorphic view fixes explicit `inst` arguments as well as the function
+type. This includes a quantified parameter absent from the function's argument
+and result types: a recursive `inst` cannot change that parameter merely because
+the arrow does not mention it. Different declarations in one group keep their
+own rigid binders; their recursive views may correspond by consistent renaming,
+including a permutation of binders.
+
 ## Kinds and static definitions
 
 `def` also names a type, a typeclass or an instance. The body uses a former,
