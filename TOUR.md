@@ -265,6 +265,15 @@ and ordinary vector and Unicode string functions. Append, substring, copying,
 content comparison and list conversions use the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
 
+[`(snail text)`](src/snail/text.sld) adds Unicode character classification and
+simple lowercase through explicit scalar services, plus ordinary Scheme
+lexicographic String ordering. [`strict_text.rs`](src/strict_text.rs) validates
+raw scalars and reuses the existing casing/decimal data and Alphabetic property;
+whitespace calls the strict reader's existing provider directly. No String or
+Scheme root crosses this boundary. [`scripts/test-strict-text`](scripts/test-strict-text)
+checks exact scalar fields, mutable String ordering and terminal cleanup on
+linked raw/optimized Wasm and native64. See [the text contract](doc/strict-text.md).
+
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
 methods, selects local procedures used only as call operators, and computes

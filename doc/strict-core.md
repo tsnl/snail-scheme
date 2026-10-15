@@ -369,6 +369,11 @@ different element types. For an otherwise unconstrained empty vector, write
 
 ## Unicode strings and characters
 
+[`(snail text)`](strict-text.md) supplies Unicode `char-downcase`,
+`char-alphabetic?`, `char-numeric?`, `char-whitespace?` and binary `string<?`.
+The character helpers call shared scalar providers; String ordering remains
+ordinary strict Scheme over current Unicode scalar contents.
+
 A `String` owns Unicode scalar characters. Lengths and indices count characters,
 so NUL, `é`, and `😀` each occupy one position. Strings are distinct from
 `Vector Char`, including across explicit `Top` conversions. Character operations
