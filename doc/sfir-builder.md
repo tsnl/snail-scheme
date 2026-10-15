@@ -1,9 +1,9 @@
 # Constructing and transferring library values
 
-The compiler remains Scheme hosted by Chibi. An SFIR producer can now construct
-a limited set of structured library declarations, execute as Wasm, and transfer
-its result to that compiler. This uses neither a Scheme product frontend nor
-source text as a substitute for declarations. The
+The compiler remains Scheme hosted by Chibi. An SFIR producer can construct the
+complete book library syntax, inspect and transform that syntax, execute as Wasm,
+and transfer its result to that compiler. This uses neither a Scheme product
+frontend nor source text as a substitute for declarations. The
 [source driver](sfir-generation.md) can execute `generate-library` recipes using
 this boundary. General compiler calls from SFIR remain future work.
 
@@ -18,27 +18,104 @@ SFIR lists; their contents are copied into immutable host sequences.
 | Values | Constructors |
 | --- | --- |
 | `Name`, `SourceSpan` | `builder-name`, `source-span` |
-| `ScopeId`, `BindingId` | `library-scope`, `nested-scope`, `binding` |
+| `ScopeId`, `BindingId`, `TypeVariableId` | `library-scope`, `nested-scope`, `binding`, `type-variable` |
 | `BindingReference` | `local-reference`, `import-reference` |
-| `TypeSyntax` | `type-i32`, `type-i64`, `type-f32`, `type-f64`, `type-bool`, `type-char`, `type-unit`, `function-type` |
-| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`, `reference-expression`, `lambda-expression`, `application-expression`, `conditional-expression` |
-| `Declaration` | `definition` |
+| `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `function-type`, `rest-function-type`, `nominal-type`, `variable-type` |
+| `Signature`, `ConstraintSyntax` | `binding-signature`, `all-signature`, `constraint` |
+| `KindSyntax` | `kind-type`, `kind-constraint`, `function-kind`, `evidence-kind` |
+| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `reference-expression`, `lambda-expression`, `rest-lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
+| `MatchArm` | `match-arm` |
+| `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
+| `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
+| `ClassMethod`, `MethodImplementation`, static `Declaration` | `class-method`, `typeclass-definition`, `method-implementation`, `instance-definition`, `kind-annotated-definition` |
+| Extension `Declaration` | `extern-definition`, `overload-definition`, `inferred-overload-definition` |
 | `ImportSelection`, `ImportRename` | `all-imports`, `only-imports`, `import-rename`, `rename-imports` |
 | `Import`, `Export`, `SfirLibrary` | `library-import`, `library-export`, `sfir-library` |
 
-Each binding has an explicit scope and identity. Lambda scopes name their
-lexical parent. A local reference carries a binding identity; an imported
-reference carries the library's import scope and a name. An export accepts a
-`BindingReference`, while `reference-expression` converts a reference into an
-expression. Function bodies can refer to private bindings with the same spelling
-as their parameters without confusing those identities.
+“Complete book syntax” refers to the declaration, expression and type forms.
+The signatures in the linked SFIR module are the implemented API reference;
+the book's schematic records and compiler operations are not a second callable
+interface. In particular, the book's opaque `LibraryId` corresponds here to an
+invocation's library handle and the owned transfer's identity. There is no
+public `LibraryId` field or constructor argument that can select a receiving
+identity. Reusing an owned transfer in one receiving context preserves its
+library identity; independently reading identical bytes does not.
 
-The current declaration constructor defines a binding with an explicit scalar
-or function type and an expression initializer. It does not yet construct
-polymorphic signatures, local blocks, datatypes, classes, instances, overloads
-or foreign declarations. The interface constructs values; it does not yet
-provide general AST inspection. `SourceSpan` currently records a source name and
-one-based line and column, matching the compiler's existing located nodes.
+The signatures distinguish syntax categories explicitly. The
+original `definition` accepts a monomorphic `TypeSyntax`; `signature-definition`
+and `local-binding` accept a `Signature`. `binding-signature` wraps a monomorphic
+type, while `all-signature` supplies explicit type parameters, requirements and
+a result type. Inferred constructors omit the signature and let the ordinary
+checker infer it. Numeric literal constructors select their scalar width;
+`Unit` is constructed by an application of the imported `unit` operation.
+
+Every binding has an explicit scope and identity. A local reference carries
+that identity; an imported reference carries the library's import scope and a
+name. `nominal-type` and `constraint` use the same reference values in their
+respective static roles. An export accepts a `BindingReference`, while
+`reference-expression` converts a reference into an expression. References can
+intentionally distinguish visible bindings with the same spelling. The source
+grammar's reserved names remain invalid for binders, public exports and import
+rename destinations.
+
+Each lambda, block and match arm owns a fresh `nested-scope` whose parent is its
+enclosing lexical scope. Fixed parameters and the optional rest binding belong
+to that scope. `block-expression` takes an ordered list of declarations followed
+by a separate final expression. Its `def` bindings are visible throughout the
+block; a `let` becomes visible only after its initializer. Repeated `let` names
+have distinct identities. Datatypes, classes, instances and overloads require
+library scope; foreign declarations also work inside blocks. A repeated overload
+row uses the same family `BindingId`. A family whose name matches an imported
+family extends that imported identity, including after import renaming.
+
+Each `all-signature`, datatype and class owns another fresh `nested-scope` for
+its `TypeVariableId` values. That scope's parent is the enclosing lexical scope.
+The signature's parameters are visible in its signature and initializer;
+datatype and class parameters scope their fields and method signatures.
+Quantification does not create a runtime lexical scope: a lambda initializer
+still names the surrounding lexical scope as its parent. Separate quantified
+identities can share a spelling, while duplicate names in one parameter list
+are rejected. Reuse of a scope by two binding owners is rejected. Shared
+reference/type syntax is checked at each occurrence against that occurrence's
+visible identities, even when the same node was valid elsewhere.
+
+Kind annotations describe expected static kinds. A producer cannot manufacture
+checked types, inferred schemes or instance evidence. Constructor arities,
+nominal identities, class membership, exhaustiveness, foreign ABIs and overload
+selection remain the ordinary resolver and checker's responsibility.
+`SourceSpan` records a source name and one-based line and column, matching the
+compiler's existing located nodes.
+
+## Inspecting and transforming syntax
+
+`inspect-type`, `inspect-signature`, `inspect-kind`, `inspect-expression` and
+`inspect-declaration` return their corresponding public `…View` datatypes.
+Their variants expose every constructor's fields and can be matched normally.
+`inspect-library`, `inspect-import`, `inspect-export`, `inspect-import-selection`
+and `inspect-import-rename` expose library structure. `inspect-binding`,
+`inspect-reference`, `inspect-scope`, `inspect-type-variable`, `inspect-span`,
+`inspect-constraint`, `inspect-match-arm`, `inspect-data-field`,
+`inspect-data-constructor`, `inspect-class-method` and
+`inspect-method-implementation` cover the remaining structured values.
+
+For example, this changes a library's descriptive key while preserving its
+binding graph:
+
+```scheme
+(match (inspect-library original)
+  ((view-library key scope imports exports declarations span)
+    (sfir-library replacement-key scope imports exports declarations span)))
+```
+
+Views contain ordinary SFIR values and references to existing immutable syntax
+nodes. They retain their invocation ownership. `same-binding?`, `same-scope?`
+and `same-type-variable?` compare identities, independent of names.
+`builder-name-text` returns a copied String. String and bytevector literal views
+also return copies, so mutating those copies cannot change the inspected node.
+A view constructor creates ordinary view data; only a checked syntax constructor
+creates a syntax handle. [`rebuild.sfir`](../tests/sfir-builder/rebuild.sfir)
+shows a compiled transformation that rebuilds a library through these views,
+retaining every binding identity.
 
 Library keys are descriptive name lists. They do not determine library identity
 or authorize source lookup. The caller can register one received library under
@@ -83,9 +160,10 @@ a fraction or lowercase `e` exponent (or both), or explicit `+inf.0`, `-inf.0`
 and `+nan.0`. Scheme exactness/radix prefixes, rational, complex and polar
 spellings are rejected. Bare integer text such as `"1"` is not a float spelling;
 the provider emits `"1.0"`. Finite floats round from the exact decimal value.
-Strings are names or literal data, never code to evaluate. There are no producer
-heap pointers, live closures, checked types, filesystem paths to follow, or
-authoritative origin strings in the packet.
+All transferred text must contain Unicode scalar values; lone surrogate escapes
+are rejected. Strings are names or literal data, never code to evaluate. There
+are no producer heap pointers, live closures, checked types, filesystem paths to
+follow, or authoritative origin strings in the packet.
 
 ## Receiving and compiling
 
@@ -137,7 +215,17 @@ The [four small driver files](../tests/sfir-builder/) show the exact compilation
 transfer, reception and execution calls. Source reads and artifact writes occur
 in these drivers, outside resolution and compilation.
 
-Remaining work includes the complete declaration/accessor API, general compiler
-services callable from SFIR, and native loading with independent state. The
+The same runner builds a producer covering datatypes, classes, instances,
+quantified signatures, nested generic scopes, rest functions, inferred and
+annotated blocks, matches, overloads extended through renamed imports, local
+foreign declarations, and string/bytevector literals. It rebuilds the result
+through typed inspection views and compares it with ordinary SFIR source on
+linked Wasm and actual native execution, including collection at every native
+allocation. Malicious packets exercise lexical escape in both traversal orders,
+wrong static roles, invalid Unicode, byte ranges, reserved names, duplicate
+quantifiers and attempts to claim checking evidence.
+
+Remaining work includes general compiler services callable from SFIR and native
+loading with independent state. The
 [source driver](sfir-generation.md) now supplies recipe collection and
 preparation-cycle diagnostics around the checked builder boundary.

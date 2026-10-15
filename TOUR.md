@@ -138,26 +138,30 @@ opens retained evidence in Perfetto.
 
 The source CLI keeps its existing script behavior and `--export` selector for
 unique flattened binding names. The library API uses public Entry selection.
-SFIR producers can construct and transfer the library subset described below.
-General compiler functions callable from SFIR remain unimplemented. The Wasm execution adapter
-below provides loading, independent instances and checked scalar invocation to
-JavaScript hosts; these operations are not yet Chibi or SFIR library functions.
+SFIR producers can construct, inspect and transfer the complete library syntax
+described below. General compiler functions callable from SFIR remain
+unimplemented. The Wasm execution adapter below provides loading, independent
+instances and checked scalar invocation to JavaScript hosts; these operations
+are not yet Chibi or SFIR library functions.
 
 [`run-sfir-generator.mjs`](scripts/run-sfir-generator.mjs) executes compiled
 recipes through the checked builder boundary. An explicit provider factory
 receives the selected descriptor's directory and owns its foreign services until
 cleanup. The driver registers the returned syntax and separately obtains its
 imports. See [source recipes](doc/sfir-generation.md) for the API, command example,
-source context, preparation errors and current constructor limitations.
+source context and preparation errors.
 
 ## Constructed library values
 
 [`compiler-builder.sfir`](lib/sfir/compiler-builder.sfir) lets compiled SFIR
 producers compose nominal library, declaration, type, scope, binding and reference
 values. Constructors use explicit operands; no ambient current library is mutated.
-The first subset supports scalar/function types, definitions, literals, lambdas,
-applications, conditionals, descriptive imports and exports. Binding references
-are distinct from expressions, and private handles do not expose managed pointers.
+The API covers the book's types and binding signatures, literals, expressions,
+ordered blocks, static definitions and existing extern/overload extensions.
+Explicit type-variable identities carry generic scope alongside ordinary binding
+identities. Typed inspection views expose all constructor fields and copy mutable
+literal payloads. Binding references are distinct from expressions, and private
+handles do not expose managed pointers.
 
 [`library-builder.mjs`](src/snail-sfir/library-builder.mjs) supplies typed scalar
 constructors in an invocation-owned arena. `invokeLibraryGenerator` initializes
@@ -166,13 +170,17 @@ an owned transfer, and closes the arena and producer instance on success or trap
 The transfer has a versioned schema and preserves nodes and their local IDs.
 
 [`library-transfer.sld`](src/snail-sfir/library-transfer.sld) receives that data
-in Chibi, checks structure, reference kinds and lexical ownership, then creates
-an unresolved `SfirLibrary`. An explicit receiving context preserves reuse of
-legitimate owned transfers; reading raw bytes again creates fresh identities.
+in Chibi, checks Unicode and structure, then reserves definitions and visits
+statements in order, introducing each `let` after its initializer. Every reference
+is checked against its lexical occurrence, including quantified type identities
+and static binding roles. It shares the frontend's reserved binding-name rule
+and creates an unresolved `SfirLibrary`. An explicit receiving context preserves
+reuse of legitimate owned transfers; reading raw bytes again creates fresh
+identities.
 Output imports need their own supplied map. The receiver neither discovers
 dependencies nor accepts inferred IR as evidence. See the [builder API and
-executable example](doc/sfir-builder.md) for ownership, supported constructors
-and remaining recipe/full-AST/compiler-service work.
+executable example](doc/sfir-builder.md) for ownership, supported constructors,
+typed inspection and remaining compiler-service work.
 
 ## Targets and runtime
 
@@ -286,6 +294,10 @@ artifacts to foreign providers, and executes both Wasm and native64 aliases.
 independent state, failed initialization and checked scalar transport.
 `scripts/test-sfir-builder` compiles an SFIR producer, transfers its structured
 result into a separate Chibi host, and compiles and executes the received library.
+Its complete-library fixture rebuilds syntax through typed inspection and compares
+with ordinary source on linked Wasm and native execution with frequent collection;
+malicious packets test lexical ownership, static roles, Unicode and unforgeable
+checking evidence.
 `scripts/test-sfir-integration` executes 307 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises

@@ -122,11 +122,11 @@ Already performed provider effects are not rolled back.
 There is no built-in `read-source`, Scheme frontend, macro expansion, general
 compiler RPC or auxiliary-artifact protocol in this slice. The book's
 `read-source` example assumes an imported service; this driver supplies the
-explicit source context such a service needs. The constructive syntax API
-still supports only its documented scalar/function declarations, expressions,
-imports and exports. Runtime traps identify the recipe and preserve the
-execution error; generated syntax locations survive transfer and subsequent
-type checking.
+explicit source context such a service needs. The
+[constructive syntax API](sfir-builder.md) covers the book's complete library
+syntax and exposes typed inspection views. Runtime traps identify the recipe and
+preserve the execution error; generated syntax locations survive transfer and
+subsequent type checking.
 
 ## Verification
 

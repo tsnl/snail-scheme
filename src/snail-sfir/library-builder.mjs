@@ -3,7 +3,7 @@
 import {instantiate, invokeEntry, closeInstance} from './execute.mjs';
 
 const transfers = new WeakMap();
-const scalarNames = ['I32', 'I64', 'F32', 'F64', 'Bool', 'Char', 'Unit'];
+const scalarNames = ['I32', 'I64', 'F32', 'F64', 'Bool', 'Char', 'Unit', 'String', 'Bytevector', 'Never', 'Any'];
 const handleWidth = 1n << 32n;
 let nextInvocation = 1n;
 
@@ -102,15 +102,81 @@ class Arena {
 
 // ---- A fixed scalar constructor protocol ----
 
-const typeKinds = ['scalar-type', 'function-type'];
+const typeKinds = ['scalar-type', 'function-type', 'rest-function-type', 'reference-type', 'list-type',
+  'vector-type', 'nominal-type', 'variable-type'];
+const signatureKinds = [...typeKinds, 'all-signature'];
 const referenceKinds = ['local-reference', 'import-reference'];
-const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'conditional'];
+const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'conditional', 'string-literal',
+  'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match'];
+const staticKinds = ['datatype', 'typeclass', 'instance'];
+const declarationKinds = ['definition', 'inferred-definition', 'local-binding', 'inferred-local-binding',
+  'expression-statement', 'extern', 'overload', 'inferred-overload', ...staticKinds, 'kind-annotation'];
+const kindKinds = ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence'];
 const selectionKinds = ['all', 'only', 'rename'];
 const sequenceKinds = ['nil', 'cons'];
 
+// Each row is one syntax constructor. A sequence descriptor checks its
+// elements now; the receiver separately establishes lexical ownership.
+const syntaxForms = [
+  ['variable-id', ['scope-id', 'name', 'span']],
+  ['variable-type', ['variable-id']],
+  ['reference-type', ['type']], ['list-type', ['type']], ['vector-type', ['type']],
+  ['rest-function-type', ['types', 'type', 'type']],
+  ['nominal-type', ['binding-reference', 'types']],
+  ['constraint', ['binding-reference', 'types', 'span']],
+  ['all-signature', ['child-scope', 'variables', 'constraints', 'type', 'span']],
+  ['kind-type', []], ['kind-constraint', []], ['kind-function', ['kinds', 'kind']],
+  ['kind-evidence', ['constraint']],
+  ['string-literal', ['name', 'span']], ['bytevector-literal', ['bytes', 'span']],
+  ['rest-lambda', ['child-scope', 'bindings', 'binding', 'expression', 'span']],
+  ['block', ['child-scope', 'declarations', 'expression', 'span']],
+  ['annotation', ['expression', 'type', 'span']],
+  ['instantiation', ['binding-reference', 'types', 'span']],
+  ['match-arm', ['binding-reference', 'child-scope', 'bindings', 'expression', 'span']],
+  ['match', ['expression', 'arms', 'span']],
+  ['inferred-definition', ['binding', 'expression', 'span']],
+  ['local-binding', ['binding', 'signature', 'expression', 'span']],
+  ['inferred-local-binding', ['binding', 'expression', 'span']],
+  ['expression-statement', ['expression']],
+  ['data-field', ['name', 'type', 'span']],
+  ['accessor-field', ['name', 'type', 'binding', 'span']],
+  ['data-case', ['binding', 'fields', 'span']],
+  ['datatype', ['binding', 'child-scope', 'variables', 'cases', 'span']],
+  ['class-method', ['binding', 'type', 'span']],
+  ['typeclass', ['binding', 'child-scope', 'variables', 'methods', 'span']],
+  ['method-implementation', ['binding-reference', 'expression', 'span']],
+  ['instance', ['binding', 'constraint', 'implementations', 'span']],
+  ['kind-annotation', ['kind', 'static-declaration', 'span']],
+  ['extern', ['binding', 'name', 'name', 'type', 'span']],
+  ['overload', ['binding', 'signature', 'expression', 'span']],
+  ['inferred-overload', ['binding', 'expression', 'span']],
+];
+const categories = {
+  'scope-id': ['scope', 'child-scope'], type: typeKinds, signature: signatureKinds,
+  'binding-reference': referenceKinds, expression: expressionKinds, declaration: declarationKinds,
+  kind: kindKinds, 'static-declaration': staticKinds, 'data-field': ['data-field', 'accessor-field'],
+};
+const sequences = {
+  types: 'type', variables: 'variable-id', constraints: 'constraint', kinds: 'kind', bytes: 'byte',
+  bindings: 'binding', declarations: 'declaration', arms: 'match-arm', fields: 'data-field',
+  cases: 'data-case', methods: 'class-method', implementations: 'method-implementation',
+};
+
+function addSyntaxConstructors(arena, add) {
+  for (const [kind, fields] of syntaxForms)
+    add(kind, fields.map(() => 'i64'), (...values) => {
+      const expected = fields.map((field, index) => {
+        if (!sequences[field]) return [index, categories[field] ?? [field]];
+        arena.sequence(values[index], categories[sequences[field]] ?? [sequences[field]]);
+        return [index, sequenceKinds];
+      });
+      return arena.node(kind, values, expected);
+    });
+}
+
 function constructors(arena) {
   const functions = [];
-  const add = (name, parameters, implementation) => functions.push({name, parameters, implementation});
+  const add = (name, parameters, implementation, result = 'i64') => functions.push({name, parameters, implementation, result});
   const node = (kind, fields, expected) => arena.node(kind, fields, expected);
   const sequence = (value, kinds) => arena.sequence(value, kinds);
   add('name-empty', [], () => arena.put('name', ['']));
@@ -158,7 +224,7 @@ function constructors(arena) {
   add('conditional', ['i64', 'i64', 'i64', 'i64'], (test, yes, no, span) =>
     node('conditional', [test, yes, no, span], [[0, expressionKinds], [1, expressionKinds], [2, expressionKinds], [3, ['span']]]));
   add('definition', ['i64', 'i64', 'i64', 'i64'], (binding, type, expression, span) =>
-    node('definition', [binding, type, expression, span], [[0, ['binding']], [1, typeKinds], [2, expressionKinds], [3, ['span']]]));
+    node('definition', [binding, type, expression, span], [[0, ['binding']], [1, signatureKinds], [2, expressionKinds], [3, ['span']]]));
   add('all', [], () => arena.put('all', []));
   add('only', ['i64', 'i64'], (selection, names) => {
     sequence(names, ['name']);
@@ -176,11 +242,52 @@ function constructors(arena) {
   add('export', ['i64', 'i64'], (name, reference) => node('export', [name, reference], [[0, ['name']], [1, referenceKinds]]));
   add('library', Array(6).fill('i64'), (key, scope, imports, exports, declarations, span) => {
     if (!sequence(key, ['name']).length) throw new TypeError('library key must not be empty');
-    sequence(imports, ['import']); sequence(exports, ['export']); sequence(declarations, ['definition']);
+    sequence(imports, ['import']); sequence(exports, ['export']); sequence(declarations, declarationKinds);
     return node('library', [key, scope, imports, exports, declarations, span],
       [[0, sequenceKinds], [1, ['scope']], [2, sequenceKinds], [3, sequenceKinds], [4, sequenceKinds], [5, ['span']]]);
   });
+  add('byte', ['i64'], value => {
+    if (value < 0n || value > 255n) throw new RangeError('byte literal must be in 0..255');
+    return arena.put('byte', [Number(value)]);
+  });
+  addSyntaxConstructors(arena, add);
+  addInspection(arena, add);
   return functions;
+}
+
+// ---- Inspection copies values and preserves child identities ----
+
+const nodeTags = ['name', 'span', 'scope', 'child-scope', 'binding', 'nil', 'cons', 'scalar-type',
+  'function-type', 'local-reference', 'import-reference', 'reference', 'literal', 'lambda', 'application',
+  'conditional', 'definition', 'all', 'only', 'rename-pair', 'rename', 'import', 'export', 'library', 'byte',
+  ...syntaxForms.map(([kind]) => kind)];
+
+function addInspection(arena, add) {
+  add('inspect-tag', ['i64'], handle => nodeTags.indexOf(arena.get(handle)[0]), 'i32');
+  add('inspect-field', ['i64', 'i32'], (handle, index) => {
+    const node = arena.get(handle), position = index + 1;
+    if (!arena.edges[Number(handle % handleWidth)].includes(position)) throw new TypeError('expected a syntax reference field');
+    return node[position];
+  });
+  add('name-length', ['i64'], handle => BigInt([...arena.get(handle, ['name'])[1]].length));
+  add('name-ref', ['i64', 'i64'], (handle, index) => {
+    const chars = [...arena.get(handle, ['name'])[1]];
+    if (index < 0n || index >= BigInt(chars.length)) throw new RangeError('name character index out of range');
+    return chars[Number(index)].codePointAt(0);
+  }, 'i32');
+  for (const [name, index] of [['span-line', 2], ['span-column', 3]])
+    add(name, ['i64'], handle => arena.get(handle, ['span'])[index], 'i32');
+  add('scalar-index', ['i64'], handle => scalarNames.indexOf(arena.get(handle, ['scalar-type'])[1]), 'i32');
+  add('literal-index', ['i64'], handle => scalarNames.indexOf(arena.get(handle, ['literal'])[1]), 'i32');
+  add('byte-value', ['i64'], handle => BigInt(arena.get(handle, ['byte'])[1]));
+  add('sequence-length', ['i64'], handle => BigInt(arena.sequence(handle).length));
+  for (const [type, result] of [['I32', 'i32'], ['I64', 'i64'], ['F32', 'f32'], ['F64', 'f64'], ['Bool', 'i32'], ['Char', 'i32']])
+    add(`inspect-literal-${type}`, ['i64'], handle => {
+      const node = arena.get(handle, ['literal']);
+      if (node[1] !== type) throw new TypeError('literal has the wrong scalar type');
+      return type === 'I64' ? BigInt(node[2]) : node[2] === '+nan.0' ? NaN :
+        node[2] === '+inf.0' ? Infinity : node[2] === '-inf.0' ? -Infinity : Number(node[2]);
+    }, result);
 }
 
 // ---- Typed Wasm provider, with no raw managed references ----
@@ -202,8 +309,8 @@ function section(id, bytes) {
 
 function typedProvider(functions) {
   const types = {i32: 0x7f, i64: 0x7e, f32: 0x7d, f64: 0x7c};
-  const signatures = functions.flatMap(({parameters}) => [0x60, ...unsigned(parameters.length),
-    ...parameters.map(type => types[type]), 1, types.i64]);
+  const signatures = functions.flatMap(({parameters, result}) => [0x60, ...unsigned(parameters.length),
+    ...parameters.map(type => types[type]), 1, types[result]]);
   const imports = functions.flatMap(({name}, index) => [...wasmText('builder'), ...wasmText(name), 0, ...unsigned(index)]);
   const exports = functions.flatMap(({name}, index) => [...wasmText(name), 0, ...unsigned(index)]);
   const bytes = [0, 97, 115, 109, 1, 0, 0, 0, ...section(1, [...unsigned(functions.length), ...signatures]),
