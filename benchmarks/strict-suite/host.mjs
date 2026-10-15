@@ -9,6 +9,10 @@ const opacity = mode === '--validate' ? value => { barriers++; return value; } :
 const imports = {benchmark: {
   input_i64: index => BigInt(config.inputs[index]),
   input_f64: index => Number(config.inputs[index]),
+  vector_length: index => BigInt(config.inputs[index].length),
+  vector_f64: (index, element) => Number(config.inputs[index][Number(element)]),
+  expected_length: () => BigInt(config.expected.length),
+  expected_i64: index => BigInt(config.expected[Number(index)]),
   hide_i64: opacity,
   hide_f64: opacity,
   barrier: () => opacity(1),
@@ -18,7 +22,7 @@ instance.exports.main();
 barriers = 0;
 const start = process.hrtime.bigint();
 const result = instance.exports.bench(BigInt(config.count));
-assert.equal(result.toString(), config.expected.toString());
+assert.equal(result.toString(), config.result_kind === 'i64-list-values' ? '1' : config.expected.toString());
 const seconds = Number(process.hrtime.bigint() - start) / 1e9;
 if (mode === '--validate') assert.equal(barriers, config.barriers_per_iteration * config.count);
 console.log(JSON.stringify({seconds, result: result.toString(), barriers: mode === '--validate' ? barriers : null}));
