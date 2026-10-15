@@ -395,3 +395,10 @@ failure. [The migration report](benchmarks/results/2026-10-12-native-v8/README.m
 compares the archived native path with V8 on identical optimized Scheme modules.
 The LLVM emitter and collectors remain on
 [`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
+
+[`benchmarks/wasm-reference/`](benchmarks/wasm-reference/README.md) contains five
+standalone Rust/WASIp1 reference algorithms and their Node runner. Its measurement
+driver freezes original inputs and compiled controls, validates outputs, and
+records separate workload and process times. The [five-case report](benchmarks/results/2026-10-13-wasm-five-reference/README.md)
+compares those references with Chez and a separately measured historical Snail
+batch; it does not change the compiler or runtime.

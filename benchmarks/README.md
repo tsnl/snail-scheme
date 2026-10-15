@@ -28,6 +28,11 @@ all workloads. `--systems` and `--benchmarks` select an explicit diagnostic
 subset; ordinary benchmark commands never select a small showcase by default.
 See [BENCHMARKS.md](../BENCHMARKS.md) for timing boundaries and coverage.
 
+The explicit [five Rust/WASI references](wasm-reference/README.md) preserve the
+algorithms and original inputs of `cat`, `lattice`, `wc`, `graphs`, and `deriv`.
+Their [checked report](results/2026-10-13-wasm-five-reference/README.md) supplies
+same-window Chez controls and separates the prior Snail measurement batch.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
