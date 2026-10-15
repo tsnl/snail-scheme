@@ -8,8 +8,8 @@ describes the implementation. Chibi continues to host the compiler.
 
 [PR #226](https://github.com/tsnl/snail-scheme/pull/226) replaces the initial
 surface sketch with the [SFIR book](book/sfir/index.md). The earlier migration
-below established the measured backend; it does not imply that the new surface
-or library APIs are implemented. Work proceeds through these contracts:
+below established the measured backend. The implemented surface and library
+contracts, their execution evidence and remaining extensions are recorded below:
 
 - [x] Resolve `def` and sequential `let` with the specified block scope,
   shadowing and source-order initialization. Scope an attached `All` over its
@@ -70,14 +70,15 @@ or library APIs are implemented. Work proceeds through these contracts:
   compile transformed values with explicit maps.
 - [ ] Add native target support to the SFIR compiler service. Scheme elaboration
   and macro staging remain deferred.
-- [ ] Revalidate the full corpus and compare clean timings after migration.
-  Retain the existing source and artifact snapshots as historical baselines.
+- [x] Revalidate the full corpus and compare clean timings after migration at
+  frozen compiler `8e547bfb`; retain original failures and historical snapshots.
+  The later packet-input campaign is separate from that full-suite freeze.
 
 The book deliberately leaves foreign target interfaces and parts of the formal
-calculus open. Existing typed extern and ad-hoc overload declaration syntax also
-needs an explicit migration contract; these facilities must not disappear as a
-side effect of changing the core grammar. Implementation notes and specification
-clarifications are updated alongside the corresponding changes.
+calculus open. The [extension contract](book/sfir/extensions.md) documents typed
+externs and fixed-arity ad-hoc overload declarations alongside named wrapping
+and IEEE operations. Implementation restrictions and future adapters remain
+distinct from the core language contract.
 
 ## Current SFIR migration
 
@@ -95,21 +96,33 @@ clarifications are updated alongside the corresponding changes.
 - [x] Validate the public command, imported libraries, error paths and actual
   linked Wasm/native execution. Compilation alone is insufficient.
 - [x] Author all 57 bare SFIR benchmark ports with canonical inputs,
-  algorithms and result predicates. The final Compiler port passes all six
-  routes on its recorded compiler snapshot; full-corpus validation against the
-  latest compiler remains separate from source presence.
-- [ ] Measure SFIR, original/adapted Chez controls and Rust, recording native
-  versus Wasm separately. Freeze sources, tools, inputs and artifacts; separate
-  compile time, clean execution time and instrumented diagnostics.
-- [ ] Repeatedly simplify measured compiler and runtime bottlenecks. Preserve
-  type evidence and ownership invariants; use independent explanations and
-  execution checks to justify each substantial rewrite.
+  algorithms and result predicates. The checked full57 freeze passes all native
+  routes and 56 Wasm routes, preserving Ack's Wasm stack failure.
+- [x] Measure SFIR, original/adapted Chez controls and Rust on the frozen full
+  corpus, recording native versus Wasm separately. Preserve failed/unavailable
+  routes, complete predicates, preparation costs and instrumented diagnostics.
+  Report the Mperm timer correction as a distinct campaign.
+- [x] Complete focused clarity reviews of [recursive inference](../tests/sfir-recursion/README.md),
+  [literal construction](../tests/sfir-literal-widths/README.md),
+  [checked arithmetic](../tests/sfir-arithmetic/README.md) and
+  [shared I/O ownership](../lib/sfir/README.md). Retain independent explanations,
+  rejected alternatives and target execution evidence for those concrete changes.
+- [ ] Investigate the measured full57 bottlenecks and continue scoped compiler
+  and runtime simplification with type/ownership evidence and execution checks.
+  Completed reviews do not establish universal optimization or explain every slowdown.
 
 The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
 with frontend, integration, library, public-command and native execution checks.
 [PR #228](https://github.com/tsnl/snail-scheme/pull/228) adds full Unicode string
-folding through scalar services. The first [six clean measurements](../benchmarks/sfir/evidence/20261015-clean-six.md)
-are complete; full-corpus validation and measurement remain ongoing.
+folding through scalar services. The
+[completed full57 report](../benchmarks/sfir/evidence/20261015-full57.md)
+records 326 measured routes and 1,956 successful scheduled attempts at compiler
+`8e547bfb`, with both Ack Wasm failures and primary Mperm name rejections retained.
+SFIR trails Chez and Rust on all six aggregate comparisons. The later
+[packet-input comparison](../benchmarks/sfir/evidence/20261015-input-packets.md)
+measures one concrete I/O change separately; it is not a new full-suite result.
+The earlier [six-case measurements](../benchmarks/sfir/evidence/20261015-clean-six.md)
+remain historical. Compiler-service native target support stays deferred above.
 
 The [corpus manifest](../benchmarks/sfir/corpus.json) tracks source presence,
 validation and measurement independently. Pre-migration strict-Scheme results

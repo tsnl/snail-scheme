@@ -1,6 +1,7 @@
 # SFIR
 
-> 🚧 Work in progress. The SFIR migration and benchmark validation are ongoing.
+> 🚧 Work in progress. The SFIR migration and full benchmark campaign are complete;
+> performance work and the extensions in the [roadmap](doc/roadmap.md) remain.
 
 SFIR (Snail functional IR, pronounced “sphere”) is a typed functional language
 and compiler target with an explicit s-expression surface. Type inference and
@@ -35,6 +36,11 @@ future frontends and self-hosting. `build.scm` is outside this migration.
 
 The [benchmark corpus](benchmarks/README.md) retains all 57 workloads and compares
 SFIR, Chez and Rust. Source ports, target validation and clean measurements are
-recorded separately. Historical Scheme reports remain historical evidence.
+recorded separately. The [completed full-suite report](benchmarks/sfir/evidence/20261015-full57.md)
+retains Ack's Wasm failures and a separately corrected Mperm timer identity.
+Its frozen SFIR baseline trails Chez and Rust on every aggregate comparison;
+the later [packet-input results](benchmarks/sfir/evidence/20261015-input-packets.md)
+describe a separate implementation and campaign. Historical Scheme reports
+remain historical evidence.
 
 [Apache-2.0](LICENSE)
