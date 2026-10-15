@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check lexical class evidence and recursive groups with captured monotypes."""
+"""Check lexical class evidence, closed requirements and the value restriction."""
 
 import argparse
 import importlib.machinery

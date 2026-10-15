@@ -358,9 +358,12 @@
     ;; ---- Definition groups and the value restriction ----
 
     (define (nonexpansive? node)
+      ;; Inference erases static annotations and instantiations. A remaining
+      ;; Top projection can trap, so its initializer must stay monomorphic.
       (or (ir:literal? node) (ir:name? node) (ir:lambda? node)
-          (and (ir:annotation? node) (nonexpansive? (ir:annotation-expression node)))
-          (and (ir:instantiation? node) (nonexpansive? (ir:instantiation-expression node)))))
+          (and (eq? (node-kind node) 'convert)
+               (let ((value (car (node-data node))))
+                 (and (not (eq? (resolve (node-type value)) 'Top)) (nonexpansive? value))))))
     (define (reserve-binding node scope)
       (let* ((definition (ir:value-binding-definition node))
              (annotation (binding-declaration definition))
@@ -596,7 +599,7 @@
              (value (infer (source-initializer binding) checking
                            (and (or annotation (lookup binding (scope-recursive scope))) (scheme-type scheme)))))
         (unify! (scheme-type scheme) (node-type value) (node-loc value))
-        (when (and annotation (pair? (scheme-variables scheme)) (not (nonexpansive? (source-initializer binding))))
+        (when (and annotation (pair? (scheme-variables scheme)) (not (nonexpansive? value)))
           (strict-error (node-loc value) "polymorphic annotation requires a nonexpansive value"))
         (check-skolem-escape binding scope)
         (check-obligations (scheme-constraints scheme) checking (node-loc value) #f)
@@ -637,7 +640,7 @@
     (define (expansive-schemes group)
       (let collect ((remaining group))
         (cond ((null? remaining) '())
-              ((nonexpansive? (source-initializer (car remaining))) (collect (cdr remaining)))
+              ((nonexpansive? (binding-initializer (car remaining))) (collect (cdr remaining)))
               (else (cons (binding-scheme (car remaining)) (collect (cdr remaining)))))))
     (define (generalize-group! group scope)
       (let ((environment (group-environment group scope)))
@@ -647,7 +650,7 @@
         (set-binding-scheme! binding
                              (generalize (node-type (binding-initializer binding))
                                          (proof-set (node-constraints (binding-initializer binding)))
-                                         environment (nonexpansive? (source-initializer binding))))))
+                                         environment (nonexpansive? (binding-initializer binding))))))
 
     ;; ---- Recursive templates preserve independent rigid annotations ----
 

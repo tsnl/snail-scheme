@@ -243,6 +243,11 @@ these forms can generalize. Applications and allocations stay monomorphic. This
 prevents one mutable cell from being used at incompatible element types. An
 explicit `All` cannot override this restriction.
 
+An annotation preserves nonexpansiveness when its check is static. A projection
+from `Any` that requires a runtime check is expansive, even when its operand is
+a name or literal. Its possible initialization failure cannot be skipped by
+generalizing the binding.
+
 For typing, resolve each binding's lexical scope, then form dependency groups
 from references in its initializer, including references in lambda bodies.
 Annotated definitions are checked against their signatures; unannotated ones
