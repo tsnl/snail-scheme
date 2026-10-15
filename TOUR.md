@@ -591,8 +591,12 @@ The restored native path is validated by [`scripts/test-native`](scripts/test-na
 terminal cleanup. Array operations receive their constant element stride from
 [`llvm.sld`](src/snail-scheme/llvm.sld); references retain eight-byte storage,
 while numeric arrays use their declared widths, including static initializers.
-[`precise-gc.c`](src/precise-gc.c) traces only declared references
-and reuses Immix line holes. [`native.rs`](src/native.rs) closes the shared Rust
+[`precise-gc.c`](src/precise-gc.c) traces only declared references,
+reuses Immix line holes and grows through additional nonmoving regions when
+collection cannot satisfy an allocation or leaves little headroom. Each region
+owns its exact-start, block and line maps; an explicit heap-size setting remains
+a hard total cap.
+[`native.rs`](src/native.rs) closes the shared Rust
 resources exactly once. [`abi.rs`](src/abi.rs) binds owned Rust roots directly to
 generated native C adapters; it uses test stubs only in standalone Rust tests.
 

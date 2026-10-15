@@ -1,0 +1,598 @@
+{
+  "purpose": "correctness and separate GC diagnostics; no comparative timing",
+  "base": "b756cce5217c8d57820a9f20250194f883968991",
+  "workloads": {
+    "nboyer": {
+      "frozen_inputs": {
+        "/run/current-system/sw/bin/clang": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native.native-r29cke1y/module.ll": "b9824e12f23b90fc55a80525c5aeba13a0e1db4ee972c3ff5f597ba315bd80cd",
+        "/tmp/snail-strict-boyer-20261014/src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+        "/tmp/snail-strict-boyer-20261014/src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native-entry.c": "a8dad1045236613b767ae41d747ead331cf0114739b2595b30f2a333e7a5e1a5",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native.native-r29cke1y/provider-0.o": "f0b9f365871c7ac749564271ee9148e8f06c2c891ae87980d0fe69627c4c4f04",
+        "/tmp/snail-strict-boyer-20261014/build/native-runtime/release/libsnail_runtime.a": "0dcc5f1bd5a23774145271816643df1ab39f306bf31bb5a6a7e1a1b23ed57983",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native.native-r29cke1y/optimized.wasm": "8b1e3d29f3abaa976f126c867cd1561122db1eeea84b3400e09501129a7b26e3",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native-provider.c": "7df85d24bfb6574233284f5fada742fd1c1186a8fd5ac8a8f7b28a54ef19b570",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native-provider.h": "bd552613c49ea459edee484b27eae55607edcf2a39179d118532117d1d36ff80"
+      },
+      "collector_sha256": "f5ae4d601d82f1a2c40c69b81c9a0b1655ce562053829f1497b6b3c89ee88175",
+      "executable_sha256": "f213a0771fc598206abb8b9cdfaebc3aa7ec144340c1b8961b454174c48ed887",
+      "build": {
+        "command": [
+          "/run/current-system/sw/bin/clang",
+          "-O3",
+          "-flto",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Wl,--gc-sections",
+          "-fuse-ld=/run/current-system/sw/bin/ld.lld",
+          "-I",
+          "/tmp/snail-strict-boyer-20261014/src",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native.native-r29cke1y/module.ll",
+          "/tmp/snail-strict-boyer-20261014/src/native.c",
+          "/tmp/snail-native-gc-growth-20261014/src/precise-gc.c",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native-entry.c",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/nboyer/native.native-r29cke1y/provider-0.o",
+          "/tmp/snail-strict-boyer-20261014/build/native-runtime/release/libsnail_runtime.a",
+          "-ldl",
+          "-lpthread",
+          "-lm",
+          "-o",
+          "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+        ],
+        "cwd": "/tmp/snail-native-gc-growth-20261014",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "process_seconds": 49.982490096008405,
+        "controls": {
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_INITIAL_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_SCAN_ALL": null
+        }
+      },
+      "correctness": {
+        "canonical": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/canonical",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 32.23647624498699,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88",
+          "expected": {
+            "name": "nboyer",
+            "count": 1,
+            "size": 5,
+            "original_expected": 51507739,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "small": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/small",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.02767565503017977,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "bae5b1328afae8aba0ac275b62c57472d4f5bc5749437022e62854b94f14fa87",
+          "expected": {
+            "name": "nboyer",
+            "count": 1,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "repeat-reset": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/repeat-reset",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":2,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.04268534999573603,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "fd56cb412a3c5a9c33b1bc11c82ce0d7d22c9828ebbd15c756bf35b157eea6f8",
+          "expected": {
+            "name": "nboyer",
+            "count": 2,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "wrong-rewrites": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/wrong-rewrites",
+          "returncode": 0,
+          "stdout": "{\"result\":0,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.026284688035957515,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "07362aa961521160a3f67af42dc01d1f831db28d6666dbc2bf30b0aed4e13448",
+          "expected": {
+            "name": "nboyer",
+            "count": 1,
+            "size": 0,
+            "original_expected": 95025,
+            "inputs": [],
+            "expected": 0,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "zero-repetitions": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/zero-repetitions",
+          "returncode": 0,
+          "stdout": "{\"result\":0,\"barriers\":0,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.004191789019387215,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "320bc43dbec7aae20999edecee8c7665ca39862e55b016d807d4ae6061f2db17",
+          "expected": {
+            "name": "nboyer",
+            "count": 0,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 0,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        }
+      },
+      "growth_diagnostic": {
+        "record": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/nboyer/growth-diagnostic",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "immix-gc allocation_search=tuned evacuation=0 heap_bytes=2147483648 initial_heap_bytes=268435456 heap_limit=0 regions=4 growths=3 collections=134 allocations=359440532 bytes=8692156392 arena_used=2147483648 last_live=938923704 peak_live=938923704 live_objects=39122277 roots=346121 fields=3198949356 holes_reused=4525115 large_allocations=0 mark_s=18.966397 sweep_s=5.664064\n",
+          "timeout": false,
+          "process_seconds": 29.306671987986192,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": "1",
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88",
+          "expected": {
+            "name": "nboyer",
+            "count": 1,
+            "size": 5,
+            "original_expected": 51507739,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 2147483648,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "statistics": {
+          "allocation_search": "tuned",
+          "evacuation": "0",
+          "heap_bytes": "2147483648",
+          "initial_heap_bytes": "268435456",
+          "heap_limit": "0",
+          "regions": "4",
+          "growths": "3",
+          "collections": "134",
+          "allocations": "359440532",
+          "bytes": "8692156392",
+          "arena_used": "2147483648",
+          "last_live": "938923704",
+          "peak_live": "938923704",
+          "live_objects": "39122277",
+          "roots": "346121",
+          "fields": "3198949356",
+          "holes_reused": "4525115",
+          "large_allocations": "0",
+          "mark_s": "18.966397",
+          "sweep_s": "5.664064"
+        }
+      }
+    },
+    "sboyer": {
+      "frozen_inputs": {
+        "/run/current-system/sw/bin/clang": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native.native-kcvho17c/module.ll": "004467681d0268e6f747bb7c636f85f774f127c00c5a4d884c480291308c88cf",
+        "/tmp/snail-strict-boyer-20261014/src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+        "/tmp/snail-strict-boyer-20261014/src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native-entry.c": "a8dad1045236613b767ae41d747ead331cf0114739b2595b30f2a333e7a5e1a5",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native.native-kcvho17c/provider-0.o": "f0b9f365871c7ac749564271ee9148e8f06c2c891ae87980d0fe69627c4c4f04",
+        "/tmp/snail-strict-boyer-20261014/build/native-runtime/release/libsnail_runtime.a": "0dcc5f1bd5a23774145271816643df1ab39f306bf31bb5a6a7e1a1b23ed57983",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native.native-kcvho17c/optimized.wasm": "516f1a41d794e724828df9a985a93d00ef220abf2dcf526064a89480b7f7bb0a",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native-provider.c": "7df85d24bfb6574233284f5fada742fd1c1186a8fd5ac8a8f7b28a54ef19b570",
+        "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native-provider.h": "bd552613c49ea459edee484b27eae55607edcf2a39179d118532117d1d36ff80"
+      },
+      "collector_sha256": "f5ae4d601d82f1a2c40c69b81c9a0b1655ce562053829f1497b6b3c89ee88175",
+      "executable_sha256": "8ecd0a3260588f707eaddc70de9c25cccb1a98104ad3217df0dbbaa9262f8b0b",
+      "build": {
+        "command": [
+          "/run/current-system/sw/bin/clang",
+          "-O3",
+          "-flto",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Wl,--gc-sections",
+          "-fuse-ld=/run/current-system/sw/bin/ld.lld",
+          "-I",
+          "/tmp/snail-strict-boyer-20261014/src",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native.native-kcvho17c/module.ll",
+          "/tmp/snail-strict-boyer-20261014/src/native.c",
+          "/tmp/snail-native-gc-growth-20261014/src/precise-gc.c",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native-entry.c",
+          "/tmp/snail-strict-boyer-20261014/build/boyer-prepared-combined/sboyer/native.native-kcvho17c/provider-0.o",
+          "/tmp/snail-strict-boyer-20261014/build/native-runtime/release/libsnail_runtime.a",
+          "-ldl",
+          "-lpthread",
+          "-lm",
+          "-o",
+          "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+        ],
+        "cwd": "/tmp/snail-native-gc-growth-20261014",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "timeout": false,
+        "process_seconds": 49.00737512303749,
+        "controls": {
+          "SNAIL_GC_HEAP_BYTES": null,
+          "SNAIL_GC_INITIAL_BYTES": null,
+          "SNAIL_GC_MIN_BYTES": null,
+          "SNAIL_GC_STATS": null,
+          "SNAIL_NATIVE_GC_INTERVAL": null,
+          "SNAIL_GC_SCAN_ALL": null
+        }
+      },
+      "correctness": {
+        "canonical": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/canonical",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 13.41667269100435,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6",
+          "expected": {
+            "name": "sboyer",
+            "count": 1,
+            "size": 5,
+            "original_expected": 51507739,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "small": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/small",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.019483081006910652,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "bae5b1328afae8aba0ac275b62c57472d4f5bc5749437022e62854b94f14fa87",
+          "expected": {
+            "name": "sboyer",
+            "count": 1,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "repeat-reset": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/repeat-reset",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":2,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.03360414900816977,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "fd56cb412a3c5a9c33b1bc11c82ce0d7d22c9828ebbd15c756bf35b157eea6f8",
+          "expected": {
+            "name": "sboyer",
+            "count": 2,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "wrong-rewrites": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/wrong-rewrites",
+          "returncode": 0,
+          "stdout": "{\"result\":0,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.020528905966784805,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "07362aa961521160a3f67af42dc01d1f831db28d6666dbc2bf30b0aed4e13448",
+          "expected": {
+            "name": "sboyer",
+            "count": 1,
+            "size": 0,
+            "original_expected": 95025,
+            "inputs": [],
+            "expected": 0,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "zero-repetitions": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/zero-repetitions",
+          "returncode": 0,
+          "stdout": "{\"result\":0,\"barriers\":0,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "",
+          "timeout": false,
+          "process_seconds": 0.0020746319787576795,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": null,
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "320bc43dbec7aae20999edecee8c7665ca39862e55b016d807d4ae6061f2db17",
+          "expected": {
+            "name": "sboyer",
+            "count": 0,
+            "size": 0,
+            "original_expected": 95024,
+            "inputs": [],
+            "expected": 0,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        }
+      },
+      "growth_diagnostic": {
+        "record": {
+          "command": [
+            "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/program"
+          ],
+          "cwd": "/tmp/snail-native-gc-growth-20261014/build/gc-growth/boyer/sboyer/growth-diagnostic",
+          "returncode": 0,
+          "stdout": "{\"result\":1,\"barriers\":1,\"setup_closed\":1,\"worker_closed\":0,\"closed\":1}\n",
+          "stderr": "immix-gc allocation_search=tuned evacuation=0 heap_bytes=1073741824 initial_heap_bytes=268435456 heap_limit=0 regions=3 growths=2 collections=91 allocations=59001388 bytes=1481616992 arena_used=654934016 last_live=316026552 peak_live=316026552 live_objects=13168230 roots=236857 fields=815738759 holes_reused=1369516 large_allocations=0 mark_s=8.060150 sweep_s=1.650141\n",
+          "timeout": false,
+          "process_seconds": 13.407670716987923,
+          "controls": {
+            "SNAIL_GC_HEAP_BYTES": null,
+            "SNAIL_GC_INITIAL_BYTES": null,
+            "SNAIL_GC_MIN_BYTES": null,
+            "SNAIL_GC_STATS": "1",
+            "SNAIL_NATIVE_GC_INTERVAL": null,
+            "SNAIL_GC_SCAN_ALL": null
+          },
+          "input_sha256": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6",
+          "expected": {
+            "name": "sboyer",
+            "count": 1,
+            "size": 5,
+            "original_expected": 51507739,
+            "inputs": [],
+            "expected": 1,
+            "setup_barriers": 0,
+            "barriers_per_iteration": 1,
+            "additional_exports": [
+              "configured-count"
+            ],
+            "runtime": "scalar-datum-reader",
+            "native_heap_bytes": 1073741824,
+            "predicate": "number? rewrites and exact rewrite-count equality"
+          }
+        },
+        "statistics": {
+          "allocation_search": "tuned",
+          "evacuation": "0",
+          "heap_bytes": "1073741824",
+          "initial_heap_bytes": "268435456",
+          "heap_limit": "0",
+          "regions": "3",
+          "growths": "2",
+          "collections": "91",
+          "allocations": "59001388",
+          "bytes": "1481616992",
+          "arena_used": "654934016",
+          "last_live": "316026552",
+          "peak_live": "316026552",
+          "live_objects": "13168230",
+          "roots": "236857",
+          "fields": "815738759",
+          "holes_reused": "1369516",
+          "large_allocations": "0",
+          "mark_s": "8.060150",
+          "sweep_s": "1.650141"
+        }
+      }
+    }
+  }
+}
