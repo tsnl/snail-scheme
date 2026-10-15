@@ -1,0 +1,3746 @@
+{
+  "plan": {
+    "status": "awaiting-parent-release",
+    "preparation": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5",
+    "compiler_commit": "3dcce402047a02ef10c92bf6f005ad45f139e2da",
+    "upstream_commit": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+    "cpu": 5,
+    "taskset": "/run/current-system/sw/bin/taskset",
+    "timeout_seconds": 300,
+    "capture_cleanup_seconds": 10,
+    "group_cleanup_seconds": 5,
+    "final_group_cleanup_seconds": 5,
+    "leader_reap_seconds": 10,
+    "environment": {
+      "BINARYEN_CORES": "1"
+    },
+    "input": {
+      "name": "matrix",
+      "count": 2500,
+      "inputs": [
+        5,
+        5,
+        0
+      ],
+      "expected": [
+        5,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        -1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "original_expected": [
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            -1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            -1,
+            -1
+          ]
+        ]
+      ],
+      "result_kind": "i64-list-values",
+      "barriers_per_iteration": 2
+    },
+    "systems": {
+      "strict-v8": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": null
+      },
+      "strict-v8-native-final": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": null
+      },
+      "strict-native": {
+        "argv": [
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+          "2500",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": null
+      },
+      "chez-original": {
+        "argv": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt"
+      },
+      "chez-adapted": {
+        "argv": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt"
+      },
+      "rust-native": {
+        "argv": [
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt"
+      },
+      "rust-wasm-v8": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+          "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+        ],
+        "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+        "stdin": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt"
+      }
+    },
+    "schedule": [
+      {
+        "round": 0,
+        "retained": false,
+        "system": "strict-v8"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "strict-native"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "chez-original"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "rust-native"
+      },
+      {
+        "round": 0,
+        "retained": false,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 1,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 2,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 3,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 4,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 5,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "rust-native"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 6,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "rust-wasm-v8"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "strict-v8"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "strict-v8-native-final"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "strict-native"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "chez-original"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "chez-adapted"
+      },
+      {
+        "round": 7,
+        "retained": true,
+        "system": "rust-native"
+      }
+    ],
+    "inherited_environment": {
+      "NODE_OPTIONS": null,
+      "NODE_V8_COVERAGE": null,
+      "NODE_DEBUG": null,
+      "NODE_DEBUG_NATIVE": null,
+      "LD_PRELOAD": null,
+      "SNAIL_NATIVE_GC_INTERVAL": null,
+      "SNAIL_GC_STATS": null,
+      "SNAIL_GC_HEAP_BYTES": null,
+      "SNAIL_GC_MIN_BYTES": null,
+      "LD_LIBRARY_PATH": null,
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "TZ": null
+    },
+    "observations": "One complete canonical output/prime-chain invocation, repeated-call and full-count checks; no full2500 internal trace.",
+    "rust_control": "Validated complete outputs, with separately disclosed algorithm/layout differences.",
+    "engine_control": "strict-v8-native-final and strict-native use the same native-final optimized Wasm bytes; strict-v8 retains the production Scheme artifact.",
+    "rust_result_line": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))",
+    "selected_hashes": {
+      "strict.wasm": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46",
+      "strict.wasm.raw.wasm": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618",
+      "native-timing/native": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee",
+      "program.so": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8",
+      "same-source-chez/program.so": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3",
+      "rust-reference/matrix.native": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
+      "rust-reference/matrix.raw.wasm": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
+      "rust-reference/matrix.wasm": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+      "native-timing/native.native-r2n6qggl/optimized.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd"
+    },
+    "identities": {
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+      "/run/current-system/sw/bin/rustc": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "/run/current-system/sw/bin/cargo": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+      "/run/current-system/sw/bin/clang": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+      "/run/current-system/sw/bin/ld.lld": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+      "/run/current-system/sw/bin/python3": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/prepared.json": "0affead8d4814a307e9b79e788d93c64abc23b298a0e50859bb02ee739e472a6",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/measure.py": "827667d7db3e5a7c03f3ef44f6f55c290279c3d25c31b0e72a26d7468e7a6c3f",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm.raw.wasm": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.raw.wasm": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/upstream.scm": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.scm": "7b0b0bbcde92bcadf6e7c2dcec195692401b02c07468fd7e29e2c8e61083752a",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.scm": "31aa74c2603372c881a051b21251443c16a063008223302a5bc2e3c00e409768",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.scm": "be9ec7a9bdbbe5e3a64522598c5913467a4a5b0d2c0cf33fb32603179875672a",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adapted-kernel.scm": "be4c572b5bf996f55271401e6ab9706cb5824fe9667e0bdb0c8df0cdb703edeb",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/original-kernel.scm": "88a264dcfd7062a2ea56b7c9442f70fad5c0d5ae4fb85df7e611de7411015ecc",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adaptation-ledger.json": "bbace9718461432154efc22e2335cb6142d83d21299cb7daa6c9dbd1ed2cb1ae",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.c": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.h": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-entry.c": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/bin/matrix.rs": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/module.ll": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/provider-0.o": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/build.json": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/libsnail_runtime.a": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/identities.json": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/validation.json": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.md": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/hardware-before.json": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/inspect-retained-work.py": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.json": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.md": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1"
+    }
+  },
+  "complete": true,
+  "samples": [
+    {
+      "round": 0,
+      "retained": false,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:13.973232+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 4,
+      "process_group": 4,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.700167242,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.726665836002212,
+      "cleanup": {
+        "process_group": 4,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7265007010428235,
+      "workload_seconds": 0.700167242
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:14.748858+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 11,
+      "process_group": 11,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.701581789,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7257267130189575,
+      "cleanup": {
+        "process_group": 11,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7255694360355847,
+      "workload_seconds": 0.701581789
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:15.523516+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 18,
+      "process_group": 18,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.902528620}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.9050478049903177,
+      "cleanup": {
+        "process_group": 18,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.9048832490225323,
+      "workload_seconds": 1.90252862
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:17.477712+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 19,
+      "process_group": 19,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.477129019 seconds (0.477) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.477129019\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5071941390051506,
+      "cleanup": {
+        "process_group": 19,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5070446800091304,
+      "workload_seconds": 0.477129019
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:18.034131+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 20,
+      "process_group": 20,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.484857285 seconds (0.485) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.484857285\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5155720310285687,
+      "cleanup": {
+        "process_group": 20,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5153499169973657,
+      "workload_seconds": 0.484857285
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:18.599323+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 21,
+      "process_group": 21,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.853146607\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8562428670120426,
+      "cleanup": {
+        "process_group": 21,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8560103279887699,
+      "workload_seconds": 0.853146607
+    },
+    {
+      "round": 0,
+      "retained": false,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:19.505214+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 22,
+      "process_group": 22,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.658312813\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6819843529956415,
+      "cleanup": {
+        "process_group": 22,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.6818238709820434,
+      "workload_seconds": 1.658312813
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:21.236356+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 33,
+      "process_group": 33,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.705066683,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7296005770331249,
+      "cleanup": {
+        "process_group": 33,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7294409270398319,
+      "workload_seconds": 0.705066683
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:22.015149+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 40,
+      "process_group": 40,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.699038986,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7238378720358014,
+      "cleanup": {
+        "process_group": 40,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7236753640463576,
+      "workload_seconds": 0.699038986
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:22.788028+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 47,
+      "process_group": 47,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.901276011}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.9033737129648216,
+      "cleanup": {
+        "process_group": 47,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.9032145309611224,
+      "workload_seconds": 1.901276011
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:24.740979+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 48,
+      "process_group": 48,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.475041138 seconds (0.475) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.475041138\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5049434910179116,
+      "cleanup": {
+        "process_group": 48,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5047277600388043,
+      "workload_seconds": 0.475041138
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:25.295570+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 49,
+      "process_group": 49,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.483450158 seconds (0.483) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.483450158\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5142746729543433,
+      "cleanup": {
+        "process_group": 49,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5139966949936934,
+      "workload_seconds": 0.483450158
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:25.859270+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 50,
+      "process_group": 50,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.859275489\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8613185830181465,
+      "cleanup": {
+        "process_group": 50,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8610817540320568,
+      "workload_seconds": 0.859275489
+    },
+    {
+      "round": 1,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:26.769459+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 51,
+      "process_group": 51,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.632007306\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6561611049692146,
+      "cleanup": {
+        "process_group": 51,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.656007323996164,
+      "workload_seconds": 1.632007306
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:28.474274+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 62,
+      "process_group": 62,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.700212097,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.725745134986937,
+      "cleanup": {
+        "process_group": 62,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.725584895000793,
+      "workload_seconds": 0.700212097
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:29.249023+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 69,
+      "process_group": 69,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.895703546}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.8981492960010655,
+      "cleanup": {
+        "process_group": 69,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.8979922839789651,
+      "workload_seconds": 1.895703546
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:31.196213+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 70,
+      "process_group": 70,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.478845404 seconds (0.479) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.478845404\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5093517259811051,
+      "cleanup": {
+        "process_group": 70,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5092019260046072,
+      "workload_seconds": 0.478845404
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:31.755124+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 71,
+      "process_group": 71,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.482915214 seconds (0.483) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.482915214\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5136636049719527,
+      "cleanup": {
+        "process_group": 71,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5135055229766294,
+      "workload_seconds": 0.482915214
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:32.318344+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 72,
+      "process_group": 72,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.873985081\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8761175510007888,
+      "cleanup": {
+        "process_group": 72,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.875969371991232,
+      "workload_seconds": 0.873985081
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:33.244023+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 73,
+      "process_group": 73,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.668990510\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6935786409885623,
+      "cleanup": {
+        "process_group": 73,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.6934237889945507,
+      "workload_seconds": 1.66899051
+    },
+    {
+      "round": 2,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:34.986818+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 84,
+      "process_group": 84,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.707476325,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7314878979814239,
+      "cleanup": {
+        "process_group": 84,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7313283489784226,
+      "workload_seconds": 0.707476325
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:35.767558+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 91,
+      "process_group": 91,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.891042071}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.8933345560217276,
+      "cleanup": {
+        "process_group": 91,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.8931606099940836,
+      "workload_seconds": 1.891042071
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:37.712703+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 92,
+      "process_group": 92,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.476000679 seconds (0.476) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.476000679\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5071649479796179,
+      "cleanup": {
+        "process_group": 92,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5070015989476815,
+      "workload_seconds": 0.476000679
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:38.269281+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 93,
+      "process_group": 93,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.484381612 seconds (0.484) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.484381612\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5149607509956695,
+      "cleanup": {
+        "process_group": 93,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5148090170114301,
+      "workload_seconds": 0.484381612
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:38.833806+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 94,
+      "process_group": 94,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.860151255\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.862022789020557,
+      "cleanup": {
+        "process_group": 94,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8618779450189322,
+      "workload_seconds": 0.860151255
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:39.744932+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 95,
+      "process_group": 95,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.621927650\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6446635539759882,
+      "cleanup": {
+        "process_group": 95,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.644516845990438,
+      "workload_seconds": 1.62192765
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:41.438951+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 106,
+      "process_group": 106,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.706480414,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7303625550121069,
+      "cleanup": {
+        "process_group": 106,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7301979350158945,
+      "workload_seconds": 0.706480414
+    },
+    {
+      "round": 3,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:42.217945+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 113,
+      "process_group": 113,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.700726481,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7267005399917252,
+      "cleanup": {
+        "process_group": 113,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7257011400070041,
+      "workload_seconds": 0.700726481
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:42.993387+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 120,
+      "process_group": 120,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.476924083 seconds (0.477) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.476924083\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5076089890208095,
+      "cleanup": {
+        "process_group": 120,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5074535459862091,
+      "workload_seconds": 0.476924083
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:43.550595+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 121,
+      "process_group": 121,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.483545637 seconds (0.484) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.483545637\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5143225640058517,
+      "cleanup": {
+        "process_group": 121,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5141277349903248,
+      "workload_seconds": 0.483545637
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:44.116063+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 122,
+      "process_group": 122,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.857146047\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8600644480320625,
+      "cleanup": {
+        "process_group": 122,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8598332540132105,
+      "workload_seconds": 0.857146047
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:45.026734+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 123,
+      "process_group": 123,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.620605855\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6479620020254515,
+      "cleanup": {
+        "process_group": 123,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.6477942999918014,
+      "workload_seconds": 1.620605855
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:46.724120+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 134,
+      "process_group": 134,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.701784124,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7278656819835305,
+      "cleanup": {
+        "process_group": 134,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7277095139725134,
+      "workload_seconds": 0.701784124
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:47.501243+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 141,
+      "process_group": 141,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.702783654,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7263178180437535,
+      "cleanup": {
+        "process_group": 141,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7261510430253111,
+      "workload_seconds": 0.702783654
+    },
+    {
+      "round": 4,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:48.276835+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 148,
+      "process_group": 148,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.902717641}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.9057956869946793,
+      "cleanup": {
+        "process_group": 148,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.9056455949903466,
+      "workload_seconds": 1.902717641
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:50.232539+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 149,
+      "process_group": 149,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.4837299 seconds (0.484) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.4837299\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5142353610135615,
+      "cleanup": {
+        "process_group": 149,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5140790760051459,
+      "workload_seconds": 0.4837299
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:50.796773+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 150,
+      "process_group": 150,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.875435059\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8781091810087673,
+      "cleanup": {
+        "process_group": 150,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8778734670486301,
+      "workload_seconds": 0.875435059
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:51.724712+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 151,
+      "process_group": 151,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.622901008\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6476576210116036,
+      "cleanup": {
+        "process_group": 151,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.647495940036606,
+      "workload_seconds": 1.622901008
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:53.421247+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 162,
+      "process_group": 162,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.705711381,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7297590079833753,
+      "cleanup": {
+        "process_group": 162,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7296008009579964,
+      "workload_seconds": 0.705711381
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:54.200677+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 169,
+      "process_group": 169,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.702965355,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7297587280045263,
+      "cleanup": {
+        "process_group": 169,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7296053870231844,
+      "workload_seconds": 0.702965355
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:54.980001+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 176,
+      "process_group": 176,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.890884443}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.893075239029713,
+      "cleanup": {
+        "process_group": 176,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.8929203579900786,
+      "workload_seconds": 1.890884443
+    },
+    {
+      "round": 5,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:56.923179+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 177,
+      "process_group": 177,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.47611665 seconds (0.476) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.47611665\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5066088839666918,
+      "cleanup": {
+        "process_group": 177,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5064510770025663,
+      "workload_seconds": 0.47611665
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:57.479865+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 178,
+      "process_group": 178,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.859252585\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8618597019813024,
+      "cleanup": {
+        "process_group": 178,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8617250659735873,
+      "workload_seconds": 0.859252585
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:06:58.391954+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 179,
+      "process_group": 179,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.659950329\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6840547199826688,
+      "cleanup": {
+        "process_group": 179,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.683889951033052,
+      "workload_seconds": 1.659950329
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:00.125770+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 190,
+      "process_group": 190,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.715511302,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7395680320332758,
+      "cleanup": {
+        "process_group": 190,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7394002270302735,
+      "workload_seconds": 0.715511302
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:00.915098+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 197,
+      "process_group": 197,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.702157919,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7306479099788703,
+      "cleanup": {
+        "process_group": 197,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7304062530165538,
+      "workload_seconds": 0.702157919
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:01.695855+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 204,
+      "process_group": 204,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.901791702}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.903688915015664,
+      "cleanup": {
+        "process_group": 204,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.9035362409777008,
+      "workload_seconds": 1.901791702
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:03.649862+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 205,
+      "process_group": 205,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.475010376 seconds (0.475) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.475010376\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.505033025983721,
+      "cleanup": {
+        "process_group": 205,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5048785319668241,
+      "workload_seconds": 0.475010376
+    },
+    {
+      "round": 6,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:04.204871+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 206,
+      "process_group": 206,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.483595381 seconds (0.484) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.483595381\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5137510360218585,
+      "cleanup": {
+        "process_group": 206,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5136004030355252,
+      "workload_seconds": 0.483595381
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "rust-wasm-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:04.769112+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 207,
+      "process_group": 207,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,1.606197371\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.6290040470194072,
+      "cleanup": {
+        "process_group": 207,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.6288494809996337,
+      "workload_seconds": 1.606197371
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:06.448009+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 218,
+      "process_group": 218,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.705232559,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.729058190016076,
+      "cleanup": {
+        "process_group": 218,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7288945400505327,
+      "workload_seconds": 0.705232559
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-v8-native-final",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:07.226877+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 225,
+      "process_group": 225,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.699930536,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.7246465500211343,
+      "cleanup": {
+        "process_group": 225,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.7244838330079801,
+      "workload_seconds": 0.699930536
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "strict-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+        "2500",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:08.001268+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 232,
+      "process_group": 232,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.906404105}\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 1.9091944989631884,
+      "cleanup": {
+        "process_group": 232,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 1.9089621379971504,
+      "workload_seconds": 1.906404105
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "chez-original",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:09.961002+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 233,
+      "process_group": 233,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.475292717 seconds (0.475) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.475292717\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.506274843995925,
+      "cleanup": {
+        "process_group": 233,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5061095819692127,
+      "workload_seconds": 0.475292717
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "chez-adapted",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:10.517367+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 234,
+      "process_group": 234,
+      "returncode": 0,
+      "stdout": "Running matrix:5:5:2500\nElapsed time: 0.485378242 seconds (0.485) for matrix:5:5:2500\n+!CSVLINE!+chez,matrix:5:5:2500,0.485378242\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.5163748289924115,
+      "cleanup": {
+        "process_group": 234,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.5162203939980827,
+      "workload_seconds": 0.485378242
+    },
+    {
+      "round": 7,
+      "retained": true,
+      "system": "rust-native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native"
+      ],
+      "cwd": "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:07:11.083663+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 235,
+      "process_group": 235,
+      "returncode": 0,
+      "stdout": "Result: (((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 -1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 -1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 -1) (1 -1 1 -1 1) (1 -1 -1 1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 -1) (1 -1 -1 -1 1)) ((1 1 1 1 1) (1 1 1 1 -1) (1 1 1 -1 1) (1 1 -1 1 1) (1 -1 1 1 1) (1 -1 -1 -1 -1)))\n+!CSVLINE!+rust-wasm,matrix:2500,0.856010189\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.8577405989635736,
+      "cleanup": {
+        "process_group": 235,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_cleanup_seconds": 0.8575933779939078,
+      "workload_seconds": 0.856010189
+    }
+  ],
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "summary": {
+    "strict-v8": {
+      "samples": 7,
+      "workload_median": 0.705711381,
+      "workload_range": [
+        0.701784124,
+        0.715511302
+      ],
+      "process_median": 0.7297590079833753,
+      "process_range": [
+        0.7278656819835305,
+        0.7395680320332758
+      ]
+    },
+    "strict-v8-native-final": {
+      "samples": 7,
+      "workload_median": 0.700726481,
+      "workload_range": [
+        0.699038986,
+        0.702965355
+      ],
+      "process_median": 0.7263178180437535,
+      "process_range": [
+        0.7238378720358014,
+        0.7306479099788703
+      ]
+    },
+    "strict-native": {
+      "samples": 7,
+      "workload_median": 1.901276011,
+      "workload_range": [
+        1.890884443,
+        1.906404105
+      ],
+      "process_median": 1.9033737129648216,
+      "process_range": [
+        1.893075239029713,
+        1.9091944989631884
+      ]
+    },
+    "chez-original": {
+      "samples": 7,
+      "workload_median": 0.476000679,
+      "workload_range": [
+        0.475010376,
+        0.478845404
+      ],
+      "process_median": 0.5066088839666918,
+      "process_range": [
+        0.5049434910179116,
+        0.5093517259811051
+      ]
+    },
+    "chez-adapted": {
+      "samples": 7,
+      "workload_median": 0.483595381,
+      "workload_range": [
+        0.482915214,
+        0.485378242
+      ],
+      "process_median": 0.5142746729543433,
+      "process_range": [
+        0.5136636049719527,
+        0.5163748289924115
+      ]
+    },
+    "rust-native": {
+      "samples": 7,
+      "workload_median": 0.859275489,
+      "workload_range": [
+        0.856010189,
+        0.875435059
+      ],
+      "process_median": 0.8618597019813024,
+      "process_range": [
+        0.8577405989635736,
+        0.8781091810087673
+      ]
+    },
+    "rust-wasm-v8": {
+      "samples": 7,
+      "workload_median": 1.622901008,
+      "workload_range": [
+        1.606197371,
+        1.66899051
+      ],
+      "process_median": 1.6479620020254515,
+      "process_range": [
+        1.6290040470194072,
+        1.6935786409885623
+      ]
+    }
+  }
+}

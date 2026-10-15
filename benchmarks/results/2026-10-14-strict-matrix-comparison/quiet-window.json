@@ -1,0 +1,30 @@
+{
+  "release": {
+    "parent_release": "Reviewed 56-process campaign only; no replacements or concurrent heavy work.",
+    "release_recorded": "2026-10-14T17:06:13.833677+00:00",
+    "reviewed_hashes": {
+      "measure-seven.py": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5",
+      "timing-plan.json": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec"
+    },
+    "command": [
+      "/run/current-system/sw/bin/python3",
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py",
+      "--run",
+      "--output",
+      "/tmp/snail-strict-matrix-20261014/build/matrix-seven-system-campaign-20261014"
+    ],
+    "cwd": "/tmp/snail-strict-matrix-20261014",
+    "status": "complete",
+    "runner_pid": 3,
+    "returncode": 0,
+    "process_seconds": 58.16396103799343,
+    "finished": "2026-10-14T17:07:11.997787+00:00"
+  },
+  "coordination": "Parent confirmed every other agent execution/compression/build handle terminal and heavy work held.",
+  "clean_processes": 56,
+  "retained_processes": 49,
+  "replacements": 0,
+  "all_owned_groups_stopped": true,
+  "immediate_cpu_policy_before_after_equal": true,
+  "packaging_started_after_all_clean_clocks": true
+}
