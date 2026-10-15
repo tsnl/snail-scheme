@@ -87,10 +87,30 @@ and non-control application inventories. Its only extra non-control calls are
 the reader test's twelve `cons` operations. This audit supplements execution; it
 does not establish runtime correctness by itself.
 
-The first core fixture has compiled with the new SFIR frontend and returned `42`
-on both raw and mandatory-Binaryen-optimized Wasm, including the invocation guard.
-Broader linked Wasm and native validation is in progress. Historical strict-Scheme
-library results remain historical evidence until the migrated code executes.
+The source checkpoint `3ae7928` passed the following execution checks:
+
+- A core fixture returned `42` on raw and mandatory-Binaryen-optimized Wasm,
+  including the invocation guard. The same fixture also passed with committed
+  frontend `b74e437`.
+- Every retained `test-<module>` entry point returned `42` on raw linked Wasm,
+  optimized linked Wasm, native64 and native64 with collection forced at each
+  allocation opportunity.
+- Focused I/O checks passed on both linked Wasm forms and native64. They cover
+  generic file callbacks, CR/LF/CRLF and EOF, exact Unicode and minimum-I64 output,
+  borrowed stdout, and closed-alias reads and empty writes. The positive native
+  check also passed with forced collection. Node verified that owned descriptors
+  drained and standard descriptors stayed open.
+
+The combined module and I/O checks used a frozen 97-file compiler snapshot taken
+before `b74e437`; its individual source hashes are retained with the command
+records. The later core smoke used the committed compiler itself. The first
+combined build was deliberately interrupted after discovering the private
+nonempty-quote test assumption. The first I/O fixture was correctly rejected
+because its negative-check export returned a nominal value; its corrected export
+discards that value and returns `Unit`. Both initial records are retained.
+
+These are library correctness checks, not complete benchmark-suite coverage or
+performance measurements. Historical strict-Scheme measurements remain historical.
 
 The focused `core`/`io` clarity review used the pinned
 [simplify skill](../../.agents/skills/simplify/SKILL.md), a fresh explainer without
