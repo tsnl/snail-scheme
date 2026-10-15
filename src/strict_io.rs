@@ -120,6 +120,8 @@ fn release_file(mut port: Port) -> Result<(), String> {
     // Port.close retains its payload if flushing fails. Drop it before any
     // nonreturning diagnostic: a Wasm trap does not run Rust destructors.
     drop(port);
+    #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+    crate::native::resource_released();
     result
 }
 
