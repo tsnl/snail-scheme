@@ -67,6 +67,16 @@ token ownership failures and complete reader streams. Optional canonical
 Sum1, Read1 and Parsing controls come from static benchmark files. These
 correctness runs do not provide clean performance measurements.
 
+The Chez provenance retains its original library freeze and separately names
+reviewed compatible snapshots. A run must match one complete snapshot; it
+records the chosen profile and current input hashes. The scalar-extension and
+borrowed-stdin review covers existing numeric and owned-file reader operations,
+not the new scalar APIs, standard input, or unchanged initialization costs.
+
+`scripts/test-backend` also runs `test-sfir-numbers --domain` separately, including
+the Rational and Number module assertions. Historical Scheme-only diagnostics
+require their recorded source checkouts; their old active runners are retired.
+
 ## Focused clarity review
 
 The pinned [simplify workflow](../../.agents/skills/simplify/SKILL.md) used a fresh

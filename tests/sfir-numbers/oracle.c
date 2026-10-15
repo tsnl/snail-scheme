@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "../strict-integer/oracle.h"
+#include "../sfir-integer/oracle.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

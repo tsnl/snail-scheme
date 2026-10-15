@@ -2,10 +2,8 @@
 ;; Name/type resolution stays in wasm-resolve; this is not a general WAT parser.
 (define-library (snail-scheme wasm-read)
   (export read-binaryen-module)
-  (import (scheme base) (scheme file) (scheme char) (scheme write))
-  (cond-expand
-   (snail-scheme (import (rename (scheme read) (read read-wasm-datum))))
-   (else (import (rename (only (chibi) read) (read read-wasm-datum)))))
+  (import (scheme base) (scheme file) (scheme char) (scheme write)
+          (rename (only (chibi) read) (read read-wasm-datum)))
   (begin
 
     ;; ---- Buffered bytes ----

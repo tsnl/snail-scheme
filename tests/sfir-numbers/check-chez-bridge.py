@@ -179,10 +179,22 @@ def check_abi(target, runtime, output, cases):
         assert item['message'] in record['stderr'], record
 
 
+def checked_library_profile(libraries, provenance):
+    actual = {name: hashlib.sha256((libraries / name).read_bytes()).hexdigest()
+              for name in provenance['sfir_libraries']}
+    profiles = {'original-freeze': provenance['sfir_libraries']}
+    profiles.update({review['name']: review['sfir_libraries']
+                     for review in provenance.get('compatibility_reviews', [])})
+    for name, expected in profiles.items():
+        if actual == expected:
+            return name
+    raise ValueError('SFIR libraries do not match a complete reviewed Chez control profile')
+
+
 def record_inputs(libraries, target, runtime, output):
     provenance = json.loads((CONTROLS / 'provenance.json').read_text())
-    for name, expected in provenance['sfir_libraries'].items():
-        assert hashlib.sha256((libraries / name).read_bytes()).hexdigest() == expected, name
+    profile = checked_library_profile(libraries, provenance)
+    (output / 'library-review.json').write_text(json.dumps(dict(profile=profile), indent=2) + '\n')
     for name, expected in provenance['fixtures'].items():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == expected, name
     files = [Path(__file__), FIXTURES / 'bridge.sfir', FIXTURES / 'domain.sfir',

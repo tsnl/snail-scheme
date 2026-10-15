@@ -14,7 +14,7 @@ overload families.
 | Library | Responsibility |
 | --- | --- |
 | `core` | Static scalar overloads, `Default`, and homogeneous vector/string operations. Only primitive function values come from `(sfir primitive)`. |
-| `io` | Scalar file services, explicit shared-handle ownership, borrowed stdout, line input and text output. |
+| `io` | Scalar file services, explicit shared-handle ownership, borrowed standard streams, line input and text output. |
 | `math` | Binary64 trigonometry, exponentials and logarithms through scalar externs. |
 | `text` | Unicode scalar properties and lexical string ordering. |
 | `bytes` | Packed bytes, checked copies and strict UTF-8 conversion. |
@@ -59,7 +59,7 @@ mutation order and foreign-call order are unchanged. In particular, default
 vectors validate before invoking user code, zero invokes no default, and the
 first default value initializes private storage before later slots are replaced.
 File close detaches the shared handle before a potentially failing native close;
-closing borrowed stdout remains a no-op. Callback helpers close after normal
+closing borrowed standard streams remains a no-op. Callback helpers close after normal
 return without adding exception recovery.
 
 Small accessors and conversions remain direct. Recursive construction loops,
@@ -119,6 +119,6 @@ behavior and port lifetime. It supported the explicit control forms above and
 retaining native bulk copies, initialized vector storage, CR/LF/CRLF behavior,
 empty-write lifetime checks and the existing minimum-I64 formatting algorithm.
 
-The former `artifacts.sld` is a host/legacy service used by the retained Scheme
-build machinery. It has no existing strict scalar interface and is deliberately
-outside this target-library migration; no speculative SFIR artifact API is added.
+The former `artifacts.sld` belonged to the removed Scheme build machinery.
+Staged artifact generation remains deferred with `build.scm`; it has no SFIR
+library interface yet.
