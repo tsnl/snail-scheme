@@ -8,6 +8,7 @@
    make-node node? node-kind node-type node-loc node-data node-constraints
    refine-node! children copy-ir-graph attach-declarations!
    make-value-definition value-definition? value-definition-name value-definition-loc
+   binding-id? binding-origin
    prepare-binding! binding-scheme set-binding-scheme!
    binding-initializer set-binding-initializer! binding-kind binding-payload
    binding-declaration set-binding-declaration!
@@ -109,15 +110,21 @@
     ;; The definition is also the checked binding. A use instantiates its scheme;
     ;; it never solves the owner's quantified variables. Declaration syntax stays
     ;; separate from the inferred scheme so expansion does not perform inference.
+    ;; An immutable origin survives owned compiler copies. Definition objects
+    ;; themselves remain the mutable, canonical bindings within one compilation.
+    (define-record-type <binding-id>
+      (make-binding-id) binding-id?)
     (define-record-type <value-definition>
-      (new-definition name loc scheme declaration initializer kind payload) value-definition?
+      (new-definition name loc origin scheme declaration initializer kind payload) value-definition?
       (name value-definition-name) (loc value-definition-loc)
+      (origin binding-origin)
       (scheme binding-scheme set-binding-scheme!)
       (declaration binding-declaration set-binding-declaration!)
       (initializer binding-initializer set-binding-initializer!)
       (kind binding-kind set-binding-kind!) (payload binding-payload set-binding-payload!))
     (define (make-value-definition name loc)
-      (new-definition name loc (make-scheme '() (fresh-hole) '()) #f #f 'source #f))
+      (new-definition name loc (make-binding-id)
+                      (make-scheme '() (fresh-hole) '()) #f #f 'source #f))
     (define (prepare-binding! definition scheme initializer kind payload)
       (set-binding-scheme! definition scheme) (set-binding-initializer! definition initializer)
       (set-binding-kind! definition kind) (set-binding-payload! definition payload) definition)
@@ -325,8 +332,9 @@
                           (walk (node-data node)) (walk (node-constraints node)))))
         (define (copy-definition definition)
           (let ((copy (reserve definition
-                               (make-value-definition (value-definition-name definition)
-                                                      (value-definition-loc definition)))))
+                               (new-definition (value-definition-name definition)
+                                               (value-definition-loc definition)
+                                               (binding-origin definition) #f #f #f 'source #f))))
             (set-binding-declaration! copy (walk (binding-declaration definition)))
             (prepare-binding! copy (walk (binding-scheme definition))
                               (walk (binding-initializer definition)) (binding-kind definition)
@@ -382,6 +390,8 @@
                (copies (copy-ir-graph (list bind use definition)))
                (copy (caddr copies)))
           (expect (eq? copy definition) #f)
+          (expect (binding-id? (binding-origin definition)) #t)
+          (expect (eq? (binding-origin copy) (binding-origin definition)) #t)
           (expect (eq? (value-binding-definition (car copies)) copy) #t)
           (expect (eq? (binding-initializer copy) (cadr copies)) #t)
           (expect (eq? (name-definition (cadr copies)) copy) #t)
