@@ -72,6 +72,25 @@ def fixtures():
             add(f'modulo-{a}-{b}', 4, a, b, text=a%b)
             add(f'gcd-{a}-{b}', 6, a, b, text=math.gcd(a, b))
     add('ratio-zero-denominator', 0, 1, 0, error=True)
+    for a, b in [(0, -17), (4, -8), (-4, -8), (2**250-2, 2**249-1), (0, 0), (1, 0)]:
+        add(f'normalize-{a}-{b}', 7, a, b, text=str(Fraction(a, b)) if b else '', error=b == 0)
+    fractions = [Fraction(0), Fraction(1), Fraction(-1, 2), Fraction(2, 3),
+                 Fraction(2**100+1, 3**40), Fraction(-3**45, 2**170)]
+    for left in fractions:
+        for right in fractions:
+            for operation, answer in [(8, left+right), (9, left-right), (10, left*right),
+                                      (12, (left > right) - (left < right))]:
+                add(f'rational-{operation}-{left}-{right}', operation, left, right, text=answer)
+            add(f'rational-divide-{left}-{right}', 11, left, right,
+                text=str(left/right) if right else '', error=right == 0)
+        add(f'rational-truncate-{left}', 13, left, text=math.trunc(left))
+        add(f'rational-floor-{left}', 16, left, text=math.floor(left))
+    for index, value in enumerate([*values, 0.1, -0.1, 1e-200, -1e200]):
+        valid = math.isfinite(value)
+        add(f'rational-exact-float-{index}', 14, value=value,
+            text=str(Fraction(value)) if valid else '', error=not valid)
+        add(f'rational-roundtrip-{index}', 15, value=value,
+            result=value if value else 0.0, error=not valid)
     return cases
 
 

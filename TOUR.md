@@ -385,6 +385,15 @@ independent arithmetic and ownership oracles on raw/optimized Wasm and native64,
 including an exhaustive small-radix copy of its module-local tests. See
 [the integer contracts](doc/strict-integer.md).
 
+[`(snail rational)`](src/snail/rational.sld) builds immutable reduced fractions
+from Integers. Its private constructor guarantees a positive denominator and
+canonical zero; named arithmetic and existing static overloads share that
+normalization rule. Exact conversion from binary64 exposes the finite dyadic
+value, while conversion back rounds the exact ratio once. The independent
+Fraction oracle in [`scripts/test-strict-numbers`](scripts/test-strict-numbers)
+checks complete values on raw/optimized Wasm and native64. See
+[the rational contracts](doc/strict-rational.md).
+
 [`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
 one-argument `atan` as ordinary typed externs. Their scalar C signatures call
 [`strict_math.rs`](src/strict_math.rs) in both the native and Wasm runtime;
