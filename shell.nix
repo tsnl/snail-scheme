@@ -24,6 +24,8 @@ pkgs.mkShell {
     python3
     rustup
     binaryen
+    clang
+    llvmPackages.lld
     nodejs
     mdbook
     graphviz

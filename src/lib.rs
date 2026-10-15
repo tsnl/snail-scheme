@@ -16,6 +16,8 @@ mod hash;
 mod host;
 mod interop_example;
 mod iverson;
+#[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+mod native;
 mod platform;
 mod strict_io;
 mod symbols;
@@ -65,7 +67,12 @@ fn fail_message(message: &str) -> ! {
         }
         report_error(message.as_ptr(), message.len())
     }
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+    native::report_error(message);
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(not(feature = "native-runtime"), test)
+    ))]
     panic!("snail-scheme: {message}")
 }
 

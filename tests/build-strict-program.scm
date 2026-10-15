@@ -2,6 +2,7 @@
 (import (scheme base) (scheme cxr) (scheme process-context)
         (snail-scheme strict-compiler) (snail-scheme chromium-trace)
         (snail-scheme wasm-optimize))
+(check-binaryen-tools)
 (define arguments (cdr (command-line)))
 (define output (caddr arguments))
 (define wat (string-append output ".wat"))

@@ -1,5 +1,5 @@
-//! Companion files belong to a published Wasm generation. The loader resolves
-//! its payload once and supplies that generation's artifact directory.
+//! Companion files belong to a published generation. The Wasm loader supplies
+//! its artifact directory; native programs use their physical executable path.
 
 use crate::{abi::Root, arguments, finish, string_text};
 use std::{io, path::PathBuf};
@@ -35,7 +35,18 @@ fn find(name: &str) -> Result<Option<PathBuf>, String> {
     }
     let root = match std::env::var_os("SNAIL_ARTIFACT_ROOT") {
         Some(path) => PathBuf::from(path),
-        None => return Ok(None),
+        None => {
+            #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+            {
+                let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+                executable
+                    .parent()
+                    .ok_or("native executable has no directory")?
+                    .join("artifacts")
+            }
+            #[cfg(any(not(feature = "native-runtime"), target_arch = "wasm32", test))]
+            return Ok(None);
+        }
     };
     find_in(root, name)
 }

@@ -27,7 +27,7 @@ def run(command, label):
 
 def check_form(source, label, runtime, contract):
     linked = OUTPUT / (label + '.wasm')
-    flags = ['--raw'] if label.endswith('-raw') else []
+    flags = ['--diagnostic-prune-only'] if label.endswith('-raw') else []
     run([ROOT / 'scripts/link-strict-runtime', '--runtime', runtime, *flags, source, linked], label + '-link')
     files = tempfile.mkdtemp(prefix=label + '-', dir=OUTPUT)
     run([os.environ.get('NODE', 'node'), ROOT / 'tests/strict-io/run.mjs', linked, files, contract], label + '-run')

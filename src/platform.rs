@@ -1,5 +1,5 @@
-//! Default WASI handlers. The linker selects these through effect interfaces.
-//! Scheme values remain roots in the node's engine; resources belong here.
+//! Default WASI and native handlers, selected through effect interfaces.
+//! Scheme values remain owned ABI roots; resources belong here.
 
 use crate::abi::{Arguments, Kind, Root};
 use crate::host::Port;
@@ -7,7 +7,7 @@ use crate::{
     arguments, bounds, datum, fail_message, finish, format_value, nonnegative, string_text,
 };
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -60,13 +60,17 @@ struct Host {
 
 impl Host {
     fn new() -> Self {
-        Self {
+        let host = Self {
             ports: vec![Port::stdin(), Port::Stdout, Port::Stderr],
             // Each freshly created port receives its one owning GC wrapper.
             current: std::array::from_fn(|id| unsafe {
                 Root::from_raw_extension(PORT_KIND, id as u32)
             }),
-        }
+        };
+        HOST_READY.set(true);
+        #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+        crate::native::register_legacy_cleanup(close_all_native);
+        host
     }
 
     fn port(&mut self, value: &Root) -> Result<&mut Port, String> {
@@ -79,23 +83,53 @@ impl Host {
             .ok_or_else(|| "invalid port resource".into())
     }
 
-    fn add_port(&mut self, port: Port) -> Result<Root, String> {
+    fn add_port(&mut self, port: Port) -> Result<u32, String> {
         let id = u32::try_from(self.ports.len()).map_err(|_| "too many ports")?;
         self.ports.push(port);
-        // IDs are fresh and never reused; this is the resource's only wrapper.
-        Ok(unsafe { Root::from_raw_extension(PORT_KIND, id) })
+        Ok(id)
     }
 }
 
 // ABI accessors never call Scheme or reenter Rust. Host borrows do not cross
 // user callbacks. Resources are explicitly closed; GC is not a Rust finalizer.
-thread_local! { static HOST: RefCell<Host> = RefCell::new(Host::new()); }
+thread_local! {
+    static HOST_READY: Cell<bool> = const { Cell::new(false) };
+    static HOST: RefCell<Host> = RefCell::new(Host::new());
+}
+
+fn add_port(port: Port) -> Result<Root, String> {
+    let id = HOST.with_borrow_mut(|host| host.add_port(port))?;
+    // Store the resource first. Allocation failure can now close it without
+    // crossing a resource borrow; IDs are fresh and never reused.
+    Ok(unsafe { Root::from_raw_extension(PORT_KIND, id) })
+}
+
+fn retain_current(index: usize) -> Root {
+    let handle = HOST.with_borrow(|host| host.current[index].handle());
+    // HOST keeps the original owner alive across this synchronous retain.
+    unsafe { Root::retain_handle(handle) }
+}
+
+#[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+pub(crate) fn close_all_native() -> bool {
+    if !HOST_READY.get() {
+        return false;
+    }
+    let ports = HOST.with_borrow_mut(|host| std::mem::take(&mut host.ports));
+    let mut failed = false;
+    for mut port in ports {
+        failed |= port.close().is_err();
+        drop(port);
+        crate::native::resource_released();
+    }
+    failed
+}
 
 fn selected_port(args: &Arguments, index: usize, current: usize) -> Result<Root, String> {
     if index < args.len() {
         args.get(index)
     } else {
-        Ok(HOST.with_borrow(|host| host.current[current].clone()))
+        Ok(retain_current(current))
     }
 }
 
@@ -118,7 +152,7 @@ fn open_file(args: &Arguments, input: bool) -> Result<Root, String> {
     } else {
         Port::output_file(&path)?
     };
-    HOST.with_borrow_mut(|host| host.add_port(port))
+    add_port(port)
 }
 
 #[unsafe(export_name = "snail:open-binary-input-file")]
@@ -126,7 +160,7 @@ pub extern "C" fn open_binary_input_file(raw: u32) -> u32 {
     let args = arguments(raw, "open-binary-input-file", 1, 1);
     finish((|| {
         let port = Port::binary_input_file(&string_text(&args.get(0)?)?)?;
-        HOST.with_borrow_mut(|host| host.add_port(port))
+        add_port(port)
     })())
 }
 
@@ -148,24 +182,28 @@ pub extern "C" fn file_exists(raw: u32) -> u32 {
 #[unsafe(export_name = "snail:open-output-string")]
 pub extern "C" fn open_output_string(raw: u32) -> u32 {
     arguments(raw, "open-output-string", 0, 0);
-    finish(HOST.with_borrow_mut(|host| host.add_port(Port::output_string())))
+    finish(add_port(Port::output_string()))
 }
 
 #[unsafe(export_name = "snail:get-output-string")]
 pub extern "C" fn get_output_string(raw: u32) -> u32 {
     let args = arguments(raw, "get-output-string", 1, 1);
-    finish(
-        HOST.with_borrow_mut(|host| Ok(Root::string(host.port(&args.get(0)?)?.captured_output()?))),
-    )
+    finish((|| {
+        let value = args.get(0)?;
+        let text =
+            HOST.with_borrow_mut(|host| host.port(&value)?.captured_output().map(str::to_owned))?;
+        Ok(Root::string(&text))
+    })())
 }
 
 #[unsafe(export_name = "snail:close-port")]
 pub extern "C" fn close_port(raw: u32) -> u32 {
     let args = arguments(raw, "close-port", 1, 1);
-    finish(HOST.with_borrow_mut(|host| {
-        host.port(&args.get(0)?)?.close()?;
+    finish((|| {
+        let value = args.get(0)?;
+        HOST.with_borrow_mut(|host| host.port(&value)?.close())?;
         Ok(Root::unspecified())
-    }))
+    })())
 }
 
 /// Host finalization releases the Rust payload after its GC wrapper dies.
@@ -228,8 +266,9 @@ pub extern "C" fn input_port_open(raw: u32) -> u32 {
     finish(args.get(0).and_then(|value| {
         HOST.with_borrow_mut(|host| {
             host.port(&value)
-                .map(|port| Root::boolean(port.is_input() && port.is_open()))
+                .map(|port| port.is_input() && port.is_open())
         })
+        .map(Root::boolean)
     }))
 }
 
@@ -239,8 +278,9 @@ pub extern "C" fn output_port_open(raw: u32) -> u32 {
     finish(args.get(0).and_then(|value| {
         HOST.with_borrow_mut(|host| {
             host.port(&value)
-                .map(|port| Root::boolean(port.is_output() && port.is_open()))
+                .map(|port| port.is_output() && port.is_open())
         })
+        .map(Root::boolean)
     }))
 }
 
@@ -248,10 +288,8 @@ pub extern "C" fn output_port_open(raw: u32) -> u32 {
 pub extern "C" fn textual_port(raw: u32) -> u32 {
     let args = arguments(raw, "textual-port?", 1, 1);
     finish(args.get(0).and_then(|value| {
-        HOST.with_borrow_mut(|host| {
-            host.port(&value)
-                .map(|port| Root::boolean(!port.is_binary()))
-        })
+        HOST.with_borrow_mut(|host| host.port(&value).map(|port| !port.is_binary()))
+            .map(Root::boolean)
     }))
 }
 
@@ -259,10 +297,8 @@ pub extern "C" fn textual_port(raw: u32) -> u32 {
 pub extern "C" fn binary_port(raw: u32) -> u32 {
     let args = arguments(raw, "binary-port?", 1, 1);
     finish(args.get(0).and_then(|value| {
-        HOST.with_borrow_mut(|host| {
-            host.port(&value)
-                .map(|port| Root::boolean(port.is_binary()))
-        })
+        HOST.with_borrow_mut(|host| host.port(&value).map(|port| port.is_binary()))
+            .map(Root::boolean)
     }))
 }
 
@@ -320,7 +356,7 @@ pub extern "C" fn open_input_string(raw: u32) -> u32 {
     let args = arguments(raw, "open-input-string", 1, 1);
     finish((|| {
         let port = Port::input_string(string_text(&args.get(0)?)?);
-        HOST.with_borrow_mut(|host| host.add_port(port))
+        add_port(port)
     })())
 }
 
@@ -329,14 +365,8 @@ pub extern "C" fn peek_char(raw: u32) -> u32 {
     let args = arguments(raw, "peek-char", 0, 1);
     finish((|| {
         let port = selected_port(&args, 0, 0)?;
-        HOST.with_borrow_mut(|host| {
-            Ok(host
-                .port(&port)?
-                .text_input()?
-                .peek_char()?
-                .map(Root::character)
-                .unwrap_or_else(Root::eof))
-        })
+        let value = HOST.with_borrow_mut(|host| host.port(&port)?.text_input()?.peek_char())?;
+        Ok(value.map(Root::character).unwrap_or_else(Root::eof))
     })())
 }
 
@@ -345,14 +375,10 @@ pub extern "C" fn read_line(raw: u32) -> u32 {
     let args = arguments(raw, "read-line", 0, 1);
     finish((|| {
         let port = selected_port(&args, 0, 0)?;
-        HOST.with_borrow_mut(|host| {
-            Ok(host
-                .port(&port)?
-                .text_input()?
-                .read_line()?
-                .map(|text| Root::string(&text))
-                .unwrap_or_else(Root::eof))
-        })
+        let text = HOST.with_borrow_mut(|host| host.port(&port)?.text_input()?.read_line())?;
+        Ok(text
+            .map(|text| Root::string(&text))
+            .unwrap_or_else(Root::eof))
     })())
 }
 
@@ -370,18 +396,11 @@ pub extern "C" fn write_char(raw: u32) -> u32 {
 #[unsafe(export_name = "snail:read-char")]
 pub extern "C" fn read_char(raw: u32) -> u32 {
     let args = arguments(raw, "read-char", 0, 1);
-    finish(HOST.with_borrow_mut(|host| {
-        let port = if args.len() == 0 {
-            host.current[0].clone()
-        } else {
-            args.get(0)?
-        };
-        Ok(host
-            .port(&port)?
-            .read_char()?
-            .map(Root::character)
-            .unwrap_or_else(Root::eof))
-    }))
+    finish((|| {
+        let port = selected_port(&args, 0, 0)?;
+        let value = HOST.with_borrow_mut(|host| host.port(&port)?.read_char())?;
+        Ok(value.map(Root::character).unwrap_or_else(Root::eof))
+    })())
 }
 
 #[unsafe(export_name = "snail:read-string")]
@@ -394,12 +413,10 @@ fn read_port_string(args: &Arguments) -> Result<Root, String> {
     let count =
         usize::try_from(args.get(0)?.as_integer()?).map_err(|_| "expected a nonnegative length")?;
     let port = selected_port(args, 1, 0)?;
-    HOST.with_borrow_mut(|host| {
-        Ok(match host.port(&port)?.read_string(count)? {
-            Some(text) => Root::string(&text),
-            None => Root::eof(),
-        })
-    })
+    let text = HOST.with_borrow_mut(|host| host.port(&port)?.read_string(count))?;
+    Ok(text
+        .map(|text| Root::string(&text))
+        .unwrap_or_else(Root::eof))
 }
 
 #[unsafe(export_name = "snail:read-bytevector")]
@@ -408,12 +425,10 @@ pub extern "C" fn read_bytevector(raw: u32) -> u32 {
     finish((|| {
         let count = nonnegative(&args.get(0)?)?;
         let port = selected_port(&args, 1, 0)?;
-        HOST.with_borrow_mut(|host| {
-            Ok(match host.port(&port)?.read_bytes(count)? {
-                Some(bytes) => Root::bytevector(&bytes),
-                None => Root::eof(),
-            })
-        })
+        let bytes = HOST.with_borrow_mut(|host| host.port(&port)?.read_bytes(count))?;
+        Ok(bytes
+            .map(|bytes| Root::bytevector(&bytes))
+            .unwrap_or_else(Root::eof))
     })())
 }
 
@@ -461,7 +476,7 @@ pub extern "C" fn current_error(raw: u32) -> u32 {
 
 fn current_port(raw: u32, name: &str, index: usize) -> u32 {
     arguments(raw, name, 0, 0);
-    HOST.with_borrow(|host| host.current[index].clone().into_handle())
+    retain_current(index).into_handle()
 }
 
 #[unsafe(export_name = "snail:%set-current-input-port!")]
@@ -479,21 +494,26 @@ pub extern "C" fn set_current_error(raw: u32) -> u32 {
 
 fn set_current_port(raw: u32, name: &str, index: usize) -> u32 {
     let args = arguments(raw, name, 1, 1);
-    finish(HOST.with_borrow_mut(|host| {
+    finish((|| {
         let value = args.get(0)?;
-        let port = host.port(&value)?;
-        if !port.is_open()
-            || !(if index == 0 {
-                port.is_input()
-            } else {
-                port.is_output()
-            })
-        {
-            return Err("expected an open port of the appropriate direction".into());
-        }
-        host.current[index] = value;
+        HOST.with_borrow_mut(|host| set_current(host, value, index))?;
         Ok(Root::unspecified())
-    }))
+    })())
+}
+
+fn set_current(host: &mut Host, value: Root, index: usize) -> Result<(), String> {
+    let port = host.port(&value)?;
+    if !port.is_open()
+        || !(if index == 0 {
+            port.is_input()
+        } else {
+            port.is_output()
+        })
+    {
+        return Err("expected an open port of the appropriate direction".into());
+    }
+    host.current[index] = value;
+    Ok(())
 }
 
 // ---- Process, clocks, tracing, and diagnostics ----
@@ -524,7 +544,11 @@ pub extern "C" fn command_line(raw: u32) -> u32 {
 #[unsafe(export_name = "snail:exit")]
 pub extern "C" fn exit(raw: u32) -> u32 {
     let args = arguments(raw, "exit", 0, 1);
-    std::process::exit(exit_status(&args).unwrap_or_else(|error| fail_message(&error)))
+    let status = exit_status(&args).unwrap_or_else(|error| fail_message(&error));
+    #[cfg(all(feature = "native-runtime", not(target_arch = "wasm32"), not(test)))]
+    crate::native::exit(status);
+    #[cfg(any(not(feature = "native-runtime"), target_arch = "wasm32", test))]
+    std::process::exit(status)
 }
 
 fn exit_status(args: &Arguments) -> Result<i32, String> {
