@@ -1,0 +1,10 @@
+{
+  "observed_events": 370,
+  "overlapping_events": 368,
+  "whole_overlapping_duration_ms": 10.241609811782837,
+  "window_ms": 937.52531,
+  "kind_counts": {
+    "1": 368
+  },
+  "policy": "classify by start/duration, retain crossing events whole; bounded drain is not proof of complete delivery"
+}

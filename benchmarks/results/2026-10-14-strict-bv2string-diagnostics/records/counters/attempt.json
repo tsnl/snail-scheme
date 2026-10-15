@@ -1,0 +1,78 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters-host.mjs",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters.wasm",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/spec.json",
+    "--diagnostics",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters"
+  ],
+  "cwd": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters",
+  "status": "valid",
+  "clean_timing": false,
+  "started_utc": "2026-10-14T16:25:20.192193+00:00",
+  "timeout_seconds": 120,
+  "driver": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/benchmarks/results/2026-10-14-strict-bv2string-diagnostics/diagnose.py",
+    "sha256": "02811852e99811dad2c4c068593802bba91a3e21305ab62bb5f96df0c43f832c"
+  },
+  "environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "identities_before": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "pid": 4,
+  "process_group": 4,
+  "cleanup": {
+    "before": [],
+    "after": [],
+    "live_members": [],
+    "zombies_dead_not_running": true
+  },
+  "returncode": 0,
+  "diagnostic_process_seconds": 1.6751586130121723,
+  "stdout_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters/stdout.bin",
+    "sha256": "a1c43b04e0fb2648db496f54bba76ff98b8de4f65c555d619d0d803ce88fa3e7"
+  },
+  "stderr_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters/stderr.bin",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "identities_after": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "stdout": "{\"seconds\":1.631641208,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+  "stderr": "",
+  "valid_full_result": true,
+  "diagnostic_workload_seconds": 1.631641208,
+  "full_count": 100,
+  "counter_module": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters.wasm",
+    "sha256": "190a726260bfaa1d088d83219a496ae5bc5c772a9e9dd8e6906dba74b3877103"
+  },
+  "counts": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/counters/counts.json",
+    "sha256": "9479cc56d33ef5c9658d86c00b9905407ac07cefa0d0deed630e2170cdd81b3e"
+  }
+}

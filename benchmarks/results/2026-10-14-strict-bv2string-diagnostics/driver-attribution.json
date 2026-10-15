@@ -1,0 +1,37 @@
+[
+  {
+    "attempt": "counters",
+    "source": "counters-driver.py",
+    "sha256": "02811852e99811dad2c4c068593802bba91a3e21305ab62bb5f96df0c43f832c",
+    "launch_sha256": "02811852e99811dad2c4c068593802bba91a3e21305ab62bb5f96df0c43f832c",
+    "exact_launch_hash_match": true
+  },
+  {
+    "attempt": "counter-incomplete-readiness/counters",
+    "source": "counter-incomplete-readiness-counters-driver.py",
+    "sha256": "ecbf05731dd9f6f8dc2d70a6604991c69f7a86315e2999904bb1650c4f17cc5f",
+    "launch_sha256": "ecbf05731dd9f6f8dc2d70a6604991c69f7a86315e2999904bb1650c4f17cc5f",
+    "exact_launch_hash_match": true
+  },
+  {
+    "attempt": "rng-code",
+    "source": "rng-code-driver.py",
+    "sha256": "98bab663bf77ae9ffae0245f161098d904dd35b39fb3e246be1f4afa67620320",
+    "launch_sha256": "98bab663bf77ae9ffae0245f161098d904dd35b39fb3e246be1f4afa67620320",
+    "exact_launch_hash_match": true
+  },
+  {
+    "attempt": "rng-code-all-printed",
+    "source": "rng-code-all-printed-driver.py",
+    "sha256": "82ae146947717ce41a46e5cef7231c547bfa2d8f684534dc8251169ba96c1ba0",
+    "launch_sha256": "82ae146947717ce41a46e5cef7231c547bfa2d8f684534dc8251169ba96c1ba0",
+    "exact_launch_hash_match": true
+  },
+  {
+    "attempt": "rust-profile",
+    "source": "rust-profile-driver.py",
+    "sha256": "327cb3521b343229d866a858f9f1ebdcf9e5106023293578efe6c339cc01cfa6",
+    "launch_sha256": "327cb3521b343229d866a858f9f1ebdcf9e5106023293578efe6c339cc01cfa6",
+    "exact_launch_hash_match": true
+  }
+]

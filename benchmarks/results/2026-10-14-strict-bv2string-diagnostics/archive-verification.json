@@ -1,0 +1,23 @@
+{
+  "valid": true,
+  "archive_sha256": "1f28c47d4ad4e64cf00ab32b16614ae1ae7583f561b80fba08b45e5bb18c7e80",
+  "archive_bytes": 19006340,
+  "regular_files": 873,
+  "all_bytes_verified_before_and_after": true,
+  "relocated_root": "/tmp/snail-bv2string-diagnostics-restored-20261014",
+  "full_count_correctness_replays": [
+    {
+      "kind": "original",
+      "valid": true,
+      "full_count": 100,
+      "group_live_members": []
+    },
+    {
+      "kind": "counters",
+      "valid": true,
+      "full_count": 100,
+      "group_live_members": []
+    }
+  ],
+  "clean_timing": false
+}
