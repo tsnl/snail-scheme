@@ -1,0 +1,176 @@
+{
+  "scope": "Relocated count-one correctness only, not performance samples.",
+  "archive_sha256": "c24cd623bddfb49b3da05c61c49ba8f82bb36619f3b8942d480cdfc91560edde",
+  "verified_members": 603,
+  "archived_and_external_identities_unchanged": true,
+  "probes": [
+    {
+      "threshold": 16,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-16-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/16",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000149101,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 16,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-16-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/16",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000165676,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 64,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-64-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/64",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000152298,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 64,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-64-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/64",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000186857,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 1024,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-1024-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/1024",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000621412,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 1024,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-1024-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/1024",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00064261,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 4096,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-4096-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/4096",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001420564,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 4096,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-4096-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/4096",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001210362,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 8192,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-8192-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/8192",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001684335,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 8192,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-8192-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/8192",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.001539322,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 32768,
+      "variant": "flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-32768-flat.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/32768",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00525083,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "threshold": 32768,
+      "variant": "blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/string-size-controls-parent-replay-20261014/probe-32768-blocks.json"
+      ],
+      "cwd": "/tmp/string-size-controls-parent-replay-20261014/files/tmp/snail-string-size-controls-20261014/build/size-controls/32768",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.003820753,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    }
+  ]
+}
