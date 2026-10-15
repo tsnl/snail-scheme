@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""Compile an SFIR producer, transfer structured library data, and execute its output."""
+
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / 'tests/sfir-builder'
+OUTPUT = ROOT / 'build/sfir-builder'
+RECORDS = []
+
+
+def run(command):
+    result = subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True, text=True, timeout=240,
+                            env={**os.environ, 'BINARYEN_CORES': '1'})
+    RECORDS.append(dict(command=list(map(str, command)), status=result.returncode,
+                        stdout=result.stdout, stderr=result.stderr))
+    (OUTPUT / 'commands.json').write_text(json.dumps(RECORDS, indent=2) + '\n')
+    assert result.returncode == 0, RECORDS[-1]
+    if result.stdout:
+        print(result.stdout, end='', flush=True)
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    chibi = [os.environ.get('CHIBI', 'chibi-scheme'), '-I', ROOT / 'src', '-I', ROOT / 'tests']
+    node = [os.environ.get('NODE', 'node'), '--expose-gc']
+    run([*chibi, FIXTURES / 'build.scm', OUTPUT])
+    run([*node, FIXTURES / 'produce.mjs', OUTPUT])
+    run([*chibi, FIXTURES / 'receive.scm', OUTPUT])
+    run([*node, FIXTURES / 'run.mjs', OUTPUT])
+
+
+if __name__ == '__main__':
+    main()
