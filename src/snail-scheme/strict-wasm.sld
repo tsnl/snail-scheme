@@ -4,7 +4,9 @@
 (define-library (snail-scheme strict-wasm)
   (export strict-core->wasm)
   (import (scheme base) (scheme cxr)
-          (snail-scheme strict-core) (snail-scheme strict-types)
+          (only (snail-scheme ir)
+                make-node node-kind node-type node-loc node-data binding-scheme)
+          (snail-scheme strict-types)
           (snail-scheme strict-specialize) (snail-scheme strict-primitives)
           (snail-scheme wasm-extern))
   (begin

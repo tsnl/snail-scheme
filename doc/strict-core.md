@@ -405,15 +405,34 @@ existing parser may recognize forms outside this surface; the strict checker
 rejects unsupported expressions. No benchmark speedup is claimed from
 correctness tests alone.
 
-## Planned shared IR refinement
+## Shared IR and compilation ownership
 
-The current prototype elaborates resolved `ir.sld` expression records into
-`strict-core.sld` typed records. A follow-up refactor will consolidate those into
-one located IR whose attached type holes are refined by inference and replaced
-by concrete substitutions during specialization. Expansion will still resolve
-names and attach declared type syntax without performing type inference.
+Expansion, checking and specialization use the same located node and definition
+records in `ir.sld`. A definition owns its scheme, optional located declaration
+and initializer; each overload row has its own member identity and signature.
+Expansion resolves names and attaches syntax without inferring types. Unannotated
+expressions and bindings begin with fresh `Hole` identities.
 
-Inferred overload signatures are also planned for that layer: each omitted row
+Inference owns one graph copy of all source and primitive roots, including unused
+bodies. A temporary identity map preserves sharing and cycles while copying
+mutable nodes, schemes, holes and checking data. Cached expanded libraries stay
+unchanged. The owned graph is then refined in place: holes are solved, eligible
+bindings are generalized, and explicit conversions and direct-let lowering become
+visible in the same IR. `strict-core.sld` contains only program and static class
+evidence records.
+
+A Hole is missing static information, not a universal value. `Top` has a concrete
+runtime representation and explicit checked boundaries. Rigid `All` variables
+cannot be solved; generalized uses instantiate fresh holes. Specialization copies
+expressions with concrete substitutions while retaining external checked binding
+and runtime initialization identities. Its site, value and function objects
+separate one initializer event from the storage and code it needs. Generic
+templates retain their obligations, and every emitted instance must have fully
+concrete types and resolved operations.
+
+## Planned inferred overload signatures
+
+Inferred overload signatures are a separate follow-up: each omitted row
 signature will own a fresh hole and independent implementation identity. All
 candidate rows must be considered before selection; unresolved competing rows
 cannot be ignored. Dependency groups must infer coherent row schemes or request

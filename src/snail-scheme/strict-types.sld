@@ -1,9 +1,11 @@
 ;; Inference variables are private solver identities, never the universal Top
 ;; value type. Schemes quantify variables; emitted instances contain none.
 (define-library (snail-scheme strict-types)
-  (export fresh-variable variable? variable-rigid? resolve unify! type-equal? type-variables
+  (export fresh-hole hole? hole-link set-hole-link! fresh-rigid rigid?
+          fresh-variable variable? variable-rigid? resolve unify! type-equal? type-variables
           substitute concrete-type? require-concrete type-datum strict-error
           make-scheme scheme? scheme-variables scheme-type scheme-constraints
+          set-scheme-variables! set-scheme-type! set-scheme-constraints!
           instantiate generalize free-scheme-variables identity-union
           function-type function-type? function-domains function-rest function-result
           scalar-types subtype? join-types)
@@ -12,17 +14,26 @@
 
     ;; ---- Variables and equality constraints ----
 
-    (define-record-type <variable>
-      (make-variable id rigid? link) variable?
-      (id variable-id) (rigid? variable-rigid?) (link variable-link set-variable-link!))
+    ;; Hole is unsolved compile-time information. A rigid binder is a different
+    ;; variant: it can be substituted at instantiation, but never linked by inference.
+    (define-record-type <hole>
+      (make-hole id link) hole?
+      (id hole-id) (link hole-link set-hole-link!))
+    (define-record-type <rigid>
+      (make-rigid id) rigid? (id rigid-id))
     (define next-variable 0)
+    (define (next-variable-id)
+      (let ((id next-variable)) (set! next-variable (+ id 1)) id))
+    (define (fresh-hole) (make-hole (next-variable-id) #f))
+    (define (fresh-rigid) (make-rigid (next-variable-id)))
     (define (fresh-variable . rigid)
-      (let ((id next-variable))
-        (set! next-variable (+ id 1))
-        (make-variable id (and (pair? rigid) (car rigid)) #f)))
+      (if (and (pair? rigid) (car rigid)) (fresh-rigid) (fresh-hole)))
+    (define (variable? type) (or (hole? type) (rigid? type)))
+    (define variable-rigid? rigid?)
+    (define (variable-id type) (if (hole? type) (hole-id type) (rigid-id type)))
     (define (resolve type)
-      (if (and (variable? type) (variable-link type))
-          (let ((root (resolve (variable-link type)))) (set-variable-link! type root) root) type))
+      (if (and (hole? type) (hole-link type))
+          (let ((root (resolve (hole-link type)))) (set-hole-link! type root) root) type))
     (define (type-equal? left right)
       (let ((left (resolve left)) (right (resolve right)))
         (or (eq? left right)
@@ -34,7 +45,7 @@
               ((and (variable? left) (variable? right)
                     (not (variable-rigid? left)) (not (variable-rigid? right)))
                (if (< (variable-id left) (variable-id right))
-                   (set-variable-link! right left) (set-variable-link! left right)))
+                   (set-hole-link! right left) (set-hole-link! left right)))
               ((and (variable? left) (not (variable-rigid? left))) (bind-variable! left right loc))
               ((and (variable? right) (not (variable-rigid? right))) (bind-variable! right left loc))
               ((and (pair? left) (pair? right))
@@ -43,7 +54,7 @@
     (define (bind-variable! variable type loc)
       (if (memq variable (type-variables type))
           (strict-error loc "occurs check: infinite type" variable type)
-          (set-variable-link! variable type)))
+          (set-hole-link! variable type)))
     (define (identity-union left right)
       (if (null? left) right
           (identity-union (cdr left) (if (memq (car left) right) right (cons (car left) right)))))
@@ -62,7 +73,8 @@
 
     (define-record-type <scheme>
       (make-scheme variables type constraints) scheme?
-      (variables scheme-variables) (type scheme-type) (constraints scheme-constraints))
+      (variables scheme-variables set-scheme-variables!)
+      (type scheme-type set-scheme-type!) (constraints scheme-constraints set-scheme-constraints!))
     (define (free-scheme-variables scheme)
       (let remove ((variables (type-variables (cons (scheme-type scheme) (scheme-constraints scheme)))))
         (cond ((null? variables) '())
@@ -107,7 +119,7 @@
 
     (define (type-datum type)
       (let ((type (resolve type)))
-        (cond ((variable? type) (list (if (variable-rigid? type) 'rigid 'unknown) (variable-id type)))
+        (cond ((variable? type) (list (if (rigid? type) 'Rigid 'Hole) (variable-id type)))
               ((pair? type) (cons (type-datum (car type)) (type-datum (cdr type))))
               (else type))))
     (define (strict-error loc message . details)
@@ -124,6 +136,13 @@
     (import (snail-scheme test-utils))
     (begin
       (define (test-strict-types)
+        (let ((hole (fresh-hole)) (rigid (fresh-rigid)))
+          (expect (map variable? (list hole rigid 'Top)) '(#t #t #f))
+          (expect (map hole? (list hole rigid 'Top)) '(#t #f #f))
+          (expect (concrete-type? hole) #f)
+          (expect (concrete-type? 'Top) #t)
+          (unify! hole 'Top #f)
+          (expect (resolve hole) 'Top))
         (let* ((older (fresh-variable)) (newer (fresh-variable)))
           (unify! newer older #f)
           (expect (eq? (resolve newer) older) #t))

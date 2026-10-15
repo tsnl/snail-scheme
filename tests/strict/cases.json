@@ -169,5 +169,9 @@
   {"name": "vector-default-large", "result": "42"},
   {"name": "vector-conversion-large", "result": "42"},
   {"name": "vector-default-shared", "result": "42"},
-  {"name": "vector-default-trap-effects", "result": "42", "exports": {"allocate": "trap", "calls": "3"}}
+  {"name": "vector-default-trap-effects", "result": "42", "exports": {"allocate": "trap", "calls": "3"}},
+  {"name": "reject-imported-declaration", "error": "type declaration requires one local definition"},
+  {"name": "reject-outer-declaration", "error": "type declaration requires one local definition"},
+  {"name": "reject-primitive-declaration", "error": "type declaration requires one local definition"},
+  {"name": "reject-duplicate-declaration", "error": "type declaration requires one local definition"}
 ]

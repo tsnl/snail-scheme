@@ -1,29 +1,14 @@
-;; Typed expressions retain source identities and locations. The inference pass
-;; may leave quantified variables in templates; monomorphization must resolve
-;; every node in an emitted body before representation selection.
+;; Program-wide static evidence accompanies the shared IR. Expression and
+;; definition records live in ir.sld throughout expansion, checking and copying.
 (define-library (snail-scheme strict-core)
-  (export make-node node? node-kind node-type node-loc node-data node-constraints
-          make-binding binding? binding-definition binding-scheme set-binding-scheme!
-          binding-initializer set-binding-initializer! binding-kind binding-payload
-          make-program program? program-body program-globals program-classes program-instances
+  (export make-program program? program-body program-globals program-classes program-instances
           make-class class? class-definition class-variables class-methods class-overload?
-          make-instance instance? instance-class instance-types instance-members instance-scheme
-          node-location children)
-  (import (scheme base) (prefix (snail-scheme ir) ir:))
+          make-instance instance? instance-class instance-types instance-members instance-scheme)
+  (import (scheme base))
   (begin
 
-    ;; ---- Typed source templates ----
+    ;; ---- Checked compilation roots ----
 
-    (define-record-type <node>
-      (make-node kind type loc data constraints) node?
-      (kind node-kind) (type node-type) (loc node-loc)
-      (data node-data) (constraints node-constraints))
-    (define-record-type <binding>
-      (make-binding definition scheme initializer kind payload) binding?
-      (definition binding-definition)
-      (scheme binding-scheme set-binding-scheme!)
-      (initializer binding-initializer set-binding-initializer!)
-      (kind binding-kind) (payload binding-payload))
     (define-record-type <program>
       (make-program body globals classes instances) program?
       (body program-body) (globals program-globals)
@@ -38,30 +23,4 @@
     (define-record-type <instance>
       (make-instance class types members scheme) instance?
       (class instance-class) (types instance-types) (members instance-members)
-      (scheme instance-scheme))
-
-    ;; ---- Located expansion input ----
-
-    (define (node-location node)
-      (cond ((ir:literal? node) (ir:literal-loc node)) ((ir:name? node) (ir:name-loc node))
-            ((ir:lambda? node) (ir:lambda-loc node)) ((ir:application? node) (ir:application-loc node))
-            ((ir:block? node) (ir:block-loc node)) ((ir:conditional? node) (ir:conditional-loc node))
-            ((ir:value-binding? node) (ir:value-binding-loc node))
-            ((ir:assignment? node) (ir:assignment-loc node))
-            ((ir:type-declaration? node) (ir:type-declaration-loc node))
-            ((ir:annotation? node) (ir:annotation-loc node))
-            ((ir:instantiation? node) (ir:instantiation-loc node))
-            ((ir:class-declaration? node) (ir:class-declaration-loc node))
-            ((ir:instance-declaration? node) (ir:instance-declaration-loc node))
-            ((ir:overload-declaration? node) (ir:overload-declaration-loc node))
-            ((ir:extern-declaration? node) (ir:extern-declaration-loc node)) (else #f)))
-    (define (children node)
-      (cond ((ir:lambda? node) (list (ir:lambda-body node)))
-            ((ir:block? node) (ir:block-items node))
-            ((ir:application? node) (cons (ir:application-operator node) (ir:application-operands node)))
-            ((ir:value-binding? node) (list (ir:value-binding-initializer node)))
-            ((ir:conditional? node) (list (ir:conditional-test node) (ir:conditional-consequent node)
-                                          (ir:conditional-opt-alternate node)))
-            ((ir:annotation? node) (list (ir:annotation-expression node)))
-            ((ir:instantiation? node) (list (ir:instantiation-expression node)))
-            ((ir:assignment? node) (list (ir:assignment-value node))) (else '())))))
+      (scheme instance-scheme))))

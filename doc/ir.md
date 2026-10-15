@@ -2,10 +2,15 @@
 
 IR is fully expanded Scheme with resolved lexical references and source
 locations. `expand.sld` consumes the reader's syntax objects and constructs the
-immutable expression records in `ir.sld`, organized in the independent library
+expression records in `ir.sld`, organized in the independent library
 containers from `library.sld`. `wasm.sld` analyzes bindings and captures, then emits
 each library body as structured WebAssembly. Expansion does not choose machine
 representations, infer types, or build closure environments.
+
+The strict compiler refines an owned copy of these same records. Expressions
+carry a type, initially a fresh `Hole`; resolved definitions own their scheme,
+declared syntax and initializer. Checking solves holes and generalizes eligible
+bindings. Specialization makes concrete copies without changing those templates.
 
 The implementation currently covers a Scheme core, library declarations, and
 `syntax-rules` transformers. Derived syntax can be supplied by libraries. This is
@@ -138,8 +143,10 @@ expansion does not check row compatibility or choose overloads. Every overload
 record owns its signature and implementation expression. The family identity is
 shared across rows and imported extensions; individual implementation bindings
 retain their own initializer sites. The strict compiler's elaborator currently
-constructs separate typed records; consolidating them into this same IR with
-explicit type holes is a planned follow-up, not current expansion behavior.
+refines this same representation. Each row has a distinct private member
+definition owning its declared signature, in addition to the shared family
+identity. A named implementation still refers to its original runtime binding.
+Omitted row signatures remain a separate planned extension.
 
 Library-level `cond-expand` selects the first matching clause and recursively
 splices its declarations before imports, exports, or bodies are expanded. Only
@@ -173,32 +180,69 @@ ordinary application requires a proper list of operator and operand expressions.
 
 ## IR records
 
-Executable records are defined in [`ir.sld`](../src/snail-scheme/ir.sld). Every
+Executable nodes are defined in [`ir.sld`](../src/snail-scheme/ir.sld). One node
+record carries `kind`, `type`, `loc`, variant data and proof obligations.
+Named constructors, predicates and accessors establish the variant layouts
+below; they do not construct a second tree. Every
 located node carries its own `loc`; compiler-provided definitions use `#f`. A
 definition and a reference to it have separate locations. Locations and spellings
 do not establish lexical identity.
 
-| Record | Contents |
+| Definition or source variant | Contents |
 | --- | --- |
-| `value-definition` | One binding identity, its source name, and definition location |
-| `value-binding` | A value definition, its initializer, and the definition form's location |
-| `name` | A reference to a value definition and the reference location |
+| `value-definition` | One binding identity, name, location, scheme, optional located declaration, initializer and checking metadata |
+| `bind` (`value-binding`) | A value definition and its initializer |
+| `name` | A reference to a value definition and its use's substitution map, initially empty |
 | `literal` | A quoted or self-evaluating datum and location |
-| `application` | Operator, operands, location |
+| `call` (`application`) | Operator and ordered operands |
 | `lambda` | Required parameters, optional rest parameter, body block, location |
-| `conditional` | Test, consequent, optional alternate, location |
+| `if` (`conditional`) | Test, consequent and optional alternate |
 | `assignment` | Target name, value expression, location |
-| `block` | Nonempty ordered items ending in a result expression, location |
+| `block` | Definition list, initially empty, and nonempty ordered items ending in a result expression |
 | `type-declaration` | Resolved value definition, type, location |
 | `annotation` | Expression, expected type, location |
 | `instantiation` | Expression, explicit shallow type arguments, location |
 | `record-schema` | Descriptor, constructor and predicate identities, field metadata, location |
+| `class-declaration` | Class identity, type-variable identities and method declarations |
+| `instance-declaration` | Class identity, instance types and method implementations |
+| `overload-declaration` | Shared family identity, distinct member definition and implementation |
+| `extern-declaration` | Value identity, import module/name and declared signature |
 
 Type expressions resolve scalar syntax, nominal descriptor identities, and
-fresh rigid `All` binders during expansion. Checking happens later, over this
-resolved representation. `instantiation` preserves the underlying procedure
+fresh source `All` binder identities during expansion. Strict checking creates
+rigid variables for those binders. Ordinary colon declarations attach to their
+local definition after body construction; their nodes remain available to the
+gradual checker. Checking verifies that each colon is the exact declaration owned
+by that local definition. Duplicate declarations and declarations aimed at imported,
+outer or primitive bindings are located errors. Overload rows
+own their signature directly and cannot receive detached colon declarations.
+`instantiation` preserves the underlying procedure
 value; its callable view and required call-boundary checks live in analysis
 evidence. See [the implemented type language](typing-prototype.md).
+
+`Hole` is a flexible compile-time variable, with a fresh identity and a mutable
+solution link. It is neither a runtime value nor the `Top` type. `All` checks use
+immutable rigid variables; each generalized use gets fresh instantiated holes.
+Only monomorphic uses, including unannotated recursive references, constrain
+their definition's existing cells.
+
+Strict inference first clones the complete graph of ordered items and primitive
+bindings using one temporary identity map. It reserves each copy before visiting
+its fields, preserving cycles and aliases. Nodes, definitions, schemes, holes,
+substitution lists and mutable literal data belong to that compilation; immutable
+source locations and source binder tokens may be shared. Unused initializers are
+roots too. Cached libraries therefore retain unsolved source holes when another
+compilation checks the same source.
+
+Checking refines the owned nodes and definitions. It records schemes and proof
+obligations, removes static declarations from executable bodies, lowers a direct
+fixed-arity lambda application to `let`, and adds explicit `convert` operations
+at permitted boundaries. Missing conditional branches become `unit`. Specialization
+uses the same node record for concrete calls, gets, closures, binds and control
+flow. Its separate site, value and function records keep runtime initialization
+identity distinct from storage and code copies. A generic template's obligations
+remain in that template; selected implementations and concrete storage belong to
+the requested instance. No representation holes may reach emission.
 
 Compilation containers belong to [`library.sld`](../src/snail-scheme/library.sld),
 which imports neither IR nor MIR. Its body payload belongs to the current pass;
@@ -211,9 +255,10 @@ its interface bindings retain opaque identities, including macro identities.
 | `named-binding` | Visible name and original definition identity |
 
 A script is an unnamed library (`name = #f`), selected as the executable's root.
-There is no separate program record. Expansion supplies an ordered IR item list
-as the body; lowering replaces it with a MIR body while retaining the library's
-organization. `library-dependency-order` visits each resolved library once by
+Expansion supplies an ordered IR item list as each body. The gradual compiler
+emits that library graph directly. The strict compiler collects ordered bodies
+into a program container alongside static class evidence, and refines its owned
+IR. `library-dependency-order` visits each resolved library once by
 identity, placing dependencies before their importer and the root last.
 
 A `lambda` contains one `value-definition` per parameter. Its optional rest
