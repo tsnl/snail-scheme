@@ -49,8 +49,11 @@ and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills
 and drains the process group. A successful compile does not establish successful
 execution. The integrated routes handle scalar/typed-container kernels and Datum/I/O
-programs with their complete predicates. Native lowering consumes the exact
-optimized SFIR Wasm used in V8. Runtime-backed Wasm supplies concrete scalar
+programs with their complete predicates. The current runner supplies V8's
+optimized SFIR Wasm to the native helper, which runs Binaryen again before LLVM
+lowering. The effective optimized modules therefore differ; the
+[retrospective audit](evidence/20261015-native-optimization-audit.json) records
+this for all six measured workloads. Runtime-backed Wasm supplies concrete scalar
 services from a separately pruned Rust provider; the retained provider imports
 exclude the legacy Root ABI. Each target and external control runs in a fresh
 working directory. Per-stage records preserve successful Wasm evidence if a
@@ -164,3 +167,36 @@ successfully, followed by full integrity verification. Its report preserves
 original/adapted Chez separately and discloses Rust FIBC's additional opacity
 at each Peano step. A completed future schedule exits nonzero if any eligible
 route lacks its successful warmup or all five valid measurements.
+
+[Conform host evidence](evidence/20261015-conform-host.json) retains its first
+missing-character-import failures and validates the unchanged optimized program
+and provider on Wasm and native. Both established character-output spellings
+write through the existing UTF-8 operation. Canonical Conform disables progress
+printing, so a separate actual ABI probe checks the full ASCII/NUL/BMP/non-BMP
+byte stream on both Node hosts and native, followed by normal completion and
+exactly one explicit barrier. The empty canonical workload stream agrees with
+both Chez controls. No timing sample was collected.
+
+A fresh no-files explanation and informed critique kept this correction to the
+existing character writer and its import names. It rejected a generic import
+registry and a canonical-only check, which could not distinguish output from a
+no-op when progress printing is disabled. Two failed synthetic probe attempts
+remain visible alongside the final passing fixture.
+
+Reader-host observations normally scale with the canonical count. Parsing
+declares `observation_basis: "whole-run"`: it reads its input once and makes
+two opacity calls around 2,500 parses of the resulting string. This changes
+only expected observations; the canonical count still reaches the unchanged
+worker. Barrier quantities describe one selected observation basis. Setup and
+cleanup expectations remain independent. Unknown observation bases fail.
+[Parsing evidence](evidence/20261015-parsing-observations.json) retains the old
+count-mismatch failures and actual corrected Wasm/native executions. Node also
+rejects wrong barrier totals, missing and extra cycles, a wrong result and an
+invalid basis. Its byte/EOF/close/live-handle predicates remain intact; native
+checks the full result, barriers and exact resource-close totals.
+
+The fresh no-files observation review and informed critique selected this one
+basis declaration, preserving the existing complete file-cycle checks. It
+rejected a second benchmark count and independently configurable observation
+formulas. Canonical artifacts remain separate from the corrected metadata and
+host evidence; no performance samples were added.

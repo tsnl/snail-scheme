@@ -1,0 +1,427 @@
+{
+  "kind": "sfir-native-optimization-audit",
+  "performance_samples": false,
+  "frozen_campaign": "/tmp/snail-sfir-clean-six-20261015",
+  "finding": "The native helper was given the V8 execution module, then ran Binaryen a second time before LLVM lowering. All six lowered-module byte hashes differ from their V8 execution module hashes.",
+  "measurement_effect": "No recorded sample, validation outcome, measured executable or ratio was modified. The samples describe the actual twice-optimized native pipeline; they do not establish a comparison between identical optimized Wasm modules on the two SFIR targets.",
+  "compiler_evidence": {
+    "scripts/build-native": {
+      "path": "source/scripts/build-native",
+      "sha256": "401f44ea2ee6f1ebb2c075a2d61b9674fe43fdf55d80ac740e38ac82ae26137a",
+      "bytes": 12571
+    },
+    "src/snail-scheme/native.sld": {
+      "path": "source/src/snail-scheme/native.sld",
+      "sha256": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+      "bytes": 2666
+    },
+    "src/snail-scheme/wasm-optimize.sld": {
+      "path": "source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+      "bytes": 2557
+    }
+  },
+  "unchanged_measurement_evidence": {
+    "20261015-clean-six-measurement.json": "8da5dc7f68eae80b2935e7deee20fc3e27dbb71d985b3700b1438bf411cb71ba",
+    "20261015-clean-six-records.jsonl": "a0967d36d596915a4e0f89523459d99535230fd9fd6d0f3b14d4e14b4c9642fb",
+    "20261015-clean-six-preparation.json": "e9236ee19f7608fc65bfe26b65de581a947574f62a1bae85b1b88465095bc87b"
+  },
+  "cases": [
+    {
+      "name": "ack",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/ack/program.wasm",
+            "sha256": "25da1d3dcafe2ae60c2a1b97343a328a82bcbe9d46f2e5df799a0b4172e15694",
+            "bytes": 1171
+          },
+          "native_lowered_module": {
+            "path": "validation/ack/program.native.native-_7cthtj2/optimized.wasm",
+            "sha256": "953918b911fdc0599a89d31ad6ffc2f1434d39e04899d226f8a19d419f43c49d",
+            "bytes": 1511
+          },
+          "native_llvm": {
+            "path": "validation/ack/program.native.native-_7cthtj2/module.ll",
+            "sha256": "b1220a6182779bdffd64d134a215a48ea8535850d6925d5eaf121591ec21b9d9",
+            "bytes": 59952
+          },
+          "native_executable": {
+            "path": "validation/ack/program.native",
+            "sha256": "d76fa5a86c095dbe17a0fc4e47cc65faa6937c4395f21f0c746e0c617a76105d",
+            "bytes": 2206224
+          },
+          "native_build_manifest": {
+            "path": "validation/ack/program.native.native-_7cthtj2/build.json",
+            "sha256": "8fea795b757166ac9695edd43286588d675518ed405280d75aca0f19e2884366",
+            "bytes": 299336
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/ack/program.wasm",
+            "sha256": "25da1d3dcafe2ae60c2a1b97343a328a82bcbe9d46f2e5df799a0b4172e15694",
+            "bytes": 1171
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/ack/program.native.native-de1r1vjk/optimized.wasm",
+            "sha256": "953918b911fdc0599a89d31ad6ffc2f1434d39e04899d226f8a19d419f43c49d",
+            "bytes": 1511
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/ack/program.native.native-de1r1vjk/module.ll",
+            "sha256": "b1220a6182779bdffd64d134a215a48ea8535850d6925d5eaf121591ec21b9d9",
+            "bytes": 59952
+          },
+          "native_executable": {
+            "path": "timing/artifacts/ack/program.native",
+            "sha256": "966f40c9ee27e38326c5e354d4b181ddcca0ba9d5abd580ebe6bce3d645146a3",
+            "bytes": 2206072
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/ack/program.native.native-de1r1vjk/build.json",
+            "sha256": "1f98cd99366749c41beeab984c2668b31d0cbbb8ba23b8e463d8fd4a03ebf420",
+            "bytes": 300728
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/ack/program.wasm.raw.wasm",
+        "sha256": "a8d70f9d6595fac93ca5bd5c876721efc4fa1ca1f1acdcbdff477f4b1e7ed52e",
+        "bytes": 11362
+      }
+    },
+    {
+      "name": "fibfp",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/fibfp/program.wasm",
+            "sha256": "ce1b6ce7122f0731a16d2c72c59bed6e8919c8d069d4e06950ef6c89db0f988a",
+            "bytes": 69785
+          },
+          "native_lowered_module": {
+            "path": "validation/fibfp/program.native.native-l5hw00ch/optimized.wasm",
+            "sha256": "8f0265a05bcf033522887a76410a0b32fde513996431cbe1aa92afa9067d8d27",
+            "bytes": 618464
+          },
+          "native_llvm": {
+            "path": "validation/fibfp/program.native.native-l5hw00ch/module.ll",
+            "sha256": "d9c715138fde67da52b62df21c4273375a706fd568f11cfa349fa1b0a30b27a8",
+            "bytes": 18681789
+          },
+          "native_executable": {
+            "path": "validation/fibfp/program.native",
+            "sha256": "29019c83cfa69652bcdc99a828ae338c6beb69bd2593970a0b26d67450978f9c",
+            "bytes": 2977640
+          },
+          "native_build_manifest": {
+            "path": "validation/fibfp/program.native.native-l5hw00ch/build.json",
+            "sha256": "5ef8cd0323024d68346324cf4de8b232d309667ccf44192969eeef4bb8e6d2e9",
+            "bytes": 287620
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/fibfp/program.wasm",
+            "sha256": "ce1b6ce7122f0731a16d2c72c59bed6e8919c8d069d4e06950ef6c89db0f988a",
+            "bytes": 69785
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/fibfp/program.native.native-tn44tyoj/optimized.wasm",
+            "sha256": "8f0265a05bcf033522887a76410a0b32fde513996431cbe1aa92afa9067d8d27",
+            "bytes": 618464
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/fibfp/program.native.native-tn44tyoj/module.ll",
+            "sha256": "d9c715138fde67da52b62df21c4273375a706fd568f11cfa349fa1b0a30b27a8",
+            "bytes": 18681789
+          },
+          "native_executable": {
+            "path": "timing/artifacts/fibfp/program.native",
+            "sha256": "00294cea037a93da527f7b4d29781d82ae0e8620420dc2631f5f2f8d1b2fe352",
+            "bytes": 2977520
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/fibfp/program.native.native-tn44tyoj/build.json",
+            "sha256": "19dd1ffe8b3d74e187dece80b85b9a7f5c56d00e95c03f68521f5b58e2a9804a",
+            "bytes": 288882
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/fibfp/program.wasm.raw.wasm",
+        "sha256": "dc1326df21d3bb85aac30fbc561c6a06f8dfbf675619860c9be490297382ba93",
+        "bytes": 11115
+      }
+    },
+    {
+      "name": "cat",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/cat/program.wasm",
+            "sha256": "94bf7ff525e192a9127ebc571addc965df7b03ac273b0186399589cff4b06f83",
+            "bytes": 49132
+          },
+          "native_lowered_module": {
+            "path": "validation/cat/program.native.native-3ij1eb3y/optimized.wasm",
+            "sha256": "d8339b8994f9001346806f86ad92ef6c86d3fd725f9a18983468693c3dd27b45",
+            "bytes": 59291
+          },
+          "native_llvm": {
+            "path": "validation/cat/program.native.native-3ij1eb3y/module.ll",
+            "sha256": "5c66868c518fa5d588d21fa120e6c7b407c26bf9b1dd60c8100c8d0449a5a840",
+            "bytes": 1951555
+          },
+          "native_executable": {
+            "path": "validation/cat/program.native",
+            "sha256": "3009e3f22d74933237e5ffd5b0d35dea1b5b3fb413009f51ec5eb06a55b53875",
+            "bytes": 2590040
+          },
+          "native_build_manifest": {
+            "path": "validation/cat/program.native.native-3ij1eb3y/build.json",
+            "sha256": "037359b23224831b4d1269c3c99783c2f07aad6bc0d9d1e561de34082fdeec71",
+            "bytes": 351246
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/cat/program.wasm",
+            "sha256": "94bf7ff525e192a9127ebc571addc965df7b03ac273b0186399589cff4b06f83",
+            "bytes": 49132
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/cat/program.native.native-xsu9m5g6/optimized.wasm",
+            "sha256": "d8339b8994f9001346806f86ad92ef6c86d3fd725f9a18983468693c3dd27b45",
+            "bytes": 59291
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/cat/program.native.native-xsu9m5g6/module.ll",
+            "sha256": "5c66868c518fa5d588d21fa120e6c7b407c26bf9b1dd60c8100c8d0449a5a840",
+            "bytes": 1951555
+          },
+          "native_executable": {
+            "path": "timing/artifacts/cat/program.native",
+            "sha256": "b39e547272cdea4e423df9417c924f1679f802cf7d976f2916084c0f46ef7b11",
+            "bytes": 2589896
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/cat/program.native.native-xsu9m5g6/build.json",
+            "sha256": "c96b511b1fa167cfbe2f71c3db9a86341683206826a9df5e1d0c38e63ade09e2",
+            "bytes": 353204
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/cat/program.wasm.raw.wasm",
+        "sha256": "c09437b6573abe5bf81754b2db246de5698da649d5b5593a695f8a6b69338cdd",
+        "bytes": 231306
+      }
+    },
+    {
+      "name": "wc",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/wc/program.wasm",
+            "sha256": "84eaffe70a44e4509dbf9c44ef557636b3c28542bb80f4344242697d506a3e3b",
+            "bytes": 56460
+          },
+          "native_lowered_module": {
+            "path": "validation/wc/program.native.native-p9rz1lbi/optimized.wasm",
+            "sha256": "c2f0db2cd7f6b9d8bb48234e5c7167216e1467c4b4e82214835b9ab892c0ece9",
+            "bytes": 66667
+          },
+          "native_llvm": {
+            "path": "validation/wc/program.native.native-p9rz1lbi/module.ll",
+            "sha256": "1767a5218cc6872fd70b8900f7a95ee4fbab995d622267009ac5581bcaee95b7",
+            "bytes": 2279328
+          },
+          "native_executable": {
+            "path": "validation/wc/program.native",
+            "sha256": "4152ccfcea6699281190f66482cee96e185ac2918d5d4c10202f7eefc76abce8",
+            "bytes": 2659816
+          },
+          "native_build_manifest": {
+            "path": "validation/wc/program.native.native-p9rz1lbi/build.json",
+            "sha256": "9948f7ecdace697cb1edc0cf2b8bdd3e733f6a7d214cec8e240c1a161a72f1a6",
+            "bytes": 306839
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/wc/program.wasm",
+            "sha256": "84eaffe70a44e4509dbf9c44ef557636b3c28542bb80f4344242697d506a3e3b",
+            "bytes": 56460
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/wc/program.native.native-wex4_0jy/optimized.wasm",
+            "sha256": "c2f0db2cd7f6b9d8bb48234e5c7167216e1467c4b4e82214835b9ab892c0ece9",
+            "bytes": 66667
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/wc/program.native.native-wex4_0jy/module.ll",
+            "sha256": "1767a5218cc6872fd70b8900f7a95ee4fbab995d622267009ac5581bcaee95b7",
+            "bytes": 2279328
+          },
+          "native_executable": {
+            "path": "timing/artifacts/wc/program.native",
+            "sha256": "9928e7f3ab5b48533f062c68b6e465788c5c2522c38645a126756ce0cb842ae9",
+            "bytes": 2659664
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/wc/program.native.native-wex4_0jy/build.json",
+            "sha256": "76900310336fb80d3e05c283792780415909e510aeac20aa531b5239f895454b",
+            "bytes": 308311
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/wc/program.wasm.raw.wasm",
+        "sha256": "baca545f7bdb89a4efdec42e018a8f151316437d0bf2e910891175ab4aa5ae5e",
+        "bytes": 231944
+      }
+    },
+    {
+      "name": "ctak",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/ctak/program.wasm",
+            "sha256": "c6c283353ad997683abfff03e1904076af66dbaeed482028ba6148d99f8eee4e",
+            "bytes": 1599
+          },
+          "native_lowered_module": {
+            "path": "validation/ctak/program.native.native-rgvh11cr/optimized.wasm",
+            "sha256": "6b01832da0504aef1628eba579bd431b072af4962338d59b239993881f1fb5e0",
+            "bytes": 2115
+          },
+          "native_llvm": {
+            "path": "validation/ctak/program.native.native-rgvh11cr/module.ll",
+            "sha256": "5e23ebd3dfb5e5923bf237c0d44959ce8721b02d1e9481e7ea2a20f6d95a5241",
+            "bytes": 70343
+          },
+          "native_executable": {
+            "path": "validation/ctak/program.native",
+            "sha256": "4965ea16663a3e24bdc7718f637494cc7bef855bfe31eb67d2b004863fa6a867",
+            "bytes": 2210592
+          },
+          "native_build_manifest": {
+            "path": "validation/ctak/program.native.native-rgvh11cr/build.json",
+            "sha256": "73da775330e1977abd9affd7932323bde4c1d18aa7d0a44366694514f323c4e4",
+            "bytes": 308237
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/ctak/program.wasm",
+            "sha256": "c6c283353ad997683abfff03e1904076af66dbaeed482028ba6148d99f8eee4e",
+            "bytes": 1599
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/ctak/program.native.native-zxvx209f/optimized.wasm",
+            "sha256": "6b01832da0504aef1628eba579bd431b072af4962338d59b239993881f1fb5e0",
+            "bytes": 2115
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/ctak/program.native.native-zxvx209f/module.ll",
+            "sha256": "5e23ebd3dfb5e5923bf237c0d44959ce8721b02d1e9481e7ea2a20f6d95a5241",
+            "bytes": 70343
+          },
+          "native_executable": {
+            "path": "timing/artifacts/ctak/program.native",
+            "sha256": "d6edff0a5c8b009dcf26ff72f2d0c29339a555b9ae7ac768c3f9a6de83197342",
+            "bytes": 2210456
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/ctak/program.native.native-zxvx209f/build.json",
+            "sha256": "ccf87a17b707d5f1252dc6628550668182bda280027f34b1857ea805ea62d653",
+            "bytes": 309719
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/ctak/program.wasm.raw.wasm",
+        "sha256": "37f41ecc5b8b46cd6b9040d5cac6114c7fc6fdc501c902bdcaa96471a5d6d2eb",
+        "bytes": 13211
+      }
+    },
+    {
+      "name": "fibc",
+      "builds": {
+        "validation": {
+          "wasm_execution_module": {
+            "path": "validation/fibc/program.wasm",
+            "sha256": "0194339bf4529ad0a2859b63ccd97930bbb35864a214f80ddbe5bd819e480791",
+            "bytes": 1879
+          },
+          "native_lowered_module": {
+            "path": "validation/fibc/program.native.native-poc49713/optimized.wasm",
+            "sha256": "44f8e4bed6ab0cb7a687673fffb07b9215fbd1a97d17862e12c1ba5498af6bfe",
+            "bytes": 2571
+          },
+          "native_llvm": {
+            "path": "validation/fibc/program.native.native-poc49713/module.ll",
+            "sha256": "28470b48154c593caa31ee579f08630fc47065122d34bdad16ca337d645a1d88",
+            "bytes": 83973
+          },
+          "native_executable": {
+            "path": "validation/fibc/program.native",
+            "sha256": "0bdc32c7ee6e140c671db8d01cbf187cf7ce4f1c7b7bc4b0a5cb1a5a734cbef0",
+            "bytes": 2212808
+          },
+          "native_build_manifest": {
+            "path": "validation/fibc/program.native.native-poc49713/build.json",
+            "sha256": "4413081983dc649ce62163d4a0c948458d74e38bc2943f64b7272e39680389cd",
+            "bytes": 290889
+          },
+          "same_optimized_module": false
+        },
+        "clean": {
+          "wasm_execution_module": {
+            "path": "timing/artifacts/fibc/program.wasm",
+            "sha256": "0194339bf4529ad0a2859b63ccd97930bbb35864a214f80ddbe5bd819e480791",
+            "bytes": 1879
+          },
+          "native_lowered_module": {
+            "path": "timing/artifacts/fibc/program.native.native-vnz0tnyb/optimized.wasm",
+            "sha256": "44f8e4bed6ab0cb7a687673fffb07b9215fbd1a97d17862e12c1ba5498af6bfe",
+            "bytes": 2571
+          },
+          "native_llvm": {
+            "path": "timing/artifacts/fibc/program.native.native-vnz0tnyb/module.ll",
+            "sha256": "28470b48154c593caa31ee579f08630fc47065122d34bdad16ca337d645a1d88",
+            "bytes": 83973
+          },
+          "native_executable": {
+            "path": "timing/artifacts/fibc/program.native",
+            "sha256": "35fa9eae0d8765844c39c9b037c5f4082eaeac87e837f72f082c1d77932c0b1b",
+            "bytes": 2212672
+          },
+          "native_build_manifest": {
+            "path": "timing/artifacts/fibc/program.native.native-vnz0tnyb/build.json",
+            "sha256": "d52b68903e492a3ca8e8a083bc67743121327af6340a49ef3e0158bf178f332f",
+            "bytes": 292187
+          },
+          "same_optimized_module": false
+        }
+      },
+      "original_raw_wasm": {
+        "path": "validation/fibc/program.wasm.raw.wasm",
+        "sha256": "158d015f09bc1ec448f730a3ce53cd9c902830838f7b40d5127ce185352fa38d",
+        "bytes": 12934
+      }
+    }
+  ]
+}

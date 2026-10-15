@@ -6,11 +6,15 @@ import {WASI} from 'node:wasi';
 
 const [artifact, specification, providerPath] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(specification, 'utf8'));
+const observationBasis = Object.hasOwn(config, 'observation_basis') ? config.observation_basis : 'canonical-count';
+assert(['canonical-count', 'whole-run'].includes(observationBasis));
+const observationRepetitions = observationBasis === 'whole-run' ? 1 : Math.max(0, config.count);
 const module = new WebAssembly.Module(fs.readFileSync(artifact));
 assert(WebAssembly.Module.imports(module).every(item => ['benchmark', 'reader.test', 'wasi_snapshot_preview1', 'snail.library'].includes(item.module)));
 const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {'.': process.cwd()}, returnOnExit: true});
 const live = new Map(), phases = {setup: [], worker: [], cleanup: []};
 const cycles = {setup: [], worker: [], cleanup: []}, deleted = [];
+const writeCharacter = value => fs.writeSync(1, String.fromCodePoint(value));
 let memory, phase = 'setup', barriers = 0;
 const trace = [], floating = new DataView(new ArrayBuffer(8));
 const observer = {
@@ -74,7 +78,7 @@ if (providerPath) {
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
 const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => {barriers++; return 1;},
-                                                  write_character: value => fs.writeSync(1, String.fromCodePoint(value))},
+                                                  write_character: writeCharacter, write_char: writeCharacter},
                                                   'reader.test': observer, 'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: imports});
 memory = (provider ?? instance).exports.memory;
@@ -97,7 +101,7 @@ try {
   assert.equal(live.size, 0);
   if (!config.observe) {
     assert.equal(result, BigInt(config.expected), 'complete benchmark predicate');
-    assert.equal(barriers, (config.barriers_per_iteration ?? config.worker_barriers) * config.count);
+    assert.equal(barriers, (config.barriers_per_iteration ?? config.worker_barriers) * observationRepetitions);
     validateFileCycles();
   }
 } catch (error) { failure = error; }
@@ -122,7 +126,7 @@ function validateFileCycles() {
   assert.equal(cycles.setup[0].path, 'input.txt');
   assert.equal(cycles.setup[0].read, fs.statSync('input.txt').size);
   const paths = config.pathnames ?? [];
-  assert.equal(cycles.worker.length, paths.length * config.count);
+  assert.equal(cycles.worker.length, paths.length * observationRepetitions);
   for (const path of paths) validatePathCycles(path);
   if (config.name === 'cat') {
     assert.deepEqual(fs.readFileSync(paths[0]), fs.readFileSync(paths[1]));
@@ -133,7 +137,7 @@ function validateFileCycles() {
 
 function validatePathCycles(path) {
   const matching = cycles.worker.filter(item => item.path === path);
-  assert.equal(matching.length, config.count);
+  assert.equal(matching.length, observationRepetitions);
   for (const cycle of matching) {
     if (path.startsWith('outputs/')) assert.equal(cycle.written, fs.statSync(path).size);
     else {

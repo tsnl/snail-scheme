@@ -23,7 +23,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "deriv",
@@ -632,7 +634,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "cat",
@@ -736,7 +740,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "compiler",
@@ -765,8 +771,8 @@
       "sfir": "conform/main.sfir",
       "host": "datum-io",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "conform/chez-original.scm",
       "chez_adapted": "conform/chez-adapted.scm",
@@ -776,7 +782,10 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+      "target_evidence": "evidence/20261015-conform-host.json"
     },
     {
       "name": "dynamic",
@@ -965,8 +974,8 @@
       "sfir": "parsing/main.sfir",
       "host": "datum-io",
       "entry": "bench",
-      "wasm_validation": "pending",
-      "native_validation": "pending",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
       "measurement": "not-measured",
       "chez_original": "parsing/chez-original.scm",
       "chez_adapted": "parsing/chez-adapted.scm",
@@ -976,7 +985,10 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+      "target_evidence": "evidence/20261015-parsing-observations.json"
     },
     {
       "name": "peval",
@@ -1118,7 +1130,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "sboyer",
@@ -1138,7 +1152,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "gcbench",
@@ -1198,7 +1214,9 @@
       "chez_validation": "pending",
       "rust_wasm_validation": "pending",
       "rust_native_validation": "pending",
-      "source_resolution": "passed"
+      "source_resolution": "passed",
+      "chez_adapted_validation": "passed",
+      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json"
     },
     {
       "name": "bv2string",

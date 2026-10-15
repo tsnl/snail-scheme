@@ -511,15 +511,24 @@ def native_paths(spec):
     return text + f'#define PATH_ARGUMENTS {arity}\n'
 
 
+def observation_repetitions(spec):
+    basis = spec.get('observation_basis', 'canonical-count')
+    if basis == 'whole-run':
+        return 1
+    if basis == 'canonical-count':
+        return max(0, spec['count'])
+    raise ValueError(f'unknown observation basis: {basis}')
+
+
 def native_expectations(spec, expected_size):
     result = 1 if isinstance(spec['expected'], list) else spec['expected']
     floating = spec['name'] in ('fibfp', 'sumfp', 'fft')
     values = dict(configured_count=spec['count'], expected_size=expected_size,
                   expected_setup=spec.get('setup_barriers', -1),
-                  expected_barriers=spec.get('barriers_per_iteration', spec.get('worker_barriers', 0)) * max(0, spec['count']))
+                  expected_barriers=spec.get('barriers_per_iteration', spec.get('worker_barriers', 0)) * observation_repetitions(spec))
     reader = spec.get('runtime') == 'scalar-datum-reader'
     values.update(expected_setup_closed=1 if reader else -1,
-                  expected_worker_closed=len(spec.get('pathnames', [])) * spec['count'] if reader else -1)
+                  expected_worker_closed=len(spec.get('pathnames', [])) * observation_repetitions(spec) if reader else -1)
     if spec.get('runtime') == 'scalar-io':
         values.update(expected_setup_closed=0, expected_worker_closed=(2 if spec['name'] == 'tail' else 1) * spec['count'])
     text = ''.join(f'static const int64_t {key} = {value};\n' for key, value in values.items())

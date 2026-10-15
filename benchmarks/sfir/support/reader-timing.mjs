@@ -23,7 +23,8 @@ if (providerPath) {
   provider = new WebAssembly.Instance(scalarModule, {wasi_snapshot_preview1: wasi.wasiImport,
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
-const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1, write_character: writeCharacter},
+const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1,
+                                                  write_character: writeCharacter, write_char: writeCharacter},
                                                   'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: wasi.wasiImport});
 const close = () => provider ? provider.exports['snail:io/close-all']() : instance.exports['close-resources']();
