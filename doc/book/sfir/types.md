@@ -137,6 +137,15 @@ divided by minus one are errors as well. Some runtime overflow checks may be
 absent in the compiler MVP; that implementation gap does not change the intended
 contract. Programs must not rely on wraparound while those checks are incomplete.
 
+Floating literals round once from the source value to the selected IEEE format,
+using nearest rounding with ties to even. A finite value just above the largest
+finite number is allowed when it rounds back to that number; rounding to infinity
+is an error. Underflow rounds to a subnormal or signed zero. Explicit `+inf.0`,
+`-inf.0` and signed `nan.0` tokens denote IEEE special values rather than finite
+overflow. Rectangular complex and polar spellings are not scalar literals, even
+when their mathematical value happens to be real. Bytevector elements must be
+exact integers in the byte range before any floating-point rounding.
+
 An annotation on a computed numeric value is not a conversion. For example,
 `(ann (+ 1 2) I64)` is a type error because the sum has type I32; an explicit
 conversion operation is required. Similarly, a function expecting F32 requires

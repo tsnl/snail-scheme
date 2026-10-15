@@ -16,7 +16,8 @@
    (snail-scheme common)
    (snail-scheme reader)
    (snail-scheme parser)
-   (snail-scheme syntax))
+   (snail-scheme syntax)
+   (only (snail-sfir numeric-literals) literal-number-value))
 
   (begin
 
@@ -388,7 +389,7 @@
        (lambda (fields)
          (let ((number (string->number (cdr (assq 'text fields)))))
            (if number
-               (return (make-atom-syntax number (cdr (assq 'loc fields))))
+               (return (make-atom-syntax number (cdr (assq 'loc fields)) (cdr (assq 'text fields))))
                (fail))))))
 
     (define s-symbol
@@ -407,7 +408,10 @@
         (named-tuple
          `(_ . ,(optional intertoken-space))
          `(number . ,s-number))
-        (lambda (fields) (atom-syntax-value (cdr (assq 'number fields)))))
+        (lambda (fields)
+          (let ((form (cdr (assq 'number fields))))
+            (guard (failure (else #f))
+              (literal-number-value (atom-syntax-value form) (atom-syntax-number-spelling form) (syntax-loc form))))))
        (lambda (value) (and (exact-integer? value) (<= 0 value 255)))))
 
     ;; A source literal can contain many bytes. Keep its size out of the host
@@ -815,6 +819,7 @@
            (expect (parse-result-err? (s-bytevector (string->reader "bytevector.scm" text))) #t)
            (check-fail s-file text))
          '("#u8(256)" "#u8(-1)" "#u8(1.0)" "#u8(1/2)" "#u8(#t)" "#u8(x)"
+           "#u8(#e1.0000000000000000001)" "#u8(#e255.0000000000000000001)"
            "#u8((1))" "#u8(#u8(1))" "#u8(1 . 2)" "#u8(1 . ())" "#u8(. 1)"
            "#u8(1" "#u8 (1)" "#u8[1)")))
 

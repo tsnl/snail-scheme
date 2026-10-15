@@ -23,6 +23,12 @@ filenames are being migrated and do not select a second source language.
 s-expressions and rejects quote abbreviations. These are implementation modules
 written in Scheme; Chibi reads their own source.
 
+Numeric tokens retain their original spelling through syntax and resolved IR.
+[`numeric-literals.sld`](src/snail-sfir/numeric-literals.sld) decodes exact decimal
+values and rounds directly to the selected IEEE width, including subnormals and
+overflow boundaries. The reader also uses its exact decoding for bytevector
+elements; host floating-point approximations cannot turn a fraction into a byte.
+
 [`frontend.sld`](src/snail-sfir/frontend.sld) parses the small SFIR grammar into
 `SfirLibrary` values without loading dependencies. `parse-library` accepts one
 located `define-library`; `syntax-list->sfir-library` also accepts a script body.

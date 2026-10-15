@@ -22,6 +22,7 @@
    name-loc
    make-literal literal?
    literal-value
+   literal-number-spelling
    literal-loc
    make-application application?
    application-operator
@@ -146,10 +147,12 @@
     (define (name-substitutions node) (cadr (node-data node)))
     (define name-loc node-loc)
 
-    (define (make-literal value loc)
-      (source-node 'literal loc (list value)))
+    (define (make-literal value loc . spelling)
+      (source-node 'literal loc (list value (and (pair? spelling) (car spelling)))))
     (define (literal? node) (kind? node 'literal))
     (define (literal-value node) (car (node-data node)))
+    (define (literal-number-spelling node)
+      (and (pair? (cdr (node-data node))) (cadr (node-data node))))
     (define literal-loc node-loc)
 
     (define (make-application operator operands loc)
