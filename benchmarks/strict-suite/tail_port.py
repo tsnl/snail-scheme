@@ -116,13 +116,15 @@ def chez_helpers():
     if not library_path.exists():
         library_path = here.parent / 'compiler-source/src/snail/io.sld'
     library = library_path.read_text()
-    names = ('read-line', 'consume-line-feed', 'read-line-text', 'line-capacity', 'write-string')
+    ray_port.check_write_string_source(library)
+    names = ('read-line', 'consume-line-feed', 'read-line-text', 'line-capacity')
     definitions = '\n'.join(form(library, '(define (' + name + ' ') for name in names)
-    return CHEZ_BOUNDARY + definitions + '\n' + COMMON
+    return CHEZ_BOUNDARY + definitions + '\n' + ray_port.CHEZ_WRITE_STRING + '\n' + COMMON
 
 
 def adapt_chez_harness(source, reverse=False):
-    edits = [(' (define read-line\n   get-line)', '; read-line is supplied by the same Scheme line builder.'),
+    edits = [ray_port.CHEZ_PORT_IMPORT,
+             (' (define read-line\n   get-line)', '; read-line is supplied by the same Scheme line builder.'),
              (ray_port.ORIGINAL_WRITE_STRING, '; write-string is supplied by the same Scheme character loop.')]
     for before, after in edits:
         source = replace(source, after if reverse else before, before if reverse else after)
@@ -312,8 +314,11 @@ def check_fixture_record(record, observed, expected, spec, system, runner, drive
 def line_builder_proof(directory, driver):
     library = (driver.ROOT / 'src/snail/io.sld').read_text()
     control = (directory / 'same-source-chez/program.scm').read_text()
+    ray_port.check_write_string_source(library)
+    if control.count(ray_port.CHEZ_WRITE_STRING) != 1:
+        raise ValueError('Chez control differs from the checked output-port boundary')
     functions = {}
-    for name in ('read-line', 'consume-line-feed', 'read-line-text', 'line-capacity', 'write-string'):
+    for name in ('read-line', 'consume-line-feed', 'read-line-text', 'line-capacity', 'write-string-to'):
         definition = form(library, '(define (' + name + ' ')
         if control.count(definition) != 1:
             raise ValueError('Chez control differs from the Scheme library operation ' + name)

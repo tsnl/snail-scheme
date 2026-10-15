@@ -70,12 +70,24 @@ CHEZ_FORMAT = '''(define (write-i64 number port)
     (unless (= prefix 0) (write-negative-digits prefix port))
     (write-char (integer->char (- 48 (remainder number 10))) port)))
 '''
-CHEZ_WRITE_STRING = '''(define (write-string text port)
-  (let ((count (string-length text)))
-    (let loop ((index 0))
-      (unless (= index count)
-        (write-char (string-ref text index) port)
-        (loop (+ index 1))))))'''
+# Chez ports already carry their resource identity. Keep these boundary aliases
+# local: Ray's ordinary ref-get still reads its explicit vector-backed cells.
+CHEZ_PORT_IMPORT = ('(only (chezscheme)\n    current-time',
+                    '(only (chezscheme)\n    port-closed?\n    current-time')
+CHEZ_WRITE_STRING = '''(define write-string
+  (let ((output-handle values) (ref-get values))
+    (define (port-check-output port)
+      (unless (and (output-port? port) (not (port-closed? port)))
+        (error 'write-string "expected an open output port")))
+    (define (write-string-to text port)
+      ;; Even an empty write checks direction and lifetime without emitting text.
+      (port-check-output (ref-get (output-handle port)))
+      (let ((count (string-length text)))
+        (let loop ((index 0))
+          (unless (= index count)
+            (write-char (string-ref text index) port)
+            (loop (+ index 1))))))
+    write-string-to))'''
 ORIGINAL_WRITE_STRING = '''(define write-string
   (case-lambda
     ((string)
@@ -269,7 +281,7 @@ def control_prelude(source):
 
 
 def adapt_chez_harness(source, reverse=False):
-    edits = ((ORIGINAL_WRITE_STRING, CHEZ_WRITE_STRING), ('(result #f)', '(result 0)'),
+    edits = (CHEZ_PORT_IMPORT, (ORIGINAL_WRITE_STRING, CHEZ_WRITE_STRING), ('(result #f)', '(result 0)'),
              ('(ok? result)', "(ok? (if (= result 0) #f 'ok))"),
              ('(write result)', "(write (if (= result 0) #f 'ok))"))
     for before, after in edits:
@@ -324,7 +336,8 @@ def link_runtime(directory, tools, environment, driver):
         source = directory / ('strict-native.wasm' + suffix)
         output.rename(source)
         command = [driver.ROOT / 'scripts/link-strict-runtime', '--runtime', directory / 'runtime.wasm']
-        record = driver.execute(command + (['--raw'] if suffix else []) + [source, output], driver.ROOT, environment)
+        flags = ['--diagnostic-prune-only'] if suffix else []
+        record = driver.execute(command + flags + [source, output], driver.ROOT, environment)
         driver.save(directory / ('runtime-link' + ('-raw' if suffix else '') + '.json'), record)
         driver.require_success(record)
 
@@ -616,11 +629,22 @@ def validate_geometry(directory, runner, tools, environment, driver):
 
 def check_formatter_source(driver):
     library = (driver.ROOT / 'src/snail/io.sld').read_text()
-    for name in ('write-i64', 'write-negative-digits', 'write-string'):
+    check_write_string_source(library)
+    for name in ('write-i64', 'write-negative-digits'):
         actual = form(library, '(define (' + name + ' ')
-        control = form(CHEZ_FORMAT + CHEZ_WRITE_STRING, '(define (' + name + ' ')
+        control = form(CHEZ_FORMAT, '(define (' + name + ' ')
         if re.sub(r'\s+', '', actual) != re.sub(r'\s+', '', control):
             raise ValueError('adapted Chez must use the strict Scheme formatting bodies')
+
+
+def check_write_string_source(library):
+    prefix = '(define (write-string-to '
+    actual, control = form(library, prefix), form(CHEZ_WRITE_STRING, prefix)
+    if re.sub(r'\s+', '', actual) != re.sub(r'\s+', '', control):
+        raise ValueError('adapted Chez must use the strict Scheme write-string-to body')
+    overload = '(define-overload write-string (-> String OutputPort Unit) write-string-to)'
+    if form(library, '(define-overload write-string (-> String OutputPort ') != overload:
+        raise ValueError('two-argument write-string must select the checked write-string-to body')
 
 
 def scene_oracle():
