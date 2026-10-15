@@ -1,0 +1,3196 @@
+{
+  "kind": "sfir-canonical-existing41-validation",
+  "performance_samples": false,
+  "frozen_directory": "/tmp/snail-sfir-existing41-20261015",
+  "source_revision": "cb32239769fc42a109e1e11c2f08d4c03298e14f",
+  "terminal_execution": {
+    "session": 26920,
+    "chunk": "ad1d4d",
+    "returncode": 1,
+    "reason": "Retained failed routes keep the original campaign nonzero."
+  },
+  "timeouts": {
+    "compile_timeout": 1800.0,
+    "run_timeout": 1200.0
+  },
+  "integrity": "Full frozen source/input/tool/build-dependency verification passed after all case outcomes were terminal.",
+  "manifest": {
+    "file": "20261015-existing41-manifest.json.gz",
+    "sha256": "22f2693c0b88943e81a6a4c4c6dd87d1d01d7946ac7e3eda71f28a84bd7f9767",
+    "uncompressed_sha256": "a1e84f1bb330b0658137403863ae5cf1920dc85b97a91e2710c154ae05aa4022",
+    "source_files": 568,
+    "canonical_inputs": 64,
+    "build_dependencies": 54817
+  },
+  "terminal_records": {
+    "file": "20261015-existing41-records.jsonl.gz",
+    "sha256": "a4bf634c4786af2d64286fa908b99e33e47445d96dbb1c337f0cbf0910989676",
+    "uncompressed_sha256": "99c3db6b548fb39e78c8cd469d95e4ca6dc0a94a8a1ef3eafc0f0a64a97ed6b1",
+    "process_records": 537,
+    "native_build_records": 40
+  },
+  "original_campaign": {
+    "kind": "sfir-target-validation",
+    "performance_samples": false,
+    "cases": [
+      {
+        "name": "browse",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "37f13de3755e817dbc5300962fd7be2039c0bb224d1570b44acedef58cc70a35",
+        "raw_sha256": "3398774805b7b9454b43b20e94663f6f1cc86af1ae109925de1f7add5615b269",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "deriv",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "9ed1c6ff5ec1a271477a33cb9969adfe3116e552d25ff63be82f5901416dda0b",
+        "raw_sha256": "0ae3ddf74d8f088db89191f2e2a3b7a7d519666b2a0c265efb2ca0ea9acf0b90",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "destruc",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "9efc64e4a1a06b7b966173f79b0d64c022ff8a1cba8687cbe55cb2a2e63de31f",
+        "raw_sha256": "b21edc6a78490eb6d85b2e7dc87a35efe9f3b931e975e86e16e29566364152a0",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "diviter",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "be338f7e8f76d3a4edfb9c6d24782bc016a63f949b5eff94f5f72dcb8a3b711c",
+        "raw_sha256": "96d1b3d95e17b319cf864cc6cf56fd801234deb29f37c5d62124218f49e74575",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "divrec",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "64ba5eadbfa218f6dce69e7eb7ef1c4a277a305e37919611f18124b4e6f888e5",
+        "raw_sha256": "1738bc2210703ca77cf358d0bbe5b0864682c0c485c3868bf148c7731e4b50da",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "puzzle",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "45cea087a33c9c4cc1a6d4a8ae45c341c58afc1f441d5b6ec84e396c93cbb922",
+        "raw_sha256": "a71dc51ee8726ea13276e0b48497823775c56ea0bda47246280a87f43e55d07d",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "triangl",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "7c7f34fa055c9ef1e81c46c70b4814ae25da362b8223e44f13399ef2a54c975b",
+        "raw_sha256": "9f774328e6d148091e88f7694adcc16b86b4279a3d0938208a168e1679f7e8fc",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "tak",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "f3952a5eb92a7de88c42f74b90e7bffc3ada75aa3b8cf9b0c1dadc41709b5fbf",
+        "raw_sha256": "3c428ad29a654ce9fe1b9db8fa4a3c471259f530bcbd4d62ae3f2265ece3bc46",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "takl",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "22506e68d1b3fcea8bd3f434f617f13aa217693bdbc97b2ac9cc235f4af57c22",
+        "raw_sha256": "56f92e2f87445a06f7c5edff7b28c10adc98199161d7d93836bf5ec5b66a501d",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "ntakl",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "444e257cbfc7b15173f4d2e6af76a99c86a75a09c12abdf842c91505d443b9e9",
+        "raw_sha256": "34185baa75263d0d5c2d0e9299b6ff809ca7a77a0e979b36997a5ec14ecca0cf",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "cpstak",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "e13559b23189affb0349139a8584bcff80eafa90870f55427e963865dc167c3e",
+        "raw_sha256": "4486bd49ebb07d4a124a74eb15268b3dc8d103ff83e2446a56bd24cc31a5bf58",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "fib",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "d407cdbe45038a3c73ff9c43bcc4bc01cb41bbc52b0c91d7774db14d153878db",
+        "raw_sha256": "35fcc452bcf0348bb4e417e8a09a5c09242a1dc6e642026433faf1d8e2b79f66",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "sum",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "b0277b51e0528b51856933a7eaba47cd6f54b10355a402fa06465e1f3085967e",
+        "raw_sha256": "dd07fbc12def3d5af5b5538cf95fa569f676d53ca7745510c79dea0c4f5599be",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "sumfp",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "2625a26977648e7089728c2407169b4ba7b4f675cc4e603c8857e6cc8d8f3219",
+        "raw_sha256": "2d956d460559f7c2fbea620acba9a4f627a7862337700cfb62aef4cef4ed1a53",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "mbrot",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "a363ccb53854dc59a483c4379a854dca78e4c3472159c14641c86fcb2174e453",
+        "raw_sha256": "b425f9a801e6face59416e2a5557d1c6de0223fdd318d59414b9e6b7f0ef75a0",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "mbrotZ",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "735aa86c5167fbf3942a8a105a2430aa8faaf371aef1dfc4b581534cf25a78bb",
+        "raw_sha256": "ad0ba8cd200c97b1b14cbc8560bd8c8efafdf0cc090805d034f00c27c2888559",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "pnpoly",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "8c250a01402cf230abfb2ac1839af0a5b29acba9304a24eb0c142950ee5061f1",
+        "raw_sha256": "20fda5731206ac43e1f866562721fecfeb326210c1d5386cf6bbdbba89e3fff0",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "simplex",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "2a873e3f0d43539be14b42548af8f63479b83bcd13c4d0a89cbb51ecbcb3ad45",
+        "raw_sha256": "3cbb50a2041c9c03fde74f402e83be3a91ffd666f4fa068679f2bcd51e1507ef",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "array1",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": false,
+        "optimized_sha256": "a531980050dd837af5efe3f8d73b37d0b5c72e77513fbb59dc5973b0af50986f",
+        "raw_sha256": "623a15c34ecd71acb17098bd876d91289c96015f1c913c0d9213f53302046491",
+        "chez_adapted_validation": "unavailable"
+      },
+      {
+        "name": "string",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "8d72812580439f03c0ba560b74cb61b16e7ffcbdb8558caab0e908350af62541",
+        "raw_sha256": "1bf192130568b86359f85b405c8a91ad8c53439d231b8efa0c0d1d741eeed162",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "sum1",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "0efecf58aca2a3ee6d594da57ed8f68d0c616f282ada40e563cfb3265a53ce9c",
+        "raw_sha256": "465d95012ec5bec1946852c29f6777068ffc9b332db465e19e3a3ba88bb40fd2",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "read1",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "4dac2f57441ce94ef99a14dcf99f62a32d617c12db03d25496d925c2e8bdd5ce",
+        "raw_sha256": "4d561ddc441e46abae4ce42e7f1e6a56721faf98e3c2593e895d0ed23f5e25fd",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "conform",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "failed",
+        "native_validation": "failed-build",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "6d701645ea851ca50a14438463424ad96a46b8033782d8ceabe8e141a0c1f59f",
+        "raw_sha256": "0d498f8c07ba4cd254915d3d32acd6410340b24123a7ced01be05ad2f0b72103",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "earley",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "8e37a0edd16bf615f761feed92e6bdbb093f7ba68acabf562b62c43510c3968f",
+        "raw_sha256": "72fd739ce7827ef4e78b89b2a53cacb6d66597c9365e79ff0f7a387b4f0feed1",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "graphs",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "85b876750bb911e4cf8608f6a98e91c4de22e9c898c845879638ddde927125f6",
+        "raw_sha256": "3bfc86f2d149648024a2472e8c1ca0090ac7e848efc388a5c72326a13864b8b6",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "lattice",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "daebcb9f7feee7c1c1b946e7240b658810fceedc157c68749a9af76a64f9b9a5",
+        "raw_sha256": "855830c92881f9080d64ff74ec045883cbe5d21ceb983af5fa0e65d2df4277eb",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "matrix",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "59c47ba07ec6aaba91cca874f296c745b3f8b11dabf4e58e64bc79da215704d9",
+        "raw_sha256": "f1d9e904b56faa25186bfc16ec74b8676fe0f575aa4f4cbbc1ac60ee575ef343",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "maze",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "0b187667c8f92aa5ac3e3afb4b2c057160a35191c9a3783481e8486127d930bd",
+        "raw_sha256": "dc03cd173209b1aeec25c59719d0dbebf8501f000f1e4f8792abfc56bfc9d232",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "mazefun",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "36e20ed37d27262fac901357ce984a157521a43e81e40fab44fe8e484d2f2f03",
+        "raw_sha256": "c68cdd7768a2143d71fbca320988fbb38f7055fa23f1eff413e51ea6da47d4a4",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "nqueens",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "afe7600d5c78301ab9423065987462feab12a8b6e9cff1ff16ddb3cb3847081e",
+        "raw_sha256": "c5556e606a1f420fb80b452e9497cb652df2db56a81a9ad1011c0697aea4e332",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "paraffins",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "80c6785640e137fa8463976f58c3ed8ce4d4ac6a8342c43c25c62d4142d6eff5",
+        "raw_sha256": "21b37a8a7b8dddfb867960f6a4ecd32ba708590a204d219f07bdd669ec13b729",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "parsing",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "failed",
+        "native_validation": "failed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "1cd65e743218c6cc27ec8df15b67f51694c8072527eb03507aa4ed8a6027d0d5",
+        "raw_sha256": "fd5801c1d902daf91a772795b21ef6bdfdb9d8296491502734477cb760c6443c",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "peval",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "debadd69868814c1da773184e17586e1224aa88bd6631468f391de4d3a0609e7",
+        "raw_sha256": "416e096b03e922dd9401678a7ecd9a09912d2fd02d4c0550d7d01b8b1f874f21",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "primes",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "9994fbe84be529c35171d17dd8adb98422ff3c44b0e8a8cb43d5557ee60617c1",
+        "raw_sha256": "6de08c8705685871eb777e749e4ac6fd456ceda9059b78a139d09843c7d66e18",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "quicksort",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "4392cb530f458eda58095d540dbdf9b292b3a2d176309f72a4254b1efbbb0e9a",
+        "raw_sha256": "dd62a43c6e94a0e52facfb4b5d5754e75423359bfd273b702c476836e6994e25",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "nboyer",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "bf1ee440fc1b2b83889bb74e576987c828835c44562d6bac68123ee7acda2679",
+        "raw_sha256": "a7c40f598a4615100a9e51221e4d4c32b88547b5577f5083d0325ec9c2d8a372",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "sboyer",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "7035fe91d74a820e3dedd19b94b03c5d884efdd8ae9e214e177f735d83f56dba",
+        "raw_sha256": "dafa7318ad8e2b4f6fdb52514a6c7b7f777eae1f648aa64d6db615c6262ec8a0",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "gcbench",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "failed-build",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "e6a7357576f5a1aa73cf1a00e581e40ea371a8efd2fd7ac0b6ace20cb090b4c9",
+        "raw_sha256": "d24306d3474344cbf98a17437abc161cc38d2a2292bf03520fff4ea849a90cec",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "mperm",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "61793d6fd26af21949fa900f18e3de79fc0bdcbb1e90939a483449eb25dabf60",
+        "raw_sha256": "e9fb2a3399f9c23b6a78e52bf4cc1b7e72637f25ff48df4185818dbdd2b07399",
+        "chez_adapted_validation": "passed"
+      },
+      {
+        "name": "equal",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "3d99e52aec2f65131fe9f30c34617588919da9f430727c66788837d0e70ad5e8",
+        "raw_sha256": "9212a0577b8855e2dfd87c1684a77e41740e3a21df4a006fd9d481a920f4fb8e",
+        "chez_adapted_validation": "failed-build"
+      },
+      {
+        "name": "bv2string",
+        "source": "present",
+        "build": "passed",
+        "optimized": "passed",
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "adapted_control_required": true,
+        "optimized_sha256": "3a2c79f52e8cb32592e23c70890f3d7cdb064e9e559ffc0701ffc1b968cc8637",
+        "raw_sha256": "b1ea1d834d2694cfbbd15a803ab99effbe5b58841fd1d1a6d0470500129c2260",
+        "chez_adapted_validation": "passed"
+      }
+    ]
+  },
+  "original_route_counts": {
+    "wasm_validation": {
+      "passed": 39,
+      "failed": 2
+    },
+    "native_validation": {
+      "passed": 38,
+      "failed-build": 2,
+      "failed": 1
+    },
+    "chez_validation": {
+      "passed": 41
+    },
+    "chez_adapted_validation": {
+      "failed-build": 8,
+      "passed": 23,
+      "unavailable": 10
+    },
+    "rust_wasm_validation": {
+      "passed": 41
+    },
+    "rust_native_validation": {
+      "passed": 41
+    }
+  },
+  "corrections": [
+    {
+      "path": "/tmp/snail-sfir-existing41-evidence-20261015/benchmarks/sfir/evidence/20261015-chez-vector-copy.json",
+      "sha256": "643789731efb843bef12bcceda6b86a84e6d10af20278904c6acd9329a6ccb78",
+      "bytes": 33792
+    },
+    {
+      "path": "/tmp/snail-sfir-existing41-evidence-20261015/benchmarks/sfir/evidence/20261015-conform-host.json",
+      "sha256": "5fc16728aad2f6f5c94b217d600cc149f8eded1ef5839e4e2ac3ef69c26af2cc",
+      "bytes": 33601
+    },
+    {
+      "path": "/tmp/snail-sfir-existing41-evidence-20261015/benchmarks/sfir/evidence/20261015-parsing-observations.json",
+      "sha256": "329376d0828531a48f4efcde098d26266de7b292da569c410d99734f7fc0ddbb",
+      "bytes": 27804
+    }
+  ],
+  "effective_cases": [
+    {
+      "name": "browse",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "37f13de3755e817dbc5300962fd7be2039c0bb224d1570b44acedef58cc70a35",
+      "raw_sha256": "3398774805b7b9454b43b20e94663f6f1cc86af1ae109925de1f7add5615b269",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 2000,
+      "source_identity": {
+        "main.sfir": "93f026cf88e11cec4b9fddd7a5c044eca59c7213a340625b28999be376744e05",
+        "input.txt": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f",
+        "spec.json": "2253eab1ef1e0087d3b13cbaa996ee648790821d61e160853eb26bc665b834a0"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.wasm.raw.wasm",
+          "sha256": "3398774805b7b9454b43b20e94663f6f1cc86af1ae109925de1f7add5615b269",
+          "bytes": 252153
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.wasm",
+          "sha256": "37f13de3755e817dbc5300962fd7be2039c0bb224d1570b44acedef58cc70a35",
+          "bytes": 74727
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/provider.wasm",
+          "sha256": "17b23c76aa85c540d9f0a1b5492153d7e770cad492c2bf56f362247a5afe9d06",
+          "bytes": 237958
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.native",
+          "sha256": "64e5d9a6c0527bbaabf7539c25bef913fd58f37dd8fe07674e683deef3550f94",
+          "bytes": 2867800
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.native.native-dywh9sq_/optimized.wasm",
+          "sha256": "9bcfecd0c52ad4eef7477a8acec16c35f0b72dcef09328c4dda2e6bf1b3c0e45",
+          "bytes": 89715
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.native.native-dywh9sq_/module.ll",
+          "sha256": "d1d0dde66e9e937ef2f9597f74da1a69a58c2a35e129dd7408d0771a30da6caa",
+          "bytes": 3459171
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/browse/program.native.native-dywh9sq_/optimized.wat",
+          "sha256": "42f57c1e88d2e60979b44c6adebc9f61eba1251291a9c43cbc2bd9e14ceae2f0",
+          "bytes": 1726353
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "deriv",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "9ed1c6ff5ec1a271477a33cb9969adfe3116e552d25ff63be82f5901416dda0b",
+      "raw_sha256": "0ae3ddf74d8f088db89191f2e2a3b7a7d519666b2a0c265efb2ca0ea9acf0b90",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10000000,
+      "source_identity": {
+        "main.sfir": "686eefce17a596c1e10c250a3fba75f582c9c303d14b2553a5d21008c27e2000",
+        "input.txt": "0000b6f0cff8e793f0d8661753e26e16e08be4a298d20e7a90378867f69b61a5",
+        "spec.json": "91dd7e7b992bb281ebe59644cbb74bf7d6159e800198c55974e47aae83c53a42"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.wasm.raw.wasm",
+          "sha256": "0ae3ddf74d8f088db89191f2e2a3b7a7d519666b2a0c265efb2ca0ea9acf0b90",
+          "bytes": 23266
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.wasm",
+          "sha256": "9ed1c6ff5ec1a271477a33cb9969adfe3116e552d25ff63be82f5901416dda0b",
+          "bytes": 5550
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.native",
+          "sha256": "5a23a8a910d1237b52bc0fb7870684d7648e7da12d9073bd66410f55f65073d4",
+          "bytes": 2242072
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.native.native-pop6zm_l/optimized.wasm",
+          "sha256": "45ed8afbd2f5c9c78e00cf8bb35634db3b453a70d3458ada0d0dd067af58a4f3",
+          "bytes": 5899
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.native.native-pop6zm_l/module.ll",
+          "sha256": "dc52d6c8ff956a573476495e6203a0ec1446ebe5cfae10dea55a115f5c9698fe",
+          "bytes": 243141
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/deriv/program.native.native-pop6zm_l/optimized.wat",
+          "sha256": "284b7c527304ea2671157e21f14fa86450d339c2732f2ea5001144291d336287",
+          "bytes": 113655
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "destruc",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "9efc64e4a1a06b7b966173f79b0d64c022ff8a1cba8687cbe55cb2a2e63de31f",
+      "raw_sha256": "b21edc6a78490eb6d85b2e7dc87a35efe9f3b931e975e86e16e29566364152a0",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 4000,
+      "source_identity": {
+        "main.sfir": "33e4dca5eef38a1f232094d1c85cfc63286ddf9f8b70deaba9f5b3c7bbfe6a67",
+        "input.txt": "f9b248ac8534b9740b3df348a58211949c8ae65000f07021fdb6e8a56f946596",
+        "spec.json": "e4d6a81ac09dd0a0189e98e9ba369c22038a490883e437e05a6119aeaf081bc1"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.wasm.raw.wasm",
+          "sha256": "b21edc6a78490eb6d85b2e7dc87a35efe9f3b931e975e86e16e29566364152a0",
+          "bytes": 22424
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.wasm",
+          "sha256": "9efc64e4a1a06b7b966173f79b0d64c022ff8a1cba8687cbe55cb2a2e63de31f",
+          "bytes": 7179
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.native",
+          "sha256": "d912d3c979d1d6e9ba7716208e07bf3a19a76bebc5b1d41918b069a55839ee9f",
+          "bytes": 2308328
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.native.native-tyxi9m53/optimized.wasm",
+          "sha256": "2289ecf0ccaf47dfa45d80f7b799bfcf6806030a2802c1a3a5c7faa89c94c283",
+          "bytes": 10163
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.native.native-tyxi9m53/module.ll",
+          "sha256": "48b4352bb7f698d8ad74daeae3b75302c90d0537cb1aa0a033e49dd38890fc16",
+          "bytes": 581436
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/destruc/program.native.native-tyxi9m53/optimized.wat",
+          "sha256": "8b756904410890aa0d3b4f064e4947c440bafea1a99ea647792e69390e2031de",
+          "bytes": 284218
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "diviter",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "be338f7e8f76d3a4edfb9c6d24782bc016a63f949b5eff94f5f72dcb8a3b711c",
+      "raw_sha256": "96d1b3d95e17b319cf864cc6cf56fd801234deb29f37c5d62124218f49e74575",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1000000,
+      "source_identity": {
+        "main.sfir": "b60cd6a5751210dfa44035969a52b0cf1d43d43429e16280649221d290a612a4",
+        "input.txt": "c4df45a46786daf9e66a4f0731c30b21c6e6a2415feae8c27c16698531638e09",
+        "spec.json": "79b28a75bc756b0237af593a72a66b2e26defa89fc9388ecd475c64f1b17d081"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.wasm.raw.wasm",
+          "sha256": "96d1b3d95e17b319cf864cc6cf56fd801234deb29f37c5d62124218f49e74575",
+          "bytes": 12091
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.wasm",
+          "sha256": "be338f7e8f76d3a4edfb9c6d24782bc016a63f949b5eff94f5f72dcb8a3b711c",
+          "bytes": 3161
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.native",
+          "sha256": "9bd4d0f6b2e2814acc26ec06bacfa3208f5741b7520d0cd629c795ce89750516",
+          "bytes": 2292488
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.native.native-z0qzv2kl/optimized.wasm",
+          "sha256": "227ba5a64897b9ae66c7a91aa46f3387b57530502219a9fea083b8b02a46a99a",
+          "bytes": 9156
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.native.native-z0qzv2kl/module.ll",
+          "sha256": "6cdce7679a62813a6d7ad48597603c5d0b240c585ef364bacbac8f304a2af63c",
+          "bytes": 601205
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/diviter/program.native.native-z0qzv2kl/optimized.wat",
+          "sha256": "b750c0db4d0cd60c85fc303de0e0cf3b4901f1b395d7b7884f3d7725779d7192",
+          "bytes": 282436
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "divrec",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "64ba5eadbfa218f6dce69e7eb7ef1c4a277a305e37919611f18124b4e6f888e5",
+      "raw_sha256": "1738bc2210703ca77cf358d0bbe5b0864682c0c485c3868bf148c7731e4b50da",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1000000,
+      "source_identity": {
+        "main.sfir": "1250d8b93b6912df4af44cc50fc3a35124192db21705dcd2adf44b4bece8844b",
+        "input.txt": "c4df45a46786daf9e66a4f0731c30b21c6e6a2415feae8c27c16698531638e09",
+        "spec.json": "3c56b41d457c37e5501753eff3521e52bb2d8d89299f64c5ec2a5c69efdde636"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.wasm.raw.wasm",
+          "sha256": "1738bc2210703ca77cf358d0bbe5b0864682c0c485c3868bf148c7731e4b50da",
+          "bytes": 11928
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.wasm",
+          "sha256": "64ba5eadbfa218f6dce69e7eb7ef1c4a277a305e37919611f18124b4e6f888e5",
+          "bytes": 3457
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.native",
+          "sha256": "4b394c119c6e4487c9e7af83dea26a3b39b38b8c50a06424572d5f56b24858ce",
+          "bytes": 2284968
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.native.native-0dap2fld/optimized.wasm",
+          "sha256": "4145fe32ca6b338a55882d56e004fcb4778b2c6349cf0e627c2eef19de89f52b",
+          "bytes": 9514
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.native.native-0dap2fld/module.ll",
+          "sha256": "18d3fd7bd230d03056e9740f91e57296457c1a47e4fea985649f85f699ff7a5b",
+          "bytes": 540584
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/divrec/program.native.native-0dap2fld/optimized.wat",
+          "sha256": "a16adb43d6681cb5da277f8655813c807214c7c19919d4cc2753def9be371e91",
+          "bytes": 388470
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "puzzle",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "45cea087a33c9c4cc1a6d4a8ae45c341c58afc1f441d5b6ec84e396c93cbb922",
+      "raw_sha256": "a71dc51ee8726ea13276e0b48497823775c56ea0bda47246280a87f43e55d07d",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1000,
+      "source_identity": {
+        "main.sfir": "b8f37bd9bdea54a02ca0fb0392dac5c0967a3ac65a764d4dad161a1728c13b2e",
+        "input.txt": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91",
+        "spec.json": "7d08eff1395f6ef31d777da94625a641ca0dfcdff44c9c645ea8c7ff70da7249"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.wasm.raw.wasm",
+          "sha256": "a71dc51ee8726ea13276e0b48497823775c56ea0bda47246280a87f43e55d07d",
+          "bytes": 23528
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.wasm",
+          "sha256": "45cea087a33c9c4cc1a6d4a8ae45c341c58afc1f441d5b6ec84e396c93cbb922",
+          "bytes": 7564
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.native",
+          "sha256": "0a200afd42f73c46d9cb7a0036d2a3c8b118a8f2f2aaa3007d437d631fbf52a0",
+          "bytes": 2232400
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.native.native-uljc844x/optimized.wasm",
+          "sha256": "2c47708d780a4a6c49629d61aea5d66aa2044d41af420c8d880cab5629237bf2",
+          "bytes": 12415
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.native.native-uljc844x/module.ll",
+          "sha256": "946b9cb1257ee8f08f90b86b29aab6403824e7d27de074ce6c3cc31b55b9d3a9",
+          "bytes": 341496
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/puzzle/program.native.native-uljc844x/optimized.wat",
+          "sha256": "6d94e3cf871673c5f799900203f24bd80d3a2bab82c0411f8f578ba143e2b5a2",
+          "bytes": 308124
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "triangl",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "7c7f34fa055c9ef1e81c46c70b4814ae25da362b8223e44f13399ef2a54c975b",
+      "raw_sha256": "9f774328e6d148091e88f7694adcc16b86b4279a3d0938208a168e1679f7e8fc",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 50,
+      "source_identity": {
+        "main.sfir": "7dc221bc00bbffac13ce40b2ddee29f7ac9f899e52b8a14faf02bf8109287f5e",
+        "input.txt": "76f80213dca277bc207db6bfc248ffc59516f7c8b9618c452ca23b35887fb7a1",
+        "spec.json": "b21657643d14280c151cc086898965ba8e3c901f8b50abb0089d2efbecdbec5a"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.wasm.raw.wasm",
+          "sha256": "9f774328e6d148091e88f7694adcc16b86b4279a3d0938208a168e1679f7e8fc",
+          "bytes": 19409
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.wasm",
+          "sha256": "7c7f34fa055c9ef1e81c46c70b4814ae25da362b8223e44f13399ef2a54c975b",
+          "bytes": 5802
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.native",
+          "sha256": "ffd2f758c95cf0c7c16c3dcc5222a59d4dbb5220530dd2b1c7ee3f521e793a66",
+          "bytes": 2287408
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.native.native-gcvx_yv2/optimized.wasm",
+          "sha256": "ee12e9130690169ae63b4c89f6f758debd9a544a54e99abdde4f4e85eb8dc20e",
+          "bytes": 8425
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.native.native-gcvx_yv2/module.ll",
+          "sha256": "00dd96519ebb2333b9eb384d405868bc7e8b052ae29160b5e816a9eb01b3b75d",
+          "bytes": 449354
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/triangl/program.native.native-gcvx_yv2/optimized.wat",
+          "sha256": "d710e0540205ffce1f4165bc2f8d1521ab6c419896afb2065110f213a2d5bfdb",
+          "bytes": 252826
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "tak",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "f3952a5eb92a7de88c42f74b90e7bffc3ada75aa3b8cf9b0c1dadc41709b5fbf",
+      "raw_sha256": "3c428ad29a654ce9fe1b9db8fa4a3c471259f530bcbd4d62ae3f2265ece3bc46",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "f49a74c5f7593b756c7a2da197ad8b51faa64c4d1721651f8d48bd8e93e64fc8",
+        "input.txt": "ed71c06998311ad37920d13febbb4357e97b397b31a27eb7613e1e351a301f97",
+        "spec.json": "5edab5c9e7c6a884bba4b6c0b350918c5453a589ad8f2dd080404ec7336ed438"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.wasm.raw.wasm",
+          "sha256": "3c428ad29a654ce9fe1b9db8fa4a3c471259f530bcbd4d62ae3f2265ece3bc46",
+          "bytes": 11599
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.wasm",
+          "sha256": "f3952a5eb92a7de88c42f74b90e7bffc3ada75aa3b8cf9b0c1dadc41709b5fbf",
+          "bytes": 637
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.native",
+          "sha256": "52bc03e3ae6454114dd2f2d1be4b55145cc0558f4da7324069e9070b14dde06a",
+          "bytes": 2206352
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.native.native-bxvoptyi/optimized.wasm",
+          "sha256": "797622f0642e37e919d2a9443bd4a4ab996385673a639a96521e417cfd1069bf",
+          "bytes": 633
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.native.native-bxvoptyi/module.ll",
+          "sha256": "7eea547d33193686e2bd86362a50092e5afa83c0d8db740cc332b6b8f6f06136",
+          "bytes": 16829
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/tak/program.native.native-bxvoptyi/optimized.wat",
+          "sha256": "99326dd1af8dbcd82ead611b61aaebd67228883236992ba92b6124281669fec2",
+          "bytes": 4961
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "takl",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "22506e68d1b3fcea8bd3f434f617f13aa217693bdbc97b2ac9cc235f4af57c22",
+      "raw_sha256": "56f92e2f87445a06f7c5edff7b28c10adc98199161d7d93836bf5ec5b66a501d",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "426e87db528892d636b3e385070f3e5fc8f0ea349fbcc7cb3f992f6d31fd46f3",
+        "input.txt": "36a534a6b4611f04b773aa24874eb2159766126ad8d42417e5c78e80407bcdc5",
+        "spec.json": "6b7f5222ed975f1ec55d08f38e9d261c51926c124c07096f86a61b7903d79b51"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.wasm.raw.wasm",
+          "sha256": "56f92e2f87445a06f7c5edff7b28c10adc98199161d7d93836bf5ec5b66a501d",
+          "bytes": 13093
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.wasm",
+          "sha256": "22506e68d1b3fcea8bd3f434f617f13aa217693bdbc97b2ac9cc235f4af57c22",
+          "bytes": 2906
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.native",
+          "sha256": "40231fdae43f82c04ab076c28b21d0dc3c8a7d5c5104ddf3a42bb59ad185e580",
+          "bytes": 2231792
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.native.native-m58bdg7h/optimized.wasm",
+          "sha256": "33b26b84191e735ffa7d370797b47df2282d486083eca4ba68fde9ac53142ea5",
+          "bytes": 4474
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.native.native-m58bdg7h/module.ll",
+          "sha256": "39b3952c1db27b055b6cbe187ed45f266e8313c3adbb24db9b06a520d9f10703",
+          "bytes": 200864
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/takl/program.native.native-m58bdg7h/optimized.wat",
+          "sha256": "262a47fbc8e11980d3f336ddf20d7df80bee5f914d11c9c7bf5c42c414ab621a",
+          "bytes": 149601
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "ntakl",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "444e257cbfc7b15173f4d2e6af76a99c86a75a09c12abdf842c91505d443b9e9",
+      "raw_sha256": "34185baa75263d0d5c2d0e9299b6ff809ca7a77a0e979b36997a5ec14ecca0cf",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "607564eb82d5bb7bb42b0230ffb47fefd1f55b684713be5281d2b8871b033906",
+        "input.txt": "36a534a6b4611f04b773aa24874eb2159766126ad8d42417e5c78e80407bcdc5",
+        "spec.json": "50e30f88713433448c1df193a27d2e3ed41ddf1ebe7f10303a24042ecbf03877"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.wasm.raw.wasm",
+          "sha256": "34185baa75263d0d5c2d0e9299b6ff809ca7a77a0e979b36997a5ec14ecca0cf",
+          "bytes": 13040
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.wasm",
+          "sha256": "444e257cbfc7b15173f4d2e6af76a99c86a75a09c12abdf842c91505d443b9e9",
+          "bytes": 2880
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.native",
+          "sha256": "40231fdae43f82c04ab076c28b21d0dc3c8a7d5c5104ddf3a42bb59ad185e580",
+          "bytes": 2231792
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.native.native-l6mfzd1w/optimized.wasm",
+          "sha256": "f14e028711106e8e2a27ec603e864267ae3d6047ce3aa31e21a274449fc55063",
+          "bytes": 4428
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.native.native-l6mfzd1w/module.ll",
+          "sha256": "196211bf98a2db05fb45facee3904278d8a82f1b56b635aa9b9984ff2b3ee0ec",
+          "bytes": 198956
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/ntakl/program.native.native-l6mfzd1w/optimized.wat",
+          "sha256": "218e0a04a6e7fde6fccec503ea35c3ab79bd7a82aa405d1b1446c1d1a7d5b654",
+          "bytes": 147377
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "cpstak",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "e13559b23189affb0349139a8584bcff80eafa90870f55427e963865dc167c3e",
+      "raw_sha256": "4486bd49ebb07d4a124a74eb15268b3dc8d103ff83e2446a56bd24cc31a5bf58",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "b1ec18440a56e9772b474451b4172f05e054c3d17392be98954dfff358aa8774",
+        "input.txt": "a6bb105b10c70bb3373951ea3e76ce6d6f32b6c4127bff30217757bff5904dae",
+        "spec.json": "fd1193486d0be219ba8845f786f0479d895b0fcf603c118cd72a286d6ee0f491"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.wasm.raw.wasm",
+          "sha256": "4486bd49ebb07d4a124a74eb15268b3dc8d103ff83e2446a56bd24cc31a5bf58",
+          "bytes": 12466
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.wasm",
+          "sha256": "e13559b23189affb0349139a8584bcff80eafa90870f55427e963865dc167c3e",
+          "bytes": 2585
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.native",
+          "sha256": "f196158a16c9d6f07e3eda564750cae17c6e24fb5247d0f9284f8f16b970e79c",
+          "bytes": 2268384
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.native.native-kzdi58tt/optimized.wasm",
+          "sha256": "3483a8807ac9f6d2dd60b84d261390206e7546428e4a323197ec57ec28ace6e7",
+          "bytes": 4091
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.native.native-kzdi58tt/module.ll",
+          "sha256": "ddf1578f4610fc287b78c603a811ec5f66600245fab04358eb14253a176688d0",
+          "bytes": 361129
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/cpstak/program.native.native-kzdi58tt/optimized.wat",
+          "sha256": "20a46aa9e481449ed7c6fab9ca42927d1fa08e2a92885da4dc2502b4c4be5e71",
+          "bytes": 80096
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "fib",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "d407cdbe45038a3c73ff9c43bcc4bc01cb41bbc52b0c91d7774db14d153878db",
+      "raw_sha256": "35fcc452bcf0348bb4e417e8a09a5c09242a1dc6e642026433faf1d8e2b79f66",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 5,
+      "source_identity": {
+        "main.sfir": "b7fdd2e809989f6be961f2ac9acd10701dea7bb0b2efb1eed5f6b57f70c505c0",
+        "input.txt": "d857d40b3504e7d1848da7ee42adecc4ff333cd2df369e4244f2d1bf096ecb00",
+        "spec.json": "6c806fedb361c2fe9e43976acfd7840b972c8f9d6aaeb298860c4a5b7306ebc6"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.wasm.raw.wasm",
+          "sha256": "35fcc452bcf0348bb4e417e8a09a5c09242a1dc6e642026433faf1d8e2b79f66",
+          "bytes": 11074
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.wasm",
+          "sha256": "d407cdbe45038a3c73ff9c43bcc4bc01cb41bbc52b0c91d7774db14d153878db",
+          "bytes": 49990
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.native",
+          "sha256": "18db11b2f2c23490a3fa393584139e70d181e0f85071b9ab0b6a4ce1bdbb6875",
+          "bytes": 2600024
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.native.native-hie1pqpm/optimized.wasm",
+          "sha256": "88fe2586b5f9e6fb58114de38e61750fd6eddf4430fc73b4a4b52ff976f69250",
+          "bytes": 447195
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.native.native-hie1pqpm/module.ll",
+          "sha256": "6f648174004e878656d4247f25bd2c066da9ce56f462c9faa3feeb50de46c798",
+          "bytes": 16472552
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/fib/program.native.native-hie1pqpm/optimized.wat",
+          "sha256": "dc7d5da3860f16dbae077546b0a171abcfc3153b43f70106436cb04e99c34c03",
+          "bytes": 20007001
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "sum",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "b0277b51e0528b51856933a7eaba47cd6f54b10355a402fa06465e1f3085967e",
+      "raw_sha256": "dd07fbc12def3d5af5b5538cf95fa569f676d53ca7745510c79dea0c4f5599be",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 200000,
+      "source_identity": {
+        "main.sfir": "5ed4a390c83f5267548bc58c440b2c88efa9904d2a253918403289185b123645",
+        "input.txt": "24958cb3696208ccc2b2fe326348bb574da13c5f086790eb96be6ef33e553334",
+        "spec.json": "74b35b257664911da3aa5f700a92820d98ffc64da98b23635716b1422f284556"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.wasm.raw.wasm",
+          "sha256": "dd07fbc12def3d5af5b5538cf95fa569f676d53ca7745510c79dea0c4f5599be",
+          "bytes": 11157
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.wasm",
+          "sha256": "b0277b51e0528b51856933a7eaba47cd6f54b10355a402fa06465e1f3085967e",
+          "bytes": 1066
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.native",
+          "sha256": "767a3b397f43a4c55b18a83f70fead51b2bb4fe1ec581073a2a855787c6d5091",
+          "bytes": 2207112
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.native.native-2xhg9g03/optimized.wasm",
+          "sha256": "6df507a5e3c1c071483cf7fb96e39cb964d09dc4dd753b35729c52da678b1654",
+          "bytes": 1566
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.native.native-2xhg9g03/module.ll",
+          "sha256": "aae1d240724099be2ce64eb47fa3672d840d8c455df5dc31d5333a7c0d85a33b",
+          "bytes": 55720
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum/program.native.native-2xhg9g03/optimized.wat",
+          "sha256": "0143c1ed341b13c193eece2fe0803ca8dc45a3d1436f3552bdff6bd9656a5901",
+          "bytes": 40992
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "sumfp",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "2625a26977648e7089728c2407169b4ba7b4f675cc4e603c8857e6cc8d8f3219",
+      "raw_sha256": "2d956d460559f7c2fbea620acba9a4f627a7862337700cfb62aef4cef4ed1a53",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 500,
+      "source_identity": {
+        "main.sfir": "21673a68869c475812c5c6e08597031524eefb6e28281f2596ab9087e3dd9be9",
+        "input.txt": "f721830ef52dc3db368fd4e9ec9b7ead4cd15a3ffbedca97581a650cb8edf601",
+        "spec.json": "1a1a49e6ce410ff0635f92921db7805279e1a261a34e8d0dffb29097b85da961"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.wasm.raw.wasm",
+          "sha256": "2d956d460559f7c2fbea620acba9a4f627a7862337700cfb62aef4cef4ed1a53",
+          "bytes": 11197
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.wasm",
+          "sha256": "2625a26977648e7089728c2407169b4ba7b4f675cc4e603c8857e6cc8d8f3219",
+          "bytes": 1281
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.native",
+          "sha256": "65950f5c7ccf6b548db454452c2f5a535dbba07d60e28e7baf3b579ad48cce02",
+          "bytes": 2207352
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.native.native-7muownz6/optimized.wasm",
+          "sha256": "f041954396e65b63d8ccbd2432fc3f56528245e536ca3a68c702c8123e8635de",
+          "bytes": 1921
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.native.native-7muownz6/module.ll",
+          "sha256": "ba96e6c078e1d7afd75929741f163c45631d4d33dba043474a68591c3f88c390",
+          "bytes": 58509
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sumfp/program.native.native-7muownz6/optimized.wat",
+          "sha256": "4eaa1ed5ca3985cb5dbd4e2103e30f119eb9ca0a8963ba4288a7df953ba009ab",
+          "bytes": 41172
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "mbrot",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "a363ccb53854dc59a483c4379a854dca78e4c3472159c14641c86fcb2174e453",
+      "raw_sha256": "b425f9a801e6face59416e2a5557d1c6de0223fdd318d59414b9e6b7f0ef75a0",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1000,
+      "source_identity": {
+        "main.sfir": "e487d1f867cbd2c640bd6f3e94814942def17a7b836fb9dc107c736b6c1ac16e",
+        "input.txt": "347767b5626b9b7220127d7fc9d8f463e4a34dcbc84b1f4849bf158535e41af8",
+        "spec.json": "8595191a1d8b9c75664024413cfd0b7ae7fc9ab04069f4b2e0f5592ca389889c"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.wasm.raw.wasm",
+          "sha256": "b425f9a801e6face59416e2a5557d1c6de0223fdd318d59414b9e6b7f0ef75a0",
+          "bytes": 14084
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.wasm",
+          "sha256": "a363ccb53854dc59a483c4379a854dca78e4c3472159c14641c86fcb2174e453",
+          "bytes": 1984
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.native",
+          "sha256": "3aca20f984de59f932fc81866e1cfdc816c8a6a1802bf955ba89359c45a2ff41",
+          "bytes": 2213776
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.native.native-khiq1nho/optimized.wasm",
+          "sha256": "f1a2253f932b691ff2c7cae76096da96ff629d16f65282aaa71097777ee315e6",
+          "bytes": 2811
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.native.native-khiq1nho/module.ll",
+          "sha256": "a7d6c63f05ab39cb0ee4341efbaa14decce5a759a95a5ef93fb375d4f524df33",
+          "bytes": 88455
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrot/program.native.native-khiq1nho/optimized.wat",
+          "sha256": "2f220d27ec0bc79962fd288ba7a7bddb798ab9b0009121f72ee680451e561fbd",
+          "bytes": 63701
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "mbrotZ",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "735aa86c5167fbf3942a8a105a2430aa8faaf371aef1dfc4b581534cf25a78bb",
+      "raw_sha256": "ad0ba8cd200c97b1b14cbc8560bd8c8efafdf0cc090805d034f00c27c2888559",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1000,
+      "source_identity": {
+        "main.sfir": "c3a61f7ab46f4637c04cefdb679ff4de4f7ed555b8996aa41ba9b07247efb760",
+        "input.txt": "347767b5626b9b7220127d7fc9d8f463e4a34dcbc84b1f4849bf158535e41af8",
+        "spec.json": "bb65395a80424c1bd45c5e5dc056f611ac42ebde8222e72623a5112cb89a7bc9"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.wasm.raw.wasm",
+          "sha256": "ad0ba8cd200c97b1b14cbc8560bd8c8efafdf0cc090805d034f00c27c2888559",
+          "bytes": 15345
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.wasm",
+          "sha256": "735aa86c5167fbf3942a8a105a2430aa8faaf371aef1dfc4b581534cf25a78bb",
+          "bytes": 2211
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.native",
+          "sha256": "68fea9036743145c5b1d262902e5deb6b9af717f316e4b7dbc42f2fdeb760c3b",
+          "bytes": 2216520
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.native.native-r4kr7l_4/optimized.wasm",
+          "sha256": "b0c73742be1d134ae15317985763e7086110f9fa87ccdb62db1db674b94ccf63",
+          "bytes": 3038
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.native.native-r4kr7l_4/module.ll",
+          "sha256": "a285b539243be3ea5910add732fed3a3576c5f37f5b8ba88cf8a5d7ee7716ae7",
+          "bytes": 96577
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mbrotZ/program.native.native-r4kr7l_4/optimized.wat",
+          "sha256": "66ec1d46fb1dcd615f454d2994edef4764b99539c44288bb4610c046da09dc3f",
+          "bytes": 67072
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "pnpoly",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "8c250a01402cf230abfb2ac1839af0a5b29acba9304a24eb0c142950ee5061f1",
+      "raw_sha256": "20fda5731206ac43e1f866562721fecfeb326210c1d5386cf6bbdbba89e3fff0",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1000000,
+      "source_identity": {
+        "main.sfir": "08a4ddee90f1b15abce9752756822b3e7d63a86e933f7311cec4dc60f077fa2b",
+        "input.txt": "f64dd1ec74e2278a40db33a0eb419cf71a8438a2903086d5be5e3dfe35fe8db4",
+        "spec.json": "3ef3a6d5a50b3de2ac447486c08b8eb19c0affcd08d4ba771696e95088eb1494"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.wasm.raw.wasm",
+          "sha256": "20fda5731206ac43e1f866562721fecfeb326210c1d5386cf6bbdbba89e3fff0",
+          "bytes": 18302
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.wasm",
+          "sha256": "8c250a01402cf230abfb2ac1839af0a5b29acba9304a24eb0c142950ee5061f1",
+          "bytes": 4831
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.native",
+          "sha256": "ac68142f2e77b53d1344b8b6d8cd6f6cd241d16cdedc19f2025b15a48f7cef6d",
+          "bytes": 2240640
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.native.native-snz7hjg9/optimized.wasm",
+          "sha256": "973edd736202f0a6a06b3232922b921ba4102db96d5cfaf5811ae7aba7d29282",
+          "bytes": 7418
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.native.native-snz7hjg9/module.ll",
+          "sha256": "9279d132a07e8fd42c894ee53bad1738bbad580a809063c340fe8a63a3731dc0",
+          "bytes": 289954
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/pnpoly/program.native.native-snz7hjg9/optimized.wat",
+          "sha256": "48d23ee9adb9ae520f996db1390568b086055c174b4e256b8954d77fc27da432",
+          "bytes": 176936
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "simplex",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "2a873e3f0d43539be14b42548af8f63479b83bcd13c4d0a89cbb51ecbcb3ad45",
+      "raw_sha256": "3cbb50a2041c9c03fde74f402e83be3a91ffd666f4fa068679f2bcd51e1507ef",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1000000,
+      "source_identity": {
+        "main.sfir": "d231e0095f090a721768f45d65c9f70a9203ea6c61eaef5f0a3431cafd6f9166",
+        "input.txt": "73260b28bb02454f35673cf4ece62eb11f2fd25df016bbb837332426e657de0c",
+        "spec.json": "7d60a0167fcb96d9887c26fa0ec5ee50bebd79fbc1b71fbf0f3cd086a9fe1b15"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.wasm.raw.wasm",
+          "sha256": "3cbb50a2041c9c03fde74f402e83be3a91ffd666f4fa068679f2bcd51e1507ef",
+          "bytes": 43806
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.wasm",
+          "sha256": "2a873e3f0d43539be14b42548af8f63479b83bcd13c4d0a89cbb51ecbcb3ad45",
+          "bytes": 13763
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.native",
+          "sha256": "dd312a0ea8afa1eda8b1253a029ece95fcb1aaf40e5cda9ef1b4e48f766c3fd7",
+          "bytes": 2283200
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.native.native-b47luugh/optimized.wasm",
+          "sha256": "532a6ebebc83fbc0ee6e8b16dcefaed8fb1ca4d80cbb19d5c77d943f769fd32f",
+          "bytes": 16300
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.native.native-b47luugh/module.ll",
+          "sha256": "6cf824c694755c0caa91cb859fe65b6d7d4c5ef83f97743fd309e03a916101e1",
+          "bytes": 604687
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/simplex/program.native.native-b47luugh/optimized.wat",
+          "sha256": "52d810ee73f1d9772fe1660d256bb3573e20b901a9798664750988772e46ad64",
+          "bytes": 326935
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "array1",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": false,
+      "optimized_sha256": "a531980050dd837af5efe3f8d73b37d0b5c72e77513fbb59dc5973b0af50986f",
+      "raw_sha256": "623a15c34ecd71acb17098bd876d91289c96015f1c913c0d9213f53302046491",
+      "chez_adapted_validation": "unavailable",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "edca000fa71292e6766820b211d752aa9f365e3818d2084f78ce6ad243f98e55",
+        "input.txt": "4d2849350d93d926d9880fd2ebe416c73824eb4846654de3d9e1e4ba74e8cdfd",
+        "spec.json": "ea710606a94e76d0adee42871e019176cb31ef6c0d79202672238a305478487b"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.wasm.raw.wasm",
+          "sha256": "623a15c34ecd71acb17098bd876d91289c96015f1c913c0d9213f53302046491",
+          "bytes": 12784
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.wasm",
+          "sha256": "a531980050dd837af5efe3f8d73b37d0b5c72e77513fbb59dc5973b0af50986f",
+          "bytes": 4184
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.native",
+          "sha256": "aa17836d7b9fc02fefe37e222de49eac21794b989afe418fbb1a370a687aa049",
+          "bytes": 2215960
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.native.native-6j_i1erl/optimized.wasm",
+          "sha256": "9d11be3a8d353e6d9e9c6257c8b152c77db856dee8478583218689055949eeb7",
+          "bytes": 11139
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.native.native-6j_i1erl/module.ll",
+          "sha256": "ea15074a67ab0d088e3c6f6a16d5e961dfc1a5d36845bdf13b780ff273fbf200",
+          "bytes": 459647
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/array1/program.native.native-6j_i1erl/optimized.wat",
+          "sha256": "44d20bafe4661e9e9caa65d27f97021f0f06a9eec8907a0d3a2c712c2dc46777",
+          "bytes": 467147
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "string",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "8d72812580439f03c0ba560b74cb61b16e7ffcbdb8558caab0e908350af62541",
+      "raw_sha256": "1bf192130568b86359f85b405c8a91ad8c53439d231b8efa0c0d1d741eeed162",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 100,
+      "source_identity": {
+        "main.sfir": "eb9493d85177ba0b51cc936dbd30d4dea9bfeb8814deea4c68429fd2de8b69d9",
+        "input.txt": "213ce3528a0eee8924a5cb481f96dfccadf23d65e58bdf9394b481d23de010c9",
+        "spec.json": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.wasm.raw.wasm",
+          "sha256": "1bf192130568b86359f85b405c8a91ad8c53439d231b8efa0c0d1d741eeed162",
+          "bytes": 12970
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.wasm",
+          "sha256": "8d72812580439f03c0ba560b74cb61b16e7ffcbdb8558caab0e908350af62541",
+          "bytes": 3431
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.native",
+          "sha256": "8a5fd9f7ac9db50274e0df5594d6a5dd29f85733a3001d1bb687a4258befe370",
+          "bytes": 2224088
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.native.native-kl7r2dd1/optimized.wasm",
+          "sha256": "3e5da1335fd564bb11760c3f4378a4799bae5ee1b8ba45223eb6111f16cd1987",
+          "bytes": 4397
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.native.native-kl7r2dd1/module.ll",
+          "sha256": "b6182f45f5637df8936ac9863ed3dc34ad49ff86dbcbaf86b23032de80ccef36",
+          "bytes": 157243
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/string/program.native.native-kl7r2dd1/optimized.wat",
+          "sha256": "98edb7c73df905472c286da6d69250b1b437a75fa0df928da14695c5a796a58e",
+          "bytes": 91542
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "sum1",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "0efecf58aca2a3ee6d594da57ed8f68d0c616f282ada40e563cfb3265a53ce9c",
+      "raw_sha256": "465d95012ec5bec1946852c29f6777068ffc9b332db465e19e3a3ba88bb40fd2",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 25,
+      "source_identity": {
+        "main.sfir": "d9cb451df067634ed2ae58e22d19b646cd465234a4c847b83827c264e645e28a",
+        "input.txt": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+        "spec.json": "7904528b8ceb1d03dd9ed3bd0007a28a20db146c7e9d3a29225d4313b096c40f"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.wasm.raw.wasm",
+          "sha256": "465d95012ec5bec1946852c29f6777068ffc9b332db465e19e3a3ba88bb40fd2",
+          "bytes": 232663
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.wasm",
+          "sha256": "0efecf58aca2a3ee6d594da57ed8f68d0c616f282ada40e563cfb3265a53ce9c",
+          "bytes": 49134
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/provider.wasm",
+          "sha256": "af4e4a0986aebcd419b1da3b1438744913cb40b13629b97f2e7f69082e7fcb43",
+          "bytes": 237275
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.native",
+          "sha256": "0102aa284c2ecbe16ac2a15993e0227b2f9d32a55387766129c84434c86649a8",
+          "bytes": 2595344
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.native.native-srqfuzn3/optimized.wasm",
+          "sha256": "546f408a8afeb6bf6235966a4bff9556e8f98d72f7a46dd6c4ba590632e301b2",
+          "bytes": 58734
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.native.native-srqfuzn3/module.ll",
+          "sha256": "98232fbe0588827b09e0c7d9945149229baf66412c68456c46d81ad8917617d9",
+          "bytes": 1923245
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sum1/program.native.native-srqfuzn3/optimized.wat",
+          "sha256": "a4cc37e61abf9190ea9d290acc7121ca0c3de8931952bca25f2287da8f08b1f3",
+          "bytes": 1135558
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "read1",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "4dac2f57441ce94ef99a14dcf99f62a32d617c12db03d25496d925c2e8bdd5ce",
+      "raw_sha256": "4d561ddc441e46abae4ce42e7f1e6a56721faf98e3c2593e895d0ed23f5e25fd",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 2500,
+      "source_identity": {
+        "main.sfir": "9a76bd20bd4fe6d78e222381b09928479418872940a636bd33f1ed7dd6e045b8",
+        "input.txt": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1",
+        "spec.json": "b76914e0e041f6dee0ddc638c9600fa42c2050c7172930d3e1247ff9f7f750d4"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.wasm.raw.wasm",
+          "sha256": "4d561ddc441e46abae4ce42e7f1e6a56721faf98e3c2593e895d0ed23f5e25fd",
+          "bytes": 232397
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.wasm",
+          "sha256": "4dac2f57441ce94ef99a14dcf99f62a32d617c12db03d25496d925c2e8bdd5ce",
+          "bytes": 56026
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/provider.wasm",
+          "sha256": "6df6aa8bcfbe01673dbde7139f6de540b91b43aa5a9921ea85f55d75085497ef",
+          "bytes": 237345
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.native",
+          "sha256": "66ff4c95621486fdf3f8472a3996a1b8d8392ab78fe2f1f2a7e546f24fd698dc",
+          "bytes": 2663640
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.native.native-u3vcnrbv/optimized.wasm",
+          "sha256": "06f325c72811c02dbc995dcadc6e3a3bb7ac2079e297381cb2d6db220ec85ab5",
+          "bytes": 66234
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.native.native-u3vcnrbv/module.ll",
+          "sha256": "e35bc405f8e6cd2c29baf21ff2ff519ed426521e1d19dae0fd48c67621a6b9c2",
+          "bytes": 2251173
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/read1/program.native.native-u3vcnrbv/optimized.wat",
+          "sha256": "4235a68a30ee2aa8a1860a850b20b6ae9b77b6f9ec021f50bc3bb5a360ca2542",
+          "bytes": 1258900
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "conform",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "6d701645ea851ca50a14438463424ad96a46b8033782d8ceabe8e141a0c1f59f",
+      "raw_sha256": "0d498f8c07ba4cd254915d3d32acd6410340b24123a7ced01be05ad2f0b72103",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json",
+        "20261015-conform-host.json"
+      ],
+      "corrected_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.wasm.raw.wasm",
+          "sha256": "0d498f8c07ba4cd254915d3d32acd6410340b24123a7ced01be05ad2f0b72103",
+          "bytes": 289759
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.wasm",
+          "sha256": "6d701645ea851ca50a14438463424ad96a46b8033782d8ceabe8e141a0c1f59f",
+          "bytes": 95472
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/provider.wasm",
+          "sha256": "0a8da71dd78e3b8e89e2b4125c8eee79344e5b9a1026fbde43225b13b5092268",
+          "bytes": 237888
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.native",
+          "sha256": "796be8e27a87c93e4534559b70587dd98cb81b7bbab1ed5d32d9486b80302c1d",
+          "bytes": 3163744
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.native.native-ttnao_f9/optimized.wasm",
+          "sha256": "9bda4aa2da6f1c625a9e8d671f2b2de87d0732782ecdad0482334f87004c3fdc",
+          "bytes": 145351
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.native.native-ttnao_f9/module.ll",
+          "sha256": "85665fca67442bb5a3a685d8ea1105f0a1675bbe25518ff9a8b6f5be2158b515",
+          "bytes": 6903559
+        },
+        {
+          "path": "/tmp/snail-sfir-conform-host-20261015/validation/conform/program.native.native-ttnao_f9/optimized.wat",
+          "sha256": "c83814194dcf6972ea779deb243fec6c8fca1656defb2208ce57497581564b28",
+          "bytes": 4300852
+        }
+      ],
+      "canonical_count": 500,
+      "source_identity": {
+        "main.sfir": "e8f7a95daf8d0213f01fe5c95e8974c261a9a49117f991cec58947a4f101f2e2",
+        "input.txt": "9c0f8f0e5a9e61836442b9b85a6f5b844b31f05f14ed3586a9280f4edf138794",
+        "spec.json": "34c3beb2fefa44d943ba19b1f866edcdbfb096e4cefeea1e506534f2c7497849"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/program.wasm.raw.wasm",
+          "sha256": "0d498f8c07ba4cd254915d3d32acd6410340b24123a7ced01be05ad2f0b72103",
+          "bytes": 289759
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/program.wasm",
+          "sha256": "6d701645ea851ca50a14438463424ad96a46b8033782d8ceabe8e141a0c1f59f",
+          "bytes": 95472
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/provider.wasm",
+          "sha256": "0a8da71dd78e3b8e89e2b4125c8eee79344e5b9a1026fbde43225b13b5092268",
+          "bytes": 237888
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/program.native.native-bpr7iyl1/optimized.wasm",
+          "sha256": "9bda4aa2da6f1c625a9e8d671f2b2de87d0732782ecdad0482334f87004c3fdc",
+          "bytes": 145351
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/program.native.native-bpr7iyl1/module.ll",
+          "sha256": "dc6a91d668d89f2051e4b3a8bdf79d67fa69038d1ed8f59dd77b3a4a48ad66ee",
+          "bytes": 5929
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/conform/program.native.native-bpr7iyl1/optimized.wat",
+          "sha256": "c83814194dcf6972ea779deb243fec6c8fca1656defb2208ce57497581564b28",
+          "bytes": 4300852
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "earley",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "8e37a0edd16bf615f761feed92e6bdbb093f7ba68acabf562b62c43510c3968f",
+      "raw_sha256": "72fd739ce7827ef4e78b89b2a53cacb6d66597c9365e79ff0f7a387b4f0feed1",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "a5970319eae0886405aaa258010f1a1e8fc132547a28c05dfb7402617be38cc2",
+        "input.txt": "46d34002a877e66dcc682b2c7efdb8a074cc58da3692a237d634f6254133b296",
+        "spec.json": "89a6a61dc88d195bf1f8c06611ce8f380a810f777869076e78c3abb82f73dc31"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.wasm.raw.wasm",
+          "sha256": "72fd739ce7827ef4e78b89b2a53cacb6d66597c9365e79ff0f7a387b4f0feed1",
+          "bytes": 76931
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.wasm",
+          "sha256": "8e37a0edd16bf615f761feed92e6bdbb093f7ba68acabf562b62c43510c3968f",
+          "bytes": 22034
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.native",
+          "sha256": "eb4aeb709ddb7dd4556e8b3bc025c9a2d9119b2a4a9feba10cdfbcb961c70a31",
+          "bytes": 2409232
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.native.native-7yapbbnc/optimized.wasm",
+          "sha256": "99224f651790785103b7b34a64a3c8611cceebf4fb4eab5a8dc50dbf44f69e09",
+          "bytes": 28522
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.native.native-7yapbbnc/module.ll",
+          "sha256": "b0515beb6aa98865699ac2bf4ea8dee189adb6c307b8b43be1a2ac522b058b02",
+          "bytes": 1303076
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/earley/program.native.native-7yapbbnc/optimized.wat",
+          "sha256": "8de2eecce712b613c9c766bdad82b84c61ca08f9a4051fbe73109221145ad2dd",
+          "bytes": 628014
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "graphs",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "85b876750bb911e4cf8608f6a98e91c4de22e9c898c845879638ddde927125f6",
+      "raw_sha256": "3bfc86f2d149648024a2472e8c1ca0090ac7e848efc388a5c72326a13864b8b6",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 3,
+      "source_identity": {
+        "main.sfir": "b94c877661de62fe91ca1de923eae0baf2fb311c9eceb0036eee677f93600489",
+        "input.txt": "2cfca51aa911ab769cc97731922e8d33d700a8f9b49f143ff8c913d677493df5",
+        "spec.json": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.wasm.raw.wasm",
+          "sha256": "3bfc86f2d149648024a2472e8c1ca0090ac7e848efc388a5c72326a13864b8b6",
+          "bytes": 33602
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.wasm",
+          "sha256": "85b876750bb911e4cf8608f6a98e91c4de22e9c898c845879638ddde927125f6",
+          "bytes": 11932
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.native",
+          "sha256": "17d847689054589331fe0fc1455e32f0d0995b5e96b331cdcd107c42ca83cdc7",
+          "bytes": 2293416
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.native.native-aesx9ll9/optimized.wasm",
+          "sha256": "db8da150aa14ade06fcde00a770076ff410debc2676e02a60ce85af0f26a2968",
+          "bytes": 18294
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.native.native-aesx9ll9/module.ll",
+          "sha256": "e525e419575881a37512808b187e3a023aa10306e5d35bdf5e23d5e52bc3b888",
+          "bytes": 820496
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/graphs/program.native.native-aesx9ll9/optimized.wat",
+          "sha256": "784c5766be150994124f305106684bd366ae4bed7e3d74b31c16fc2ceeae31cc",
+          "bytes": 441763
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "lattice",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "daebcb9f7feee7c1c1b946e7240b658810fceedc157c68749a9af76a64f9b9a5",
+      "raw_sha256": "855830c92881f9080d64ff74ec045883cbe5d21ceb983af5fa0e65d2df4277eb",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10,
+      "source_identity": {
+        "main.sfir": "dad4505d387d7bf2fc9c0855dc58a785bf0658909ca4a1c9346064f00d0cc1ff",
+        "input.txt": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+        "spec.json": "95912ab9e3249df4664c7e844e76d7854d6692255d43234bb161521081526485"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.wasm.raw.wasm",
+          "sha256": "855830c92881f9080d64ff74ec045883cbe5d21ceb983af5fa0e65d2df4277eb",
+          "bytes": 90831
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.wasm",
+          "sha256": "daebcb9f7feee7c1c1b946e7240b658810fceedc157c68749a9af76a64f9b9a5",
+          "bytes": 31000
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.native",
+          "sha256": "4438c0ef248eb80a07c4239b59f2a78b0c09be9e866bac0c334c39c150b2f7f0",
+          "bytes": 2507152
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.native.native-f7vmhevc/optimized.wasm",
+          "sha256": "54f84c892fa1da501896120b017f04d28dbd29b0a3f495a25151bbbfa00ffcf1",
+          "bytes": 33194
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.native.native-f7vmhevc/module.ll",
+          "sha256": "cdfc3e9b0aae950976dc2ae1d71b089f4b4a2d06615cf9c04da7e99e56393a4d",
+          "bytes": 1457668
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/lattice/program.native.native-f7vmhevc/optimized.wat",
+          "sha256": "8f14573b3a949e8d9fa86b8cb253a77ecef5472060a3ec7c5853ec13640c0d2f",
+          "bytes": 588201
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "matrix",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "59c47ba07ec6aaba91cca874f296c745b3f8b11dabf4e58e64bc79da215704d9",
+      "raw_sha256": "f1d9e904b56faa25186bfc16ec74b8676fe0f575aa4f4cbbc1ac60ee575ef343",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 2500,
+      "source_identity": {
+        "main.sfir": "df9d7f825c9cc46d49e2ffcf0ecc052802b2cf6f754971125822699d15f268d6",
+        "input.txt": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
+        "spec.json": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.wasm.raw.wasm",
+          "sha256": "f1d9e904b56faa25186bfc16ec74b8676fe0f575aa4f4cbbc1ac60ee575ef343",
+          "bytes": 58970
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.wasm",
+          "sha256": "59c47ba07ec6aaba91cca874f296c745b3f8b11dabf4e58e64bc79da215704d9",
+          "bytes": 29405
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.native",
+          "sha256": "7df076e17feb85a506adb7e71f5dabecdd03f5c88e9c93738b788137656a034d",
+          "bytes": 2600968
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.native.native-8jo5rgi_/optimized.wasm",
+          "sha256": "ac03cd29e8513631cf12f90403e535018c6987f4fde354ea16642bf853f03b6e",
+          "bytes": 49545
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.native.native-8jo5rgi_/module.ll",
+          "sha256": "87807d93df0cf71f76a2f93c2441737aeab6f02dfd7747e569a8907179ac53d3",
+          "bytes": 2961062
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/matrix/program.native.native-8jo5rgi_/optimized.wat",
+          "sha256": "dc13386b74ee566afe343dcc6f6f61cbebd3ab440cf2a0b3b34e5673f6e88961",
+          "bytes": 1862507
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "maze",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "0b187667c8f92aa5ac3e3afb4b2c057160a35191c9a3783481e8486127d930bd",
+      "raw_sha256": "dc03cd173209b1aeec25c59719d0dbebf8501f000f1e4f8792abfc56bfc9d232",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10000,
+      "source_identity": {
+        "main.sfir": "a39ac05093dedd7a5b18a8584e94471a8a8688fc2866608addf01fc36968400b",
+        "input.txt": "90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a9",
+        "spec.json": "6224eaedd13bfd75d1f9ebe4160a06a24113162af19098767f4c291e96b76790"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.wasm.raw.wasm",
+          "sha256": "dc03cd173209b1aeec25c59719d0dbebf8501f000f1e4f8792abfc56bfc9d232",
+          "bytes": 277204
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.wasm",
+          "sha256": "0b187667c8f92aa5ac3e3afb4b2c057160a35191c9a3783481e8486127d930bd",
+          "bytes": 66455
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/provider.wasm",
+          "sha256": "af4e4a0986aebcd419b1da3b1438744913cb40b13629b97f2e7f69082e7fcb43",
+          "bytes": 237275
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.native",
+          "sha256": "188f5cd0398d0a1740797064e1d7efa63c7f600349861f78a66eb78ebad90bb3",
+          "bytes": 2754768
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.native.native-16afkzhg/optimized.wasm",
+          "sha256": "a5745b93d0bde0e4b0d11a4db5b4e7db030acfc18d9c91ef14ae2fff0c407054",
+          "bytes": 80863
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.native.native-16afkzhg/module.ll",
+          "sha256": "ec6ece526da439a8a2df2413f451f526c77a42c1ebbba3526a8ec37d669d3e22",
+          "bytes": 2871477
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/maze/program.native.native-16afkzhg/optimized.wat",
+          "sha256": "ee9697f339a9994670de45a524195d83b6fad24d093dcc0e7c010f131addf60a",
+          "bytes": 1608019
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "mazefun",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "36e20ed37d27262fac901357ce984a157521a43e81e40fab44fe8e484d2f2f03",
+      "raw_sha256": "c68cdd7768a2143d71fbca320988fbb38f7055fa23f1eff413e51ea6da47d4a4",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10000,
+      "source_identity": {
+        "main.sfir": "439e956375665d0a1150eb334d92def865e2773521cfca837ba190e075048b8c",
+        "input.txt": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+        "spec.json": "86b657c5da0300f16b534d42e15250f2e5524527ba01622b8667a54c82e11c83"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.wasm.raw.wasm",
+          "sha256": "c68cdd7768a2143d71fbca320988fbb38f7055fa23f1eff413e51ea6da47d4a4",
+          "bytes": 34105
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.wasm",
+          "sha256": "36e20ed37d27262fac901357ce984a157521a43e81e40fab44fe8e484d2f2f03",
+          "bytes": 29495
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.native",
+          "sha256": "d0327690a99061f5e4858b3335db951b06087ab4c3549001bdd34d706847b12d",
+          "bytes": 2651136
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.native.native-vnhwysvi/optimized.wasm",
+          "sha256": "c14ef2ff32dac1cea3918ac835a88bcb7bbdc808d67c65e0821bf55faf6ce860",
+          "bytes": 65988
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.native.native-vnhwysvi/module.ll",
+          "sha256": "0fb770484798d1e656f42825122e971e05fcb62047e8425db8a4aec35b322b3e",
+          "bytes": 4148174
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mazefun/program.native.native-vnhwysvi/optimized.wat",
+          "sha256": "af733db91acf6f5a286604d2a1a75f208bdb757412684e39d97d1b2ce877b231",
+          "bytes": 2881082
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "nqueens",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "afe7600d5c78301ab9423065987462feab12a8b6e9cff1ff16ddb3cb3847081e",
+      "raw_sha256": "c5556e606a1f420fb80b452e9497cb652df2db56a81a9ad1011c0697aea4e332",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10,
+      "source_identity": {
+        "main.sfir": "c404a8bc45fab78eb835ae3876f399f4b9b1a80914e4c947760dbc2aeffd9a12",
+        "input.txt": "758d4996647ce971a25e27cd3839b832a6cc435e18bfea27bc4014a7dbcbd9a5",
+        "spec.json": "536b9372ab60bfc6a184f211b340d79707632d28e8c5f665a767330f182be306"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.wasm.raw.wasm",
+          "sha256": "c5556e606a1f420fb80b452e9497cb652df2db56a81a9ad1011c0697aea4e332",
+          "bytes": 12769
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.wasm",
+          "sha256": "afe7600d5c78301ab9423065987462feab12a8b6e9cff1ff16ddb3cb3847081e",
+          "bytes": 3300
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.native",
+          "sha256": "4158eb4b07859d98706a506bf4a1bfa912bb3b68401dc70d310284ed4edb9608",
+          "bytes": 2264152
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.native.native-enfh8p0_/optimized.wasm",
+          "sha256": "1fa75a305295252612eed20bed82c0d8f808da16bffb8c4be153c221a83328cf",
+          "bytes": 7948
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.native.native-enfh8p0_/module.ll",
+          "sha256": "49a9cae856f3374c6c134ffe309e366faff2185fea55a9912c6943aa446dc41e",
+          "bytes": 447480
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nqueens/program.native.native-enfh8p0_/optimized.wat",
+          "sha256": "e6dc3ff0310c6f683db17ff21cf305e22b9a7003ff00fa182486eb41773d4185",
+          "bytes": 302046
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "paraffins",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "80c6785640e137fa8463976f58c3ed8ce4d4ac6a8342c43c25c62d4142d6eff5",
+      "raw_sha256": "21b37a8a7b8dddfb867960f6a4ecd32ba708590a204d219f07bdd669ec13b729",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10,
+      "source_identity": {
+        "main.sfir": "77755a931d81c287a44e5e2381069b5fbf3c758e1ca55c844c1673fb2f43aa52",
+        "input.txt": "0bf0a5242d10ae18d7ec196029710db19f92333a7520448c03fc068d0af7d74a",
+        "spec.json": "20a7f617fcd68c28fcfb7d69d2e5f4c7d8d593f537c2c1f9050aa5e01b63cf65"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.wasm.raw.wasm",
+          "sha256": "21b37a8a7b8dddfb867960f6a4ecd32ba708590a204d219f07bdd669ec13b729",
+          "bytes": 24122
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.wasm",
+          "sha256": "80c6785640e137fa8463976f58c3ed8ce4d4ac6a8342c43c25c62d4142d6eff5",
+          "bytes": 6728
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.native",
+          "sha256": "a5791c7423ab67006825a590027b06e642f7336622fb509af3d8dc4802da1cb6",
+          "bytes": 2316552
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.native.native-h0qso8zr/optimized.wasm",
+          "sha256": "7d46fc7df8b9e201669788323c6cdb269fab8307b76e9f4f3ed6eb052ba09f46",
+          "bytes": 13158
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.native.native-h0qso8zr/module.ll",
+          "sha256": "c33dbef1af3af421afd38e8bc9901df75b19d5661249b245cc5454e1b978212e",
+          "bytes": 731350
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/paraffins/program.native.native-h0qso8zr/optimized.wat",
+          "sha256": "397439dff630b9f5ae8eaa60f7adea9954d5273d96bf7f361b9b4df239cd0017",
+          "bytes": 423921
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "parsing",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "1cd65e743218c6cc27ec8df15b67f51694c8072527eb03507aa4ed8a6027d0d5",
+      "raw_sha256": "fd5801c1d902daf91a772795b21ef6bdfdb9d8296491502734477cb760c6443c",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json",
+        "20261015-parsing-observations.json"
+      ],
+      "corrected_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.wasm.raw.wasm",
+          "sha256": "fd5801c1d902daf91a772795b21ef6bdfdb9d8296491502734477cb760c6443c",
+          "bytes": 429043
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.wasm",
+          "sha256": "1cd65e743218c6cc27ec8df15b67f51694c8072527eb03507aa4ed8a6027d0d5",
+          "bytes": 109183
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/provider.wasm",
+          "sha256": "17b23c76aa85c540d9f0a1b5492153d7e770cad492c2bf56f362247a5afe9d06",
+          "bytes": 237958
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.native",
+          "sha256": "d4d4de23e024001cad41e4ade94ac79c2fdd85ea685bb404c878c4238fff40e8",
+          "bytes": 2846504
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.native.native-phzt83ux/optimized.wasm",
+          "sha256": "02771e9d9f586ddcc2bef7cabc666bc67f5a610d2e4bfa0d7cea20b7c6a68fab",
+          "bytes": 132167
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.native.native-phzt83ux/module.ll",
+          "sha256": "a28a966a68a9ce80d2de3f23f713df848e65803431ab8d61c56c1c61a3dc5f7f",
+          "bytes": 4926084
+        },
+        {
+          "path": "/tmp/snail-sfir-parsing-observations-20261015/validation/parsing/program.native.native-phzt83ux/optimized.wat",
+          "sha256": "0d7e8aad1f3d9b94352ac52dd14b66aa2cd5042e646aa1db6a63d756c5d4c124",
+          "bytes": 3140997
+        }
+      ],
+      "canonical_count": 2500,
+      "source_identity": {
+        "main.sfir": "77a1c476389aea704e8467b63918ac108cfc1889a77110865422cfdb8590d4dc",
+        "input.txt": "54a0dc1122568ac11949b12d4afb421c19193445dcd69bdbfd20e5bf25d17d65",
+        "spec.json": "824d6b1c5e960497dd963debc85a11f083903f957565e6ccb61803da3cfea01c"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.wasm.raw.wasm",
+          "sha256": "fd5801c1d902daf91a772795b21ef6bdfdb9d8296491502734477cb760c6443c",
+          "bytes": 429043
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.wasm",
+          "sha256": "1cd65e743218c6cc27ec8df15b67f51694c8072527eb03507aa4ed8a6027d0d5",
+          "bytes": 109183
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/provider.wasm",
+          "sha256": "17b23c76aa85c540d9f0a1b5492153d7e770cad492c2bf56f362247a5afe9d06",
+          "bytes": 237958
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.native",
+          "sha256": "a966273902ea265623237b91038fdc2ddbcea048e5026d4357169b4ebc2186b2",
+          "bytes": 2846232
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.native.native-05knetyw/optimized.wasm",
+          "sha256": "02771e9d9f586ddcc2bef7cabc666bc67f5a610d2e4bfa0d7cea20b7c6a68fab",
+          "bytes": 132167
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.native.native-05knetyw/module.ll",
+          "sha256": "a28a966a68a9ce80d2de3f23f713df848e65803431ab8d61c56c1c61a3dc5f7f",
+          "bytes": 4926084
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/parsing/program.native.native-05knetyw/optimized.wat",
+          "sha256": "0d7e8aad1f3d9b94352ac52dd14b66aa2cd5042e646aa1db6a63d756c5d4c124",
+          "bytes": 3140997
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "peval",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "debadd69868814c1da773184e17586e1224aa88bd6631468f391de4d3a0609e7",
+      "raw_sha256": "416e096b03e922dd9401678a7ecd9a09912d2fd02d4c0550d7d01b8b1f874f21",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 2000,
+      "source_identity": {
+        "main.sfir": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+        "input.txt": "28e8a5fcdd67e7cd48bcebcff0a05677c3fb5a1ff20b796c80a2f5998a508810",
+        "spec.json": "3ec3a97dfe74d110484e59e809e57f8ae7bd08941eadac8ddb3c5968cf0184f0"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.wasm.raw.wasm",
+          "sha256": "416e096b03e922dd9401678a7ecd9a09912d2fd02d4c0550d7d01b8b1f874f21",
+          "bytes": 332321
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.wasm",
+          "sha256": "debadd69868814c1da773184e17586e1224aa88bd6631468f391de4d3a0609e7",
+          "bytes": 136206
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/provider.wasm",
+          "sha256": "17b23c76aa85c540d9f0a1b5492153d7e770cad492c2bf56f362247a5afe9d06",
+          "bytes": 237958
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.native",
+          "sha256": "17248d475671682b8c66fb145b766ba8d12f00410dd0b74b866f9d7d9f254701",
+          "bytes": 3650616
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.native.native-g1to0pf7/optimized.wasm",
+          "sha256": "be31da81153f2d2fef8214fdc13be8a4bd3b33f7c88edaf9e41253adeddca1a9",
+          "bytes": 166632
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.native.native-g1to0pf7/module.ll",
+          "sha256": "96dce7323f13c46cc6b6f73b00b2fbab3122dd76060147b0d22962ab5a0ae3ff",
+          "bytes": 8966619
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/peval/program.native.native-g1to0pf7/optimized.wat",
+          "sha256": "0db7d25457da3902457608c950a1d9eb446c71b5b1a6968c0b7c01f79a1b236d",
+          "bytes": 3905369
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "primes",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "9994fbe84be529c35171d17dd8adb98422ff3c44b0e8a8cb43d5557ee60617c1",
+      "raw_sha256": "6de08c8705685871eb777e749e4ac6fd456ceda9059b78a139d09843c7d66e18",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 10000,
+      "source_identity": {
+        "main.sfir": "d4a5708e13a1df0c9d87b0e932953bf7ebd6d7dd4e725bf663ed0036f6f49e81",
+        "input.txt": "8f9768aba2c4a773906ab306a3be5209e602f89e9f4906da7772ff51d6da395e",
+        "spec.json": "072c1c8b970e3f23b87aff1e35696271853556d0a6ebc74c4758e9ad039390d8"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.wasm.raw.wasm",
+          "sha256": "6de08c8705685871eb777e749e4ac6fd456ceda9059b78a139d09843c7d66e18",
+          "bytes": 13134
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.wasm",
+          "sha256": "9994fbe84be529c35171d17dd8adb98422ff3c44b0e8a8cb43d5557ee60617c1",
+          "bytes": 3334
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.native",
+          "sha256": "5ef5e2525a9e5ae053214f53ac2af7f0d976e72dcc33be8dc6e64933e9274dff",
+          "bytes": 6146976
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.native.native-pbkp7m1m/optimized.wasm",
+          "sha256": "7128896f7484ff4a32a03a8ae35f41a5b3781ad2230bdd14318c9e656e32528c",
+          "bytes": 612417
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.native.native-pbkp7m1m/module.ll",
+          "sha256": "4b3f0fe31f132f429ea1a86ecbdca27d15216a4fca3ea2455bab9fa4798dc578",
+          "bytes": 41857797
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/primes/program.native.native-pbkp7m1m/optimized.wat",
+          "sha256": "22a621125bdaf9dfcba0a207bfc3ecb9f13b44f9bc96bbda79917b9aa957a837",
+          "bytes": 32565571
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "quicksort",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "4392cb530f458eda58095d540dbdf9b292b3a2d176309f72a4254b1efbbb0e9a",
+      "raw_sha256": "dd62a43c6e94a0e52facfb4b5d5754e75423359bfd273b702c476836e6994e25",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 2500,
+      "source_identity": {
+        "main.sfir": "1d7b55ba6d3161e3c2b25ef451c379549fd61764fadf60eef905f61c00f4fa6e",
+        "input.txt": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f",
+        "spec.json": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.wasm.raw.wasm",
+          "sha256": "dd62a43c6e94a0e52facfb4b5d5754e75423359bfd273b702c476836e6994e25",
+          "bytes": 28473
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.wasm",
+          "sha256": "4392cb530f458eda58095d540dbdf9b292b3a2d176309f72a4254b1efbbb0e9a",
+          "bytes": 6725
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.native",
+          "sha256": "77cc124ba1302e97cf4be8ad2ed140ae77c8ffa7552ae962292b19a348b05758",
+          "bytes": 2240216
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.native.native-1wqi4tnt/optimized.wasm",
+          "sha256": "7370b7da2fe7c014558e8dec4185f90c2f06c541f2331a177b672c329abc7281",
+          "bytes": 9536
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.native.native-1wqi4tnt/module.ll",
+          "sha256": "26dcc6bcf73367120b8506ffdebc94eaa9d77070e4cd3fb196c5da3955439af9",
+          "bytes": 320885
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/quicksort/program.native.native-1wqi4tnt/optimized.wat",
+          "sha256": "78bddf4d480f5f892a007647af1ecbab0bb8f3ba109244f358b76c5eef721c89",
+          "bytes": 201292
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "nboyer",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "bf1ee440fc1b2b83889bb74e576987c828835c44562d6bac68123ee7acda2679",
+      "raw_sha256": "a7c40f598a4615100a9e51221e4d4c32b88547b5577f5083d0325ec9c2d8a372",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "672e9d831117ac1b691e4d2c1103db5a28893953c6e1ae49f5bbee802da2985f",
+        "input.txt": "b71987258638074bb13ede6d586e5764b0a6cbb742b97807aad15996132f4c88",
+        "spec.json": "9f74120908ccbb63d18c8ee1a9400fd35a88e881f9756d68d02a390a330db596"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.wasm.raw.wasm",
+          "sha256": "a7c40f598a4615100a9e51221e4d4c32b88547b5577f5083d0325ec9c2d8a372",
+          "bytes": 487886
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.wasm",
+          "sha256": "bf1ee440fc1b2b83889bb74e576987c828835c44562d6bac68123ee7acda2679",
+          "bytes": 274985
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/provider.wasm",
+          "sha256": "6df6aa8bcfbe01673dbde7139f6de540b91b43aa5a9921ea85f55d75085497ef",
+          "bytes": 237345
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.native",
+          "sha256": "9c98a5f5f60116eb92c3655651229d1a0c061fe59a23ae1a323d33f90d45fc6d",
+          "bytes": 6006944
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.native.native-4il7j9ro/optimized.wasm",
+          "sha256": "6facd2cd2b323dc04eb80f7fddcdb3b08149b642b76eff3936c59402edc9300e",
+          "bytes": 285845
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.native.native-4il7j9ro/module.ll",
+          "sha256": "b775b26b667ca204980256cc20d9a695fd4d5bb9b377600080b37037de65c079",
+          "bytes": 18071415
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/nboyer/program.native.native-4il7j9ro/optimized.wat",
+          "sha256": "40bbfb249db3a6dddf242c5b2da9dcc99b8716bae9e08eb3c93749a3d28c2978",
+          "bytes": 4184639
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "sboyer",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "7035fe91d74a820e3dedd19b94b03c5d884efdd8ae9e214e177f735d83f56dba",
+      "raw_sha256": "dafa7318ad8e2b4f6fdb52514a6c7b7f777eae1f648aa64d6db615c6262ec8a0",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "c87197011aed702b8bac63a8132cabf85244929545f98b695163ab19a31f54de",
+        "input.txt": "d6f1f85be211a2a8e6ad5b6216d1ed925b7be175d48cb8b6910de02435050be6",
+        "spec.json": "bb8062c444ceb871c5e00fe8d182c2491890b157cff42984196d6872680b283e"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.wasm.raw.wasm",
+          "sha256": "dafa7318ad8e2b4f6fdb52514a6c7b7f777eae1f648aa64d6db615c6262ec8a0",
+          "bytes": 488417
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.wasm",
+          "sha256": "7035fe91d74a820e3dedd19b94b03c5d884efdd8ae9e214e177f735d83f56dba",
+          "bytes": 275159
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/provider.wasm",
+          "sha256": "6df6aa8bcfbe01673dbde7139f6de540b91b43aa5a9921ea85f55d75085497ef",
+          "bytes": 237345
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.native",
+          "sha256": "f4fc19a22068d9a2e570adf04df1734bd3af8e16434d81724ddb6bf6bed16ab5",
+          "bytes": 6008816
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.native.native-ej406ndj/optimized.wasm",
+          "sha256": "3965240782ffee703dcafb2c7598c711d1815e85075ef9c499ec1dde6ee6f728",
+          "bytes": 285997
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.native.native-ej406ndj/module.ll",
+          "sha256": "d1d0ff0eebebacd7b5898dcb60c462aae7ed5ced4f7df74480ab48d5ca808768",
+          "bytes": 18082795
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/sboyer/program.native.native-ej406ndj/optimized.wat",
+          "sha256": "370fa2b8389342d051a668d869313d54165d5d995a874dda5be61d226b2ec57d",
+          "bytes": 4187061
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "gcbench",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "failed-build",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "e6a7357576f5a1aa73cf1a00e581e40ea371a8efd2fd7ac0b6ace20cb090b4c9",
+      "raw_sha256": "d24306d3474344cbf98a17437abc161cc38d2a2292bf03520fff4ea849a90cec",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "881810f6254bd7b11846a4f0037a888aaec17dc4ad1a4a14a32804ef07dba1db",
+        "input.txt": "d3c713afeed5d19923fdd124b4a4fd3c15de725e41da6e352ab59b18e4063f19",
+        "spec.json": "79843a344b420703f80a8affd196fb30b108665571b12e1c151cc5d83b2836e9"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/gcbench/program.wasm.raw.wasm",
+          "sha256": "d24306d3474344cbf98a17437abc161cc38d2a2292bf03520fff4ea849a90cec",
+          "bytes": 19887
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/gcbench/program.wasm",
+          "sha256": "e6a7357576f5a1aa73cf1a00e581e40ea371a8efd2fd7ac0b6ace20cb090b4c9",
+          "bytes": 22424
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/gcbench/program.native.native-f6ixy4du/optimized.wasm",
+          "sha256": "fc0418dc3dd0e9b649448bf4037f4efc3ea4e96f9ea0d0f359ba7123afa7bab5",
+          "bytes": 879977
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/gcbench/program.native.native-f6ixy4du/module.ll",
+          "sha256": "c6d3ade29d181142dc9f8cb784a923d9861be71cedad3e6b81dc91b76d68d208",
+          "bytes": 111616338
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/gcbench/program.native.native-f6ixy4du/optimized.wat",
+          "sha256": "1ce888689ba455c611c761ba1a4df84f56303482d29e267fa6a892982db6304b",
+          "bytes": 63635255
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "mperm",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "61793d6fd26af21949fa900f18e3de79fc0bdcbb1e90939a483449eb25dabf60",
+      "raw_sha256": "e9fb2a3399f9c23b6a78e52bf4cc1b7e72637f25ff48df4185818dbdd2b07399",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 20,
+      "source_identity": {
+        "main.sfir": "50ecb7cf189fd211480fc6846c93972164efa87a13ddd5e96fa546de032d9c08",
+        "input.txt": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941",
+        "spec.json": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.wasm.raw.wasm",
+          "sha256": "e9fb2a3399f9c23b6a78e52bf4cc1b7e72637f25ff48df4185818dbdd2b07399",
+          "bytes": 20496
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.wasm",
+          "sha256": "61793d6fd26af21949fa900f18e3de79fc0bdcbb1e90939a483449eb25dabf60",
+          "bytes": 7068
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.native",
+          "sha256": "3b42cef859ebf358e04076bd1cf2d3afd0a84f5f23945d6d77c5a4a2dd1399cb",
+          "bytes": 2247504
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.native.native-od08fpri/optimized.wasm",
+          "sha256": "a172976588c1a689ff42dff1d24d1725733ae10de925bc61528c9af5a93f940a",
+          "bytes": 13828
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.native.native-od08fpri/module.ll",
+          "sha256": "a524a743b3c47b0a6f1ff1e6f93950050bcc48c2ebdc3d8d36e3feb5c8bab842",
+          "bytes": 594846
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/mperm/program.native.native-od08fpri/optimized.wat",
+          "sha256": "3f222f8b8b8f1abf70944f3b06e812931a67ded8819605ab2dca9f04c0acf28c",
+          "bytes": 437731
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "equal",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "3d99e52aec2f65131fe9f30c34617588919da9f430727c66788837d0e70ad5e8",
+      "raw_sha256": "9212a0577b8855e2dfd87c1684a77e41740e3a21df4a006fd9d481a920f4fb8e",
+      "chez_adapted_validation": "passed",
+      "corrections": [
+        "20261015-chez-vector-copy.json"
+      ],
+      "canonical_count": 1,
+      "source_identity": {
+        "main.sfir": "2b90055df54db6794b9654760ebb71bf54e1df7b06b512a9d964ca8eaa8dc1e5",
+        "input.txt": "fd6624c8c04b324af8fc851d2cf5509543785b41a6a76c53232ac025245cae03",
+        "spec.json": "ff82156f83dc09d86d9c5a36a09bc53c4665a03b19baca2d46eca55e3b463d50"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.wasm.raw.wasm",
+          "sha256": "9212a0577b8855e2dfd87c1684a77e41740e3a21df4a006fd9d481a920f4fb8e",
+          "bytes": 239175
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.wasm",
+          "sha256": "3d99e52aec2f65131fe9f30c34617588919da9f430727c66788837d0e70ad5e8",
+          "bytes": 62570
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/provider.wasm",
+          "sha256": "6df6aa8bcfbe01673dbde7139f6de540b91b43aa5a9921ea85f55d75085497ef",
+          "bytes": 237345
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.native",
+          "sha256": "4f526576e9328450adf70383c3c7d41e2b203160def62d591c1428acb4eb30bb",
+          "bytes": 2723704
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.native.native-0v4tlo8_/optimized.wasm",
+          "sha256": "450640327b962009731f1cea7457964cf17cd89150946aee9b71dbb79b6fa190",
+          "bytes": 75984
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.native.native-0v4tlo8_/module.ll",
+          "sha256": "84683bfc08d405d654731879e0fbb9a4d287575ead7f928829d96d33c735ceba",
+          "bytes": 2708777
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/equal/program.native.native-0v4tlo8_/optimized.wat",
+          "sha256": "e0ea7247c1ee4754348187b0485c358f69acd23a3fde6f55df5da1e12760ad55",
+          "bytes": 1653658
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    },
+    {
+      "name": "bv2string",
+      "source": "present",
+      "build": "passed",
+      "optimized": "passed",
+      "wasm_validation": "passed",
+      "native_validation": "passed",
+      "chez_validation": "passed",
+      "rust_wasm_validation": "passed",
+      "rust_native_validation": "passed",
+      "measurement": "not-measured",
+      "adapted_control_required": true,
+      "optimized_sha256": "3a2c79f52e8cb32592e23c70890f3d7cdb064e9e559ffc0701ffc1b968cc8637",
+      "raw_sha256": "b1ea1d834d2694cfbbd15a803ab99effbe5b58841fd1d1a6d0470500129c2260",
+      "chez_adapted_validation": "passed",
+      "canonical_count": 100,
+      "source_identity": {
+        "main.sfir": "dfe822a62860ce2e8898d4dbd1d93b6c66e8664bf3072bcc4731ac02f35e44b0",
+        "input.txt": "d024a11a192c89d8353c52144a35a292077f4a702f9ab262fbaaf52c015ae2a9",
+        "spec.json": "1ebfaf3ba6cbe8ab5622bdcc12fa699a6c4e9e0ec078ba290d93ad4e50da1efa"
+      },
+      "original_artifacts": [
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.wasm.raw.wasm",
+          "sha256": "b1ea1d834d2694cfbbd15a803ab99effbe5b58841fd1d1a6d0470500129c2260",
+          "bytes": 32548
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.wasm",
+          "sha256": "3a2c79f52e8cb32592e23c70890f3d7cdb064e9e559ffc0701ffc1b968cc8637",
+          "bytes": 7006
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.native",
+          "sha256": "544aaee57d1ee4c5945ab06fa18206bcca6abe4db007c8ff5af46c4559bd9f19",
+          "bytes": 2241232
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.native.native-5bfimbu2/optimized.wasm",
+          "sha256": "35f8271c4ccd08436e9819c443c9b35cc96cb287302be07ad16e22b4ce33d55b",
+          "bytes": 8353
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.native.native-5bfimbu2/module.ll",
+          "sha256": "762c2a3cdb4b417ba62f0467f58c3d5de5e0e26ae02df20be579a31658b46bcc",
+          "bytes": 274250
+        },
+        {
+          "path": "/tmp/snail-sfir-existing41-20261015/validation/bv2string/program.native.native-5bfimbu2/optimized.wat",
+          "sha256": "ed44f90550371b4623bbb0123487fe556de83601e4d8e723b1c6a2f3fd506018",
+          "bytes": 145563
+        }
+      ],
+      "native_pipeline": "Binaryen optimized the V8 program again before LLVM lowering; identical optimized modules are not claimed."
+    }
+  ],
+  "effective_route_counts": {
+    "wasm_validation": {
+      "passed": 41
+    },
+    "native_validation": {
+      "passed": 40,
+      "failed-build": 1
+    },
+    "chez_validation": {
+      "passed": 41
+    },
+    "chez_adapted_validation": {
+      "passed": 31,
+      "unavailable": 10
+    },
+    "rust_wasm_validation": {
+      "passed": 41
+    },
+    "rust_native_validation": {
+      "passed": 41
+    }
+  },
+  "corpus_source_counts": {
+    "present": 53,
+    "missing": 4
+  },
+  "corpus_route_counts": {
+    "wasm_validation": {
+      "passed": 53,
+      "pending": 4
+    },
+    "native_validation": {
+      "passed": 52,
+      "pending": 4,
+      "failed-build": 1
+    },
+    "chez_validation": {
+      "passed": 53,
+      "pending": 4
+    },
+    "chez_adapted_validation": {
+      "passed": 41,
+      "unavailable": 16
+    },
+    "rust_wasm_validation": {
+      "passed": 52,
+      "failed": 1,
+      "pending": 4
+    },
+    "rust_native_validation": {
+      "passed": 53,
+      "pending": 4
+    }
+  },
+  "measured_cases": [
+    "ctak",
+    "fibc",
+    "fibfp",
+    "ack",
+    "cat",
+    "wc"
+  ],
+  "limitation": "These are contended correctness executions, not new performance samples. Native routes used the retained helper with a second Binaryen optimization pass. Missing/unavailable/failed routes remain explicit."
+}

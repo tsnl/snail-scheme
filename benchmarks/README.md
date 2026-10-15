@@ -22,6 +22,11 @@ timing report](sfir/evidence/20261015-clean-six.md) covers Ack, Fibfp, Cat, WC,
 CTAK and FIBC on 33 available target/control routes; it retains default Rust
 Wasm Ack's stack failure. The remaining workloads are not measured.
 
+The [canonical validation checkpoint](sfir/evidence/20261015-existing41.md)
+records 53 SFIR Wasm successes and 52 native successes, with GCBench's native
+build timeout preserved. Four source ports remain pending. These correctness
+runs do not add performance coverage.
+
 [`wasm-reference`](wasm-reference/README.md) contains the 57 separate Rust ports
 and complete correctness fixtures. Its original Chez controls now come from
 the static SFIR corpus rather than a Scheme-source generator.
