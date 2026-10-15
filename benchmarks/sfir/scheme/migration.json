@@ -35,7 +35,7 @@
     "earlier_native_attempt": "An already optimized Wasm input was optimized a second time; excluded from module-parity evidence.",
     "checked_harness_result": "/tmp/snail-sfir-large-ports-20261015/scheme-checked-harness-1/run.stdout"
   },
-  "verification_harness_sha256": "1f32d993a51a0085f6ac0572b2c7f08322204bd621a1accfe6a31b48e1fd857f",
+  "verification_harness_sha256": "f5b5199ac6a24d9a45802764ed73634028e6aceaddd58d730926bafe8880bc35",
   "clarity_review": "Independent no-files explanation and focused debate of Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison and actual target verification.",
   "surface_migration": {
     "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
