@@ -67,7 +67,25 @@ even. It traps when a finite input rounds to infinity. Explicit infinities and
 NaNs remain IEEE special values; underflow may produce a subnormal or signed
 zero. These checks apply equally to direct calls and first-class function values.
 
+Ordinary I32/I64 addition, subtraction and multiplication trap on signed
+overflow. F32/F64 addition, subtraction, multiplication and division trap when
+finite operands produce an infinite rounded result, except that a zero divisor
+retains IEEE zero-division behavior. Direct primitives, overloads and function
+values have the same contract; discarding a result does not discard its trap.
+
+The primitive library provides explicit exceptions for existing low-level
+algorithms: `i64-wrapping-add` and `i64-wrapping-mul` compute modulo 2^64, while
+`f64-ieee-add`, `f64-ieee-sub`, `f64-ieee-mul` and `f64-ieee-div` retain IEEE
+overflow results. Import these names explicitly from `(sfir primitive)`;
+ordinary operators in `(sfir base)` remain checked. Datum hashing uses the
+wrapping operations. The nominal `Number` library preserves IEEE behavior for
+inexact arithmetic, and the named `integer->f64`, `integer-ratio->f64` and
+`rational->f64` conversions round an out-of-range exact value to infinity.
+The scalar externs in `(sfir math)` likewise expose their documented IEEE
+overflow/domain results. These library contracts do not weaken fixed-width
+arithmetic or insert an implicit numeric promotion.
+
 The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
-remaining differences, including runtime overflow checks and
-first-class library compilation APIs. These gaps do not weaken the language
+remaining differences, including first-class library compilation APIs.
+These gaps do not weaken the language
 contract.

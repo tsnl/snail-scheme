@@ -584,6 +584,61 @@
                              (f32.eq (f32.abs (local.get ,result)) (f32.const inf)))
                     (then (unreachable)))
                 (local.get ,result))))
+
+    ;; Direct calls hold arguments in locals; primitive workers read parameters.
+    ;; These guards can inspect operands again without repeating source effects.
+    ;; I32 operands sign-extend exactly, and even their largest product fits
+    ;; I64. The existing narrowing check establishes the final signed range.
+    (define (emit-i32-arithmetic opcode arguments context)
+      (let ((result (new-local 'I64 context))
+            (wide (case opcode ((i32.add) 'i64.add) ((i32.sub) 'i64.sub) ((i32.mul) 'i64.mul))))
+        `(block (result i32)
+                (local.set ,result (,wide (i64.extend_i32_s ,(car arguments))
+                                          (i64.extend_i32_s ,(cadr arguments))))
+                ,(emit-i32-narrowing `(local.get ,result)))))
+    (define (i64-additive-overflow opcode left right result)
+      `(i64.lt_s (i64.and (i64.xor ,left ,result)
+                          ,(if (eq? opcode 'i64.add) `(i64.xor ,right ,result) `(i64.xor ,left ,right)))
+                 (i64.const 0)))
+    (define (emit-i64-additive opcode arguments context)
+      (let ((result (new-local 'I64 context)))
+        `(block (result i64)
+                (local.set ,result (,opcode ,@arguments))
+                (if ,(i64-additive-overflow opcode (car arguments) (cadr arguments) `(local.get ,result))
+                    (then (unreachable)))
+                (local.get ,result))))
+    ;; A fitting product divides back exactly. An overflowing product cannot
+    ;; recover its operand: the missing multiple of 2^64 exceeds any remainder.
+    ;; Guard zero with control flow. MIN/-1 can trap in this recovery division
+    ;; only when the original multiplication also overflows.
+    (define (emit-i64-product arguments context)
+      (let ((result (new-local 'I64 context)) (left (car arguments)) (right (cadr arguments)))
+        `(block (result i64)
+                (local.set ,result (i64.mul ,left ,right))
+                (if (i64.ne ,right (i64.const 0))
+                    (then (if (i64.ne (i64.div_s (local.get ,result) ,right) ,left) (then (unreachable)))))
+                (local.get ,result))))
+    (define (float-opcode type operation)
+      (string->symbol (string-append (if (eq? type 'F32) "f32." "f64.") operation)))
+    (define (finite-float type value)
+      `(,(float-opcode type "lt") (,(float-opcode type "abs") ,value) (,(float-opcode type "const") inf)))
+    (define (infinite-float type value)
+      `(,(float-opcode type "eq") (,(float-opcode type "abs") ,value) (,(float-opcode type "const") inf)))
+    (define (float-overflow opcode type arguments result)
+      (let ((overflow `(i32.and (i32.and ,(finite-float type (car arguments))
+                                         ,(finite-float type (cadr arguments)))
+                                ,(infinite-float type result))))
+        (if (memq opcode '(f32.div f64.div))
+            `(i32.and ,overflow (,(float-opcode type "ne") ,(cadr arguments) (,(float-opcode type "const") 0)))
+            overflow)))
+    ;; Check the rounded result, retaining finite rounding back to MAX, signed
+    ;; zero and NaNs. IEEE zero division is distinct from finite overflow.
+    (define (emit-float-arithmetic opcode type arguments context)
+      (let ((result (new-local type context)) (physical (wasm-type type (context-state context))))
+        `(block (result ,physical)
+                (local.set ,result (,opcode ,@arguments))
+                (if ,(float-overflow opcode type arguments `(local.get ,result)) (then (unreachable)))
+                (local.get ,result))))
     (define (emit-array-copy name arguments)
       ;; Checked start and end >= start make subtraction nonnegative and exact.
       ;; Native bounds then check start + span, which is the original I64 end.
@@ -632,6 +687,11 @@
           ((integer->char) (emit-integer-character (car arguments)))
           ((i64->i32) (emit-i32-narrowing (car arguments)))
           ((f64->f32) (emit-f32-narrowing (car arguments) context))
+          ((i32-add i32-sub i32-mul) (emit-i32-arithmetic opcode arguments context))
+          ((i64-add i64-sub) (emit-i64-additive opcode arguments context))
+          ((i64-mul) (emit-i64-product arguments context))
+          ((f32-add f32-sub f32-mul f32-div f64-add f64-sub f64-mul f64-div)
+           (emit-float-arithmetic opcode (function-result signature) arguments context))
           ((make-string string-length string-ref string-set! string-copy!)
            (emit-string-primitive name arguments context))
           ((make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set! bytevector-copy!)

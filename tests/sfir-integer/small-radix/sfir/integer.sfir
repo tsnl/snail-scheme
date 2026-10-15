@@ -14,7 +14,7 @@
           integer-sqrt integer-sqrt/remainder root-value root-remainder
           + - * = < <= > >= quotient remainder
           test-integer)
-  (import (sfir base))
+  (import (sfir base) (only (sfir primitive) f64-ieee-mul))
 
   ;; ---- Canonical magnitude and private ownership ----
 
@@ -745,7 +745,7 @@
            (begin (let whole (if (< spacing (ann 0 I64))
                                  (rounded-ratio (integer-multiply numerator (binary-power (- (ann 0 I64) spacing))) denominator)
                                  (rounded-ratio numerator (integer-multiply denominator (binary-power spacing)))))
-                  (* (i64->f64 whole) (binary64-power spacing)))))
+                  (f64-ieee-mul (i64->f64 whole) (binary64-power spacing)))))
 
     (def positive-ratio->f64 (-> Integer Integer F64)
          (lambda (numerator denominator)
