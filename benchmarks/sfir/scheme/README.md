@@ -47,8 +47,15 @@ native64. The final validation uses a separate V8 scalar provider and proves
 native's retained optimized Wasm byte-identical to V8's program. An earlier native
 attempt optimized an already optimized module again; it is retained as separate
 correctness evidence and is not the parity result. Original/adapted Chez passed
-as well. These concurrent correctness runs provide no clean timing claim. Rust
-comparison and frozen corpus registration remain the corpus runner's separate work.
+as well. These concurrent correctness runs provide no clean timing claim. The
+later [current-source frozen checkpoint](../evidence/20261015-dynamic-scheme.md)
+compiles the unchanged current source and passes all six canonical routes,
+including both Rust controls. Its verifier adds ordered phase checks: the
+configuration and probe file each open and close once, followed by no canonical
+worker or cleanup file activity. Native release counts are setup 1, probes 1,
+worker 0 and cleanup 0. The original-Chez oracle separately passes all 26 probes;
+the Rust controls run the complete canonical sorting predicate. The case remains
+unmeasured.
 
 The [integration review](../evidence/20261015-two-ports-review.json) repeats the
 canonical worker and probes with the current scalar runtime and native lowering.
