@@ -22,6 +22,16 @@ int32_t barrier(void) { observed_barriers++; return 1; }
 int64_t benchmark_barriers(void) { return observed_barriers; }
 void benchmark_reset_barriers(void) { observed_barriers = 0; }
 
+// ---- Pathname constants use Unicode scalar values, matching the Wasm host ----
+
+#if PATH_ARGUMENTS == 1
+int64_t path_length(int32_t which) { return path_sizes[which]; }
+uint32_t path_character(int32_t which, int64_t index) { return path_characters[path_offsets[which] + index]; }
+#elif PATH_ARGUMENTS == 0
+int64_t path_length(void) { return path_sizes[0]; }
+uint32_t path_character(int64_t index) { return path_characters[index]; }
+#endif
+
 // ---- Complete diagnostic output remains inside the workload ----
 
 void write_character(uint32_t value) {

@@ -183,6 +183,14 @@ def verify_preparation(directory):
     return manifest
 
 
+def enter_frozen_driver(directory, action):
+    manifest = verify_preparation(directory)
+    driver = directory / 'source/benchmarks/sfir/runner.py'
+    if Path(__file__).resolve() != driver.resolve():
+        python = manifest['tools']['PYTHON']['path']
+        os.execv(python, [python, str(driver), action, '--output', str(directory)])
+
+
 # ---- Bounded processes keep terminal diagnostics and drain descendants ----
 
 def executing_group(group):
@@ -299,6 +307,8 @@ def sfir_build(directory, case, source, target, manifest, environment):
 
 
 def scalar_validation(directory, target, manifest, environment):
+    if load(target / 'spec.json')['name'] == 'fft':
+        fft_provider(directory, target, manifest, environment, True)
     command = [manifest['tools']['NODE']['path'], directory / 'source/benchmarks/sfir/support/scalar-host.mjs',
                target / 'program.wasm', target / 'spec.json', '--validate']
     working = execution_directory(directory, target, 'sfir-wasm')
@@ -397,6 +407,62 @@ def datum_validation(directory, target, manifest, environment):
     return 'passed' if succeeded(result) else 'failed'
 
 
+def specialized_validation(directory, case, target, manifest, environment):
+    runtime_provider(directory, target, manifest, environment)
+    working = execution_directory(directory, target, 'sfir-wasm')
+    spec = dict(load(target / 'spec.json'), trace=True)
+    save(target / 'wasm-spec.json', spec)
+    command = [manifest['tools']['NODE']['path'], '--no-warnings',
+               directory / f'source/benchmarks/sfir/support/{case["host"]}-host.mjs',
+               target / 'program.wasm', target / 'wasm-spec.json', '--validate', target / 'provider.wasm']
+    result = record(target, 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
+    source = directory / 'source/benchmarks/sfir' / case['name']
+    return 'passed' if succeeded(result) and output_files_match(source, working, target, 'sfir-wasm') else 'failed'
+
+
+# ---- Separate scalar sine and decimal-text interfaces preserve the workloads ----
+
+def fft_provider(directory, target, manifest, environment, wasm):
+    command = [manifest['tools']['RUSTC']['path'], '--edition=2024', '--crate-name=sfir_fft_math',
+               '--crate-type=' + ('cdylib' if wasm else 'lib'), '-C', 'opt-level=3', '-C', 'lto=' + ('yes' if wasm else 'no'),
+               '-C', 'codegen-units=1', '-C', 'panic=abort']
+    if wasm:
+        command += ['--target=wasm32-wasip1']
+    else:
+        command += ['--emit=obj']
+    output = target / ('math-provider.wasm' if wasm else 'math-provider.o')
+    command += [directory / 'source/benchmarks/sfir/support/fft-math.rs', '-o', output]
+    result = record(target, 'math-' + ('wasm' if wasm else 'native') + '-build', command,
+                    environment, target, manifest['config']['compile_timeout'])
+    if not succeeded(result):
+        raise RuntimeError('FFT scalar sine provider build failed')
+
+
+def integer_validation(directory, source, target, manifest, environment, native):
+    if native:
+        built = integer_native_build(directory, source, target, manifest, environment)
+        if not succeeded(built):
+            return 'failed-build'
+    working = execution_directory(directory, target, 'sfir-native' if native else 'sfir-wasm')
+    command = ([target / 'program.native', target / 'native-input.txt'] if native else
+               [manifest['tools']['NODE']['path'], directory / 'source/benchmarks/sfir/support/integer-host.mjs',
+                target / 'program.wasm', target / 'spec.json'])
+    result = record(target, 'sfir-native' if native else 'sfir-wasm', command, environment, working, manifest['config']['run_timeout'])
+    return 'passed' if succeeded(result) and result['stdout'] == load(source / 'spec.json')['output'] else 'failed'
+
+
+def integer_native_build(directory, source, target, manifest, environment):
+    support, spec = directory / 'source/benchmarks/sfir/support', load(source / 'spec.json')
+    for name in ('integer-provider.h', 'integer-provider.c', 'integer-entry.c'):
+        shutil.copy2(support / name, target / name)
+    data = ' '.join(map(str, [spec['count'], *spec['inputs'], len(spec['expected'])]))
+    (target / 'native-input.txt').write_text(data + '\n' + '\n'.join(spec['expected']) + '\n')
+    command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
+               '--entry-c', target / 'integer-entry.c', '--c-provider', 'benchmark', target / 'integer-provider.h',
+               target / 'integer-provider.c', target / 'program.wasm', target / 'program.native']
+    return record(target, 'native-build', command, environment, target, manifest['config']['compile_timeout'])
+
+
 def c_array(name, kind, values):
     values = values or [0]
     return f'static const {kind} {name}[] = {{' + ', '.join(map(str, values)) + '};\n'
@@ -421,13 +487,22 @@ def native_configuration(spec):
     inputs = spec['inputs']
     vectors = [value if isinstance(value, list) else [] for value in inputs]
     expected = spec['expected'] if isinstance(spec['expected'], list) else [spec['expected']]
-    header = '#include <stdint.h>\n'
+    header = '#ifndef BENCHMARK_CASE_CONFIG\n#define BENCHMARK_CASE_CONFIG\n#include <stdint.h>\n'
     header += numeric_arrays('input', [0 if isinstance(value, list) else value for value in inputs])
     header += numeric_arrays('vector', [value for vector in vectors for value in vector])
     header += numeric_arrays('expected', expected)
     header += c_array('vector_sizes', 'int64_t', list(map(len, vectors)))
     header += c_array('vector_offsets', 'int64_t', [sum(map(len, vectors[:index])) for index in range(len(vectors))])
-    return header + native_expectations(spec, len(expected)) + native_diagnostics(spec)
+    return header + native_expectations(spec, len(expected)) + native_diagnostics(spec) + native_paths(spec) + '#endif\n'
+
+
+def native_paths(spec):
+    paths = spec.get('pathnames', [spec['pathname']] if 'pathname' in spec else [])
+    arity = 1 if spec['name'] == 'tail' else 0 if spec['name'] == 'ray' else -1
+    text = c_array('path_characters', 'uint32_t', [ord(char) for path in paths for char in path])
+    text += c_array('path_sizes', 'int64_t', list(map(len, paths)))
+    text += c_array('path_offsets', 'int64_t', [sum(map(len, paths[:index])) for index in range(len(paths))])
+    return text + f'#define PATH_ARGUMENTS {arity}\n'
 
 
 def native_expectations(spec, expected_size):
@@ -439,6 +514,8 @@ def native_expectations(spec, expected_size):
     reader = spec.get('runtime') == 'scalar-datum-reader'
     values.update(expected_setup_closed=1 if reader else -1,
                   expected_worker_closed=len(spec.get('pathnames', [])) * spec['count'] if reader else -1)
+    if spec.get('runtime') == 'scalar-io':
+        values.update(expected_setup_closed=0, expected_worker_closed=(2 if spec['name'] == 'tail' else 1) * spec['count'])
     text = ''.join(f'static const int64_t {key} = {value};\n' for key, value in values.items())
     text += f'static const {"double" if floating else "int64_t"} expected_result = {result};\n'
     return (text + f'static const double expected_tolerance = {spec.get("tolerance", 0)};\n#define FLOAT_RESULT {int(floating)}\n'
@@ -467,6 +544,9 @@ def native_validation(directory, source, target, manifest, environment):
     command = [manifest['tools']['PYTHON']['path'], directory / 'source/scripts/build-native', '--wasm',
                '--entry-c', target / 'scalar-entry.c', '--c-provider', 'benchmark',
                target / 'scalar-provider.h', target / 'scalar-provider.c', target / 'program.wasm', target / 'program.native']
+    if source.name == 'fft':
+        fft_provider(directory, target, manifest, environment, False)
+        command[2:2] = ['--c-provider', 'math', directory / 'source/benchmarks/sfir/support/fft-math.h', target / 'math-provider.o']
     built = record(target, 'native-build', command, environment, target, manifest['config']['compile_timeout'])
     if not succeeded(built):
         return 'failed-build'
@@ -484,12 +564,28 @@ def native_execution(directory, source, target, manifest, environment):
 
 
 def output_files_match(source, working, target, route):
-    if source.name != 'cat':
+    if source.name not in ('cat', 'tail', 'ray'):
         return True
-    paths = load(source / 'spec.json')['pathnames']
-    observed = {name: digest(working / name) if (working / name).is_file() else None for name in paths}
+    spec = load(source / 'spec.json')
+    path = spec['pathname'] if source.name == 'ray' else spec['pathnames'][1]
+    expected = expected_file_digest(source.name, working, spec)
+    observed = dict(path=path, actual=digest(working / path) if (working / path).is_file() else None, expected=expected)
     save(target / (route + '-outputs.json'), observed)
-    return observed[paths[0]] == observed[paths[1]] and observed[paths[0]] is not None
+    return observed['actual'] == expected
+
+
+def expected_file_digest(name, working, spec):
+    if name == 'ray':
+        return spec['image_sha256']
+    data = (working / spec['pathnames'][0]).read_bytes()
+    if name == 'tail':
+        if b'\r' in data:
+            raise ValueError('canonical Tail byte oracle requires its pinned LF-only input')
+        lines = data.split(b'\n')
+        if lines[-1] == b'':
+            lines.pop()
+        data = b''.join(line + b'\n' for line in reversed(lines))
+    return hashlib.sha256(data).hexdigest()
 
 
 def compile_chez_control(source, target, manifest, environment, mode):
@@ -510,8 +606,14 @@ def chez_validation(directory, source, target, manifest, environment, mode):
     working = execution_directory(directory, target, f'chez-{mode}')
     result = record(target, f'chez-{mode}', [manifest['tools']['CHEZ']['path'], '--program', target / f'chez-{mode}.so'], environment,
                     working, manifest['config']['run_timeout'], (target / 'input.txt').read_text())
-    passed = succeeded(result) and '+!CSVLINE!+' in result['stdout'] and 'INCORRECT' not in result['stdout']
+    passed = succeeded(result) and chez_result_matches(source, result['stdout'])
     return 'passed' if passed and output_files_match(source, working, target, f'chez-{mode}') else 'failed'
+
+
+def chez_result_matches(source, output):
+    if source.name in ('pi', 'chudnovsky'):
+        return output == load(source / 'spec.json')['output']
+    return '+!CSVLINE!+' in output and 'INCORRECT' not in output
 
 
 def rust_validation(directory, case, target, manifest, environment, wasm):
@@ -572,6 +674,11 @@ def wasm_validation(directory, case, target, manifest, environment):
     try:
         if case['host'] == 'datum-io':
             return datum_validation(directory, target, manifest, environment)
+        if case['host'] in ('tail', 'ray', 'nucleic'):
+            return specialized_validation(directory, case, target, manifest, environment)
+        if case['host'] == 'integer':
+            source = directory / 'source/benchmarks/sfir' / case['name']
+            return integer_validation(directory, source, target, manifest, environment, False)
         return scalar_validation(directory, target, manifest, environment)
     except (OSError, RuntimeError, ValueError) as error:
         save(target / 'wasm-failure.json', dict(reason=str(error)))
@@ -584,11 +691,13 @@ def sfir_validation(directory, case, source, target, manifest, environment, stat
         return
     if not sfir_artifacts(directory, case, source, target, manifest, environment, status):
         return
-    if case['host'] not in ('scalar', 'datum-io') or case['name'] == 'fft':
+    if case['host'] not in ('scalar', 'datum-io', 'tail', 'ray', 'nucleic', 'integer'):
         stage_result(target, status, 'unavailable', f'{case["host"]} execution route has not been integrated')
         return
     stage_result(target, status, 'wasm_validation', wasm_validation(directory, case, target, manifest, environment))
-    stage_result(target, status, 'native_validation', native_validation(directory, source, target, manifest, environment))
+    native = (integer_validation(directory, source, target, manifest, environment, True) if case['host'] == 'integer'
+              else native_validation(directory, source, target, manifest, environment))
+    stage_result(target, status, 'native_validation', native)
 
 
 def comparison_validation(directory, case, source, target, manifest, environment, status):
@@ -651,6 +760,8 @@ def main():
         print(json.dumps(selected_cases(load(CORPUS / 'corpus.json'), args.benchmarks), indent=2))
         return
     directory = args.output.resolve()
+    if args.action in ('verify', 'validate'):
+        enter_frozen_driver(directory, args.action)
     if args.action == 'prepare':
         prepare(ROOT, directory, args.benchmarks, args.compile_timeout, args.run_timeout)
     elif args.action == 'verify':

@@ -4,12 +4,12 @@ import {WASI} from 'node:wasi';
 
 // ---- Decode the pathname and instantiate the scalar interface before timing ----
 
-const [artifact, specification, mode] = process.argv.slice(2);
+const [artifact, specification, mode, providerPath] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(specification, 'utf8'));
 const characters = Array.from(config.pathname, character => character.codePointAt(0));
 const module = new WebAssembly.Module(fs.readFileSync(artifact));
 assert(WebAssembly.Module.imports(module).every(entry =>
-  ['benchmark', 'wasi_snapshot_preview1'].includes(entry.module)));
+  ['benchmark', 'wasi_snapshot_preview1', 'snail.library'].includes(entry.module)));
 assert(WebAssembly.Module.exports(module).every(entry => !entry.name.startsWith('snail:')));
 const wasi = new WASI({version: 'preview1', args: [], env: {},
   preopens: {'.': process.cwd()}, returnOnExit: true});
@@ -31,19 +31,28 @@ if (config.trace) {
       const status = wasi.wasiImport[name](...arguments_);
       events.push([name, status]);
       if (status === 0 && name === 'path_open')
-        live.add(new DataView(instance.exports.memory.buffer).getUint32(arguments_.at(-1), true));
+        live.add(new DataView((provider ?? instance).exports.memory.buffer).getUint32(arguments_.at(-1), true));
       if (status === 0 && name === 'fd_close') live.delete(arguments_[0]);
       return status;
     };
   }
 }
+let provider;
+if (providerPath) {
+  const scalarModule = new WebAssembly.Module(fs.readFileSync(providerPath));
+  assert(WebAssembly.Module.imports(scalarModule).every(item => ['snail.platform', 'wasi_snapshot_preview1'].includes(item.module)));
+  provider = new WebAssembly.Instance(scalarModule, {wasi_snapshot_preview1: imports.wasi_snapshot_preview1,
+    'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
+  imports['snail.library'] = provider.exports;
+}
 const instance = new WebAssembly.Instance(module, imports);
+const close = () => provider ? provider.exports['snail:io/close-all']() : instance.exports['close-resources']();
 
 // ---- Cleanup brackets reactor initialization, Scheme main and the worker ----
 
 let failure, observation;
 try {
-  wasi.initialize(instance);
+  wasi.initialize(provider ?? instance);
   instance.exports.main();
   const setupBarriers = barriers;
   if (mode === '--validate') assert.equal(setupBarriers, config.setup_barriers);
@@ -53,6 +62,12 @@ try {
   assert.equal(result.toString(), config.expected.toString());
   const seconds = Number(process.hrtime.bigint() - start) / 1e9;
   if (mode === '--validate') assert.equal(barriers, config.barriers_per_iteration * Math.max(0, config.count));
+  if (config.trace) {
+    assert.equal(live.size, 0, 'each worker closes its own image');
+    assert.equal(events.filter(event => event[0] === 'path_open' && event[1] === 0).length, config.count);
+    assert.equal(events.filter(event => event[0] === 'fd_close' && event[1] === 0).length, config.count);
+    assert.equal(events.filter(event => event[0] === 'path_unlink_file' && event[1] === 0).length, Math.max(0, config.count - 1));
+  }
   observation = {seconds, result: result.toString(), barriers: mode === '--validate' ? barriers : null,
     setup_barriers: mode === '--validate' ? setupBarriers : null};
 } catch (error) {
@@ -61,7 +76,7 @@ try {
   // Preserve the invocation failure if closing its outstanding resources also
   // fails. A trapped instance is terminal; only this cleanup export is called.
   try {
-    assert.equal(instance.exports['close-resources'](), 0, 'resource cleanup failed');
+    assert.equal(close(), 0, 'resource cleanup failed');
   } catch (error) {
     failure ??= error;
   }

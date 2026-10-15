@@ -54,8 +54,9 @@ optimized SFIR Wasm used in V8. Runtime-backed Wasm supplies concrete scalar
 services from a separately pruned Rust provider; the retained provider imports
 exclude the legacy Root ABI. Each target and external control runs in a fresh
 working directory. Per-stage records preserve successful Wasm evidence if a
-later native or comparison step fails. FFT, Tail, Ray, Nucleic and large-integer
-host routes remain pending.
+later native or comparison step fails. FFT uses a separate scalar Rust sine provider; Tail, Ray and Nucleic use
+concrete runtime services. Pi and Chudnovsky check their entire decimal output
+after running the unchanged canonical count.
 
 There is no timing command yet. Clean timing requires a frozen comparison plan
 covering SFIR, Chez and Rust, with host/target differences recorded, and must
@@ -87,7 +88,7 @@ without changing any benchmark or library body.
 
 [Checkpoint evidence](evidence/20261015-canonical.json) identifies these exact
 source hashes, frozen attempts, artifacts, outcomes and diagnostic records. All
-51 authored main programs have also passed the direct SFIR frontend's source
+53 authored main programs have also passed the direct SFIR frontend's source
 resolution. Resolution alone does not establish inference or target correctness.
 No SFIR performance coverage is claimed.
 
@@ -98,3 +99,11 @@ build publication likewise keep their complete validation decisions visible.
 The remaining helpers separate concrete freeze, build, execution and result
 checks. Tests also cover stale outputs, a parent exiting while its child holds
 stdout, mandatory adapted controls, and exact provider export selection.
+
+[Specialized-host evidence](evidence/20261015-specialized.json) records canonical
+FFT, Tail, Ray, Pi, Chudnovsky and Nucleic passing all six target/control routes.
+The first FFT native link failure is retained: linking a single Rust sine object
+instead of a second complete Rust standard-library archive fixes duplicate
+symbols without changing the provider source or optimized SFIR program.
+Verification and validation enter the copied driver, so subsequent checkout
+edits cannot change an existing frozen attempt's execution logic.
