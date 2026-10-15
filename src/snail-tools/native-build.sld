@@ -2,10 +2,10 @@
 (define-library (snail-tools native-build)
   (export rust-bindings runtime-bindings check-provider-bindings
           llvm-object link-native-object native-cargo-environment native-system-environment build-native-main
-          ensure-native-supervisor)
+          ensure-native-supervisor native-rustc-main)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
           (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
-          (only (chibi process) current-process-id)
+          (only (chibi process) current-process-id execute)
           (chibi string) (chibi regexp) (chibi json) (srfi 1) (srfi 95) (srfi 151)
           (snail-tools process))
   (begin
@@ -178,6 +178,24 @@
         (list (cons "CARGO_ENCODED_RUSTFLAGS" (string-join flags (string (integer->char 31)))))))
     (define (native-system-environment)
       (list (cons "SNAIL_NATIVE_LIBC" (libc-directory)) (cons "SNAIL_NATIVE_GCC" (gcc-directory))))
+    (define (rustc-target arguments)
+      (cond ((null? arguments) #f)
+            ((string=? (car arguments) "--target") (if (pair? (cdr arguments)) (cadr arguments) 'missing))
+            ((string-prefix? "--target=" (car arguments)) (substring (car arguments) 9))
+            (else (rustc-target (cdr arguments)))))
+    (define (needs-native-linker? arguments)
+      (let ((target (rustc-target arguments)))
+        (and (or (not target) (equal? target "x86_64-unknown-linux-gnu"))
+             (not (any (lambda (argument) (or (string-prefix? "linker=" argument) (string-prefix? "-Clinker=" argument))) arguments)))))
+    (define (native-rustc-main root arguments)
+      ;; Cargo passes its chosen compiler as argv[0]. Host build scripts also
+      ;; need a native linker during cross compilation, when Cargo intentionally
+      ;; excludes target rustflags. Explicit target/linker choices stay intact.
+      (unless (pair? arguments) (error "Rust compiler wrapper requires Cargo's compiler argument"))
+      (execute (car arguments)
+               (append arguments (if (needs-native-linker? (cdr arguments))
+                                     (native-linker-flags (path-join root "build/native-runtime")) '())))
+      (emergency-exit 127))
     (define (cargo-build manifest target directory)
       (run-command! (list (tool-name "CARGO" "cargo") "build" "--quiet" "--offline" "--release"
                           "--manifest-path" manifest "--target-dir" target)
@@ -409,5 +427,11 @@
               (lambda () (delete-file-hierarchy directory)))))
       (define (test-native-build)
         (run-test test-rust-declaration-reader)
-        (run-test test-input-identity))))
+        (run-test test-input-identity)
+        (expect (needs-native-linker? '("--crate-name" "build_script_build")) #t)
+        (expect (needs-native-linker? '("--target=x86_64-unknown-linux-gnu")) #t)
+        (expect (needs-native-linker? '("--target" "wasm32-wasip1")) #f)
+        (expect (needs-native-linker? '("--target=aarch64-unknown-linux-gnu")) #f)
+        (expect (needs-native-linker? '("-C" "linker=rust-lld" "-C" "link-arg=Scrt1.o")) #f)
+        (expect (needs-native-linker? '("-Clinker=/chosen/linker")) #f))))
    (else)))

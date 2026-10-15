@@ -14,6 +14,11 @@ pkgs.mkShellNoCC {
   PERFETTO_UI = perfettoUi;
   SNAIL_NATIVE_LIBC = "${pkgs.glibc}/lib";
   SNAIL_NATIVE_GCC = "${pkgs.stdenv.cc.cc.lib}/lib";
+  shellHook = ''
+    if [ -z "''${RUSTC_WRAPPER:-}" ]; then
+      export RUSTC_WRAPPER="$PWD/scripts/rustc-native"
+    fi
+  '';
   packages = with pkgs; [
     git
     chibi
