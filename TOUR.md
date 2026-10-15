@@ -440,3 +440,11 @@ worker from strict Scheme and links it into the frozen cat harness. Preparation,
 linked Unicode/error/ownership checks, and clean timing are separate operations.
 Its [report](benchmarks/results/2026-10-13-strict-source-cat/README.md) preserves
 both source-compiled and hand-written scalar controls with the same provider.
+
+[`benchmarks/strict-suite/`](benchmarks/strict-suite/README.md) adapts arithmetic,
+closure, and typed-list kernels to the strict compiler, keeping original inputs
+and counts. It separates preparation/behavior checks, clean timing, explicit
+Chez flonum controls, and artifact replay. Its coverage report retains failed
+and unported workloads. [`benchmarks/strict-wc/`](benchmarks/strict-wc/README.md)
+extends the scalar-I/O experiment to Unicode character/word/line counting inside
+the frozen legacy harness, with native counts and an owned input-port wrapper.
