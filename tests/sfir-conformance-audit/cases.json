@@ -11,5 +11,12 @@
   {"name": "closed-declared-instance", "result": "42"},
   {"name": "generic-declared-evidence", "result": "42"},
   {"name": "reject-late-closed-requirement", "error": "no exact static typeclass instance"},
-  {"name": "late-closed-requirement", "result": "42"}
+  {"name": "late-closed-requirement", "result": "42"},
+  {"name": "reject-polymorphic-any-projection", "error": "polymorphic annotation requires a nonexpansive value"},
+  {"name": "reject-nested-any-projection", "error": "polymorphic annotation requires a nonexpansive value"},
+  {"name": "unused-monomorphic-any-projection", "result": "trap"},
+  {"name": "static-polymorphic-annotation", "result": "42"},
+  {"name": "reject-static-mutable-alias", "error": "rigid type escapes"},
+  {"name": "any-projection-shared-cell", "result": "42"},
+  {"name": "static-any-injection", "result": "42"}
 ]
