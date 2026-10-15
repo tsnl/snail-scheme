@@ -5,6 +5,12 @@ reusable numeric libraries in `6925f1c`. It adds no clean performance samples
 and does not establish complete compiler-workload coverage. The latter remains
 pending in the [compiler port contract](../../strict-suite/compiler-port.md).
 
+Parent integration keeps the reviewed bridge source bytes unchanged. Its
+independent archive audit checked all 648 file contents and all 288 terminal
+command records; formatting, Python compilation and whitespace checks passed
+on the integrated stack. The only cherry-pick overlap selected the bridge's
+more precise diagnostic that benchmark counts must fit an exact I64.
+
 The bridge executes the unchanged Integer, Rational, Number, Datum and reader
 library bodies in separate lexical scopes. Only their scalar ABI uses Chez
 services. Owned text handles cache one validated lexical classification;
