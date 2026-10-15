@@ -17,11 +17,20 @@ expand macros. The compiler always runs Binaryen. Native builds consume the
 retained raw Wasm and verify that their mandatory optimization produces exactly
 the V8 program bytes. Earlier freezes supplied already optimized Wasm to the
 native helper; the [optimization audit](sfir/evidence/20261015-native-optimization-audit.json)
-records those differing effective modules. Missing ports and pending
-execution routes stay visible in the corpus manifest. The first [clean SFIR
-timing report](sfir/evidence/20261015-clean-six.md) covers Ack, Fibfp, Cat, WC,
-CTAK and FIBC on 33 available target/control routes; it retains default Rust
-Wasm Ack's stack failure. The remaining workloads are not measured.
+records those differing effective modules. The
+[complete 57-workload report](sfir/evidence/20261015-full57.md) records 326 measured
+routes and all 1,956 scheduled processes passing their full predicates at frozen
+compiler `8e547bfb`. Both default Ack Wasm failures, 12 unavailable adapted Chez
+controls and two primary Mperm Chez timer-name rejections remain visible.
+Corrected Mperm's six-way campaign is reported separately. SFIR trails Chez and
+Rust on all six geometric-mean comparisons; matching-case counts, observed
+ranges and representation differences accompany every comparison.
+
+The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
+measures current input buffering on Cat/WC separately; those medians do not
+replace this full-suite freeze. The earlier
+[six-case timing report](sfir/evidence/20261015-clean-six.md)
+and the following validation checkpoints remain historical evidence.
 
 The [canonical validation checkpoint](sfir/evidence/20261015-existing41.md)
 records 53 SFIR Wasm successes and 52 native successes, with GCBench's native
@@ -36,8 +45,9 @@ checkpoint. Earlier failures and measured artifacts remain unchanged.
 Subsequent current-source checks pass complete SLaTeX, Dynamic and Scheme
 workloads. The [Dynamic/Scheme checkpoint](sfir/evidence/20261015-dynamic-scheme.md)
 includes original/adapted Chez, both Rust targets, interpreter probes and source
-resource lifecycles. The runner registers all 56 committed sources; Compiler
-remains pending separately. These runs add no clean timing coverage.
+resource lifecycles. That checkpoint registered 56 sources while Compiler was
+pending. It added no clean timing coverage; the completed full57 report above
+supersedes its current coverage status without changing the original records.
 
 [`wasm-reference`](wasm-reference/README.md) contains the 57 separate Rust ports
 and complete correctness fixtures. Its original Chez controls now come from

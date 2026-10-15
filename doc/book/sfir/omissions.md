@@ -30,11 +30,11 @@ binding traps instead of forcing its initializer early.
 
 ## Implementation and open work
 
-The [compiler tour](https://github.com/tsnl/snail-scheme/blob/main/TOUR.md)
-records current module responsibilities. The
-[implementation roadmap](../../roadmap.md#align-with-the-sfir-book) distinguishes
-implemented language and library contracts from remaining adapter and validation
-work. Each execution adapter documents its supported targets and entry ABI.
+The [compiler tour](https://github.com/tsnl/snail-scheme/blob/main/TOUR.md) records current module
+responsibilities. The [implementation
+roadmap](https://github.com/tsnl/snail-scheme/blob/main/doc/roadmap.md#align-with-the-sfir-book)
+distinguishes implemented language and library contracts from remaining adapter and validation work.
+Each execution adapter documents its supported targets and entry ABI.
 
 Literal defaults are I32 and F64, with explicit annotations for other widths.
 Ordinary primitive arithmetic and conversions check representation overflow;
@@ -46,13 +46,13 @@ The present chapters describe the unrestricted core and reserve `many(T)` for
 the property needed at an Any boundary. They do not yet constitute a formal
 ownership calculus.
 
-The [builder protocol](../../sfir-builder.md) documents the implemented structured
-representation and owned transfer of library data between compiled SFIR and
-Chibi. Additional cross-runtime transports, frontend macro interfaces and general
-target capability contracts need separate specifications. The
-[compiler service](../../sfir-compiler-service.md) and
-[native loader](../../sfir-native-loading.md) document their current interfaces
-and restrictions.
+The [builder protocol](https://github.com/tsnl/snail-scheme/blob/main/doc/sfir-builder.md) documents
+the implemented structured representation and owned transfer of library data between compiled SFIR
+and Chibi. Additional cross-runtime transports, frontend macro interfaces and general target
+capability contracts need separate specifications. The [compiler
+service](https://github.com/tsnl/snail-scheme/blob/main/doc/sfir-compiler-service.md) and [native
+loader](https://github.com/tsnl/snail-scheme/blob/main/doc/sfir-native-loading.md) document their
+current interfaces and restrictions.
 
 > TODO: Complete the formal rules for nominal declarations, exhaustive matching,
 > rest arguments, datatype and typeclass formers, instance checking, affine ownership,

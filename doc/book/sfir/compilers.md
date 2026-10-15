@@ -25,14 +25,14 @@ does not search directories or invoke a language frontend.
 (let artifact (compile libraries (entry app-key main-name) wasm-target))
 ```
 
-This build fragment assumes imported map and source operations, a supplied map
-`base-libraries`, keys for `(demo math)` and `(demo app)`, the name `main`, and
-a Wasm target. `parse-library` reads a `define-library` description. A source
-driver additionally recognizes generation recipes and collects dependencies.
-Source reads and artifact writes are explicit operations around compilation.
-The implemented [SFIR compiler service](../../sfir-compiler-service.md) spells
-parsing as `(parse-library source-name source-text)` and returns an ordinary
-`CompilerResult SfirLibrary`; its [syntax views](../../sfir-builder.md) allow
+This build fragment assumes imported map and source operations, a supplied map `base-libraries`,
+keys for `(demo math)` and `(demo app)`, the name `main`, and a Wasm target. `parse-library` reads a
+`define-library` description. A source driver additionally recognizes generation recipes and
+collects dependencies. Source reads and artifact writes are explicit operations around compilation.
+The implemented [SFIR compiler
+service](https://github.com/tsnl/snail-scheme/blob/main/doc/sfir-compiler-service.md) spells parsing
+as `(parse-library source-name source-text)` and returns an ordinary `CompilerResult SfirLibrary`;
+its [syntax views](https://github.com/tsnl/snail-scheme/blob/main/doc/sfir-builder.md) allow
 inspection and transformation before map insertion.
 
 Libraries retain type information and polymorphic implementations so the
