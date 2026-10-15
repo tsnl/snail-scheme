@@ -205,6 +205,12 @@ Both targets require Binaryen. Tool temporaries live in a private directory;
 compilation reads no source files and returns artifact bytes for the caller to
 write. Provider and runtime linking remain separate target operations.
 
+[`native-entry.sld`](src/snail-sfir/native-entry.sld) checks the actual optimized
+Wasm `main`/`entry` signatures and emits a fixed scalar-bits bridge into the
+native LLVM module. An ELF `.sfir.entry` section and signature-encoded bridge
+alias preserve the selected semantic entry and required foreign declarations.
+The native loader checks their consistency; arbitrary native code remains trusted.
+
 Artifact accessors expose the target, original Entry, semantic scalar parameter
 and result types, and bytes. The fixed ABI exports `entry` for the selected
 function and `main` for one-shot library initialization; native symbols are
@@ -249,8 +255,18 @@ successfully initialized instance. `closeInstance` is idempotent, rejects future
 calls and drops the adapter's reference to the program instance. Shared providers
 and their external resources remain owned by the caller, including cleanup. The
 adapter discovers no files, constructs no WASI or Rust providers, and does not
-load native64 objects. Native loading still needs an isolation model that gives
-each instance fresh native globals, such as a persistent process per instance.
+load native64 objects.
+
+[`execute_native.py`](src/snail-sfir/execute_native.py) provides `load_native`,
+explicit `link_native`, `instantiate`, `invoke_entry` and `close_instance` for
+compiler-produced x86-64 Linux objects. It checks declared C/Rust provider ABIs,
+uses exact binary scalar transport, and gives each instance fresh native globals,
+GC and provider state. [`native-worker.c`](src/snail-sfir/native-worker.c) supplies
+a separate supervisor and guest worker; ownership precedes provider constructors.
+Failed initialization publishes no instance. Native traps and interrupted calls
+invalidate their instance; the supervisor reaps its owned descendants, including
+after host death. The [native loading contract](doc/sfir-native-loading.md)
+describes the API, retained logs, unsafe native boundary and target limitations.
 
 [`link-sfir-runtime`](scripts/link-sfir-runtime) links the Rust scalar externs
 into a WASI reactor, drops unused runtime exports and optimizes the result.
@@ -290,6 +306,8 @@ syntax, typing, module identity and actual V8 execution. `scripts/test-build`
 checks the public command, cleanup and publication on Wasm and native.
 `scripts/test-sfir-entry` compiles supplied library maps, links public Entry
 artifacts to foreign providers, and executes both Wasm and native64 aliases.
+`scripts/test-sfir-native-loading` checks independent native instances, exact
+scalar transport, forced collection, provider ABI errors and process cleanup.
 `scripts/test-sfir-execution` exercises the Wasm adapter with typed providers,
 independent state, failed initialization and checked scalar transport.
 `scripts/test-sfir-builder` compiles an SFIR producer, transfers its structured

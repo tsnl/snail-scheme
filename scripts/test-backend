@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-for name in ('test-sfir', 'test-sfir-integration', 'test-sfir-entry', 'test-sfir-execution',
+for name in ('test-sfir', 'test-sfir-integration', 'test-sfir-entry', 'test-sfir-execution', 'test-sfir-native-loading',
              'test-sfir-builder', 'test-sfir-book', 'test-sfir-generation',
              'test-sfir-narrowing', 'test-sfir-arithmetic', 'test-sfir-extern', 'test-sfir-bytes',
              'test-sfir-integer', 'test-sfir-io', 'test-sfir-math', 'test-sfir-numbers',
