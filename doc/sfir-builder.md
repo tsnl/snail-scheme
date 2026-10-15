@@ -5,7 +5,8 @@ complete book library syntax, inspect and transform that syntax, execute as Wasm
 and transfer its result to that compiler. This uses neither a Scheme product
 frontend nor source text as a substitute for declarations. The
 [source driver](sfir-generation.md) can execute `generate-library` recipes using
-this boundary. General compiler calls from SFIR remain future work.
+this boundary. The [compiler service](sfir-compiler-service.md) also returns
+ordinary parsed libraries through this same syntax API.
 
 ## Constructive SFIR interface
 
@@ -20,10 +21,10 @@ SFIR lists; their contents are copied into immutable host sequences.
 | `Name`, `SourceSpan` | `builder-name`, `source-span` |
 | `ScopeId`, `BindingId`, `TypeVariableId` | `library-scope`, `nested-scope`, `binding`, `type-variable` |
 | `BindingReference` | `local-reference`, `import-reference` |
-| `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `function-type`, `rest-function-type`, `nominal-type`, `variable-type` |
+| `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `rest-type`, `function-type`, `rest-function-type`, `nominal-type`, `variable-type` |
 | `Signature`, `ConstraintSyntax` | `binding-signature`, `all-signature`, `constraint` |
 | `KindSyntax` | `kind-type`, `kind-constraint`, `function-kind`, `evidence-kind` |
-| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `reference-expression`, `lambda-expression`, `rest-lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
+| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `literal-number`, `reference-expression`, `lambda-expression`, `rest-lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
 | `MatchArm` | `match-arm` |
 | `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
 | `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
@@ -46,8 +47,13 @@ original `definition` accepts a monomorphic `TypeSyntax`; `signature-definition`
 and `local-binding` accept a `Signature`. `binding-signature` wraps a monomorphic
 type, while `all-signature` supplies explicit type parameters, requirements and
 a result type. Inferred constructors omit the signature and let the ordinary
-checker infer it. Numeric literal constructors select their scalar width;
-`Unit` is constructed by an application of the imported `unit` operation.
+checker infer it. Numeric scalar constructors select their width.
+`literal-number` instead accepts a copied original source spelling and returns
+unresolved numeric syntax; `view-number-literal` exposes that spelling. Its
+numeric grammar and final representation are checked in Chibi. This preserves
+source precision, exactness/radix prefixes and delayed range diagnostics without
+choosing I32 or F64 at parsing time. `rest-type` exposes the source `Rest` type
+form; ordinary checking still determines where it is permitted. `Unit` is constructed by an application of the imported `unit` operation.
 
 Every binding has an explicit scope and identity. A local reference carries
 that identity; an imported reference carries the library's import scope and a
@@ -84,7 +90,11 @@ checked types, inferred schemes or instance evidence. Constructor arities,
 nominal identities, class membership, exhaustiveness, foreign ABIs and overload
 selection remain the ordinary resolver and checker's responsibility.
 `SourceSpan` records a source name and one-based line and column, matching the
-compiler's existing located nodes.
+compiler's existing located nodes. Annotated value declarations can also retain
+the attached signature's distinct source span. `signature-location` queries it;
+`with-signature-location` returns a copied declaration with a replacement span.
+Both operations require an annotated definition, local binding or overload.
+Constructed declarations without that optional field use their declaration span.
 
 ## Inspecting and transforming syntax
 
@@ -147,10 +157,16 @@ and their effects retain their usual lifetime; the adapter does not roll them
 back or close them.
 
 `openLibraryBuilder` exposes the same lifecycle for explicit driver composition:
-its `provider` supplies constructors, `finish(token)` produces a transfer while
+its `provider` supplies constructors, `receive(packet)` copies a structurally checked
+packet into fresh arena identities, and `finish(token)` produces a transfer while
 the arena is live, and `close()` invalidates all arena handles. Repeated finishing
 of the same library returns the same owned transfer. A closed arena rejects
 further operations; the transfer's copied data remains available.
+
+`checked-library` checks that an I64 transport token belongs to this live builder
+and names a library node before producing the nominal SFIR value. Private record
+constructors remain private. This is the service's entry from copied parse data;
+provider code cannot silently reinterpret an arbitrary compiler descriptor.
 
 The JSON packet has exactly `version`, `root` and `nodes` fields. Nodes have
 closed tags and explicit references into that packet's node table. Numeric
@@ -158,7 +174,9 @@ literal spellings preserve I64 precision and floating special values. Integers
 use decimal digits with an optional minus sign. Floats use decimal notation with
 a fraction or lowercase `e` exponent (or both), or explicit `+inf.0`, `-inf.0`
 and `+nan.0`. Scheme exactness/radix prefixes, rational, complex and polar
-spellings are rejected. Bare integer text such as `"1"` is not a float spelling;
+spellings are rejected for concrete scalar literals. Unresolved `number-literal`
+nodes carry source spelling separately and use the existing source numeric reader.
+Bare integer text such as `"1"` is not a float spelling;
 the provider emits `"1.0"`. Finite floats round from the exact decimal value.
 All transferred text must contain Unicode scalar values; lone surrogate escapes
 are rejected. Strings are names or literal data, never code to evaluate. There
@@ -195,6 +213,12 @@ Raw packets cannot select an existing origin or replace its syntax. Contexts
 have no global cache or hidden file lookup. Producer dependencies and
 `output-dependencies` are independent supplied maps, even when their keys overlap.
 
+`write-library-transfer` copies a parsed, named library to this same packet. Its
+identity maps use the parser's binder and type-variable objects, and lexical
+structure supplies the scope owners. The retained `def`/`let` source former
+preserves sequential shadowing. Existing source locations, including distinct
+attached-signature spans, survive the copy. No source grammar is parsed again.
+
 ## Exact build and run example
 
 [`examples/library-builder.sfir`](../examples/library-builder.sfir) constructs a
@@ -225,7 +249,13 @@ allocation. Malicious packets exercise lexical escape in both traversal orders,
 wrong static roles, invalid Unicode, byte ranges, reserved names, duplicate
 quantifiers and attempts to claim checking evidence.
 
-Remaining work includes general compiler services callable from SFIR and native
-loading with independent state. The
-[source driver](sfir-generation.md) now supplies recipe collection and
-preparation-cycle diagnostics around the checked builder boundary.
+The runner also transfers ordinary parsed source into the builder, rebuilds it
+through compiled SFIR views and compares that result with the other two routes.
+Precision probes cover I64 boundaries, F32 double-rounding and subnormal cases,
+signed zero and computed conversions. Negative probes compare source and received
+diagnostics. These checks are correctness evidence, not clean measurements.
+
+The [compiler service](sfir-compiler-service.md) exposes parsing, explicit maps,
+compilation and Wasm execution to SFIR. [Native loading](sfir-native-loading.md)
+is separately available through its host adapter; native targets in the SFIR
+service, Scheme elaboration and macro staging remain pending.

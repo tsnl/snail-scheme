@@ -9,7 +9,9 @@
           literal-i32 literal-i64 literal-f32 literal-f64 literal-bool literal-char
           lambda-expression application-expression conditional-expression definition
           all-imports only-imports import-rename rename-imports library-import
-          library-export sfir-library library-token)
+          library-export sfir-library library-token checked-library
+          literal-number view-number-literal rest-type view-rest-type
+          signature-location with-signature-location)
   (export
    DataField Signature MatchArm KindSyntax MethodImplementation
    DataCase ClassMethod ConstraintSyntax TypeVariableId type-variable
@@ -80,6 +82,11 @@
 
     ;; ---- Only scalar tokens and values cross the provider boundary ----
 
+    (define-extern raw-signature-location "sfir.builder" "signature-location" (-> I64 I64))
+    (define-extern raw-with-signature-location "sfir.builder" "with-signature-location" (-> I64 I64 I64))
+    (define-extern raw-checked-library "sfir.builder" "checked-library" (-> I64 I64))
+    (define-extern raw-number-literal "sfir.builder" "number-literal" (-> I64 I64 I64))
+    (define-extern raw-rest-type "sfir.builder" "rest-type" (-> I64 I64))
     (define-extern raw-name-empty "sfir.builder" "name-empty" (-> I64))
     (define-extern raw-name-character "sfir.builder" "name-character" (-> I64 Char I64))
     (define-extern raw-span "sfir.builder" "span" (-> I64 I32 I32 I64))
@@ -227,6 +234,8 @@
     (def tag-extern I32 59)
     (def tag-overload I32 60)
     (def tag-inferred-overload I32 61)
+    (def tag-number-literal I32 62)
+    (def tag-rest-type I32 63)
 
     ;; ---- Ordinary lists are copied into immutable sequence nodes ----
 
@@ -404,6 +413,19 @@
          (lambda (parameters result) (wrap-type (raw-function-type (encode-types parameters) (type-token result)))))
     (def reference-expression (-> BindingReference Expression)
          (lambda (reference) (wrap-expression (raw-reference (reference-token reference)))))
+    ;; The provider checks origin and syntax category before wrapping transport.
+    (def signature-location (-> Declaration SourceSpan)
+         (lambda (declaration) (wrap-span (raw-signature-location (declaration-token declaration)))))
+    (def with-signature-location (-> Declaration SourceSpan Declaration)
+         (lambda (declaration span)
+           (wrap-declaration (raw-with-signature-location (declaration-token declaration) (span-token span)))))
+    (def checked-library (-> I64 SfirLibrary)
+         (lambda (token) (wrap-library (raw-checked-library token))))
+    (def literal-number (-> String SourceSpan Expression)
+         (lambda (spelling span)
+           (wrap-expression (raw-number-literal (name-token (builder-name spelling)) (span-token span)))))
+    (def rest-type (-> TypeSyntax TypeSyntax)
+         (lambda (element) (wrap-type (raw-rest-type (type-token element)))))
     (def literal-i32 (-> I32 SourceSpan Expression)
          (lambda (value span) (wrap-expression (raw-literal-I32 value (span-token span)))))
     (def literal-i64 (-> I64 SourceSpan Expression)
@@ -731,6 +753,7 @@
                    (view-type-never)
                    (view-type-any)
                    (view-function-type (parameters (List TypeSyntax)) (result TypeSyntax))
+                   (view-rest-type (element TypeSyntax))
                    (view-variable-type (variable TypeVariableId))
                    (view-reference-type (element TypeSyntax))
                    (view-list-type (element TypeSyntax))
@@ -764,30 +787,33 @@
          (lambda (value)
            (begin (let token (type-token value))
                   (let tag (raw-inspect-tag token))
-                  (if (i32-eq tag tag-scalar-type)
-                      (inspect-scalar-type (raw-scalar-index token))
-                      (if (i32-eq tag tag-function-type)
-                          (view-function-type (decode-types (raw-inspect-field token 0)) (wrap-type (raw-inspect-field token 1)))
-                          (if (i32-eq tag tag-variable-type)
-                              (view-variable-type (wrap-variable (raw-inspect-field token 0)))
-                              (if (i32-eq tag tag-reference-type)
-                                  (view-reference-type (wrap-type (raw-inspect-field token 0)))
-                                  (if (i32-eq tag tag-list-type)
-                                      (view-list-type (wrap-type (raw-inspect-field token 0)))
-                                      (if (i32-eq tag tag-vector-type)
-                                          (view-vector-type (wrap-type (raw-inspect-field token 0)))
-                                          (if (i32-eq tag tag-rest-function-type)
-                                              (view-rest-function-type
-                                               (decode-types (raw-inspect-field token 0))
-                                               (wrap-type (raw-inspect-field token 1))
-                                               (wrap-type (raw-inspect-field token 2)))
-                                              (if (i32-eq tag tag-nominal-type)
-                                                  (view-nominal-type
-                                                   (wrap-reference (raw-inspect-field token 0))
-                                                   (decode-types (raw-inspect-field token 1)))
-                                                  (unreachable))))))))))))
+                  (if (i32-eq tag tag-rest-type)
+                      (view-rest-type (wrap-type (raw-inspect-field token 0)))
+                      (if (i32-eq tag tag-scalar-type)
+                          (inspect-scalar-type (raw-scalar-index token))
+                          (if (i32-eq tag tag-function-type)
+                              (view-function-type (decode-types (raw-inspect-field token 0)) (wrap-type (raw-inspect-field token 1)))
+                              (if (i32-eq tag tag-variable-type)
+                                  (view-variable-type (wrap-variable (raw-inspect-field token 0)))
+                                  (if (i32-eq tag tag-reference-type)
+                                      (view-reference-type (wrap-type (raw-inspect-field token 0)))
+                                      (if (i32-eq tag tag-list-type)
+                                          (view-list-type (wrap-type (raw-inspect-field token 0)))
+                                          (if (i32-eq tag tag-vector-type)
+                                              (view-vector-type (wrap-type (raw-inspect-field token 0)))
+                                              (if (i32-eq tag tag-rest-function-type)
+                                                  (view-rest-function-type
+                                                   (decode-types (raw-inspect-field token 0))
+                                                   (wrap-type (raw-inspect-field token 1))
+                                                   (wrap-type (raw-inspect-field token 2)))
+                                                  (if (i32-eq tag tag-nominal-type)
+                                                      (view-nominal-type
+                                                       (wrap-reference (raw-inspect-field token 0))
+                                                       (decode-types (raw-inspect-field token 1)))
+                                                      (unreachable)))))))))))))
     (def ExpressionView
          (datatype ()
+                   (view-number-literal (spelling String) (span SourceSpan))
                    (view-literal-i32 (value I32) (span SourceSpan))
                    (view-literal-i64 (value I64) (span SourceSpan))
                    (view-literal-f32 (value F32) (span SourceSpan))
@@ -828,64 +854,67 @@
          (lambda (value)
            (begin (let token (expression-token value))
                   (let tag (raw-inspect-tag token))
-                  (if (i32-eq tag tag-literal)
-                      (inspect-scalar-literal token (raw-literal-index token))
-                      (if (i32-eq tag tag-reference)
-                          (view-reference (wrap-reference (raw-inspect-field token 0)))
-                          (if (i32-eq tag tag-lambda)
-                              (view-lambda
-                               (wrap-scope (raw-inspect-field token 0))
-                               (decode-bindings (raw-inspect-field token 1))
-                               (wrap-expression (raw-inspect-field token 2))
-                               (wrap-span (raw-inspect-field token 3)))
-                              (if (i32-eq tag tag-application)
-                                  (view-application
-                                   (wrap-expression (raw-inspect-field token 0))
-                                   (decode-expressions (raw-inspect-field token 1))
-                                   (wrap-span (raw-inspect-field token 2)))
-                                  (if (i32-eq tag tag-conditional)
-                                      (view-conditional
-                                       (wrap-expression (raw-inspect-field token 0))
-                                       (wrap-expression (raw-inspect-field token 1))
-                                       (wrap-expression (raw-inspect-field token 2))
-                                       (wrap-span (raw-inspect-field token 3)))
-                                      (if (i32-eq tag tag-string-literal)
-                                          (view-string-literal
-                                           (builder-name-text (wrap-name (raw-inspect-field token 0)))
+                  (if (i32-eq tag tag-number-literal)
+                      (view-number-literal (builder-name-text (wrap-name (raw-inspect-field token 0)))
                                            (wrap-span (raw-inspect-field token 1)))
-                                          (if (i32-eq tag tag-bytevector-literal)
-                                              (view-bytevector-literal
-                                               (decode-bytes (raw-inspect-field token 0))
+                      (if (i32-eq tag tag-literal)
+                          (inspect-scalar-literal token (raw-literal-index token))
+                          (if (i32-eq tag tag-reference)
+                              (view-reference (wrap-reference (raw-inspect-field token 0)))
+                              (if (i32-eq tag tag-lambda)
+                                  (view-lambda
+                                   (wrap-scope (raw-inspect-field token 0))
+                                   (decode-bindings (raw-inspect-field token 1))
+                                   (wrap-expression (raw-inspect-field token 2))
+                                   (wrap-span (raw-inspect-field token 3)))
+                                  (if (i32-eq tag tag-application)
+                                      (view-application
+                                       (wrap-expression (raw-inspect-field token 0))
+                                       (decode-expressions (raw-inspect-field token 1))
+                                       (wrap-span (raw-inspect-field token 2)))
+                                      (if (i32-eq tag tag-conditional)
+                                          (view-conditional
+                                           (wrap-expression (raw-inspect-field token 0))
+                                           (wrap-expression (raw-inspect-field token 1))
+                                           (wrap-expression (raw-inspect-field token 2))
+                                           (wrap-span (raw-inspect-field token 3)))
+                                          (if (i32-eq tag tag-string-literal)
+                                              (view-string-literal
+                                               (builder-name-text (wrap-name (raw-inspect-field token 0)))
                                                (wrap-span (raw-inspect-field token 1)))
-                                              (if (i32-eq tag tag-rest-lambda)
-                                                  (view-rest-lambda
-                                                   (wrap-scope (raw-inspect-field token 0))
-                                                   (decode-bindings (raw-inspect-field token 1))
-                                                   (wrap-binding (raw-inspect-field token 2))
-                                                   (wrap-expression (raw-inspect-field token 3))
-                                                   (wrap-span (raw-inspect-field token 4)))
-                                                  (if (i32-eq tag tag-block)
-                                                      (view-block
+                                              (if (i32-eq tag tag-bytevector-literal)
+                                                  (view-bytevector-literal
+                                                   (decode-bytes (raw-inspect-field token 0))
+                                                   (wrap-span (raw-inspect-field token 1)))
+                                                  (if (i32-eq tag tag-rest-lambda)
+                                                      (view-rest-lambda
                                                        (wrap-scope (raw-inspect-field token 0))
-                                                       (decode-declarations (raw-inspect-field token 1))
-                                                       (wrap-expression (raw-inspect-field token 2))
-                                                       (wrap-span (raw-inspect-field token 3)))
-                                                      (if (i32-eq tag tag-annotation)
-                                                          (view-annotation
-                                                           (wrap-expression (raw-inspect-field token 0))
-                                                           (wrap-type (raw-inspect-field token 1))
-                                                           (wrap-span (raw-inspect-field token 2)))
-                                                          (if (i32-eq tag tag-instantiation)
-                                                              (view-instantiation
-                                                               (wrap-reference (raw-inspect-field token 0))
-                                                               (decode-types (raw-inspect-field token 1))
+                                                       (decode-bindings (raw-inspect-field token 1))
+                                                       (wrap-binding (raw-inspect-field token 2))
+                                                       (wrap-expression (raw-inspect-field token 3))
+                                                       (wrap-span (raw-inspect-field token 4)))
+                                                      (if (i32-eq tag tag-block)
+                                                          (view-block
+                                                           (wrap-scope (raw-inspect-field token 0))
+                                                           (decode-declarations (raw-inspect-field token 1))
+                                                           (wrap-expression (raw-inspect-field token 2))
+                                                           (wrap-span (raw-inspect-field token 3)))
+                                                          (if (i32-eq tag tag-annotation)
+                                                              (view-annotation
+                                                               (wrap-expression (raw-inspect-field token 0))
+                                                               (wrap-type (raw-inspect-field token 1))
                                                                (wrap-span (raw-inspect-field token 2)))
-                                                              (if (i32-eq tag tag-match)
-                                                                  (view-match
-                                                                   (wrap-expression (raw-inspect-field token 0))
-                                                                   (decode-arms (raw-inspect-field token 1))
+                                                              (if (i32-eq tag tag-instantiation)
+                                                                  (view-instantiation
+                                                                   (wrap-reference (raw-inspect-field token 0))
+                                                                   (decode-types (raw-inspect-field token 1))
                                                                    (wrap-span (raw-inspect-field token 2)))
-                                                                  (unreachable))))))))))))))))
+                                                                  (if (i32-eq tag tag-match)
+                                                                      (view-match
+                                                                       (wrap-expression (raw-inspect-field token 0))
+                                                                       (decode-arms (raw-inspect-field token 1))
+                                                                       (wrap-span (raw-inspect-field token 2)))
+                                                                      (unreachable)))))))))))))))))
     (def DeclarationView
          (datatype ()
                    (view-definition (binding BindingId) (signature Signature) (value Expression) (span SourceSpan))

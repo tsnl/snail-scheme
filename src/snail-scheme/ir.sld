@@ -14,7 +14,7 @@
    binding-declaration set-binding-declaration!
    make-value-binding value-binding?
    value-binding-definition
-   value-binding-initializer
+   value-binding-initializer value-binding-form
    value-binding-loc
    make-name name?
    name-definition
@@ -132,12 +132,16 @@
 
     ;; ---- Concrete variant constructors and accessors ----
 
-    (define (make-value-binding definition initializer loc)
+    ;; The source former survives unresolved copies for syntax inspection. Both
+    ;; forms have the same runtime binding operation after lexical resolution.
+    (define (make-value-binding definition initializer loc . former)
       (set-binding-initializer! definition initializer)
-      (source-node 'bind loc (list definition initializer)))
+      (source-node 'bind loc (list definition initializer (if (pair? former) (car former) 'def))))
     (define (value-binding? node) (kind? node 'bind))
     (define (value-binding-definition node) (car (node-data node)))
     (define (value-binding-initializer node) (cadr (node-data node)))
+    (define (value-binding-form node)
+      (if (pair? (cddr (node-data node))) (caddr (node-data node)) 'def))
     (define value-binding-loc node-loc)
 
     ;; The second field records a checked use's instantiation, initially empty.
@@ -255,9 +259,13 @@
 
     ;; Each row has its own member identity. A named implementation still names
     ;; its original runtime binding; this member does not introduce an early alias.
-    (define (make-overload-declaration definition type implementation loc)
+    (define (make-overload-declaration definition type implementation loc . signature-location)
       (let ((member (make-value-definition (value-definition-name definition) loc)))
-        (when type (set-binding-declaration! member (make-type-declaration member type loc)))
+        (when type
+          (set-binding-declaration! member
+                                    (make-type-declaration member type
+                                                           (if (pair? signature-location)
+                                                               (car signature-location) loc))))
         (set-binding-initializer! member implementation)
         (source-node 'overload-declaration loc (list definition member implementation))))
     (define (overload-declaration? node) (kind? node 'overload-declaration))
