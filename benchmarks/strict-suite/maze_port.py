@@ -298,6 +298,7 @@ INPUTS = '''(define-data Specification
 (define (maze-input-integer value)
   (match (datum-number-value value)
     ((exact-number number) number)
+    ((rational-number number) (datum-fail "Maze requires exact integers"))
     ((inexact-number number) (datum-fail "Maze requires exact integers"))
     ((complex-number real imaginary) (datum-fail "Maze requires exact integers"))))
 (define (maze-input-output value)

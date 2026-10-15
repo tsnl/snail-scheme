@@ -47,9 +47,9 @@ def finish(process):
     return []
 
 
-def run(command, label, cwd=ROOT, failure=False):
+def run(command, label, cwd=ROOT, failure=False, timeout=300):
     command = list(map(str, command))
-    record = dict(command=command, cwd=str(cwd), timeout_seconds=300)
+    record = dict(command=command, cwd=str(cwd), timeout_seconds=timeout)
     folder = OUTPUT / 'commands' / label
     folder.mkdir(parents=True)
     process = None
@@ -59,7 +59,7 @@ def run(command, label, cwd=ROOT, failure=False):
                                        stderr=stderr, start_new_session=True)
             record.update(pid=process.pid, pgid=process.pid)
             (folder / 'record.json').write_text(json.dumps(record, indent=2) + '\n')
-            record['returncode'] = process.wait(timeout=300)
+            record['returncode'] = process.wait(timeout=timeout)
     except BaseException as error:
         record['exception'] = repr(error)
     finally:
@@ -87,7 +87,7 @@ def tool(variable, default):
 def build():
     source = OUTPUT / 'reader.wasm'
     run([ROOT / 'scripts/build-strict', '--export', 'check', '--export', 'scan', '--export', 'storage',
-         FIXTURES / 'reader.scm', source], 'compile')
+         FIXTURES / 'reader.scm', source], 'compile', timeout=900)
     run([tool('CARGO', 'cargo'), 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
          '--release', '--target', 'wasm32-wasip1', '--target-dir', ROOT / 'build/wasm-runtime'], 'runtime')
     runtime = ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
@@ -124,6 +124,10 @@ def valid_cases():
         'delimiter-adjacency': 'a() (a) a"b" a;b\nc a|b| a\'b a`b a,b a\u00a0b\u2003c a0A .a aéa',
         'delimiter-characters': r'''#\( #\) #\" #\; #\| #\' #\` #\, #\[ #\] #\{ #\}''',
         'integers': '-9223372036854775808 9223372036854775807 #x-8000000000000000 #b101 #o17 #d42 #i#x10',
+        'arbitrary-exact': '9223372036854775808 -9223372036854775809 #x20000000000000000 #b1' + '0'*100,
+        'exact-rationals': '1/2 -2/4 4/2 0/123 #xA/B #e1.5 #e9007199254740993.1 #e1e999 #e1e-999',
+        'inexact-rationals': '#i1/2 #i-0/17 #i-1/3 #i#x20000000000001 #i#x20000000000003',
+        'exact-complex': '1/2+3/4i 9223372036854775808-1/7i #e0.1+0.2i 1/2+0i 1/2+0.0i 0/7@1 1/2@0 #e1/2@0.0',
         'exact-decimals': '#e2.0 #e9007199254740993.0 #e-9223372036854775808.0 #e12000e-3 #e0e999',
         'reals': '0.0 -0.0 .5 1. 1e3 -1e-3 5e-324 2.2250738585072014e-308 1e999 -1e-999 +inf.0 -inf.0 +nan.0',
         'complex': '+i -i 1+2i 1+0i 1.0+0i 1+0.0i 1-0.0i 1+2.0i 1.0+2i #i1+0i #e1@0 1@0',
@@ -177,10 +181,9 @@ def invalid_cases():
             '"unfinished', '|unfinished', '"bad\\q"', '"\\x;"', '"\\xd800;"', '"\\x110000;"',
             '"\\x12345678901234567890;"', '"a\\  b"', '#\\', '#\\unknown', '#\\xdfff', '#\\x110000',
             '#| unfinished', '#;', "'", '#; )', '#u8(256)', '#u8(-1)', '#u8(1.0)', '#u8(a)',
-            '#u9()', '#', '#tfoo', '#e#e1', '#x#b10', '123abc', '+2oops', '1e', '1/2', '4/2',
-            '9223372036854775808', '-9223372036854775809', '#e1.5', '#e9007199254740993.1',
-            '#e1e999', '#e1@1', '#0=(a)', '#0#', '#!fold-case abc', '#!no-fold-case abc', '[a]',
-            '42 #e1.5', '#; #| unfinished', 'a[', 'a]', 'a{', 'a}',
+            '#u9()', '#', '#tfoo', '#e#e1', '#x#b10', '123abc', '+2oops', '1e', '1/0', '0/0', '1/-2', '1/+2', '1/2/3', '#e+inf.0', '#e-nan.0',
+            '#e1e9223372036854775808', '#e1@1', '#0=(a)', '#0#', '#!fold-case abc', '#!no-fold-case abc', '[a]',
+            '42 1/0', '#; #| unfinished', 'a[', 'a]', 'a{', 'a}',
             '#\\.a', '#\\0a', '#\\Aa', '#\\éa', '#\\😀a']
 
 
@@ -191,7 +194,7 @@ def check_error(index, source):
         output = run(command, name + '-' + system, directory)
         if 'i:99\n' not in output or not output.endswith('result:-1\n'):
             raise RuntimeError(f'{name}: {system} confused malformed input with a value/EOF')
-        if source == '42 #e1.5' and not output.startswith('i:5\ni:0\ni:42\ni:99\n'):
+        if source == '42 1/0' and not output.startswith('i:5\ni:0\ni:42\ni:99\n'):
             raise RuntimeError(f'{name}: {system} lost the preceding value or reused a stale result')
         if source in ('a[', 'a]', 'a{', 'a}') and not output.startswith('i:4\ni:1\nc:97\ni:99\n'):
             raise RuntimeError(f'{name}: {system} failed before the atom preceding its delimiter')
@@ -214,7 +217,9 @@ def check_invalid_utf8():
 
 def freeze_sources():
     paths = [ROOT / name for name in ['src/snail/datum.sld', 'src/snail/read.sld', 'src/snail/io.sld',
-             'src/strict_datum.rs', 'src/symbols.rs', 'src/strict_io.rs', 'src/datum.rs', 'src/lib.rs',
+             'src/snail/integer.sld', 'src/snail/rational.sld', 'src/snail/number.sld',
+             'src/snail-scheme/strict-compiler.sld',
+             'src/strict_number.rs', 'src/strict_datum.rs', 'src/symbols.rs', 'src/strict_io.rs', 'src/datum.rs', 'src/lib.rs',
              'scripts/test-strict-reader']]
     paths += sorted(FIXTURES.glob('*'))
     identities = {}
