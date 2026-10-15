@@ -1,0 +1,13 @@
+(import (sfir primitive))
+(define-extern record "instance.probe" "record" (-> I64 Unit))
+(def observed (-> I64) (lambda () (ann 0 I64)))
+(def run
+  (lambda ()
+    (begin
+      (def read (lambda () value))
+      (record (ann 1 I64))
+      (def early (read))
+      (def value (if #t (ann 42 I64) early))
+      (record (ann 2 I64))
+      value)))
+(run)

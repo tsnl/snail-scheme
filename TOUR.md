@@ -75,6 +75,13 @@ and an optional typed rest parameter. Declared initializer proofs retain their
 lexical scope until enclosing monotypes settle. Their own quantified requirements
 must then hold; obligations on captured monotypes remain with enclosing inference.
 
+Recursive groups containing `All` first solve a private monomorphic template,
+then check the original bodies with independent rigid interpretations. Fixed
+recursive instantiation tuples include phantom parameters. Inferred groups keep
+one checking pass; both paths freeze variables shared with expansive members
+before generalization. Representable value cycles use ordinary source-order
+initialization and retain premature-read traps.
+
 [`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) resolves complete
 argument/result constraints with coherent class requirements.
 [`strict-data.sld`](src/snail-scheme/strict-data.sld) prepares nominal data,

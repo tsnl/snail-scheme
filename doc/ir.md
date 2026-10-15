@@ -55,6 +55,15 @@ retains generalized schemes and class requirements. Dependency groups establish
 checking order; they do not change runtime initializer order. Mutable state
 limits generalization.
 
+For a recursive group with quantified annotations, a private source copy solves
+the group's monomorphic template before the original bodies are checked against
+their rigid signatures. `copy-ir-graph` accepts one optional identity mapping:
+mapped objects and their children remain owned by the enclosing check, while
+unmapped group nodes and binders are copied. This preserves external nominal,
+class and type-variable identities without cloning their dependency graphs.
+Checked name nodes retain their ordinary binding and substitution evidence for
+specialization; the private template does not become executable IR.
+
 Specialization requests concrete instances of those checked templates and
 resolves overloads and class methods for each instance. It retains explicit
 conversions, concrete function signatures and storage types. Unresolved runtime

@@ -322,7 +322,9 @@
     ;; initializers and primitive identities. Reserve before descending cycles.
     ;; Lookup never scans earlier copies; table iteration never chooses traversal
     ;; order. Distinct equal objects stay distinct. Locations are immutable data.
-    (define (copy-ir-graph roots)
+    ;; An optional identity mapping retains objects owned by an enclosing check.
+    ;; Seeded objects are boundaries: their children are not copied or mutated.
+    (define (copy-ir-graph roots . identity-mappings)
       (let ((copies (make-hash-table eq?)))
         (define (reserve original copy)
           (hash-table-set! copies original copy) copy)
@@ -369,6 +371,8 @@
                 ((string? object) (reserve object (string-copy object)))
                 ((bytevector? object) (reserve object (bytevector-copy object)))
                 (else object)))
+        (when (pair? identity-mappings)
+          (for-each (lambda (entry) (reserve (car entry) (cdr entry))) (car identity-mappings)))
         (walk roots))))
 
   ;; ---- Tests ----
@@ -423,6 +427,20 @@
             (string-set! (cadr copies) 0 #\R)
             (bytevector-u8-set! (vector-ref copy 2) 0 9)
             (expect text "row") (expect (bytevector-u8-ref bytes 0) 1))))
+      (define (test-copy-retained-identities)
+        (let* ((nominal (make-value-definition 'Box #f)) (class (make-value-definition 'Show #f))
+               (ambient (fresh-rigid)) (local (fresh-rigid)) (binding (make-value-definition 'loop #f))
+               (scheme (make-scheme (list local) (list 'Data nominal ambient local) (list (list class local))))
+               (use (make-name binding #f)) (seeds (map (lambda (identity) (cons identity identity)) (list nominal class ambient))))
+          (prepare-binding! binding scheme use 'value #f)
+          (let* ((copies (copy-ir-graph (list binding use) seeds)) (copy (car copies))
+                 (signature (binding-scheme copy)))
+            (expect (eq? copy binding) #f)
+            (expect (eq? (name-definition (cadr copies)) copy) #t)
+            (expect (eq? (car (scheme-variables signature)) local) #f)
+            (expect (eq? (cadr (scheme-type signature)) nominal) #t)
+            (expect (eq? (caddr (scheme-type signature)) ambient) #t)
+            (expect (eq? (caar (scheme-constraints signature)) class) #t))))
       (define (test-copy-pair-graph)
         (let* ((cycle (cons 'head '())) (other (cons 3 4))
                (tail (cons 3 4)) (root (vector cycle cycle tail other)))
@@ -483,6 +501,7 @@
         (run-test test-definition-cycle)
         (run-test test-copy-proof-sharing)
         (run-test test-copy-mutable-data)
+        (run-test test-copy-retained-identities)
         (run-test test-copy-pair-graph)
         (run-test test-copy-wide-sharing)
         (run-test test-attached-declarations)
