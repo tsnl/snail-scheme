@@ -24,6 +24,8 @@ if (providerPath) {
     'snail.platform': {'diagnostics/report-error': (...args) => provider.exports['snail:report-error'](...args)}});
 }
 const instance = new WebAssembly.Instance(module, {benchmark: {barrier: () => 1,
+                                                  input_i64: index => BigInt(config.inputs[index]),
+                                                  input_f64: index => Number(config.inputs[index]),
                                                   write_character: writeCharacter, write_char: writeCharacter},
                                                   'snail.library': provider?.exports,
                                                   wasi_snapshot_preview1: wasi.wasiImport});
@@ -32,7 +34,8 @@ let result, seconds, failure;
 try {
   wasi.initialize(provider ?? instance);
   instance.exports.main();
-  assert.equal(instance.exports['configured-count'](), BigInt(config.count));
+  if (instance.exports['configured-count'])
+    assert.equal(instance.exports['configured-count'](), BigInt(config.count));
   const start = process.hrtime.bigint();
   result = instance.exports.bench(BigInt(config.count));
   assert.equal(result, BigInt(config.expected));
@@ -43,4 +46,4 @@ finally {
   catch (error) { failure ??= error; }
 }
 if (failure) throw failure;
-console.log(JSON.stringify({result: Number(result), seconds}));
+console.log(JSON.stringify({result: result.toString(), seconds}));

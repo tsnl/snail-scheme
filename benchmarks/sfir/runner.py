@@ -151,6 +151,63 @@ def canonical_data(root, destination, corpus):
     return freeze_files(upstream, destination, paths)
 
 
+# ---- Copy the selected Rust installation and only locked dependency sources ----
+
+def freeze_tree(source, destination):
+    files = [path.relative_to(source) for path in sorted(source.rglob('*')) if path.is_file()]
+    if any(path.is_symlink() for path in source.rglob('*')):
+        raise ValueError(f'mutable toolchain tree contains symlinks: {source}')
+    return freeze_files(source, destination, files)
+
+
+def select_rust_sysroot(directory, manifest):
+    environment = frozen_environment(manifest)
+    result = record(directory, 'selected-rust-sysroot', [manifest['tools']['RUSTC']['path'], '--print', 'sysroot'],
+                           environment, directory / 'source', manifest['config']['compile_timeout'])
+    if not succeeded(result):
+        raise RuntimeError('cannot identify the selected Rust sysroot')
+    source = Path(result['stdout'].strip())
+    if not source.is_dir() or not (source / 'bin/rustc').is_file():
+        raise ValueError('selected Rust sysroot is not a complete installation')
+    return source
+
+
+def frozen_rust_tools(directory, manifest, source):
+    prefix = Path('toolchain/rust')
+    files = freeze_tree(source, directory / prefix)
+    manifest['build_dependencies'] = {str(prefix / path): digest for path, digest in files.items()}
+    manifest['selected_rust'] = dict(source=str(source), dispatchers={name: manifest['tools'][name] for name in ('RUSTC', 'CARGO')})
+    for name in ('RUSTC', 'CARGO'):
+        path = directory / prefix / 'bin' / name.lower()
+        manifest['tools'][name] = dict(path=str(path), sha256=digest(path), dispatcher=False)
+    manifest['execution_environment']['CARGO_HOME'] = str(directory / 'toolchain/cargo-home')
+
+
+def vendor_locked_crates(directory, manifest):
+    # Vendoring reads the existing offline cache once; builds then use only this copy.
+    environment = frozen_environment(manifest)
+    environment['CARGO_HOME'] = os.environ.get('CARGO_HOME', str(Path.home() / '.cargo'))
+    source, destination = directory / 'source', directory / 'toolchain/vendor'
+    command = [manifest['tools']['CARGO']['path'], 'vendor', '--offline', '--locked',
+               '--manifest-path', source / 'Cargo.toml', '--sync', source / 'benchmarks/wasm-reference/Cargo.toml', destination]
+    result = record(directory, 'vendor-locked-crates', command, environment, source, manifest['config']['compile_timeout'])
+    if not succeeded(result):
+        raise RuntimeError('cannot freeze the locked Rust dependency sources')
+    install_vendor_configuration(directory, manifest, result['stdout'])
+
+
+def install_vendor_configuration(directory, manifest, configuration):
+    target = directory / 'toolchain/cargo-home/config.toml'
+    target.parent.mkdir(parents=True)
+    target.write_text(configuration)
+    paths = [target, *(directory / 'toolchain/vendor').rglob('*')]
+    for path in paths:
+        if path.is_symlink():
+            raise ValueError('vendored dependencies must be ordinary files')
+        if path.is_file():
+            manifest['build_dependencies'][str(path.relative_to(directory))] = digest(path)
+
+
 def prepare(root, destination, names, compile_timeout, run_timeout):
     corpus = load(root / 'benchmarks/sfir/corpus.json')
     cases = selected_cases(corpus, names)
@@ -165,6 +222,9 @@ def prepare(root, destination, names, compile_timeout, run_timeout):
     manifest = dict(format=1, kind='sfir-preparation', config=config, files=files, inputs=inputs,
                     tools=immutable_tools(os.environ), cases=cases, measurement='not-measured',
                     execution_environment={name: os.environ.get(name) for name in EXECUTION_ENVIRONMENT})
+    frozen_rust_tools(destination, manifest, select_rust_sysroot(destination, manifest))
+    vendor_locked_crates(destination, manifest)
+    manifest['source_revision'] = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     save(destination / 'manifest.json', manifest)
     return manifest
 
@@ -238,6 +298,16 @@ def terminal_record(process, timeout, stdin):
                 unexpected_descendants=descendants, executing_descendants=remaining)
 
 
+def retain_output_bytes(folder, result):
+    # Text diagnostics remain convenient, while predicates can inspect exact bytes.
+    for name in ('stdout', 'stderr'):
+        if name in result:
+            output = result[name]
+            (folder / (name + '.bin')).write_bytes(output)
+            result[name + '_sha256'] = digest(folder / (name + '.bin'))
+            result[name] = output.decode('utf-8', errors='replace')
+
+
 def record(directory, label, command, environment, cwd, timeout, stdin=None):
     timeout = positive_timeout(timeout)
     folder = directory / 'commands' / relative_path(label)
@@ -247,9 +317,9 @@ def record(directory, label, command, environment, cwd, timeout, stdin=None):
     save(folder / 'record.json', result)
     start = time.monotonic()
     try:
-        process = subprocess.Popen(result['command'], cwd=cwd, env=environment, text=True,
+        process = subprocess.Popen(result['command'], cwd=cwd, env=environment,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-        result.update(terminal_record(process, timeout, stdin), status='finished')
+        result.update(terminal_record(process, timeout, stdin.encode('utf-8') if isinstance(stdin, str) else stdin), status='finished')
     except OSError as error:
         if 'process' in locals():
             stop_group(process.pid)
@@ -261,6 +331,7 @@ def record(directory, label, command, environment, cwd, timeout, stdin=None):
         raise
     finally:
         result['wall_seconds'] = time.monotonic() - start
+        retain_output_bytes(folder, result)
         save(folder / 'record.json', result)
     return result
 
@@ -945,6 +1016,37 @@ import unittest
 
 
 class FrozenInputTests(unittest.TestCase):
+    def test_selected_rust_installation_and_locked_sources_survive_checkout_changes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original, frozen = root / 'selected', root / 'frozen'
+            (original / 'bin').mkdir(parents=True)
+            for name in ('cargo', 'rustc'):
+                (original / 'bin' / name).write_text('selected tool bytes')
+            manifest = dict(tools={name: dict(path=str(original / 'bin' / name.lower())) for name in ('RUSTC', 'CARGO')}, execution_environment={})
+            frozen_rust_tools(frozen, manifest, original)
+            (original / 'bin/rustc').write_text('later rustup replacement')
+            (frozen / 'toolchain/vendor/locked-crate').mkdir(parents=True)
+            crate = frozen / 'toolchain/vendor/locked-crate/lib.rs'
+            crate.write_text('locked dependency')
+            install_vendor_configuration(frozen, manifest, '[source.crates-io]\nreplace-with = "vendored-sources"\n')
+            self.assertEqual(Path(manifest['tools']['RUSTC']['path']).read_text(), 'selected tool bytes')
+            self.assertEqual(frozen_environment(manifest)['CARGO'], str(frozen / 'toolchain/rust/bin/cargo'))
+            verify_files(frozen, manifest['build_dependencies'])
+            crate.write_text('changed locked dependency')
+            with self.assertRaisesRegex(ValueError, 'frozen dependency changed'):
+                verify_files(frozen, manifest['build_dependencies'])
+
+    def test_process_output_preserves_complete_bytes_and_line_endings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = record(root, 'bytes', [sys.executable, '-c', 'import os; os.write(1,b"a\\r\\nb\\n")'], os.environ, root, 5)
+            self.assertTrue(succeeded(result))
+            self.assertEqual(result['stdout'], 'a\r\nb\n')
+            output = root / 'commands/bytes/stdout.bin'
+            self.assertEqual(output.read_bytes(), b'a\r\nb\n')
+            self.assertEqual(result['stdout_sha256'], digest(output))
+
     def test_checkout_changes_do_not_change_snapshot_and_new_freeze_detects_change(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
