@@ -84,8 +84,10 @@ on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
 over the preceding bump-path split, with 28.67% more machine-code `.text`.
 The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
 established improvement from this change. These add no Chez or Rust timings.
-Historical coverage is now **44 of 57 measured workloads**, **43 with paired
-Chez controls**. The explicit name sets are in `capabilities.json`.
+Historical coverage is now **45 of 57 measured workloads**, **44 with paired
+Chez controls**, including the later complete Equal and Conform comparisons.
+These accumulated compiler revisions are not a whole-suite rerun. The explicit
+name sets are in `capabilities.json`.
 Gcbench's unmeasured retention case is excluded;
 `cat` has strict measurements without a same-window Chez control.
 Paraffins has reviewed canonical source-program
@@ -164,7 +166,7 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | tail | Measured all 50 complete 4,460,056-byte bibliography reversals: 5.173× original Chez time, 2.712× adapted Chez and 22.658× Rust/Wasm. Full outputs and separate file-lifecycle/byte observations pass. Strict Unicode-scalar lists/scalar I/O, adapted Chez helpers and Rust UTF8 Vec<String>/buffered I/O/earlier input-close differ. |
 | read1 | Measured all 2,500 complete reads: V8 2.703861 s, original Chez 0.320001 s, same Scheme parser body on Chez 1.461438 s, Rust/Wasm 0.439175 s. Every datum, simultaneous do update, final list predicate and file lifecycle remain. Native is 3.098514 s versus 2.785069 s for its exact Scheme module on V8; provider/linkage differs. The parser and runtime gaps require separate profiling. |
 | compiler | Symbolic heterogeneous compiler IR, mutable pairs/vectors, strings, files and binary/text output; a scalar kernel slice would not port this compiler workload. |
-| conform | [Complete canonical preparation](../results/2026-10-14-strict-conform-preparation/README.md), clean timing pending. Original 500 invocations and ordered 31-string predicate; concrete mutable node/edge/graph/table records and closed Name/BlueState/Optional variants preserve functional list algorithms, shared memo tables, cyclic construction and temporary red assumptions. Raw/optimized Wasm, mechanical native64 and both Chez controls pass complete results, 38 alias/order/state assertions and every iteration’s 30 work-counter deltas. Forced exact GC and distinct unchanged Rust controls pass. Physical immutable-list spine identity is not directly observed. |
+| conform | [Measured complete canonical workload](../results/2026-10-14-strict-conform-comparison/README.md): all 56 planned processes pass original 500 invocations and ordered 31-string predicate. Production V8 1.599663 s, native64 1.825969 s, identical-Wasm V8 1.605583 s, original Chez 0.891038 s, adapted Chez 2.571687 s and Rust/Wasm 0.712784 s. Native takes 13.73% more time than V8 on identical final Scheme Wasm. Concrete mutable node/edge/graph/table records and closed Name/BlueState/Optional variants retain functional lists, shared memo tables, cyclic construction and temporary red assumptions. Separate 38-assertion, per-invocation work-counter and forced-GC observations remain outside timings. Physical immutable-list spine identity is not directly observed; Rust layout, algorithm, reclamation and UTF-8-length differences remain explicit. Compiler basis 43322a2 is distinct from ledger correction 7bd327f. |
 | dynamic | Dynamic interpreter AST, heterogeneous environments/values, symbols, mutable cells and runtime type dispatch. |
 | earley | Measured complete canonical count 1, length 15 and result 2674440: production V8 2.644450 s, common-artifact V8 2.663772 s, native 3.882573 s, original Chez 1.781515 s and adapted Chez 3.505472 s. Production V8 takes 1.484× original Chez time; native takes 1.458× same-Wasm V8 time with an explicit 1 GiB reservation after default arena exhaustion. All 30 clean processes and 161 identities pass. Complete ordered trees, mutable state/configuration identity and stored lexer/query functions are validated. Finite atom/user-info scope, I64 arithmetic, temporary append spines and legal unused payload removal remain explicit. See the [five-system report](../results/2026-10-14-strict-earley-comparison/README.md). |
 | lattice | Measured original count 10, input 44 and result 120549: 1.647× original Chez time, 1.504× adapted Chez and 1.815× Rust/Wasm. Raw/optimized Wasm and untouched/adapted Chez correctness checks pass. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and Rust vector/enum/Rc layout/control differences are disclosed; the timed Rust artifact has limited complete-payload checks. No compiler changes or dynamic fallback. |
@@ -184,8 +186,9 @@ results; Rust's Rc/Vec/Boolean control remains a different representation.
 | bv2string | Measured all 100 invocations with 1,001 roundtrips each: V8 0.939191 s, native 1.029586 s, original Chez 0.471426 s, adapted Chez 0.473761 s, native Rust 0.026631 s and Rust/Wasm 0.045660 s. V8 takes 1.992× original Chez time and 20.569× Rust/Wasm time. All 42 clean runs, 65 separate Scheme stream checks and Rust controls pass. Packed bytevector, Unicode-scalar String, native padding and Rust ownership differences remain explicit; the complete internal trace covers one invocation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 43 of 57 workloads,
-with 42 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 45 of 57 workloads,
+with 44 paired Chez comparisons; these accumulate different compiler revisions,
+not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

@@ -244,7 +244,7 @@
     },
     {
       "name": "conform",
-      "status": "prepared-canonical-unmeasured",
+      "status": "measured-canonical-source",
       "source_lines": 469,
       "files": {
         "src/conform.scm": "5b544ec3ea2416df03ef935d45ad96b7204c35ecaf7344118d3d34bbb3dc9de5",
@@ -252,7 +252,8 @@
       },
       "preparation_report": "benchmarks/results/2026-10-14-strict-conform-preparation/README.md",
       "representation_note": "Concrete Node/BlueEdge/Graph/Table/Row records with explicit Ref mutation; closed Name/BlueState/Optional variants. Functional unstable sort, sets, copied node-list construction, shared association tables, unresolved memo insertion, red assumptions and equivalent-node ordering remain. Datum is confined to input. Same adapted kernel on Chez; unchanged Rust uses arena indices, Vec/VecDeque and Rc names with different storage and reclamation.",
-      "note": "Original count 500, names (a b \"c\" \"d\") and ordered 31-string predicate pass raw/optimized Wasm, mechanical native64 and both Chez controls. Separate 38-assertion structure streams match; all 500 results and each iteration’s 30 work-counter deltas agree. Forced exact native GC survives 19,005 collections. Rust native/raw/optimized controls pass full results and negative expectations. Preparation adds no measured coverage; clean timing pending."
+      "note": "All 56 planned fresh processes pass original count 500 and the complete ordered 31-string predicate; seven excluded warmups and 49 position-balanced retained observations. Compiler/library basis 43322a2 remains distinct from metadata-only correction 7bd327f. Production V8 median 1.599662733 s, native64 1.825969003 s, identical-Wasm V8 1.605583018 s, original Chez 0.891038255 s, adapted Chez 2.571686675 s, Rust native 0.502839416 s and optimized Rust/Wasm 0.712783650 s. Native takes 13.73% more time than V8 on identical final Scheme Wasm. Separate identity/alias/order probes, per-invocation work counters and forced exact GC remain outside clean timings; physical immutable-list spine identity is not directly observed. Rust layout/algorithm/reclamation and UTF-8-length differences remain explicit.",
+      "measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md"
     },
     {
       "name": "dynamic",
@@ -500,9 +501,9 @@
   "data_port_measurements": [
     "paraffins"
   ],
-  "historical_measured_strict_count": 44,
-  "historical_paired_chez_count": 43,
-  "measurement_scope": "Per-checkpoint canonical measurements, not a complete suite rerun on compiler_basis.",
+  "historical_measured_strict_count": 45,
+  "historical_paired_chez_count": 44,
+  "measurement_scope": "Historical canonical measurements accumulated across distinct compiler/library revisions, not a complete suite rerun on compiler_basis; Conform artifact basis 43322a2 and metadata correction 7bd327f remain separately recorded.",
   "direct_call_measurements": [
     "quicksort",
     "graphs",
@@ -539,6 +540,7 @@
     "bv2string",
     "cat",
     "chudnovsky",
+    "conform",
     "cpstak",
     "deriv",
     "destruc",
@@ -584,6 +586,7 @@
     "browse",
     "bv2string",
     "chudnovsky",
+    "conform",
     "cpstak",
     "deriv",
     "destruc",
@@ -636,5 +639,6 @@
   "ack_measurement_note": "All 56 complete processes pass the original two repetitions of ack(3,12). Production V8 median 1.109322346 s, native64 0.757917105 s, original Chez 0.82172397 s. V8 takes 1.350 times original Chez; native takes 0.680 times V8 on identical native-final Scheme Wasm. Recursive Rust/Wasm still fails the default stack; separately labeled explicit heap-frame Rust controls pass. Historical failure artifacts and all timing variance are retained.",
   "browse_measurement_report": "benchmarks/results/2026-10-14-strict-browse-comparison/README.md",
   "browse_measurement_note": "All 56 complete processes pass the original 2000 invocations and complete 100-value predicate. Production V8 median 4.037493494 s, native64 7.409397852 s, original Chez 0.52616543 s, adapted Chez 6.36047573 s, Rust/Wasm 1.964427261 s and Rust native 1.396764437 s. V8 takes 7.673 times original Chez, 0.635 times adapted Chez and 2.055 times Rust/Wasm; native takes 1.724 times V8 on identical native-final Scheme Wasm. Adapted Chez takes 12.088 times original Chez; source helpers and representation change jointly. All retained variance remains. Frozen compiler/library basis 15d2c64 with separate native/control source/tool provenance.",
-  "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md"
+  "equal_measurement_report": "benchmarks/results/2026-10-14-strict-equal-comparison/README.md",
+  "conform_measurement_report": "benchmarks/results/2026-10-14-strict-conform-comparison/README.md"
 }
