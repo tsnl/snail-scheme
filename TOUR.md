@@ -682,6 +682,13 @@ Its original and adapted Chez controls share complete-value, ordered-solution
 and mutation probes with linked Wasm and native execution. The dedicated
 [`nucleic-host.mjs`](benchmarks/strict-suite/nucleic-host.mjs) supplies scalar
 inputs and observations, checks the worker, and closes resources on every exit.
+
+[`bv2string_port.py`](benchmarks/strict-suite/bv2string_port.py) preserves the
+bytevector benchmark's RNG, three conversions, string comparisons and failure
+diagnostics. Reversible ref edits and exact integer ties-to-even rounding keep
+the original and adapted kernels reviewable. Separate preparation probes compare
+the complete RNG and byte/character streams across Chez, Wasm, native and Rust;
+the canonical timed source retains its original repetition count and work.
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
 checks whether the allocation and element loops survive compilation; its
