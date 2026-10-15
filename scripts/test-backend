@@ -12,3 +12,4 @@ subprocess.run([ROOT / 'scripts/test-sfir-numbers', '--domain', '--output',
                 ROOT / 'build/sfir-number-domain'], cwd=ROOT, check=True)
 subprocess.run(['python3', ROOT / 'tests/sfir/scalar-services.py'], cwd=ROOT, check=True)
 subprocess.run(['python3', ROOT / 'tests/sfir-recursion/check.py'], cwd=ROOT, check=True)
+subprocess.run(['python3', ROOT / 'tests/sfir-conformance-audit/check.py'], cwd=ROOT, check=True)
