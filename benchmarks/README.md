@@ -127,6 +127,13 @@ native time from 1.031044 s to 0.978197 s, 5.13%. V8 takes 0.938474 s on that
 module, leaving native 1.042× slower. Separate diagnostic requested bytes fall
 67.99%, with the same allocation count. This is one workload, not a suite rerun.
 
+The later [constant-visibility comparison](results/2026-10-14-strict-constant-visibility-comparison/README.md)
+holds that complete source and input fixed while changing only general strict
+compiler rules. V8 medians are 0.938281 s at baseline, 0.722995 s with scalar
+literal forwarding, and 0.654830 s with completed-global readiness facts too:
+30.21% less time overall. All 21 processes passed; the separate mechanisms,
+unchanged initialization semantics and instruction evidence remain explicit.
+
 The [Earley comparison](results/2026-10-14-strict-earley-comparison/README.md)
 records 2.644450 s on production V8, 1.484× original Chez time and 0.754×
 adapted Chez time. Native takes 3.882573 s, 1.458× V8 on the identical final
