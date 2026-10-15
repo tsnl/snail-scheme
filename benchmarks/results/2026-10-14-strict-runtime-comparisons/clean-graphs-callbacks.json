@@ -1,0 +1,461 @@
+{
+  "started_utc": "2026-10-14T06:02:40.778764+00:00",
+  "cpu": 5,
+  "scope": "Manual source specialization of two matrix callbacks; canonical 3 x 7 graphs and original final predicate.",
+  "handoff": {
+    "status": "Prepared, unexecuted; pending fresh review and a coordinated quiet timing window.",
+    "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+    "node": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+    "host": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+    "host_sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b",
+    "spec": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json",
+    "spec_sha256": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6",
+    "contract": {
+      "name": "graphs",
+      "count": 3,
+      "inputs": [
+        7
+      ],
+      "expected": 213829,
+      "barriers_per_iteration": 1
+    },
+    "systems": {
+      "baseline": {
+        "artifact": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "sha256": "59b82bed680c003b92cf543be8d8658a7ab611fdb0e6dbb6de814698062a3196",
+        "command": [
+          "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+        ]
+      },
+      "variant": {
+        "artifact": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "sha256": "073d33cc2daf4e986cdc7121be08cac01d2ef0058a8da3ced4673b24ee98e5ea",
+        "command": [
+          "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+          "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+        ]
+      }
+    },
+    "timing_driver": null,
+    "publication": "Manual mechanism ablation; no production changes or clean measurements."
+  },
+  "identities_before": [
+    {
+      "path": "/tmp/snail-v8-mperm-policy-20261013/build/measure-callback.py",
+      "sha256": "be7d7cb05966488e767fff16be4818ecaf3fa962d2b903ee414b30e0519871a1"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json",
+      "sha256": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/next-window.json",
+      "sha256": "d8574459474582fad96319dbfa2d9d5cf01619b7f9a24b3e8ce0900133fd95f7"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/manifest.json",
+      "sha256": "cbe97b99c90ffd887e2522370999644cefd0aded0d0364e85bc9a7bb2d514da9"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/helpers.scm",
+      "sha256": "ad9b4c1816f5787c11db28d051939757f992e232454356b0cbae2a5ee93e86eb"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+      "sha256": "59b82bed680c003b92cf543be8d8658a7ab611fdb0e6dbb6de814698062a3196"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.scm",
+      "sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+      "sha256": "073d33cc2daf4e986cdc7121be08cac01d2ef0058a8da3ced4673b24ee98e5ea"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.scm",
+      "sha256": "3190e2d42e469395f1b48b44969dde3d34b2cd5a2be6da3692df038ea0811332"
+    }
+  ],
+  "node_options": null,
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.828073176,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8567247259779833,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.828073176
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.817059565,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.845826486009173,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.817059565
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.83578516,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.864551329985261,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.83578516
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.823210231,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.851471415022388,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.823210231
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.809044931,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.836252897977829,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.809044931
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.820145643,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8505047090002336,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.820145643
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.824571053,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.854204239032697,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.824571053
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.816927057,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8456759380060248,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.816927057
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.819644803,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8469851090339944,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.819644803
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.850448613,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.879425998951774,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.850448613
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.803532779,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8329469760064967,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 1.803532779
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.812482326,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8404952900018543,
+      "round": 4,
+      "retained": true,
+      "workload_seconds": 1.812482326
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.817451978,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "variant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8450933520216495,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 1.817451978
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.817484147,\"result\":\"213829\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "baseline",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+        "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json"
+      ],
+      "cwd": "/tmp/snail-proc-vector-ablation-20261013",
+      "process_seconds": 1.8457350070239045,
+      "round": 5,
+      "retained": true,
+      "workload_seconds": 1.817484147
+    }
+  ],
+  "complete": true,
+  "retained_rounds": 6,
+  "identities_after": [
+    {
+      "path": "/tmp/snail-v8-mperm-policy-20261013/build/measure-callback.py",
+      "sha256": "be7d7cb05966488e767fff16be4818ecaf3fa962d2b903ee414b30e0519871a1"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/spec.json",
+      "sha256": "745a1fdd6e0eaee5b10c8da9dee6cb0724ee2da4084ade1dfb8cd0b3da4f5dd6"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/next-window.json",
+      "sha256": "d8574459474582fad96319dbfa2d9d5cf01619b7f9a24b3e8ce0900133fd95f7"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/manifest.json",
+      "sha256": "cbe97b99c90ffd887e2522370999644cefd0aded0d0364e85bc9a7bb2d514da9"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/helpers.scm",
+      "sha256": "ad9b4c1816f5787c11db28d051939757f992e232454356b0cbae2a5ee93e86eb"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+      "sha256": "59b82bed680c003b92cf543be8d8658a7ab611fdb0e6dbb6de814698062a3196"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.scm",
+      "sha256": "99c72152dfead34e40d8ad17e5d1cba5f99b96a16dd2a84b5df0d6a488a1d473"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+      "sha256": "073d33cc2daf4e986cdc7121be08cac01d2ef0058a8da3ced4673b24ee98e5ea"
+    },
+    {
+      "path": "/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.scm",
+      "sha256": "3190e2d42e469395f1b48b44969dde3d34b2cd5a2be6da3692df038ea0811332"
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "samples": [
+        1.83578516,
+        1.820145643,
+        1.824571053,
+        1.850448613,
+        1.803532779,
+        1.817484147
+      ],
+      "median": 1.822358348,
+      "min": 1.803532779,
+      "max": 1.850448613
+    },
+    "variant": {
+      "samples": [
+        1.823210231,
+        1.809044931,
+        1.816927057,
+        1.819644803,
+        1.812482326,
+        1.817451978
+      ],
+      "median": 1.8171895175000001,
+      "min": 1.809044931,
+      "max": 1.823210231
+    }
+  },
+  "finished_utc": "2026-10-14T06:03:06.768723+00:00"
+}
