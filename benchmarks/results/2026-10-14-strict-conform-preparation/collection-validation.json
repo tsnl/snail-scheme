@@ -1,0 +1,18 @@
+{
+  "gc": {
+    "evacuation": 0,
+    "heap_bytes": 67108864,
+    "collections": 19005,
+    "allocations": 148212293,
+    "bytes": 3128741272,
+    "arena_used": 1474560,
+    "last_live": 120960,
+    "peak_live": 316380,
+    "live_objects": 4802,
+    "roots": 7292231,
+    "fields": 148006052,
+    "holes_reused": 8822934,
+    "large_allocations": 0
+  },
+  "condition": "all 500 results and every iteration\u2019s 30 work counter deltas survive a 64 KiB minimum collection threshold"
+}

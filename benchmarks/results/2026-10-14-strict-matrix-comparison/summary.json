@@ -1,0 +1,110 @@
+{
+  "complete": true,
+  "total_samples": 56,
+  "retained_samples": 49,
+  "systems": {
+    "strict-v8": {
+      "samples": 7,
+      "workload_median": 0.705711381,
+      "workload_range": [
+        0.701784124,
+        0.715511302
+      ],
+      "process_median": 0.7297590079833753,
+      "process_range": [
+        0.7278656819835305,
+        0.7395680320332758
+      ]
+    },
+    "strict-v8-native-final": {
+      "samples": 7,
+      "workload_median": 0.700726481,
+      "workload_range": [
+        0.699038986,
+        0.702965355
+      ],
+      "process_median": 0.7263178180437535,
+      "process_range": [
+        0.7238378720358014,
+        0.7306479099788703
+      ]
+    },
+    "strict-native": {
+      "samples": 7,
+      "workload_median": 1.901276011,
+      "workload_range": [
+        1.890884443,
+        1.906404105
+      ],
+      "process_median": 1.9033737129648216,
+      "process_range": [
+        1.893075239029713,
+        1.9091944989631884
+      ]
+    },
+    "chez-original": {
+      "samples": 7,
+      "workload_median": 0.476000679,
+      "workload_range": [
+        0.475010376,
+        0.478845404
+      ],
+      "process_median": 0.5066088839666918,
+      "process_range": [
+        0.5049434910179116,
+        0.5093517259811051
+      ]
+    },
+    "chez-adapted": {
+      "samples": 7,
+      "workload_median": 0.483595381,
+      "workload_range": [
+        0.482915214,
+        0.485378242
+      ],
+      "process_median": 0.5142746729543433,
+      "process_range": [
+        0.5136636049719527,
+        0.5163748289924115
+      ]
+    },
+    "rust-native": {
+      "samples": 7,
+      "workload_median": 0.859275489,
+      "workload_range": [
+        0.856010189,
+        0.875435059
+      ],
+      "process_median": 0.8618597019813024,
+      "process_range": [
+        0.8577405989635736,
+        0.8781091810087673
+      ]
+    },
+    "rust-wasm-v8": {
+      "samples": 7,
+      "workload_median": 1.622901008,
+      "workload_range": [
+        1.606197371,
+        1.66899051
+      ],
+      "process_median": 1.6479620020254515,
+      "process_range": [
+        1.6290040470194072,
+        1.6935786409885623
+      ]
+    }
+  },
+  "production_v8_ratios": {
+    "strict-v8": 1.0,
+    "strict-v8-native-final": 1.007113902692654,
+    "strict-native": 0.3711777653097417,
+    "chez-original": 1.4825848200103093,
+    "chez-adapted": 1.4593013265360366,
+    "rust-native": 0.8212865257233004,
+    "rust-wasm-v8": 0.4348456113596794
+  },
+  "native_to_common_v8": 2.7132926506312525,
+  "adapted_to_original_chez": 1.0159552335428497,
+  "rust_wasm_to_production_v8": 2.2996667641952055
+}

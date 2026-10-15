@@ -1,0 +1,8 @@
+(import (snail strict))
+(define-class (Identity T) (: identity (-> T T)))
+(define-instance (Identity I64) (identity (lambda (value) value)))
+(define-instance (Identity Bool) (identity (lambda (value) value)))
+(define-overload choose (lambda (value) (identity value)))
+(: wrapper (All (T) (=> ((Identity T)) (-> T T))))
+(define (wrapper value) (choose value))
+(if (wrapper #t) (wrapper 42) (unreachable))

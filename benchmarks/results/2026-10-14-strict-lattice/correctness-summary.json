@@ -1,0 +1,35 @@
+{
+  "source_commit": "b47381a7074ad1073acc7e8a65bbc67c80a43b0d",
+  "preparation_commit": "4f1dedc1cdb7fbdeebeb3a6534ff038b4d023afa",
+  "compiler_commit": "2def9941eb85f211e116e6955799fdc9ef561da8",
+  "compiler_files": 52,
+  "canonical_executions": 12,
+  "supplemental_executions": 16,
+  "scalar_harness_executions": 8,
+  "total_behavior_executions": 36,
+  "probe_observations_per_form": [
+    227,
+    51,
+    59,
+    63
+  ],
+  "independent_exhaustive_poset_oracles": [
+    0,
+    1
+  ],
+  "original_chez_comparison_trace_oracle": 2,
+  "list_order_and_identity_oracle": 3,
+  "original_input": {
+    "name": "lattice",
+    "count": 10,
+    "inputs": [
+      44
+    ],
+    "expected": 120549,
+    "barriers_per_iteration": 1
+  },
+  "make_test": "passed",
+  "make_check": "passed",
+  "prior_unchanged_ports": 28,
+  "clean_measurements": 0
+}

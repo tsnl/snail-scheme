@@ -1,0 +1,44 @@
+{
+  "purpose": "Independent complete-body alpha oracle review; no performance samples",
+  "archive_sha256": "2379a332d8112975cbf242260d32bd4540cd1e0e49e0b8a760bfbf1e44bb1c66",
+  "archived_files_verified": 163,
+  "oracle_sha256": "479d8ba18f6962070ec42937c5e596cb8095ec38581b345c6c942cd1f5d5df72",
+  "wasm_sha256": "e47f2591183a2aa5e025e3606421434c5abfea486c707202329f2bc825a7d3b9",
+  "input": "1\n(lambda (x) (+ x 1))\n(2)\n(lambda () (quote 3))\n",
+  "residual_program_count": 10,
+  "complete_alpha_equivalent": true,
+  "runs": {
+    "rust-wasm": {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-peval-parsing-review-20261013/build/parent-rust-peval-parsing-replay/peval/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-peval-parsing-review-20261013/build/parent-rust-peval-parsing-replay/peval/cases/peval/program.wasm",
+        "--dump"
+      ],
+      "returncode": 0,
+      "stdout": "Result: (lambda () (quote 3))\n+!CSVLINE!+rust-wasm,peval:1,0.005764864\nAudit: ((lambda (b_2) (quote 11)) (lambda (x_4) (if (< x_4 (quote 0)) (- x_4) (- (quote 10) x_4))) (lambda (l_11) (letrec ((add-list_13_16 (lambda (l_14) (if (null? l_14) (quote ()) (cons (+ (quote 1) (car l_14)) (add-list_13_16 (cdr l_14))))))) (add-list_13_16 l_11))) (lambda (n_18) (list (+ (quote 1) n_18) (+ (quote 2) n_18) (+ (quote 3) n_18))) (lambda (env_27) (lookup (quote x) env_27)) (lambda (env_36) (apply (lookup (quote f) env_36) (list (quote 1) (quote 2) (quote 3)))) (lambda (b_53) (+ (quote 15) b_53 b_53 b_53 b_53 b_53 b_53)) (lambda () (quote 55)) (lambda () (list (quote a) (quote b) (quote c) (quote d) (quote e) (quote f) (quote g) (quote h) (quote i) (quote j) (quote k) (quote l) (quote m) (quote n) (quote o) (quote p) (quote q) (quote r) (quote s) (quote t) (quote u) (quote v) (quote w) (quote x) (quote y) (quote z))) (lambda () (quote 3)))\n",
+      "stderr": ""
+    },
+    "chez-oracle": {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--script",
+        "/tmp/snail-rust-peval-parsing-review-20261013/build/parent-rust-peval-parsing-replay/oracles/peval/complete-small.scm"
+      ],
+      "returncode": 0,
+      "stdout": "((lambda (b_3) (quote 11)) (lambda (x_4) (if (< x_4 (quote 0)) (- x_4) (- (quote 10) x_4))) (lambda (l_11) (letrec ((add-list_13_16 (lambda (l_14) (if (null? l_14) (quote ()) (cons (+ (quote 1) (car l_14)) (add-list_13_16 (cdr l_14))))))) (add-list_13_16 l_11))) (lambda (n_18) (list (+ (quote 1) n_18) (+ (quote 2) n_18) (+ (quote 3) n_18))) (lambda (env_27) (lookup (quote x) env_27)) (lambda (env_36) (apply (lookup (quote f) env_36) (list (quote 1) (quote 2) (quote 3)))) (lambda (b_53) (+ (quote 15) b_53 b_53 b_53 b_53 b_53 b_53)) (lambda () (quote 55)) (lambda () (list (quote a) (quote b) (quote c) (quote d) (quote e) (quote f) (quote g) (quote h) (quote i) (quote j) (quote k) (quote l) (quote m) (quote n) (quote o) (quote p) (quote q) (quote r) (quote s) (quote t) (quote u) (quote v) (quote w) (quote x) (quote y) (quote z))) (lambda () (quote 3)))\n",
+      "stderr": ""
+    }
+  },
+  "unit_tests": {
+    "command": [
+      "python3",
+      "benchmarks/wasm-reference/audit_alpha.py"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.001s\n\nOK\n"
+  },
+  "review": "All lambda, let, and letrec bodies are compared in order and proper lexical scope. Duplicate binders, malformed binding entries, missing bodies and incomplete input are rejected. Saved original report and archive are unchanged."
+}

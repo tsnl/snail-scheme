@@ -1,0 +1,65 @@
+{
+  "restored_directory": "/tmp/strict-mbrot-z-replay-20261013-r2",
+  "verified_files": 274,
+  "archive_sha256": "94d0cc8c6f4f3ce0d2f9eb204c8458e1289777f9db3eb7ebab3c859435ba8912",
+  "diagnostic_only": true,
+  "clean_timing_observations": 0,
+  "checks": [
+    {
+      "system": "raw Wasm / Node",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/host.mjs",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/strict.wasm.raw.wasm",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/validation-spec-2.json",
+        "--validate"
+      ],
+      "stdin": "",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.005196823,\"result\":\"5\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "system": "optimized Wasm / Node",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/host.mjs",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/strict.wasm",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/validation-spec-2.json",
+        "--validate"
+      ],
+      "stdin": "",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00622283,\"result\":\"5\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "system": "original Chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/program.so"
+      ],
+      "stdin": "2\n75\n5\n",
+      "returncode": 0,
+      "stdout": "Running mbrotZ:75:2\nElapsed time: 0.006104472 seconds (0.006) for mbrotZ:75:2\n+!CSVLINE!+chez,mbrotZ:75:2,0.006104472\n",
+      "stderr": "",
+      "passed": true
+    },
+    {
+      "system": "adapted Chez",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-mbrot-z-replay-20261013-r2/mbrotZ/same-source-chez/program.so"
+      ],
+      "stdin": "2\n75\n5\n",
+      "returncode": 0,
+      "stdout": "Running mbrotZ:75:2\nElapsed time: 0.008855845 seconds (0.009) for mbrotZ:75:2\n+!CSVLINE!+chez,mbrotZ:75:2,0.008855845\n",
+      "stderr": "",
+      "passed": true
+    }
+  ]
+}

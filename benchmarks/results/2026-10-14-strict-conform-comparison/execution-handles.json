@@ -1,0 +1,50 @@
+{
+  "measured": false,
+  "active_tool_sessions": [],
+  "compiler_basis": "43322a25b23e7c1d110378793247f984d2043d21",
+  "metadata_correction": "7bd327f",
+  "tools": [
+    {
+      "operation": "create isolated worktree",
+      "command": "git worktree add -b report/strict-conform-measurement-20261014 /tmp/snail-conform-measurement-20261014 2b47be4",
+      "initial_terminal_exit": 255,
+      "initial_chunk_id": "3182a9",
+      "initial_error": "Unable to create .git ref lock: read-only file system",
+      "authorized_escalated_terminal_exit": 0,
+      "terminal_chunk_id": "5e28d3"
+    },
+    {
+      "operation": "synthetic interruption/descendant diagnostic",
+      "command": "python3 benchmarks/results/2026-10-14-strict-conform-comparison/measure-seven.py --check-supervision benchmarks/results/2026-10-14-strict-conform-comparison/supervision-validation-attempt1",
+      "session_id": null,
+      "terminal_exit": 0,
+      "terminal_chunk_id": "3b4dd9"
+    },
+    {
+      "operation": "setup/freeze diagnostic only",
+      "command": "python3 benchmarks/results/2026-10-14-strict-conform-comparison/freeze-plan.py > benchmarks/results/2026-10-14-strict-conform-comparison/freeze-plan-attempt1.stdout.txt 2> benchmarks/results/2026-10-14-strict-conform-comparison/freeze-plan-attempt1.stderr.txt",
+      "session_id": 54943,
+      "terminal_exit": 0,
+      "terminal_chunk_id": "b80dc0",
+      "clean_sample": false
+    },
+    {
+      "operation": "supplementary held-pipe diagnostic attempt1",
+      "session_id": null,
+      "terminal_exit": 1,
+      "terminal_chunk_id": "8235d1",
+      "error": "NameError: name 'ORIGINAL_POPEN' is not defined",
+      "preserved": "supervision-held-pipe-attempt1",
+      "clean_sample": false
+    },
+    {
+      "operation": "supplementary held-pipe diagnostic attempt2",
+      "session_id": null,
+      "terminal_exit": 0,
+      "terminal_chunk_id": "c35b54",
+      "preserved": "supervision-held-pipe-attempt2",
+      "clean_sample": false
+    }
+  ],
+  "note": "Tool sessions are supervisor handles; child process-group IDs in raw records are local to their execution namespace. All listed actual tool handles reached terminal status. No clean runner invocation has occurred."
+}

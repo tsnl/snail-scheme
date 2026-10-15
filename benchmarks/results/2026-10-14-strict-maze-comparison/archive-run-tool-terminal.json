@@ -1,0 +1,25 @@
+{
+  "actual_tool_terminal": true,
+  "session_id": 43804,
+  "initial": {
+    "chunk_id": "ee7109",
+    "wall_time_seconds": 1.000965498,
+    "session_id": 43804,
+    "original_token_count": 0,
+    "output": ""
+  },
+  "intermediate": {
+    "chunk_id": "e8b927",
+    "wall_time_seconds": 5.000742814,
+    "session_id": 43804,
+    "original_token_count": 0,
+    "output": ""
+  },
+  "terminal": {
+    "chunk_id": "2b3ac9",
+    "wall_time_seconds": 3.344130383,
+    "exit_code": 0,
+    "original_token_count": 26,
+    "output": "PASS compressed bytes, complete decompression and 1564 safe regular-file identities; no guest started\n"
+  }
+}

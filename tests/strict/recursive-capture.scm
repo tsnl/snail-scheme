@@ -1,0 +1,5 @@
+(import (snail strict))
+(define (exercise seed)
+  (define (loop n) (if (= n 0) seed (+ 1 (loop (- n 1)))))
+  (loop 40))
+(exercise 2)

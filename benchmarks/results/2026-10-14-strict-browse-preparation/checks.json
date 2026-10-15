@@ -1,0 +1,46 @@
+{
+  "protocol_records": {
+    "strict-v8": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/commands/final-timing-host-production/record.json",
+      "sha256": "b5278aa32b941d66551268916b1646520806f61f896fe7c8bc9863de38ac06d1"
+    },
+    "strict-v8-native-module": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/commands/final-timing-host-native-module/record.json",
+      "sha256": "219bcf114b0448cb7e67bc739effc5f4c599e1cc88b74b4e288fae2ed510e552"
+    },
+    "strict-native": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/commands/full-count-validation/record.json",
+      "sha256": "bf3c8c9eff3ea158e9d70028e5f788632b58dda28c02b5eb18e6e70d9df038e4"
+    },
+    "chez-original": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/commands/count-2000-chez/record.json",
+      "sha256": "0f1a710b6067372125760fae65ba101366d5b9367298bb285950bd5003d4c8a9"
+    },
+    "chez-adapted": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/commands/count-2000-chez-adapted/record.json",
+      "sha256": "839f7982c2d9be35be13794445a630402a218f63f27abfeb309f3b24741f9eea"
+    },
+    "rust-wasm": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/commands/count-2000-optimized-wasm/record.json",
+      "sha256": "5b8aba0f8322f86285ecc7a4b64602c8a1d022340dac671fb1bacf25bfd00011"
+    },
+    "rust-native": {
+      "path": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/commands/count-2000-native/record.json",
+      "sha256": "22d0c81f747588868c46d2da77669ece13563cf25ad1dab68931831f12c34b68"
+    }
+  },
+  "dry_import_and_identity_verification": true,
+  "canonical_counts": [
+    1,
+    2,
+    2000
+  ],
+  "five_scheme_edge_checks": 40,
+  "ordered_trace_counts": [
+    1,
+    2
+  ],
+  "full_count_internal_trace": false,
+  "measured": false,
+  "compiler_commit": "15d2c64"
+}

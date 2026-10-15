@@ -1,0 +1,14 @@
+{
+  "complete": true,
+  "archive_sha256": "17b69bd5a0067468b46839943d2851f86043ce93b2aa67c87e2b5ed3d2a6839e",
+  "records": [
+    "matrix-strict-native-baseline.json",
+    "matrix-strict-native-cold.json",
+    "matrix-strict-native-ordinary.json",
+    "matrix-strict-v8-common.json",
+    "bv2string-strict-native-baseline.json",
+    "bv2string-strict-native-cold.json",
+    "bv2string-strict-native-ordinary.json",
+    "bv2string-strict-v8-common.json"
+  ]
+}

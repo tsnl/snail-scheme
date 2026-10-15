@@ -1,0 +1,1280 @@
+{
+  "name": "lattice",
+  "started_utc": "2026-10-14T09:07:33.943159+00:00",
+  "cpu": 5,
+  "scope": "Original full workload, fresh processes, default V8 tiering; setup excluded and final predicate included.",
+  "case": {
+    "name": "lattice",
+    "preparation": "/tmp/snail-strict-lattice-preparation-20261014-r3",
+    "spec": {
+      "name": "lattice",
+      "count": 10,
+      "inputs": [
+        44
+      ],
+      "expected": 120549,
+      "barriers_per_iteration": 1
+    },
+    "rust": {
+      "name": "lattice",
+      "artifact": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm",
+      "wasm_sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2",
+      "artifact_bytes": 107659,
+      "module_source_commit": "9985779136ace05edc0405fa4b5da6e97042065c",
+      "module_source": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/lattice.rs",
+      "module_source_sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+      "validation_git_base_revision": "684ae6c85dbe175f6adcbf828b14524ba1366272",
+      "exact_source_bundle": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source",
+      "source_bundle_hashes": {
+        "Cargo.lock": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef",
+        "Cargo.toml": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee",
+        "measure.py": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1",
+        "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+        "src/bin/deriv.rs": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c",
+        "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+        "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+        "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+        "src/lib.rs": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f",
+        "validate.py": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+      },
+      "original_source": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/original-lattice.scm",
+      "original_source_sha256": "2e441f1d7e4d235929e2f05d0b72da8615da1dc7db85dfcb3392ebe8369e2ea6",
+      "prepared_upstream": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/upstream.scm",
+      "prepared_upstream_sha256": "ef387e6ed1354232307a4c78278f1fdcdeb77b828dc26546c7e5b630c87bff58",
+      "host": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+      "host_sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "stdin": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/input.txt",
+      "input_sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78",
+      "input_text": "10\n44\n120549\n",
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "runtime_target": "wasm32-wasip1 / Node WASI preview1",
+      "timeout_seconds": 900,
+      "count": 10,
+      "parameters": {
+        "outer_iterations": 10,
+        "problem_selector": 44,
+        "expected_monotone_map_count": 120549
+      },
+      "setup_excluded": "Read all Scheme-format datums and parse outer count; Wasm compilation/instantiation/startup. The historical reader differs from the later expanded reader; its exact source is frozen here.",
+      "predicate_boundary": "Each problem parse, lower-lattice l2/l3/l4 construction, four discarded counts, full selected monotone-map search, all temporary allocation/destruction, ten repetitions and supplied expected equality precede report/start.elapsed. Result/CSV formatting follows clock capture.",
+      "timed": "All10 complete run44 invocations, including lower-lattice construction and four additional counts each; final expected equality is timed. Original common.scm also calls ok? before ending clock.",
+      "correctness": {
+        "report": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/results.json",
+        "report_sha256": "97b9f042ea25fbc5c5e3526fd981708fec7fcc2cb5bb95b886015aa7e83a20fd",
+        "full_canonical_pass": true,
+        "all_case_checks_pass": true,
+        "expected_stdout_result": "Result: 120549",
+        "csv_case": "lattice:10",
+        "original_chez_csv_case": "lattice:44:10",
+        "predicate": "Computed full count120549 equals the supplied expected numeric datum. This is a scalar result predicate, not a complete-structure oracle.",
+        "historical": "One discarded preliminary and three retained full-count Rust observations all exit0 and pass supplied predicate; unchanged original Chez full-count observations also pass. Historical measurements remain separate; none are newly sampled here.",
+        "supplemental_report": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/supplemental-correctness.json",
+        "supplemental_report_sha256": "d6f600f1a12677b6cefb97fe5f5c902a6ac1713be4bdbceac12de5a47682cd88",
+        "small": "Exact historical Wasm and Chez pass count1/run33/result10 and count1/run44/result120549.",
+        "negative": "Both exact artifacts reject deliberately wrong11 for run33 and120548 for run44.",
+        "reader_expanded_checkpoint": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/current-reader-checkpoint.json",
+        "reader_expanded_checkpoint_sha256": "cb0122b63e1a4ccfb2865cb59497b26ae5429633617b27610a95ff356e707795",
+        "reader_expanded_artifact_sha256": "8e0df146f164c48958277ea6db30913f2a71f5353becc339b5869ef5fb91e418",
+        "checkpoint_limit": "Later checkpoint shares identical lattice module but a different reader/artifact; it is not the artifact handed off or timed.",
+        "complete_payload": "No complete l3/l4 payload/comparison matrix dump is claimed for this frozen binary."
+      },
+      "representation": "Rust false/true base elements and recursive Element::Sequence vectors of Rc target elements; persistent Rc<Mapping> assignment chains; vectors of candidates/results/u64 counts. Original low/high symbols, nested proper lists, lattice/comparator pairs and closures, two cons cells per assignment extension, linked selection/count/result lists.",
+      "ownership": "Assignment tails and target element identities are shared by Rc; immutable result sequences retain target references. Rust promptly destroys branch nodes/vectors and performs refcount operations. Scheme reclaims through GC and can share appended list spines. Vector flattening does not preserve last-tail list-spine sharing.",
+      "opacity": "black_box on each problem input, returned run count and all four otherwise discarded count results. No extra full-structure validation or per-node opacity inside timing. Exact Wasm retains these calls/stores.",
+      "source_semantics": "Same monotone-map backtracking, componentwise partial order, branch/output order, reversed assignment sequences, four discarded counts and full problem44. Direct enum comparison replaces comparator closures; contiguous collections replace list selection/reversal/append and recursive count summation. Nonnegative Wasm32 inputs/u64 counts and same-lattice sequence-shape assumptions limit equivalence outside canonical inputs.",
+      "retained_work": {
+        "disassembly": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/lattice.wat",
+        "wat_sha256": "0136be2063f348e390643d3dd72467a18a17e398ed69254c3f667d5d00b34380",
+        "wasm_sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2",
+        "inspection_report": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/retained-work.json",
+        "inspection_report_sha256": "5081acc13968b9d452cdd3c492d0bc14a7be7b0586ed1b0e66c8924fa304d88d",
+        "inspection": {
+          "kind": "Inspection of exact frozen optimized lattice Wasm; no binary changes or performance observations",
+          "wasm_sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2",
+          "wat_sha256": "0136be2063f348e390643d3dd72467a18a17e398ed69254c3f667d5d00b34380",
+          "disassembler": {
+            "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+            "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+            "version": "Binaryen132"
+          },
+          "main": {
+            "function_line": 4236,
+            "start_clock_line": 4754,
+            "count_controlled_loop_line": 4808,
+            "per_iteration_problem_parse_line": 4811,
+            "l3_enumeration_call_line": 4890,
+            "l4_enumeration_call_line": 4901,
+            "four_discarded_count_call_lines": [
+              4922,
+              4938,
+              4948,
+              4958
+            ],
+            "problem44_count_call_line": 5009,
+            "supplied_expected_parse_line": 5524,
+            "equality_line": 5534,
+            "wrong_expected_assert_line": 5539,
+            "stop_clock_line": 5642
+          },
+          "search": {
+            "count_function_line": 1930,
+            "allowed_targets_call_line": 1974,
+            "count_recursive_call_lines": [
+              2119,
+              2276
+            ],
+            "allowed_targets_function_line": 2658,
+            "constraint_compare_call_lines": [
+              2710,
+              2820,
+              3034,
+              3180,
+              3283,
+              3344
+            ],
+            "enumeration_function_line": 3505,
+            "enumeration_allowed_targets_call_line": 3675,
+            "enumeration_recursive_call_line": 3813,
+            "element_comparison_function_line": 4040,
+            "nested_comparison_recursive_call_line": 4148
+          },
+          "conclusion": "The exact optimized artifact retains lower-lattice materialization, all four discarded counts, candidate constraint comparisons, persistent branch-node allocation, recursive enumeration/counting and full outer loop. Count44 consumes materialized l4; it is not a formula or cached result. Rc increments/decrements and vector allocation/drop operations remain. Per-iteration problem parsing and final expected parsing are inside the clock.",
+          "opacity": "black_box(problem) and each returned run count; black_box on each of the four otherwise discarded counts. WAT retains their calls and result memory stores. No full-structure validation or extra per-node opacity is in timing.",
+          "limits": "Static call/control inspection establishes emitted work, not dynamic allocation counts or physical traffic. No complete l3/l4 payload dump or comparison matrix was captured from this frozen binary."
+        }
+      },
+      "source_review": {
+        "report": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/source-review.md",
+        "report_sha256": "885acdc9da2eda8b2ba08d4f0d5badf9154eaae8da59be3c48aaa3fe57136380",
+        "scope": "Source-to-source and exact artifact inspection; no runtime refactor",
+        "fresh_no_file_simplify_debate": "not completed in this handoff; historical pending status retained"
+      }
+    }
+  },
+  "order": [
+    "strict",
+    "original-chez",
+    "adapted-chez",
+    "rust-wasm"
+  ],
+  "node_options": null,
+  "identities_before": [
+    {
+      "path": "/tmp/snail-strict-lattice-measurement-20261014/build/measure-matched.py",
+      "sha256": "a3764215d55dbd089cecb304b92f6bb95ba507805710ff64fce13a73ba5f8e28"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/handoff.json",
+      "sha256": "59e09ad5a80bea3bef7e21fc89549ee367df38685b342e87d813ae9824515b2a"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/build-provenance.json",
+      "sha256": "c507ea588f89006b731f0f8f7679857e5c07f7374ba904f3ff58ad7d59472b48"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/prepared.json",
+      "sha256": "93d26f9ac369a527e79d4f50aca72fe8d0a50b89f86f1bfc91ce557f47803534"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.scm",
+      "sha256": "46d83c85698f94f062c2fcab74dc625c6baa7d6f9cdf4da59969312a17442f43"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+      "sha256": "009dfa73de941c9f1c098b086e290b3098ee0fea90425a82033fe74287ac0b2e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json",
+      "sha256": "95912ab9e3249df4664c7e844e76d7854d6692255d43234bb161521081526485"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/input.txt",
+      "sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.scm",
+      "sha256": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so",
+      "sha256": "43ac9b8b6c61a04bac2bfb58a5d1c73449fdef8b73b35010846ae3bfddd5d104"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.scm",
+      "sha256": "e11cf8479c42fbb9d141447a1b34350def5acf204a1f646a833c8c98d261ec1d"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so",
+      "sha256": "a0b750d8f014945e76d9d2f095eda7ff0f6a338b247d168d0fac647b5fd00f1a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "f5e13c1c20f0876acf27e85df787b53a6f4a082825f85a25c696d18168b09b1f"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm",
+      "sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/input.txt",
+      "sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/measure.py",
+      "sha256": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/validate.py",
+      "sha256": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+    }
+  ],
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.911406203,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "process_seconds": 1.934480786032509,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.911406203
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.167335245 seconds (1.167) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.167335245\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.1983891589916311,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.167335245
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.293332277 seconds (1.293) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.293332277\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.3250548189971596,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.293332277
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:10,1.050251567\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.0731775360181928,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.050251567
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.913562779,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "process_seconds": 1.9371122200391255,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.913562779
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.159206925 seconds (1.159) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.159206925\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.1900705440202728,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.159206925
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.269153048 seconds (1.269) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.269153048\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.3006674180505797,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.269153048
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:10,1.050561556\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.0724634010111913,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.050561556
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.16593245 seconds (1.166) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.16593245\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.1971820300095715,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.16593245
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.276700771 seconds (1.277) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.276700771\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.3077531610033475,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.276700771
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:10,1.057001392\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.08099810796557,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.057001392
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.913425812,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "process_seconds": 1.936934694997035,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.913425812
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.269432054 seconds (1.269) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.269432054\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.3018683590344153,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.269432054
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:10,1.054082344\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.0760658020153642,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.054082344
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.91054821,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "process_seconds": 1.9361379109905101,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.91054821
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.159347266 seconds (1.159) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.159347266\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.1915761249838397,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.159347266
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 120549\n+!CSVLINE!+rust-wasm,lattice:10,1.054461174\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.0773434279835783,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.054461174
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.920355279,\"result\":\"120549\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "process_seconds": 1.9423240250325762,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.920355279
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.164587523 seconds (1.165) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.164587523\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.1969920250121504,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.164587523
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running lattice:44:10\nElapsed time: 1.275111918 seconds (1.275) for lattice:44:10\n+!CSVLINE!+chez,lattice:44:10,1.275111918\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "10\n44\n120549\n",
+      "process_seconds": 1.3073317219968885,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.275111918
+    }
+  ],
+  "complete": true,
+  "identities_after": [
+    {
+      "path": "/tmp/snail-strict-lattice-measurement-20261014/build/measure-matched.py",
+      "sha256": "a3764215d55dbd089cecb304b92f6bb95ba507805710ff64fce13a73ba5f8e28"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/handoff.json",
+      "sha256": "59e09ad5a80bea3bef7e21fc89549ee367df38685b342e87d813ae9824515b2a"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/build-provenance.json",
+      "sha256": "c507ea588f89006b731f0f8f7679857e5c07f7374ba904f3ff58ad7d59472b48"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/prepared.json",
+      "sha256": "93d26f9ac369a527e79d4f50aca72fe8d0a50b89f86f1bfc91ce557f47803534"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.scm",
+      "sha256": "46d83c85698f94f062c2fcab74dc625c6baa7d6f9cdf4da59969312a17442f43"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+      "sha256": "009dfa73de941c9f1c098b086e290b3098ee0fea90425a82033fe74287ac0b2e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/spec.json",
+      "sha256": "95912ab9e3249df4664c7e844e76d7854d6692255d43234bb161521081526485"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/input.txt",
+      "sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.scm",
+      "sha256": "719e1e99df14d292c63eda27ccabd534ab2df21bec0d3fa77f69ab0801e5860b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so",
+      "sha256": "43ac9b8b6c61a04bac2bfb58a5d1c73449fdef8b73b35010846ae3bfddd5d104"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.scm",
+      "sha256": "e11cf8479c42fbb9d141447a1b34350def5acf204a1f646a833c8c98d261ec1d"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so",
+      "sha256": "a0b750d8f014945e76d9d2f095eda7ff0f6a338b247d168d0fac647b5fd00f1a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "f5e13c1c20f0876acf27e85df787b53a6f4a082825f85a25c696d18168b09b1f"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-lattice-preparation-20261014-r3/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm",
+      "sha256": "68a65476693da208b3bddd712999b6214ce35460fb7fa422783c68bd23abf0b2"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/input.txt",
+      "sha256": "a93f51e9dd4c016beddf4059a96edfc00e45b12275dcd0198dde35e68e92bb78"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "2fc64672424294e984c89ba632fb40990579498ed9af1c27c1b2ee22887c4aef"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "6a7c6770093d3bcfba92c3ed319716370d7ce0db44032940b7042f317ed4c1ee"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/measure.py",
+      "sha256": "1fe1ca4af69836f4992a92b375de597cfc188c9aa0e0e9efad066ccac08b86a1"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "79e1cf81979811e2339f04e20bbd6d0f393a055364fd8d261739e7aada0b974c"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "48f396d58cc8fcfb546f89457ad62d5567ce51236eb7f534d139e3c0242da56f"
+    },
+    {
+      "path": "/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/validate.py",
+      "sha256": "a94b755798fb0358d943694eb2720b4845ef29d53718d78f800be8db3e239e08"
+    }
+  ],
+  "summary": {
+    "strict": {
+      "samples": [
+        1.913562779,
+        1.913425812,
+        1.91054821,
+        1.920355279
+      ],
+      "median": 1.9134942955,
+      "min": 1.91054821,
+      "max": 1.920355279
+    },
+    "original-chez": {
+      "samples": [
+        1.159206925,
+        1.16593245,
+        1.159347266,
+        1.164587523
+      ],
+      "median": 1.1619673945,
+      "min": 1.159206925,
+      "max": 1.16593245
+    },
+    "adapted-chez": {
+      "samples": [
+        1.269153048,
+        1.276700771,
+        1.269432054,
+        1.275111918
+      ],
+      "median": 1.2722719859999998,
+      "min": 1.269153048,
+      "max": 1.276700771
+    },
+    "rust-wasm": {
+      "samples": [
+        1.050561556,
+        1.057001392,
+        1.054082344,
+        1.054461174
+      ],
+      "median": 1.0542717590000001,
+      "min": 1.050561556,
+      "max": 1.057001392
+    }
+  },
+  "finished_utc": "2026-10-14T09:08:01.594112+00:00"
+}

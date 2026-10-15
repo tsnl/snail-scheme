@@ -1,0 +1,367 @@
+{
+  "kind": "Existing suite runner validates new Ray regression fixtures against actual corrected Wasm and unchanged original Chez",
+  "performance_samples": false,
+  "fixtures": [
+    {
+      "name": "complete-100x100-pgm",
+      "input": "1\n1\n\"outputs/ray.output\"\nok\n",
+      "wrong": "1\n1\n\"outputs/ray.output\"\nwrong\n",
+      "compare_files": [
+        "outputs/ray.output"
+      ]
+    },
+    {
+      "name": "expected-symbol-kind",
+      "input": "1\n1\n\"outputs/ray.output\"\n|ok|\n",
+      "wrong": "1\n1\n\"outputs/ray.output\"\n\"ok\"\n",
+      "wrong_meaning": "The expected string ok is distinct from the returned symbol ok.",
+      "compare_files": [
+        "outputs/ray.output"
+      ]
+    },
+    {
+      "name": "zero-count-initial-false",
+      "input": "0\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "0\n1\n\"outputs/ray.output\"\nok\n",
+      "wrong_meaning": "No invocation leaves the original harness result false.",
+      "files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:0,"
+      ]
+    },
+    {
+      "name": "negative-count-initial-false",
+      "input": "-1\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "-1\n1\n\"outputs/ray.output\"\n\"#f\"\n",
+      "wrong_meaning": "False is not the expected string #f; signed count labels are preserved.",
+      "files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:-1,"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "complete-100x100-pgm",
+      "input_sha256": "dc0d819302e961f5743d460a7745ee9d40295eff096724dea5d11609f26f9df9",
+      "complete": true,
+      "errors": [],
+      "passed": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 0,
+          "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:1,0.002050970\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:1\nElapsed time: 0.020247268 seconds (0.02) for ray:1\n+!CSVLINE!+chez,ray:1,0.020247268\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        }
+      },
+      "wrong_result_rejected": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "\nthread 'main' (1) panicked at src/bin/ray.rs:182:5:\nincorrect Ray result\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:1\n\n\nRuntimeError: unreachable\n    at ray-a989a73a2d7de795.wasm.abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[213]:0x13a16)\n    at ray-a989a73a2d7de795.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[135]:0x10ed7)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[134]:0x10ecd)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[106]:0xd84e)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[105]:0xd844)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[133]:0x10ec3)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[125]:0x108ef)\n    at ray-a989a73a2d7de795.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[159]:0x11b1e)\n    at ray-a989a73a2d7de795.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[158]:0x11ab8)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[71]:0x6bff)\n\nNode.js v24.19.0\n",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:1\nERROR: returned incorrect result: ok\n+!CSVLINE!+chez,ray:1,INCORRECT\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        }
+      },
+      "wrong_result_meaning": "deliberately wrong expected answer"
+    },
+    {
+      "name": "expected-symbol-kind",
+      "input_sha256": "f6401bc0435cff74eed720d406e547f1fc04867a37307f148ea2ed8da2d3c353",
+      "complete": true,
+      "errors": [],
+      "passed": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 0,
+          "stdout": "Result: ok\n+!CSVLINE!+rust-wasm,ray:1,0.002036069\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:1\nElapsed time: 0.019499933 seconds (0.019) for ray:1\n+!CSVLINE!+chez,ray:1,0.019499933\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        }
+      },
+      "wrong_result_rejected": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "\nthread 'main' (1) panicked at src/bin/ray.rs:182:5:\nincorrect Ray result\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:1\n\n\nRuntimeError: unreachable\n    at ray-a989a73a2d7de795.wasm.abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[213]:0x13a16)\n    at ray-a989a73a2d7de795.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[135]:0x10ed7)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[134]:0x10ecd)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[106]:0xd84e)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[105]:0xd844)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[133]:0x10ec3)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[125]:0x108ef)\n    at ray-a989a73a2d7de795.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[159]:0x11b1e)\n    at ray-a989a73a2d7de795.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[158]:0x11ab8)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[71]:0x6bff)\n\nNode.js v24.19.0\n",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:1\nERROR: returned incorrect result: ok\n+!CSVLINE!+chez,ray:1,INCORRECT\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+              "bytes": 29517
+            }
+          }
+        }
+      },
+      "wrong_result_meaning": "The expected string ok is distinct from the returned symbol ok."
+    },
+    {
+      "name": "zero-count-initial-false",
+      "input_sha256": "df6afbbb2bbd4fa2b6c845986fb8a2c7a3e3aad851b36f0b820bd900f094d6e1",
+      "complete": true,
+      "errors": [],
+      "passed": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 0,
+          "stdout": "Result: #f\n+!CSVLINE!+rust-wasm,ray:0,0.000000382\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "681153ae72b7f92276b9ad4228e47938e342580a60a3c924274715d9723b2fcc",
+              "bytes": 30
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:0\nElapsed time: 5.24e-7 seconds (0.0) for ray:0\n+!CSVLINE!+chez,ray:0,5.24e-7\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "681153ae72b7f92276b9ad4228e47938e342580a60a3c924274715d9723b2fcc",
+              "bytes": 30
+            }
+          }
+        }
+      },
+      "wrong_result_rejected": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "\nthread 'main' (1) panicked at src/bin/ray.rs:182:5:\nincorrect Ray result\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:1\n\n\nRuntimeError: unreachable\n    at ray-a989a73a2d7de795.wasm.abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[213]:0x13a16)\n    at ray-a989a73a2d7de795.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[135]:0x10ed7)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[134]:0x10ecd)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[106]:0xd84e)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[105]:0xd844)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[133]:0x10ec3)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[125]:0x108ef)\n    at ray-a989a73a2d7de795.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[159]:0x11b1e)\n    at ray-a989a73a2d7de795.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[158]:0x11ab8)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[71]:0x6bff)\n\nNode.js v24.19.0\n",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "681153ae72b7f92276b9ad4228e47938e342580a60a3c924274715d9723b2fcc",
+              "bytes": 30
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:0\nERROR: returned incorrect result: #f\n+!CSVLINE!+chez,ray:0,INCORRECT\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "681153ae72b7f92276b9ad4228e47938e342580a60a3c924274715d9723b2fcc",
+              "bytes": 30
+            }
+          }
+        }
+      },
+      "wrong_result_meaning": "No invocation leaves the original harness result false."
+    },
+    {
+      "name": "negative-count-initial-false",
+      "input_sha256": "6749e54edfe92176ffb41294ab6329457c867a81733fc742a88423c370e16a6d",
+      "complete": true,
+      "errors": [],
+      "passed": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 0,
+          "stdout": "Result: #f\n+!CSVLINE!+rust-wasm,ray:-1,0.000000314\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "0cfae5f76abf0bcc95e1bbcf5e40239bf0cc6188e7ff6fd24d47a685d6254048",
+              "bytes": 34
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:-1\nElapsed time: 2.29e-7 seconds (0.0) for ray:-1\n+!CSVLINE!+chez,ray:-1,2.29e-7\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "0cfae5f76abf0bcc95e1bbcf5e40239bf0cc6188e7ff6fd24d47a685d6254048",
+              "bytes": 34
+            }
+          }
+        }
+      },
+      "wrong_result_rejected": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.wasm"
+          ],
+          "returncode": 1,
+          "stdout": "",
+          "stderr": "\nthread 'main' (1) panicked at src/bin/ray.rs:182:5:\nincorrect Ray result\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nwasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:1\n\n\nRuntimeError: unreachable\n    at ray-a989a73a2d7de795.wasm.abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[213]:0x13a16)\n    at ray-a989a73a2d7de795.wasm._RNvNtNtNtNtCset5xJoy1xWQ_3std3sys3pal4wasi7helpers14abort_internal (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[135]:0x10ed7)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std7process5abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[134]:0x10ecd)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc12___rust_abort (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[106]:0xd84e)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc18___rust_start_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[105]:0xd844)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc10rust_panic (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[133]:0x10ec3)\n    at ray-a989a73a2d7de795.wasm._RNvNtCset5xJoy1xWQ_3std9panicking15panic_with_hook (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[125]:0x108ef)\n    at ray-a989a73a2d7de795.wasm._RNCNvNtCset5xJoy1xWQ_3std9panicking13panic_handler0B5_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[159]:0x11b1e)\n    at ray-a989a73a2d7de795.wasm._RINvNtNtCset5xJoy1xWQ_3std3sys9backtrace26___rust_end_short_backtraceNCNvNtB6_9panicking13panic_handler0zEB6_ (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[158]:0x11ab8)\n    at ray-a989a73a2d7de795.wasm._RNvCsfLfy6EI15iL_7___rustc17rust_begin_unwind (wasm://wasm/ray-a989a73a2d7de795.wasm-0008034a:wasm-function[71]:0x6bff)\n\nNode.js v24.19.0\n",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "0cfae5f76abf0bcc95e1bbcf5e40239bf0cc6188e7ff6fd24d47a685d6254048",
+              "bytes": 34
+            }
+          }
+        },
+        "chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-ray-handoff-20261014/build/rust-ray-timing-handoff/case/program.so"
+          ],
+          "returncode": 0,
+          "stdout": "Running ray:-1\nERROR: returned incorrect result: #f\n+!CSVLINE!+chez,ray:-1,INCORRECT\n",
+          "stderr": "",
+          "files": {
+            "outputs/ray.output": {
+              "sha256": "0cfae5f76abf0bcc95e1bbcf5e40239bf0cc6188e7ff6fd24d47a685d6254048",
+              "bytes": 34
+            }
+          }
+        }
+      },
+      "wrong_result_meaning": "False is not the expected string #f; signed count labels are preserved."
+    }
+  ],
+  "executions": 16,
+  "all_checks_passed": true
+}

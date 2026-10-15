@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-10-14T23:12:53.657117+00:00",
+  "plan_sha256": "90b8a3ba32e6da8e25819c89dc797bd3c52b7d257bf7db717f8293ac094c6819",
+  "release": "root authorizes only the frozen Conform timing campaign; all owned heavy tasks remain held",
+  "root_terminal_handles": [
+    {
+      "session_id": 5545,
+      "exit_code": 0,
+      "description": "Equal hash baseline preparation"
+    }
+  ],
+  "agent_terminal_handles": [
+    {
+      "session_id": 54943,
+      "exit_code": 0,
+      "description": "Conform freeze/setup"
+    },
+    {
+      "session_id": 91504,
+      "exit_code": 0,
+      "description": "native growth execution tests"
+    },
+    {
+      "session_id": 55009,
+      "exit_code": 0,
+      "description": "native growth full Boyer diagnostics"
+    }
+  ],
+  "confirmations": {
+    "root": "no live owned heavy handle",
+    "conform_measurement": "all actual setup and supplementary diagnostic tools terminal; no clean timing started",
+    "strict_maze_workload": "no live handles; builds/workloads/compression held; reasoning only",
+    "review_native_gc_growth": "completed read-only review, no live handles"
+  },
+  "review": {
+    "identities": 453,
+    "schedule_jobs": 56,
+    "retained": 49,
+    "position_balance": "each system occupies each retained serial position once",
+    "result": "read complete frame parser and canonical predicates; seven restored-host diagnostic captures terminal; native-final bytes equal lowering input",
+    "runner_delta": "reviewed against prior Equal runner; Conform frames, frozen input/basis and stronger environment/cleanup diagnostics",
+    "limitation": "owned-work coordination does not establish unrelated host inactivity"
+  }
+}

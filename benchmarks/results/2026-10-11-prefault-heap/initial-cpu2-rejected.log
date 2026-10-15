@@ -1,0 +1,14 @@
+compiler 0 bump-prefault 7.07496354 HEAP_SETUP seconds=6.724587 minor_faults=4194607 rss_kib=16780640 | HEAP_RUN user_s=3.443364 system_s=0.103495 minor_faults=1601 major_faults=0 rss_kib=16788216 | BUMP used=16341799456 capacity=17179869184 rss_kib=16788216 wall_s=13.799750
+compiler 0 bump-lazy 13.673349917 HEAP_SETUP seconds=0.000010 minor_faults=304 rss_kib=30316 | HEAP_RUN user_s=3.819709 system_s=2.907606 minor_faults=3991444 major_faults=0 rss_kib=15970316 | BUMP used=16342400088 capacity=17179869184 rss_kib=15970316 wall_s=13.673606
+Traceback (most recent call last):
+  File "/tmp/snail-prefault-heap-20261011/benchmarks/results/2026-10-11-prefault-heap/measure.py", line 86, in <module>
+    main()
+    ~~~~^^
+  File "/tmp/snail-prefault-heap-20261011/benchmarks/results/2026-10-11-prefault-heap/measure.py", line 72, in main
+    value = sample(workload, variant)
+  File "/tmp/snail-prefault-heap-20261011/benchmarks/results/2026-10-11-prefault-heap/measure.py", line 47, in sample
+    result = subprocess.run(invocation, env=environment, cwd='/tmp', text=True, capture_output=True, check=True, timeout=180)
+  File "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['taskset', '-c', '2', '/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bdw', '/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source', '/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm', '/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat', 'bdw300']' returned non-zero exit status 1.

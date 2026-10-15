@@ -1,0 +1,33 @@
+{
+  "system": "snail-production-v8",
+  "round": 0,
+  "retained": true,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "--disable-warning=ExperimentalWarning",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/timing-host.mjs",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/optimized.wasm",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/spec.json"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform",
+  "status": "valid",
+  "started": "2026-10-14T23:13:11.992478+00:00",
+  "pid": 33,
+  "process_group": 33,
+  "returncode": 0,
+  "stdout": "{\"result\":1,\"seconds\":1.608392591}\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 33,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 1.640169619990047,
+  "workload_seconds": 1.608392591
+}

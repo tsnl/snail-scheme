@@ -1,0 +1,30 @@
+{
+  "reviewed_driver_commit": "37e11e67a0fbc7b3c9bd336d4f1f4f7f03d2833b",
+  "reviewed_evidence_commit": "24fa7165ec563dd4b383c7c15b940d65c5158077",
+  "independent_explanation": "Fresh Sol6.1 max agent, no files or inherited implementation context; subsequent informed critique completed.",
+  "accepted_model": [
+    "Keep checked exact source edits together; every adaptation corresponds to a bounded source form.",
+    "The immutable plan stores work and predicate across main; work retains the same mutable queue, predicate receives the final queue as an argument.",
+    "Preserve setup fill before timing and each complete generation before queue publication, shift and clear.",
+    "Compare complete ordered values separately, and verify independent graph classes and permutation-domain completeness."
+  ],
+  "change": "Supplemental permutation oracle now checks cardinality and the full independently generated permutation set, in addition to existing sequence agreement.",
+  "verification": {
+    "archive_files_verified": 351,
+    "unchanged_generated_sources": 23,
+    "new_complete_queue_boundary_executions": 12,
+    "complete_permutation_domains": 6,
+    "negative_oracle_checks": 4
+  },
+  "persistent_queue_root": "Exact canonical optimized Wasm: global145 -> type22 work -> type19 environment45 -> type33 binding -> type20 queue -> type16/type12 lists. main initializes this before returning.",
+  "ordering": "The canonical work thunk constructs/publishes new batches before shifting and clearing; raw and optimized identity witnesses are separate diagnostic modules.",
+  "retention_limits": "Graphs count-only list heads are removed; fresh graph vectors still constructed/filled then discarded. Original/adapted Chez dynamic retention is unverified. No equal-allocation, heap-size or collector-cost claim.",
+  "deliberate_limits": [
+    "Canonical positive repetition counts; M=0 and invalid diagnostics excluded from the port claim.",
+    "No Scheme GC-reference ABI extension; handwritten identity observer is diagnostic only."
+  ],
+  "helper_review": "graphs_kernel and mperm_kernel are cohesive checked exact-edit sequences; splitting them would hide the adaptation contract. The longer probe coordinator represents the four-system validation operation. Remaining helpers and encoders were reviewed as single operations.",
+  "why_stopped": "Source adapters, timing boundary, structural oracles and reference observations have distinct purposes. No additional state or wrapper removal preserves all required behavior more clearly.",
+  "performance_samples": false,
+  "archive_sha256": "d880dd2588fac2b6e1712e425fe05a7fa537d9d81620f1179a69bdbc3aa5d628"
+}

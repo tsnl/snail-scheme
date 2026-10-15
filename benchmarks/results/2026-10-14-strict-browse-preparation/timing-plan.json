@@ -1,0 +1,775 @@
+{
+  "compiler_commit": "15d2c64",
+  "upstream_commit": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "cpu": 5,
+  "timeout_seconds": 120,
+  "preparation": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen",
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "workloads": {
+    "browse": {
+      "count": 2000,
+      "rust_result_line": "Result: (837 177 1090 617 661 749 628 56 826 408 1035 474 320 452 672 991 155 122 793 221 716 727 848 309 144 936 100 881 287 430 23 771 232 804 958 650 1068 1057 463 276 1046 1002 199 34 738 210 540 397 342 364 782 683 89 375 166 595 892 705 507 639 331 188 243 441 1013 1079 67 298 386 573 859 133 760 12 529 815 111 496 45 265 925 903 254 78 551 606 485 518 419 870 562 1 353 980 694 914 969 947 584 1024)"
+    }
+  },
+  "systems": {
+    "browse": {
+      "strict-v8": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/reader-timing.mjs",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/optimized.wasm",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/spec.json"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2",
+        "stdin": null
+      },
+      "strict-v8-native-module": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/reader-timing.mjs",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native-final.wasm",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/spec.json",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/provider.wasm"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native",
+        "stdin": null
+      },
+      "strict-native": {
+        "argv": [
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native",
+        "stdin": null
+      },
+      "chez-original": {
+        "argv": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez/program.so"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez",
+        "stdin": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/input.txt"
+      },
+      "chez-adapted": {
+        "argv": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez-adapted/program.so"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez-adapted",
+        "stdin": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/input.txt"
+      },
+      "rust-wasm": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--disable-warning=ExperimentalWarning",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/run-wasi.mjs",
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/browse.wasm"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust",
+        "stdin": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/input.txt"
+      },
+      "rust-native": {
+        "argv": [
+          "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/browse.native"
+        ],
+        "cwd": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust",
+        "stdin": "/tmp/snail-strict-browse-20261014/build/browse-attempt2/input.txt"
+      }
+    }
+  },
+  "schedule": [
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": -1,
+      "retained": false
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 0,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 1,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 2,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 3,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 4,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 5,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-native",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-v8-native-module",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "strict-native",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-original",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "chez-adapted",
+      "round": 6,
+      "retained": true
+    },
+    {
+      "benchmark": "browse",
+      "system": "rust-wasm",
+      "round": 6,
+      "retained": true
+    }
+  ],
+  "identities": {
+    "/nix/store/0vqb1mcas5j8dv6bhbrshinlgsg6bvgi-gcc-15.3.0-lib/lib/libgcc_s.so.1": "5e9e168007e3c97615d5891495e6ae4e5a07b9f3debfc5786aee94524bfcf5cb",
+    "/nix/store/0vqb1mcas5j8dv6bhbrshinlgsg6bvgi-gcc-15.3.0-lib/lib/libstdc++.so.6": "afc1ddc90d792e372b8c53ed765a58b6325e953eba507c5b3771e5b955cfd8e4",
+    "/nix/store/23q1ns1s025b401ixc1fz89rfpf2a2c6-lz4-1.10.0-lib/lib/liblz4.so.1": "cbf6a25564b6860c6326af7944c4041efb2ddae6216edd2c7f4cafeca1adcb68",
+    "/nix/store/32bpy9v57sy21krs31i5p8f3h7n2zz7y-ada-4.0.0/lib/libada.so.4": "7fe57b104c898b4bcde7295501c1517eaaf086b86cdd97ce01d719c75c7549f1",
+    "/nix/store/62v5xr80ic15hlc0gnn83c4nclar5w4d-llhttp-9.4.3/lib/libllhttp.so.9.4": "58d69029b751081a4f319162514026e89df8a958def5e3e42aa9a0af5345055c",
+    "/nix/store/8vqfy9aqxcb5akhpcqdm2iv4q6wx2rih-ngtcp2-1.23.0/lib/libngtcp2.so.16": "e71cae264dbec6e06381a770ae1e822ad5b7b649107f8a107bcd7ae8ded192c2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/libpython3.14.so.1.0": "2d965a9ba4e6e5a7aee2e379c2baab52be658bc969fd472048ffd70637a98f6a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/__future__.py": "981d4c398849f9ebcab72300d9c1fe288fd6d7f28957b3b3fa3a493a5836d95c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_collections_abc.py": "50b68b76687edc29824e5d735914b9c9ebb5145b663ba4ab7fce273283356a1c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_colorize.py": "15db41bec8e25fd1ba81cf234df2cc7446d0fbc10285fda73186176365efd730",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_opcode_metadata.py": "d9badc5ab19a66415e230bf8f4299491b2207d584981a92b6e7c447cfa1aeac3",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_py_warnings.py": "7728580177727fa3b295478cef4777a9d2a364c5cbd809efcea352db31144f85",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_sitebuiltins.py": "f688c89b860d5839aff1047d4f3df6c9695f136e2ae8a167bbbfa51846bbdaa5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/_weakrefset.py": "2dd7cb459d654fe78b00c5c47ee8e786c037ee77763304603f5e976dd62cbf81",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/abc.py": "e558702a95cdce3febd289da021715d2b92bc43995b8a1bc58dfa1c3d8010287",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/annotationlib.py": "1cce29393714b91e3f71571ffbedacc7f73f11ad26be10701debeb86ec059a32",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/argparse.py": "b9f0fa53be3d7c9c10a71a8eecc538a27c32fbe7abe337818d0d36e138bfc5c5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/ast.py": "5ea9a796353544bea0d706153516f04ef3d92be305d15a73238403837d77e34c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/bisect.py": "f1cf7b85fc36b5da249813fc5ab97d9464f8cc1bc817f7146206fa2713e35999",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/bz2.py": "368b9ee55f0b6dbfc81b15e1a17c51cccddb009389eae8e9a7acf2402ca4109a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/codecs.py": "718f39b3ea68fe934214d789c5bce3005fa828040b03a72d2f715fc5e2647b7e",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/codeop.py": "6777d19fa0f88c415d615c78e214ede057dd7507db8494744ca2c53fe9911a3a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/collections/__init__.py": "cb8367b8edd188662143ea2e3942d360c2deae51c72fd779ec898f5076d2c2b9",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/compression/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/compression/_common/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/compression/_common/_streams.py": "8b8e943815c748d030e540a023400cb87fb13f75c2f0615a63ec42ef9f156c92",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/compression/zstd/__init__.py": "4575544839872594ad5c9be284d062384dd5abdd0ddcc0258f6d66dac2c51d60",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/compression/zstd/_zstdfile.py": "84da3160987a2ee10f3b99813a68e70f16ec42a52612fef32581eb628aabc720",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/contextlib.py": "c1e0d67b2007de11ae93cd36cf6faf38d9ab32656a832d592a49325eec579f96",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/copy.py": "15154fde290d6e65b5007905689a47a9a5a724822c5e06eec35d9ffbb2a3aa69",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/copyreg.py": "6376eb5722806396f5842997ac18add369ea9ac3ff4fcfe1460c41a088cac425",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/csv.py": "1919637c2fbec5a385774b0c7edace6139b3222295a0ba1ba2ea6da75bc28243",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/dataclasses.py": "e8439c8b111856645a8b31e0dbbba532b494426399bad456079c0e5730ad322e",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/datetime.py": "742884b0c8e7dc69911858245db4f34d42e8ec0f769d580c570bd56032b0866c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/decimal.py": "af29fa99aa720a68cab5a6384c7beba4c8e9480a6c1d53a512efeeb5a7e5c781",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/difflib.py": "dcf149dea54bce852505d29a195a179402197cef77ac31b467027a2a56265af5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/dis.py": "17d4d9a9195c9ee5aa27a96f3e0871f9363fd501e3a64ef20cb1cc876d7ad553",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/encodings/__init__.py": "2b708410495acf12a6fad9d2de928dd89e567537c253eaa2b51aaae578e96c59",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/encodings/aliases.py": "1ee993f8eb4986999b6501381e53947be9a04443626cb48b4190bcff2e87d3b4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/encodings/utf_8.py": "ba0cac060269583523ca9506473a755203037c57d466a11aa89a30a5f6756f3d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/enum.py": "fd23a7598fa1104ef892abcd4154d3627283e6361eb7a91cd11dc4a7b6fb3a93",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/fnmatch.py": "ce582bc266922e4c682e2a85d72095124430a6bf58716c6f2537103480eae742",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/fractions.py": "7a95f1c506c9ac4b2277df5f2bdd9d61cc67b520c45021a5a961939770221ef6",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/functools.py": "9db56d38172c4c9e689b21cc58c8538008b09d86b682faf4dd193b529cdd79d5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/genericpath.py": "cdac5a68dd738051e0d66fc81d5947d6a1776248fc6fe862253477608d870ec4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/gettext.py": "54c00df11915aafb017ed23860dcb5197ed063f7ee07e5612625ec86afadcaf5",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/glob.py": "21d290be171e3d0643a444e4b58a2c4ee9bfe2c1474bb36ead043794bb769365",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/gzip.py": "bc3f00153a2cfdf28ae0cb41f2dde3ee2e39d88efc220c1e47de87fc58e970cb",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/hashlib.py": "88fa624821fbdee7eb2ef87c2437b207afe328cf117c7463367e2db5eb1af492",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/heapq.py": "f2d644de141a488db66fc13608a794ef5f2d33162299f6751ea92c3cb0b4c9ea",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/__init__.py": "72b07de4133a7e39b2f6a7920465669aa04626f217e800779587bc0713fe002e",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/_abc.py": "80aab7931dc999dee581c8b8b56fcd973fe156335a96ceeaf6acfc03cebf10e8",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/_bootstrap.py": "e50d35b1191ecbc5f7faecc73f54efd242bcf24c510e4ea5eb64bfba9458c0e3",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/_bootstrap_external.py": "b9af1fb7b625030cf5ee06b39aeb7838c2a30c97ddee09410286b7afbd8b7098",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/machinery.py": "34b7583fd83ebb2629b7645c0dd293839ce16b19cf8742801e21a21fe08f5811",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/importlib/util.py": "7bdfadad42664ba169ffac8160765673cd79937f74324f4664de8d820c35b863",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/inspect.py": "7a2878507255eb568a6ecfa04e051009f197513aa052eebc9e7e60d667d78cb4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/io.py": "1b75584d4efcc612dc0db2ae98619408276585a106f0544879edb5e25b55430a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/json/__init__.py": "2dd10f1bf4c9ea5478e589216805e7f279d0e4bce134a19efa297404fb87407d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/json/decoder.py": "dc98d3e677612ea7311303f06a144cec6b91ebadc7ec037d1777501647578a07",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/json/encoder.py": "d68a4d04d2cfd95897498307f29349058b42c3f48ea6aa6739714a09200a7d01",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/json/scanner.py": "572958017eae8842eeddd0e3d18d3c56cc0a197348224915e1d87ce937841764",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/keyword.py": "18c2be738c04ad20ad375f6a71db34b3823c7f40b0340f5294d0e89f3c9b093b",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_bisect.cpython-314-x86_64-linux-gnu.so": "4980632c6e229ce46bc614ffbdc72752349d2abd16264fdb46ab24ab52ed9f45",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_blake2.cpython-314-x86_64-linux-gnu.so": "5d4673db95cd12f84d20c467cb1de1aec7a0e33fbff0fe84b68a654ecd99c2f0",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_bz2.cpython-314-x86_64-linux-gnu.so": "44939e830e3adfc30828eeee6104d54c6e0436c38df8ea6452cdda16c7f81a2a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_csv.cpython-314-x86_64-linux-gnu.so": "7a115a9874c63d9babf076b538daf93cab06630f6a4c8b403940c4c96b69a3f0",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_decimal.cpython-314-x86_64-linux-gnu.so": "21a0ce749cfcd67a46e3954b1abbc1deb533ac73eeec2a511a1c44a5cf6b6b61",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_hashlib.cpython-314-x86_64-linux-gnu.so": "37d11ec20438b603bd2a9fb6db3621956c9ed47e48459ee9e858e320a453c95c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_heapq.cpython-314-x86_64-linux-gnu.so": "1284ae7782b2fe7e4e88b3c9d6e7a224b00dae1d051fd4625a716cc1cad2b0fb",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_json.cpython-314-x86_64-linux-gnu.so": "2fe3cb1b8640e57cea58b1c0b741d6d3419a9d5465360add654045dfff33a1e8",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_lzma.cpython-314-x86_64-linux-gnu.so": "6400fb2f869277ce73954910adfb0128126e6a2fcefeb98fe87203edb0b4cae2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_posixsubprocess.cpython-314-x86_64-linux-gnu.so": "11a7db2902211954d8ec2246554271b6666acde7f646eb7c962884f58a5af7d4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_random.cpython-314-x86_64-linux-gnu.so": "a65e5e26c8927e0504ee864680c6babacc21cbe5ed5248b1dd3923e76488df8f",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_statistics.cpython-314-x86_64-linux-gnu.so": "1d505f81519dd240e95fcf3257713fd7c8df87af114f3a7daa865dedd5f05a43",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_struct.cpython-314-x86_64-linux-gnu.so": "a4c2abb90936c0d6443ffed1d306314f70b2561f0aa0a9d488d2a93df696a1f7",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/_zstd.cpython-314-x86_64-linux-gnu.so": "ed7a1c0c9200cf53dee1c3d1a3ca8492b6e3a32981807aec7f4b65b70ce8608a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/fcntl.cpython-314-x86_64-linux-gnu.so": "78769d8a898055d966842a776ce7d5e77168ce8fe490efed17a246619270fbfb",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/grp.cpython-314-x86_64-linux-gnu.so": "97dc2a9498530d56041b1e8bb4a1ae1d0823881fff99e1ec7094d21087088980",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/math.cpython-314-x86_64-linux-gnu.so": "c0c06880ce5444026ea719be4e149980722a92eb9840a37d0aea43a04a215f04",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/select.cpython-314-x86_64-linux-gnu.so": "7e14dcd484e1c730227ba049dd3dfb8a0ba1e3a488c20f87f2439592e71e71ba",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lib-dynload/zlib.cpython-314-x86_64-linux-gnu.so": "2a723a36b7c934fede0d99e2654baae6899f22c22395670d3143ecfa178b6ea2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/linecache.py": "692daec68e2a419adf46bafc0eb2f8a2fb36c482183fa1ac47e00fec440f7d7e",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/locale.py": "f2e390ebde2bb52eabcf6d444a6a2e758749f3aa82c61427cbb053332fac56b2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/lzma.py": "b01a78a04c6a9ba6c645758cace78ed53a53871ea3ff88744e23f6263613d507",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/ntpath.py": "bf16566322f41f7052b7516fb684b2d64a437b39f5bbd21731b1bda1697d1a2e",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/numbers.py": "e5e73beba4a7674bd5e9a881a202d403a0c3e2b59af4181699155ea4827a7561",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/opcode.py": "1036d90c917bb27c540ac3205d22896ee747214df1f2682458ab915758e4fdf2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/operator.py": "a9f9910965c31f841caad0447ee47299ac539a371422aefe200c86c60f3b4697",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/os.py": "976bdb3e24925f2fb3ce43a4d788de6dcbb88a7cc8604c60ae690fbdd6507546",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/pathlib/__init__.py": "042a4d0a5e1ef66778daa86dc269af205bd42d06e793e53d8b99dff4c45928ca",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/pathlib/_os.py": "61e844988e54bdf47c0b11ad2b3fd961f058bb370793428f4c6868bd40cab6f2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/platform.py": "240eba74565cd0dc4f99f182f7afc32bbea0593016ddb34165b529b5bcb6be0a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/posixpath.py": "8a5bc2b6674e76efe0f507b873a41d746beba466a191153ed18a7580ef6e08e1",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/pprint.py": "0b807d4a62c4292ead5b64e1b455f98b0ba225667ff3ee74bd7e0b873620402d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/random.py": "cf8e72f887d838e273c274b79758b2bf8630a0927112b8876fa3a9e4b9b1756b",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/re/__init__.py": "741a9de729ed8207bfa19db990f8826f1bf3661f33d0970a80c08cd1338ebc35",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/re/_casefix.py": "1b12d9136f23db6c3f6f26053fefc15ca964b886838c7b9c1fabf8d2efc1e5c8",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/re/_compiler.py": "d49f30cf9a1dbae33b200ed8befd9d0ce3ac612783a10ac35196536f98923e91",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/re/_constants.py": "42253b3181b81aad6c46392f44a0ab26dcfa31feea411296f43ba16616a1ab0b",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/re/_parser.py": "e57bd194a2d42398355ae7c1ccc2ddfb78421dd431eb81e3809dbe8ca9057dc4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/reprlib.py": "b04872e10d76252e44eae50cc785eb0fe478491afc4d7f0825a93f82b2eaba5f",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/selectors.py": "4b8a60cfbb619d080f87dffe1578372e56e8c0ac826f043224a154cf7b77606d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/shutil.py": "28a5df6415bf1a7ab36cbd544d6d35ae0f056a198e3872a786dc4e156d5fcd7d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/signal.py": "0363c964c90ac0b3e515de5749205e6e6454051a1211058375d84d91eab6071a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/site-packages/sitecustomize.py": "5778dbc0e4f80ab0f4767d316fc5c2dea842ee349cba02187ce5f88ab56ec078",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/site.py": "bf3567b10092d10189a9f7eb12eb1f0c72d023c0d4e72cfa93a5f2e7d3122fd0",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/stat.py": "07217986d9b2172b509dab3578d18ac05ba768b418e1f1e8c90e38a8f7c2b3c6",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/statistics.py": "b7558385a2005432c0ae74a222866316bf4f9c3ed448555659e7014b1077173a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/struct.py": "50c14e55f94957804c1e45e975fedbe8e86f7e1dbb745b150370ff681155370a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/subprocess.py": "63a2bc2069346c50b6585f9ec42bd2cebcc9134b87e17888c6e6888156402a9b",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/tempfile.py": "3714372b63f6bc05a5273425d446f6ad3a2112a659c71c321bb4575fd082d634",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/textwrap.py": "7f05d89c983f5aa8cefcff707a9cc561ed60c51fc8a68e2e3ab61cc6dfa84544",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/threading.py": "5323909624ec2165e70b6d31333e4191b63d383d2dc5a7d7d516a3475ea2b7e3",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/token.py": "61d4270311099c8a0c0b2e45fb363fd1c4e347a720bcc25f682b63dc28c34234",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/tokenize.py": "65ba1bacdc42e768382208ff27f3001ee77d9d61aafba686c67652d22b84b330",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/traceback.py": "a8fbeea470aa4e29691560de889de136570bead76d9c8a2b6a891849c047a3b3",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/types.py": "8c54d3d5ffc1d1204237e6c69b25c27c7b05b483128f185eeed9ba7ef2229ac2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/__init__.py": "2698f2daf7a02609a6825b89cd459ebaa283dec2403c7b846315a0701bc74a0d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/case.py": "a79b422eec43c90352e25a54bce8cee106811974c8dea9405199e4caa689ffe9",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/loader.py": "b993c1631e000d5f13256cdd71e40f6453974b90074eddec929f3685c59e0855",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/main.py": "12de7da0fea92dbff8713ebe9904ada6dbd1e0a334d58861c6287ccfc0a261d2",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/result.py": "813415b331a53acc1bd88ffebadfcb46886dba1ff2bbda2908533e24548db50c",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/runner.py": "51780085229bd3547a2751e8d75ab1d8f391dd2c9c3ca1d011b54529348faeb4",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/signals.py": "f8286e818ca56e10e03745bc056cdfd31147678f9a1dc8cb6b0fe96ef9a4362a",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/suite.py": "ed2da92bc9f97c53403ee2d3d12cc53b16a96e85d596ebc887b5a93458f3f6bc",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/unittest/util.py": "fdcc640c3505d16deab9c32eae7c3f5f67c3b5e81c563dc6698fa7fcf403854d",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/warnings.py": "142225786de63c593f1c9abdacf5b4fc0b05dd847f6bed0ebb4b4aa2d4d93b02",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/weakref.py": "5e5f727a19a858cb4c56dbaf3e0a138ded02fb954a9a58a840a0764216ae9522",
+    "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/lib/python3.14/zipimport.py": "4de64633a484e16c39fdb46a3f939ce7c577b14a6e9ee49b79871ec1880b4597",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/lib/csv10.4.1/ta6le/petite.boot": "b23b3b6140b4cbdb3aa751ace0af076e21587c39e7f120feb7e8d3455a9cb38e",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/lib/csv10.4.1/ta6le/scheme-script.boot": "be741b542bac135159842a98bf15bf627e981bba5678d125d6b63c8069462b0b",
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/lib/csv10.4.1/ta6le/scheme.boot": "be741b542bac135159842a98bf15bf627e981bba5678d125d6b63c8069462b0b",
+    "/nix/store/c56x66gbj3qwv3g7dhadcfiq408q2hay-brotli-1.2.0-lib/lib/libbrotlicommon.so.1": "262bdd138ad9d437eabbf7dc7225877e974ee5b1153aba40be936a89f2fa18bd",
+    "/nix/store/c56x66gbj3qwv3g7dhadcfiq408q2hay-brotli-1.2.0-lib/lib/libbrotlidec.so.1": "d0dc0ff53dc7e7d881d66e8ff2f8a0bd0df6d5b44975d7780890ab13c138fe63",
+    "/nix/store/c56x66gbj3qwv3g7dhadcfiq408q2hay-brotli-1.2.0-lib/lib/libbrotlienc.so.1": "31fc33e0ee012bda194042c7055da364b76dde6e3ead9df870ffb5f7cdc0629c",
+    "/nix/store/c80l8rqq5c3qs7qq43rirqvn6nkdd1pg-hdrhistogram_c-0.11.10/lib/libhdr_histogram.so.6": "65d38f9d3311d53d3620f3c0abfbdb18f4857dbf587f98c26928a8e6e9c67986",
+    "/nix/store/d4wj0svs73h1p0726a7k3vi4vkic8qb5-nghttp2-1.70.0-lib/lib/libnghttp2.so.14": "6a3aed2ffa25d7a87680e9800c9e7e7633278df62fef50d7c0447ca9327c3cd3",
+    "/nix/store/dx4ixdly13b4q9n71ikww2ghg8j0n330-uvwasi-0.0.23/lib/libuvwasi.so": "149a35553d5411cc9c3a70b43f827a2db68690ae1db3bff739e4ebf1b9be7731",
+    "/nix/store/gad0h928a545w1rmyiymvyc7z3qnqb33-libuv-1.52.1/lib/libuv.so.1": "6c031614b3195e63689438bd67a00c4a2f8f50999a88f69041a0a9b651eaa161",
+    "/nix/store/gr4m16ipyv5b5ilhrg54s12b7pqin75w-simdutf-6.5.0/lib/libsimdutf.so.20": "2eef586c23dc31365e0df19acf964bc7e4f79b052bf6b95fce70f1964e20d597",
+    "/nix/store/hg41dqig0qxm7shyi0a0xkw29a14i3js-openssl-3.6.3/lib/libcrypto.so.3": "c490c91b0fa1229684e3b8e08aa154c84abc12d886116e5fabb9676dd0386b3b",
+    "/nix/store/hg41dqig0qxm7shyi0a0xkw29a14i3js-openssl-3.6.3/lib/libssl.so.3": "8c321312622091bf5b0a4df6202a72aacb2e4fdc7644ecab7b41e1648eaa1cf4",
+    "/nix/store/ia8ycxcfs23xblv3s18i4xgqxm5sbkri-icu4c-78.3/lib/libicudata.so.78": "06a404c1e0e52076b074fd16ca13811b02ad585b2fc9848293395effe79c4619",
+    "/nix/store/ia8ycxcfs23xblv3s18i4xgqxm5sbkri-icu4c-78.3/lib/libicui18n.so.78": "ce2ad3a98a6c62ae10028be7263c8f2677de143646ca1058deec2a7375808240",
+    "/nix/store/ia8ycxcfs23xblv3s18i4xgqxm5sbkri-icu4c-78.3/lib/libicuuc.so.78": "27ec0f2735b446a1e759189c9079520cc9799d4797ef5189444aedce9dbe0e57",
+    "/nix/store/j4qg8flsdxhdnc7a4hdawdkkg16d5li9-simdutf-9.0.0/lib/libsimdutf.so.34": "b0a196cd392467229834f978ec54586a33ec3fe71031b0251a36aac2645d8121",
+    "/nix/store/l3p6y554mkxi4vipnnp8809kxj0g1lyv-zlib-1.3.2/lib/libz.so.1": "7e890587588b933bf5e9759f5882cf992ed4c6cbdc4cd3d3e829a7043a870c92",
+    "/nix/store/l6b71h7n2rz3saykclmwm60rvqbmm36j-merve-1.2.2/lib/libmerve.so.1": "32430f53382380a705f5b806e263e50fd5c62c7cc76a2cca3a2482efd8e9e2a5",
+    "/nix/store/lf1cnykz1gbdvlv7h2jpwnyy7gs8j5b6-c-ares-1.34.8/lib/libcares.so.2": "2fcbc8a22d9b371249fb62205cf7c9d96ca457a7d60eb2dcc9cf53d08efbef13",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/ld-linux-x86-64.so.2": "0e470f96e41ddd98ac964b3b729df0becfa7562c8ba78ab3cab1822fa5498d23",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libc.so.6": "8334bf4b6c5ab4939cab40f9c9594d0756d10dc6df3e5603593d223f7c538b02",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libdl.so.2": "16bb95daa07411d2815ea7314092b9b8de4b1d1777a290d47b691c7883ae075d",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libm.so.6": "6b750bd68b01a4205569d14d2952c3ada4fdf0316a875d02a59d2f680dc5f205",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libpthread.so.0": "74459e8919cf4d93b3c0c5ebf8a1b670d9cc8b3494a4d401c56aaa636bcbbf19",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/librt.so.1": "c3758f70ac6fc40f087649c3a209fcd2ee817119cbebe7d286862a25d9b7e715",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib64/ld-linux-x86-64.so.2": "0e470f96e41ddd98ac964b3b729df0becfa7562c8ba78ab3cab1822fa5498d23",
+    "/nix/store/pk17pfbv9kknm5vxiy8lnpcjv2wp148r-simdjson-4.6.5/lib/libsimdjson.so.33": "954079c546d77a26757de8be279e3f073d906a703f27fcdc732fd78ab5bc940f",
+    "/nix/store/ra3h8x9y8hvml7hj0lf36qcz2rwkqwjh-nbytes-0.1.4/lib/libnbytes.so": "f4a4d24c7deafaa276be879b10bbec7d2340b2d9ed0a9a949e27993cbcc1d7d8",
+    "/nix/store/ssvq1r0xd8f7paf6zqgpfql1a4drwhy2-xgcc-15.3.0-libgcc/lib/libgcc_s.so.1": "ae2bd6022e9a79c88e58327b50f3f2f78bf70ad26ceedd238b9f3e218379740c",
+    "/nix/store/wb232z007b8qynidq89lli8lb2c4q0r4-libffi-3.8.0/lib/libffi.so.8": "d5cd580340b03b15f10031f32c5b1bc85d21cb450aa0249b8a36868c4cf15dcd",
+    "/nix/store/xcv2rrfly0za0kdhzvmc0j2a6074zkib-sqlite-3.53.3/lib/libsqlite3.so": "83be5e2629d718bf67b5bd0b545f56fd3438773791bfaf26f0bdbd78e9e5f16b",
+    "/nix/store/xcwclh5qgw2x6qc39x6ixara06xczzlw-zstd-1.5.7/lib/libzstd.so.1": "0f5983ab26b8d6c0e6f55f8fda70185e0f11a442a34b884152ce49d88108a4c6",
+    "/nix/store/xmrzhcfqg1vzwsvgm1dk9dq5fl64rlck-nghttp3-1.16.0/lib/libnghttp3.so.9": "5fa2a9d0bce80fd24823c3cfa459de30be30c3acc06b3bb4ca9ca75ec8d1bf0e",
+    "/nix/store/xnnblbr6hhz4r2bsskc1zb0hpm8ybil9-gtest-1.17.0/lib/libgtest.so.1.17.0": "0e4f7f70e6f53bfe6f5960965fa2b1a4a20779c8626bbdddabc0fb9f0dfd3da6",
+    "/nix/store/zz125vwahb637g5ckl046ll8fcqmc8pk-ncurses-6.6/lib/libncursesw.so.6": "263778c169a6b6187e5c2a071972287c2e532f061969fbf298a8137fe6f57d0f",
+    "/run/current-system/sw/bin/python": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/freeze-plan.py": "abe9f05c78a26b7731198a7096235a630a23f9c7b1988beb2d184bb175dea46c",
+    "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/measure-seven.py": "807c1c1b9c3aae498faf2af4c47a5de99c4995b880a5d60a777c30d106b22731",
+    "/tmp/snail-strict-browse-20261014/benchmarks/results/2026-10-14-strict-browse-preparation/retained-work.json": "ae456c6d2b2baf4b7371080a77f3e5681f801b1150336ae2b81ddd36bdfc0938",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez/program.so": "2c0a8efcf74c8dbd5aa9db1582a4e17bcd6b5095d351aff34a59a63958813759",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/chez-adapted/program.so": "9264708cca66da34671352668041d7acb28793e07b5e7951beb3d8d1e20714e2",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/input.txt": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native": "386cf952227b99c9d3447fb00c814d8d24236cc6fb797efcc88014f341344685",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native-entry.c": "0e334e05d81dcee0cc72878aec14fcf5757c1420f76c6424443a8f7f6f9010b9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native-final.wasm": "053d98bfd9e2e2b39515c782832752ce2bc9da343a2e4d04170965329a31be5e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native-provider.c": "51aa23cbee8c312df9e38db68c57084dc5399103477049337f534cc69a9e4b7f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/native-provider.h": "bd552613c49ea459edee484b27eae55607edcf2a39179d118532117d1d36ff80",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/provider.wasm": "37d89137957966b2698fa350cb261ebcb2edab48afc4726b194a85ea8bd40655",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/native/spec.json": "2253eab1ef1e0087d3b13cbaa996ee648790821d61e160853eb26bc665b834a0",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/browse.native": "1c733501216f2e25853ab51f23e5298e2be1ae7572349adf878b759cbfeae7bb",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/browse.wasm": "e6ae9826c8e12d1650370bf9333f8744a0df87398afde7f27e336fa5c5577b9a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/src/bin/browse.rs": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/controls/rust/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/reader-timing.mjs": "31cb5347838fba7d27982be8dbeabc799baf01efc944d7e56018b28b0977b987",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/Cargo.lock": "ac1b02c937783fca8dd5805aab7c44b3d7d41474a8484d643c8656bc9f3da994",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/Cargo.toml": "d4490c35994066b6b8d6a789357d044a31cbe135bdd4ac007a6d7ef54f914d04",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/array1-control.py": "c2f2e4d7d47839a8855baf8b884a0d18fb995c364ebf1a018e4d7fc9908c5e3d",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/browse-observe.mjs": "75b9468184f20081e8c6fdbc5563fe435d3c7e771d768e06d160db9cf2952c84",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/browse_port.py": "20f605af011ebaa51eef1fff9c67daebc462794a936be5fa8a65804c194d96ac",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/deriv_port.py": "4b4f90b8a437b28aa5d48d15f0e7ae2dcc010ca06a1d056405e0dbddebab6ead",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/destruc_port.py": "ab9adde1ba6182f60a0576aae44463487528a43f707e7ec692d2614d10954629",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/earley_port.py": "b2aff890c4d80d477382d25e64d9c19e19df0a19600574810945d795fc008f8f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/enumeration_ports.py": "57c3247e169c933bd2e9207eacee8b1a9080f78bf58e05d62970baf62ca2cbc1",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/flonum.py": "aec8e5de16583079ceb51026b13f9ac9726bcf752b4bf731c051ad4b3c9a4077",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/integer-host.mjs": "15a719c9c9d1f97742231767567a5308ebed043e802492beb58639b4167e8ee4",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/integer_ports.py": "5a06e5086ac47e280af83374eb8836676aac3cb56d9bf4f802fa154c857d216f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/lattice_port.py": "5220423186641f1e91d9fdc680c95770237202fe6e01f5811226c0fc929a9914",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/mazefun_port.py": "72ad03a0d519cdfeb2052780cabad33d57f25b657bfeb7c09977de91b6b391ff",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/mbrotz_port.py": "831da60e4ec0fb6da5b97c37799c69ee4d4f1fbebd52651c0bb498d80c499510",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/measure.py": "b1685869a61cba5ae8743515bfa6660acff8c002bbec112164fb54edb2d2f624",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/nucleic-host.mjs": "27d18795b22907e67d4272708fe20b101174e3602392f95b1082aa4b6dc9f395",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/nucleic_port.py": "7e92dce675975ad0898bc85e859bdc24b3d70d0864c3fbe7bc1f7d4552e75777",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/puzzle_port.py": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/ray-host.mjs": "8f38beceec57792f0282b2455180a01e3733689d3d0f6ba5d9deeb91dd5cb811",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/ray_port.py": "a0f1efc65b102698cdd3c5d2526d82ac65bd0dac2de645654f36b1028ab0bf07",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/reader-host.mjs": "bf73e26783478d154a41c6d9e997c22cc70c3de51053f59f37304d6c671fb681",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/reader-timing.mjs": "31cb5347838fba7d27982be8dbeabc799baf01efc944d7e56018b28b0977b987",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/reader_ports.py": "561c11108bf360143de5f6ad42ef747c9a6fedea0d0a6af3de317dab6237ff79",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/replay.py": "74d0691c4bbc61702ff7114e5ae653534e284ba8d8cf0d6f9ca862c73d21bea9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/simplex_port.py": "17fd4899682484454a4c0f78e5c2b8f9639f2bd47052f6c8157d46a833209f9b",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/tail-host.mjs": "f4b2ecbdee4cf99635f82e0e3a25acc2947d2e4ebd3796eaec9f3c860963f638",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/benchmarks/strict-suite/tail_port.py": "23794b1e2bed9b621e4f175b69e12245570c148281f264214b772333a1e4e29d",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/scripts/build-native": "98ad19530f0f89e51ed46a8046b652160d5d3b27f9805e93ba6f8d5924ac3102",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/scripts/build-native.scm": "c76dffe789a74c1f70b8c7da97ecb4695a7929e26fbc6ee9460d62f3ac08eab1",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/scripts/build-strict": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/scripts/link-strict-runtime": "95509fe3fc8cf2a1fc3168797543ca923e372502cca6a5935d8983b5c876aabb",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/abi.rs": "9e7b5612ca91cb1623e0f032e88f148bcd8a8aeb875fac22f397868fd9fa7031",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/artifacts.rs": "11aa6cf4f5133124e0cb7fd92c2e03be2353fcaa0b740a5469b445aca21d2d1e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/datum.rs": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/hash.rs": "7312b66eefa07a75a8c42c84b79b443fe3a7004d39a0d091562a7f1734b32d6d",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/host.rs": "d3c235e57eec093862de322112d932e2de8a2883ce3ead5cd9851bf37c69bab4",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/interop_example.rs": "11f4c64a482de9e37b98f3a46234fdbffc1fb3b7c6e32d6e75451e70f8d1c8d2",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/iverson.rs": "976c2fe4670e8720bc4f02ab881acc1103062f80d5879eaac862d2c80f604e14",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/lib.rs": "84d6b86609b07fad3ee9e857503493ffcfdae38731c701e491ac8245329d611e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/native.rs": "eebdb1b9a4448d508ff140cbe1c0ce75ea3bd904431a154b10ba4865e871f14c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/platform.rs": "8b3e0fd5522e36fb17e599cb265d766e64947ff299c5c6e3973be1eac4687764",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/precise-gc.h": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/runtime/build.mjs": "4316a32326a8ed382bb47f85e73dac61533a8426a3643429533a02ee5ba9e45e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/runtime/host.mjs": "874ba60ef9cd66cbd9a6f401fef8ed33b039b731e6b1516176e1a88d4ffbcac2",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/bytes.sld": "65ecef7983c8e913e3256a34eb69361a040e9188c8809cb5d59a111789abcafc",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/datum.sld": "8cf6d2a2ded3d0c887d30a5443eee53725a7e72135a71aa6773150f1749516e4",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/integer.sld": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/io.sld": "6e159834f7889e41d5de2db0ae5ccf611d4bc02ef46d954281ed9b6af40f0551",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/math.sld": "74a1e04e50d78c03732363aa0163e417af7816e60407dea6cb591634e21ac9f5",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/read.sld": "136c8d211586c6592f3ad88ea88a0d9f58184ce130ebcc99b5acaca75c4d308e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/strict.sld": "cd882f43ced003873efc7ae170d5517de3b893acd514ddb07a5b36e0beae1cdd",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail/typing.sld": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/bootstrap.sld": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/build-host.sld": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/build.sld": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/chromium-trace.sld": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/compile-build.sld": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/effects.sld": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/expand.sld": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/ir.sld": "a263a05c6fb7bc136b5f1a479c02d3d7f2b241ad87ce607a5d5cd6da971059a5",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/iverson-ghost.sld": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/iverson-typed.sld": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/llvm.sld": "8a81c3d98b13451b89768c995d9dbe3747023feda4add2b6eadfd2217b0dddd3",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/native.sld": "1a1332c1882628303efbb8040584d37ca3735629455b8718389887aba5937136",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-compiler.sld": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-core.sld": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-data.sld": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-infer.sld": "a6f783c104c01f5befc3015ee3937334a4a654740f51813a7705634c38b99a53",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-overloads.sld": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-primitives.sld": "62dc79e7b35ece3f30ed033bb08cb62bcfec0ac720dadb69352f277c7e10dcef",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-specialize.sld": "851619644b51c8dabf81192c70d6db3f0e324f26f8c21c13c1bf2bc8d0784a42",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-types.sld": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/strict-wasm.sld": "3e2f8673183028c521a0c807a3ba7f1d2d52f5ba67b72814c7a6e34d21d3b70c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/syntax-parser.sld": "15d8c2ea48b7324787a23e40b4c2f4ded04878e5c818f168bedca729f285a065",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/type-analysis.sld": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/type-inference.sld": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/typeclasses.sld": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/types.sld": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-abi.sld": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-extern.sld": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-i32.sld": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-link.sld": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-literals.sld": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-optimize.sld": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-read.sld": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-resolve.sld": "0f954f7d6b473b7365a33116878be4d150b4a8395202d48719de08b21bd747a0",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm-runtime.sld": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/snail-scheme/wasm.sld": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/strict_datum.rs": "a2b3de6190d528b3a41e16dc66b81ae9a55d103a1085c5ba54fc4f43dbdf23fd",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/strict_io.rs": "e5789318aa9795f2184c94e94592d5169722ae056deeaf10fccc130d27c6c664",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/strict_math.rs": "2d69ee75664340dd7cc0ac61a2ce164fa7f0ed4aa7bbaee7d467caf723bde6b9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/symbols.rs": "ea19428f233f7254de7a221a31fcb439c0d22289f0bc92c17e81887a2105911c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/text.rs": "1f367b9338b3d04515af856dc4642d9b7396ef2168fa5cb8cca748aa683b23e7",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/src/unicode.rs": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/build-strict-program.scm": "e78e1bbfc3bec77fff7e40468c2b38c3e81b493dc289204042329db93aede1f9",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-browse/source-map.scm": "e8f038691e845caf3e0c6e1fbef1835ba56a0c439be6a06d97076e530bb15f1c",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/entry.c": "fcc8b6d6a7c4d1c8465a43b396417dc7f864c005005f603052a11ebc2f853abb",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/observer.c": "dfc6b704aa8c9e9d4e77ad06ea7e43715f0a996c8b94a78609f52962ace165df",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/observer.h": "5cd986826997a6d6384c2637ec9397fad07cd72de95bcb911344b1ac23e98c8e",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/oracle.scm": "1aea932e229214f528fb667dae8ee676c0da31ca29982886c23eb5bb6659e1a7",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/reader.scm": "96f670cd92db2130ec684fc108846399f5b65d0342ad9136778a838f1b442c6b",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/run.mjs": "227bebac8f03ff10e5bb71fae9e14dfa67a2e25aec36d38732027abc11193bc1",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/frozen/source/tests/strict-reader/scalars.scm": "3bcc9f3e228a7092d56d2e29893a9be000bdadd59b48cfcbfe557d1e1860a1f8",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/input.txt": "c9382e4142ae4a3b78bc80a0dd299355ca917eb204b190b82298fe76c3dc702f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/optimized.wasm": "f44563181c29f63fe2e7afdf4d77f06fe93245b9cde9f21d7126aa8ca1b5c407",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/prepared.json": "7d6f09160ad10f20d49f8c9bc9dd310c42b01dce9f97fa82ef63031a088e8fb8",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/raw.wasm": "95e3bdc57f7242f14897d3b9a9d25c33187c49e6490028022c04e04f4f8c6080",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/runtime.wasm": "cf8b3b6956c2d57ff404b0c7e146bb63ca9d68d86565c25e43fef4dddd416ed4",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/spec.json": "2253eab1ef1e0087d3b13cbaa996ee648790821d61e160853eb26bc665b834a0",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/strict-native.wasm": "02fe4ad4b8480d156e9c7e9bce480cef6e9fda1ba059695844ea04ed3195668b",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/strict.scm": "a49ac9e4bca2ee0fe69451b29d9c601b4e2c23a3c338ba3e44195dbbdcb6349f",
+    "/tmp/snail-strict-browse-20261014/build/browse-attempt2/upstream.scm": "6d40dd2f2276926c656e2575c95e2844f4558925c97e7797d4b9c5ad04940776"
+  },
+  "scope": "Full canonical Browse; setup precedes every workload clock; complete final predicate is timed.",
+  "exclusions": "Exactly the first seven processes are discarded; no replacement samples.",
+  "module_control": "Native and its V8 control share the exact final Scheme Wasm; scalar provider target/linkage differ.",
+  "process_clock": "Popen through capture, leader reap and bounded process-group cleanup."
+}

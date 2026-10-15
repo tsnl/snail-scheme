@@ -1,0 +1,194 @@
+[
+  {
+    "threshold": 16,
+    "count": 200000,
+    "final_length": 22,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/16/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          0.154901523,
+          0.156902421,
+          0.154561105,
+          0.153718417
+        ],
+        "median": 0.154731314,
+        "min": 0.153718417,
+        "max": 0.156902421
+      },
+      "blocks": {
+        "samples": [
+          0.188745117,
+          0.18900942,
+          0.190105301,
+          0.190005441
+        ],
+        "median": 0.18950743050000002,
+        "min": 0.188745117,
+        "max": 0.190105301
+      }
+    },
+    "block_over_flat": 1.2247516394774494,
+    "unchanged_identities": 525
+  },
+  {
+    "threshold": 64,
+    "count": 100000,
+    "final_length": 118,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/64/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          0.322219059,
+          0.322192128,
+          0.321483335,
+          0.323976825
+        ],
+        "median": 0.3222055935,
+        "min": 0.321483335,
+        "max": 0.323976825
+      },
+      "blocks": {
+        "samples": [
+          0.355837715,
+          0.361796534,
+          0.361199017,
+          0.359257708
+        ],
+        "median": 0.3602283625,
+        "min": 0.355837715,
+        "max": 0.361796534
+      }
+    },
+    "block_over_flat": 1.1180077868511615,
+    "unchanged_identities": 525
+  },
+  {
+    "threshold": 1024,
+    "count": 10000,
+    "final_length": 2038,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/1024/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          0.208302027,
+          0.208251012,
+          0.207106269,
+          0.207263625
+        ],
+        "median": 0.2077573185,
+        "min": 0.207106269,
+        "max": 0.208302027
+      },
+      "blocks": {
+        "samples": [
+          0.22885085,
+          0.23153145,
+          0.229712713,
+          0.229440001
+        ],
+        "median": 0.229576357,
+        "min": 0.22885085,
+        "max": 0.23153145
+      }
+    },
+    "block_over_flat": 1.105021756429726,
+    "unchanged_identities": 525
+  },
+  {
+    "threshold": 4096,
+    "count": 2500,
+    "final_length": 8182,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          0.195661905,
+          0.19634789,
+          0.195492633,
+          0.19561555
+        ],
+        "median": 0.1956387275,
+        "min": 0.195492633,
+        "max": 0.19634789
+      },
+      "blocks": {
+        "samples": [
+          0.203022358,
+          0.201681397,
+          0.201697804,
+          0.201754604
+        ],
+        "median": 0.20172620400000002,
+        "min": 0.201681397,
+        "max": 0.203022358
+      }
+    },
+    "block_over_flat": 1.0311159072530771,
+    "unchanged_identities": 525
+  },
+  {
+    "threshold": 8192,
+    "count": 1250,
+    "final_length": 16374,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/8192/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          0.217531528,
+          0.215632116,
+          0.215319303,
+          0.215430809
+        ],
+        "median": 0.2155314625,
+        "min": 0.215319303,
+        "max": 0.217531528
+      },
+      "blocks": {
+        "samples": [
+          0.221524987,
+          0.2207747,
+          0.220285454,
+          0.219509821
+        ],
+        "median": 0.220530077,
+        "min": 0.219509821,
+        "max": 0.221524987
+      }
+    },
+    "block_over_flat": 1.0231920409299873,
+    "unchanged_identities": 525
+  },
+  {
+    "threshold": 32768,
+    "count": 500,
+    "final_length": 65526,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/plan.json",
+    "results": {
+      "flat": {
+        "samples": [
+          1.785554109,
+          1.776275408,
+          1.770951525,
+          1.790304226
+        ],
+        "median": 1.7809147585,
+        "min": 1.770951525,
+        "max": 1.790304226
+      },
+      "blocks": {
+        "samples": [
+          0.445149517,
+          0.455675987,
+          0.446515518,
+          0.448279584
+        ],
+        "median": 0.447397551,
+        "min": 0.445149517,
+        "max": 0.455675987
+      }
+    },
+    "block_over_flat": 0.2512178355896308,
+    "unchanged_identities": 525
+  }
+]

@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-data Point (point (x I64 point-x)))
+(define outer (point 8))
+(define (local)
+  (define-data Point (point (x F64 point-x)))
+  (f64->i64 (point-x (point 7.5))))
+(+ (point-x outer) (local))

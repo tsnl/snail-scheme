@@ -1,0 +1,2579 @@
+{
+  "plan": {
+    "status": "awaiting-coordinated-release",
+    "prepared": "2026-10-14T17:51:10.713901+00:00",
+    "source_base": "869c505af67ad71d1f8e53fb146bede6619b196f",
+    "preparation": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor",
+    "cpu": 5,
+    "taskset": "/run/current-system/sw/bin/taskset",
+    "timeout_seconds": 90,
+    "group_cleanup_seconds": 10,
+    "environment": {
+      "BINARYEN_CORES": "1"
+    },
+    "input": {
+      "name": "matrix",
+      "count": 2500,
+      "inputs": [
+        5,
+        5,
+        0
+      ],
+      "expected": [
+        5,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        -1,
+        -1,
+        -1,
+        1,
+        0,
+        6,
+        5,
+        1,
+        1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        5,
+        1,
+        1,
+        1,
+        -1,
+        1,
+        5,
+        1,
+        1,
+        -1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        1,
+        1,
+        1,
+        5,
+        1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "original_expected": [
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            -1,
+            1
+          ]
+        ],
+        [
+          [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            1,
+            1,
+            -1
+          ],
+          [
+            1,
+            1,
+            1,
+            -1,
+            1
+          ],
+          [
+            1,
+            1,
+            -1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            -1,
+            -1,
+            -1,
+            -1
+          ]
+        ]
+      ],
+      "result_kind": "i64-list-values",
+      "barriers_per_iteration": 2
+    },
+    "systems": {
+      "strict-native-baseline": {
+        "argv": [
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+          "2500",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+        ],
+        "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+        "stdin": null
+      },
+      "strict-native-cold": {
+        "argv": [
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+          "2500",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+        ],
+        "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+        "stdin": null
+      },
+      "strict-native-ordinary": {
+        "argv": [
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+          "2500",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+        ],
+        "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+        "stdin": null
+      },
+      "strict-v8-common": {
+        "argv": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+          "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+        ],
+        "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+        "stdin": null
+      }
+    },
+    "schedule": [
+      {
+        "round": -1,
+        "position": 0,
+        "system": "strict-native-baseline",
+        "retained": false
+      },
+      {
+        "round": -1,
+        "position": 1,
+        "system": "strict-native-cold",
+        "retained": false
+      },
+      {
+        "round": -1,
+        "position": 2,
+        "system": "strict-native-ordinary",
+        "retained": false
+      },
+      {
+        "round": -1,
+        "position": 3,
+        "system": "strict-v8-common",
+        "retained": false
+      },
+      {
+        "round": 0,
+        "position": 0,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 0,
+        "position": 1,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 0,
+        "position": 2,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 0,
+        "position": 3,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 1,
+        "position": 0,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 1,
+        "position": 1,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 1,
+        "position": 2,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 1,
+        "position": 3,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 2,
+        "position": 0,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 2,
+        "position": 1,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 2,
+        "position": 2,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 2,
+        "position": 3,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 3,
+        "position": 0,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 3,
+        "position": 1,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 3,
+        "position": 2,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 3,
+        "position": 3,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 4,
+        "position": 0,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 4,
+        "position": 1,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 4,
+        "position": 2,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 4,
+        "position": 3,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 5,
+        "position": 0,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 5,
+        "position": 1,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 5,
+        "position": 2,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 5,
+        "position": 3,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 6,
+        "position": 0,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 6,
+        "position": 1,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 6,
+        "position": 2,
+        "system": "strict-v8-common",
+        "retained": true
+      },
+      {
+        "round": 6,
+        "position": 3,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 7,
+        "position": 0,
+        "system": "strict-native-ordinary",
+        "retained": true
+      },
+      {
+        "round": 7,
+        "position": 1,
+        "system": "strict-native-cold",
+        "retained": true
+      },
+      {
+        "round": 7,
+        "position": 2,
+        "system": "strict-native-baseline",
+        "retained": true
+      },
+      {
+        "round": 7,
+        "position": 3,
+        "system": "strict-v8-common",
+        "retained": true
+      }
+    ],
+    "identities": {
+      "/tmp/snail-native-allocation-path-20261014/benchmarks/results/2026-10-14-native-allocation-path/measure.py": "b18a7074cd8e6383931b8fd7d4f611f1ff9671802a545fc4c2b474b4cf561496",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+      "/run/current-system/sw/bin/python3": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-provider.h": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate": "6b29e673c7c0e244a6bde53b0a6f7ca09287423f6a2c9de19db751b40298eb93",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline": "ae577b83c0bf30f4d55845ade4e79b6aaa18d830c8c35b0aad4645d2c60864c0",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-entry.c": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-provider.c": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
+      "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary": "b42798685c6de9e64f62ac6379a40695ec10dcea606ff32143bad1d83e425a03"
+    },
+    "inherited_environment": {
+      "NODE_OPTIONS": null,
+      "NODE_V8_COVERAGE": null,
+      "NODE_DEBUG": null,
+      "NODE_DEBUG_NATIVE": null,
+      "LD_PRELOAD": null,
+      "SNAIL_NATIVE_GC_INTERVAL": null,
+      "SNAIL_GC_STATS": null,
+      "SNAIL_GC_HEAP_BYTES": null,
+      "SNAIL_GC_MIN_BYTES": null,
+      "LD_LIBRARY_PATH": null,
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "TZ": null
+    },
+    "policy": "one discarded and eight retained per system; four rotations and their reversals; each variant twice in every retained position; no replacements; Matrix then bv2string",
+    "purpose": "separate the split from the cold attribute after the first campaign found a bv2string regression"
+  },
+  "complete": true,
+  "samples": [
+    {
+      "round": -1,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": false,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:47.473092+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 3,
+      "process_group": 3,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.887850975}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.8905172320082784,
+      "cleanup": {
+        "process_group": 3,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.8901912409928627,
+      "workload_seconds": 1.887850975
+    },
+    {
+      "round": -1,
+      "position": 1,
+      "system": "strict-native-cold",
+      "retained": false,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:49.406645+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 4,
+      "process_group": 4,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.685468959}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6887145000509918,
+      "cleanup": {
+        "process_group": 4,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6884143440402113,
+      "workload_seconds": 1.685468959
+    },
+    {
+      "round": -1,
+      "position": 2,
+      "system": "strict-native-ordinary",
+      "retained": false,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:51.137673+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 5,
+      "process_group": 5,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.675446198}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6788744159857742,
+      "cleanup": {
+        "process_group": 5,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6785782980150543,
+      "workload_seconds": 1.675446198
+    },
+    {
+      "round": -1,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": false,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:52.859698+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 6,
+      "process_group": 6,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.703583735,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.729798001004383,
+      "cleanup": {
+        "process_group": 6,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7294814889901318,
+      "workload_seconds": 0.703583735
+    },
+    {
+      "round": 0,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:53.632071+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 13,
+      "process_group": 13,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.904990341}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.9077946690376848,
+      "cleanup": {
+        "process_group": 13,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.907491905032657,
+      "workload_seconds": 1.904990341
+    },
+    {
+      "round": 0,
+      "position": 1,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:55.582897+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 14,
+      "process_group": 14,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.687003664}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6899094479740597,
+      "cleanup": {
+        "process_group": 14,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6896017309627496,
+      "workload_seconds": 1.687003664
+    },
+    {
+      "round": 0,
+      "position": 2,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:57.315953+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 15,
+      "process_group": 15,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.677385277}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6800051320460625,
+      "cleanup": {
+        "process_group": 15,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6796879460453056,
+      "workload_seconds": 1.677385277
+    },
+    {
+      "round": 0,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:59.039455+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 16,
+      "process_group": 16,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.699234618,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7251109530334361,
+      "cleanup": {
+        "process_group": 16,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7247977040242404,
+      "workload_seconds": 0.699234618
+    },
+    {
+      "round": 1,
+      "position": 0,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:52:59.807455+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 23,
+      "process_group": 23,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.684626703}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6879913649754599,
+      "cleanup": {
+        "process_group": 23,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6876871739514172,
+      "workload_seconds": 1.684626703
+    },
+    {
+      "round": 1,
+      "position": 1,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:01.538663+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 24,
+      "process_group": 24,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.684868697}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6880700530018657,
+      "cleanup": {
+        "process_group": 24,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6877718180185184,
+      "workload_seconds": 1.684868697
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:03.270263+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 25,
+      "process_group": 25,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.706485137,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7322640450438485,
+      "cleanup": {
+        "process_group": 25,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7319511100067757,
+      "workload_seconds": 0.706485137
+    },
+    {
+      "round": 1,
+      "position": 3,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:04.045294+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 32,
+      "process_group": 32,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.901121545}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.9042699300334789,
+      "cleanup": {
+        "process_group": 32,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.9038971880218014,
+      "workload_seconds": 1.901121545
+    },
+    {
+      "round": 2,
+      "position": 0,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:05.994557+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 33,
+      "process_group": 33,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.685956621}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6892141370335594,
+      "cleanup": {
+        "process_group": 33,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6888980439980514,
+      "workload_seconds": 1.685956621
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:07.727892+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 34,
+      "process_group": 34,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.698812197,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.724706111010164,
+      "cleanup": {
+        "process_group": 34,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7243843579781242,
+      "workload_seconds": 0.698812197
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:08.495181+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 41,
+      "process_group": 41,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.888423509}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.8918602790217847,
+      "cleanup": {
+        "process_group": 41,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.8915577150182799,
+      "workload_seconds": 1.888423509
+    },
+    {
+      "round": 2,
+      "position": 3,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:10.433792+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 42,
+      "process_group": 42,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.671652254}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6756072790012695,
+      "cleanup": {
+        "process_group": 42,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.675031115009915,
+      "workload_seconds": 1.671652254
+    },
+    {
+      "round": 3,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:12.153059+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 43,
+      "process_group": 43,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.708560421,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7339043819811195,
+      "cleanup": {
+        "process_group": 43,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.733405637962278,
+      "workload_seconds": 0.708560421
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:12.930634+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 50,
+      "process_group": 50,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.897677919}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.9019888599868864,
+      "cleanup": {
+        "process_group": 50,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.9002614169730805,
+      "workload_seconds": 1.897677919
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:14.876445+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 51,
+      "process_group": 51,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.670683553}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6747164760017768,
+      "cleanup": {
+        "process_group": 51,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6737288709846325,
+      "workload_seconds": 1.670683553
+    },
+    {
+      "round": 3,
+      "position": 3,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:16.596677+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 52,
+      "process_group": 52,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.687130299}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6915367629844695,
+      "cleanup": {
+        "process_group": 52,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6902298249769956,
+      "workload_seconds": 1.687130299
+    },
+    {
+      "round": 4,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:18.331730+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 53,
+      "process_group": 53,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.701341811,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7275169329950586,
+      "cleanup": {
+        "process_group": 53,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7267548080417328,
+      "workload_seconds": 0.701341811
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:19.103641+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 60,
+      "process_group": 60,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.679192222}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.684097622986883,
+      "cleanup": {
+        "process_group": 60,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6828623249894008,
+      "workload_seconds": 1.679192222
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:20.831550+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 61,
+      "process_group": 61,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.668363123}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.671611233963631,
+      "cleanup": {
+        "process_group": 61,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.671225351979956,
+      "workload_seconds": 1.668363123
+    },
+    {
+      "round": 4,
+      "position": 3,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:22.547418+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 62,
+      "process_group": 62,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.888281117}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.8913283350411803,
+      "cleanup": {
+        "process_group": 62,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.8910157729987986,
+      "workload_seconds": 1.888281117
+    },
+    {
+      "round": 5,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:24.482431+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 63,
+      "process_group": 63,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.902640860}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.9059626319794916,
+      "cleanup": {
+        "process_group": 63,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.9056132729747333,
+      "workload_seconds": 1.90264086
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:26.432280+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 64,
+      "process_group": 64,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.707997191,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.734012933971826,
+      "cleanup": {
+        "process_group": 64,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7336961649707519,
+      "workload_seconds": 0.707997191
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:27.209691+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 71,
+      "process_group": 71,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.685544460}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6883735330193304,
+      "cleanup": {
+        "process_group": 71,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6877766550169326,
+      "workload_seconds": 1.68554446
+    },
+    {
+      "round": 5,
+      "position": 3,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:28.941895+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 72,
+      "process_group": 72,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.682159551}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6851202920079231,
+      "cleanup": {
+        "process_group": 72,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6848202690016478,
+      "workload_seconds": 1.682159551
+    },
+    {
+      "round": 6,
+      "position": 0,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:30.671045+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 73,
+      "process_group": 73,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.677079261}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6803550839540549,
+      "cleanup": {
+        "process_group": 73,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.679990030999761,
+      "workload_seconds": 1.677079261
+    },
+    {
+      "round": 6,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:32.395774+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 74,
+      "process_group": 74,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.886447482}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.8895371700054966,
+      "cleanup": {
+        "process_group": 74,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.8890835659694858,
+      "workload_seconds": 1.886447482
+    },
+    {
+      "round": 6,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:34.329991+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 75,
+      "process_group": 75,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.704925323,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7290387479588389,
+      "cleanup": {
+        "process_group": 75,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7286576390033588,
+      "workload_seconds": 0.704925323
+    },
+    {
+      "round": 6,
+      "position": 3,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:35.102752+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 82,
+      "process_group": 82,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.691079582}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6943605599808507,
+      "cleanup": {
+        "process_group": 82,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6939548330265097,
+      "workload_seconds": 1.691079582
+    },
+    {
+      "round": 7,
+      "position": 0,
+      "system": "strict-native-ordinary",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/ordinary",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:36.842005+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 83,
+      "process_group": 83,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.674506964}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.6793809779919684,
+      "cleanup": {
+        "process_group": 83,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.677883485041093,
+      "workload_seconds": 1.674506964
+    },
+    {
+      "round": 7,
+      "position": 1,
+      "system": "strict-native-cold",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:38.564852+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 84,
+      "process_group": 84,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.683315563}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.688054752012249,
+      "cleanup": {
+        "process_group": 84,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.6865952649968676,
+      "workload_seconds": 1.683315563
+    },
+    {
+      "round": 7,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:40.298303+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 85,
+      "process_group": 85,
+      "returncode": 0,
+      "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.901038886}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 1.9048758099670522,
+      "cleanup": {
+        "process_group": 85,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 1.9033287789789028,
+      "workload_seconds": 1.901038886
+    },
+    {
+      "round": 7,
+      "position": 3,
+      "system": "strict-v8-common",
+      "retained": true,
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "status": "valid",
+      "started": "2026-10-14T17:53:42.247809+00:00",
+      "environment": {
+        "BINARYEN_CORES": "1"
+      },
+      "inherited_environment": {
+        "NODE_OPTIONS": null,
+        "NODE_V8_COVERAGE": null,
+        "NODE_DEBUG": null,
+        "NODE_DEBUG_NATIVE": null,
+        "LD_PRELOAD": null,
+        "SNAIL_NATIVE_GC_INTERVAL": null,
+        "SNAIL_GC_STATS": null,
+        "SNAIL_GC_HEAP_BYTES": null,
+        "SNAIL_GC_MIN_BYTES": null,
+        "LD_LIBRARY_PATH": null,
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "TZ": null
+      },
+      "pid": 86,
+      "process_group": 86,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.705047727,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "timeout": false,
+      "process_seconds": 0.7304397459956817,
+      "cleanup": {
+        "process_group": 86,
+        "live_members": [],
+        "zombies_count_as_stopped": true
+      },
+      "capture_and_signal_seconds": 0.7296550839673728,
+      "workload_seconds": 0.705047727
+    }
+  ],
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "summary": {
+    "strict-native-baseline": {
+      "samples": 8,
+      "workload_median": 1.8993584024999999,
+      "workload_range": [
+        1.886447482,
+        1.904990341
+      ],
+      "process_median": 1.9031293950101826,
+      "process_range": [
+        1.8895371700054966,
+        1.9077946690376848
+      ]
+    },
+    "strict-native-cold": {
+      "samples": 8,
+      "workload_median": 1.679619406,
+      "workload_range": [
+        1.668363123,
+        1.687003664
+      ],
+      "process_median": 1.682737687980989,
+      "process_range": [
+        1.671611233963631,
+        1.6899094479740597
+      ]
+    },
+    "strict-native-ordinary": {
+      "samples": 8,
+      "workload_median": 1.6852065784999999,
+      "workload_range": [
+        1.674506964,
+        1.691079582
+      ],
+      "process_median": 1.688221793010598,
+      "process_range": [
+        1.6793809779919684,
+        1.6943605599808507
+      ]
+    },
+    "strict-v8-common": {
+      "samples": 8,
+      "workload_median": 0.704986525,
+      "workload_range": [
+        0.698812197,
+        0.708560421
+      ],
+      "process_median": 0.7297392469772603,
+      "process_range": [
+        0.724706111010164,
+        0.734012933971826
+      ]
+    }
+  }
+}

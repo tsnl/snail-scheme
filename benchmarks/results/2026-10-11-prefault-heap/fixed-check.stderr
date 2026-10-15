@@ -1,0 +1,4 @@
+HEAP_PREP heap_before=65536 heap_after=314572800 populated_new_mapping_bytes=314507264 reserve_only=0 collections=1
+HEAP_SETUP seconds=0.037407 minor_faults=77557 rss_kib=311312
+HEAP_RUN user_s=10.435686 system_s=0.029232 minor_faults=16174 major_faults=0 rss_kib=372704
+GC_MODE incremental=0 helpers=0 time_limit=999999 protection=1 collections=76 heap=340377600 rss_kib=372704

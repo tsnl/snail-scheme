@@ -1,0 +1,22 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "2",
+    "node",
+    "--prof",
+    "--logfile=/tmp/snail-native-ablation-20261011/build/ablation/v8.log",
+    "--no-logfile-per-isolate",
+    "--trace-gc-nvp",
+    "--no-warnings",
+    "/tmp/snail-native-ablation-20261011/scripts/run-wasi.mjs",
+    "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm",
+    "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+    "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+    "/tmp/snail-native-ablation-20261011/build/ablation/v8-profile-output.wat",
+    "v8-profile"
+  ],
+  "stderr": "",
+  "sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+  "diagnostic_only": true
+}

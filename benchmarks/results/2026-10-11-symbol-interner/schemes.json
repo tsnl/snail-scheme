@@ -1,0 +1,879 @@
+{
+  "base_revision": "87a6c18ac0609c1494c07181d3b4149b59cf9abc",
+  "source_diff": "",
+  "source_sha256": {
+    "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+    "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+    "benchmarks/chez.scm": "94ce135680dc26cd96efd399746a7bf5b4081b8b802c6ac1b352bceeec0b6d72",
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/typing/compare-schemes.py": "7435d04b563d413c3031c78239d0ed47b2423ccb9fb18680471f43ced07168c4",
+    "benchmarks/typing/fibonacci-checked.c": "842225d29a90863659887dcde4fe82d3e2b5b9f05406d8d2dd7ee71a6e7a7807",
+    "benchmarks/typing/fibonacci-kernel.c": "c29209bc597422654386ad6974db41b961703f0cf0b0532e641caf2e209f78e1",
+    "benchmarks/typing/fibonacci-tail-checked.c": "4aa995fd79d7205c38dc9d1999e21848a5bf6de63d61cdcca262975020acc2a7",
+    "benchmarks/typing/fibonacci-tail-driver.c": "7d4a0ff425757a061738f3edb7bed50a176a525c564d0a7e2f3f8146df3a6cbf",
+    "benchmarks/typing/fibonacci-tail.c": "993357f3523ebba06088599c33900f4bb2203d9a3c115e8fe326107466582df5",
+    "benchmarks/typing/fibonacci.c": "96938ac49dcea328129b4a642d268ff653dc75b3c5889acc7bb82e4ac1685af5",
+    "benchmarks/typing/measure.py": "fb251a2daf84804a0a103146859bed3e4ff2d306cb258f7c15ba9db5e5cef9d0",
+    "benchmarks/typing/occurrence.scm": "9fdb0b16f31eaebfa79c03bc3655526fe7208832510cc7057735094953377239",
+    "benchmarks/typing/run-kernel.mjs": "9c1479bb7887ab1a2fd4a7f32b821b34d6ca1474fc770166b658fa2363b9d589",
+    "benchmarks/typing/run-tail-kernel.mjs": "c579ca966fcf648518a2efb6e33218989437b57097ceed18743c991bcf83f878",
+    "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+    "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+    "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+    "src/awi.rs": "73c35dfbbea1ec04f526dde6bef5ebdad6d69ab4458fecef113b712e316608fa",
+    "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+    "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+    "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+    "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+    "src/lib.rs": "2deb2325ad60dd07d8d02d9b9f8f08decc0a9c5606573d4f495ca351b3d2c7d4",
+    "src/native.c": "820426f57875f9512f08ef59a7b8f571baad00068850459496e93202f6f42550",
+    "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+    "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+    "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+    "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/llvm.sld": "cca9f20a33cc38d4201dc2bf77ad86b3f94127dac43e60268138e793249d2dce",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+    "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+    "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+    "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+    "src/snail-scheme/wasm-awi.sld": "9904d299132d3faaf19146a994acf191740fddfc2d93c6eff4b231a72bbc4549",
+    "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+    "src/snail-scheme/wasm-literals.sld": "cb20440f3427393fe2fa3e15a99b1054a42dbf31b0d851d448ff1eae5a626d54",
+    "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+    "src/snail-scheme/wasm-runtime.sld": "740736ec105f60b4584bbb7320bb622dd70ad5dbd0cd44dbf2ea26fa30895ce3",
+    "src/snail-scheme/wasm.sld": "1472a60ce02fdb32d256d4e8fe3eba7731400ab917ab58465198e0f877ccb449",
+    "src/symbols.rs": "cbc0b4680ae81b3ae657561942efdefc04f98450ace2c46264fe52f7b8b67683",
+    "tests/build-native-datums.scm": "93e8d60191dd074fddeeda5c7edf1d5fcf82e623aeeb0cd05a1679b675103b09",
+    "tests/build-native.scm": "27fe4b4c0db13f308b7b1226771e679e5d994b54712d784ba1dd7de181fbe186",
+    "tests/build-program.scm": "bac849a7ece0061cd8a54a9b58e706a80ba4f252d1138c298a21b3083f1e2130",
+    "tests/build-typed-program.scm": "7eb464316e9ee5ac3435adbbdea0060766c8fb3753b6de3c7ed4cda00aeba293",
+    "tests/check-awi-roots.mjs": "b5fbc29020bc07dcfe36cf631b9ca6da447250e1c0497ab4e91b1e968d189a2a",
+    "tests/check-finalizers.mjs": "469669981ebd6e5b7e6e10c24729c4b8f20b0754f83f7de259453ad9b1c41169",
+    "tests/check-hash-identity.mjs": "7a9f737ce39fb83d4d7c9ac89d68ef33928663f9e68120ae56c893e6eb034485",
+    "tests/check-native-semantics.mjs": "e0702758e8ffc1f28d3315b34064dbcdeefd2b2a5c7f08c8e845641f6076a13d",
+    "tests/finalizers.wat": "7eb8054a2e2e471e62f2fa814955d098dd02fe691164a06f00afa08a7deaded3",
+    "tests/hash-identity.wat": "a8e84f77b9cd5ebc014e59b498fd57b3f4c7f47782db603a6eaa27fa29a233ee",
+    "tests/libraries/testing/polymorphism.sld": "41dd4cb276f2242058d8ba7bcd308e8dbb6a4bfaf5bf4633e3bf70e92a2487fb",
+    "tests/native-datums.scm": "144620409180d87aba412d9e5e7505dc4b7df4e40564a576a1ab389263b848ed",
+    "tests/native-runner.c": "e99421808a66cf35b63b89182d82d88f6db80addc3242ddae99672a44abb8547",
+    "tests/programs/backend-binary.scm": "497ada1fa8abd6005037d85355ab45fd38036072c2ec74697232d8405d4bd53e",
+    "tests/programs/backend-bootstrap.scm": "ab813ed6271f6348ffc0b5d0e49912a5b571c1f5a5bb5e0cff6449ba47fbecc3",
+    "tests/programs/backend-control.scm": "e99a1d7b16e54cae5aefd34a304f104eb567e6655b15a74ebab8576b0d962dc9",
+    "tests/programs/backend-direct-calls.scm": "ec2784ed53edaef55848f452c96e7ff444c64c46194e7ba445c107dacf5dc489",
+    "tests/programs/backend-errors.scm": "77c9e76f53a9252586090ddefd7ff2b9d9547cce7f9f3246b390cb8445959edb",
+    "tests/programs/backend-hash-tables.scm": "93bf9e7d72027d14a22b32aad7f95eaa389675bd60827c86c8b7230db8dfd076",
+    "tests/programs/backend-inexact.scm": "1836309de57191607d72480b975e5d9f8b21676ab56c8e044c603cac09296626",
+    "tests/programs/backend-native-resources.scm": "a87e00d407315f626ff46b068c8ae402e9ad4ccf34ae0cd8fbaa4e0509cb007d",
+    "tests/programs/backend-numeric-rebinding.scm": "1f1abc102bbaef0e1b7960e8b66f3cf6afc81eebf67d35f41a6785fa0cf277ea",
+    "tests/programs/backend-numeric.scm": "ddc891403e1aa781626c6548a63078b719b65bc911c2afd50a469af82cd1fc32",
+    "tests/programs/backend-options.scm": "227719ebeae8e57175ed0db9e77afa000b076ce4c82479b04debcd2a8db07f10",
+    "tests/programs/backend-polymorphism.scm": "bbc2352a62cd16080b9fc4fe63f495806dd57613539c6030505d86602b136ada",
+    "tests/programs/backend-semantics.scm": "ffc645500246b0b4e0739f3262ba3b220c352af829b7e759342ee11c4a8243a8",
+    "tests/programs/backend-symbols.scm": "6b9d0ad89aae124e82bf4a7a2078c6c3c7752c0e3e4bd8a105755552a0a4a153",
+    "tests/programs/backend-typed-tail.scm": "7aa0241d4b34c4d8f7fc5c4f5fa6cbe92be66f2752f741b7710ee92b4c76742e",
+    "tests/programs/backend-typing.scm": "81af0ce83e78466e3bf24065f39f3cfc257dd89eeb2f4898d5c0789529cd4789",
+    "tests/programs/backend-wasmgc.scm": "2b720db9668149ba3b2186b51b251d36edff8fc6c0742524801d4ac5bd6724ec",
+    "tests/programs/chromium-trace.scm": "75845ff99576e7e5aae1baaeb25488e512c49db5946e122e4061fb8705c6c6be",
+    "tests/programs/p0001.scm": "c140ee3dbb0ce39ab8342eeb13ead0c7fa51fc684213fc009372ab44622f6258",
+    "tests/snail-scheme/test-utils.sld": "073130c725fb772aa04f2ba82746946bd88322c73d783b320db0337fe5b98d07",
+    "tests/snail-scheme/test.scm": "b4a242316e6bc51e2a6684d9f47d41bc89050d0705193bf2c8e104043bb6dfce",
+    "tests/translate-native.scm": "b5fe6ad6ed72934783fcf66bf1346256cac58bb7fe683c9a2c865fd9970d30db"
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "versions": {
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "version": "10.4.1"
+    },
+    "chibi": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "version": "v24.19.0"
+    },
+    "clang": {
+      "path": "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "version": "clang version 21.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/603yaax3l2jmc0hfv6g3hgjr1qk5jfxk-clang-21.1.8/bin"
+    },
+    "binaryen": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "version": "wasm-opt version 132"
+    }
+  },
+  "environment": {
+    "CHIBI": null,
+    "CHEZ": null,
+    "NODE": null,
+    "CLANG": null,
+    "WASM_OPT": null,
+    "WASM_AS": null,
+    "WASM_MERGE": null,
+    "CARGO": null,
+    "BDWGC_INCLUDE": "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+    "BDWGC_LIB": "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+    "BINARYEN_CORES": "1",
+    "RUSTFLAGS": null,
+    "GC_INITIAL_HEAP_SIZE": null,
+    "GC_FREE_SPACE_DIVISOR": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null
+  },
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "complete": true,
+  "cpu": 2,
+  "rounds": 8,
+  "discarded_runs": 1,
+  "scope": "Complete Scheme programs; internal workload timers exclude compilation and startup. Tail workload has a full in-process warmup. Chez uses safe O2. Snail partial evaluation is disabled; i32 specialization is enabled only in the i32 variants. Native and Wasm lower the same emitted WAT. Chibi and Chez use the exact untyped Snail source, with only the Chez import/time/record adapter. Required checks remain enabled.",
+  "generated_sources": {
+    "fibonacci-chez.so.sps": {
+      "sha256": "ec4d0dc59d455b517556fbf42a446a4b741f5beda3aae155bcb3d0b58818d6f9",
+      "text": "(import (rename (chezscheme) (define-record-type chez-define-record-type) (error chez-error)))\n(define-syntax define-record-type (lambda (form) (syntax-case form () ((_ name (constructor argument ...) predicate (field accessor) ...) (equal? (syntax->datum (syntax (argument ...))) (syntax->datum (syntax (field ...)))) (syntax (chez-define-record-type (name constructor predicate) (fields (immutable field accessor) ...)))) (_ (syntax-error form \"unsupported benchmark record definition\")))))\n(define (error message . irritants) (apply chez-error #f message irritants))\n(define (exact-integer? value) (and (integer? value) (exact? value)))\n(define (time-nanoseconds time) (+ (* (time-second time) 1000000000) (time-nanosecond time)))\n(define (current-jiffy) (time-nanoseconds (current-time (quote time-monotonic))))\n(define (jiffies-per-second) 1000000000)\n(define inputs (quote (22 23 24 25)))\n(define (fibonacci n offset) (if (< n 2) (+ n offset) (+ (fibonacci (- n 1) offset) (fibonacci (- n 2) offset))))\n(define (fibonacci-linear n) (let loop ((remaining n) (a 0) (b 1)) (if (= remaining 0) a (loop (- remaining 1) b (+ a b)))))\n(define (weighted-answer n answer) (* (+ n 1) answer))\n(define (workload) (let loop ((remaining inputs) (checksum 0)) (if (null? remaining) checksum (let ((n (car remaining))) (loop (cdr remaining) (+ checksum (weighted-answer n (fibonacci n 0))))))))\n(define (expected-answer) (let loop ((remaining inputs) (checksum 0)) (if (null? remaining) checksum (let ((n (car remaining))) (loop (cdr remaining) (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n(define (require-equal actual expected description) (unless (= actual expected) (error description actual expected)))\n(define (check-small-inputs) (let loop ((n 0)) (when (<= n 12) (require-equal (fibonacci n 0) (fibonacci-linear n) \"Fibonacci disagreement\") (loop (+ n 1)))))\n(define (check-known-values) (for-each (lambda (example) (require-equal (fibonacci-linear (car example)) (cdr example) \"incorrect Fibonacci oracle\")) (quote ((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025)))))\n(define (check-recurrence n) (require-equal (fibonacci-linear (+ n 2)) (+ (fibonacci-linear n) (fibonacci-linear (+ n 1))) \"incorrect Fibonacci recurrence\"))\n(define (check-cassini n) (let ((previous (fibonacci-linear (- n 1))) (current (fibonacci-linear n)) (next (fibonacci-linear (+ n 1)))) (require-equal (- (* previous next) (* current current)) (if (= (modulo n 2) 0) 1 -1) \"incorrect Fibonacci identity\")))\n(define (check-oracle) (check-small-inputs) (check-known-values) (for-each check-recurrence inputs) (for-each check-cassini inputs))\n(define (positive-count text) (let ((count (string->number text))) (unless (and (exact-integer? count) (> count 0)) (error \"repeat count must be a positive integer\" text)) count))\n(define (repetitions) (let ((arguments (cdr (command-line)))) (cond ((null? arguments) 1) ((null? (cdr arguments)) (positive-count (car arguments))) (else (error \"usage: cpu [REPETITIONS]\")))))\n(define (repeat-work count expected) (let loop ((remaining count) (checksum 0)) (if (= remaining 0) checksum (let ((answer (workload))) (require-equal answer expected \"incorrect Fibonacci result\") (loop (- remaining 1) (+ checksum answer))))))\n(define (elapsed-microseconds start finish) (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n(define (write-seconds microseconds) (display (quotient microseconds 1000000)) (display \".\") (let ((fraction (number->string (modulo microseconds 1000000)))) (display (substring \"000000\" 0 (- 6 (string-length fraction)))) (display fraction)))\n(define (report answer microseconds count) (display \"CPU: recursive Fibonacci\") (newline) (display \"checksum: \") (write answer) (newline) (display \"elapsed: \") (write-seconds microseconds) (display \" s; repetitions: \") (write count) (newline))\n(define (main) (check-oracle) (let* ((count (repetitions)) (expected (expected-answer)) (start (current-jiffy)) (answer (repeat-work count expected)) (finish (current-jiffy))) (require-equal answer (* count expected) \"incorrect Fibonacci checksum\") (report answer (elapsed-microseconds start finish) count)))\n(main)\n"
+    },
+    "fibonacci-i32.native.scm": {
+      "sha256": "86e57b68080be29b5b252950b227fb964eab36fa45dabfe36fa72bda9504d384",
+      "text": "(import (scheme base) (scheme file) (scheme read) (snail-scheme native-link) (snail-scheme chromium-trace))\n(with-chromium-trace-to \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-i32.native.trace.json\" (lambda () (link-native \"/tmp/snail-symbol-fingerprints-20261011\" (call-with-input-file \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-i32.wasm.wat\" read) \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison\" \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-i32\")))\n"
+    },
+    "fibonacci-i32.scm": {
+      "sha256": "b30251e29bfede07f7a54778bcceffd3799400ffe1a87d2bd4cac6e9d54d142b",
+      "text": ";; Recursive Fibonacci: deliberately repeat arithmetic and procedure calls.\n;;\n;; Run from the repository root. An optional positive argument repeats the\n;; fixed workload; it never changes the inputs or chooses a faster algorithm.\n;; This is a call/arithmetic baseline, not a recommended Fibonacci algorithm.\n;; The iterative implementation supplies an independent, untimed oracle.\n(import (scheme base) (scheme write) (scheme time) (scheme process-context) (snail typing))\n\n;; ---- Inputs and algorithms ----\n\n(define inputs '(22 23 24 25))\n\n(: fibonacci (-> i32 i32 i32))\n(define (fibonacci n offset)\n  (if (< n 2)\n      (+ n offset)\n      (+ (fibonacci (- n 1) offset) (fibonacci (- n 2) offset))))\n\n(define (fibonacci-linear n)\n  (let loop ((remaining n) (a 0) (b 1))\n    (if (= remaining 0)\n        a\n        (loop (- remaining 1) b (+ a b)))))\n\n(define (weighted-answer n answer)\n  (* (+ n 1) answer))\n\n(define (workload)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci n 0))))))))\n\n(define (expected-answer)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n\n;; Checks run before the timer, including the two recursion base cases.\n\n(define (require-equal actual expected description)\n  (unless (= actual expected)\n    (error description actual expected)))\n\n(define (check-small-inputs)\n  (let loop ((n 0))\n    (when (<= n 12)\n      (require-equal (fibonacci n 0) (fibonacci-linear n) \"Fibonacci disagreement\")\n      (loop (+ n 1)))))\n\n(define (check-known-values)\n  (for-each\n   (lambda (example)\n     (require-equal (fibonacci-linear (car example)) (cdr example)\n                    \"incorrect Fibonacci oracle\"))\n   '((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025))))\n\n(define (check-recurrence n)\n  (require-equal (fibonacci-linear (+ n 2))\n                 (+ (fibonacci-linear n) (fibonacci-linear (+ n 1)))\n                 \"incorrect Fibonacci recurrence\"))\n\n(define (check-cassini n)\n  (let ((previous (fibonacci-linear (- n 1)))\n        (current (fibonacci-linear n))\n        (next (fibonacci-linear (+ n 1))))\n    (require-equal (- (* previous next) (* current current))\n                   (if (= (modulo n 2) 0) 1 -1)\n                   \"incorrect Fibonacci identity\")))\n\n(define (check-oracle)\n  (check-small-inputs)\n  (check-known-values)\n  (for-each check-recurrence inputs)\n  (for-each check-cassini inputs))\n\n;; Fixed repetition keeps future compiler comparisons comparable. Checking the\n;; result makes incorrect computation observable; valid constant folding remains\n;; a possible future optimization of these deliberately fixed inputs.\n\n(define (positive-count text)\n  (let ((count (string->number text)))\n    (unless (and (exact-integer? count) (> count 0))\n      (error \"repeat count must be a positive integer\" text))\n    count))\n\n(define (repetitions)\n  (let ((arguments (cdr (command-line))))\n    (cond ((null? arguments) 1)\n          ((null? (cdr arguments)) (positive-count (car arguments)))\n          (else (error \"usage: cpu [REPETITIONS]\")))))\n\n(define (repeat-work count expected)\n  (let loop ((remaining count) (checksum 0))\n    (if (= remaining 0)\n        checksum\n        (let ((answer (workload)))\n          (require-equal answer expected \"incorrect Fibonacci result\")\n          (loop (- remaining 1) (+ checksum answer))))))\n\n(define (elapsed-microseconds start finish)\n  (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n\n(define (write-seconds microseconds)\n  (display (quotient microseconds 1000000))\n  (display \".\")\n  (let ((fraction (number->string (modulo microseconds 1000000))))\n    (display (substring \"000000\" 0 (- 6 (string-length fraction))))\n    (display fraction)))\n\n(define (report answer microseconds count)\n  (display \"CPU: recursive Fibonacci\") (newline)\n  (display \"checksum: \") (write answer) (newline)\n  (display \"elapsed: \") (write-seconds microseconds)\n  (display \" s; repetitions: \") (write count) (newline))\n\n(define (main)\n  (check-oracle)\n  (let* ((count (repetitions))\n         (expected (expected-answer))\n         (start (current-jiffy))\n         (answer (repeat-work count expected))\n         (finish (current-jiffy)))\n    (require-equal answer (* count expected) \"incorrect Fibonacci checksum\")\n    (report answer (elapsed-microseconds start finish) count)))\n\n(main)\n"
+    },
+    "fibonacci-untyped.native.scm": {
+      "sha256": "e105256e37a54a1b4f655abda832a91a8a3b245cd40a0d871d923df14a6ad9e8",
+      "text": "(import (scheme base) (scheme file) (scheme read) (snail-scheme native-link) (snail-scheme chromium-trace))\n(with-chromium-trace-to \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped.native.trace.json\" (lambda () (link-native \"/tmp/snail-symbol-fingerprints-20261011\" (call-with-input-file \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped.wasm.wat\" read) \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison\" \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped\")))\n"
+    },
+    "fibonacci-untyped.scm": {
+      "sha256": "25572ddf258214b4f1daa8702bf3a059f38a43917af56fa7db7679012fc0fd3d",
+      "text": ";; Recursive Fibonacci: deliberately repeat arithmetic and procedure calls.\n;;\n;; Run from the repository root. An optional positive argument repeats the\n;; fixed workload; it never changes the inputs or chooses a faster algorithm.\n;; This is a call/arithmetic baseline, not a recommended Fibonacci algorithm.\n;; The iterative implementation supplies an independent, untimed oracle.\n(import (scheme base) (scheme write) (scheme time) (scheme process-context))\n\n;; ---- Inputs and algorithms ----\n\n(define inputs '(22 23 24 25))\n\n\n(define (fibonacci n offset)\n  (if (< n 2)\n      (+ n offset)\n      (+ (fibonacci (- n 1) offset) (fibonacci (- n 2) offset))))\n\n(define (fibonacci-linear n)\n  (let loop ((remaining n) (a 0) (b 1))\n    (if (= remaining 0)\n        a\n        (loop (- remaining 1) b (+ a b)))))\n\n(define (weighted-answer n answer)\n  (* (+ n 1) answer))\n\n(define (workload)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci n 0))))))))\n\n(define (expected-answer)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n\n;; Checks run before the timer, including the two recursion base cases.\n\n(define (require-equal actual expected description)\n  (unless (= actual expected)\n    (error description actual expected)))\n\n(define (check-small-inputs)\n  (let loop ((n 0))\n    (when (<= n 12)\n      (require-equal (fibonacci n 0) (fibonacci-linear n) \"Fibonacci disagreement\")\n      (loop (+ n 1)))))\n\n(define (check-known-values)\n  (for-each\n   (lambda (example)\n     (require-equal (fibonacci-linear (car example)) (cdr example)\n                    \"incorrect Fibonacci oracle\"))\n   '((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025))))\n\n(define (check-recurrence n)\n  (require-equal (fibonacci-linear (+ n 2))\n                 (+ (fibonacci-linear n) (fibonacci-linear (+ n 1)))\n                 \"incorrect Fibonacci recurrence\"))\n\n(define (check-cassini n)\n  (let ((previous (fibonacci-linear (- n 1)))\n        (current (fibonacci-linear n))\n        (next (fibonacci-linear (+ n 1))))\n    (require-equal (- (* previous next) (* current current))\n                   (if (= (modulo n 2) 0) 1 -1)\n                   \"incorrect Fibonacci identity\")))\n\n(define (check-oracle)\n  (check-small-inputs)\n  (check-known-values)\n  (for-each check-recurrence inputs)\n  (for-each check-cassini inputs))\n\n;; Fixed repetition keeps future compiler comparisons comparable. Checking the\n;; result makes incorrect computation observable; valid constant folding remains\n;; a possible future optimization of these deliberately fixed inputs.\n\n(define (positive-count text)\n  (let ((count (string->number text)))\n    (unless (and (exact-integer? count) (> count 0))\n      (error \"repeat count must be a positive integer\" text))\n    count))\n\n(define (repetitions)\n  (let ((arguments (cdr (command-line))))\n    (cond ((null? arguments) 1)\n          ((null? (cdr arguments)) (positive-count (car arguments)))\n          (else (error \"usage: cpu [REPETITIONS]\")))))\n\n(define (repeat-work count expected)\n  (let loop ((remaining count) (checksum 0))\n    (if (= remaining 0)\n        checksum\n        (let ((answer (workload)))\n          (require-equal answer expected \"incorrect Fibonacci result\")\n          (loop (- remaining 1) (+ checksum answer))))))\n\n(define (elapsed-microseconds start finish)\n  (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n\n(define (write-seconds microseconds)\n  (display (quotient microseconds 1000000))\n  (display \".\")\n  (let ((fraction (number->string (modulo microseconds 1000000))))\n    (display (substring \"000000\" 0 (- 6 (string-length fraction))))\n    (display fraction)))\n\n(define (report answer microseconds count)\n  (display \"CPU: recursive Fibonacci\") (newline)\n  (display \"checksum: \") (write answer) (newline)\n  (display \"elapsed: \") (write-seconds microseconds)\n  (display \" s; repetitions: \") (write count) (newline))\n\n(define (main)\n  (check-oracle)\n  (let* ((count (repetitions))\n         (expected (expected-answer))\n         (start (current-jiffy))\n         (answer (repeat-work count expected))\n         (finish (current-jiffy)))\n    (require-equal answer (* count expected) \"incorrect Fibonacci checksum\")\n    (report answer (elapsed-microseconds start finish) count)))\n\n(main)\n"
+    },
+    "tail-fibonacci-chez.so.sps": {
+      "sha256": "06da821f6407f1c4064f3dd95636616f52f272b614b6dd70ca7b85a94d8e05c7",
+      "text": "(import (rename (chezscheme) (define-record-type chez-define-record-type) (error chez-error)))\n(define-syntax define-record-type (lambda (form) (syntax-case form () ((_ name (constructor argument ...) predicate (field accessor) ...) (equal? (syntax->datum (syntax (argument ...))) (syntax->datum (syntax (field ...)))) (syntax (chez-define-record-type (name constructor predicate) (fields (immutable field accessor) ...)))) (_ (syntax-error form \"unsupported benchmark record definition\")))))\n(define (error message . irritants) (apply chez-error #f message irritants))\n(define (exact-integer? value) (and (integer? value) (exact? value)))\n(define (time-nanoseconds time) (+ (* (time-second time) 1000000000) (time-nanosecond time)))\n(define (current-jiffy) (time-nanoseconds (current-time (quote time-monotonic))))\n(define (jiffies-per-second) 1000000000)\n(define inputs (quote (22 23 24 25)))\n(define (fibonacci n a b) (if (< n 2) (if (<= n 0) a b) (fibonacci (- n 1) b (+ a b))))\n(define (fibonacci-linear n) (let loop ((remaining n) (a 0) (b 1)) (if (= remaining 0) a (loop (- remaining 1) b (+ a b)))))\n(define (weighted-answer n answer) (* (+ n 1) answer))\n(define (workload) (let loop ((remaining inputs) (checksum 0)) (if (null? remaining) checksum (let ((n (car remaining))) (loop (cdr remaining) (+ checksum (weighted-answer n (fibonacci n 0 1))))))))\n(define (expected-answer) (let loop ((remaining inputs) (checksum 0)) (if (null? remaining) checksum (let ((n (car remaining))) (loop (cdr remaining) (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n(define (require-equal actual expected description) (unless (= actual expected) (error description actual expected)))\n(define (check-small-inputs) (let loop ((n 0)) (when (<= n 12) (require-equal (fibonacci n 0 1) (fibonacci-linear n) \"Fibonacci disagreement\") (loop (+ n 1)))))\n(define (check-known-values) (for-each (lambda (example) (require-equal (fibonacci-linear (car example)) (cdr example) \"incorrect Fibonacci oracle\")) (quote ((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025)))))\n(define (check-recurrence n) (require-equal (fibonacci-linear (+ n 2)) (+ (fibonacci-linear n) (fibonacci-linear (+ n 1))) \"incorrect Fibonacci recurrence\"))\n(define (check-cassini n) (let ((previous (fibonacci-linear (- n 1))) (current (fibonacci-linear n)) (next (fibonacci-linear (+ n 1)))) (require-equal (- (* previous next) (* current current)) (if (= (modulo n 2) 0) 1 -1) \"incorrect Fibonacci identity\")))\n(define (check-oracle) (check-small-inputs) (check-known-values) (for-each check-recurrence inputs) (for-each check-cassini inputs))\n(define (positive-count text) (let ((count (string->number text))) (unless (and (exact-integer? count) (> count 0)) (error \"repeat count must be a positive integer\" text)) count))\n(define (repetitions) (let ((arguments (cdr (command-line)))) (cond ((null? arguments) 1) ((null? (cdr arguments)) (positive-count (car arguments))) (else (error \"usage: cpu [REPETITIONS]\")))))\n(define (repeat-work count expected) (let loop ((remaining count) (checksum 0)) (if (= remaining 0) checksum (let ((answer (workload))) (require-equal answer expected \"incorrect Fibonacci result\") (loop (- remaining 1) (+ checksum answer))))))\n(define (elapsed-microseconds start finish) (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n(define (write-seconds microseconds) (display (quotient microseconds 1000000)) (display \".\") (let ((fraction (number->string (modulo microseconds 1000000)))) (display (substring \"000000\" 0 (- 6 (string-length fraction)))) (display fraction)))\n(define (report answer microseconds count) (display \"CPU: tail Fibonacci\") (newline) (display \"checksum: \") (write answer) (newline) (display \"elapsed: \") (write-seconds microseconds) (display \" s; repetitions: \") (write count) (newline))\n(define (main) (check-oracle) (let* ((count (repetitions)) (expected (expected-answer)) (warmup (repeat-work count expected)) (start (current-jiffy)) (answer (repeat-work count expected)) (finish (current-jiffy))) (require-equal answer (* count expected) \"incorrect Fibonacci checksum\") (report answer (elapsed-microseconds start finish) count)))\n(require-equal (fibonacci 10 2 3) 233 \"Fibonacci seeds\")\n(require-equal (fibonacci 46 0 1) 1836311903 \"Fibonacci i32 boundary\")\n(main)\n"
+    },
+    "tail-fibonacci-i32.native.scm": {
+      "sha256": "99fde7bb46f5bb4891d08eafc58b384857d0a5e1bca97d0d9bace3a9dc077663",
+      "text": "(import (scheme base) (scheme file) (scheme read) (snail-scheme native-link) (snail-scheme chromium-trace))\n(with-chromium-trace-to \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-i32.native.trace.json\" (lambda () (link-native \"/tmp/snail-symbol-fingerprints-20261011\" (call-with-input-file \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-i32.wasm.wat\" read) \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison\" \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-i32\")))\n"
+    },
+    "tail-fibonacci-i32.scm": {
+      "sha256": "dd39baa72bee4a8b7b492188eae3b1fd89d0ace89d0de4b302512017cbcfd65c",
+      "text": ";; Recursive Fibonacci: deliberately repeat arithmetic and procedure calls.\n;;\n;; Run from the repository root. An optional positive argument repeats the\n;; fixed workload; it never changes the inputs or chooses a faster algorithm.\n;; This is a call/arithmetic baseline, not a recommended Fibonacci algorithm.\n;; The iterative implementation supplies an independent, untimed oracle.\n(import (scheme base) (scheme write) (scheme time) (scheme process-context) (snail typing))\n\n;; ---- Inputs and algorithms ----\n\n(define inputs '(22 23 24 25))\n\n(: fibonacci (-> i32 i32 i32 i32))\n(define (fibonacci n a b)\n  (if (< n 2)\n      (if (<= n 0) a b)\n      (fibonacci (- n 1) b (+ a b))))\n\n(define (fibonacci-linear n)\n  (let loop ((remaining n) (a 0) (b 1))\n    (if (= remaining 0)\n        a\n        (loop (- remaining 1) b (+ a b)))))\n\n(define (weighted-answer n answer)\n  (* (+ n 1) answer))\n\n(define (workload)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci n 0 1))))))))\n\n(define (expected-answer)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n\n;; Checks run before the timer, including the two recursion base cases.\n\n(define (require-equal actual expected description)\n  (unless (= actual expected)\n    (error description actual expected)))\n\n(define (check-small-inputs)\n  (let loop ((n 0))\n    (when (<= n 12)\n      (require-equal (fibonacci n 0 1) (fibonacci-linear n) \"Fibonacci disagreement\")\n      (loop (+ n 1)))))\n\n(define (check-known-values)\n  (for-each\n   (lambda (example)\n     (require-equal (fibonacci-linear (car example)) (cdr example)\n                    \"incorrect Fibonacci oracle\"))\n   '((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025))))\n\n(define (check-recurrence n)\n  (require-equal (fibonacci-linear (+ n 2))\n                 (+ (fibonacci-linear n) (fibonacci-linear (+ n 1)))\n                 \"incorrect Fibonacci recurrence\"))\n\n(define (check-cassini n)\n  (let ((previous (fibonacci-linear (- n 1)))\n        (current (fibonacci-linear n))\n        (next (fibonacci-linear (+ n 1))))\n    (require-equal (- (* previous next) (* current current))\n                   (if (= (modulo n 2) 0) 1 -1)\n                   \"incorrect Fibonacci identity\")))\n\n(define (check-oracle)\n  (check-small-inputs)\n  (check-known-values)\n  (for-each check-recurrence inputs)\n  (for-each check-cassini inputs))\n\n;; Fixed repetition keeps future compiler comparisons comparable. Checking the\n;; result makes incorrect computation observable; valid constant folding remains\n;; a possible future optimization of these deliberately fixed inputs.\n\n(define (positive-count text)\n  (let ((count (string->number text)))\n    (unless (and (exact-integer? count) (> count 0))\n      (error \"repeat count must be a positive integer\" text))\n    count))\n\n(define (repetitions)\n  (let ((arguments (cdr (command-line))))\n    (cond ((null? arguments) 1)\n          ((null? (cdr arguments)) (positive-count (car arguments)))\n          (else (error \"usage: cpu [REPETITIONS]\")))))\n\n(define (repeat-work count expected)\n  (let loop ((remaining count) (checksum 0))\n    (if (= remaining 0)\n        checksum\n        (let ((answer (workload)))\n          (require-equal answer expected \"incorrect Fibonacci result\")\n          (loop (- remaining 1) (+ checksum answer))))))\n\n(define (elapsed-microseconds start finish)\n  (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n\n(define (write-seconds microseconds)\n  (display (quotient microseconds 1000000))\n  (display \".\")\n  (let ((fraction (number->string (modulo microseconds 1000000))))\n    (display (substring \"000000\" 0 (- 6 (string-length fraction))))\n    (display fraction)))\n\n(define (report answer microseconds count)\n  (display \"CPU: tail Fibonacci\") (newline)\n  (display \"checksum: \") (write answer) (newline)\n  (display \"elapsed: \") (write-seconds microseconds)\n  (display \" s; repetitions: \") (write count) (newline))\n\n(define (main)\n  (check-oracle)\n  (let* ((count (repetitions))\n         (expected (expected-answer))\n         (warmup (repeat-work count expected))\n         (start (current-jiffy))\n         (answer (repeat-work count expected))\n         (finish (current-jiffy)))\n    (require-equal answer (* count expected) \"incorrect Fibonacci checksum\")\n    (report answer (elapsed-microseconds start finish) count)))\n\n(require-equal (fibonacci 10 2 3) 233 \"Fibonacci seeds\")\n(require-equal (fibonacci 46 0 1) 1836311903 \"Fibonacci i32 boundary\")\n(main)\n"
+    },
+    "tail-fibonacci-untyped.native.scm": {
+      "sha256": "5cafef017b31ab5df1edc49533897c19aa2e63f6e5e2f49ea6d7c84ee4e559fb",
+      "text": "(import (scheme base) (scheme file) (scheme read) (snail-scheme native-link) (snail-scheme chromium-trace))\n(with-chromium-trace-to \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped.native.trace.json\" (lambda () (link-native \"/tmp/snail-symbol-fingerprints-20261011\" (call-with-input-file \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped.wasm.wat\" read) \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison\" \"/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped\")))\n"
+    },
+    "tail-fibonacci-untyped.scm": {
+      "sha256": "27b04a5dbeca97d9f41739944554ee4c2c95d4242703d8546cb6d8da4df28625",
+      "text": ";; Recursive Fibonacci: deliberately repeat arithmetic and procedure calls.\n;;\n;; Run from the repository root. An optional positive argument repeats the\n;; fixed workload; it never changes the inputs or chooses a faster algorithm.\n;; This is a call/arithmetic baseline, not a recommended Fibonacci algorithm.\n;; The iterative implementation supplies an independent, untimed oracle.\n(import (scheme base) (scheme write) (scheme time) (scheme process-context))\n\n;; ---- Inputs and algorithms ----\n\n(define inputs '(22 23 24 25))\n\n\n(define (fibonacci n a b)\n  (if (< n 2)\n      (if (<= n 0) a b)\n      (fibonacci (- n 1) b (+ a b))))\n\n(define (fibonacci-linear n)\n  (let loop ((remaining n) (a 0) (b 1))\n    (if (= remaining 0)\n        a\n        (loop (- remaining 1) b (+ a b)))))\n\n(define (weighted-answer n answer)\n  (* (+ n 1) answer))\n\n(define (workload)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci n 0 1))))))))\n\n(define (expected-answer)\n  (let loop ((remaining inputs) (checksum 0))\n    (if (null? remaining)\n        checksum\n        (let ((n (car remaining)))\n          (loop (cdr remaining)\n                (+ checksum (weighted-answer n (fibonacci-linear n))))))))\n\n;; Checks run before the timer, including the two recursion base cases.\n\n(define (require-equal actual expected description)\n  (unless (= actual expected)\n    (error description actual expected)))\n\n(define (check-small-inputs)\n  (let loop ((n 0))\n    (when (<= n 12)\n      (require-equal (fibonacci n 0 1) (fibonacci-linear n) \"Fibonacci disagreement\")\n      (loop (+ n 1)))))\n\n(define (check-known-values)\n  (for-each\n   (lambda (example)\n     (require-equal (fibonacci-linear (car example)) (cdr example)\n                    \"incorrect Fibonacci oracle\"))\n   '((0 . 0) (1 . 1) (2 . 1) (10 . 55) (22 . 17711) (25 . 75025))))\n\n(define (check-recurrence n)\n  (require-equal (fibonacci-linear (+ n 2))\n                 (+ (fibonacci-linear n) (fibonacci-linear (+ n 1)))\n                 \"incorrect Fibonacci recurrence\"))\n\n(define (check-cassini n)\n  (let ((previous (fibonacci-linear (- n 1)))\n        (current (fibonacci-linear n))\n        (next (fibonacci-linear (+ n 1))))\n    (require-equal (- (* previous next) (* current current))\n                   (if (= (modulo n 2) 0) 1 -1)\n                   \"incorrect Fibonacci identity\")))\n\n(define (check-oracle)\n  (check-small-inputs)\n  (check-known-values)\n  (for-each check-recurrence inputs)\n  (for-each check-cassini inputs))\n\n;; Fixed repetition keeps future compiler comparisons comparable. Checking the\n;; result makes incorrect computation observable; valid constant folding remains\n;; a possible future optimization of these deliberately fixed inputs.\n\n(define (positive-count text)\n  (let ((count (string->number text)))\n    (unless (and (exact-integer? count) (> count 0))\n      (error \"repeat count must be a positive integer\" text))\n    count))\n\n(define (repetitions)\n  (let ((arguments (cdr (command-line))))\n    (cond ((null? arguments) 1)\n          ((null? (cdr arguments)) (positive-count (car arguments)))\n          (else (error \"usage: cpu [REPETITIONS]\")))))\n\n(define (repeat-work count expected)\n  (let loop ((remaining count) (checksum 0))\n    (if (= remaining 0)\n        checksum\n        (let ((answer (workload)))\n          (require-equal answer expected \"incorrect Fibonacci result\")\n          (loop (- remaining 1) (+ checksum answer))))))\n\n(define (elapsed-microseconds start finish)\n  (quotient (* (- finish start) 1000000) (jiffies-per-second)))\n\n(define (write-seconds microseconds)\n  (display (quotient microseconds 1000000))\n  (display \".\")\n  (let ((fraction (number->string (modulo microseconds 1000000))))\n    (display (substring \"000000\" 0 (- 6 (string-length fraction))))\n    (display fraction)))\n\n(define (report answer microseconds count)\n  (display \"CPU: tail Fibonacci\") (newline)\n  (display \"checksum: \") (write answer) (newline)\n  (display \"elapsed: \") (write-seconds microseconds)\n  (display \" s; repetitions: \") (write count) (newline))\n\n(define (main)\n  (check-oracle)\n  (let* ((count (repetitions))\n         (expected (expected-answer))\n         (warmup (repeat-work count expected))\n         (start (current-jiffy))\n         (answer (repeat-work count expected))\n         (finish (current-jiffy)))\n    (require-equal answer (* count expected) \"incorrect Fibonacci checksum\")\n    (report answer (elapsed-microseconds start finish) count)))\n\n(require-equal (fibonacci 10 2 3) 233 \"Fibonacci seeds\")\n(require-equal (fibonacci 46 0 1) 1836311903 \"Fibonacci i32 boundary\")\n(main)\n"
+    }
+  },
+  "workloads": [
+    {
+      "workload": "fibonacci",
+      "repetitions": 256,
+      "checksum": 1076472576,
+      "discarded_seconds": {
+        "snail-wasm-untyped": 0.392482,
+        "snail-native-untyped": 0.58867,
+        "snail-wasm-i32": 0.173588,
+        "snail-native-i32": 0.111346,
+        "chez-safe-O2": 0.113894,
+        "chibi": 2.106
+      },
+      "warmup_repetitions": 0,
+      "order": [
+        [
+          1,
+          "snail-wasm-untyped"
+        ],
+        [
+          1,
+          "snail-native-untyped"
+        ],
+        [
+          1,
+          "snail-wasm-i32"
+        ],
+        [
+          1,
+          "snail-native-i32"
+        ],
+        [
+          1,
+          "chez-safe-O2"
+        ],
+        [
+          1,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-native-untyped"
+        ],
+        [
+          2,
+          "snail-wasm-i32"
+        ],
+        [
+          2,
+          "snail-native-i32"
+        ],
+        [
+          2,
+          "chez-safe-O2"
+        ],
+        [
+          2,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-wasm-i32"
+        ],
+        [
+          3,
+          "snail-native-i32"
+        ],
+        [
+          3,
+          "chez-safe-O2"
+        ],
+        [
+          3,
+          "chibi"
+        ],
+        [
+          3,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-native-i32"
+        ],
+        [
+          4,
+          "chez-safe-O2"
+        ],
+        [
+          4,
+          "chibi"
+        ],
+        [
+          4,
+          "snail-wasm-untyped"
+        ],
+        [
+          4,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "chez-safe-O2"
+        ],
+        [
+          5,
+          "chibi"
+        ],
+        [
+          5,
+          "snail-wasm-untyped"
+        ],
+        [
+          5,
+          "snail-native-untyped"
+        ],
+        [
+          5,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chibi"
+        ],
+        [
+          6,
+          "snail-wasm-untyped"
+        ],
+        [
+          6,
+          "snail-native-untyped"
+        ],
+        [
+          6,
+          "snail-wasm-i32"
+        ],
+        [
+          6,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "snail-wasm-untyped"
+        ],
+        [
+          7,
+          "snail-native-untyped"
+        ],
+        [
+          7,
+          "snail-wasm-i32"
+        ],
+        [
+          7,
+          "snail-native-i32"
+        ],
+        [
+          7,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-native-untyped"
+        ],
+        [
+          8,
+          "snail-wasm-i32"
+        ],
+        [
+          8,
+          "snail-native-i32"
+        ],
+        [
+          8,
+          "chez-safe-O2"
+        ],
+        [
+          8,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-wasm-untyped"
+        ]
+      ],
+      "variants": {
+        "snail-wasm-untyped": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped.wasm"
+          ],
+          "seconds": [
+            0.392035,
+            0.387275,
+            0.39234,
+            0.392838,
+            0.387211,
+            0.392594,
+            0.390472,
+            0.392139
+          ],
+          "median_seconds": 0.392087,
+          "bytes": 306960,
+          "sha256": "b3cfc8ce324eff776593b783ef36e198b9e3234f378b41213b737d88a05f323d",
+          "emitted_single_calls": 354,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 0
+        },
+        "snail-native-untyped": {
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped"
+          ],
+          "seconds": [
+            0.588636,
+            0.588498,
+            0.588867,
+            0.588559,
+            0.588694,
+            0.588822,
+            0.589022,
+            0.588734
+          ],
+          "median_seconds": 0.588714,
+          "bytes": 2942688,
+          "sha256": "b8745a923a5b5947d28cc22c320f3c15a88a7b50dc942766e1d0e36b3c193f2b"
+        },
+        "snail-wasm-i32": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-i32.wasm"
+          ],
+          "seconds": [
+            0.173756,
+            0.173518,
+            0.173563,
+            0.173701,
+            0.173628,
+            0.173795,
+            0.173657,
+            0.173544
+          ],
+          "median_seconds": 0.1736425,
+          "bytes": 306783,
+          "sha256": "49f9ab72c8701a215b0a9e2bf988c4787fe6e2b8fa2c976f9601e7d9566d4676",
+          "emitted_single_calls": 345,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 1
+        },
+        "snail-native-i32": {
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-i32"
+          ],
+          "seconds": [
+            0.11133,
+            0.110811,
+            0.111259,
+            0.108956,
+            0.111305,
+            0.110418,
+            0.110854,
+            0.111041
+          ],
+          "median_seconds": 0.1109475,
+          "bytes": 2942512,
+          "sha256": "6e6da1e85e6c518b26afa9287008b2ae0e1988650a9cac9b6756e639512556c7"
+        },
+        "chez-safe-O2": {
+          "command": [
+            "scheme",
+            "--program",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-chez.so"
+          ],
+          "seconds": [
+            0.11299,
+            0.113845,
+            0.113715,
+            0.113711,
+            0.113249,
+            0.113297,
+            0.114007,
+            0.11355
+          ],
+          "median_seconds": 0.1136305,
+          "bytes": 10405,
+          "sha256": "990566403031b3d1e8e988274ed1f0937a9377d6c82464f30e1ea364657cb5b2"
+        },
+        "chibi": {
+          "command": [
+            "chibi-scheme",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/fibonacci-untyped.scm"
+          ],
+          "seconds": [
+            2.184,
+            2.085,
+            2.096,
+            2.121,
+            2.154,
+            2.108,
+            2.133,
+            2.157
+          ],
+          "median_seconds": 2.127,
+          "bytes": 4569,
+          "sha256": "25572ddf258214b4f1daa8702bf3a059f38a43917af56fa7db7679012fc0fd3d"
+        }
+      }
+    },
+    {
+      "workload": "tail-fibonacci",
+      "repetitions": 1048576,
+      "checksum": 4409231671296,
+      "discarded_seconds": {
+        "snail-wasm-untyped": 0.288996,
+        "snail-native-untyped": 0.699773,
+        "snail-wasm-i32": 0.114841,
+        "snail-native-i32": 0.452961,
+        "chez-safe-O2": 0.055884,
+        "chibi": 2.205
+      },
+      "warmup_repetitions": 1048576,
+      "order": [
+        [
+          1,
+          "snail-wasm-untyped"
+        ],
+        [
+          1,
+          "snail-native-untyped"
+        ],
+        [
+          1,
+          "snail-wasm-i32"
+        ],
+        [
+          1,
+          "snail-native-i32"
+        ],
+        [
+          1,
+          "chez-safe-O2"
+        ],
+        [
+          1,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-native-untyped"
+        ],
+        [
+          2,
+          "snail-wasm-i32"
+        ],
+        [
+          2,
+          "snail-native-i32"
+        ],
+        [
+          2,
+          "chez-safe-O2"
+        ],
+        [
+          2,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-wasm-i32"
+        ],
+        [
+          3,
+          "snail-native-i32"
+        ],
+        [
+          3,
+          "chez-safe-O2"
+        ],
+        [
+          3,
+          "chibi"
+        ],
+        [
+          3,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-native-i32"
+        ],
+        [
+          4,
+          "chez-safe-O2"
+        ],
+        [
+          4,
+          "chibi"
+        ],
+        [
+          4,
+          "snail-wasm-untyped"
+        ],
+        [
+          4,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "chez-safe-O2"
+        ],
+        [
+          5,
+          "chibi"
+        ],
+        [
+          5,
+          "snail-wasm-untyped"
+        ],
+        [
+          5,
+          "snail-native-untyped"
+        ],
+        [
+          5,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chibi"
+        ],
+        [
+          6,
+          "snail-wasm-untyped"
+        ],
+        [
+          6,
+          "snail-native-untyped"
+        ],
+        [
+          6,
+          "snail-wasm-i32"
+        ],
+        [
+          6,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "snail-wasm-untyped"
+        ],
+        [
+          7,
+          "snail-native-untyped"
+        ],
+        [
+          7,
+          "snail-wasm-i32"
+        ],
+        [
+          7,
+          "snail-native-i32"
+        ],
+        [
+          7,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-native-untyped"
+        ],
+        [
+          8,
+          "snail-wasm-i32"
+        ],
+        [
+          8,
+          "snail-native-i32"
+        ],
+        [
+          8,
+          "chez-safe-O2"
+        ],
+        [
+          8,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-wasm-untyped"
+        ]
+      ],
+      "variants": {
+        "snail-wasm-untyped": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped.wasm"
+          ],
+          "seconds": [
+            0.288879,
+            0.28995,
+            0.289573,
+            0.289109,
+            0.291774,
+            0.288976,
+            0.289525,
+            0.289308
+          ],
+          "median_seconds": 0.28941649999999997,
+          "bytes": 307272,
+          "sha256": "f4eab39fa2fa511469d148b638da30ef468a353380d7660b52654d43a9498e33",
+          "emitted_single_calls": 356,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 0
+        },
+        "snail-native-untyped": {
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped"
+          ],
+          "seconds": [
+            0.702829,
+            0.704598,
+            0.70497,
+            0.706226,
+            0.704855,
+            0.704762,
+            0.705607,
+            0.704766
+          ],
+          "median_seconds": 0.7048105,
+          "bytes": 2944384,
+          "sha256": "952478624ad91d3828b614c23607426d4f4cebf2423e71d58df0dc5b76a83771"
+        },
+        "snail-wasm-i32": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-i32.wasm"
+          ],
+          "seconds": [
+            0.114345,
+            0.114099,
+            0.114809,
+            0.114791,
+            0.11435,
+            0.114383,
+            0.11499,
+            0.115282
+          ],
+          "median_seconds": 0.114587,
+          "bytes": 307281,
+          "sha256": "40b464779f99a13ee1b3c2f9bb8bff6c89d2c3c41ab5ac76f813df211c052331",
+          "emitted_single_calls": 346,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 1
+        },
+        "snail-native-i32": {
+          "command": [
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-i32"
+          ],
+          "seconds": [
+            0.453677,
+            0.454293,
+            0.452848,
+            0.453165,
+            0.453451,
+            0.452841,
+            0.452962,
+            0.454027
+          ],
+          "median_seconds": 0.453308,
+          "bytes": 2944424,
+          "sha256": "61cad82dff75c432dd417c949d26d5bb95b9364aeb819c6ce522b4f69d3a58a3"
+        },
+        "chez-safe-O2": {
+          "command": [
+            "scheme",
+            "--program",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-chez.so"
+          ],
+          "seconds": [
+            0.059088,
+            0.069747,
+            0.061507,
+            0.062483,
+            0.055264,
+            0.054919,
+            0.062474,
+            0.062719
+          ],
+          "median_seconds": 0.061990500000000004,
+          "bytes": 10951,
+          "sha256": "a80d5eb962720d245eb3bddf61cb225b448314fd2465abc4e5a7383b84aab5bb"
+        },
+        "chibi": {
+          "command": [
+            "chibi-scheme",
+            "/tmp/snail-symbol-fingerprints-20261011/build/scheme-comparison/tail-fibonacci-untyped.scm"
+          ],
+          "seconds": [
+            2.218,
+            2.219,
+            2.237,
+            2.246,
+            2.21,
+            2.25,
+            2.217,
+            2.216
+          ],
+          "median_seconds": 2.2184999999999997,
+          "bytes": 4717,
+          "sha256": "27b04a5dbeca97d9f41739944554ee4c2c95d4242703d8546cb6d8da4df28625"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,3502 @@
+[
+  {
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "src",
+      "tests/build-native-datums.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-native-allocation-inline-20261014/tests/check-native-semantics.mjs",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/saturation.json"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/src",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics.ll",
+      "/tmp/snail-native-allocation-inline-20261014/src/native.c",
+      "/tmp/snail-native-allocation-inline-20261014/src/precise-gc.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-runner.c",
+      "-lm",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "NaN"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "0 0 0 0 0 0 0 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "Infinity"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709551615\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-Infinity"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "0 0 0 0 0 0 0 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "0 0 0 0 0 0 0 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "1.9"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "1 1 1 1 1 1 1 1\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-1.9"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "4294967295 0 4294967295 0 18446744073709551615 0 18446744073709551615 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9007199254740994"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9007199254740992 9007199254740992 9007199254740994 9007199254740994\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483648"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 2147483648 2147483647 2147483648 2147483648 2147483648 2147483648 2147483648\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483520"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483520 2147483520 2147483520 2147483520 2147483520 2147483520 2147483520 2147483520\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483904"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 2147483904 2147483647 2147483904 2147483904 2147483904 2147483904 2147483904\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483648"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744071562067968 0 18446744071562067968 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483904"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744071562067712 0 18446744071562067712 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483520"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483776 0 2147483776 0 18446744071562068096 0 18446744071562068096 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483648"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 2147483648 2147483647 2147483648 2147483648 2147483648 2147483648 2147483648\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483647.9999998"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 2147483648 2147483647 2147483647 2147483648 2147483648 2147483647 2147483647\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "2147483648.0000005"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 2147483648 2147483647 2147483648 2147483648 2147483648 2147483648 2147483648\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483648"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744071562067968 0 18446744071562067968 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483648.0000005"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744071562067968 0 18446744071562067968 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-2147483647.9999998"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483649 0 18446744071562067968 0 18446744071562067969 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967296"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 4294967296 4294967296 4294967296 4294967296\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967040"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967040 2147483647 4294967040 4294967040 4294967040 4294967040 4294967040\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967808"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 4294967808 4294967808 4294967808 4294967808\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967296"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414584320 0 18446744069414584320 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967808"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414583808 0 18446744069414583808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967040"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414584576 0 18446744069414584576 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967296"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 4294967296 4294967296 4294967296 4294967296\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967295.9999995"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 4294967296 4294967296 4294967295 4294967295\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "4294967296.000001"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 4294967296 4294967296 4294967296 4294967296\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967296"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414584320 0 18446744069414584320 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967296.000001"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414584320 0 18446744069414584320 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-4294967295.9999995"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 18446744069414584320 0 18446744069414584321 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223372036854776000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 9223372036854775808 9223372036854775807 9223372036854775808\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223371487098962000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223371487098961920 9223371487098961920 9223371487098961920 9223371487098961920\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223373136366404000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 9223373136366403584 9223372036854775807 9223373136366403584\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223372036854776000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223373136366404000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223371487098962000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372586610589696 0 9223372586610589696 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223372036854776000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 9223372036854775808 9223372036854775807 9223372036854775808\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223372036854775000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 9223372036854775808 9223372036854774784 9223372036854774784\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "9223372036854778000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 9223372036854775808 9223372036854775807 9223372036854777856\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223372036854776000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223372036854778000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-9223372036854775000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854776832 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446744073709552000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709551615\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446742974197924000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446742974197923840 9223372036854775807 18446742974197923840\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446746272732807000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709551615\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446744073709552000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446746272732807000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446742974197924000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446744073709552000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709551615\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446744073709550000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709549568\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "18446744073709556000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483647 4294967295 2147483647 4294967295 9223372036854775807 18446744073709551615 9223372036854775807 18446744073709551615\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446744073709552000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446744073709556000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "saturate",
+      "-18446744073709550000"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "2147483648 0 2147483648 0 9223372036854775808 0 9223372036854775808 0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "3"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "4"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "5"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "6"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "7"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "8"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "9"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "10"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "11"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "12"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "subtype-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "storage-trap",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "storage-trap",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "storage-trap",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "storage-trap",
+      "3"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics",
+      "storage-trap",
+      "4"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/src",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics-stress.ll",
+      "/tmp/snail-native-allocation-inline-20261014/src/native.c",
+      "/tmp/snail-native-allocation-inline-20261014/src/precise-gc.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-runner.c",
+      "-lm",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics-stress"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics-stress"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_TAIL_STRESS": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-runner.c",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/semantics.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics",
+      "storage-trap",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics",
+      "storage-trap",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics",
+      "storage-trap",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics",
+      "storage-trap",
+      "3"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/optimized-semantics",
+      "storage-trap",
+      "4"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "-e",
+      "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False.native-4pt_f7cd/optimized.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-0-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "-e",
+      "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False.native-uhfveapk/optimized.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0-1-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "-e",
+      "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False.native-_9pix1in/optimized.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-0--1-False"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "-e",
+      "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True.native-272whzgl/optimized.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-0-True"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "--mvp-features",
+      "--enable-gc",
+      "--enable-reference-types",
+      "--enable-tail-call",
+      "--enable-mutable-globals",
+      "--enable-sign-ext",
+      "--enable-bulk-memory",
+      "--enable-nontrapping-float-to-int",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True.wat",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True.wasm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "-e",
+      "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True.native-3itjv6s7/optimized.wasm"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/element-1-1-True"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/src",
+      "/tmp/snail-native-allocation-inline-20261014/src/precise-gc.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/precise-gc.c",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/precise-gc"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/precise-gc"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/src",
+      "/tmp/snail-native-allocation-inline-20261014/src/precise-gc.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/immix-gc.c",
+      "-o",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/immix-gc"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/immix-gc"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/immix-gc",
+      "wrap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/immix-gc",
+      "wrap-large"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/immix-gc",
+      "boundaries"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "fixture",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/mixed"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/mixed"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "fixture",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/wrong-signature.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/wrong-signature"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "ERROR: native provider signature does not match Wasm import\n    (\"fixture\" \"scalar_i32\")\n    ((i64) (i64))\n    ((i32) (i32))\n  called from <anonymous> on line 814 of file /tmp/snail-native-allocation-inline-20261014/src/snail-scheme/llvm.sld\n  called from emit-import-declaration on line 858 of file /tmp/snail-native-allocation-inline-20261014/src/snail-scheme/llvm.sld\n  called from <anonymous> on line 980 of file /tmp/snail-native-allocation-inline-20261014/src/snail-scheme/llvm.sld\n  called from for1 on line 81 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1124 of file /tmp/snail-native-allocation-inline-20261014/src/snail-scheme/llvm.sld\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 279 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from call-with-values on line 768 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/wrong-signature.native-5l6lzv6w\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "bad",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unsupported-provider.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "provider function needs an explicit C prototype: f; use (void) for no arguments\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider.native-psofb86e\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "bad",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unsupported-provider.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "provider function requires an external, nonvariadic C prototype: f\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider.native-i9pn5b3t\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "bad",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unsupported-provider.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "unsupported native C calling convention or function type: int (int) __attribute__((ms_abi))\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider.native-xd1nhuta\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--c-provider",
+      "bad",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unsupported-provider.h",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-mixed.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "unsupported native C calling convention or function type: int (float) __attribute__((vectorcall))\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/bad-provider.native-mf17xhyh\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-round.c",
+      "--export",
+      "worker",
+      "--export",
+      "round32",
+      "--export",
+      "view64",
+      "--export",
+      "view32",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict-extern/round.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/round"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/round"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/data-native-fields.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-native-fields"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-native-fields"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 12,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/data-tree.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-tree"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-tree"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 14,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/data-gcbench.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-gcbench"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-gcbench"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 62,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/data-empty-cases.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-empty-cases"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/data-empty-cases"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 42,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/string-literals.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/string-literals"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/string-literals"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 42,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/string-block-literal.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/string-block-literal"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/string-block-literal"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 42,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/bytevector-builtins.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-builtins"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-builtins"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 42,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/bytevector-utf8.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 42,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors-entry.c",
+      "--export",
+      "negative-length",
+      "--export",
+      "overflow-length",
+      "--export",
+      "empty-invalid-fill",
+      "--export",
+      "negative-fill",
+      "--export",
+      "negative-index",
+      "--export",
+      "wrapped-index",
+      "--export",
+      "endpoint-index",
+      "--export",
+      "invalid-byte",
+      "--export",
+      "readonly-write",
+      "--export",
+      "readonly-empty-copy",
+      "--export",
+      "source-range",
+      "--export",
+      "target-range",
+      "--export",
+      "reversed-range",
+      "--export",
+      "negative-range",
+      "--export",
+      "empty-source-range",
+      "--export",
+      "empty-target-range",
+      "--export",
+      "negative-copy",
+      "--export",
+      "wrong-top",
+      "--export",
+      "wrong-string",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/bytevector-errors.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "negative-length"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "overflow-length"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "empty-invalid-fill"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "negative-fill"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "negative-index"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "wrapped-index"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "endpoint-index"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "invalid-byte"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "readonly-write"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "readonly-empty-copy"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "source-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "target-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "reversed-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "negative-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "empty-source-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "empty-target-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "negative-copy"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "wrong-top"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-errors",
+      "wrong-string"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors-entry.c",
+      "--export",
+      "isolated-tail",
+      "--export",
+      "invalid-lead",
+      "--export",
+      "truncated-two",
+      "--export",
+      "truncated-three",
+      "--export",
+      "truncated-four",
+      "--export",
+      "bad-tail",
+      "--export",
+      "overlong-two",
+      "--export",
+      "overlong-three",
+      "--export",
+      "overlong-four",
+      "--export",
+      "surrogate",
+      "--export",
+      "too-large",
+      "--export",
+      "cut-start",
+      "--export",
+      "cut-end",
+      "--export",
+      "negative-start",
+      "--export",
+      "past-end",
+      "--export",
+      "reversed",
+      "--export",
+      "encode-range",
+      "--export",
+      "encode-negative",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict/bytevector-utf8-errors.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "isolated-tail"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "invalid-lead"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "truncated-two"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "truncated-three"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "truncated-four"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "bad-tail"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "overlong-two"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "overlong-three"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "overlong-four"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "surrogate"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "too-large"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "cut-start"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "cut-end"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "negative-start"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "past-end"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "reversed"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "encode-range"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/bytevector-utf8-errors",
+      "encode-negative"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-io-runner.c",
+      "--export",
+      "format-number",
+      "--export",
+      "unicode",
+      "--export",
+      "callback-result",
+      "--export",
+      "exists",
+      "--export",
+      "remove",
+      "--export",
+      "callback-trap",
+      "--export",
+      "close-failure",
+      "--export",
+      "missing-directory",
+      "--export",
+      "invalid-character",
+      "--export",
+      "invalid-handle",
+      "--export",
+      "escaped-alias",
+      "--export",
+      "close-alias",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict-io/output.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/normal-ahdulizz",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/normal-ahdulizz/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "unicode"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unicode-jsu3eu2l",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/unicode-jsu3eu2l/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "number",
+      "-9223372036854775808"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-neccxc2f",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-neccxc2f/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "number",
+      "9223372036854775807"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-u2kbs7j2",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-u2kbs7j2/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "number",
+      "9007199254740993"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-bz62qv3a",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-bz62qv3a/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "number",
+      "-1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-01wxwhld",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-01wxwhld/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "number",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-0w99pqog",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/number-0w99pqog/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/trap-3w9t3k80",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/trap-3w9t3k80/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "missing"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/missing-lv62ohvc",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/missing-lv62ohvc/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: missing/file.txt: No such file or directory (os error 2)\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "character"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/character-wvhm5i1h",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/character-wvhm5i1h/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: invalid Unicode scalar\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "handle"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/handle-owhjn_ue",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/handle-owhjn_ue/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "alias"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/alias-1bc0g6k2",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/alias-1bc0g6k2/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io",
+      "io-error"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io-error-enad98_6",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io-error-enad98_6/released"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: No space left on device (os error 28)\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/io"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/initialization-failure-ghgz8mg3",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/initialization-failure-ghgz8mg3/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1",
+      "SNAIL_GC_HEAP_BYTES": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--export",
+      "read-huge",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-lifecycle.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-exhaust.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/exhaust"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/exhaust"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/exhaust-emnd_r40",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/exhaust-emnd_r40/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1",
+      "SNAIL_GC_HEAP_BYTES": "32768"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "native GC arena exhausted (SNAIL_GC_HEAP_BYTES)\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-input-runner.c",
+      "--export",
+      "copy-lines",
+      "--export",
+      "line-storage",
+      "--export",
+      "close-input-alias",
+      "--export",
+      "input-callback-close",
+      "--export",
+      "input-escaped-alias",
+      "--export",
+      "input-missing",
+      "--export",
+      "input-callback-trap",
+      "--export",
+      "read-invalid",
+      "--export",
+      "input-raw-output",
+      "--export",
+      "input-stale-handle",
+      "--export",
+      "input-invalid-handle",
+      "--export",
+      "input-invalid-peek",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict-io/input.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "0"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-0-qk68w835",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-0-qk68w835/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-1-o7b5ab7s",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-1-o7b5ab7s/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-2-8qjmrkux",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-2-8qjmrkux/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-3-4wm1cmfn",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-3-4wm1cmfn/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-4-8unlosnw",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-4-8unlosnw/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "1"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-5-4_30_npn",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-5-4_30_npn/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-6-d5rwzmzx",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-6-d5rwzmzx/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "6"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-7-u702b0iw",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-7-u702b0iw/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-8-d7n010kf",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-8-d7n010kf/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-9-wdchdssc",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-9-wdchdssc/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-10-6qgtbg4u",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-10-6qgtbg4u/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-11-nfw8l6v9",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-11-nfw8l6v9/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-12-a385ni69",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-12-a385ni69/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-13-lizrbgek",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-13-lizrbgek/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-14-5fuwea_r",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-14-5fuwea_r/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-15-1hvb5xkz",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-15-1hvb5xkz/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-16-bpj07qn7",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-16-bpj07qn7/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-17-rq51bvv5",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-17-rq51bvv5/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-18-ruxje91t",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-18-ruxje91t/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "copy",
+      "2"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-19-tc6_es1t",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-19-tc6_es1t/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "ownership"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-ownership-3bezs_ur",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-ownership-3bezs_ur/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "alias"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-alias-0bccug2c",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-alias-0bccug2c/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "missing"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-missing-v3nocm4x",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-missing-v3nocm4x/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: absent.txt: No such file or directory (os error 2)\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-trap-ry471xvm",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-trap-ry471xvm/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "output"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-output-xko__g29",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-output-xko__g29/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: expected an input port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "stale"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-stale-nhh4q8wn",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-stale-nhh4q8wn/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "handle"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-handle-kfg4loi5",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-handle-kfg4loi5/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "peek"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-peek-fzggf8p9",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-peek-fzggf8p9/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: unknown or closed file port\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "invalid"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-0-e5tf8cm3",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-0-e5tf8cm3/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: invalid UTF-8\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "invalid"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-1-5fyb_hnl",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-1-5fyb_hnl/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: failed to fill whole buffer\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "invalid"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-2-iekwc1s9",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-2-iekwc1s9/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: invalid UTF-8\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input",
+      "invalid"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-3-viusp7bs",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-invalid-3-viusp7bs/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: Is a directory (os error 21)\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--strict",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-lifecycle.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/strict-io/input-main-trap.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-main-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-main-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-main-trap-kdes5aju",
+    "environment": {
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/input-main-trap-kdes5aju/released",
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "WebAssembly trap\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--foreign",
+      "rust-triple",
+      "snail.library",
+      "--foreign",
+      "rust-remember",
+      "snail.library",
+      "--foreign",
+      "rust-recalled",
+      "snail.library",
+      "--foreign",
+      "rust-call",
+      "snail.library",
+      "--foreign",
+      "rust-forget",
+      "snail.library",
+      "--foreign",
+      "rust-root-stress",
+      "snail.library",
+      "/tmp/snail-native-allocation-inline-20261014/examples/rust-interop/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/interop"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/interop"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "42\n(\"a Scheme pair retained by Rust\" . 42)\n(14 . 42)\n42\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-legacy-runner.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/programs/backend-native-resources.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/resources"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/resources",
+      "finalizers"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "native resource checks passed\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-literals.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/literals"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/literals"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "native literal checks passed\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--foreign",
+      "rust-triple",
+      "snail.library",
+      "--foreign",
+      "rust-remember",
+      "snail.library",
+      "--foreign",
+      "rust-recalled",
+      "snail.library",
+      "--foreign",
+      "rust-call",
+      "snail.library",
+      "--foreign",
+      "rust-forget",
+      "snail.library",
+      "--foreign",
+      "rust-root-stress",
+      "snail.library",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-legacy-runner.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-callback-trap.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/callback-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/callback-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/callback-trap-twzk6kwn",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1",
+      "SNAIL_NATIVE_CLEANUP_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/callback-trap-twzk6kwn/released"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: native callback failure\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "--foreign",
+      "rust-triple",
+      "snail.library",
+      "--foreign",
+      "rust-remember",
+      "snail.library",
+      "--foreign",
+      "rust-recalled",
+      "snail.library",
+      "--foreign",
+      "rust-call",
+      "snail.library",
+      "--foreign",
+      "rust-forget",
+      "snail.library",
+      "--foreign",
+      "rust-root-stress",
+      "snail.library",
+      "--entry-c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-legacy-runner.c",
+      "/tmp/snail-native-allocation-inline-20261014/tests/native-arrays.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/arrays"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/arrays",
+      "arrays"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1"
+    },
+    "status": 0,
+    "stdout": "native numeric resource checks passed\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/arrays",
+      "arrays-trap"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "SNAIL_NATIVE_GC_INTERVAL": "1",
+      "SNAIL_NATIVE_ARRAY_LOG": "/tmp/snail-native-allocation-inline-20261014/build/native-tests/array-releases"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "snail-scheme: native numeric resource failure\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {
+      "WASM_OPT": "/missing/wasm-opt"
+    },
+    "status": 1,
+    "stdout": "",
+    "stderr": "wasm-opt is missing or unusable: /missing/wasm-opt; install it or set WASM_OPT\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/source-alias"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "native output must not replace an input\n"
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application"
+    ],
+    "cwd": "/tmp",
+    "environment": {},
+    "status": 0,
+    "stdout": "42\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application"
+    ],
+    "cwd": "/tmp",
+    "environment": {},
+    "status": 0,
+    "stdout": "43\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/application.native-ioyxb5wx/program"
+    ],
+    "cwd": "/tmp",
+    "environment": {},
+    "status": 0,
+    "stdout": "42\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/relocated/program"
+    ],
+    "cwd": "/tmp",
+    "environment": {},
+    "status": 0,
+    "stdout": "43\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-allocation-inline-20261014/scripts/build-native",
+      "-I",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/main.scm",
+      "/tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/project/value.txt"
+    ],
+    "cwd": "/tmp/snail-native-allocation-inline-20261014",
+    "environment": {},
+    "status": 1,
+    "stdout": "",
+    "stderr": "native output must not replace an input\nnative build failed; intermediates retained: /tmp/snail-native-allocation-inline-20261014/build/native-tests/ownership-_hb3txl7/project/value.txt.native-jr5_3o1_\n"
+  }
+]

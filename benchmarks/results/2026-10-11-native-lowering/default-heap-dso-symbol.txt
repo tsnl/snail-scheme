@@ -1,0 +1,61 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3K of event 'cpu_core/cycles/u'
+# Event count (approx.): 108468071715
+#
+# Overhead  Shared Object         Symbol                                                              IPC   [IPC Coverage]
+# ........  ....................  ..................................................................  ....................
+#
+    40.26%  libgc.so.1.5.6        [.] GC_mark_from                                                    -      -            
+     8.40%  libgc.so.1.5.6        [.] GC_malloc_kind                                                  -      -            
+     8.33%  libgc.so.1.5.6        [.] GC_reclaim_generic                                              -      -            
+     7.79%  compiler-baseline     [.] f.62                                                            -      -            
+     6.30%  libgc.so.1.5.6        [.] GC_header_cache_miss                                            -      -            
+     6.03%  libgc.so.1.5.6        [.] GC_push_contents_hdr.isra.0                                     -      -            
+     2.81%  compiler-baseline     [.] native_array_new                                                -      -            
+     2.34%  compiler-baseline     [.] f.469                                                           -      -            
+     1.75%  compiler-baseline     [.] f.105                                                           -      -            
+     1.04%  libgc.so.1.5.6        [.] GC_should_invoke_finalizers@plt                                 -      -            
+     0.99%  libgc.so.1.5.6        [.] GC_clear_stack_inner                                            -      -            
+     0.69%  libgc.so.1.5.6        [.] GC_invoke_finalizers                                            -      -            
+     0.66%  ld-linux-x86-64.so.2  [.] _dl_tlsdesc_return                                              -      -            
+     0.63%  compiler-baseline     [.] GC_invoke_finalizers@plt                                        -      -            
+     0.63%  libgc.so.1.5.6        [.] GC_generic_malloc_many                                          -      -            
+     0.58%  compiler-baseline     [.] f.403                                                           -      -            
+     0.58%  compiler-baseline     [.] f.409                                                           -      -            
+     0.53%  compiler-baseline     [.] GC_malloc@plt                                                   -      -            
+     0.48%  libgc.so.1.5.6        [.] GC_clear_hdr_marks                                              -      -            
+     0.46%  libgc.so.1.5.6        [.] GC_end_stubborn_change@plt                                      -      -            
+     0.43%  libgc.so.1.5.6        [.] GC_start_reclaim                                                -      -            
+     0.34%  compiler-baseline     [.] f.401                                                           -      -            
+     0.33%  compiler-baseline     [.] f.307                                                           -      -            
+     0.33%  libgc.so.1.5.6        [.] GC_mark_some                                                    -      -            
+     0.30%  compiler-baseline     [.] f.481                                                           -      -            
+     0.30%  libgc.so.1.5.6        [.] GC_build_fl                                                     -      -            
+     0.25%  libgc.so.1.5.6        [.] GC_try_to_collect_inner                                         -      -            
+     0.18%  compiler-baseline     [.] f.937                                                           -      -            
+     0.18%  compiler-baseline     [.] f.479                                                           -      -            
+     0.15%  compiler-baseline     [.] f.483                                                           -      -            
+     0.15%  compiler-baseline     [.] f.461                                                           -      -            
+     0.15%  compiler-baseline     [.] f.69                                                            -      -            
+     0.15%  compiler-baseline     [.] wasm.kind                                                       -      -            
+     0.13%  compiler-baseline     [.] f.325                                                           -      -            
+     0.13%  compiler-baseline     [.] f.989                                                           -      -            
+     0.13%  compiler-baseline     [.] f.441                                                           -      -            
+     0.12%  compiler-baseline     [.] f.855                                                           -      -            
+     0.10%  compiler-baseline     [.] f.839                                                           -      -            
+     0.10%  compiler-baseline     [.] f.890                                                           -      -            
+     0.10%  libgc.so.1.5.6        [.] clear_marks_for_block                                           -      -            
+     0.10%  libgc.so.1.5.6        [.] GC_clear_stack                                                  -      -            
+     0.10%  compiler-baseline     [.] f.432                                                           -      -            
+     0.10%  compiler-baseline     [.] f.4883                                                          -      -            
+     0.10%  compiler-baseline     [.] f.811                                                           -      -            
+     0.10%  compiler-baseline     [.] f.942                                                           -      -            
+
+
+#
+# (Tip: To see how parallelism changes over time, try: perf report -F time,latency,parallelism --time-quantum=1s)
+#

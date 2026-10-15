@@ -1,0 +1,8 @@
+{
+  "status": "failed-static-audit",
+  "returncode": 1,
+  "error": "ValueError: unfrozen local dependency",
+  "cause": "The complete AST audit found the deferred measure import inside Matrix specification, beyond the immediate data_ports import.",
+  "resolution": "Freeze the complete local import closure, including deferred imports.",
+  "guest_processes_started": 0
+}

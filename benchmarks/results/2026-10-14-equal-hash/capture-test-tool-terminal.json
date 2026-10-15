@@ -1,0 +1,9 @@
+{
+  "command": "python3 (retained synthetic Equal capture tests; no benchmark guest)",
+  "actual_exec_terminal": true,
+  "chunk_id": "2da313",
+  "wall_time_seconds": 0.171213707,
+  "exit_code": 0,
+  "original_token_count": 25,
+  "output": "PASS six synthetic/protocol tests; four owned process terminal records and raw captures retained\n"
+}

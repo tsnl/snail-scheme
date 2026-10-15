@@ -1,0 +1,71 @@
+{
+  "kind": "Relocated count-one correctness probes; not timing samples",
+  "repetitions": 1,
+  "canonical_problem_selector": 44,
+  "canonical_expected": 120549,
+  "path_rule": "Resolve files/ and replay/ command/cwd entries relative to the restored archive root; leave external pinned tool paths unchanged. Original archive input/spec remain count10 and are never modified.",
+  "variants": [
+    {
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "files/tmp/snail-strict-lattice-preparation-20261014-r3/host.mjs",
+        "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/strict.wasm",
+        "replay/spec-count1.json"
+      ],
+      "cwd": "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": null,
+      "expected_result": "120549",
+      "expected_csv_case": null
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/program.so"
+      ],
+      "cwd": "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "1\n44\n120549\n",
+      "expected_result": "120549",
+      "expected_csv_case": "lattice:44:1"
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice/same-source-chez/program.so"
+      ],
+      "cwd": "files/tmp/snail-strict-lattice-preparation-20261014-r3/lattice",
+      "stdin": "1\n44\n120549\n",
+      "expected_result": "120549",
+      "expected_csv_case": "lattice:44:1"
+    },
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/reference-source/run-wasi.mjs",
+        "files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "files/tmp/snail-rust-lattice-handoff-20261014/build/rust-lattice-timing-handoff/case",
+      "stdin": "1\n44\n120549\n",
+      "expected_result": "120549",
+      "expected_csv_case": "lattice:1"
+    }
+  ]
+}

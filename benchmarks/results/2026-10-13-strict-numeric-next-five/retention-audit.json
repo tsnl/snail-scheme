@@ -1,0 +1,379 @@
+{
+  "scope": "Static inspection of exact frozen optimized Wasm; no runtime instruction counts or separate engine machine-code/tier audit.",
+  "finding": "Original allocation/search/arithmetic/copy work remains in these modules; named loops use recursive calls or native tail calls.",
+  "independent_confirmation": "Parent-side review confirms retained mbrot matrix/pixel/escape work and both pnpoly copies/all12point tests. Final modules are byte-identical to reviewed probe-b modules.",
+  "cases": [
+    {
+      "name": "primes",
+      "optimized_wasm_sha256": "c44320bba25170e71d2529794cb56c6c16c4846a30d37adce1a5e48f6395c31e",
+      "disassembly_sha256": "216624567b087f4f663f66b433b9717216d434b29e93620ca9fea329b6cbb6a8",
+      "functions": [
+        {
+          "symbol": "$function3",
+          "first_line": 172,
+          "purpose": "interval construction with list allocation and recursive call",
+          "instruction_sites": {
+            "struct.new": 1
+          },
+          "direct_calls": [
+            "$function3"
+          ]
+        },
+        {
+          "symbol": "$function4",
+          "first_line": 208,
+          "purpose": "sieve recursion and retained result-list construction",
+          "instruction_sites": {
+            "struct.new": 3
+          },
+          "direct_calls": [
+            "$function5",
+            "$function4"
+          ]
+        },
+        {
+          "symbol": "$function5",
+          "first_line": 287,
+          "purpose": "remove-multiples with native signed remainder and list allocation",
+          "instruction_sites": {
+            "struct.new": 1,
+            "return_call": 1,
+            "i64.rem_s": 1
+          },
+          "direct_calls": [
+            "$function5",
+            "$function5"
+          ]
+        },
+        {
+          "symbol": "$function8",
+          "first_line": 1379,
+          "purpose": "runtime hide and repeated full kernel call",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function6",
+            "$foreign2",
+            "$function8"
+          ]
+        },
+        {
+          "symbol": "$function2",
+          "first_line": 106,
+          "purpose": "complete final list predicate",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function2"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nqueens",
+      "optimized_wasm_sha256": "9f1e71e798fc70f3defd719f8f2ad92b1377b96ab4ce8772acb95763ff20cab8",
+      "disassembly_sha256": "4dce7799b3a1bee882b11d05bc426f5ac6a6dfcc4b982a9fd40f7398dc3ae6c9",
+      "functions": [
+        {
+          "symbol": "$function2",
+          "first_line": 508,
+          "purpose": "iota list construction",
+          "instruction_sites": {
+            "struct.new": 1,
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function2"
+          ]
+        },
+        {
+          "symbol": "$function3",
+          "first_line": 549,
+          "purpose": "both original search branches and recursive enumeration",
+          "instruction_sites": {
+            "struct.new": 12
+          },
+          "direct_calls": [
+            "$function4",
+            "$function5",
+            "$function3",
+            "$function3"
+          ]
+        },
+        {
+          "symbol": "$function4",
+          "first_line": 1731,
+          "purpose": "diagonal predicate recursion",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function4"
+          ]
+        },
+        {
+          "symbol": "$function5",
+          "first_line": 1807,
+          "purpose": "homogeneous append allocation",
+          "instruction_sites": {
+            "struct.new": 1
+          },
+          "direct_calls": [
+            "$function5"
+          ]
+        },
+        {
+          "symbol": "$function7",
+          "first_line": 1846,
+          "purpose": "runtime hide and repeated search",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function0",
+            "$foreign0",
+            "$function7"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "triangl",
+      "optimized_wasm_sha256": "db2d77ca6b516b0e01498b58edcd3de5963d26c930221d643620c29a3cf37bd3",
+      "disassembly_sha256": "6fcaae8352b0e2e099da88590f4a64cd19aee945a9146c14b7d8a32fcddd8e37",
+      "functions": [
+        {
+          "symbol": "$function8",
+          "first_line": 977,
+          "purpose": "attempt board/sequence reads, stores, restoration and answer construction",
+          "instruction_sites": {
+            "struct.new": 5,
+            "array.get": 12,
+            "array.set": 7
+          },
+          "direct_calls": []
+        },
+        {
+          "symbol": "$function11",
+          "first_line": 1743,
+          "purpose": "original bounded next-move search calling attempt",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function8",
+            "$function11"
+          ]
+        },
+        {
+          "symbol": "$function10",
+          "first_line": 1670,
+          "purpose": "sequence-to-list traversal",
+          "instruction_sites": {
+            "struct.new": 1,
+            "array.get": 1,
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function10"
+          ]
+        },
+        {
+          "symbol": "$function14",
+          "first_line": 2490,
+          "purpose": "answer reset, two opacity sites and repeated attempt",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$foreign2",
+            "$foreign2",
+            "$function8",
+            "$function14"
+          ]
+        },
+        {
+          "symbol": "$function2",
+          "first_line": 143,
+          "purpose": "complete final move-list predicate",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function2"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mbrot",
+      "optimized_wasm_sha256": "1f9239c72d4b821622c48502b991800229502bc98d1579cc6b8a4c9c429d2303",
+      "disassembly_sha256": "9e37895421341cd06975470a1d927ddf64f46666eb4d837373216cc200421fc5",
+      "functions": [
+        {
+          "symbol": "$function1",
+          "first_line": 45,
+          "purpose": "F64 escape recurrence and I64 escape count",
+          "instruction_sites": {
+            "return_call": 1,
+            "f64.add": 3,
+            "f64.mul": 4
+          },
+          "direct_calls": [
+            "$function1"
+          ]
+        },
+        {
+          "symbol": "$function4",
+          "first_line": 214,
+          "purpose": "pixel loops, I64-to-F64 coordinates and result stores",
+          "instruction_sites": {
+            "struct.new": 5,
+            "array.get": 1,
+            "array.set": 1,
+            "return_call": 2,
+            "f64.add": 2,
+            "f64.mul": 2,
+            "f64.convert_i64_s": 2
+          },
+          "direct_calls": [
+            "$function1",
+            "$function4",
+            "$function3"
+          ]
+        },
+        {
+          "symbol": "$function6",
+          "first_line": 419,
+          "purpose": "row allocation and initialization loop",
+          "instruction_sites": {
+            "array.new_default": 1,
+            "array.set": 1
+          },
+          "direct_calls": [
+            "$function6"
+          ]
+        },
+        {
+          "symbol": "$function8",
+          "first_line": 503,
+          "purpose": "outer matrix allocation, original test and repetition",
+          "instruction_sites": {
+            "struct.new": 5,
+            "array.new": 1,
+            "array.get": 2,
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$foreign0",
+            "$function8"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pnpoly",
+      "optimized_wasm_sha256": "c05f0bd60291e47dd35d72846c2119449b7198e42dcd2267cfcd2b6cb0a75b27",
+      "disassembly_sha256": "d0f64c4587f3541a4059c3a163e7f81b7c6d8ae7a0634cdfe9e700a9ac326c9e",
+      "functions": [
+        {
+          "symbol": "$function2",
+          "first_line": 240,
+          "purpose": "both vector-to-list-to-vector copies and all twelve point tests",
+          "instruction_sites": {
+            "struct.new": 46,
+            "array.get": 18
+          },
+          "direct_calls": [
+            "$function5",
+            "$function4",
+            "$function5",
+            "$function4",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10",
+            "$function10"
+          ]
+        },
+        {
+          "symbol": "$function4",
+          "first_line": 2364,
+          "purpose": "vector-to-list traversal and F64 list allocation",
+          "instruction_sites": {
+            "struct.new": 1,
+            "array.get": 1,
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function4"
+          ]
+        },
+        {
+          "symbol": "$function5",
+          "first_line": 2431,
+          "purpose": "list-to-vector allocation",
+          "instruction_sites": {
+            "struct.new": 5,
+            "array.new": 1,
+            "array.set": 5
+          },
+          "direct_calls": [
+            "$function7",
+            "$function8"
+          ]
+        },
+        {
+          "symbol": "$function8",
+          "first_line": 3164,
+          "purpose": "list-to-vector element copying",
+          "instruction_sites": {
+            "array.set": 1
+          },
+          "direct_calls": [
+            "$function8"
+          ]
+        },
+        {
+          "symbol": "$function10",
+          "first_line": 3232,
+          "purpose": "point predicate with F64 division and Boolean parity",
+          "instruction_sites": {
+            "array.get": 8,
+            "return_call": 2,
+            "f64.add": 1,
+            "f64.mul": 1,
+            "f64.div": 1
+          },
+          "direct_calls": [
+            "$function10",
+            "$function10"
+          ]
+        },
+        {
+          "symbol": "$function12",
+          "first_line": 3546,
+          "purpose": "two opacity sites and repeated run",
+          "instruction_sites": {
+            "return_call": 1
+          },
+          "direct_calls": [
+            "$function2",
+            "$foreign2",
+            "$foreign2",
+            "$function12"
+          ]
+        }
+      ]
+    }
+  ]
+}

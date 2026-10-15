@@ -1,0 +1,137 @@
+{
+  "archive_sha256": "f061773b49dd741c20b5189ed42f8d7484bc42f102ad09ee344c4f304b5b28d9",
+  "verified_members": 508,
+  "original_archive_members_unchanged": true,
+  "repetitions": 1,
+  "scope": "Relocated correctness probes only; not performance samples.",
+  "probes": [
+    {
+      "variant": "gc-i32-canonical",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/string/strict.wasm",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/probe-0.json"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.044376743,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "gc-i32-reassembled",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-measurement-20261014/build/string-width/i32.wasm",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/probe-1.json"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.043621032,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "gc-i8-ascii",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-measurement-20261014/build/string-width/packed-i8.wasm",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/probe-2.json"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-strict-string-preparation-20261014-r3/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.014947599,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-original",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-full-integration-20261013/build/rust-string-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-full-integration-20261013/build/rust-string-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-full-integration-20261013/build/rust-string-timing-handoff/case",
+      "stdin": "1\n500000\n524278\n",
+      "returncode": 0,
+      "stdout": "Result: 524278\n+!CSVLINE!+rust-wasm,string:1,0.001185380\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-string-byte-four-buffer",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/run-wasi.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/program.wasm",
+        "byte"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen",
+      "stdin": "1\n500000\n524278\n",
+      "returncode": 0,
+      "stdout": "Result: 524278\n+!CSVLINE!+rust-wasm,string-byte-four-buffer:1,0.001001527\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-string-u32-four-buffer",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/run-wasi.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/program.wasm",
+        "u32"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen",
+      "stdin": "1\n500000\n524278\n",
+      "returncode": 0,
+      "stdout": "Result: 524278\n+!CSVLINE!+rust-wasm,string-u32-four-buffer:1,0.004759711\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-string-byte-zeroed",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/run-wasi.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/program.wasm",
+        "byte-zeroed"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen",
+      "stdin": "1\n500000\n524278\n",
+      "returncode": 0,
+      "stdout": "Result: 524278\n+!CSVLINE!+rust-wasm,string-byte-zeroed:1,0.001444001\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-string-u32-zeroed",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/run-wasi.mjs",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen/program.wasm",
+        "u32-zeroed"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-rust-string-controls-20261014/build/rust-string-controls/frozen",
+      "stdin": "1\n500000\n524278\n",
+      "returncode": 0,
+      "stdout": "Result: 524278\n+!CSVLINE!+rust-wasm,string-u32-zeroed:1,0.006628125\n",
+      "stderr": ""
+    },
+    {
+      "variant": "native-immix-eight-byte",
+      "command": [
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+        "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/probe-8.txt"
+      ],
+      "cwd": "/tmp/snail-string-storage-measurement-20261014/build/string-storage-restored-public/files/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.023199648,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null,\"setup_seconds\":0.083539708,\"setup_collections\":0,\"collections\":21}\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "Complete post-pack blob/path restoration and hash verification; no workloads",
+  "archive_sha256": "24b9fc88cbed1a05cf61352be791de39477f67d81e3cf22d93a1ff26a8619cf9",
+  "blobs": 335,
+  "mapped_files": 553,
+  "restore_root": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-handoff-restored",
+  "all_blobs_and_reconstructed_files_verified": true,
+  "performance_samples": false
+}

@@ -1,0 +1,1521 @@
+{
+  "name": "puzzle",
+  "started_utc": "2026-10-14T08:35:48.527309+00:00",
+  "cpu": 5,
+  "scope": "Original full workload, fresh processes, default V8 tiering; setup excluded and final predicate included.",
+  "case": {
+    "name": "puzzle",
+    "preparation": "/tmp/snail-strict-puzzle-preparation-20261014-r3",
+    "spec": {
+      "name": "puzzle",
+      "count": 1000,
+      "inputs": [
+        511,
+        2,
+        2005
+      ],
+      "original_expected": 2005,
+      "expected": 1,
+      "barriers_per_iteration": 1,
+      "setup_barriers": 0,
+      "diagnostic_text": [
+        "\n",
+        "Error."
+      ]
+    },
+    "rust": {
+      "name": "puzzle",
+      "artifact": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm",
+      "wasm_sha256": "6922c6bc58940ee87ea46e9f6b886ae88a94709e23316b19b0e89aaeb10228bd",
+      "artifact_bytes": 118076,
+      "module_source_commit": "33e4bb945722e01a0a102297c9e59fdef883375c",
+      "module_source": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/puzzle.rs",
+      "module_source_sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+      "validation_git_base_revision": "39d68ff0702d20857a5f42d8ff3170335e67cc8a",
+      "exact_source_bundle": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source",
+      "source_bundle_hashes": {
+        "Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+        "Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+        "run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "small-inputs.json": "fb48cd51e3c5d09c98f41a9baa4095606aa6b1abc66ed99b3a6fe381602b1588",
+        "src/bin/ack.rs": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+        "src/bin/array1.rs": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+        "src/bin/bv2string.rs": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+        "src/bin/cat.rs": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+        "src/bin/chudnovsky.rs": "8954a1b2d25532e64ca72ed7a531c40e5c7d168209c9714a2b58c6f8c30656d0",
+        "src/bin/cpstak.rs": "dd7996d855f1436d96ea57ed59f237fad63827a3b04e0fe9113d9889bc57e85c",
+        "src/bin/ctak.rs": "063d5167c8757a3b8b322d42ee3403a322432d5ed355b9d74f729b3428d2744c",
+        "src/bin/deriv.rs": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+        "src/bin/diviter.rs": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+        "src/bin/divrec.rs": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+        "src/bin/fft.rs": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+        "src/bin/fib.rs": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+        "src/bin/fibc.rs": "564ab0cb810cbf4b1954c819709698cce053033998cc96566c6bc45510ed8f17",
+        "src/bin/fibfp.rs": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+        "src/bin/gcbench.rs": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+        "src/bin/graphs.rs": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+        "src/bin/lattice.rs": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+        "src/bin/mbrot.rs": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+        "src/bin/mbrotZ.rs": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+        "src/bin/nqueens.rs": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+        "src/bin/ntakl.rs": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+        "src/bin/pi.rs": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08",
+        "src/bin/pnpoly.rs": "d358bf2a2f3ce5142464e5097d53684c19d67f2568a1523c14d16150d55394a7",
+        "src/bin/primes.rs": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+        "src/bin/puzzle.rs": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+        "src/bin/quicksort.rs": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+        "src/bin/ray.rs": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+        "src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+        "src/bin/string.rs": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+        "src/bin/sum.rs": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+        "src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+        "src/bin/sumfp.rs": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+        "src/bin/tail.rs": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+        "src/bin/tak.rs": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+        "src/bin/takl.rs": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+        "src/bin/triangl.rs": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+        "src/bin/wc.rs": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+        "src/lib.rs": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3",
+        "src/list.rs": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8",
+        "suite.py": "4b67d15d5f4b76e3a941bbbe183dfb9ec1e05e244232dc1490695e0122d33bf6"
+      },
+      "original_source": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/original/puzzle.scm",
+      "original_source_sha256": "6730fba3bd4713d603c72b31970b3aef25881a40ea0b6e8bd175e09d22464129",
+      "host": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+      "host_sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "stdin": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/input.txt",
+      "input_sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91",
+      "input_text": "1000\n511\n2005\n",
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "runtime_target": "wasm32-wasip1 / Node WASI preview1",
+      "timeout_seconds": 900,
+      "count": 1000,
+      "parameters": {
+        "outer_iterations": 1000,
+        "board_size_parameter": 511,
+        "expected_trial_count": 2005
+      },
+      "setup_excluded": "Scheme-format datum reading and count/size parsing; Wasm compilation/instantiation/startup; once-per-process board and 13 independent piece-buffer allocation before Instant. Original Scheme creates its persistent global vectors before run-benchmark.",
+      "predicate_boundary": "Every reset, board/piece initialization, fixed ordered orientation definition, fitting/placing/removing, recursive search and trial-counter update, all 1000 repetitions, then supplied expected equality before report/start.elapsed. Result/CSV formatting follows clock capture.",
+      "timed": "All 1000 complete puzzle searches, including per-iteration reset; final supplied scalar equality before stop clock. Original common.scm also calls its ok? predicate before ending the clock.",
+      "correctness": {
+        "report": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/validation.json",
+        "report_sha256": "3251334b62d6c615798aa6d902c7e5cda74f7beeee89c31192a0a2c917054cd4",
+        "full_canonical_pass": true,
+        "all_case_checks_pass": true,
+        "expected_stdout_result": "Result: 2005",
+        "csv_case": "puzzle:1000",
+        "original_chez_csv_case": "puzzle:1000",
+        "predicate": "The full search returns trial-counter 2005 and equals supplied expected datum; original Scheme returns false on search failure, while Rust asserts successful fit/search.",
+        "small": "Actual Node/Wasm and unchanged original Chez pass count1/size511/result2005 and reject wrong999. This reduces repeat count while retaining the fixed puzzle geometry.",
+        "complete_payload": "Native test checks all512 board positions filled, all four piece counts zero and repeated reset/search. No complete-board dump from the actual Wasm artifact is claimed."
+      },
+      "representation": "Rust Vec<bool> stores unpacked one-byte booleans in linear memory; 13 separately owned 512-element piece buffers. Classes/maxima/counts use Wasm32 usize arrays. Scheme uses persistent generic vectors and its booleans/integers in GC storage.",
+      "ownership": "One Puzzle owns/reuses board, piece templates and counters for the whole process. Recursive fitting/search calls borrow that state; backtracking restores occupied cells/counts before the next orientation. No per-search-call owned graph allocation or shared-cell aliasing is introduced. Collection and frame/call costs differ from Scheme.",
+      "opacity": "black_box(size) at each run and black_box(returned trial count) before storing final result. No complete-board validation or additional per-search opacity inside timing.",
+      "source_semantics": "Fixed 512-element storage and canonical size511, orientation order, starting placement73 and recursive trial(next) before next==0 are preserved. The source local nonescaping call/cc early success escape becomes an ordinary Boolean return; this executable does not implement general continuations. Nonnegative Wasm32 usize inputs and bounds differ from Scheme outside the checked canonical geometry; count0 handling differs.",
+      "retained_work": {
+        "disassembly": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/puzzle.wat",
+        "wat_sha256": "b84bfb0ea4dc613596990e0c48081319a4939562af350688224158a35d968b2e",
+        "wasm_sha256": "6922c6bc58940ee87ea46e9f6b886ae88a94709e23316b19b0e89aaeb10228bd",
+        "inspection": {
+          "main_line": 805,
+          "fits_function_line": 6976,
+          "place_function_line": 7230,
+          "trial_function_line": 7521,
+          "recursive_trial_call_line": 7606,
+          "notes": "Frozen artifact retains recursive trial, fitting and placement functions, ordered backtracking state changes and main search call. This is a source/function-retention inspection, not a complete-board payload audit or a new performance observation."
+        }
+      }
+    }
+  },
+  "order": [
+    "strict",
+    "original-chez",
+    "adapted-chez",
+    "rust-wasm"
+  ],
+  "node_options": null,
+  "identities_before": [
+    {
+      "path": "/tmp/snail-string-storage-measurement-20261014/build/measure-puzzle.py",
+      "sha256": "3deb11bf049f32aab89f639f9fc0b2c8b39af03e92ce7ff7779dfc7dde9967c6"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/handoff.json",
+      "sha256": "0de641ca75f52dec2f66e823d0594ee4c0ff114f1d53ea598300822a41eabe34"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/build-provenance.json",
+      "sha256": "f1b716696fa9eed35171806f76620d5d9fb1c73288460f7a247cbada95746a20"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/prepared.json",
+      "sha256": "cc22f4b2578e1f39208277c09817b9d341d78d40f712b1ad2f6c1e0dbc30057b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.scm",
+      "sha256": "416075b0e0446b3e304ff5e336f03c4bb06a7690a617c5ef8c6c47242b379132"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+      "sha256": "48ef7d20d522c0d50743b485e14d9b26476572bd9d7d2b422ff7997bd8d5783e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json",
+      "sha256": "7d08eff1395f6ef31d777da94625a641ca0dfcdff44c9c645ea8c7ff70da7249"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/input.txt",
+      "sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.scm",
+      "sha256": "3af00a1eefc35a2993d3dfb39e316fbff2b5d1f3cb485352377d6251a21d3e25"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so",
+      "sha256": "20600220b7243f4ab80b0665e6e13c42ec27823073253c8be10fd2118457ba77"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.scm",
+      "sha256": "adb63746a3fc1c0c81edb570b830912f780a90390a110d178617fb463661383c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so",
+      "sha256": "ad75152459b94ea618c83217dd1088a587476d12057c346744540042b6110f99"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "f5e13c1c20f0876acf27e85df787b53a6f4a082825f85a25c696d18168b09b1f"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm",
+      "sha256": "6922c6bc58940ee87ea46e9f6b886ae88a94709e23316b19b0e89aaeb10228bd"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/input.txt",
+      "sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/small-inputs.json",
+      "sha256": "fb48cd51e3c5d09c98f41a9baa4095606aa6b1abc66ed99b3a6fe381602b1588"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "8954a1b2d25532e64ca72ed7a531c40e5c7d168209c9714a2b58c6f8c30656d0"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/cpstak.rs",
+      "sha256": "dd7996d855f1436d96ea57ed59f237fad63827a3b04e0fe9113d9889bc57e85c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ctak.rs",
+      "sha256": "063d5167c8757a3b8b322d42ee3403a322432d5ed355b9d74f729b3428d2744c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fibc.rs",
+      "sha256": "564ab0cb810cbf4b1954c819709698cce053033998cc96566c6bc45510ed8f17"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/pi.rs",
+      "sha256": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/pnpoly.rs",
+      "sha256": "d358bf2a2f3ce5142464e5097d53684c19d67f2568a1523c14d16150d55394a7"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ray.rs",
+      "sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/suite.py",
+      "sha256": "4b67d15d5f4b76e3a941bbbe183dfb9ec1e05e244232dc1490695e0122d33bf6"
+    }
+  ],
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.111756093,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": null,
+      "process_seconds": 1.1347369459690526,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.111756093
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.963377928 seconds (0.963) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.963377928\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9945229029981419,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.963377928
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.954972219 seconds (0.955) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.954972219\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9857314220280387,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.954972219
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 2005\n+!CSVLINE!+rust-wasm,puzzle:1000,0.455965185\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.47997592599131167,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 0.455965185
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.112013823,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": null,
+      "process_seconds": 1.1341296339523979,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.112013823
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.957596354 seconds (0.958) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.957596354\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9881794290267862,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.957596354
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.941587354 seconds (0.942) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.941587354\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9728107730043121,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.941587354
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 2005\n+!CSVLINE!+rust-wasm,puzzle:1000,0.455861519\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.48118570604128763,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 0.455861519
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.958151942 seconds (0.958) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.958151942\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9891031869919971,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.958151942
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.945951139 seconds (0.946) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.945951139\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9771607830189168,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.945951139
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 2005\n+!CSVLINE!+rust-wasm,puzzle:1000,0.456254589\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.4795012209797278,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 0.456254589
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.105937247,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": null,
+      "process_seconds": 1.1282488710130565,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.105937247
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.957842704 seconds (0.958) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.957842704\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9887624430120923,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.957842704
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 2005\n+!CSVLINE!+rust-wasm,puzzle:1000,0.455273631\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.4777456260053441,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.455273631
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.1087798,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": null,
+      "process_seconds": 1.1314463869784959,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.1087798
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.951007064 seconds (0.951) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.951007064\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9826139680226333,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 0.951007064
+    },
+    {
+      "returncode": 0,
+      "stdout": "Result: 2005\n+!CSVLINE!+rust-wasm,puzzle:1000,0.455117214\n",
+      "stderr": "",
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.4779151440015994,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.455117214
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.108660425,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": null,
+      "process_seconds": 1.1312081720097922,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.108660425
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.960493666 seconds (0.96) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.960493666\n",
+      "stderr": "",
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9912234760122374,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.960493666
+    },
+    {
+      "returncode": 0,
+      "stdout": "Running puzzle:1000\nElapsed time: 0.952719733 seconds (0.953) for puzzle:1000\n+!CSVLINE!+chez,puzzle:1000,0.952719733\n",
+      "stderr": "",
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle",
+      "stdin": "1000\n511\n2005\n",
+      "process_seconds": 0.9837872739881277,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 0.952719733
+    }
+  ],
+  "complete": true,
+  "identities_after": [
+    {
+      "path": "/tmp/snail-string-storage-measurement-20261014/build/measure-puzzle.py",
+      "sha256": "3deb11bf049f32aab89f639f9fc0b2c8b39af03e92ce7ff7779dfc7dde9967c6"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/handoff.json",
+      "sha256": "0de641ca75f52dec2f66e823d0594ee4c0ff114f1d53ea598300822a41eabe34"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/build-provenance.json",
+      "sha256": "f1b716696fa9eed35171806f76620d5d9fb1c73288460f7a247cbada95746a20"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/prepared.json",
+      "sha256": "cc22f4b2578e1f39208277c09817b9d341d78d40f712b1ad2f6c1e0dbc30057b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.scm",
+      "sha256": "416075b0e0446b3e304ff5e336f03c4bb06a7690a617c5ef8c6c47242b379132"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/strict.wasm",
+      "sha256": "48ef7d20d522c0d50743b485e14d9b26476572bd9d7d2b422ff7997bd8d5783e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/spec.json",
+      "sha256": "7d08eff1395f6ef31d777da94625a641ca0dfcdff44c9c645ea8c7ff70da7249"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/input.txt",
+      "sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.scm",
+      "sha256": "3af00a1eefc35a2993d3dfb39e316fbff2b5d1f3cb485352377d6251a21d3e25"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/program.so",
+      "sha256": "20600220b7243f4ab80b0665e6e13c42ec27823073253c8be10fd2118457ba77"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.scm",
+      "sha256": "adb63746a3fc1c0c81edb570b830912f780a90390a110d178617fb463661383c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/puzzle/same-source-chez/program.so",
+      "sha256": "ad75152459b94ea618c83217dd1088a587476d12057c346744540042b6110f99"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/hash-table.sld",
+      "sha256": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/expand.sld",
+      "sha256": "c90ec948aec64e54a7e094dba4155c225d6bc484bc7bb7032cc0f4f9d22e3702"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/type-inference.sld",
+      "sha256": "4e1a2c12aca03354e5d4486f3bd08eeaf460ad20e6a48d2edbad49aa9602be35"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/source.sld",
+      "sha256": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-compiler.sld",
+      "sha256": "999ae9b2503d12b3ed5c327e1e77b1dd0f14a12b725c2bc3ffdea0eca5724d50"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/typeclasses.sld",
+      "sha256": "407804136d26cca56f9dda6fac87704d96ba9b2f8b4a3a84638c766f0584483c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-specialize.sld",
+      "sha256": "9c3e0790b0e362e13ddbd0a5eff48d0db1f26f77e8869e6596a0f160614b3bd6"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm.sld",
+      "sha256": "f7ae0fdfbfde9dd2d75225dd538b3863045c57ffbed2bad2a4b41966dc3979df"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-types.sld",
+      "sha256": "83b3b2da854715d2c4bda7cadecfaca5938020bdf788986249462de331e3ed07"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-overloads.sld",
+      "sha256": "2e65288b44824bb8460eec7c3cb32b3c136edfe79f16f85ef4b77d0ea9f7621c"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/compiler.sld",
+      "sha256": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-primitives.sld",
+      "sha256": "f715b41f4a42d74f5654e2d36439242596c1ffef6b9cf9e76b8b2822dde57f8b"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/effects.sld",
+      "sha256": "81a6b46551d10c8e311a703ec948b9096f6d6bc3717cc926ecde99b6ba61e10e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/build-host.sld",
+      "sha256": "77ac78a6dfc8b2081a1078a47a226ca93e5c72237fb2c5d4a0ac26e93d826108"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-core.sld",
+      "sha256": "66d4669a2889f2767af0f905ec848d37ea257aae389994aee789a169fc7d1497"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-link.sld",
+      "sha256": "c924aa723ecd0df960724ce05a5fbd3dac3bcfc145bf4e66e9f84ea1747df46f"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/build.sld",
+      "sha256": "0a21c7cc68c47856421f22f97ed9ed637e15880ae756f6544a261a5f798a2dad"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/library.sld",
+      "sha256": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-ghost.sld",
+      "sha256": "b9b085adfe90d3943686db8ddd38e5bfc779993235b2dc84500162d6198af309"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-wasm.sld",
+      "sha256": "f5e13c1c20f0876acf27e85df787b53a6f4a082825f85a25c696d18168b09b1f"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax.sld",
+      "sha256": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/compile-build.sld",
+      "sha256": "aae98a4e3d26335fda3a2f97d551f97027c4d40c0d764846eac738aba0682650"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/iverson-typed.sld",
+      "sha256": "4e92ddf740c915c1309a99fb698afcfb8bfd872161a50cc876edb84b5e5e7a49"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/generation.sld",
+      "sha256": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-infer.sld",
+      "sha256": "39ee7b6cc47373e1ec21fce1b806c4043a761ec03693f159e411a9200259cc49"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime-artifact.sld",
+      "sha256": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/syntax-parser.sld",
+      "sha256": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/pattern.sld",
+      "sha256": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-optimize.sld",
+      "sha256": "6f61ab43c0c654d1343eb3ceb74e9571d0d6c5fe63c4ba1c3b6cb83bd57ac70a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/ir.sld",
+      "sha256": "9218bd3b8f23789e884757b2ed00a20cfa66a05102158c73701b70536b8da99e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/artifacts.sld",
+      "sha256": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/chromium-trace.sld",
+      "sha256": "666c4112927e5d83c239666bd7f259ba4d7d7633b5ea54153d5c7fb34d87d53a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/parser.sld",
+      "sha256": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/runtime.sld",
+      "sha256": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/types.sld",
+      "sha256": "d4552e1923ad6e014fe06b1be3c635acb594af0c5a0521106a94b9d0a966ea56"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/type-analysis.sld",
+      "sha256": "23f663af4263ee4140948e24dcf1caef5a0e2202a8e92670a982b8cb9d0c9742"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-runtime.sld",
+      "sha256": "86c75a1a199a53051ba4484f39e0139fc55400279ddbbec355f6b07887060a44"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/options.sld",
+      "sha256": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-literals.sld",
+      "sha256": "15d67bcd1c3662ca44b9799fced30f0e8e9861aee9982652a8b3b106ccdaf15e"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/common.sld",
+      "sha256": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/bootstrap.sld",
+      "sha256": "6737117208131080c426f9d64d3c425267f98fad0202d9027b9c287415fdccf9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-abi.sld",
+      "sha256": "d341c57028fefc990b980060abe811ca560243a5d11cc1b67cf93f3e6a516ad8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-extern.sld",
+      "sha256": "355cb19af439e260483f8f4fd2c8f1e96914a9f5ff80de9e30a457b81d73e9bf"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/wasm-i32.sld",
+      "sha256": "d483966f0d85db6d142724a51812d5ee6881fa7f7598af21fb4992d637e9fac9"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/partial-eval.sld",
+      "sha256": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/reader.sld",
+      "sha256": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail-scheme/strict-data.sld",
+      "sha256": "7d2b5e5d43c76f37094a4f4532958708a774a5106b02d1108f785ff2f4c4e01a"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/typing.sld",
+      "sha256": "740849f8a2d84fb5349d276eb7401d1818af076fc2b675ab836e06a11dbb8ce8"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/strict.sld",
+      "sha256": "ce75a94b1f4a65060aaf2b1d8491bb6eba544daa2bb5361428d2494216e6dd13"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/src/snail/artifacts.sld",
+      "sha256": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/scripts/build-strict",
+      "sha256": "8e592f2a8d0b08d54546ee4f2ad5c63073017664682869e4792fa1bfd30f814d"
+    },
+    {
+      "path": "/tmp/snail-strict-puzzle-preparation-20261014-r3/compiler-source/tests/build-strict-program.scm",
+      "sha256": "72d2a56081f8708eba25a81d9b61162d846013e169698c351f0381f54d23a5de"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/program.wasm",
+      "sha256": "6922c6bc58940ee87ea46e9f6b886ae88a94709e23316b19b0e89aaeb10228bd"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/run-wasi.mjs",
+      "sha256": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/case/input.txt",
+      "sha256": "71983c7e6d74c5f0906c85bb25f4a2f83826b5ed717746a8af95b95a78945f91"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/puzzle.rs",
+      "sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/Cargo.lock",
+      "sha256": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/Cargo.toml",
+      "sha256": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/small-inputs.json",
+      "sha256": "fb48cd51e3c5d09c98f41a9baa4095606aa6b1abc66ed99b3a6fe381602b1588"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ack.rs",
+      "sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/array1.rs",
+      "sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/bv2string.rs",
+      "sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/cat.rs",
+      "sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/chudnovsky.rs",
+      "sha256": "8954a1b2d25532e64ca72ed7a531c40e5c7d168209c9714a2b58c6f8c30656d0"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/cpstak.rs",
+      "sha256": "dd7996d855f1436d96ea57ed59f237fad63827a3b04e0fe9113d9889bc57e85c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ctak.rs",
+      "sha256": "063d5167c8757a3b8b322d42ee3403a322432d5ed355b9d74f729b3428d2744c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/deriv.rs",
+      "sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/diviter.rs",
+      "sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/divrec.rs",
+      "sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fft.rs",
+      "sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fib.rs",
+      "sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fibc.rs",
+      "sha256": "564ab0cb810cbf4b1954c819709698cce053033998cc96566c6bc45510ed8f17"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/fibfp.rs",
+      "sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/gcbench.rs",
+      "sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/graphs.rs",
+      "sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/lattice.rs",
+      "sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/mbrot.rs",
+      "sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/mbrotZ.rs",
+      "sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/nqueens.rs",
+      "sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ntakl.rs",
+      "sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/pi.rs",
+      "sha256": "acda7f3a4b2fca8ea39f10351185e87cda7732f7b2efac47ef3fcc975eec7a08"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/pnpoly.rs",
+      "sha256": "d358bf2a2f3ce5142464e5097d53684c19d67f2568a1523c14d16150d55394a7"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/primes.rs",
+      "sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/quicksort.rs",
+      "sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/ray.rs",
+      "sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/read1.rs",
+      "sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/string.rs",
+      "sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sum.rs",
+      "sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sum1.rs",
+      "sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/sumfp.rs",
+      "sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/tail.rs",
+      "sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/tak.rs",
+      "sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/takl.rs",
+      "sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/triangl.rs",
+      "sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/bin/wc.rs",
+      "sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/lib.rs",
+      "sha256": "a6c5baef9ed8bf6161748ee2aa4af2c84b5fb3bb04e1c47bbe8c8556f60785b3"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/src/list.rs",
+      "sha256": "a2d2c77e89b1bbe523786af56d4d743659159c73e889673122aebca2e4edede8"
+    },
+    {
+      "path": "/tmp/snail-rust-string-controls-20261014/build/rust-puzzle-timing-handoff/reference-source/suite.py",
+      "sha256": "4b67d15d5f4b76e3a941bbbe183dfb9ec1e05e244232dc1490695e0122d33bf6"
+    }
+  ],
+  "summary": {
+    "strict": {
+      "samples": [
+        1.112013823,
+        1.105937247,
+        1.1087798,
+        1.108660425
+      ],
+      "median": 1.1087201125,
+      "min": 1.105937247,
+      "max": 1.112013823
+    },
+    "original-chez": {
+      "samples": [
+        0.957596354,
+        0.958151942,
+        0.951007064,
+        0.960493666
+      ],
+      "median": 0.9578741479999999,
+      "min": 0.951007064,
+      "max": 0.960493666
+    },
+    "adapted-chez": {
+      "samples": [
+        0.941587354,
+        0.945951139,
+        0.957842704,
+        0.952719733
+      ],
+      "median": 0.949335436,
+      "min": 0.941587354,
+      "max": 0.957842704
+    },
+    "rust-wasm": {
+      "samples": [
+        0.455861519,
+        0.456254589,
+        0.455273631,
+        0.455117214
+      ],
+      "median": 0.455567575,
+      "min": 0.455117214,
+      "max": 0.456254589
+    }
+  },
+  "finished_utc": "2026-10-14T08:36:06.505144+00:00"
+}

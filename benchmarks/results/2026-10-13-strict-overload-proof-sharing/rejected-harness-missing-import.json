@@ -1,0 +1,82 @@
+[
+  {
+    "name": "plus-2",
+    "status": 70,
+    "stdout": "",
+    "stderr": "ERROR on line 5 of file /tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm: undefined variable: caddr\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\nSearching for modules exporting caddr ...\ncaddr is exported by:\n  (scheme cxr)\n  (scheme r5rs)\n  (scheme red)\n  (scheme small)\n  (srfi 1 immutable)\n",
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "/tmp/snail-strict-return-review-20261013/src",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm",
+      "/tmp/snail-strict-return-review-20261013",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-2.scm"
+    ],
+    "seconds": 3.119796614977531,
+    "child_cpu_seconds": 3.11485
+  },
+  {
+    "name": "plus-4",
+    "status": 70,
+    "stdout": "",
+    "stderr": "ERROR on line 5 of file /tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm: undefined variable: caddr\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\nSearching for modules exporting caddr ...\ncaddr is exported by:\n  (scheme cxr)\n  (scheme r5rs)\n  (scheme red)\n  (scheme small)\n  (srfi 1 immutable)\n",
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "/tmp/snail-strict-return-review-20261013/src",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm",
+      "/tmp/snail-strict-return-review-20261013",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-4.scm"
+    ],
+    "seconds": 3.0712602069834247,
+    "child_cpu_seconds": 3.0614890000000003
+  },
+  {
+    "name": "plus-6",
+    "status": 70,
+    "stdout": "",
+    "stderr": "ERROR on line 5 of file /tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm: undefined variable: caddr\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\nSearching for modules exporting caddr ...\ncaddr is exported by:\n  (scheme cxr)\n  (scheme r5rs)\n  (scheme red)\n  (scheme small)\n  (srfi 1 immutable)\n",
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "/tmp/snail-strict-return-review-20261013/src",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm",
+      "/tmp/snail-strict-return-review-20261013",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-6.scm"
+    ],
+    "seconds": 3.095714496972505,
+    "child_cpu_seconds": 3.090045999999999
+  },
+  {
+    "name": "plus-8",
+    "status": 70,
+    "stdout": "",
+    "stderr": "ERROR on line 5 of file /tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm: undefined variable: caddr\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\nSearching for modules exporting caddr ...\ncaddr is exported by:\n  (scheme cxr)\n  (scheme r5rs)\n  (scheme red)\n  (scheme small)\n  (srfi 1 immutable)\n",
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "/tmp/snail-strict-return-review-20261013/src",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm",
+      "/tmp/snail-strict-return-review-20261013",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/plus-8.scm"
+    ],
+    "seconds": 3.0669541490497068,
+    "child_cpu_seconds": 3.0570679999999997
+  },
+  {
+    "name": "native-8",
+    "status": 70,
+    "stdout": "",
+    "stderr": "ERROR on line 5 of file /tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm: undefined variable: caddr\n  called from <anonymous> on line 1268 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\n  called from <anonymous> on line 800 of file /nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/share/chibi/init-7.scm\nSearching for modules exporting caddr ...\ncaddr is exported by:\n  (scheme cxr)\n  (scheme r5rs)\n  (scheme red)\n  (scheme small)\n  (srfi 1 immutable)\n",
+    "command": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "-I",
+      "/tmp/snail-strict-return-review-20261013/src",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/inspect.scm",
+      "/tmp/snail-strict-return-review-20261013",
+      "/tmp/snail-strict-return-review-20261013/build/constraint-growth-review/native-8.scm"
+    ],
+    "seconds": 3.065321331960149,
+    "child_cpu_seconds": 3.055435
+  }
+]

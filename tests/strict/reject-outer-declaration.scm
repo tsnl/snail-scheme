@@ -1,0 +1,7 @@
+(import (snail strict))
+(: identity (All (A) (-> A A)))
+(define (identity value) value)
+(define (use)
+  (: identity (-> I64 I64))
+  (identity #t))
+(use)

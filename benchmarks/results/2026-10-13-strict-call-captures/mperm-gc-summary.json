@@ -1,0 +1,12 @@
+{
+  "bench_marker_ms": 16157.269467999999,
+  "reported_pause_ms": 14757.4,
+  "reported_pause_fraction": 0.9133597746344154,
+  "rounding_lower_ms": 14744.25,
+  "rounding_upper_ms": 14770.55,
+  "event_counts": {
+    "s": 258,
+    "mc": 5
+  },
+  "scope": "Printed V8 pause fields between synchronous benchmark markers; diagnostic wall-time estimate, not total collector CPU or clean timing"
+}

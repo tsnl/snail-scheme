@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "-I",
+    "-B",
+    "-c",
+    "import sys; print(\"partial\"); print(\"error\",file=sys.stderr); sys.exit(7)"
+  ],
+  "diagnostic_only": true,
+  "pid": 3,
+  "process_group": 3,
+  "status": "running",
+  "returncode": 7,
+  "stdout": "partial\n",
+  "stderr": "error\n",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 0.01225277001503855,
+  "cleanup": {
+    "process_group": 3,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  }
+}

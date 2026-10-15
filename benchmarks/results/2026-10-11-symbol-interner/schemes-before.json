@@ -1,0 +1,796 @@
+{
+  "base_revision": "37ff3cfd92a2df5600fec181a13398037ca4a31c",
+  "source_diff": "",
+  "source_sha256": {
+    "Cargo.lock": "d53422489fb8a4cd88d6f913461f80ad292f2f8d2e083924ed25a287b4e09aea",
+    "Cargo.toml": "bedcd5780dd6328dece530f445be0c53540763aad28be1db392246be1c5c4dbc",
+    "benchmarks/chez.scm": "94ce135680dc26cd96efd399746a7bf5b4081b8b802c6ac1b352bceeec0b6d72",
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "benchmarks/typing/compare-schemes.py": "8535fc2c9dcf7140bed5532bbb70fab34a94bb3e2b125a832d80536b728e5b54",
+    "benchmarks/typing/fibonacci-checked.c": "842225d29a90863659887dcde4fe82d3e2b5b9f05406d8d2dd7ee71a6e7a7807",
+    "benchmarks/typing/fibonacci-kernel.c": "c29209bc597422654386ad6974db41b961703f0cf0b0532e641caf2e209f78e1",
+    "benchmarks/typing/fibonacci-tail-checked.c": "4aa995fd79d7205c38dc9d1999e21848a5bf6de63d61cdcca262975020acc2a7",
+    "benchmarks/typing/fibonacci-tail-driver.c": "7d4a0ff425757a061738f3edb7bed50a176a525c564d0a7e2f3f8146df3a6cbf",
+    "benchmarks/typing/fibonacci-tail.c": "993357f3523ebba06088599c33900f4bb2203d9a3c115e8fe326107466582df5",
+    "benchmarks/typing/fibonacci.c": "96938ac49dcea328129b4a642d268ff653dc75b3c5889acc7bb82e4ac1685af5",
+    "benchmarks/typing/measure.py": "fb251a2daf84804a0a103146859bed3e4ff2d306cb258f7c15ba9db5e5cef9d0",
+    "benchmarks/typing/occurrence.scm": "9fdb0b16f31eaebfa79c03bc3655526fe7208832510cc7057735094953377239",
+    "benchmarks/typing/run-kernel.mjs": "9c1479bb7887ab1a2fd4a7f32b821b34d6ca1474fc770166b658fa2363b9d589",
+    "benchmarks/typing/run-tail-kernel.mjs": "c579ca966fcf648518a2efb6e33218989437b57097ceed18743c991bcf83f878",
+    "bootstrap/scheme/base.sld": "5d8299882de0b7fe8d28fa5cae95fc386f27abb9a9c0a4bab1f6a454e8bd1f9d",
+    "bootstrap/scheme/char.sld": "8bde02548b252faf7838a4572a52a255ac97cd529336e26af9c202bc80196624",
+    "bootstrap/scheme/comparator.sld": "de994cf5ff094de66e5f0d553ffe2dfa5107fe46208115e0c2b6f55f5a770f46",
+    "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+    "bootstrap/scheme/file.sld": "1819989d45ac002e36ab1823038a8551892dc7dcc92c35f3793db8f2cfe5a795",
+    "bootstrap/scheme/hash-table.sld": "9ce9eeb0fcb43cb17cc54d923991e5906bbf399c591eaa4b9e0f7599694a10fd",
+    "bootstrap/scheme/inexact.sld": "0c9de0edde45387ed3c74d183c777c9280bb0c716ace3132e7224dd5663a8647",
+    "bootstrap/scheme/process-context.sld": "a35cbcf4e5bebb9085633ae1b4c055214767fef7fe9a87e9979179c343b7684d",
+    "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+    "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+    "rust-toolchain.toml": "9261cfa97b46d9789827e92e6bf37cd0ba8d05716d0139ad2ea1f7db58ff475b",
+    "src/artifacts.rs": "6a3509df43f48ac53a53597a0824f3bf6e3b3886972a6c4ea39cc2332f203432",
+    "src/awi.rs": "85203b02c38a2211e67aa41e7801de34810751cbf9765688f0cb6ed0ed51e4b6",
+    "src/build_host.rs": "142f7fff38e66e8056fa5cf879cb30318dba77d7aca34ebeb08cb1cdbafb945a",
+    "src/hash.rs": "de05a63c7ecf73a2e814bf9fae2704bc3e166f256358bba2cb18c25aaa73b37b",
+    "src/host.rs": "395a35726e635363799d6e1782941365cbe8e25fab14f3ad7a07fc3335cc5358",
+    "src/interop_example.rs": "7f54d4f7b215622e19753576303b697513a65992ab2b327adf88cbe84b22e452",
+    "src/lib.rs": "97f37c4343df28675796590eb91eaf20acce6430f754626f28ca42b978aedef2",
+    "src/native.c": "95add385a13829e61b8bd4a4f41906cf3e29695d20e90c10c69b066155ec29d1",
+    "src/runtime/host.mjs": "64aadda6b9e0357ca7a944a0150700e8562280ba9fff7e5b5bb358cf4504bc02",
+    "src/snail/artifacts.sld": "215f8c0d9a087af302de4ede5d11aa4f3f2a8e249a6daad62dcebc3385812af7",
+    "src/snail/typing.sld": "de1fa8482b149c6995954d31285638c324cbb23eca44643fb779bc6647360f96",
+    "src/snail-scheme/artifacts.sld": "fec904db355e37eff0e843834945fb63cb2eaeb8d36d720a808850953dd0ea60",
+    "src/snail-scheme/bootstrap.sld": "34bd76d36e89a0b1f7ad1315d21c010e7d50199b5384b7fbbc25d4b1f576ac51",
+    "src/snail-scheme/build-host.sld": "0be8629c9a44aa9f682262c6332dd8118f9a3d04f1f52a1240792a7720b9caf0",
+    "src/snail-scheme/build.sld": "143679c11fa81137c60264221ddb3fa306dab208e17f352f92de7960cde3acb6",
+    "src/snail-scheme/chromium-trace.sld": "55c62f52d095e5f4e5969c18cccb82060d3d002aaccddaf96fc863e8d4a4bf58",
+    "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+    "src/snail-scheme/compile-build.sld": "0cb7ba73374655119282da2eb1a87ada90313a3ec52f2879465e1bbe2e77dd8e",
+    "src/snail-scheme/compiler.sld": "7f073038220b73a18d6b1ab612e57415c174dab6fdcea3854501b21eb4a43aab",
+    "src/snail-scheme/expand.sld": "cfe5c956bb6cae722a6e8e1361b2ae30655b1e03f9fc9f8a2b399cb6e4fe0fb6",
+    "src/snail-scheme/generation.sld": "724af0de3b6c58a954eb9e15ed821cd3a65fd9a30a20cc510384f61a7b35dcb5",
+    "src/snail-scheme/hash-table.sld": "574bb4223c301d377534b661cf75cad2fc7957ef9c08d99df6a83e65d3df8954",
+    "src/snail-scheme/ir.sld": "c1c6285cde4df8b460f6c76819e1d1354687d1b5e9ea983050b276bcd0de5b43",
+    "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+    "src/snail-scheme/llvm.sld": "1ab04853d25f3bffc4062340f98a2d8ee9a8ba2351ab30d5f717f767ff4e9fbf",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "src/snail-scheme/native-link.sld": "28fc1d216bb231d32636ccf80e4f441817491556e02030e4ee9bccf20a610f59",
+    "src/snail-scheme/native.sld": "9d8f508be4bdc2e4562521aff53c60ed7043f3624ad67b57a42f6a4ac2104eab",
+    "src/snail-scheme/options.sld": "c2f0f73e03a9b30b69b58945433518ab12cc33fd5202e56a082a450a1736b653",
+    "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+    "src/snail-scheme/partial-eval.sld": "0907dce3554357a5e77043cb5598a74c022fb1070ccb20dc9452671298c252b8",
+    "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+    "src/snail-scheme/reader.sld": "034730e7ac888997abc294ee7f7bd9adeb621b04dccaa43f445f7fd84fcbcd3a",
+    "src/snail-scheme/runtime-artifact.sld": "54e1079641c403597bb4f28310d4dc0d39dda8054fad8957229f3434cffc6300",
+    "src/snail-scheme/runtime.sld": "a233ef968db15f914c7e05cbf9a5212759487a8e602a934596f4b8705b83e9e3",
+    "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+    "src/snail-scheme/syntax-parser.sld": "ecf9d575dc39b91f2f2596747a2383c31711a4d6bf1b074cd1ae06dd2a753d79",
+    "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+    "src/snail-scheme/type-analysis.sld": "6a3fecd2f5462f9f840aa99b6b563ce71fa05087639dfb7640fe3a9f3efecb09",
+    "src/snail-scheme/type-inference.sld": "a6093733825d420b4df6a056da594f8c94d8fc777b6c9595fccfa1a4a38123d3",
+    "src/snail-scheme/types.sld": "27f3e7f55af1742ba079be79ce7f52f572070a31b1c58199ccd5e3331d688c46",
+    "src/snail-scheme/wasm-awi.sld": "b9418d05a0c046e5c4f11b7099e9e77bcd3d025f05c6ac0a3733f07a71cfd0e9",
+    "src/snail-scheme/wasm-i32.sld": "9c3b83f199f8886621686b8a0cfb025efb7eb0a96b8b7c05af6e35cd69ea5395",
+    "src/snail-scheme/wasm-literals.sld": "05e6a0a610da91642a2d7234559840918979c222e32ba83609329e2308bdf5af",
+    "src/snail-scheme/wasm-resolve.sld": "95d7a1c3d79e0a658c790e27694d828eaee0a8213993b4491685275cff76b91f",
+    "src/snail-scheme/wasm-runtime.sld": "5fc3298ed0a6f341f901ce00994e8cff12d64d6f88e6911e9bb7fb9fbeb9b626",
+    "src/snail-scheme/wasm.sld": "5b6cef53e68b15f557e64c9f40c9a88b4819e71196373082daca0c8a38e614fb",
+    "tests/build-native-datums.scm": "93e8d60191dd074fddeeda5c7edf1d5fcf82e623aeeb0cd05a1679b675103b09",
+    "tests/build-native.scm": "27fe4b4c0db13f308b7b1226771e679e5d994b54712d784ba1dd7de181fbe186",
+    "tests/build-program.scm": "bac849a7ece0061cd8a54a9b58e706a80ba4f252d1138c298a21b3083f1e2130",
+    "tests/build-typed-program.scm": "7eb464316e9ee5ac3435adbbdea0060766c8fb3753b6de3c7ed4cda00aeba293",
+    "tests/check-awi-roots.mjs": "c397f51c86028e8b0540f99f9f3027336a223eb267ed79e82f4163a0d67efff8",
+    "tests/check-finalizers.mjs": "469669981ebd6e5b7e6e10c24729c4b8f20b0754f83f7de259453ad9b1c41169",
+    "tests/check-hash-identity.mjs": "7a9f737ce39fb83d4d7c9ac89d68ef33928663f9e68120ae56c893e6eb034485",
+    "tests/check-native-semantics.mjs": "e0702758e8ffc1f28d3315b34064dbcdeefd2b2a5c7f08c8e845641f6076a13d",
+    "tests/finalizers.wat": "7eb8054a2e2e471e62f2fa814955d098dd02fe691164a06f00afa08a7deaded3",
+    "tests/hash-identity.wat": "a8e84f77b9cd5ebc014e59b498fd57b3f4c7f47782db603a6eaa27fa29a233ee",
+    "tests/libraries/testing/polymorphism.sld": "41dd4cb276f2242058d8ba7bcd308e8dbb6a4bfaf5bf4633e3bf70e92a2487fb",
+    "tests/native-datums.scm": "144620409180d87aba412d9e5e7505dc4b7df4e40564a576a1ab389263b848ed",
+    "tests/native-runner.c": "b363e0bfeb5d912ee028d6b9b86593eb180bd13a1fee765fca8886d194167603",
+    "tests/programs/backend-binary.scm": "497ada1fa8abd6005037d85355ab45fd38036072c2ec74697232d8405d4bd53e",
+    "tests/programs/backend-bootstrap.scm": "ab813ed6271f6348ffc0b5d0e49912a5b571c1f5a5bb5e0cff6449ba47fbecc3",
+    "tests/programs/backend-control.scm": "e99a1d7b16e54cae5aefd34a304f104eb567e6655b15a74ebab8576b0d962dc9",
+    "tests/programs/backend-direct-calls.scm": "ec2784ed53edaef55848f452c96e7ff444c64c46194e7ba445c107dacf5dc489",
+    "tests/programs/backend-errors.scm": "58d7642538a314b63b712a83ced0973931db3caa38ec1558c2492f9bfbf4b682",
+    "tests/programs/backend-hash-tables.scm": "93bf9e7d72027d14a22b32aad7f95eaa389675bd60827c86c8b7230db8dfd076",
+    "tests/programs/backend-inexact.scm": "1836309de57191607d72480b975e5d9f8b21676ab56c8e044c603cac09296626",
+    "tests/programs/backend-native-resources.scm": "a87e00d407315f626ff46b068c8ae402e9ad4ccf34ae0cd8fbaa4e0509cb007d",
+    "tests/programs/backend-numeric-rebinding.scm": "1f1abc102bbaef0e1b7960e8b66f3cf6afc81eebf67d35f41a6785fa0cf277ea",
+    "tests/programs/backend-numeric.scm": "ddc891403e1aa781626c6548a63078b719b65bc911c2afd50a469af82cd1fc32",
+    "tests/programs/backend-options.scm": "227719ebeae8e57175ed0db9e77afa000b076ce4c82479b04debcd2a8db07f10",
+    "tests/programs/backend-polymorphism.scm": "bbc2352a62cd16080b9fc4fe63f495806dd57613539c6030505d86602b136ada",
+    "tests/programs/backend-semantics.scm": "ffc645500246b0b4e0739f3262ba3b220c352af829b7e759342ee11c4a8243a8",
+    "tests/programs/backend-typed-tail.scm": "7aa0241d4b34c4d8f7fc5c4f5fa6cbe92be66f2752f741b7710ee92b4c76742e",
+    "tests/programs/backend-typing.scm": "81af0ce83e78466e3bf24065f39f3cfc257dd89eeb2f4898d5c0789529cd4789",
+    "tests/programs/backend-wasmgc.scm": "2b720db9668149ba3b2186b51b251d36edff8fc6c0742524801d4ac5bd6724ec",
+    "tests/programs/chromium-trace.scm": "75845ff99576e7e5aae1baaeb25488e512c49db5946e122e4061fb8705c6c6be",
+    "tests/programs/p0001.scm": "c140ee3dbb0ce39ab8342eeb13ead0c7fa51fc684213fc009372ab44622f6258",
+    "tests/snail-scheme/test-utils.sld": "073130c725fb772aa04f2ba82746946bd88322c73d783b320db0337fe5b98d07",
+    "tests/snail-scheme/test.scm": "b4a242316e6bc51e2a6684d9f47d41bc89050d0705193bf2c8e104043bb6dfce",
+    "tests/translate-native.scm": "b5fe6ad6ed72934783fcf66bf1346256cac58bb7fe683c9a2c865fd9970d30db"
+  },
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "versions": {
+    "chez": "10.4.1",
+    "chibi": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+    "node": "v24.19.0",
+    "clang": "clang version 21.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/603yaax3l2jmc0hfv6g3hgjr1qk5jfxk-clang-21.1.8/bin",
+    "binaryen": "wasm-opt version 132"
+  },
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "cpu": 2,
+  "rounds": 8,
+  "discarded_runs": 1,
+  "scope": "Complete Scheme programs; internal workload timers exclude compilation and startup. Tail workload has a full in-process warmup. Chez uses safe O2. Snail partial evaluation is disabled; i32 specialization is enabled only in the i32 variants. Native and Wasm lower the same emitted WAT. Chibi and Chez use the exact untyped Snail source, with only the Chez import/time/record adapter. Required checks remain enabled.",
+  "generated_sources": {
+    "fibonacci-i32.native.scm": "0eead6a0610229df5fde408fba609d3be8c557f25f9fec12ccd7e0530588011e",
+    "fibonacci-i32.scm": "b30251e29bfede07f7a54778bcceffd3799400ffe1a87d2bd4cac6e9d54d142b",
+    "fibonacci-untyped.native.scm": "f8886c687ec1ee453fa21c942ca44fb7dbe1c6a5ae3a0d2ed7d8064cf6c357b7",
+    "fibonacci-untyped.scm": "25572ddf258214b4f1daa8702bf3a059f38a43917af56fa7db7679012fc0fd3d",
+    "tail-fibonacci-i32.native.scm": "a82f437f01089f36f64656090849648b74bf4bd2caefcb2007af379d71e5b438",
+    "tail-fibonacci-i32.scm": "dd39baa72bee4a8b7b492188eae3b1fd89d0ace89d0de4b302512017cbcfd65c",
+    "tail-fibonacci-untyped.native.scm": "ed163c5d6e01c625a1d4fb881b68b38f956e390df833e6c7bd37f5809fc5943f",
+    "tail-fibonacci-untyped.scm": "27b04a5dbeca97d9f41739944554ee4c2c95d4242703d8546cb6d8da4df28625"
+  },
+  "workloads": [
+    {
+      "workload": "fibonacci",
+      "repetitions": 256,
+      "checksum": 1076472576,
+      "warmup_repetitions": 0,
+      "order": [
+        [
+          1,
+          "snail-wasm-untyped"
+        ],
+        [
+          1,
+          "snail-native-untyped"
+        ],
+        [
+          1,
+          "snail-wasm-i32"
+        ],
+        [
+          1,
+          "snail-native-i32"
+        ],
+        [
+          1,
+          "chez-safe-O2"
+        ],
+        [
+          1,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-native-untyped"
+        ],
+        [
+          2,
+          "snail-wasm-i32"
+        ],
+        [
+          2,
+          "snail-native-i32"
+        ],
+        [
+          2,
+          "chez-safe-O2"
+        ],
+        [
+          2,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-wasm-i32"
+        ],
+        [
+          3,
+          "snail-native-i32"
+        ],
+        [
+          3,
+          "chez-safe-O2"
+        ],
+        [
+          3,
+          "chibi"
+        ],
+        [
+          3,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-native-i32"
+        ],
+        [
+          4,
+          "chez-safe-O2"
+        ],
+        [
+          4,
+          "chibi"
+        ],
+        [
+          4,
+          "snail-wasm-untyped"
+        ],
+        [
+          4,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "chez-safe-O2"
+        ],
+        [
+          5,
+          "chibi"
+        ],
+        [
+          5,
+          "snail-wasm-untyped"
+        ],
+        [
+          5,
+          "snail-native-untyped"
+        ],
+        [
+          5,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chibi"
+        ],
+        [
+          6,
+          "snail-wasm-untyped"
+        ],
+        [
+          6,
+          "snail-native-untyped"
+        ],
+        [
+          6,
+          "snail-wasm-i32"
+        ],
+        [
+          6,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "snail-wasm-untyped"
+        ],
+        [
+          7,
+          "snail-native-untyped"
+        ],
+        [
+          7,
+          "snail-wasm-i32"
+        ],
+        [
+          7,
+          "snail-native-i32"
+        ],
+        [
+          7,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-native-untyped"
+        ],
+        [
+          8,
+          "snail-wasm-i32"
+        ],
+        [
+          8,
+          "snail-native-i32"
+        ],
+        [
+          8,
+          "chez-safe-O2"
+        ],
+        [
+          8,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-wasm-untyped"
+        ]
+      ],
+      "variants": {
+        "snail-wasm-untyped": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-untyped.wasm"
+          ],
+          "seconds": [
+            0.392485,
+            0.392444,
+            0.392449,
+            0.392567,
+            0.392422,
+            0.392608,
+            0.392877,
+            0.39283
+          ],
+          "median_seconds": 0.392526,
+          "bytes": 296946,
+          "sha256": "f8d439374ef58a3f79eeee67edf6bdb56405ae1580b6dfd191479dde46d584cd",
+          "emitted_single_calls": 354,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 0
+        },
+        "snail-native-untyped": {
+          "command": [
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-untyped"
+          ],
+          "seconds": [
+            0.599643,
+            0.599642,
+            0.599718,
+            0.599933,
+            0.599958,
+            0.599983,
+            0.599855,
+            0.599627
+          ],
+          "median_seconds": 0.5997865,
+          "bytes": 2897840,
+          "sha256": "cb392f1c8eb30ea91f62f378df37d53ec362c950090c680879d7f87f57fc6e37"
+        },
+        "snail-wasm-i32": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-i32.wasm"
+          ],
+          "seconds": [
+            0.173933,
+            0.173734,
+            0.17364,
+            0.173912,
+            0.173773,
+            0.173754,
+            0.173981,
+            0.173913
+          ],
+          "median_seconds": 0.1738425,
+          "bytes": 296769,
+          "sha256": "e1009fe8d1fd6484765560488b0205e173b8f7c9f2ab1985c973da4762e067f9",
+          "emitted_single_calls": 345,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 1
+        },
+        "snail-native-i32": {
+          "command": [
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-i32"
+          ],
+          "seconds": [
+            0.111177,
+            0.111305,
+            0.111525,
+            0.111576,
+            0.110699,
+            0.111052,
+            0.111473,
+            0.111457
+          ],
+          "median_seconds": 0.11138100000000001,
+          "bytes": 2897656,
+          "sha256": "2f0b018c3d74710168b068d1b602b92d2d5f236340682cef6ad9c5b193325101"
+        },
+        "chez-safe-O2": {
+          "command": [
+            "scheme",
+            "--program",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-chez.so"
+          ],
+          "seconds": [
+            0.113792,
+            0.109799,
+            0.113919,
+            0.109719,
+            0.113714,
+            0.111595,
+            0.113854,
+            0.114006
+          ],
+          "median_seconds": 0.11375299999999999,
+          "bytes": 10398,
+          "sha256": "67e09e4c3d692318e0a0dca7c2bee5afe5c8bfb244bc70e6295b442762598593"
+        },
+        "chibi": {
+          "command": [
+            "chibi-scheme",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/fibonacci-untyped.scm"
+          ],
+          "seconds": [
+            2.075,
+            2.117,
+            2.09,
+            2.113,
+            2.11,
+            2.114,
+            2.105,
+            2.087
+          ],
+          "median_seconds": 2.1075,
+          "bytes": 4569,
+          "sha256": "25572ddf258214b4f1daa8702bf3a059f38a43917af56fa7db7679012fc0fd3d"
+        }
+      }
+    },
+    {
+      "workload": "tail-fibonacci",
+      "repetitions": 1048576,
+      "checksum": 4409231671296,
+      "warmup_repetitions": 1048576,
+      "order": [
+        [
+          1,
+          "snail-wasm-untyped"
+        ],
+        [
+          1,
+          "snail-native-untyped"
+        ],
+        [
+          1,
+          "snail-wasm-i32"
+        ],
+        [
+          1,
+          "snail-native-i32"
+        ],
+        [
+          1,
+          "chez-safe-O2"
+        ],
+        [
+          1,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-native-untyped"
+        ],
+        [
+          2,
+          "snail-wasm-i32"
+        ],
+        [
+          2,
+          "snail-native-i32"
+        ],
+        [
+          2,
+          "chez-safe-O2"
+        ],
+        [
+          2,
+          "chibi"
+        ],
+        [
+          2,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-wasm-i32"
+        ],
+        [
+          3,
+          "snail-native-i32"
+        ],
+        [
+          3,
+          "chez-safe-O2"
+        ],
+        [
+          3,
+          "chibi"
+        ],
+        [
+          3,
+          "snail-wasm-untyped"
+        ],
+        [
+          3,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-native-i32"
+        ],
+        [
+          4,
+          "chez-safe-O2"
+        ],
+        [
+          4,
+          "chibi"
+        ],
+        [
+          4,
+          "snail-wasm-untyped"
+        ],
+        [
+          4,
+          "snail-native-untyped"
+        ],
+        [
+          4,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "chez-safe-O2"
+        ],
+        [
+          5,
+          "chibi"
+        ],
+        [
+          5,
+          "snail-wasm-untyped"
+        ],
+        [
+          5,
+          "snail-native-untyped"
+        ],
+        [
+          5,
+          "snail-wasm-i32"
+        ],
+        [
+          5,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chibi"
+        ],
+        [
+          6,
+          "snail-wasm-untyped"
+        ],
+        [
+          6,
+          "snail-native-untyped"
+        ],
+        [
+          6,
+          "snail-wasm-i32"
+        ],
+        [
+          6,
+          "snail-native-i32"
+        ],
+        [
+          6,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "snail-wasm-untyped"
+        ],
+        [
+          7,
+          "snail-native-untyped"
+        ],
+        [
+          7,
+          "snail-wasm-i32"
+        ],
+        [
+          7,
+          "snail-native-i32"
+        ],
+        [
+          7,
+          "chez-safe-O2"
+        ],
+        [
+          7,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-native-untyped"
+        ],
+        [
+          8,
+          "snail-wasm-i32"
+        ],
+        [
+          8,
+          "snail-native-i32"
+        ],
+        [
+          8,
+          "chez-safe-O2"
+        ],
+        [
+          8,
+          "chibi"
+        ],
+        [
+          8,
+          "snail-wasm-untyped"
+        ]
+      ],
+      "variants": {
+        "snail-wasm-untyped": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-untyped.wasm"
+          ],
+          "seconds": [
+            0.290455,
+            0.290022,
+            0.289757,
+            0.289694,
+            0.289501,
+            0.289758,
+            0.289248,
+            0.289192
+          ],
+          "median_seconds": 0.28972549999999997,
+          "bytes": 297262,
+          "sha256": "30f51585441ed8eef5be07f8167722cbce4c9a7bd4b4f101cc574d5b55deffc4",
+          "emitted_single_calls": 356,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 0
+        },
+        "snail-native-untyped": {
+          "command": [
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-untyped"
+          ],
+          "seconds": [
+            0.556895,
+            0.55683,
+            0.557454,
+            0.553782,
+            0.554016,
+            0.555828,
+            0.553763,
+            0.552232
+          ],
+          "median_seconds": 0.5549219999999999,
+          "bytes": 2899512,
+          "sha256": "bdc89eeb6debb7f24d9126badd596d75f9cda5ffb793716d5c20b110d3a5c82e"
+        },
+        "snail-wasm-i32": {
+          "command": [
+            "node",
+            "--no-warnings",
+            "scripts/run-wasi.mjs",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-i32.wasm"
+          ],
+          "seconds": [
+            0.115261,
+            0.1148,
+            0.114703,
+            0.114503,
+            0.113892,
+            0.114409,
+            0.114625,
+            0.115182
+          ],
+          "median_seconds": 0.114664,
+          "bytes": 297271,
+          "sha256": "86e484046b6349a9afde02b6ef321b536ee9f959621045e2fd9a6414a2f8fa78",
+          "emitted_single_calls": 346,
+          "integer_helper_calls": 5,
+          "string_helper_calls": 0,
+          "record_helper_calls": 0,
+          "i32_workers": 1
+        },
+        "snail-native-i32": {
+          "command": [
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-i32"
+          ],
+          "seconds": [
+            0.312651,
+            0.303076,
+            0.302075,
+            0.301847,
+            0.302656,
+            0.300726,
+            0.300824,
+            0.299335
+          ],
+          "median_seconds": 0.301961,
+          "bytes": 2899560,
+          "sha256": "1e12be8428bf275205e449a7fe4b538b068787cb7e3356c6aeb603eafdde8317"
+        },
+        "chez-safe-O2": {
+          "command": [
+            "scheme",
+            "--program",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-chez.so"
+          ],
+          "seconds": [
+            0.060798,
+            0.065557,
+            0.062445,
+            0.056704,
+            0.061323,
+            0.057341,
+            0.061144,
+            0.060959
+          ],
+          "median_seconds": 0.061051499999999995,
+          "bytes": 10944,
+          "sha256": "1d80b621af6793313e4b27ed89f731040c856a0299a0faab77b3b323374c03be"
+        },
+        "chibi": {
+          "command": [
+            "chibi-scheme",
+            "/tmp/snail-chez-chibi-comparison-20261011/build/scheme-comparison/tail-fibonacci-untyped.scm"
+          ],
+          "seconds": [
+            2.254,
+            2.271,
+            2.259,
+            2.256,
+            2.265,
+            2.292,
+            2.216,
+            2.208
+          ],
+          "median_seconds": 2.2575,
+          "bytes": 4717,
+          "sha256": "27b04a5dbeca97d9f41739944554ee4c2c95d4242703d8546cb6d8da4df28625"
+        }
+      }
+    }
+  ]
+}

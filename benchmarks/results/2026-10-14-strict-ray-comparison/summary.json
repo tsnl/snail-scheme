@@ -1,0 +1,132 @@
+{
+  "kind": "Clean full-count four-system Ray comparison; replay checks excluded",
+  "count": 50,
+  "resolution": 1,
+  "extent": 100,
+  "spheres": 33,
+  "executions": 20,
+  "retained_per_variant": 4,
+  "cpu": 5,
+  "identities": 349,
+  "all_identities_unchanged": true,
+  "results": {
+    "strict": {
+      "workload_seconds": {
+        "samples": [
+          0.12792689,
+          0.131207217,
+          0.129094972,
+          0.128727882
+        ],
+        "median": 0.128911427,
+        "min": 0.12792689,
+        "max": 0.131207217
+      },
+      "process_seconds": {
+        "samples": [
+          0.1509307170053944,
+          0.15444226999534294,
+          0.15283747494686395,
+          0.15176717500435188
+        ],
+        "median": 0.15230232497560792,
+        "min": 0.1509307170053944,
+        "max": 0.15444226999534294
+      }
+    },
+    "original-chez": {
+      "workload_seconds": {
+        "samples": [
+          0.849886133,
+          0.846461987,
+          0.84938195,
+          0.848184495
+        ],
+        "median": 0.8487832225,
+        "min": 0.846461987,
+        "max": 0.849886133
+      },
+      "process_seconds": {
+        "samples": [
+          0.8813007510034367,
+          0.8778550020069815,
+          0.8811316040228121,
+          0.8792692529968917
+        ],
+        "median": 0.8802004285098519,
+        "min": 0.8778550020069815,
+        "max": 0.8813007510034367
+      }
+    },
+    "adapted-chez": {
+      "workload_seconds": {
+        "samples": [
+          0.796017246,
+          0.791982068,
+          0.797585978,
+          0.798219495
+        ],
+        "median": 0.796801612,
+        "min": 0.791982068,
+        "max": 0.798219495
+      },
+      "process_seconds": {
+        "samples": [
+          0.8269297869992442,
+          0.8233525849645957,
+          0.8281321829999797,
+          0.8288848050287925
+        ],
+        "median": 0.827530984999612,
+        "min": 0.8233525849645957,
+        "max": 0.8288848050287925
+      }
+    },
+    "rust-wasm": {
+      "workload_seconds": {
+        "samples": [
+          0.053750718,
+          0.054235857,
+          0.054089457,
+          0.053908736
+        ],
+        "median": 0.053999096499999996,
+        "min": 0.053750718,
+        "max": 0.054235857
+      },
+      "process_seconds": {
+        "samples": [
+          0.0784881139989011,
+          0.07847815699642524,
+          0.0771027939626947,
+          0.07807054201839492
+        ],
+        "median": 0.07827434950741008,
+        "min": 0.0771027939626947,
+        "max": 0.0784881139989011
+      }
+    }
+  },
+  "strict_time_ratios": {
+    "original-chez": 0.1518779160364471,
+    "adapted-chez": 0.1617861021596427,
+    "rust-wasm": 2.3872885910229997
+  },
+  "started_utc": "2026-10-14T11:23:20.547146+00:00",
+  "finished_utc": "2026-10-14T11:23:30.311006+00:00",
+  "output": {
+    "relative_path": "outputs/ray.output",
+    "initial_state": "absent, prepared before process/workload",
+    "bytes": 29517,
+    "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d",
+    "validation_boundary": "after stopped clock",
+    "expected_full_lifecycle": {
+      "opens": 50,
+      "unlinks": 49,
+      "closes": 50
+    }
+  },
+  "compiler_commit": "053a8d85860be536095247e3217db60c45908a70",
+  "driver_sha256": "13009bfc5ab0111e916dd2a450022bb21f2268743dacd789321e112eae91dd97",
+  "raw_sha256": "5c66ce1e03fd200011b25e1b1abf28987663c20e0c3b29fa15c56add70b770dd"
+}

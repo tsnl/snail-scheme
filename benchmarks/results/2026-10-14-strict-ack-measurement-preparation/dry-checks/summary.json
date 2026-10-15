@@ -1,0 +1,580 @@
+{
+  "passed": true,
+  "benchmark_processes_started": 0,
+  "timer_diagnostic_processes_already_completed": 7,
+  "planned_processes": 56,
+  "predetermined_discards": 7,
+  "retained_processes": 49,
+  "plan_sha256": "becf183a5d71651b924229cd1dc389c6f46cd1bcf01e907889f2bcd59ed69311",
+  "runner_sha256": "320bda3ba13d3c2916aa920f3b53fa064e5c102491164fb26161f04f88856171",
+  "dry_path": {
+    "guest_processes_started": 0,
+    "transcript": "Verified fixed schedule, identities and supervisor imports; no guest started\n",
+    "existing_campaign_preserved": true
+  },
+  "identity_rejections": [
+    "changed-runner",
+    "changed-retention",
+    "changed-command"
+  ],
+  "complete_output_rejections": [
+    {
+      "system": "production-v8",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "{\"seconds\":1.112263658,\"result\":\"32764\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "truncated-output",
+      "stdout": "{\"seconds\":1.112263658,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "duplicate-clock",
+      "stdout": "{\"seconds\":1.112263658,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n{\"seconds\":1.112263658,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "unexpected-output",
+      "stdout": "{\"seconds\":1.112263658,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "nan-clock",
+      "stdout": "{\"seconds\":NaN,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "infinite-clock",
+      "stdout": "{\"seconds\":Infinity,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "overflow-clock",
+      "stdout": "{\"seconds\":1e999,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "negative-clock",
+      "stdout": "{\"seconds\":-1,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "zero-clock",
+      "stdout": "{\"seconds\":0,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "production-v8",
+      "case": "underflow-clock",
+      "stdout": "{\"seconds\":1e-999,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "{\"seconds\":1.116616242,\"result\":\"32764\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "truncated-output",
+      "stdout": "{\"seconds\":1.116616242,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "duplicate-clock",
+      "stdout": "{\"seconds\":1.116616242,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n{\"seconds\":1.116616242,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "unexpected-output",
+      "stdout": "{\"seconds\":1.116616242,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "nan-clock",
+      "stdout": "{\"seconds\":NaN,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "infinite-clock",
+      "stdout": "{\"seconds\":Infinity,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "overflow-clock",
+      "stdout": "{\"seconds\":1e999,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "negative-clock",
+      "stdout": "{\"seconds\":-1,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "zero-clock",
+      "stdout": "{\"seconds\":0,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native-final-v8",
+      "case": "underflow-clock",
+      "stdout": "{\"seconds\":1e-999,\"result\":\"32765\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "{\"result\":\"32764\",\"barriers\":0,\"seconds\":0.763089475}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "truncated-output",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":0.763089475}",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "duplicate-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":0.763089475}\n{\"result\":\"32765\",\"barriers\":0,\"seconds\":0.763089475}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "unexpected-output",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":0.763089475}\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "nan-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":NaN}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "infinite-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":Infinity}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "overflow-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":1e999}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "negative-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":-1}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "zero-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":0}\n",
+      "rejected": true
+    },
+    {
+      "system": "native64",
+      "case": "underflow-clock",
+      "stdout": "{\"result\":\"32765\",\"barriers\":0,\"seconds\":1e-999}\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "Running ack:3:12:1\nElapsed time: 0.821645345 seconds (0.822) for ack:3:12:1\n+!CSVLINE!+chez,ack:3:12:1,0.821645345\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "truncated-output",
+      "stdout": "Running ack:3:12:2\nElapsed time: 0.821645345 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,0.821645345",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "duplicate-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: 0.821645345 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,0.821645345\n+!CSVLINE!+chez,ack:3:12:2,0.821645345\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "unexpected-output",
+      "stdout": "Running ack:3:12:2\nElapsed time: 0.821645345 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,0.821645345\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "nan-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: NaN seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,NaN\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "infinite-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: Infinity seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,Infinity\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "overflow-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: 1e999 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,1e999\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "negative-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: -1 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,-1\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "zero-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: 0 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,0\n",
+      "rejected": true
+    },
+    {
+      "system": "chez-original",
+      "case": "underflow-clock",
+      "stdout": "Running ack:3:12:2\nElapsed time: 1e-999 seconds (0.822) for ack:3:12:2\n+!CSVLINE!+chez,ack:3:12:2,1e-999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "Result: 32764\n+!CSVLINE!+rust-wasm,ack:2,0.865748585\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "truncated-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.865748585",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "duplicate-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.865748585\n+!CSVLINE!+rust-wasm,ack:2,0.865748585\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "unexpected-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.865748585\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "nan-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,NaN\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "infinite-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,Infinity\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "overflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "negative-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,-1\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "zero-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-recursive",
+      "case": "underflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e-999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "Result: 32764\n+!CSVLINE!+rust-wasm,ack:2,0.488497355\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "truncated-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.488497355",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "duplicate-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.488497355\n+!CSVLINE!+rust-wasm,ack:2,0.488497355\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "unexpected-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0.488497355\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "nan-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,NaN\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "infinite-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,Infinity\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "overflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "negative-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,-1\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "zero-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-native-heap",
+      "case": "underflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e-999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "wrong-result-or-complete-unit",
+      "stdout": "Result: 32764\n+!CSVLINE!+rust-wasm,ack:2,1.865789019\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "truncated-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1.865789019",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "duplicate-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1.865789019\n+!CSVLINE!+rust-wasm,ack:2,1.865789019\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "unexpected-output",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1.865789019\nunexpected\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "nan-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,NaN\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "infinite-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,Infinity\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "overflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e999\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "negative-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,-1\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "zero-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,0\n",
+      "rejected": true
+    },
+    {
+      "system": "rust-wasm-heap",
+      "case": "underflow-clock",
+      "stdout": "Result: 32765\n+!CSVLINE!+rust-wasm,ack:2,1e-999\n",
+      "rejected": true
+    }
+  ],
+  "process_record_rejections": [
+    "unsuccessful-exit",
+    "stderr",
+    "timeout",
+    "live-descendant",
+    "live-cleanup-member",
+    "zero-process-clock",
+    "nonfinite-process-clock"
+  ],
+  "owned_lifecycle_diagnostics": [
+    {
+      "fixture": "unsuccessful-exit",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+        "-I",
+        "-B",
+        "-c",
+        "import sys\nprint(\"controlled failure\")\nsys.exit(7)\n"
+      ],
+      "diagnostic_only": true,
+      "status": "recorded",
+      "pid": 3,
+      "process_group": 3,
+      "returncode": 7,
+      "stdout": "controlled failure\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.010333137004636228,
+      "cleanup": {
+        "process_group": 3,
+        "live_members": [],
+        "leader_reaped": true,
+        "capture_handles_closed": true,
+        "zombies_count_as_stopped": true
+      },
+      "stop_signal": null
+    },
+    {
+      "fixture": "timeout-descendant",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+        "-I",
+        "-B",
+        "-c",
+        "import os,time\npid=os.fork()\nif pid==0:\n os.close(0);os.close(1);os.close(2);time.sleep(60)\nelse:\n print(pid,flush=True);time.sleep(60)\n"
+      ],
+      "diagnostic_only": true,
+      "status": "recorded",
+      "pid": 4,
+      "process_group": 4,
+      "returncode": -9,
+      "stdout": "5\n",
+      "stderr": "",
+      "timeout": true,
+      "executing_descendants": [],
+      "process_seconds": 0.22170482302317396,
+      "cleanup": {
+        "process_group": 4,
+        "live_members": [],
+        "leader_reaped": true,
+        "capture_handles_closed": true,
+        "zombies_count_as_stopped": true
+      },
+      "stop_signal": null
+    },
+    {
+      "fixture": "SIGINT",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+        "-I",
+        "-B",
+        "-c",
+        "import os,signal,time\nprint(\"stop fixture\",flush=True)\nos.kill(os.getppid(),2)\ntime.sleep(0.05)\n"
+      ],
+      "diagnostic_only": true,
+      "status": "recorded",
+      "pid": 6,
+      "process_group": 6,
+      "returncode": 0,
+      "stdout": "stop fixture\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.06156530504813418,
+      "cleanup": {
+        "process_group": 6,
+        "live_members": [],
+        "leader_reaped": true,
+        "capture_handles_closed": true,
+        "zombies_count_as_stopped": true
+      },
+      "stop_error": "KeyboardInterrupt('received SIGINT')",
+      "stop_signal": 2
+    },
+    {
+      "fixture": "SIGTERM",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/b5bpi6zfajzzrwwpgba2q6li3nnya4bs-python3-3.14.7/bin/python3.14",
+        "-I",
+        "-B",
+        "-c",
+        "import os,signal,time\nprint(\"stop fixture\",flush=True)\nos.kill(os.getppid(),15)\ntime.sleep(0.05)\n"
+      ],
+      "diagnostic_only": true,
+      "status": "recorded",
+      "pid": 7,
+      "process_group": 7,
+      "returncode": 0,
+      "stdout": "stop fixture\n",
+      "stderr": "",
+      "timeout": false,
+      "executing_descendants": [],
+      "process_seconds": 0.061932778044138104,
+      "cleanup": {
+        "process_group": 7,
+        "live_members": [],
+        "leader_reaped": true,
+        "capture_handles_closed": true,
+        "zombies_count_as_stopped": true
+      },
+      "stop_error": "KeyboardInterrupt('received SIGTERM')",
+      "stop_signal": 15
+    }
+  ],
+  "all_diagnostic_handles_terminal": true
+}

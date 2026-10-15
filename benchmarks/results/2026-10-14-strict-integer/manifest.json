@@ -1,0 +1,31 @@
+{
+  "compiler_base": "5b61de743c4d533eb82da837e53687b4fa6d3c1c",
+  "diagnostic_only": true,
+  "files": {
+    "src/snail/integer.sld": "9838b7363d271432e194c045aef1d09c345675c5dad67765e3c899b0de143989",
+    "scripts/test-strict-integer": "d82d1db0e0676ee7bebfc22ef68d37bad0791902c7bd69a2c6e0ca0d5e2a4a54",
+    "tests/strict-integer/oracle-provider.c": "29c2afd8b9ab5fda771a1760fff842efd0bacfc3822479d8f8b4a5aae542e592",
+    "tests/strict-integer/oracle.scm": "755b993543767d143fc6043e59afef93b9941a9055267dba83d5d1f6e8705bb7",
+    "tests/strict-integer/oracle.c": "1314c52978bb167e53fd1104918a2f8a08c394bc024bf5bf097220227e373952",
+    "tests/strict-integer/oracle.h": "be4f710c183497173f952f9b5784d961b63094807fc96d1c55cbdfa9221160ad",
+    "tests/strict-integer/oracle.mjs": "e5959191249afe61759f060701728042696bd7b19b3f15a864d47f02d0ed178f",
+    "benchmarks/strict-suite/integer-provider.h": "1bf30fdce06db48eb23a7b654e8624e3c9806b62c0effa95e46e890d389562d2",
+    "benchmarks/strict-suite/integer_ports.py": "5a06e5086ac47e280af83374eb8836676aac3cb56d9bf4f802fa154c857d216f",
+    "benchmarks/strict-suite/integer-provider.c": "dec4c1ad8db4083c0a857c3c27fa1172b04bb525bf3519b8a984b189cbd95ea6",
+    "benchmarks/strict-suite/integer-host.mjs": "15a719c9c9d1f97742231767567a5308ebed043e802492beb58639b4167e8ee4",
+    "benchmarks/strict-suite/integer-entry.c": "d3a2ee68cf1150b1675bd66da6677a53d4a0dbfbf6471d917b430089d67ab071"
+  },
+  "artifacts": {
+    "arithmetic.tar.gz": "5bae18438d49794561c80de48da0bdcaf694f02596f419a226dc71605fbfccb6",
+    "pi.tar.gz": "191db3307aa045b872531a13abecf8a0abb76f5af7583caa1425b19dcaf8bd4e",
+    "chudnovsky.tar.gz": "27828537818bedc9053d44d946fc634a14152cf22c751031c4e337f1b044711c"
+  },
+  "tool_paths": {
+    "chibi": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "node": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "binaryen": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin",
+    "chez": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme"
+  },
+  "library_commit": "820e9f9",
+  "corpus_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1"
+}

@@ -1,0 +1,48 @@
+{
+  "started_utc": "2026-10-14T03:33:42.750002+00:00",
+  "cpu_holds": [
+    "strict_direct_calls: finished, no processes",
+    "strict_algebraic_data: confirmed, no live processes",
+    "rust_full_benchmark_suite: confirmed, no live processes"
+  ],
+  "jobs": [
+    {
+      "name": "quicksort",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+        "quicksort",
+        "/tmp/strict-quicksort-frozen-final-5894df7",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/clean-quicksort.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "graphs",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+        "graphs",
+        "/tmp/snail-strict-enumeration-preparation-20261013",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/graphs/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/clean-graphs.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "mperm",
+      "command": [
+        "/run/current-system/sw/bin/python3",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+        "mperm",
+        "/tmp/snail-strict-enumeration-preparation-20261013",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/clean-mperm.json"
+      ],
+      "returncode": 0
+    }
+  ],
+  "complete": true,
+  "finished_utc": "2026-10-14T03:38:59.669163+00:00"
+}

@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Check completed and abandoned trace files in Chibi and linked Wasm."""
+
+import argparse
+import json
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/chromium-trace-tests"
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+NAME = 'quote" slash\\ line\n tab\t λ\0'
+
+
+# ---- Recorded output and errors ----
+
+
+def check_files(directory):
+    outer, inner, empty = [json.loads((directory / name).read_text())
+                           for name in ("outer.json", "inner.json", "empty.json")]
+    metadata = {"ph": "M", "pid": 1, "tid": 1, "name": "thread_name", "args": {"name": "Scheme"}}
+    assert outer[0] == inner[0] == empty[0] == metadata
+    assert len(empty) == 1
+    assert [event["name"] for event in outer[1:]] == [NAME, "zero", "single", "after", "outer"]
+    assert [event["name"] for event in inner[1:]] == ["inner"]
+    for event in [*outer[1:], *inner[1:]]:
+        assert event["ph"] == "X" and event["pid"] == 1 and event["tid"] == 1
+        assert isinstance(event["ts"], int) and event["ts"] >= 0
+        assert isinstance(event["dur"], int) and event["dur"] >= 0
+    parent = outer[-1]
+    assert all(parent["ts"] <= event["ts"] <= parent["ts"] + parent["dur"] for event in outer[1:-1])
+
+
+def check_abort(command, directory):
+    result = subprocess.run([*command, str(directory), "abort"], cwd=ROOT,
+                            text=True, capture_output=True)
+    assert result.returncode != 0 and not result.stdout
+    assert "expected failure" in result.stderr, result.stderr
+    recorded = (directory / "outer.json").read_text()
+    assert not recorded.rstrip().endswith("]"), recorded
+    # Complete the abandoned file's array solely to inspect its written prefix.
+    events = json.loads(recorded + "\n]")
+    assert [event["name"] for event in events] == ["thread_name", "completed"]
+
+
+def check_execution(command):
+    with tempfile.TemporaryDirectory(prefix="trace files ", dir=BUILD) as name:
+        directory = Path(name)
+        result = subprocess.run([*command, name], cwd=ROOT, text=True, capture_output=True)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "trace file checks passed\n", result.stdout
+        check_files(directory)
+        check_abort(command, directory)
+        failure = subprocess.run([*command, str(directory / "absent")], cwd=ROOT,
+                                 text=True, capture_output=True)
+        assert failure.returncode != 0 and not failure.stdout
+    assert not result.stderr, result.stderr
+    failure = subprocess.run([*command, "unbound"], cwd=ROOT, text=True, capture_output=True)
+    assert failure.returncode != 0 and not failure.stdout
+    assert "chromium-trace: no active with-chromium-trace-to scope" in failure.stderr, failure.stderr
+
+
+# ---- Host and compiled execution ----
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", choices=("wasm",), default="wasm")
+    target = parser.parse_args().target
+    BUILD.mkdir(parents=True, exist_ok=True)
+    source = ROOT / "tests/programs/chromium-trace.scm"
+    check_execution([CHIBI, "-I", str(ROOT / "src"), str(source)])
+    print("passed Chibi: Chromium trace decorator", flush=True)
+    wasm = BUILD / "trace.wasm"
+    subprocess.run([CHIBI, "-I", str(ROOT / "src"), str(ROOT / "tests/build-program.scm"),
+                    str(ROOT), str(source), str(wasm)], cwd=ROOT, check=True)
+    check_execution([os.environ.get("NODE", "node"), "--no-warnings",
+                     str(ROOT / "scripts/run-wasi.mjs"), str(wasm)])
+    print("passed Wasm: Chromium trace decorator", flush=True)
+
+
+
+if __name__ == "__main__":
+    main()

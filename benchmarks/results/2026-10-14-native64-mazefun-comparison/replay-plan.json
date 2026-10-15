@@ -1,0 +1,55 @@
+{
+  "commands": {
+    "native": [
+      "files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/mazefun-native"
+    ],
+    "v8": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/host.mjs",
+      "files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/common.wasm",
+      "files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/spec.json"
+    ]
+  },
+  "cwd": "A new private directory per executor.",
+  "count": 10000,
+  "inputs": [
+    11,
+    11
+  ],
+  "expected_result": "1",
+  "predicate": "Result kind, row count, all 11 row lengths and all 121 cell marks; imported expected encoding has 134 carriers.",
+  "external_identities": {
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+    "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+    "/run/current-system/sw/bin/cargo": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+    "/run/current-system/sw/bin/clang": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+    "/run/current-system/sw/bin/ld.lld": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/ld-linux-x86-64.so.2": "0e470f96e41ddd98ac964b3b729df0becfa7562c8ba78ab3cab1822fa5498d23",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libc.so.6": "8334bf4b6c5ab4939cab40f9c9594d0756d10dc6df3e5603593d223f7c538b02",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libdl.so.2": "16bb95daa07411d2815ea7314092b9b8de4b1d1777a290d47b691c7883ae075d",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libm.so.6": "6b750bd68b01a4205569d14d2952c3ada4fdf0316a875d02a59d2f680dc5f205",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libpthread.so.0": "74459e8919cf4d93b3c0c5ebf8a1b670d9cc8b3494a4d401c56aaa636bcbbf19",
+    "/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib64/ld-linux-x86-64.so.2": "0e470f96e41ddd98ac964b3b729df0becfa7562c8ba78ab3cab1822fa5498d23",
+    "/nix/store/ssvq1r0xd8f7paf6zqgpfql1a4drwhy2-xgcc-15.3.0-libgcc/lib/libgcc_s.so.1": "ae2bd6022e9a79c88e58327b50f3f2f78bf70ad26ceedd238b9f3e218379740c"
+  },
+  "removed_environment": [
+    "NODE_OPTIONS",
+    "NODE_V8_COVERAGE",
+    "NODE_DEBUG",
+    "NODE_DEBUG_NATIVE",
+    "SNAIL_ARTIFACT_ROOT"
+  ],
+  "removed_prefixes": [
+    "SNAIL_GC_",
+    "SNAIL_NATIVE_",
+    "SNAIL_MAZEFUN_"
+  ],
+  "timing_scope": "Relocated correctness only; no new performance observations.",
+  "archive_path_rule": "Resolve every files/ argument below the replay destination; absolute external tool/library paths stay unchanged."
+}

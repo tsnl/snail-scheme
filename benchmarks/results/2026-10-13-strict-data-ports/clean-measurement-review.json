@@ -1,0 +1,79 @@
+{
+  "all_12_observations_valid": true,
+  "verified_payload_files": 65,
+  "workload_seconds": {
+    "chez": [
+      2.624972106,
+      2.641794833,
+      2.639820351
+    ],
+    "chez-adapted": [
+      2.628924814,
+      2.642137283,
+      2.63117581
+    ],
+    "strict": [
+      2.929879041,
+      2.911553566,
+      2.91198551
+    ]
+  },
+  "medians": {
+    "chez": 2.639820351,
+    "chez-adapted": 2.63117581,
+    "strict": 2.91198551
+  },
+  "strict_over_original": 1.1030998790871887,
+  "strict_over_adapted": 1.106724035289759,
+  "order": [
+    [
+      -1,
+      "strict"
+    ],
+    [
+      -1,
+      "chez"
+    ],
+    [
+      -1,
+      "chez-adapted"
+    ],
+    [
+      0,
+      "chez"
+    ],
+    [
+      0,
+      "chez-adapted"
+    ],
+    [
+      0,
+      "strict"
+    ],
+    [
+      1,
+      "chez-adapted"
+    ],
+    [
+      1,
+      "strict"
+    ],
+    [
+      1,
+      "chez"
+    ],
+    [
+      2,
+      "strict"
+    ],
+    [
+      2,
+      "chez"
+    ],
+    [
+      2,
+      "chez-adapted"
+    ]
+  ],
+  "timing_result_sha256": "5fb82eec12135ea386a95855c7e6a7af1bd909f78f9690c8852323113fdb5730"
+}

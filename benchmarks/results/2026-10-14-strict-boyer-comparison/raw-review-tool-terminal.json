@@ -1,0 +1,8 @@
+{
+  "terminal": true,
+  "exit_code": 0,
+  "actual_tool_chunk": "e02db3",
+  "passed": true,
+  "processes": 112,
+  "scope": "Read-only post-terminal audit; no guest/build/compression. Recomputed every raw frame, source/dependency identity, schedule, wait/cleanup status and all descriptive statistics."
+}

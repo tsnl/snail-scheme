@@ -1,0 +1,10 @@
+[
+  {
+    "stage": "report metadata inspection",
+    "workload_executed": false,
+    "command": "list(f['identities'].items())[:5]",
+    "returncode": 1,
+    "stderr": "AttributeError: 'list' object has no attribute 'items'",
+    "resolution": "Read the frozen identity list directly; no artifact or source changed."
+  }
+]

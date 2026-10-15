@@ -1,0 +1,28 @@
+{
+  "make_check": {
+    "exit_code": 0,
+    "scope": "Scheme formatting, frontend line limits and nixfmt"
+  },
+  "archive": {
+    "files": 470,
+    "restore_passed": true
+  },
+  "clean": {
+    "executions": 20,
+    "identities": 349,
+    "unchanged": true,
+    "all_images_exact": true
+  },
+  "replay": {
+    "executions": 4,
+    "count": 50,
+    "all_images_exact": true,
+    "performance_samples": false
+  },
+  "review": "Fresh no-files explanation plus informed critique; parent reviewed adapted measurement driver.",
+  "git_diff_check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+}

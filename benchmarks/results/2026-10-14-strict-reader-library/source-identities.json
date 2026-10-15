@@ -1,0 +1,18 @@
+{
+  "src/snail/datum.sld": "25a0059c15fb3e89170dd5652d27a0f700bffe3216ceeee2db70a1144474dcd7",
+  "src/snail/read.sld": "136c8d211586c6592f3ad88ea88a0d9f58184ce130ebcc99b5acaca75c4d308e",
+  "src/snail/io.sld": "6e159834f7889e41d5de2db0ae5ccf611d4bc02ef46d954281ed9b6af40f0551",
+  "src/strict_datum.rs": "a2b3de6190d528b3a41e16dc66b81ae9a55d103a1085c5ba54fc4f43dbdf23fd",
+  "src/symbols.rs": "ea19428f233f7254de7a221a31fcb439c0d22289f0bc92c17e81887a2105911c",
+  "src/strict_io.rs": "e5789318aa9795f2184c94e94592d5169722ae056deeaf10fccc130d27c6c664",
+  "src/datum.rs": "2c53424cc33773462f12e328d9b7c554d9ea671b2b39de5556c52eb903430b18",
+  "src/lib.rs": "84d6b86609b07fad3ee9e857503493ffcfdae38731c701e491ac8245329d611e",
+  "scripts/test-strict-reader": "57bd0eb27b370b8c7ad944d2f7e35f754a7c454fc01968c5722bfe011735faf8",
+  "tests/strict-reader/entry.c": "fcc8b6d6a7c4d1c8465a43b396417dc7f864c005005f603052a11ebc2f853abb",
+  "tests/strict-reader/observer.c": "dfc6b704aa8c9e9d4e77ad06ea7e43715f0a996c8b94a78609f52962ace165df",
+  "tests/strict-reader/observer.h": "5cd986826997a6d6384c2637ec9397fad07cd72de95bcb911344b1ac23e98c8e",
+  "tests/strict-reader/oracle.scm": "1aea932e229214f528fb667dae8ee676c0da31ca29982886c23eb5bb6659e1a7",
+  "tests/strict-reader/reader.scm": "96f670cd92db2130ec684fc108846399f5b65d0342ad9136778a838f1b442c6b",
+  "tests/strict-reader/run.mjs": "227bebac8f03ff10e5bb71fae9e14dfa67a2e25aec36d38732027abc11193bc1",
+  "tests/strict-reader/scalars.scm": "3bcc9f3e228a7092d56d2e29893a9be000bdadd59b48cfcbfe557d1e1860a1f8"
+}

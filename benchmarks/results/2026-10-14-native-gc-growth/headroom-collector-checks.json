@@ -1,0 +1,531 @@
+[
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-I",
+      "/tmp/snail-native-gc-growth-20261014/src",
+      "/tmp/snail-native-gc-growth-20261014/src/precise-gc.c",
+      "/tmp/snail-native-gc-growth-20261014/tests/precise-gc.c",
+      "-o",
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/precise-gc"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/precise-gc"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-I",
+      "/tmp/snail-native-gc-growth-20261014/src",
+      "/tmp/snail-native-gc-growth-20261014/src/precise-gc.c",
+      "/tmp/snail-native-gc-growth-20261014/tests/immix-gc.c",
+      "-o",
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/immix-gc"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/immix-gc"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/immix-gc",
+      "wrap"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/immix-gc",
+      "wrap-large"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/immix-gc",
+      "boundaries"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-I",
+      "/tmp/snail-native-gc-growth-20261014/src",
+      "/tmp/snail-native-gc-growth-20261014/src/precise-gc.c",
+      "/tmp/snail-native-gc-growth-20261014/tests/growing-gc.c",
+      "-Wl,--wrap=malloc,--wrap=calloc,--wrap=free,--wrap=mmap",
+      "-o",
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {},
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "growth"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "failure"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "bump"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "cap"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32896",
+      "SNAIL_GC_HEAP_BYTES": "327809"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "sizes"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768",
+      "SNAIL_GC_MIN_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "headroom"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "headroom-low"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "headroom-failure"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "headroom-large"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/native-tests/growing-gc",
+      "headroom-cap"
+    ],
+    "cwd": "/tmp/snail-native-gc-growth-20261014",
+    "environment": {
+      "SNAIL_GC_HEAP_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-I",
+      "src",
+      "src/precise-gc.c",
+      "tests/growing-gc.c",
+      "-Wl,--wrap=malloc,--wrap=calloc,--wrap=free,--wrap=mmap",
+      "-o",
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings"
+    ],
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "growth"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "bump"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "failure"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "cap"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32896",
+      "SNAIL_GC_HEAP_BYTES": "327809"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "sizes"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768",
+      "SNAIL_GC_MIN_BYTES": "32768"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "headroom"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "headroom-low"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "headroom-failure"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "headroom-large"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-warnings",
+      "headroom-cap"
+    ],
+    "environment": {
+      "SNAIL_GC_HEAP_BYTES": "131072"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O1",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-fno-omit-frame-pointer",
+      "-I",
+      "src",
+      "src/precise-gc.c",
+      "tests/growing-gc.c",
+      "-Wl,--wrap=malloc,--wrap=calloc,--wrap=free,--wrap=mmap",
+      "-o",
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize"
+    ],
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "growth"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "bump"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "failure"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "cap"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32896",
+      "SNAIL_GC_HEAP_BYTES": "327809",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "sizes"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "32768",
+      "SNAIL_GC_MIN_BYTES": "32768",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "headroom"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "headroom-low"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "headroom-failure"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "headroom-large"
+    ],
+    "environment": {
+      "SNAIL_GC_INITIAL_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/tmp/snail-native-gc-growth-20261014/build/gc-growth/growing-gc-headroom-sanitize",
+      "headroom-cap"
+    ],
+    "environment": {
+      "SNAIL_GC_HEAP_BYTES": "131072",
+      "ASAN_OPTIONS": "detect_leaks=0"
+    },
+    "status": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -1,121 +1,177 @@
 #!/usr/bin/env python3
-"""Compile each fixture once, verify its IR, and run native/WASI equivalents."""
+"""Compile Scheme fixtures to linked Wasm and execute them on V8."""
 
 import argparse
 import os
-from pathlib import Path
-import shutil
 import subprocess
 import sys
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build" / "backend-tests"
-TARGET_DIR = ROOT / os.environ.get("CARGO_TARGET_DIR", str(BUILD / "cargo"))
+BUILD = ROOT / "build/backend-tests"
 SUCCESSES = {
+    "backend-wasmgc": "",
     "backend-bootstrap": "bootstrap checks passed\n",
+    "backend-options": '("first.scm" "script.scm" "-Ithird" "--" "")\n'
+                       '(("-I" "second" "first") ("--output" . "a=b") '
+                       '("--file" "b" "a") ("-v" . 4) ("-h" . #f))\n',
+    "backend-binary": "binary IO checks passed\n",
+    "backend-numeric": "numeric instruction checks passed\n",
+    "backend-inexact": "inexact checks passed\n",
+    "backend-hash-tables": "hash table checks passed\n",
+    "backend-direct-calls": "direct call checks passed\n",
+    "backend-read": "datum input checks passed\n",
+    "backend-standard-library": "standard library checks passed\n",
+    "backend-numeric-rebinding": "numeric rebinding checks passed\n",
     "backend-semantics": "backend checks passed\n",
+    "backend-symbols": "symbol checks passed\n",
+    "backend-control": "control-flow checks passed\n",
+    "backend-iverson-ghost": "iverson-ghost checks passed\n",
+    "backend-iverson-rebinding": "iverson rebinding checks passed\n",
+    "backend-typeclasses": "typeclass checks passed\n",
+    "backend-typeclass-tensors": "typeclass tensor checks passed\n",
 }
 ERRORS = {
-    "arity": "procedure expected 1 arguments, received 0",
+    "arity": "wrong number of arguments",
     "uninitialized": "read of an uninitialized binding",
-    "values": "expected one value, received 2",
+    "values": "expected a single value",
     "overflow": "integer overflow",
+    "numeric-type": "expected a number",
+    "numeric-values": "expected a single value",
+    "numeric-arity": "wrong number of arguments",
+    "symbol-character": "incorrect value type",
+    "symbol-string": "expected [Symbol]",
+    "string-symbol": "string->symbol: expected a string",
+    "binary-range": "slice index out of range",
+    "binary-utf8": "invalid utf-8",
+    "hash-immutable": "immutable hash table",
+    "hash-missing": "hash table key not found",
+    "hash-invalid": "invalid hash value",
+    "hash-key-type": "hash table key type mismatch",
+    "hash-equality-mutation": "hash table structurally changed during callback",
+    "hash-traversal-mutation": "hash table structurally changed during callback",
+    "inexact-type": "expected [Integer, Real]",
+    "inexact-arity": "sqrt: expected 1..=1 arguments",
+    "inexact-optional-type": "expected [Integer, Real]",
+    "inexact-optional-arity": "atan: expected 1..=2 arguments",
+    "read-incomplete": "read: unexpected end of input",
+    "read-invalid": "read: extra datum after dotted tail",
+    "read-label": "read: datum label has no value",
+    "read-token": "read: invalid numeric token or identifier",
+    "exact-power-overflow": "exact integer overflow",
+    "power-invalid-base-zero": "expected [Integer, Real], found Boolean",
+    "power-type-order": "expected [Integer, Real], found Character",
+    "character-after-false": "expected [Character]",
+    "string-after-false": "expected a string",
+    "read-closed": "port is closed",
 }
+ARRAY_ERRORS = {
+    "complex-element": "expected [Integer, Real], found Complex",
+    "complex-scalar": "expected [Integer, Real], found Complex",
+    "empty-complex-scalar": "expected [Integer, Real], found Complex",
+    "complex-update": "expected [Integer, Real], found Complex",
+    "empty-complex-update": "expected [Integer, Real], found Complex",
+    "complex-i32-scalar": "i32 conversion requires an integer in range",
+}
+
+
+# ---- Compilation and execution ----
 
 
 def options():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", choices=("native", "wasm", "both"), default="both")
+    parser.add_argument("--target", choices=("wasm",), default="wasm")
     return parser.parse_args()
 
 
-def required_tool(variable, default):
-    executable = os.environ.get(variable, default)
-    if not shutil.which(executable):
-        raise RuntimeError(f"cannot find {executable}; set {variable} to its path")
-    return executable
+def checked(command):
+    subprocess.run([str(arg) for arg in command], cwd=ROOT, check=True)
 
 
-def checked(command, **kwargs):
-    subprocess.run(command, cwd=ROOT, check=True, **kwargs)
+def execution_command(name):
+    output = BUILD / f"{name}.wasm"
+    checked([os.environ.get("CHIBI", "chibi-scheme"), "-I", ROOT / "src",
+             ROOT / "tests/build-program.scm", ROOT, ROOT / "tests/programs" / f"{name}.scm", output])
+    return [os.environ.get("NODE", "node"), "--no-warnings",
+            str(ROOT / "scripts/run-wasi.mjs"), str(output)]
 
 
-def compile_fixture(name, opt):
-    source = ROOT / "tests" / "programs" / f"{name}.scm"
-    llvm = BUILD / f"{name}.ll"
-    print(f"compile and verify {name}", flush=True)
-    checked([str(ROOT / "snail-compile"), str(source), str(llvm)])
-    checked([opt, "-passes=verify", "-disable-output", str(llvm)])
-    return llvm
-
-
-def cargo_arguments(target):
-    command = ["cargo", "build", "--offline", "--quiet", "-p", "snail-runner"]
-    if target == "wasm":
-        command.extend(["--target", "wasm32-wasip1"])
-    return command
-
-
-def link_fixture(llvm, target):
-    environment = {**os.environ, "SNAIL_LLVM_IR": str(llvm),
-                   "CARGO_TARGET_DIR": str(TARGET_DIR)}
-    checked(cargo_arguments(target), env=environment)
-    suffix = "wasm32-wasip1/debug/snail-runner.wasm" if target == "wasm" else "debug/snail-runner"
-    return TARGET_DIR / suffix
-
-
-def execution_command(executable, target, node):
-    if target == "native":
-        return [str(executable)]
-    return [node, "--no-warnings", str(ROOT / "scripts" / "run-wasi.mjs"), str(executable)]
-
-
-def execute(command, arguments):
-    environment = {**os.environ, "SNAIL_GC_STRESS": "1"}
-    return subprocess.run(command + arguments, cwd=ROOT, env=environment,
-                          text=True, capture_output=True, timeout=120)
-
-
-def require_result(result, stdout, diagnostic):
+def require_result(command, stdout, diagnostic="", arguments=(), environment=None):
+    result = subprocess.run([*command, *arguments], cwd=ROOT, text=True,
+                            capture_output=True, check=False, timeout=120,
+                            env={**os.environ, **(environment or {})})
     status_matches = result.returncode != 0 if diagnostic else result.returncode == 0
     message_matches = diagnostic in result.stderr if diagnostic else not result.stderr
     if not status_matches or result.stdout != stdout or not message_matches:
-        raise RuntimeError(f"unexpected result: exit={result.returncode}\n"
-                           f"stdout={result.stdout!r}\nstderr={result.stderr!r}")
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\n"
+                           f"stderr={result.stderr!r}")
 
 
-def check_fixture(name, executable, target, node):
-    command = execution_command(executable, target, node)
-    if name in SUCCESSES:
-        require_result(execute(command, []), SUCCESSES[name], "")
-    else:
+def check_fixture(name):
+    command = execution_command(name)
+    if name == "backend-errors":
         for argument, diagnostic in ERRORS.items():
-            require_result(execute(command, [argument]), "", diagnostic)
-    print(f"passed {target}: {name} (GC stress)", flush=True)
+            require_result(command, "", diagnostic, [argument])
+    elif name == "backend-symbols":
+        for mode in ("literal-first", "dynamic-first", "reverse-first"):
+            require_result(command, SUCCESSES[name], arguments=[mode])
+        require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                        str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3", "literal-first"],
+                       SUCCESSES[name])
+    elif name == "backend-iverson-ghost":
+        require_result(command, SUCCESSES[name])
+        for argument, diagnostic in ARRAY_ERRORS.items():
+            require_result(command, "", diagnostic, [argument])
+        require_result([os.environ.get("NODE", "node"), "--no-warnings", "--expose-gc",
+                        str(ROOT / "tests/check-iverson-lifetimes.mjs"), command[-1]],
+                       SUCCESSES[name] + "Iverson buffer ownership and cleanup routing checks passed\n")
+    else:
+        require_result(command, SUCCESSES[name])
+    if name == "backend-hash-tables":
+        require_result([os.environ.get("NODE", "node"), "--no-warnings",
+                        str(ROOT / "tests/check-abi-roots.mjs"), command[-1], "3"], SUCCESSES[name])
+    print(f"passed Wasm: {name}", flush=True)
 
 
-def test_targets(names, targets, opt, node):
-    for name in names:
-        llvm = compile_fixture(name, opt)
-        for target in targets:
-            executable = link_fixture(llvm, target)
-            check_fixture(name, executable, target, node)
+def check_host_lifetime(name):
+    output = BUILD / f"{name}.wasm"
+    checked([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests" / f"{name}.wat",
+             "--enable-gc", "--enable-reference-types", "-o", output])
+    checked([os.environ.get("NODE", "node"), "--expose-gc",
+             ROOT / "tests" / f"check-{name}.mjs", output])
+
+
+def check_streaming_input():
+    command = execution_command("backend-read-stream")
+    with subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          text=True, encoding="utf-8") as process:
+        process.stdin.write("(λ 42)")
+        process.stdin.flush()
+        try: process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise
+        stdout, stderr = process.stdout.read(), process.stderr.read()
+        if process.returncode != 0 or stdout != "(λ 42)\n" or stderr:
+            raise RuntimeError(f"streaming read: exit={process.returncode}, {stdout!r}, {stderr!r}")
+    print("passed Wasm: stdin read before EOF", flush=True)
 
 
 def main():
-    target = options().target
-    targets = ("native", "wasm") if target == "both" else (target,)
-    node = required_tool("NODE", "node") if "wasm" in targets else None
-    opt = required_tool("LLVM_OPT", "opt")
+    options()
     BUILD.mkdir(parents=True, exist_ok=True)
-    test_targets([*SUCCESSES, "backend-errors"], targets, opt, node)
-    print("backend integration checks passed", flush=True)
+    for name in [*SUCCESSES, "backend-errors"]:
+        check_fixture(name)
+    check_streaming_input()
+    check_host_lifetime("finalizers")
+    check_host_lifetime("hash-identity")
+    print("WasmGC backend checks passed; call/cc remains unsupported future work")
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (RuntimeError, subprocess.SubprocessError) as error:
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
         print(f"backend test failed: {error}", file=sys.stderr)
         sys.exit(1)

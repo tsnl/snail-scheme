@@ -1,0 +1,5 @@
+(import (snail strict))
+(let* ((x0 1)
+       (x1 (+ x0 x0))
+       (x2 (+ x1 x1)))
+  x2)

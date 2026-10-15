@@ -1,0 +1,46 @@
+# Working on Snail-Scheme
+
+Make the implementation educational to read. Follow the program from located
+syntax through resolved IR, WasmGC, and the Rust ABI library.
+Keep each pass's inputs, outputs, and decisions visible in its module.
+
+- Prefer cohesive single-file modules with named sections. A large file can
+  explain one subject well; extract a file only for a substantial new subject.
+- Write section headers as `;; ---- Title ----` in Scheme,
+  `// ---- Title ----` in Rust, and `# ---- Title ----` in Python, with sentence
+  case and a blank line on each side.
+  Keep unit tests in a final `Tests` section of their implementation module.
+  Each tested Scheme module exports one `test-<module>` entry point under the
+  `snail-tests` feature; test cases and helpers stay private. Keep integration
+  fixtures, runners, and shared assertion support in `tests/`.
+  Inactive test sections must still be readable by the bootstrap parser; decode
+  unsupported numeric expectations from strings only when the host tests run.
+- Target **ten lines of logic per function**. Name complete operations, not
+  fragments introduced to meet a count. Exhaustive dispatch, data definitions,
+  atomic VM transitions, and tests may be longer when keeping them together
+  exposes their contract.
+- Use concrete data and direct control flow. Helpers should establish a useful
+  guarantee, with ownership and effects apparent at the call site. Avoid
+  forwarding layers, generic callback frameworks, and speculative abstractions.
+- Take inspiration from [Per Vognsen's Bitwise](https://github.com/pervognsen/bitwise)
+  and [Resin's discussion](https://github.com/tsnl/resin/blob/main/doc/bitwise.md):
+  representations explain operations, and control flow teaches the problem.
+  Adapt those principles to Scheme and Rust rather than copying architecture.
+- Use the pinned [simplify skill](.agents/skills/simplify/SKILL.md) for focused
+  explanation and refactoring of newly written modules. Keep backend cleanup
+  within those modules; preserve the structure of the landed frontend.
+- Keep GC and slot-lifetime invariants beside the code that relies on them.
+  The Wasm engine owns Scheme collection; Rust keeps Scheme values in owned
+  ABI roots across allocations and callbacks. Resource cleanup must not retain
+  the wrapper it watches.
+- Keep the compiler hosted by Chibi until a separate self-hosting milestone.
+  Type inference follows the working, measured backend baseline.
+- Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
+  APIs distinct from implemented behavior in documentation and TODOs.
+
+Relevant checks are `make test`, `make check`,
+`cargo test --offline`,
+`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
+Backend changes should execute linked Wasm. Host adapter changes also need actual Node execution; compilation alone does
+not test target behavior. See [doc/backend.md](doc/backend.md) for tools
+and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

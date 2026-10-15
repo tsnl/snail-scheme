@@ -1,0 +1,30 @@
+{
+  "actual_owned_session": 61576,
+  "actual_terminal_exit_code": 0,
+  "started": "2026-10-14T21:03:36.345787+00:00",
+  "ended": "2026-10-14T21:06:27.829158+00:00",
+  "elapsed_seconds": 171.483371,
+  "held_operations": [
+    "builds",
+    "guest execution",
+    "profiling",
+    "compression",
+    "publication"
+  ],
+  "allowed_operations": [
+    "static review",
+    "static editing",
+    "lightweight source and manifest reads"
+  ],
+  "release": "After actual terminal session polling and independent validation of all 110 raw records and 35 identities.",
+  "campaign_sha256": "eba47a9af765613cb7bf7ef81d24b5eeed273c0b52353cc65c292eb2a09a2bda",
+  "audit": "Archived campaign/parent-independent-review.json records the coordinator's completed independent audit.",
+  "later_code_capture": {
+    "actual_owned_session": 19372,
+    "actual_terminal_exit_code": 0,
+    "diagnostic_only": true,
+    "scope": "Four full-count code captures after the clean campaign; code-printing flags, default tiering."
+  },
+  "profile_scope": "Whole-process CPU sampling with concurrent other work; profile durations never enter comparison medians.",
+  "limitation": "Coordination records agent activity and owned-session completion; it does not independently reconstruct historical OS idleness."
+}

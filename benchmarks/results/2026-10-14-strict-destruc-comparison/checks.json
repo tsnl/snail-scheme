@@ -1,0 +1,24 @@
+{
+  "kind": "Bounded evidence/inventory checks; no new clean timing campaign",
+  "make_check": {
+    "passed": true,
+    "log": "make-check.log",
+    "log_sha256": "b89a360f8ff47650fd4d4fcecf3205527e3574dc911ab20cff6231cb0b8a121f"
+  },
+  "git_diff_check_passed": true,
+  "inventory_json_parse_passed": true,
+  "historical_measured_strict_count": 30,
+  "historical_paired_chez_count": 29,
+  "all_non_destruc_inventory_cases_unchanged": true,
+  "other_inventory_metadata_unchanged": true,
+  "prior_puzzle_string_lattice_reports_unchanged": true,
+  "all_medians_recomputed_from_four_retained_clean_samples_per_system": true,
+  "raw_clean_freeze_quiet_driver_byte_identical_to_originals": true,
+  "clean_executions_passed": 20,
+  "clean_identities_unchanged": 115,
+  "relocated_count_one_systems_passed": 4,
+  "restored_members_verified_before_after": 290,
+  "replay_provenance": "replay-check.json",
+  "replay_performance_samples": false,
+  "runtime_source_changes": false
+}

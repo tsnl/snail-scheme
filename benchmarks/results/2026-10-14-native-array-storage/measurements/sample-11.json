@@ -1,0 +1,48 @@
+{
+  "round": 2,
+  "position": 2,
+  "system": "strict-packed",
+  "retained": true,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-native-array-layout-20261014/build/array-storage/packed",
+    "100"
+  ],
+  "cwd": "/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string",
+  "status": "valid",
+  "started": "2026-10-14T16:50:20.106285+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 40,
+  "process_group": 40,
+  "returncode": 0,
+  "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":0.981035492}\n",
+  "stderr": "",
+  "timeout": false,
+  "process_seconds": 0.983764523989521,
+  "cleanup": {
+    "process_group": 40,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "capture_and_signal_seconds": 0.9829956920002587,
+  "workload_seconds": 0.981035492
+}

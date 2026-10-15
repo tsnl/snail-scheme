@@ -1,0 +1,22 @@
+{
+  "started_utc": "2026-10-14T09:56:01.259237+00:00",
+  "agents_holding_builds": true,
+  "cpu": 5,
+  "coordination": {
+    "root": "All publication and previous measurement processes completed. No concurrent root build/test/profile/compression.",
+    "strict_remaining_benchmarks": "Explicit hold acknowledged; no active CPU handles. Static editing only.",
+    "ray_io_explainer": "Completed and idle, parent agent confirms.",
+    "rust_full_benchmark_suite": "Completed at19d20c; no active CPU handles, no rebuilding or measurements; frozen handoff sealed."
+  },
+  "limits": "Coordinated agent-controlled quiet window; unrelated system activity remains possible.",
+  "freeze_sha256": "89a7cc65f3c8ff087a2b77a1724dbc8cbced606679a37045e0f7b144e135bba4",
+  "environment_controls": {
+    "NODE_OPTIONS": "cleared by measurement driver",
+    "extra_native_or_gc_environment": {}
+  },
+  "complete": true,
+  "finished_utc": "2026-10-14T09:57:11.290102+00:00",
+  "checked_executions": 20,
+  "unchanged_identities": 115,
+  "measurement_sha256": "41b0e9ac9f9a12df3745778f561b94aaa984b7dbde9b1d8c437fe313f1a1f030"
+}

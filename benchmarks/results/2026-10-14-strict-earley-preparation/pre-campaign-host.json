@@ -1,0 +1,217 @@
+{
+  "captured": "2026-10-14T16:14:00.235219+00:00",
+  "purpose": "Separate snapshot after frozen plan; no clean campaign started",
+  "plan_sha256": "063472786ad5ea7d0d20c6b50ee025a7d9719f3b2dc13f241cab71ef9ad06168",
+  "runner_sha256": "83943c281cebe9493afe4bab48a059ef4f6e79a837f51528e56e0cc7c3ce30b6",
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "selected_cpu": 5,
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "cpu_frequency": {
+    "scaling_governor": "powersave",
+    "scaling_driver": "intel_pstate",
+    "scaling_min_freq": "800000",
+    "scaling_max_freq": "5500000",
+    "scaling_cur_freq": "4407280",
+    "cpuinfo_min_freq": "800000",
+    "cpuinfo_max_freq": "5500000"
+  },
+  "topology": {
+    "physical_package_id": "0",
+    "core_id": "28",
+    "thread_siblings_list": "5"
+  },
+  "clocks": {
+    "perf_counter": {
+      "implementation": "clock_gettime(CLOCK_MONOTONIC)",
+      "monotonic": true,
+      "adjustable": false,
+      "resolution": 1e-09
+    },
+    "monotonic": {
+      "implementation": "clock_gettime(CLOCK_MONOTONIC)",
+      "monotonic": true,
+      "adjustable": false,
+      "resolution": 1e-09
+    },
+    "clock_monotonic_resolution_seconds": 1e-09,
+    "v8": "process.hrtime.bigint; nanosecond integer units, not a claim of nanosecond effective resolution",
+    "chez": "current-time time-monotonic; time-second/time-nanosecond; jiffies-per-second 1000000000"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "EARLEY_SIZE": null,
+    "EARLEY_EXPECTED_KIND": null,
+    "EARLEY_EXPECTED": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "plan_native_environment": {
+    "SNAIL_GC_HEAP_BYTES": "1073741824",
+    "EARLEY_SIZE": "15",
+    "EARLEY_EXPECTED_KIND": "1",
+    "EARLEY_EXPECTED": "2674440"
+  },
+  "tools": {
+    "PYTHON": {
+      "path": "/run/current-system/sw/bin/python3",
+      "sha256": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "version_command": {
+        "command": [
+          "/run/current-system/sw/bin/python3",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "Python 3.14.7\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.002014997007790953
+      }
+    },
+    "NODE": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "version_command": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "v24.19.0\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.007826838991604745
+      }
+    },
+    "CHEZ": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "version_command": {
+        "command": [
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "10.4.1\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.002003311994485557
+      }
+    },
+    "WASM_OPT": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+      "version_command": {
+        "command": [
+          "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "wasm-opt version 132\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.00467338296584785
+      }
+    },
+    "CLANG": {
+      "path": "/run/current-system/sw/bin/clang",
+      "sha256": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+      "version_command": {
+        "command": [
+          "/run/current-system/sw/bin/clang",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.03692550101550296
+      }
+    },
+    "LLD": {
+      "path": "/run/current-system/sw/bin/ld.lld",
+      "sha256": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+      "version_command": {
+        "command": [
+          "/run/current-system/sw/bin/ld.lld",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "LLD 22.1.8 (compatible with GNU linkers)\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.006829445017501712
+      }
+    },
+    "TASKSET": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+      "version_command": {
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "--version"
+        ],
+        "timeout": 10,
+        "environment": {},
+        "stdout": "taskset from util-linux 2.42.2\n",
+        "stderr": "",
+        "returncode": 0,
+        "process_seconds": 0.000982673023827374
+      }
+    }
+  },
+  "required_frozen_link_inputs": {
+    "/tmp/snail-strict-earley-20261014/benchmarks/results/2026-10-14-strict-earley-preparation/measure-five.py": "83943c281cebe9493afe4bab48a059ef4f6e79a837f51528e56e0cc7c3ce30b6",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/entry.c": "ffd2b0cd035a34050529a28d11687a3b3b69ba49b45d6674e8b1deaffd4e3ee5",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/native": "b3ea7dccca35a6ae729295469f6ce42fae1040d321a3cdf888e5613a9b960bea",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/module.ll": "a88fbaefa2b4f3d6838909fbb078a65dc89d06dfaec21349fb0a9680f5801a6e",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/provider-0.o": "acd68435de0cc7790399ffedf6a84e6087074d4caa13e9cb57ba08cb40352abb",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/native.c": "99c5a5ae33fe3a65131bea7720df6c516e2e3f1ea66a9e6a7cba0b146b55d98f",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/precise-gc.c": "e438a67d641d7ad176bed0a72ad199d4c772b6074aef96443e61923a6edf5020",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/precise-gc.h": "785d3c335e3abc0db8e141cd26dc8e273f85031ba5b6bf57cb182f0f10cc9628",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/libsnail_runtime.a": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/derivation.json": "562304a9dec28d058766afa8301fe6fc5825471608f8faab8893a0cbfc414bac",
+    "/tmp/snail-strict-earley-20261014/build/earley-timing-prepare-01/link.json": "8acb10b8017ec823c917da89b7472b08ddacab40999f1bca5fef9b184cd22ff7"
+  }
+}

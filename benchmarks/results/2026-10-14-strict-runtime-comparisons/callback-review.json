@@ -1,0 +1,21 @@
+{
+  "status": "Independent behavioral explanation and informed critique complete; parent source inspection found no semantic blocker",
+  "explainer": "/root/explain_matrix_callable_ablation",
+  "model": "gpt-6.1-sol",
+  "effort": "max",
+  "independent_brief": "No history, files, source or favored helper decomposition; specified original row-zero/allocation/fill schedule and two concrete generator behaviors",
+  "debate": "Explained initialized parameter captures, unchanged indexing order and list callback, Wasm local/parameter rooting, existing full ordered graph/identity/oracle checks, and distinction between static sites, instrumented completions and native events. Explainer found no mandatory additional check for the bounded source comparison.",
+  "parent_findings": [
+    "Four cohesive operations preserve the original row-zero-before-outer-allocation and ascending replacement schedule",
+    "Captured size and adjacency values are already initialized parameters; passing references preserves identity",
+    "Other callbacks and all recursive continuation source stay unchanged",
+    "Baseline optimized artifact exactly matches the measured combined compiler artifact",
+    "Node canonical and slim paths resolve to identical binary SHA256 a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "Host bytes exactly match prior canonical graph preparation"
+  ],
+  "limits": [
+    "Source ablation combines direct invocation, capture transport and downstream inlining; it does not isolate indirect-call cost",
+    "Existing construction counts and static sites are not native allocation events or a speedup bound",
+    "No clean timing yet"
+  ]
+}

@@ -1,0 +1,61 @@
+[
+  {
+    "command": [
+      "make",
+      "test"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/make-test.log"
+  },
+  {
+    "command": [
+      "make",
+      "check"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/make-check.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/cargo-fmt.log"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--offline"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/cargo-test.log"
+  },
+  {
+    "command": [
+      "scripts/test-backend"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/scripts-test-backend.log"
+  },
+  {
+    "command": [
+      "scripts/test-build"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/scripts-test-build.log"
+  },
+  {
+    "command": [
+      "scripts/test-native"
+    ],
+    "status": 0,
+    "log": "build/gc-growth/native-integration-headroom.log",
+    "records": "native-integration-results.json",
+    "records_sha256": "2483dadb78b16973a69d79f99661a019b48b5cc638d9c871c97c4fd1c81ae3fd"
+  }
+]

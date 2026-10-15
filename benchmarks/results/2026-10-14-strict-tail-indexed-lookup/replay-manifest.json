@@ -1,0 +1,19 @@
+{
+  "archive_sha256": "f7995782127252c5461a8cc8cc1f3e9e74aa008ae07508a76e00b434c480ddd5",
+  "archive_bytes": 1096008,
+  "files": {
+    "replays/baseline/input.txt": "b06e57a58d1410fbe92f4724a9b36e4cc61f8c110f30e29abdd5aa5a473e9a16",
+    "replays/baseline/inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+    "replays/baseline/outputs/tail.output": "a15bdc3031685b3dcec119172e22a052f36467a9efb9b01e3061b71d2ec3f717",
+    "replays/baseline/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "replays/baseline/stdout.bin": "fac8fe19b147d636c8c0498eb94cd678f65b1721f2f7b1c9fd1a1b5ab314e079",
+    "replays/indexed/input.txt": "b06e57a58d1410fbe92f4724a9b36e4cc61f8c110f30e29abdd5aa5a473e9a16",
+    "replays/indexed/inputs/bib": "2994b446dfb07d7cf324fb6aa32d519b3f0bd53a582268714adf08df5f45b8d3",
+    "replays/indexed/outputs/tail.output": "a15bdc3031685b3dcec119172e22a052f36467a9efb9b01e3061b71d2ec3f717",
+    "replays/indexed/stderr.bin": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "replays/indexed/stdout.bin": "f608385185ca78ba3432ffbae2431a37c9b6b65ebd8286c3e4c23ce5674bd79f",
+    "replays/observations.json": "95795a4456fee7074ff1c5b4c151faa646aa5992f6c319907f3ba23b896cfbf7"
+  },
+  "source_archive_sha256": "d9bb0c0889be2124483b25a971c62fb846d734e57f5287077e8ed55bcea0ae64",
+  "performance_samples": false
+}

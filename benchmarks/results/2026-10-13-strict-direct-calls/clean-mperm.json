@@ -1,0 +1,554 @@
+{
+  "started_utc": "2026-10-14T03:35:06.193462+00:00",
+  "benchmark": "mperm",
+  "scope": "Uninstrumented original workload; initialization excluded, V8 default tiering included.",
+  "compiler_before": "a4030ce190058db3e9d64f6942401b5fa38dbd58",
+  "compiler_after": "35d5baa52c2a0e25d0c86c02adefd661a6457a3b",
+  "cpu": 5,
+  "node_options": null,
+  "identities_before": {
+    "old-strict": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+      "sha256": "afcc940fe22374a8b49537bd7afcb74cf34cfdaeac178ea958fd876e77c55fe0"
+    },
+    "direct-strict": {
+      "path": "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+      "sha256": "f956010567e36ec4ca8610b23fb3d772ad35a75ad8a941e540ba6ea510c17eeb"
+    },
+    "original-chez": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so",
+      "sha256": "b24629fedb55029ade44a90d496f022cd7c3f0cf9f9fbea68bd672010cd8c2e6"
+    },
+    "adapted-chez": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so",
+      "sha256": "1a49010eebff9ca7cf39d0ff9abf4925b097f50a0448710ff005a3a444679b8c"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    "spec": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    "input": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    "runner": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+      "sha256": "6f40cd3b4a698c8fdd65b6aaf1644870234ebf6fa80749b4c4a2bf86fcc69782"
+    }
+  },
+  "observations": [
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.391314328,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.448590251035057,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 17.391314328
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.644850577,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.697334479016718,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 17.644850577
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.594926722 seconds (4.595) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.594926722\n",
+      "stderr": "",
+      "process_seconds": 4.831369823019486,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 4.594926722
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.632916864 seconds (4.633) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.632916864\n",
+      "stderr": "",
+      "process_seconds": 4.8720019509783015,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 4.632916864
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.428684962,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.492148980963975,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 17.428684962
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.536446499,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.586291078012437,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 17.536446499
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.57269581 seconds (4.573) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.57269581\n",
+      "stderr": "",
+      "process_seconds": 4.812008945969865,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 4.57269581
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.559664111 seconds (4.56) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.559664111\n",
+      "stderr": "",
+      "process_seconds": 4.79376092297025,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 4.559664111
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.686981009,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.739506972022355,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 17.686981009
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.578405381 seconds (4.578) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.578405381\n",
+      "stderr": "",
+      "process_seconds": 4.819101297995076,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 4.578405381
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.54798142 seconds (4.548) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.54798142\n",
+      "stderr": "",
+      "process_seconds": 4.783767733024433,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 4.54798142
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.310921979,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.37408730603056,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 17.310921979
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.592291252 seconds (4.592) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.592291252\n",
+      "stderr": "",
+      "process_seconds": 4.830471299996134,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 4.592291252
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.560036461 seconds (4.56) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.560036461\n",
+      "stderr": "",
+      "process_seconds": 4.793085497978609,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 4.560036461
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.331796534,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.39395458198851,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 17.331796534
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.549934921,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.628629493992776,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 17.549934921
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.595922402 seconds (4.596) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.595922402\n",
+      "stderr": "",
+      "process_seconds": 4.833814979007002,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 4.595922402
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.255831657,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.32083717297064,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 17.255831657
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":17.294773842,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 18.37217797501944,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 17.294773842
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so"
+      ],
+      "stdin": "; The traditional parameters for this benchmark are 10:9:2:1,\n; but that's too small for modern computers.\n;\n; The new parameters for this benchmark are 20:10:2:1.\n;                                            M: N:K:L\n;\n; N=10 means the benchmark starts by generating a list of all\n; 10! = 3628800 permutations of the first 10 integers, allocating\n; 13492889 pairs (a little over 100 megabytes on 32-bit machines\n; with two-word pairs), all of which goes into the generated list.\n; (That is, the first phase of the benchmark generates absolutely\n; no garbage.)  This represents a savings of about 63% over the\n; storage that would be required by an unshared list of permuations.\n; The generated permutations are in order of a gray code that bears\n; no obvious relationship to a lexicographic order.\n;\n; Then M*(K-L) = 20*(2-1) = 20 more such lists are allocated.\n;\n; The live storage peaks at K=2 times the storage occupied by a\n; single list of all N! permutations.\n;\n; At the end of each of the M=20 iterations, the oldest L/K = 1/2\n; of the peak storage becomes garbage.  Object lifetimes (measured\n; in bytes or pairs allocated) are distributed uniformly between\n; L/K times the peak storage and the peak storage itself.\n\n20            ; M (number of iterations)\n10            ; N (length of each permutation)\n2             ; K (size of queue)\n1             ; L (number of old copies removed when queue is filled)\n\n; Note: the result below is ignored, since it can be\n; computed from N above.\n\n16329600      ; result (/ (* N (+ N 1) (factorial N)) 2)\n",
+      "returncode": 0,
+      "stdout": "Running mperm:20:10:2:1\nElapsed time: 4.575275259 seconds (4.575) for mperm:20:10:2:1\n+!CSVLINE!+chez,mperm:20:10:2:1,4.575275259\n",
+      "stderr": "",
+      "process_seconds": 4.812872776994482,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 4.575275259
+    }
+  ],
+  "complete": true,
+  "identities_after": {
+    "old-strict": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/strict.wasm",
+      "sha256": "afcc940fe22374a8b49537bd7afcb74cf34cfdaeac178ea958fd876e77c55fe0"
+    },
+    "direct-strict": {
+      "path": "/tmp/snail-strict-direct-captures-20261013/build/direct-enumeration-35d5baa/mperm/strict.wasm",
+      "sha256": "f956010567e36ec4ca8610b23fb3d772ad35a75ad8a941e540ba6ea510c17eeb"
+    },
+    "original-chez": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/program.so",
+      "sha256": "b24629fedb55029ade44a90d496f022cd7c3f0cf9f9fbea68bd672010cd8c2e6"
+    },
+    "adapted-chez": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/same-source-chez/program.so",
+      "sha256": "1a49010eebff9ca7cf39d0ff9abf4925b097f50a0448710ff005a3a444679b8c"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+      "sha256": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b"
+    },
+    "spec": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    "input": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/input.txt",
+      "sha256": "a3a48b55679cb0cb8ca437d8a97266eabbff1886166ebbf7f442bb40e0892941"
+    },
+    "runner": {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+      "sha256": "6f40cd3b4a698c8fdd65b6aaf1644870234ebf6fa80749b4c4a2bf86fcc69782"
+    }
+  },
+  "summary": {
+    "old-strict": {
+      "samples": [
+        17.428684962,
+        17.310921979,
+        17.331796534,
+        17.255831657
+      ],
+      "median": 17.3213592565,
+      "min": 17.255831657,
+      "max": 17.428684962
+    },
+    "direct-strict": {
+      "samples": [
+        17.536446499,
+        17.686981009,
+        17.549934921,
+        17.294773842
+      ],
+      "median": 17.543190709999998,
+      "min": 17.294773842,
+      "max": 17.686981009
+    },
+    "original-chez": {
+      "samples": [
+        4.57269581,
+        4.578405381,
+        4.592291252,
+        4.575275259
+      ],
+      "median": 4.57684032,
+      "min": 4.57269581,
+      "max": 4.592291252
+    },
+    "adapted-chez": {
+      "samples": [
+        4.559664111,
+        4.54798142,
+        4.560036461,
+        4.595922402
+      ],
+      "median": 4.559850286,
+      "min": 4.54798142,
+      "max": 4.595922402
+    }
+  },
+  "ratios": {
+    "old-strict": 1.0128068155746353,
+    "original-chez": 3.8330353439116704,
+    "adapted-chez": 3.8473172603632273
+  },
+  "finished_utc": "2026-10-14T03:38:59.662863+00:00"
+}

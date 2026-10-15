@@ -1,0 +1,65 @@
+[
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+      "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+      "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/count-one.json",
+      "--validate"
+    ],
+    "stdin": null,
+    "returncode": 0,
+    "stdout": "{\"seconds\":0.001200827,\"result\":\"1\",\"barriers\":1,\"setup_barriers\":0}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+      "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+      "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/wrong-result.json",
+      "--validate"
+    ],
+    "stdin": null,
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs:47:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n"
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+      "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+      "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/count-one.json",
+      "--validate"
+    ],
+    "stdin": null,
+    "returncode": 0,
+    "stdout": "{\"seconds\":0.00118597,\"result\":\"1\",\"barriers\":1,\"setup_barriers\":0}\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+      "/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+      "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/wrong-result.json",
+      "--validate"
+    ],
+    "stdin": null,
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs:47:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n"
+  },
+  {
+    "command": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-gc-string-block-preparation-20261014/baseline/string/program.so"
+    ],
+    "stdin": "1\n4096\n8182\n",
+    "returncode": 0,
+    "stdout": "Running string:4096:1\nElapsed time: 4.19657e-4 seconds (0.0) for string:4096:1\n+!CSVLINE!+chez,string:4096:1,4.19657e-4\n",
+    "stderr": ""
+  }
+]

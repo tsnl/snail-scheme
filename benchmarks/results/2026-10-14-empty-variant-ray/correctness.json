@@ -1,0 +1,60 @@
+[
+  {
+    "variant": "baseline",
+    "target": "native",
+    "command": [
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/native"
+    ],
+    "cwd": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/correctness-native",
+    "status": 0,
+    "stdout": "{\"seconds\":0.203472817,\"result\":\"1\"}\n",
+    "stderr": "",
+    "passed": true
+  },
+  {
+    "variant": "baseline",
+    "target": "v8",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/v8.wasm",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json",
+      "--validate"
+    ],
+    "cwd": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/baseline/correctness-v8",
+    "status": 0,
+    "stdout": "{\"seconds\":0.131608163,\"result\":\"1\",\"barriers\":100,\"setup_barriers\":0}\n",
+    "stderr": "",
+    "passed": true
+  },
+  {
+    "variant": "candidate",
+    "target": "native",
+    "command": [
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/native"
+    ],
+    "cwd": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/correctness-native",
+    "status": 0,
+    "stdout": "{\"seconds\":0.101582718,\"result\":\"1\"}\n",
+    "stderr": "",
+    "passed": true
+  },
+  {
+    "variant": "candidate",
+    "target": "v8",
+    "command": [
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "--no-warnings",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/ray-host.mjs",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/v8.wasm",
+      "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/input/spec.json",
+      "--validate"
+    ],
+    "cwd": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/candidate/correctness-v8",
+    "status": 0,
+    "stdout": "{\"seconds\":0.100262004,\"result\":\"1\",\"barriers\":100,\"setup_barriers\":0}\n",
+    "stderr": "",
+    "passed": true
+  }
+]

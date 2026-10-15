@@ -1,0 +1,701 @@
+{
+  "fib": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n10\n55\n",
+      "wrong": "1\n10\n999\n"
+    }
+  ],
+  "fibfp": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n10.0\n55.0\n",
+      "wrong": "1\n10.0\n999\n"
+    }
+  ],
+  "sum": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n10\n55\n",
+      "wrong": "2\n10\n999\n"
+    }
+  ],
+  "sumfp": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n10.0\n55.0\n",
+      "wrong": "2\n10.0\n999\n"
+    }
+  ],
+  "tak": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n6\n4\n2\n3\n",
+      "wrong": "1\n6\n4\n2\n999\n"
+    }
+  ],
+  "ack": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n3\n4\n125\n",
+      "wrong": "1\n3\n4\n999\n"
+    },
+    {
+      "name": "canonical-explicit-heap-frames",
+      "input": "2\n3\n12\n32765\n",
+      "rust_arguments": [
+        "--heap-frames"
+      ]
+    }
+  ],
+  "array1": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n7\n7\n",
+      "wrong": "2\n7\n999\n"
+    }
+  ],
+  "diviter": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n6\n3\n",
+      "wrong": "2\n6\n999\n"
+    }
+  ],
+  "divrec": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n6\n3\n",
+      "wrong": "2\n6\n999\n"
+    }
+  ],
+  "primes": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n20\n(2 3 5 7 11 13 17 19)\n",
+      "wrong": "1\n20\n(2 3 5 7 11 13 17 18)\n"
+    }
+  ],
+  "takl": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n(6 5 4 3 2 1)\n(4 3 2 1)\n(2 1)\n3\n",
+      "wrong": "1\n(6 5 4 3 2 1)\n(4 3 2 1)\n(2 1)\n999\n"
+    }
+  ],
+  "ntakl": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n(6 5 4 3 2 1)\n(4 3 2 1)\n(2 1)\n3\n",
+      "wrong": "1\n(6 5 4 3 2 1)\n(4 3 2 1)\n(2 1)\n999\n"
+    }
+  ],
+  "fft": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n8\n1.0\n4.0\n",
+      "wrong": "2\n8\n1.0\n999\n"
+    }
+  ],
+  "mbrot": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n3\n5\n",
+      "wrong": "2\n3\n999\n"
+    }
+  ],
+  "mbrotZ": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n3\n5\n",
+      "wrong": "2\n3\n999\n"
+    }
+  ],
+  "pnpoly": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n#(0.0 1.0 1.0 0.0)\n#(0.0 0.0 1.0 1.0)\n1\n",
+      "wrong": "1\n#(0.0 1.0 1.0 0.0)\n#(0.0 0.0 1.0 1.0)\n999\n"
+    }
+  ],
+  "string": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n30\n54\n",
+      "wrong": "2\n30\n999\n"
+    }
+  ],
+  "nqueens": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n8\n92\n",
+      "wrong": "1\n8\n999\n"
+    }
+  ],
+  "sum1": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n\"inputs/numbers-small.data\"\n2.75\n",
+      "wrong": "2\n\"inputs/numbers-small.data\"\n999\n",
+      "files": {
+        "inputs/numbers-small.data": "1.5\n-2.0\n3.25\n"
+      }
+    }
+  ],
+  "tail": [
+    {
+      "name": "complete-unicode-reversed-lines",
+      "input": "2\n\"inputs/tail-small.data\"\n\"outputs/tail.output\"\nignored\n",
+      "files": {
+        "inputs/tail-small.data": "\u00e9\n\ud83d\udc0c\nlast"
+      },
+      "compare_files": [
+        "outputs/tail.output"
+      ],
+      "expected_files": {
+        "outputs/tail.output": "last\n\ud83d\udc0c\n\u00e9\n"
+      }
+    }
+  ],
+  "cpstak": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n6\n4\n2\n3\n",
+      "wrong": "1\n6\n4\n2\n999\n"
+    }
+  ],
+  "ctak": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n6\n4\n2\n3\n",
+      "wrong": "1\n6\n4\n2\n999\n"
+    }
+  ],
+  "fibc": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n10\n55\n",
+      "wrong": "1\n10\n999\n"
+    }
+  ],
+  "pi": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n10\n10\n1\n((31415926532 -22 -127))\n",
+      "wrong": "1\n10\n10\n1\n((31415926532 -22 -126))\n"
+    },
+    {
+      "name": "empty-precision-range",
+      "input": "1\n3\n1\n1\n()\n",
+      "wrong": "1\n3\n1\n1\n(1)\n"
+    }
+  ],
+  "chudnovsky": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n1\n3\n1\n(31 314 3141)\n",
+      "wrong": "1\n1\n3\n1\n(31 314 3142)\n"
+    },
+    {
+      "name": "empty-precision-range",
+      "input": "1\n3\n1\n1\n()\n",
+      "wrong": "1\n3\n1\n1\n(1)\n"
+    }
+  ],
+  "puzzle": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n511\n2005\n",
+      "wrong": "1\n511\n999\n"
+    }
+  ],
+  "triangl": [
+    {
+      "name": "independent-small-input",
+      "input": "1\n22\n1\n(22 34 31 15 7 1 20 17 25 6 5 13 32)\n",
+      "wrong": "1\n22\n1\n(22 34 31 15 7 1 20 17 25 6 5 13 31)\n"
+    }
+  ],
+  "bv2string": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n10\n20\n0\n",
+      "wrong": "2\n10\n20\n999\n"
+    }
+  ],
+  "read1": [
+    {
+      "name": "independent-small-input",
+      "input": "2\n\"inputs/reader-small.data\"\n(last #(1 2) \"a b\")\n",
+      "wrong": "2\n\"inputs/reader-small.data\"\n(last #(1 3) \"a b\")\n",
+      "files": {
+        "inputs/reader-small.data": "; header\n'(first . datum)\n(last #(1 2) \"a b\")\n"
+      }
+    }
+  ],
+  "gcbench": [
+    {
+      "name": "small-complete-allocation-pattern",
+      "input": "1\n6\nignored\n"
+    }
+  ],
+  "quicksort": [
+    {
+      "name": "small-generated-vector",
+      "input": "2\n10\n11\nignored\n",
+      "rust_arguments": [
+        "--dump"
+      ]
+    }
+  ],
+  "ray": [
+    {
+      "name": "complete-100x100-pgm",
+      "input": "1\n1\n\"outputs/ray.output\"\nok\n",
+      "wrong": "1\n1\n\"outputs/ray.output\"\nwrong\n",
+      "compare_files": [
+        "outputs/ray.output"
+      ]
+    },
+    {
+      "name": "expected-symbol-kind",
+      "input": "1\n1\n\"outputs/ray.output\"\n|ok|\n",
+      "wrong": "1\n1\n\"outputs/ray.output\"\n\"ok\"\n",
+      "wrong_meaning": "The expected string ok is distinct from the returned symbol ok.",
+      "compare_files": [
+        "outputs/ray.output"
+      ]
+    },
+    {
+      "name": "zero-count-initial-false",
+      "input": "0\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "0\n1\n\"outputs/ray.output\"\nok\n",
+      "wrong_meaning": "No invocation leaves the original harness result false.",
+      "files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged zero-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:0,"
+      ]
+    },
+    {
+      "name": "negative-count-initial-false",
+      "input": "-1\n1\n\"outputs/ray.output\"\n#f\n",
+      "wrong": "-1\n1\n\"outputs/ray.output\"\n\"#f\"\n",
+      "wrong_meaning": "False is not the expected string #f; signed count labels are preserved.",
+      "files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "expected_files": {
+        "outputs/ray.output": "unchanged negative-count sentinel\n"
+      },
+      "rust_stdout_contains": [
+        "Result: #f",
+        "+!CSVLINE!+rust-wasm,ray:-1,"
+      ]
+    }
+  ],
+  "simplex": [
+    {
+      "name": "complete-canonical-basis",
+      "input": "1\n740.0\n(#(4 1 3 2) #(0 5 7 6))\n",
+      "wrong": "1\n740.0\n(#(4 1 3 2) #(0 5 7 5))\n"
+    }
+  ],
+  "equal": [
+    {
+      "name": "small-shared-unshared-and-deep-structures",
+      "input": "100\n3\n3\n8\n5\n5\n#t\n",
+      "wrong": "100\n0\n3\n8\n5\n5\n#t\n",
+      "wrong_meaning": "zero equality iterations produce false, rejected by the original always-true result predicate"
+    }
+  ],
+  "destruc": [
+    {
+      "name": "independent-complete-small-list-mutation",
+      "input": "1\n6\n3\n((1 ()) (1 1) (1 1 ()) (1 1 ()) (1 1 ()) (1 1 ()) (1 1 ()) (1 1 ()) (1 1 ()) (1 1 1 1 5 () () ()))\n",
+      "wrong": "1\n6\n3\n()\n"
+    }
+  ],
+  "graphs": [
+    {
+      "name": "small-graph-count",
+      "input": "1\n3\n5\n",
+      "wrong": "1\n3\n999\n"
+    }
+  ],
+  "lattice": [
+    {
+      "name": "one-complete-lattice-enumeration",
+      "input": "1\n44\n120549\n",
+      "wrong": "1\n44\n120548\n"
+    }
+  ],
+  "deriv": [
+    {
+      "name": "independent-small-derivative-tree",
+      "input": "1\n(+ x 3)\n(+ 1 0)\n",
+      "wrong": "1\n(+ x 3)\n(+ 0 0)\n"
+    }
+  ],
+  "cat": [
+    {
+      "name": "complete-unicode-character-copy",
+      "input": "2\n\"inputs/characters-small.data\"\n\"outputs/cat.output\"\nignored\n",
+      "files": {
+        "inputs/characters-small.data": "\u00e9\ud83d\udc0c\t a\r\n\u03b2 x\n"
+      },
+      "compare_files": [
+        "outputs/cat.output"
+      ],
+      "expected_files": {
+        "outputs/cat.output": "\u00e9\ud83d\udc0c\t a\r\n\u03b2 x\n"
+      }
+    }
+  ],
+  "wc": [
+    {
+      "name": "unicode-tab-carriage-return-word-semantics",
+      "input": "2\n\"inputs/characters-small.data\"\n(2 4 11)\n",
+      "wrong": "2\n\"inputs/characters-small.data\"\n(2 4 12)\n",
+      "files": {
+        "inputs/characters-small.data": "\u00e9\ud83d\udc0c\t a\r\n\u03b2 x\n"
+      }
+    }
+  ],
+  "mperm": [
+    {
+      "name": "every-small-permutation-with-sharing-queue",
+      "input": "2\n3\n2\n1\nignored\n",
+      "wrong": "2\n3\n1\n1\nignored\n",
+      "wrong_meaning": "flushing all queue copies produces zero checksum, rejected by the original computed result predicate",
+      "rust_arguments": [
+        "--dump"
+      ],
+      "rust_stdout_contains": [
+        "Audit: ((3 2 1) (2 3 1) (1 3 2) (3 1 2) (2 1 3) (1 2 3))"
+      ]
+    }
+  ],
+  "maze": [
+    {
+      "name": "independent-complete-small-maze",
+      "input": "1\n3\n3\n(#\\space #\\space #\\space #\\_ #\\newline #\\space #\\space #\\/ #\\space #\\\\ #\\_ #\\newline #\\/ #\\. #\\\\ #\\space #\\/ #\\. #\\\\ #\\newline #\\\\ #\\space #\\/ #\\. #\\space #\\space #\\/ #\\newline #\\/ #\\. #\\\\ #\\space #\\/ #\\. #\\\\ #\\newline #\\\\ #\\_ #\\space #\\. #\\\\ #\\space #\\/ #\\newline #\\/ #\\space #\\space #\\_ #\\/ #\\. #\\\\ #\\newline #\\\\ #\\_ #\\/ #\\space #\\\\ #\\space #\\/ #\\newline)\n",
+      "wrong": "1\n3\n3\n()\n"
+    }
+  ],
+  "mazefun": [
+    {
+      "name": "independent-complete-small-maze",
+      "input": "1\n3\n3\n((_ _ _) (* * _) (_ _ _))\n",
+      "wrong": "1\n3\n3\n()\n"
+    },
+    {
+      "name": "exact-maze-symbol-marks",
+      "input": "1\n1\n1\n((_))\n",
+      "wrong": "1\n1\n1\n((\"_\"))\n"
+    },
+    {
+      "name": "negative-maze-count-retains-false",
+      "input": "-2\n11\n11\n#f\n",
+      "wrong": "-2\n11\n11\n()\n"
+    },
+    {
+      "name": "even-maze-dimension-is-error",
+      "input": "1\n3\n2\nerror\n",
+      "wrong": "1\n3\n2\n\"error\"\n"
+    }
+  ],
+  "browse": [
+    {
+      "name": "small-pattern-full-database-order",
+      "input": "1\n((a))\n(837 177\n       1090\n       617\n       661\n       749\n       628\n       56\n       826\n       408\n       1035\n       474\n       320\n       452\n       672\n       991\n       155\n       122\n       793\n       221\n       716\n       727\n       848\n       309\n       144\n       936\n       100\n       881\n       287\n       430\n       23\n       771\n       232\n       804\n       958\n       650\n       1068\n       1057\n       463\n       276\n       1046\n       1002\n       199\n       34\n       738\n       210\n       540\n       397\n       342\n       364\n       782\n       683\n       89\n       375\n       166\n       595\n       892\n       705\n       507\n       639\n       331\n       188\n       243\n       441\n       1013\n       1079\n       67\n       298\n       386\n       573\n       859\n       133\n       760\n       12\n       529\n       815\n       111\n       496\n       45\n       265\n       925\n       903\n       254\n       78\n       551\n       606\n       485\n       518\n       419\n       870\n       562\n       1\n       353\n       980\n       694\n       914\n       969\n       947\n       584\n       1024)\n",
+      "wrong": "1\n((a))\n()\n"
+    }
+  ],
+  "paraffins": [
+    {
+      "name": "all-small-molecule-topologies",
+      "input": "1\n6\n5\n",
+      "wrong": "1\n6\n4\n",
+      "rust_arguments": [
+        "--dump"
+      ],
+      "rust_stdout_contains": [
+        "Audit: #((#(BCP #(C H H #(C H H #(C H H H))) #(C H H #(C H H #(C H H H)))) #(BCP #(C H H #(C H H #(C H H H))) #(C H #(C H H H) #(C H H H))) #(BCP #(C H #(C H H H) #(C H H H)) #(C H #(C H H H) #(C H H H)))) (#(CCP H #(C H H H) #(C H H #(C H H H)) #(C H H #(C H H H))) #(CCP #(C H H H) #(C H H H) #(C H H H) #(C H H #(C H H H)))))"
+      ]
+    }
+  ],
+  "earley": [
+    {
+      "name": "complete-independent-small-parse-forest",
+      "input": "1\n4\n5\n",
+      "wrong": "1\n4\n4\n",
+      "rust_arguments": [
+        "--dump"
+      ],
+      "rust_stdout_contains": [
+        "Audit: (((s 2) ((s 2) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a))) ((s 1) ((a 0) a))) ((s 1) ((a 0) a))) ((s 2) ((s 2) ((s 1) ((a 0) a)) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a)))) ((s 1) ((a 0) a))) ((s 2) ((s 1) ((a 0) a)) ((s 2) ((s 1) ((a 0) a)) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a))))) ((s 2) ((s 1) ((a 0) a)) ((s 2) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a))) ((s 1) ((a 0) a)))) ((s 2) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a))) ((s 2) ((s 1) ((a 0) a)) ((s 1) ((a 0) a)))))"
+      ]
+    },
+    {
+      "name": "empty-unparsed-input",
+      "input": "1\n0\n0\n",
+      "wrong": "1\n0\n1\n"
+    }
+  ],
+  "matrix": [
+    {
+      "name": "independent-complete-small-result",
+      "input": "1\n3\n3\n(((1 1 1) (1 1 -1) (1 -1 1) (1 -1 -1)))\n",
+      "wrong": "1\n3\n3\n()\n"
+    }
+  ],
+  "conform": [
+    {
+      "name": "independent-complete-small-result",
+      "input": "1\n(x y \"z\" \"w\")\n(\"(((y v w) ^ x) v z)\" \"(z ^ w)\" \"(y v (x ^ w))\" \"((x v w) ^ y)\" \"(y v w)\" \"(y ^ (x v z))\" \"(x v (z ^ w))\" \"((y v w) ^ x)\" \"(z v (x v w))\" \"(x v z)\" \"(w v (y ^ (x v z)))\" \"(w ^ (x v z))\" \"((x ^ w) v z)\" \"((x ^ y) v w)\" \"(((x v w) ^ y) v (x ^ w))\" \"(y ^ w)\" \"(y v (x v w))\" \"(x ^ z)\" \"(y ^ (z v w))\" \"(x ^ y)\" \"(x v y)\" \"((x ^ w) ^ y)\" \"(x ^ w)\" \"(x v w)\" \"w\" \"(z v w)\" \"x\" \"y\" \"z\" \"any\" \"none\")\n",
+      "wrong": "1\n(x y \"z\" \"w\")\n()\n"
+    }
+  ],
+  "nboyer": [
+    {
+      "name": "independent-exact-zero-wrap-rewrites",
+      "input": "1\n0\n95024\n",
+      "wrong": "1\n0\n95025\n"
+    },
+    {
+      "name": "independent-exact-one-wrap-rewrites",
+      "input": "1\n1\n591777\n",
+      "wrong": "1\n1\n591778\n"
+    }
+  ],
+  "sboyer": [
+    {
+      "name": "independent-exact-zero-wrap-rewrites",
+      "input": "1\n0\n95024\n",
+      "wrong": "1\n0\n95025\n"
+    },
+    {
+      "name": "independent-exact-one-wrap-rewrites",
+      "input": "1\n1\n591777\n",
+      "wrong": "1\n1\n591778\n"
+    }
+  ],
+  "peval": [
+    {
+      "name": "independent-complete-ten-example-specializations",
+      "input": "1\n(lambda (x) (+ x 1))\n(2)\n(lambda () (quote 3))\n",
+      "wrong": "1\n(lambda (x) (+ x 1))\n(2)\n(lambda () (quote 4))\n",
+      "rust_arguments": [
+        "--dump"
+      ],
+      "rust_audit_alpha_equivalent": "((lambda (b_3) (quote 11)) (lambda (x_4) (if (< x_4 (quote 0)) (- x_4) (- (quote 10) x_4))) (lambda (l_11) (letrec ((add-list_13_16 (lambda (l_14) (if (null? l_14) (quote ()) (cons (+ (quote 1) (car l_14)) (add-list_13_16 (cdr l_14))))))) (add-list_13_16 l_11))) (lambda (n_18) (list (+ (quote 1) n_18) (+ (quote 2) n_18) (+ (quote 3) n_18))) (lambda (env_27) (lookup (quote x) env_27)) (lambda (env_36) (apply (lookup (quote f) env_36) (list (quote 1) (quote 2) (quote 3)))) (lambda (b_53) (+ (quote 15) b_53 b_53 b_53 b_53 b_53 b_53)) (lambda () (quote 55)) (lambda () (list (quote a) (quote b) (quote c) (quote d) (quote e) (quote f) (quote g) (quote h) (quote i) (quote j) (quote k) (quote l) (quote m) (quote n) (quote o) (quote p) (quote q) (quote r) (quote s) (quote t) (quote u) (quote v) (quote w) (quote x) (quote y) (quote z))) (lambda () (quote 3)))"
+    }
+  ],
+  "parsing": [
+    {
+      "name": "complete-small-source-grammar-and-action-quirks",
+      "input": "2\n\"inputs/parser-small.data\"\n(last #(1 2) (a . b) \"raw\\\\n\" #\\# 3/2 -0.5)\n",
+      "wrong": "2\n\"inputs/parser-small.data\"\n(last #(1 3) (a . b) \"raw\\\\n\" #\\# 3/2 -0.5)\n",
+      "files": {
+        "inputs/parser-small.data": "old '(a . b) (last #(1 2) (a . b) \"raw\\n\" #\\space 3/2 -.5)"
+      }
+    },
+    {
+      "name": "original-eof-recovery",
+      "input": "1\n\"inputs/parser-eof.data\"\nx\n",
+      "wrong": "1\n\"inputs/parser-eof.data\"\ny\n",
+      "files": {
+        "inputs/parser-eof.data": "x ("
+      }
+    },
+    {
+      "name": "zero-inner-repetitions-still-load-file",
+      "input": "0\n\"inputs/parser-zero.data\"\n#f\n",
+      "wrong": "0\n\"inputs/parser-zero.data\"\n#t\n",
+      "files": {
+        "inputs/parser-zero.data": "(unused)\n"
+      }
+    }
+  ],
+  "nucleic": [
+    {
+      "name": "complete-independent-ordered-solution-transform-audit",
+      "input": "1\n()\n33.797594890762724\n",
+      "wrong": "1\n()\n34.0\n",
+      "rust_arguments": [
+        "--dump"
+      ],
+      "rust_nucleic_audit": "tests/nucleic-solutions.scm"
+    }
+  ],
+  "scheme": [
+    {
+      "name": "complete-small-sort-with-duplicates",
+      "input": "1\n(let ()\n\n  (define (sort-list obj pred)\n\n    (define (loop l)\n      (if (and (pair? l) (pair? (cdr l)))\n          (split l '() '())\n          l))\n\n    (define (split l one two)\n      (if (pair? l)\n          (split (cdr l) two (cons (car l) one))\n          (merge (loop one) (loop two))))\n\n    (define (merge one two)\n      (cond ((null? one) two)\n            ((pred (car two) (car one))\n             (cons (car two)\n                   (merge (cdr two) one)))\n            (else\n             (cons (car one)\n                   (merge (cdr one) two)))))\n\n    (loop obj))\n\n  (sort-list '(\"b\" \"a\" \"b\" \"aa\" \"z\" \"c\") string<?))\n(\"a\" \"aa\" \"b\" \"b\" \"c\" \"z\")\n",
+      "wrong": "1\n(let ()\n\n  (define (sort-list obj pred)\n\n    (define (loop l)\n      (if (and (pair? l) (pair? (cdr l)))\n          (split l '() '())\n          l))\n\n    (define (split l one two)\n      (if (pair? l)\n          (split (cdr l) two (cons (car l) one))\n          (merge (loop one) (loop two))))\n\n    (define (merge one two)\n      (cond ((null? one) two)\n            ((pred (car two) (car one))\n             (cons (car two)\n                   (merge (cdr two) one)))\n            (else\n             (cons (car one)\n                   (merge (cdr one) two)))))\n\n    (loop obj))\n\n  (sort-list '(\"b\" \"a\" \"b\" \"aa\" \"z\" \"c\") string<?))\n(\"a\" \"aa\" \"b\" \"b\" \"c\" \"wrong\")\n",
+      "rust_stdout_contains": [
+        "Result: (\"a\" \"aa\" \"b\" \"b\" \"c\" \"z\")"
+      ]
+    },
+    {
+      "name": "lexical-mutation-local-recursion-rest",
+      "input": "1\n(let () (define (visit xs tail) (if (null? xs) tail (visit (cdr xs) (cons (car xs) tail)))) (let ((x 'old)) (let ((f (lambda () x))) (set! x 'changed) (list (f) (visit '(a b c) '()) ((lambda (a . rest) rest) 'a 'b 'c)))))\n(changed (c b a) (b c))\n",
+      "wrong": "1\n(let () (define (visit xs tail) (if (null? xs) tail (visit (cdr xs) (cons (car xs) tail)))) (let ((x 'old)) (let ((f (lambda () x))) (set! x 'changed) (list (f) (visit '(a b c) '()) ((lambda (a . rest) rest) 'a 'b 'c)))))\n(old (c b a) (b c))\n",
+      "rust_stdout_contains": [
+        "Result: (changed (c b a) (b c))"
+      ]
+    },
+    {
+      "name": "source-empty-truth-and-long-arity-quirk",
+      "input": "1\n(let ((x 'outer)) (list ((lambda () x)) ((lambda (a b c d) (list a b c d)) 'a 'b 'c 'd 'ignored) (if '() 'truthy 'false)))\n(outer (a b c d) truthy)\n",
+      "wrong": "1\n(let ((x 'outer)) (list ((lambda () x)) ((lambda (a b c d) (list a b c d)) 'a 'b 'c 'd 'ignored) (if '() 'truthy 'false)))\n(outer (a b c d ignored) truthy)\n",
+      "rust_stdout_contains": [
+        "Result: (outer (a b c d) truthy)"
+      ]
+    },
+    {
+      "name": "escaped-global-closure",
+      "input": "1\n(begin (define saved (let ((x 'first)) (lambda () (set! x 'next) x))) (saved))\nnext\n",
+      "wrong": "1\n(begin (define saved (let ((x 'first)) (lambda () (set! x 'next) x))) (saved))\nfirst\n",
+      "rust_stdout_contains": [
+        "Result: next"
+      ]
+    }
+  ],
+  "dynamic": [
+    {
+      "name": "mixed-types",
+      "input": "1\n\"fixture-dynamic.scm\"\n((2 . 1) (0 . 2) (2 . 0))\n",
+      "wrong": "1\n\"fixture-dynamic.scm\"\n((2 . 1) (0 . 2) (2 . 1))\n",
+      "files": {
+        "fixture-dynamic.scm": "(define (id x) x)\n(id 1)\n(id \"text\")\n"
+      },
+      "rust_arguments": [
+        "--dump",
+        "--type-counter"
+      ],
+      "rust_stdout_contains": [
+        "Result: ((2 . 1) (0 . 2) (2 . 0))",
+        "Audit: ((define id (no-tag (lambda (x) x))) ((no-untag id) (may-untag (tag 1))) ((no-untag id) (may-untag (tag \"text\"))))",
+        "Type counter: 199"
+      ]
+    },
+    {
+      "name": "recursive-shared-list",
+      "input": "1\n\"fixture-dynamic.scm\"\n((0 . 9) (0 . 7) (0 . 7))\n",
+      "wrong": "1\n\"fixture-dynamic.scm\"\n((0 . 9) (0 . 7) (0 . 8))\n",
+      "files": {
+        "fixture-dynamic.scm": "(define (copy xs) (if (null? xs) '() (cons (car xs) (copy (cdr xs)))))\n(copy '(a b c))\n"
+      },
+      "rust_arguments": [
+        "--dump",
+        "--type-counter"
+      ],
+      "rust_stdout_contains": [
+        "Result: ((0 . 9) (0 . 7) (0 . 7))",
+        "Audit: ((define copy (no-tag (lambda (xs) (if (no-untag ((no-untag null?) (no-may-untag xs))) (no-tag ()) ((no-untag cons) (no-may-untag ((no-untag car) (no-may-untag xs))) (no-may-untag ((no-untag copy) (no-may-untag ((no-untag cdr) (no-may-untag xs)))))))))) ((no-untag copy) (no-may-untag (no-tag (cons (no-tag (quote a)) (no-tag (cons (no-tag (quote b)) (no-tag (cons (no-tag (quote c)) (no-tag ()))))))))))",
+        "Type counter: 347"
+      ]
+    },
+    {
+      "name": "forms-scopes-rest-vector",
+      "input": "1\n\"fixture-dynamic.scm\"\n((1 . 14) (0 . 10) (1 . 5))\n",
+      "wrong": "1\n\"fixture-dynamic.scm\"\n((1 . 14) (0 . 10) (1 . 6))\n",
+      "files": {
+        "fixture-dynamic.scm": "(define (f flag . xs) (define (g v) v) (let* ((a 1) (b a)) (set! a b) (cond (flag (g b)) (else (case a ((1) (or #t #f)) (else (and #t #t)))))))\n(f #t 'a 'b)\n(letrec ((loop (lambda (x) (if #t x (loop x))))) (loop #(1 2)))\n"
+      },
+      "rust_arguments": [
+        "--dump",
+        "--type-counter"
+      ],
+      "rust_stdout_contains": [
+        "Result: ((1 . 14) (0 . 10) (1 . 5))",
+        "Audit: ((define f (no-tag (lambda (flag . xs) (define g (no-tag (lambda (v) v))) (let* ((a (tag 1)) (b a)) (set! a b) (cond ((no-untag flag) ((no-untag g) (may-untag b))) (else (case a ((1) (or (no-untag (no-tag #t)) (no-untag (no-tag #f)))) (else (and (no-untag (no-tag #t)) (no-untag (no-tag #t))))))))))) ((no-untag f) (no-may-untag (no-tag #t)) (no-may-untag (no-tag (quote a))) (no-may-untag (no-tag (quote b)))) (letrec ((loop (no-tag (lambda (x) (if (no-untag (no-tag #t)) x ((no-untag loop) (no-may-untag x))))))) ((no-untag loop) (no-may-untag (no-tag #((no-tag 1) (no-tag 2)))))))",
+        "Type counter: 305"
+      ]
+    },
+    {
+      "name": "parallel-and-sequential-scope",
+      "input": "1\n\"fixture-dynamic.scm\"\n((0 . 3) (0 . 2) (0 . 4))\n",
+      "wrong": "1\n\"fixture-dynamic.scm\"\n((0 . 3) (0 . 2) (0 . 5))\n",
+      "files": {
+        "fixture-dynamic.scm": "(let ((x \"outer\")) (let ((x 1) (y x)) (list x y)))\n(let* ((x 1) (y x)) (list x y))\n"
+      },
+      "rust_arguments": [
+        "--dump",
+        "--type-counter"
+      ],
+      "rust_stdout_contains": [
+        "Result: ((0 . 3) (0 . 2) (0 . 4))",
+        "Audit: ((let ((x (no-tag \"outer\"))) (let ((x (no-tag 1)) (y x)) ((no-untag list) (no-may-untag x) (no-may-untag y)))) (let* ((x (no-tag 1)) (y x)) ((no-untag list) (no-may-untag x) (no-may-untag y))))",
+        "Type counter: 209"
+      ]
+    },
+    {
+      "name": "complete-canonical-tagged-program-after-timer",
+      "canonical_audit": true,
+      "rust_arguments": [
+        "--dump",
+        "--type-counter"
+      ],
+      "rust_exact_audit": "tests/dynamic-program.scm",
+      "rust_stdout_contains": [
+        "Type counter: 11360332"
+      ]
+    }
+  ],
+  "slatex": [
+    {
+      "name": "fonting-quote-case-and-line-alignment",
+      "input": "1\n\"fixture-slatex\"\nignored\nignored\n",
+      "isolate_systems": true,
+      "compare_output_sets": true,
+      "files": {
+        "fixture-slatex.tex": "\\documentstyle{article}\n\\scheme{(lambda (x) '(a -2 #t))}\n\\begin{schemedisplay}\n(define-syntax m (syntax-rules () ((m x) x)))\n(case x\n  ((a b) `(+ ,x ,@xs))\n  (else \"a b\"))\n;raw TeX paragraph\n\\end{schemedisplay}\n"
+      }
+    },
+    {
+      "name": "aliases-math-and-protected-inlining",
+      "input": "1\n\"fixture-slatex\"\nignored\nignored\n",
+      "isolate_systems": true,
+      "compare_output_sets": true,
+      "files": {
+        "fixture-slatex.tex": "\\documentstyle{article}\n\\defschemetoken{scm}\n\\setspecialsymbol{foo}{\\Phi}\n\\setconstant{PI}\n\\setvariable{v}\n\\defschememathescape{|}\n\\schemecasesensitive{false}\n\\scm{(IF foo PI v |x+y|)}\n\\begin{schemeregion}\nBefore \\scm{(foo PI)} after.\n\\begin{schemedisplay}\n(+ v 1)\n\\end{schemedisplay}\n\\end{schemeregion}\n"
+      }
+    },
+    {
+      "name": "file-includes-and-persistent-counters",
+      "input": "2\n\"fixture-slatex\"\nignored\nignored\n",
+      "isolate_systems": true,
+      "compare_output_sets": true,
+      "files": {
+        "fixture-slatex.tex": "\\documentstyle{article}\n\\includeonly{child}\n\\input{child}\n\\include{child}\n\\schemeinput{code}\n",
+        "child.tex": "\\scheme{(list 1 2)}\n",
+        "code.scm": "(define (id x) x)\n"
+      }
+    }
+  ],
+  "compiler": [
+    {
+      "name": "independent-small-addition",
+      "input": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #1,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\" \"\")\n",
+      "wrong": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #2,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\" \"\")\n"
+    },
+    {
+      "name": "complete-result-list-truncation",
+      "input": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #1,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\" \"\")\n",
+      "wrong": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #1,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\")\n"
+    },
+    {
+      "name": "complete-result-list-extra-line",
+      "input": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #1,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\" \"\")\n",
+      "wrong": "2\n(begin (declare (standard-bindings) (fixnum) (not safe) (block)) (+ 1 2))\nm68000\nasm\n(\"|------------------------------------------------------\" \"| #[primitive #!program] =\" \"L1:\" \" cmpw #1,d0\" \" beq L1000\" \" TRAP1(9,0)\" \" LBL_PTR(L1)\" \"L1000:\" \" moveq #8,d1\" \" moveq #-16,d0\" \" subl d0,d1\" \" jmp a0@\" \"L0:\" \"\" \"unexpected\")\n"
+    }
+  ]
+}

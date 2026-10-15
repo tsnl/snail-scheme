@@ -1,0 +1,556 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-matrix-native-diagnostic-replay-20261014/evidence/inputs/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native",
+    "2500",
+    "/tmp/snail-matrix-native-diagnostic-replay-20261014/evidence/inputs/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt"
+  ],
+  "cwd": "/tmp/snail-matrix-native-diagnostic-replay-20261014/evidence/inputs/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix",
+  "status": "valid",
+  "clean_timing": false,
+  "started_utc": "2026-10-14T17:44:32.754540+00:00",
+  "timeout_seconds": 60,
+  "driver": {
+    "path": "/tmp/snail-matrix-native-diagnostics-20261014/benchmarks/results/2026-10-14-strict-matrix-native-diagnostics/diagnose.py",
+    "sha256": "090fc696f6ec597f91420810f07c1b38a432bcb19ac11d9f1db0902ba259a464"
+  },
+  "errors": [],
+  "environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "BINARYEN_CORES": "1",
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "identities_before": {
+    "started_utc": "2026-10-14T17:44:32.754617+00:00",
+    "files": {
+      "/tmp/snail-matrix-native-diagnostic-replay-20261014/evidence/inputs/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.json": {
+        "expected": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec",
+        "observed": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec"
+      },
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": {
+        "expected": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+        "observed": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090"
+      },
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": {
+        "expected": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "observed": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as": {
+        "expected": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+        "observed": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt": {
+        "expected": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+        "observed": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis": {
+        "expected": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+        "observed": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045"
+      },
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": {
+        "expected": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "observed": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+      },
+      "/run/current-system/sw/bin/taskset": {
+        "expected": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+        "observed": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+      },
+      "/run/current-system/sw/bin/rustc": {
+        "expected": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "observed": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b"
+      },
+      "/run/current-system/sw/bin/cargo": {
+        "expected": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "observed": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b"
+      },
+      "/run/current-system/sw/bin/clang": {
+        "expected": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+        "observed": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4"
+      },
+      "/run/current-system/sw/bin/ld.lld": {
+        "expected": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+        "observed": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge": {
+        "expected": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+        "observed": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47"
+      },
+      "/run/current-system/sw/bin/python3": {
+        "expected": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+        "observed": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/prepared.json": {
+        "expected": "0affead8d4814a307e9b79e788d93c64abc23b298a0e50859bb02ee739e472a6",
+        "observed": "0affead8d4814a307e9b79e788d93c64abc23b298a0e50859bb02ee739e472a6"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs": {
+        "expected": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+        "observed": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix_port.py": {
+        "expected": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+        "observed": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/measure.py": {
+        "expected": "827667d7db3e5a7c03f3ef44f6f55c290279c3d25c31b0e72a26d7468e7a6c3f",
+        "observed": "827667d7db3e5a7c03f3ef44f6f55c290279c3d25c31b0e72a26d7468e7a6c3f"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/data_ports.py": {
+        "expected": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+        "observed": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/r7rs.py": {
+        "expected": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+        "observed": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm": {
+        "expected": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46",
+        "observed": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm.raw.wasm": {
+        "expected": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618",
+        "observed": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native": {
+        "expected": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee",
+        "observed": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so": {
+        "expected": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8",
+        "observed": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so": {
+        "expected": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3",
+        "observed": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native": {
+        "expected": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
+        "observed": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.raw.wasm": {
+        "expected": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
+        "observed": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm": {
+        "expected": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+        "observed": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm": {
+        "expected": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
+        "observed": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt": {
+        "expected": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
+        "observed": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/upstream.scm": {
+        "expected": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
+        "observed": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json": {
+        "expected": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
+        "observed": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.scm": {
+        "expected": "7b0b0bbcde92bcadf6e7c2dcec195692401b02c07468fd7e29e2c8e61083752a",
+        "observed": "7b0b0bbcde92bcadf6e7c2dcec195692401b02c07468fd7e29e2c8e61083752a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.scm": {
+        "expected": "31aa74c2603372c881a051b21251443c16a063008223302a5bc2e3c00e409768",
+        "observed": "31aa74c2603372c881a051b21251443c16a063008223302a5bc2e3c00e409768"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.scm": {
+        "expected": "be9ec7a9bdbbe5e3a64522598c5913467a4a5b0d2c0cf33fb32603179875672a",
+        "observed": "be9ec7a9bdbbe5e3a64522598c5913467a4a5b0d2c0cf33fb32603179875672a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adapted-kernel.scm": {
+        "expected": "be4c572b5bf996f55271401e6ab9706cb5824fe9667e0bdb0c8df0cdb703edeb",
+        "observed": "be4c572b5bf996f55271401e6ab9706cb5824fe9667e0bdb0c8df0cdb703edeb"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/original-kernel.scm": {
+        "expected": "88a264dcfd7062a2ea56b7c9442f70fad5c0d5ae4fb85df7e611de7411015ecc",
+        "observed": "88a264dcfd7062a2ea56b7c9442f70fad5c0d5ae4fb85df7e611de7411015ecc"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adaptation-ledger.json": {
+        "expected": "bbace9718461432154efc22e2335cb6142d83d21299cb7daa6c9dbd1ed2cb1ae",
+        "observed": "bbace9718461432154efc22e2335cb6142d83d21299cb7daa6c9dbd1ed2cb1ae"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.c": {
+        "expected": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009",
+        "observed": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.h": {
+        "expected": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c",
+        "observed": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-entry.c": {
+        "expected": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58",
+        "observed": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt": {
+        "expected": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636",
+        "observed": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs": {
+        "expected": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "observed": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/bin/matrix.rs": {
+        "expected": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+        "observed": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/lib.rs": {
+        "expected": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+        "observed": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.toml": {
+        "expected": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+        "observed": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.lock": {
+        "expected": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+        "observed": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/module.ll": {
+        "expected": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7",
+        "observed": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/provider-0.o": {
+        "expected": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5",
+        "observed": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/build.json": {
+        "expected": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e",
+        "observed": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/libsnail_runtime.a": {
+        "expected": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+        "observed": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/identities.json": {
+        "expected": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379",
+        "observed": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/validation.json": {
+        "expected": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730",
+        "observed": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py": {
+        "expected": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5",
+        "observed": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py": {
+        "expected": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7",
+        "observed": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.md": {
+        "expected": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12",
+        "observed": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/hardware-before.json": {
+        "expected": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2",
+        "observed": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/inspect-retained-work.py": {
+        "expected": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902",
+        "observed": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.json": {
+        "expected": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c",
+        "observed": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.md": {
+        "expected": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1",
+        "observed": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1"
+      }
+    },
+    "errors": [],
+    "unchanged": true,
+    "stopped_utc": "2026-10-14T17:44:32.802820+00:00"
+  },
+  "pid": 10,
+  "process_group": 10,
+  "cleanup": {
+    "before": [],
+    "after": [],
+    "live_members": [],
+    "leader_reaped": true,
+    "zombies_dead_not_running": true
+  },
+  "returncode": 0,
+  "diagnostic_process_seconds": 1.9541544519597664,
+  "stdout_raw": {
+    "path": "/tmp/snail-matrix-native-diagnostics-20261014/benchmarks/results/2026-10-14-strict-matrix-native-diagnostics/replay/native/stdout.bin",
+    "sha256": "a08db6b36fd3f12e00fec6e2d643ad2a9ba9cc87dd091fd34af7bdbc255e4f8b"
+  },
+  "stderr_raw": {
+    "path": "/tmp/snail-matrix-native-diagnostics-20261014/benchmarks/results/2026-10-14-strict-matrix-native-diagnostics/replay/native/stderr.bin",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "identities_after": {
+    "started_utc": "2026-10-14T17:44:34.708757+00:00",
+    "files": {
+      "/tmp/snail-matrix-native-diagnostic-replay-20261014/evidence/inputs/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.json": {
+        "expected": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec",
+        "observed": "27ad980f6dfbae3702fd5dd20f7eda357eb3fc849a34161e80f4001ddaccddec"
+      },
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": {
+        "expected": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+        "observed": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090"
+      },
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": {
+        "expected": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "observed": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as": {
+        "expected": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+        "observed": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt": {
+        "expected": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+        "observed": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis": {
+        "expected": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+        "observed": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045"
+      },
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": {
+        "expected": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "observed": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+      },
+      "/run/current-system/sw/bin/taskset": {
+        "expected": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+        "observed": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+      },
+      "/run/current-system/sw/bin/rustc": {
+        "expected": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "observed": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b"
+      },
+      "/run/current-system/sw/bin/cargo": {
+        "expected": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+        "observed": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b"
+      },
+      "/run/current-system/sw/bin/clang": {
+        "expected": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+        "observed": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4"
+      },
+      "/run/current-system/sw/bin/ld.lld": {
+        "expected": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+        "observed": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466"
+      },
+      "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge": {
+        "expected": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+        "observed": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47"
+      },
+      "/run/current-system/sw/bin/python3": {
+        "expected": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+        "observed": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/prepared.json": {
+        "expected": "0affead8d4814a307e9b79e788d93c64abc23b298a0e50859bb02ee739e472a6",
+        "observed": "0affead8d4814a307e9b79e788d93c64abc23b298a0e50859bb02ee739e472a6"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/host.mjs": {
+        "expected": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+        "observed": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix_port.py": {
+        "expected": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+        "observed": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/measure.py": {
+        "expected": "827667d7db3e5a7c03f3ef44f6f55c290279c3d25c31b0e72a26d7468e7a6c3f",
+        "observed": "827667d7db3e5a7c03f3ef44f6f55c290279c3d25c31b0e72a26d7468e7a6c3f"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/data_ports.py": {
+        "expected": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+        "observed": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/r7rs.py": {
+        "expected": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09",
+        "observed": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm": {
+        "expected": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46",
+        "observed": "f047b9cfbebd9127dfde44fb28efd80a9f3da1bd736352218e05e5f325013f46"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.wasm.raw.wasm": {
+        "expected": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618",
+        "observed": "0966dfa626245d26ebff87000aac4c45e29d499f30ca3c6b642aba41c2143618"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native": {
+        "expected": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee",
+        "observed": "f5209b3e8833647312ae29f118188517a0451e252f82702cf6be3352bfb139ee"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.so": {
+        "expected": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8",
+        "observed": "9b43366d4e98245b07c01d92bb8fb2736c0941bcf1147bc652be74efc8e40be8"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.so": {
+        "expected": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3",
+        "observed": "b7af4ebf960966625d2442b647e9d826e5af5b7a86f17db3d860f2681e81aab3"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.native": {
+        "expected": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4",
+        "observed": "c7436d296879174bb780290c9a6ec33a70970089149ab87d8cee0b9aac9619d4"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.raw.wasm": {
+        "expected": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba",
+        "observed": "6819edf948e6d3408dd3722f06455f3333b0137858a2d3b28809d42a24c9ffba"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/matrix.wasm": {
+        "expected": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284",
+        "observed": "703bb2ba20f20786b49f21cf5266a3171596204869eb1286a9f64a5c871c2284"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/optimized.wasm": {
+        "expected": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd",
+        "observed": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/input.txt": {
+        "expected": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a",
+        "observed": "94ba158dbb0ff1582db6ff64d7e865369576b69fd48fa0e8f374200422bcca8a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/upstream.scm": {
+        "expected": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073",
+        "observed": "26c00503a27dae69c80fcfacc15a36a0160b7d3945163bdf744435b4dd10f073"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/spec.json": {
+        "expected": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
+        "observed": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/strict.scm": {
+        "expected": "7b0b0bbcde92bcadf6e7c2dcec195692401b02c07468fd7e29e2c8e61083752a",
+        "observed": "7b0b0bbcde92bcadf6e7c2dcec195692401b02c07468fd7e29e2c8e61083752a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/program.scm": {
+        "expected": "31aa74c2603372c881a051b21251443c16a063008223302a5bc2e3c00e409768",
+        "observed": "31aa74c2603372c881a051b21251443c16a063008223302a5bc2e3c00e409768"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/same-source-chez/program.scm": {
+        "expected": "be9ec7a9bdbbe5e3a64522598c5913467a4a5b0d2c0cf33fb32603179875672a",
+        "observed": "be9ec7a9bdbbe5e3a64522598c5913467a4a5b0d2c0cf33fb32603179875672a"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adapted-kernel.scm": {
+        "expected": "be4c572b5bf996f55271401e6ab9706cb5824fe9667e0bdb0c8df0cdb703edeb",
+        "observed": "be4c572b5bf996f55271401e6ab9706cb5824fe9667e0bdb0c8df0cdb703edeb"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/original-kernel.scm": {
+        "expected": "88a264dcfd7062a2ea56b7c9442f70fad5c0d5ae4fb85df7e611de7411015ecc",
+        "observed": "88a264dcfd7062a2ea56b7c9442f70fad5c0d5ae4fb85df7e611de7411015ecc"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/adaptation-ledger.json": {
+        "expected": "bbace9718461432154efc22e2335cb6142d83d21299cb7daa6c9dbd1ed2cb1ae",
+        "observed": "bbace9718461432154efc22e2335cb6142d83d21299cb7daa6c9dbd1ed2cb1ae"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.c": {
+        "expected": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009",
+        "observed": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-provider.h": {
+        "expected": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c",
+        "observed": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-entry.c": {
+        "expected": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58",
+        "observed": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native-input-canonical.txt": {
+        "expected": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636",
+        "observed": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/run-wasi.mjs": {
+        "expected": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "observed": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/bin/matrix.rs": {
+        "expected": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+        "observed": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/src/lib.rs": {
+        "expected": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+        "observed": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.toml": {
+        "expected": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+        "observed": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/rust-reference/Cargo.lock": {
+        "expected": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+        "observed": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/module.ll": {
+        "expected": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7",
+        "observed": "ce8e086aa7b3b6c53de9d901f31667477c4614dc5d84e5141579d5ffa7d5bdc7"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/provider-0.o": {
+        "expected": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5",
+        "observed": "463d217a41413084a2489bf884097e2f3db777e0090cc7439d3fee5c1ef3dba5"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-attempt5/matrix/native-timing/native.native-r2n6qggl/build.json": {
+        "expected": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e",
+        "observed": "0ffb8b1a49c476e6b50edf0076787662fc7f54808719b872364b08f4852dbf4e"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/libsnail_runtime.a": {
+        "expected": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d",
+        "observed": "4ef07282be90879d3aca5ec1a25b813760a9e3b9f327b20980eaa346b511c62d"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/identities.json": {
+        "expected": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379",
+        "observed": "7c74699392cfac3c4985ad83750ec876dd0d0fcadd1d7438b0cc18cb29b22379"
+      },
+      "/tmp/snail-strict-matrix-20261014/build/matrix-native-final-control-20261014/validation.json": {
+        "expected": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730",
+        "observed": "d71afc970f11452b29ef6de9a0b80fffdfd2d2e2853e57709ac52eabe6431730"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py": {
+        "expected": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5",
+        "observed": "b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/freeze-plan.py": {
+        "expected": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7",
+        "observed": "3723832268bab058a6ae96096eca0fc1d31946cc18b9d81e3a7178f7caa9c8d7"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/timing-plan.md": {
+        "expected": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12",
+        "observed": "0b7f15b0d7eac6f0215ae146dd0798a49124de9857e923da0516f1b580f17e12"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/hardware-before.json": {
+        "expected": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2",
+        "observed": "7a9416aab104ad14945a538a743d9338e25794fd066c5ff1bb14b053b9f12df2"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/inspect-retained-work.py": {
+        "expected": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902",
+        "observed": "f6fc48396648845210f854194c5ed287b7f64a849e80c3cfe21d9651e1b5f902"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.json": {
+        "expected": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c",
+        "observed": "e43ab68d2b06e68a3c123f1fd9eccc5a04e5176f4e6ac5af60da9ceded439a3c"
+      },
+      "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/retained-work.md": {
+        "expected": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1",
+        "observed": "4afca73918f6a2db67156f1a26f5c8003bb0600f246ff7f344c9ce2812225da1"
+      }
+    },
+    "errors": [],
+    "unchanged": true,
+    "stopped_utc": "2026-10-14T17:44:34.757183+00:00"
+  },
+  "valid_full_result": true,
+  "diagnostic_workload_seconds": 1.88861693,
+  "full_count": 2500,
+  "relocated": true,
+  "profiler": false
+}

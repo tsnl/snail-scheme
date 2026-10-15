@@ -1,0 +1,415 @@
+{
+  "revision": "1261e3fedd4ed97759863fd559057375c464c7b0",
+  "method": "Eight rotating rounds pinned to CPU2; fresh process per sample; 64 repetitions; checksum269118144; program internal timer excludes ahead-of-time compilation and process startup; discard one fresh-process sample per variant.",
+  "guile": "3.0.11, guild compile --r7rs -O2 (all optimizations; same passes as -O3). Default runtime settings; no auto-compilation. guile-warm invokes main a second time in the same process after a full 64-repetition warmup and records only the second interval. Runtime JIT work, if any, is included in measured intervals.",
+  "scope": "Guile/Chez/Chibi execute the complete unchanged canonical Scheme workload. LLVM variants compile the extracted recursive Fibonacci through the bounded Wasm->LLVM experiment and use its C outer harness. Tuned LLVM uses static boolean objects and cold noinline numeric fallbacks, as in 2026-10-10-llvm-codegen.json; not the complete production backend.",
+  "build_commands": [
+    [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+      "compile",
+      "--r7rs",
+      "-O2",
+      "-o",
+      "build/guile/cpu.go",
+      "benchmarks/cpu.scm"
+    ],
+    [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "benchmarks/chez.scm",
+      "benchmarks/cpu.scm",
+      "build/guile/cpu-chez.so"
+    ],
+    [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "benchmarks/chibi.scm",
+      "benchmarks/cpu.scm",
+      "build/guile/cpu-chibi.scm"
+    ]
+  ],
+  "commands": {
+    "llvm-baseline": [
+      "/tmp/snail-guile-20261010/build/guile/llvm-baseline",
+      "64"
+    ],
+    "llvm-tuned": [
+      "/tmp/snail-guile-20261010/build/guile/llvm-tuned",
+      "64"
+    ],
+    "chez": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-guile-20261010/build/guile/cpu-chez.so",
+      "64"
+    ],
+    "guile": [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "--no-auto-compile",
+      "--r7rs",
+      "-c",
+      "(load-compiled \"build/guile/cpu.go\")",
+      "64"
+    ],
+    "guile-warm": [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "--no-auto-compile",
+      "--r7rs",
+      "-c",
+      "(load-compiled \"build/guile/cpu.go\") (main)",
+      "64"
+    ],
+    "chibi": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "/tmp/snail-guile-20261010/build/guile/cpu-chibi.scm",
+      "64"
+    ]
+  },
+  "samples": [
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046581557,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.023448417,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030178,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.09578,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.098005,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.095599,
+      "round": 1
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.461,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.026849063,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029959,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.101211,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.095368,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.094588,
+      "round": 2
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.459,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046563663,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030029,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.091324,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.094905,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.096791,
+      "round": 3
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.458,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046592636,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.026717145,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.09767,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.095984,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.097165,
+      "round": 4
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.455,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046600883,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.026827162,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029021,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.093614,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.09901,
+      "round": 5
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.463,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046529768,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.023447088,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029912,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.094019,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.461,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046608168,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.026835682,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029282,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.099696,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.095394,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.090815,
+      "round": 6
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046614141,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.023458693,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.029102,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.088544,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.090013,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.093562,
+      "round": 7
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.473,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.026796012,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.03011,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.089175,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.089426,
+      "checksum": 269118144,
+      "untimed_warmup_seconds": 0.093924,
+      "round": 8
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.454,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.046382297,
+      "checksum": 269118144,
+      "round": 8
+    }
+  ],
+  "median_seconds": {
+    "llvm-baseline": 0.0465870965,
+    "llvm-tuned": 0.026756578500000003,
+    "chez": 0.0299355,
+    "guile": 0.0948995,
+    "guile-warm": 0.0951365,
+    "chibi": 0.46
+  },
+  "time_over_chez": {
+    "llvm-baseline": 1.5562491523442068,
+    "llvm-tuned": 0.8938076364182994,
+    "chez": 1.0,
+    "guile": 3.1701324514372566,
+    "guile-warm": 3.1780494730336892,
+    "chibi": 15.366371031050091
+  },
+  "time_over_tuned_llvm": {
+    "llvm-baseline": 1.7411455093183905,
+    "llvm-tuned": 1.0,
+    "chez": 1.1188089687924783,
+    "guile": 3.5467726189280886,
+    "guile-warm": 3.5556302536963007,
+    "chibi": 17.192033727331765
+  },
+  "sha256": {
+    "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+    "build/guile/cpu.go": "a7fb152fee12e68d1053d9dc78064b141d957798e93c6e8f2a5f1fdccc308582",
+    "build/guile/cpu-chez.so": "d3343c059a7facdd17c5873b47a62695ae2de27b722adacb8a20b5ee78feb67e",
+    "build/guile/cpu-chibi.scm": "a24bb4afec3253f5b7664a18b089c67ab44ecc7e1fdcd381488cf831ab381dfc",
+    "build/guile/llvm-tuned": "76505c54d3695869e7e5cdd9e46bba6a9ba05ff24a0ac89a09f069aef9ba5895",
+    "build/guile/llvm-baseline": "f84280f42fa2a5a0935cad4514c909925b868c6a8f05c71b8162be2508db3c59"
+  },
+  "guile_executable_sha256": "3c20e7a91b262ac869c5ce730a953706ba67139a50b989666350cde961ecb16d",
+  "environment": {
+    "GUILE_JIT_THRESHOLD": null,
+    "GUILE_AUTO_COMPILE": null,
+    "GUILE_LOAD_PATH": null,
+    "GUILE_LOAD_COMPILED_PATH": null
+  },
+  "versions": {
+    "guile": "guile (GNU Guile) 3.0.11",
+    "chez": "10.4.1",
+    "chibi": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+  },
+  "host": "Linux nti-ws 7.2.3 #1-NixOS SMP PREEMPT_DYNAMIC Wed Sep  2 12:33:21 UTC 2026 x86_64 GNU/Linux",
+  "diagnostics": {
+    "guile": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+    "guile-warm": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n"
+  },
+  "measurement_script": "import hashlib, json, os, re, statistics, subprocess\nfrom pathlib import Path\n\nroot=Path(__file__).resolve().parents[2]\nout=root/'build/guile'\nguile='/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile'\nchez='/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme'\nchibi='/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme'\nload='(load-compiled \"build/guile/cpu.go\")'\ncommands={\n 'llvm-baseline':[str(out/'llvm-baseline'),'64'],\n 'llvm-tuned':[str(out/'llvm-tuned'),'64'],\n 'chez':[chez,'--program',str(out/'cpu-chez.so'),'64'],\n 'guile':[guile,'--no-auto-compile','--r7rs','-c',load,'64'],\n 'guile-warm':[guile,'--no-auto-compile','--r7rs','-c',load+' (main)','64'],\n 'chibi':[chibi,str(out/'cpu-chibi.scm'),'64']}\nos.sched_setaffinity(0,{2})\nsamples=[]\ndiagnostics={}\ndef sample(name,command):\n r=subprocess.run(command,cwd=root,text=True,capture_output=True,check=True)\n checksums=re.findall(r'checksum: (\\d+)',r.stdout)\n assert len(checksums)==(2 if name=='guile-warm' else 1),r.stdout\n assert all(int(n)==269118144 for n in checksums),r.stdout\n times=re.findall(r'elapsed: ([\\d.]+) s',r.stdout)\n assert len(times)==len(checksums),r.stdout\n if r.stderr:diagnostics[name]=r.stderr\n row={'variant':name,'seconds':float(times[-1]),'checksum':269118144}\n if len(times)>1:row['untimed_warmup_seconds']=float(times[0])\n return row\nfor name,command in commands.items():sample(name,command)\nitems=list(commands.items())\nfor round in range(8):\n offset=round%len(items)\n for name,command in items[offset:]+items[:offset]:\n  row=sample(name,command);row['round']=round+1;samples.append(row)\nmedians={name:statistics.median(r['seconds'] for r in samples if r['variant']==name) for name in commands}\npaths=[root/'benchmarks/cpu.scm',out/'cpu.go',out/'cpu-chez.so',out/'cpu-chibi.scm',out/'llvm-tuned',out/'llvm-baseline']\nbuild_commands=[\n [str(Path(guile).with_name('guild')),'compile','--r7rs','-O2','-o','build/guile/cpu.go','benchmarks/cpu.scm'],\n [chez,'--script','benchmarks/chez.scm','benchmarks/cpu.scm','build/guile/cpu-chez.so'],\n [chibi,'benchmarks/chibi.scm','benchmarks/cpu.scm','build/guile/cpu-chibi.scm']]\nreport={\n 'revision':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),\n 'method':'Eight rotating rounds pinned to CPU2; fresh process per sample; 64 repetitions; checksum269118144; program internal timer excludes ahead-of-time compilation and process startup; discard one fresh-process sample per variant.',\n 'guile':'3.0.11, guild compile --r7rs -O2 (all optimizations; same passes as -O3). Default runtime settings; no auto-compilation. guile-warm invokes main a second time in the same process after a full 64-repetition warmup and records only the second interval. Runtime JIT work, if any, is included in measured intervals.',\n 'scope':'Guile/Chez/Chibi execute the complete unchanged canonical Scheme workload. LLVM variants compile the extracted recursive Fibonacci through the bounded Wasm->LLVM experiment and use its C outer harness. Tuned LLVM uses static boolean objects and cold noinline numeric fallbacks, as in 2026-10-10-llvm-codegen.json; not the complete production backend.',\n 'build_commands':build_commands,'commands':commands,'samples':samples,'median_seconds':medians,\n 'time_over_chez':{n:t/medians['chez'] for n,t in medians.items()},\n 'time_over_tuned_llvm':{n:t/medians['llvm-tuned'] for n,t in medians.items()},\n 'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},\n 'guile_executable_sha256':hashlib.sha256(Path(guile).read_bytes()).hexdigest(),\n 'environment':{k:os.environ.get(k) for k in ['GUILE_JIT_THRESHOLD','GUILE_AUTO_COMPILE','GUILE_LOAD_PATH','GUILE_LOAD_COMPILED_PATH']},\n 'versions':{'guile':subprocess.check_output([guile,'--version'],text=True).splitlines()[0],\n 'chez':subprocess.check_output([chez,'--version'],text=True,stderr=subprocess.STDOUT).strip(),\n 'chibi':subprocess.check_output([chibi,'-V'],text=True,stderr=subprocess.STDOUT).strip()},\n 'host':subprocess.check_output(['uname','-a'],text=True).strip(),\n 'diagnostics':diagnostics,'measurement_script':Path(__file__).read_text()}\n(out/'results.json').write_text(json.dumps(report,indent=2)+'\\n')\nprint(json.dumps({'seconds':medians,'time_over_chez':report['time_over_chez'],'time_over_tuned_llvm':report['time_over_tuned_llvm']},indent=2))\n"
+}

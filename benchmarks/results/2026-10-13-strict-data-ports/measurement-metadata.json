@@ -1,0 +1,82 @@
+{
+  "driver_command": [
+    "/run/current-system/sw/bin/python",
+    "/tmp/snail-strict-data-ports-20261013/benchmarks/strict-suite/measure.py",
+    "measure",
+    "--output",
+    "/tmp/snail-strict-paraffins-timing-20261013",
+    "--rounds",
+    "3",
+    "--cpu",
+    "5"
+  ],
+  "driver_cwd": "/tmp/snail-strict-data-ports-20261013",
+  "driver_exit_code": 0,
+  "measurement_checkout_commit": "cf36957fbadca16564379700c7f4ca68b6a4c3c8",
+  "runtime_driver_commit": "8051bdd35d1bb1f74616609f6f20c8fca7d8959d",
+  "compiler_basis": "af02dac81890a00dad92a0a564664ff59aaca102",
+  "start_announcement_utc": "2026-10-14 02:06:48 UTC",
+  "reserved_quiet_seconds": 90,
+  "child_process_seconds_sum": 33.32592182798544,
+  "input": {
+    "count": 10,
+    "n": 23,
+    "expected_final_result": 5731580,
+    "complete_original_input_preserved": true
+  },
+  "cpu": 5,
+  "default_v8": true,
+  "node_options": null,
+  "profiling_instrumentation": false,
+  "independent_review": "clean-measurement-review.json",
+  "results_sha256": "5fb82eec12135ea386a95855c7e6a7af1bd909f78f9690c8852323113fdb5730",
+  "verified_previous_archive_files": 220,
+  "all_previous_archive_files_unchanged": true,
+  "samples": {
+    "discarded": 3,
+    "retained": 9,
+    "fresh_processes": 12
+  },
+  "workload_medians": {
+    "strict": 2.91198551,
+    "chez": 2.639820351,
+    "chez-adapted": 2.63117581
+  },
+  "workload_ranges": {
+    "strict": [
+      2.911553566,
+      2.929879041
+    ],
+    "chez": [
+      2.624972106,
+      2.641794833
+    ],
+    "chez-adapted": [
+      2.628924814,
+      2.642137283
+    ]
+  },
+  "process_medians": {
+    "strict": 2.958390988991596,
+    "chez": 2.689470700977836,
+    "chez-adapted": 2.679277110961266
+  },
+  "process_ranges": {
+    "strict": [
+      2.9569500730140135,
+      2.9771429180400446
+    ],
+    "chez": [
+      2.6731647590058856,
+      2.690795511996839
+    ],
+    "chez-adapted": [
+      2.675894879968837,
+      2.6916106030112132
+    ]
+  },
+  "strict_over_original": 1.1030998790871887,
+  "strict_over_adapted": 1.106724035289759,
+  "interpretation": "Canonical count-producing source program; strict legally removes unused payload storage. Not equal allocation, equal collector work, or attribution to a specific optimization.",
+  "gcbench": "No performance runs; intended live-heap retention unproven on strict and Chez."
+}

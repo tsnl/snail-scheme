@@ -1,0 +1,14 @@
+{
+  "agents_holding_builds": true,
+  "started_utc": "2026-10-14T07:22:34.027802+00:00",
+  "agents": [
+    "/root/strict_structured_calls",
+    "/root/rust_full_benchmark_suite"
+  ],
+  "parent_background_jobs": false,
+  "method": "One discarded round followed by four retained cyclic rotations; CPU5; original inputs/count; fresh processes; no NODE_OPTIONS; default V8 tiering.",
+  "finished_utc": "2026-10-14T07:24:32.413063+00:00",
+  "runs_completed": 20,
+  "retained": 16,
+  "all_passed": true
+}

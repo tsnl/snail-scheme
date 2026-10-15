@@ -1,0 +1,164 @@
+{
+  "archive_files_verified": 663,
+  "checks": [
+    {
+      "name": "quicksort",
+      "module": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/quicksort/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/quicksort/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-quicksort.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "quicksort",
+        "count": 2,
+        "inputs": [
+          10000,
+          1000000
+        ],
+        "expected": 1,
+        "unused_output_datum": "ignored",
+        "barriers_per_iteration": 0,
+        "setup_barriers": 3
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.004638007,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4"
+    },
+    {
+      "name": "quicksort",
+      "module": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/quicksort/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/quicksort/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-quicksort.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "quicksort",
+        "count": 2,
+        "inputs": [
+          10000,
+          1000000
+        ],
+        "expected": 1,
+        "unused_output_datum": "ignored",
+        "barriers_per_iteration": 0,
+        "setup_barriers": 3
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.002079781,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":3}\n",
+      "stderr": "",
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd"
+    },
+    {
+      "name": "graphs",
+      "module": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/enumeration/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/enumeration/graphs/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-graphs.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "graphs",
+        "count": 2,
+        "inputs": [
+          3
+        ],
+        "expected": 5,
+        "barriers_per_iteration": 1
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000842251,\"result\":\"5\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "artifact_sha256": "310de55c80d9582d20a731d64caea5f393c0d1cc3f7c01f76460c2ef4094be36"
+    },
+    {
+      "name": "graphs",
+      "module": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/enumeration/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/enumeration/graphs/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-graphs.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "graphs",
+        "count": 2,
+        "inputs": [
+          3
+        ],
+        "expected": 5,
+        "barriers_per_iteration": 1
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000479831,\"result\":\"5\",\"barriers\":2,\"setup_barriers\":0}\n",
+      "stderr": "",
+      "artifact_sha256": "e7f29f90b1098a2e788ac293c9dc22aaf2a3ba979f994f8b05e7e7e93b9e0cac"
+    },
+    {
+      "name": "mperm",
+      "module": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/enumeration/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/enumeration/mperm/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-mperm.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "mperm",
+        "count": 2,
+        "inputs": [
+          4,
+          2,
+          1
+        ],
+        "expected": 1,
+        "unused_output_datum": 16329600,
+        "barriers_per_iteration": 0,
+        "setup_barriers": 4
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000156323,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":4}\n",
+      "stderr": "",
+      "artifact_sha256": "bb88a22479109a5bec7f182039eb3e024681009683fbc1e5cedbcf03f6b84432"
+    },
+    {
+      "name": "mperm",
+      "module": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/before/enumeration/host.mjs",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/after/enumeration/mperm/strict.wasm",
+        "/tmp/snail-strict-direct-calls-review-20261013/build/direct-call-replay/replay-mperm.json",
+        "--validate"
+      ],
+      "specification": {
+        "name": "mperm",
+        "count": 2,
+        "inputs": [
+          4,
+          2,
+          1
+        ],
+        "expected": 1,
+        "unused_output_datum": 16329600,
+        "barriers_per_iteration": 0,
+        "setup_barriers": 4
+      },
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000119188,\"result\":\"1\",\"barriers\":0,\"setup_barriers\":4}\n",
+      "stderr": "",
+      "artifact_sha256": "f956010567e36ec4ca8610b23fb3d772ad35a75ad8a941e540ba6ea510c17eeb"
+    }
+  ],
+  "performance_samples": false
+}

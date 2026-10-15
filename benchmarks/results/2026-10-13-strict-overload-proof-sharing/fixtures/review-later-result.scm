@@ -1,0 +1,8 @@
+(import (snail strict))
+(define-overload convert (-> I64 I64) (lambda (value) value))
+(define-overload convert (-> I64 F64) i64->f64)
+(define alias convert)
+(define values (make-vector 2))
+(vector-set! values 0 (alias 42))
+(vector-set! values 1 0.0)
+(if (= (vector-ref values 0) 42.0) 42 (unreachable))

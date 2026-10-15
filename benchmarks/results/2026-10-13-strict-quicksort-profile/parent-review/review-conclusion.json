@@ -1,0 +1,36 @@
+{
+  "accepted": true,
+  "scope": "Frozen diagnostic private-helper representation, calling-convention, captured-state and redundant-width-check intervention; not a production compiler change or allocation-only ablation.",
+  "evidence": [
+    "static-review.json",
+    "operand-checks.json",
+    "archive-verification.json",
+    "reassembly-validation.json"
+  ],
+  "independent_explanation": {
+    "agent": "/root/explain_quicksort_fixture",
+    "workflow": "Fresh behavioral explanation without implementation access, parent code inspection, critical debate, and actual Node witnesses.",
+    "conclusion": "Accepted after documenting valid-domain width-check invariants and executing the unmodified reassembly control."
+  },
+  "index_safety_proof": [
+    "The top-level sort calls the helper with left=0 and right=vector-length-1. Empty and singleton vectors skip partition because left<right is false.",
+    "Every active partition has 0<=left<right<vector-length and a fixed-size non-null array. The original right-width guard remains before the pivot read.",
+    "Up starts at left-1 and increments before use. On later partition-loop entries the preceding i<j test implies i<right. It returns within [left,right], reading only while i<right.",
+    "Down starts at right and decrements before use. On later loop entries i<j with i>=left implies j>left. It returns within [left,right-1], reading only while j>left.",
+    "Both swap indices and all post-crossing reads are in the same valid array. Duplicates/equal values still advance i and decrease j. The array length cannot change.",
+    "Recursion uses [left,i-1] and [i+1,right]. An empty child bypasses partition; every active child satisfies the parent bounds. Smaller-first ordering is unchanged.",
+    "All read/store indices fit unsigned i32. The initial left-1=-1 is incremented before a read; other arithmetic remains within a vector length and cannot overflow i64.",
+    "Every removed repeated width check therefore succeeds on supported calls. Moving the first j-width check before the i-read introduces no earlier trap; original array accesses remain valid."
+  ],
+  "execution_gate": {
+    "reassembled_node_checks": 16,
+    "includes": "14 full-value/negative small probes, all 10000 canonical values plus input preservation, and the original 2500-repetition result predicate.",
+    "comparison": "Original and helper validation retained in the hash-verified 198-file checkpoint."
+  },
+  "measurement_plan": "One discarded trio, then three rotating retained trios on CPU5 in fresh default-V8 processes. All three uninstrumented binaries; no --validate or profiling options. Preserve every observation and hash. Coordinate other agents and report the combined intervention only.",
+  "limits": [
+    "Timing cannot isolate allocation from calls, loads, readiness or redundant checks.",
+    "Reassembly changes five encoded bodies, so it remains a separate control.",
+    "Counters count entered construction requests before operand evaluation, not completed physical allocations."
+  ]
+}

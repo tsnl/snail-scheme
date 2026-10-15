@@ -1,0 +1,81 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/inputs/files/tmp/snail-strict-bv2string-20261014/build/bv2string-attempt4/bv2string/timing-native/native",
+    "100"
+  ],
+  "cwd": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/native-stats",
+  "status": "valid",
+  "clean_timing": false,
+  "started_utc": "2026-10-14T16:09:42.474589+00:00",
+  "timeout_seconds": 120,
+  "environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": "1",
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "identities_before": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "pid": 3,
+  "process_group": 3,
+  "cleanup": {
+    "before": [],
+    "after": [],
+    "live_members": [],
+    "zombies_dead_not_running": true
+  },
+  "returncode": 0,
+  "diagnostic_process_seconds": 1.0486400760128163,
+  "stdout_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/native-stats/stdout.bin",
+    "sha256": "a0c66e151d27e512cc6a14f5a1f21e2fabc0402eadd66b7b7a4e1673adb416da"
+  },
+  "stderr_raw": {
+    "path": "/tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/native-stats/stderr.bin",
+    "sha256": "e3f026dab8a0a120dde36dcdb9e0159a86df019e9a4b5fee520fcd50968b99cc"
+  },
+  "identities_after": {
+    "copied_files": 745,
+    "clean_identities": 384,
+    "unchanged": true
+  },
+  "stdout": "{\"result\":1,\"barriers\":0,\"seconds\":1.032618045}\n",
+  "stderr": "immix-gc allocation_search=tuned evacuation=0 heap_bytes=268435456 collections=192 allocations=801730 bytes=1601725128 arena_used=9175040 last_live=24840 peak_live=32944 live_objects=52 roots=8926 fields=5371 holes_reused=678 large_allocations=0 mark_s=0.000433 sweep_s=0.005134\n",
+  "valid_full_result": true,
+  "diagnostic_workload_seconds": 1.032618045,
+  "full_count": 100,
+  "gc_statistics": {
+    "allocation_search": "tuned",
+    "evacuation": 0,
+    "heap_bytes": 268435456,
+    "collections": 192,
+    "allocations": 801730,
+    "bytes": 1601725128,
+    "arena_used": 9175040,
+    "last_live": 24840,
+    "peak_live": 32944,
+    "live_objects": 52,
+    "roots": 8926,
+    "fields": 5371,
+    "holes_reused": 678,
+    "large_allocations": 0,
+    "mark_s": 0.000433,
+    "sweep_s": 0.005134
+  },
+  "scope": "whole process including initialization; bytes requested by collector, not RSS; GC clock reads enabled"
+}

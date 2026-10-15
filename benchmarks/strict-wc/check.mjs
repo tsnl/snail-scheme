@@ -1,0 +1,1 @@
+../../tests/strict-wc/check.mjs

@@ -1,0 +1,14 @@
+{
+  "benchmarks/strict-suite/integer-control-entry.c": "19944ac1122c964860e41813bfafaf7ed33591e1a4d781ca88fa62de8f834bba",
+  "benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+  "benchmarks/strict-suite/integer-entry.c": "d3a2ee68cf1150b1675bd66da6677a53d4a0dbfbf6471d917b430089d67ab071",
+  "benchmarks/strict-suite/integer-host.mjs": "15a719c9c9d1f97742231767567a5308ebed043e802492beb58639b4167e8ee4",
+  "benchmarks/strict-suite/integer-provider.c": "dec4c1ad8db4083c0a857c3c27fa1172b04bb525bf3519b8a984b189cbd95ea6",
+  "benchmarks/strict-suite/integer-provider.h": "1bf30fdce06db48eb23a7b654e8624e3c9806b62c0effa95e46e890d389562d2",
+  "benchmarks/strict-suite/integer_controls.py": "a55467e2903a6775adab4ffad0a55b4a3aecc8f1e2a71ea80ffbd0fc8980770d",
+  "benchmarks/strict-suite/integer_ports.py": "2ec918b32bf7b400b350519813399c24fe74c67aa4e37e47439dff0b401d5c53",
+  "benchmarks/strict-suite/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+  "src/snail/integer.sld": "6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc",
+  "src/native.c": "fd88ac70baa0eba87826d1449600cde59ce429fa31beb40785e9fd410860fb46",
+  "src/precise-gc.c": "d057788b7e33ee126032b5c729558224b39771849dfef4a740ec685d1f04fdec"
+}

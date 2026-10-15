@@ -1,0 +1,362 @@
+{
+  "valid": true,
+  "process_count": 144,
+  "predetermined_discards": 16,
+  "retained_count": 128,
+  "identity_count": 107,
+  "live_identities_checked": true,
+  "started": "2026-10-14T20:02:28.978329+00:00",
+  "ended": "2026-10-14T20:12:36.826231+00:00",
+  "elapsed_seconds": 607.847902,
+  "fixed_cpu_policy_equal": true,
+  "affinity_equal": true,
+  "campaign_sha256": "29cc4f2d5ef89c04b9890a316a3b980af29b0d12ab9d8f3504713851abedeaa9",
+  "summary": {
+    "pi": {
+      "production-v8": {
+        "samples": 8,
+        "workload_median": 2.2430266385,
+        "workload_range": [
+          2.229252186,
+          2.259310561
+        ],
+        "process_median": 2.2689365439873654,
+        "process_range": [
+          2.2540567639516667,
+          2.286154179018922
+        ]
+      },
+      "native-final-v8": {
+        "samples": 8,
+        "workload_median": 2.225084168,
+        "workload_range": [
+          2.200077745,
+          2.245079399
+        ],
+        "process_median": 2.251923219009768,
+        "process_range": [
+          2.2271305929753,
+          2.2702343389973976
+        ]
+      },
+      "native64": {
+        "samples": 8,
+        "workload_median": 1.782729284,
+        "workload_range": [
+          1.780805742,
+          1.787924346
+        ],
+        "process_median": 1.7861298785137478,
+        "process_range": [
+          1.7852073280373588,
+          1.790073394018691
+        ]
+      },
+      "chez-original": {
+        "samples": 8,
+        "workload_median": 0.213676165,
+        "workload_range": [
+          0.213226934,
+          0.214742221
+        ],
+        "process_median": 0.24505892198067158,
+        "process_range": [
+          0.24332853098167107,
+          0.24606087402207777
+        ]
+      },
+      "chez-adapted": {
+        "samples": 8,
+        "workload_median": 0.2136590595,
+        "workload_range": [
+          0.213375388,
+          0.213856667
+        ],
+        "process_median": 0.24445728803402744,
+        "process_range": [
+          0.24388703500153497,
+          0.246100160991773
+        ]
+      },
+      "chez-limbs": {
+        "samples": 8,
+        "workload_median": 44.629659148,
+        "workload_range": [
+          44.517027364,
+          44.669409026
+        ],
+        "process_median": 44.66201209797873,
+        "process_range": [
+          44.549374533002265,
+          44.70187392900698
+        ]
+      },
+      "rust-native": {
+        "samples": 8,
+        "workload_median": 0.127835279,
+        "workload_range": [
+          0.127592735,
+          0.128264637
+        ],
+        "process_median": 0.130603555473499,
+        "process_range": [
+          0.129776893008966,
+          0.13239100197097287
+        ]
+      },
+      "rust-wasm": {
+        "samples": 8,
+        "workload_median": 0.4343124065,
+        "workload_range": [
+          0.43250895,
+          0.435837979
+        ],
+        "process_median": 0.4586147344962228,
+        "process_range": [
+          0.4569050680147484,
+          0.4601273679872975
+        ]
+      }
+    },
+    "chudnovsky": {
+      "production-v8": {
+        "samples": 8,
+        "workload_median": 0.7168509775,
+        "workload_range": [
+          0.71160138,
+          0.730296461
+        ],
+        "process_median": 0.7423680089705158,
+        "process_range": [
+          0.7360759550356306,
+          0.7556038900511339
+        ]
+      },
+      "native-final-v8": {
+        "samples": 8,
+        "workload_median": 0.7182218725,
+        "workload_range": [
+          0.712791968,
+          0.722947501
+        ],
+        "process_median": 0.7443474165047519,
+        "process_range": [
+          0.7374303719843738,
+          0.749495406053029
+        ]
+      },
+      "native64": {
+        "samples": 8,
+        "workload_median": 0.6587886825,
+        "workload_range": [
+          0.657918153,
+          0.659697594
+        ],
+        "process_median": 0.6620340890076477,
+        "process_range": [
+          0.6614860700210556,
+          0.6633964439970441
+        ]
+      },
+      "chez-original": {
+        "samples": 8,
+        "workload_median": 0.0867463655,
+        "workload_range": [
+          0.086405852,
+          0.086920331
+        ],
+        "process_median": 0.11799615950440057,
+        "process_range": [
+          0.1173897180124186,
+          0.1184876510524191
+        ]
+      },
+      "chez-adapted": {
+        "samples": 8,
+        "workload_median": 0.086244041,
+        "workload_range": [
+          0.085982367,
+          0.08720397
+        ],
+        "process_median": 0.11760556802619249,
+        "process_range": [
+          0.11697704100515693,
+          0.1184277479769662
+        ]
+      },
+      "chez-limbs": {
+        "samples": 8,
+        "workload_median": 12.012418481000001,
+        "workload_range": [
+          11.933599916,
+          12.119401031
+        ],
+        "process_median": 12.04610884952126,
+        "process_range": [
+          11.96605012496002,
+          12.151729929959401
+        ]
+      },
+      "rust-native": {
+        "samples": 8,
+        "workload_median": 0.052899923,
+        "workload_range": [
+          0.052765644,
+          0.053540873
+        ],
+        "process_median": 0.054713862511562183,
+        "process_range": [
+          0.05446101102279499,
+          0.05732001701835543
+        ]
+      },
+      "rust-wasm": {
+        "samples": 8,
+        "workload_median": 0.1779545115,
+        "workload_range": [
+          0.17665309,
+          0.179365446
+        ],
+        "process_median": 0.20244191549136303,
+        "process_range": [
+          0.200112127000466,
+          0.20570118800969794
+        ]
+      }
+    }
+  },
+  "ratios": {
+    "pi": {
+      "production-v8": {
+        "over_chez-original": 10.497317932021103,
+        "over_chez-adapted": 10.498158345118055,
+        "over_chez-limbs": 0.05025865492411042,
+        "over_native-final-v8": 1.0080637266482046,
+        "over_rust-native": 17.546225549364976,
+        "over_rust-wasm": 5.164546545137664
+      },
+      "native-final-v8": {
+        "over_chez-original": 10.413347543934064,
+        "over_chez-adapted": 10.414181234379159,
+        "over_chez-limbs": 0.049856624730680095,
+        "over_native-final-v8": 1.0,
+        "over_rust-native": 17.405869376637416,
+        "over_rust-wasm": 5.123234185114166
+      },
+      "native64": {
+        "over_chez-original": 8.343135903810328,
+        "over_chez-adapted": 8.343803853540786,
+        "over_chez-limbs": 0.03994494508882866,
+        "over_native-final-v8": 0.8011963365872998,
+        "over_rust-native": 13.945518779678965,
+        "over_rust-wasm": 4.10471646059229
+      },
+      "chez-original": {
+        "over_chez-original": 1.0,
+        "over_chez-adapted": 1.0000800597926436,
+        "over_chez-limbs": 0.004787761526284825,
+        "over_native-final-v8": 0.09603059878497144,
+        "over_rust-native": 1.6714960586114886,
+        "over_rust-wasm": 0.4919872465121486
+      },
+      "chez-adapted": {
+        "over_chez-original": 0.9999199466164137,
+        "over_chez-adapted": 1.0,
+        "over_chez-limbs": 0.0047873782497748416,
+        "over_native-final-v8": 0.09602291121061089,
+        "over_rust-native": 1.6713622496963456,
+        "over_rust-wasm": 0.49194786126838397
+      },
+      "chez-limbs": {
+        "over_chez-original": 208.86587489999178,
+        "over_chez-adapted": 208.8825966586266,
+        "over_chez-limbs": 1.0,
+        "over_native-final-v8": 20.057515032393148,
+        "over_rust-native": 349.11848667377654,
+        "over_rust-wasm": 102.75934668239785
+      },
+      "rust-native": {
+        "over_chez-original": 0.5982664421181464,
+        "over_chez-adapted": 0.598314339205448,
+        "over_chez-limbs": 0.0028643570540405686,
+        "over_native-final-v8": 0.05745188466956006,
+        "over_rust-native": 1.0,
+        "over_rust-wasm": 0.2943394595383266
+      },
+      "rust-wasm": {
+        "over_chez-original": 2.032573012998432,
+        "over_chez-adapted": 2.0327357403723854,
+        "over_chez-limbs": 0.009731474870998716,
+        "over_native-final-v8": 0.19518920351241295,
+        "over_rust-native": 3.3974377800669564,
+        "over_rust-wasm": 1.0
+      }
+    },
+    "chudnovsky": {
+      "production-v8": {
+        "over_chez-original": 8.263758064883998,
+        "over_chez-adapted": 8.311889948431336,
+        "over_chez-limbs": 0.059675824533905526,
+        "over_native-final-v8": 0.9980912653143963,
+        "over_rust-native": 13.551077900434752,
+        "over_rust-wasm": 4.028282123659451
+      },
+      "native-final-v8": {
+        "over_chez-original": 8.279561551198361,
+        "over_chez-adapted": 8.327785481434017,
+        "over_chez-limbs": 0.05978994768089448,
+        "over_native-final-v8": 1.0,
+        "over_rust-native": 13.57699277747531,
+        "over_rust-wasm": 4.03598574965041
+      },
+      "native64": {
+        "over_chez-original": 7.594424028059135,
+        "over_chez-adapted": 7.638657405907036,
+        "over_chez-limbs": 0.05484230203451567,
+        "over_native-final-v8": 0.9172495404614679,
+        "over_rust-native": 12.453490385987896,
+        "over_rust-wasm": 3.7020060741758716
+      },
+      "chez-original": {
+        "over_chez-original": 1.0,
+        "over_chez-adapted": 1.0058244545846362,
+        "over_chez-limbs": 0.007221390566537989,
+        "over_native-final-v8": 0.12077934245869128,
+        "over_rust-native": 1.6398202602298684,
+        "over_rust-wasm": 0.48746370501542474
+      },
+      "chez-adapted": {
+        "over_chez-original": 0.9942092732403871,
+        "over_chez-adapted": 1.0,
+        "over_chez-limbs": 0.007179573466942721,
+        "over_native-final-v8": 0.12007994228830728,
+        "over_rust-native": 1.6303245091679999,
+        "over_rust-wasm": 0.48464093589445184
+      },
+      "chez-limbs": {
+        "over_chez-original": 138.47748446590538,
+        "over_chez-adapted": 139.28404028517173,
+        "over_chez-limbs": 1.0,
+        "over_native-final-v8": 16.725219519125687,
+        "over_rust-native": 227.07818461285854,
+        "over_rust-wasm": 67.50274763896616
+      },
+      "rust-native": {
+        "over_chez-original": 0.6098229325815385,
+        "over_chez-adapted": 0.6133748185570295,
+        "over_chez-limbs": 0.004403769572602854,
+        "over_native-final-v8": 0.07365401281342904,
+        "over_rust-native": 1.0,
+        "over_rust-wasm": 0.2972665461195683
+      },
+      "rust-wasm": {
+        "over_chez-original": 2.051434783166794,
+        "over_chez-adapted": 2.0633832718946925,
+        "over_chez-limbs": 0.014814211791028592,
+        "over_native-final-v8": 0.24777094420777332,
+        "over_rust-native": 3.363984319977176,
+        "over_rust-wasm": 1.0
+      }
+    }
+  }
+}

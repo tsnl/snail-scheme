@@ -1,0 +1,631 @@
+{
+  "status": "awaiting-coordinated-release",
+  "prepared": "2026-10-14T17:45:53.937435+00:00",
+  "source_base": "869c505af67ad71d1f8e53fb146bede6619b196f",
+  "preparation": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor",
+  "cpu": 5,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "timeout_seconds": 90,
+  "group_cleanup_seconds": 10,
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "input": {
+    "name": "matrix",
+    "count": 2500,
+    "inputs": [
+      5,
+      5,
+      0
+    ],
+    "expected": [
+      5,
+      0,
+      6,
+      5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      1,
+      -1,
+      -1,
+      -1,
+      5,
+      1,
+      -1,
+      1,
+      -1,
+      -1,
+      5,
+      1,
+      -1,
+      -1,
+      1,
+      1,
+      0,
+      6,
+      5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      1,
+      -1,
+      1,
+      -1,
+      5,
+      1,
+      -1,
+      1,
+      -1,
+      -1,
+      5,
+      1,
+      -1,
+      -1,
+      1,
+      1,
+      0,
+      6,
+      5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      1,
+      -1,
+      1,
+      -1,
+      5,
+      1,
+      -1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      -1,
+      -1,
+      1,
+      1,
+      0,
+      6,
+      5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      1,
+      -1,
+      1,
+      1,
+      5,
+      1,
+      -1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      -1,
+      -1,
+      -1,
+      1,
+      0,
+      6,
+      5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      1,
+      1,
+      1,
+      -1,
+      5,
+      1,
+      1,
+      1,
+      -1,
+      1,
+      5,
+      1,
+      1,
+      -1,
+      1,
+      1,
+      5,
+      1,
+      -1,
+      1,
+      1,
+      1,
+      5,
+      1,
+      -1,
+      -1,
+      -1,
+      -1
+    ],
+    "original_expected": [
+      [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          1,
+          -1,
+          -1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          1,
+          -1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          -1,
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          1,
+          -1,
+          1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          1,
+          -1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          -1,
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          1,
+          -1,
+          1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          -1,
+          -1,
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          1,
+          -1,
+          1,
+          1
+        ],
+        [
+          1,
+          -1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          -1,
+          -1,
+          -1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          -1
+        ],
+        [
+          1,
+          1,
+          1,
+          -1,
+          1
+        ],
+        [
+          1,
+          1,
+          -1,
+          1,
+          1
+        ],
+        [
+          1,
+          -1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          -1,
+          -1,
+          -1,
+          -1
+        ]
+      ]
+    ],
+    "result_kind": "i64-list-values",
+    "barriers_per_iteration": 2
+  },
+  "systems": {
+    "strict-native-baseline": {
+      "argv": [
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "stdin": null
+    },
+    "strict-native-candidate": {
+      "argv": [
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate",
+        "2500",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "stdin": null
+    },
+    "strict-v8-common": {
+      "argv": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm",
+        "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json"
+      ],
+      "cwd": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix",
+      "stdin": null
+    }
+  },
+  "schedule": [
+    {
+      "round": -1,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": false
+    },
+    {
+      "round": -1,
+      "position": 1,
+      "system": "strict-native-candidate",
+      "retained": false
+    },
+    {
+      "round": -1,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": false
+    },
+    {
+      "round": 0,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 0,
+      "position": 1,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 0,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 0,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 1,
+      "position": 2,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 0,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 2,
+      "position": 2,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 0,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 1,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 3,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 1,
+      "system": "strict-native-baseline",
+      "retained": true
+    },
+    {
+      "round": 4,
+      "position": 2,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 0,
+      "system": "strict-v8-common",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 1,
+      "system": "strict-native-candidate",
+      "retained": true
+    },
+    {
+      "round": 5,
+      "position": 2,
+      "system": "strict-native-baseline",
+      "retained": true
+    }
+  ],
+  "identities": {
+    "/tmp/snail-native-allocation-path-20261014/benchmarks/results/2026-10-14-native-allocation-path/measure.py": "b18a7074cd8e6383931b8fd7d4f611f1ff9671802a545fc4c2b474b4cf561496",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/string_port.py": "f1ecb007e3c2c1e84157f192319478b3b32eee2711d630080d18fd9e4b04b042",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/bv2string_port.py": "212c5bc94c34d99d36a3f6004c72ce832242cbc892460521343a9a9f23931a39",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/supervisor/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/run/current-system/sw/bin/python3": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-provider.h": "a5e97e005d34d53087ed156cf693f14e32d08dce7848f8698f38bde725f0e10c",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/host.mjs": "7a966858ab02cc531bb55dd93c213c8405e517d9608fb8adc506b7dc90e44c7a",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/candidate": "6b29e673c7c0e244a6bde53b0a6f7ca09287423f6a2c9de19db751b40298eb93",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-input.txt": "62b3a00aef3ddc1d78449a7791f43d81b35e5b3819be27cde583768ed257f636",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/baseline": "ae577b83c0bf30f4d55845ade4e79b6aaa18d830c8c35b0aad4645d2c60864c0",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/spec.json": "c5d24bdbba49109c7e44bc48098d620d3a074bfb61110fd9e42235dcf440e863",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-entry.c": "3fb18f8869593fdaadec67263f3dbcaac89d5e7a1dbcc2e9b7596c90ef18ac58",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/native-provider.c": "36e3d54f4070a5640fdfd89a008852efc7b2f3c8f890e796ae2e05bf79302009",
+    "/tmp/snail-native-allocation-path-20261014/build/allocation-path/frozen/matrix/strict.wasm": "dfb9d40d9544334b3328aa041cbff50d30f40b28a65fc6bb690ea0e62f7e31cd"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "policy": "one discarded and six retained per system; all six permutations; Matrix then bv2string; no replacements or added runs"
+}

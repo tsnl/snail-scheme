@@ -1,0 +1,10 @@
+{
+  "../2026-10-10-compiler-simplification/after-source.tar.gz": {
+    "sha256": "4580e11f6eb067511564fccb1662b8f1bd37b0b651e92e349a5d0ee66f526056",
+    "bytes": 153075
+  },
+  "after-source.tar.gz": {
+    "sha256": "f4ffcb4ef27294dfa723815e5d852a70d26eb9c0838897b8ec6da86b4ddff798",
+    "bytes": 155952
+  }
+}

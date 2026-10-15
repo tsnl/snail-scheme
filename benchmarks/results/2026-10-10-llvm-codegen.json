@@ -1,0 +1,341 @@
+{
+  "scope": "Ablate boolean identity and cold numeric fallbacks in the bounded fixture.\n\nRun the existing WasmGC and Wasm-to-LLVM builders first. This deliberately\npatches their numeric fixture's LLVM, not the general translator. Static atoms\nassume one module instance, initialized once; no integer checks are removed.\n",
+  "method": "8 rotating CPU2 rounds, 64 repetitions; compilation/startup excluded; one warmup per variant",
+  "samples": [
+    {
+      "variant": "baseline",
+      "seconds": 0.046653759,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035566616,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029218006,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "both",
+      "seconds": 0.02541137,
+      "checksum": 269118144,
+      "round": 1
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035488513,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029066161,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "both",
+      "seconds": 0.023482014,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046559531,
+      "checksum": 269118144,
+      "round": 2
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.02907788,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "both",
+      "seconds": 0.026869046,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046531673,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035443911,
+      "checksum": 269118144,
+      "round": 3
+    },
+    {
+      "variant": "both",
+      "seconds": 0.026885445,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046651528,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035515006,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029075395,
+      "checksum": 269118144,
+      "round": 4
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046612579,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035502458,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029071479,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "both",
+      "seconds": 0.023477059,
+      "checksum": 269118144,
+      "round": 5
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035473526,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029096253,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "both",
+      "seconds": 0.023502402,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046853738,
+      "checksum": 269118144,
+      "round": 6
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029161428,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "both",
+      "seconds": 0.026893396,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046805415,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.03552696,
+      "checksum": 269118144,
+      "round": 7
+    },
+    {
+      "variant": "both",
+      "seconds": 0.026970979,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "baseline",
+      "seconds": 0.046560231,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "static-atoms",
+      "seconds": 0.035484632,
+      "checksum": 269118144,
+      "round": 8
+    },
+    {
+      "variant": "cold-fallbacks",
+      "seconds": 0.029077578,
+      "checksum": 269118144,
+      "round": 8
+    }
+  ],
+  "median_seconds": {
+    "baseline": 0.0466320535,
+    "static-atoms": 0.0354954855,
+    "cold-fallbacks": 0.029077729,
+    "both": 0.026140207999999998
+  },
+  "commands": [
+    [
+      "opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-baseline.ll"
+    ],
+    [
+      "clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-baseline.ll",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-baseline.o"
+    ],
+    [
+      "clang",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-baseline.o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-baseline"
+    ],
+    [
+      "opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-static-atoms.ll"
+    ],
+    [
+      "clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-static-atoms.ll",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-static-atoms.o"
+    ],
+    [
+      "clang",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-static-atoms.o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-static-atoms"
+    ],
+    [
+      "opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-cold-fallbacks.ll"
+    ],
+    [
+      "clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-cold-fallbacks.ll",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-cold-fallbacks.o"
+    ],
+    [
+      "clang",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-cold-fallbacks.o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-cold-fallbacks"
+    ],
+    [
+      "opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-both.ll"
+    ],
+    [
+      "clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-both.ll",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-both.o"
+    ],
+    [
+      "clang",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-both.o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/cpu-both"
+    ],
+    [
+      "clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-shared",
+      "-fPIC",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/check-both.ll",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/check-both.so"
+    ],
+    [
+      "python3",
+      "/tmp/snail-wasm-llvm-codegen-20261010/experiments/wasm-llvm/check.py",
+      "/tmp/snail-wasm-llvm-codegen-20261010/build/wasm-llvm-ablation/check-both.so"
+    ]
+  ],
+  "sha256": {
+    "build/wasm-llvm/cpu.ll": "3d16e52e61d4b13db0ddd87d7f8676ecb04f5cfa8f9bcc53ad98f089e14d04f1",
+    "build/wasm-llvm/check.ll": "b44e0c326e1f06fd3e973220cb7476327356476e291bfc98d3dd85abe7cbde6d",
+    "experiments/wasm-llvm/ablate.py": "2d8393b6dcd7798b39cc8c27c7ed96e8688d62401ddaf13a0163a5f11772ce0e",
+    "build/wasm-llvm-ablation/cpu-baseline": "f84280f42fa2a5a0935cad4514c909925b868c6a8f05c71b8162be2508db3c59",
+    "build/wasm-llvm-ablation/cpu-static-atoms": "8fe65014b90d7513affcdd99ba8312ecdd6992937a1cd38cdd8f9805bd5b6c64",
+    "build/wasm-llvm-ablation/cpu-cold-fallbacks": "1f7995d9e7ddba660adaa8bb6ad0365a6b638a103f887aee6e7591095c52701c",
+    "build/wasm-llvm-ablation/cpu-both": "76505c54d3695869e7e5cdd9e46bba6a9ba05ff24a0ac89a09f069aef9ba5895",
+    "build/wasm-llvm-ablation/cpu-both.ll": "5efd1854f53480102133a86728b9427c529ab3faa91a44142e841dbad3dfd8b5",
+    "build/wasm-llvm-ablation/check-both.ll": "20c3652a56e4b0364ef1974d7c32122c9361b5f98487ac82fcf1eca5909dca88",
+    "build/wasm-llvm-ablation/cpu-cold-fallbacks.ll": "08cffbd66e33693aea1b0734d6a656908bd379e8455d3b17033ee30a690dab86",
+    "build/wasm-llvm-ablation/cpu-static-atoms.ll": "89a8e6d984645d845ea5774649b2514c7c56d3109061319cc8d6ef9bf49aad7a",
+    "build/wasm-llvm-ablation/cpu-baseline.ll": "3d16e52e61d4b13db0ddd87d7f8676ecb04f5cfa8f9bcc53ad98f089e14d04f1"
+  },
+  "clang": "clang version 22.1.8",
+  "verification_note": "Final script formatting and regex flag spelling regenerate byte-identical measured LLVM.",
+  "base_revision": "e07cc20063dcbc8cfebdb7bab999dbd589380c52"
+}

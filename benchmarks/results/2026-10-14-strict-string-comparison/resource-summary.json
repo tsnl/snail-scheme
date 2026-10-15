@@ -1,0 +1,303 @@
+{
+  "full": {
+    "source": "full-run.json",
+    "sha256": "a620d3a77ef6edcde1f2482fce0a5653420ff3f5688595fb15a1635af8e6eb25",
+    "usage": {
+      "phase": "resources",
+      "usageBefore": {
+        "userCPUTime": 12153,
+        "systemCPUTime": 11112,
+        "maxRSS": 57456,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 3835,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 28,
+        "involuntaryContextSwitches": 14
+      },
+      "usageAfter": {
+        "userCPUTime": 844799,
+        "systemCPUTime": 3868611,
+        "maxRSS": 238768,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 2899883,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 326,
+        "involuntaryContextSwitches": 771
+      },
+      "deltas": {
+        "userCPUTime": 832646,
+        "systemCPUTime": 3857499,
+        "minorPageFault": 2896048,
+        "majorPageFault": 0,
+        "voluntaryContextSwitches": 298,
+        "involuntaryContextSwitches": 757
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 134217728,
+          "space_used_size": 5118264,
+          "space_available_size": 61986504,
+          "physical_space_size": 14483456
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 3817472,
+          "space_used_size": 3303824,
+          "space_available_size": 513280,
+          "physical_space_size": 3932160
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 41216,
+          "space_available_size": 220896,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 1050952,
+          "space_available_size": 370264,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 61329408,
+          "space_used_size": 61079384,
+          "space_available_size": 6029480,
+          "physical_space_size": 61329408
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 42340352,
+          "space_used_size": 42205152,
+          "space_available_size": 0,
+          "physical_space_size": 42340352
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "result": {
+      "seconds": 4.718853175,
+      "result": "1",
+      "barriers": 100,
+      "setup_barriers": 0
+    }
+  },
+  "count1": {
+    "source": "count1-run.json",
+    "sha256": "09ba04c661ece5481ef5c78a0e3bc10aa0b5f621ef619a199fb6674fbf2e559f",
+    "usage": {
+      "phase": "resources",
+      "usageBefore": {
+        "userCPUTime": 16097,
+        "systemCPUTime": 7252,
+        "maxRSS": 57448,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 3849,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 2943,
+        "involuntaryContextSwitches": 11
+      },
+      "usageAfter": {
+        "userCPUTime": 33926,
+        "systemCPUTime": 38531,
+        "maxRSS": 93172,
+        "sharedMemorySize": 0,
+        "unsharedDataSize": 0,
+        "unsharedStackSize": 0,
+        "minorPageFault": 33621,
+        "majorPageFault": 0,
+        "swappedOut": 0,
+        "fsRead": 0,
+        "fsWrite": 0,
+        "ipcSent": 0,
+        "ipcReceived": 0,
+        "signalsCount": 0,
+        "voluntaryContextSwitches": 5272,
+        "involuntaryContextSwitches": 15
+      },
+      "deltas": {
+        "userCPUTime": 17829,
+        "systemCPUTime": 31279,
+        "minorPageFault": 29772,
+        "majorPageFault": 0,
+        "voluntaryContextSwitches": 2329,
+        "involuntaryContextSwitches": 4
+      },
+      "spaces": [
+        {
+          "space_name": "read_only_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_space",
+          "space_size": 33554432,
+          "space_used_size": 6368,
+          "space_available_size": 16769824,
+          "physical_space_size": 3620864
+        },
+        {
+          "space_name": "old_space",
+          "space_size": 3817472,
+          "space_used_size": 3306960,
+          "space_available_size": 510160,
+          "physical_space_size": 3932160
+        },
+        {
+          "space_name": "code_space",
+          "space_size": 262144,
+          "space_used_size": 41216,
+          "space_available_size": 220896,
+          "physical_space_size": 262144
+        },
+        {
+          "space_name": "shared_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_space",
+          "space_size": 1421312,
+          "space_used_size": 1051136,
+          "space_available_size": 370080,
+          "physical_space_size": 1572864
+        },
+        {
+          "space_name": "shared_trusted_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "new_large_object_space",
+          "space_size": 9990144,
+          "space_used_size": 9961448,
+          "space_available_size": 6815768,
+          "physical_space_size": 9990144
+        },
+        {
+          "space_name": "large_object_space",
+          "space_size": 15781888,
+          "space_used_size": 15728608,
+          "space_available_size": 0,
+          "physical_space_size": 15781888
+        },
+        {
+          "space_name": "code_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "shared_trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        },
+        {
+          "space_name": "trusted_large_object_space",
+          "space_size": 0,
+          "space_used_size": 0,
+          "space_available_size": 0,
+          "physical_space_size": 0
+        }
+      ]
+    },
+    "result": {
+      "seconds": 0.069659837,
+      "result": "1",
+      "barriers": 1,
+      "setup_barriers": 0
+    }
+  },
+  "host_sha256": "1a8364d04404f6181195ea9014fbe5c9574443dca5a6b4b030a45789876be876"
+}

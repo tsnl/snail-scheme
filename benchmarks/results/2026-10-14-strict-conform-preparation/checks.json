@@ -1,0 +1,657 @@
+{
+  "status": "prepared-canonical-unmeasured",
+  "compiler_commit": "43322a25b23e7c1d110378793247f984d2043d21",
+  "metadata_correction_commit": "7bd327f",
+  "canonical_invocations": 500,
+  "complete_result_names": 31,
+  "scheme_fixture_executions": 40,
+  "structural_assertions": 38,
+  "full_work_every_result_checked": true,
+  "full_work_every_counter_delta_checked": true,
+  "counters": 30,
+  "fatal_executions": 20,
+  "rust_fixture_executions": 24,
+  "rust_unit_tests": 2,
+  "forced_native_collections": 19005,
+  "trace_identities": {
+    "structure-chez": {
+      "bytes": 193681,
+      "sha256": "7bce74421460b6f058b03ff136715b0a27599230694c873b62c6be96ee46386a"
+    },
+    "full-work-chez": {
+      "bytes": 99192,
+      "sha256": "1130f6f36219a290e76fe777bfff3d44eebd3c3b0404af4f3dcff6f118da1d6e"
+    },
+    "structure-chez-adapted": {
+      "bytes": 193681,
+      "sha256": "7bce74421460b6f058b03ff136715b0a27599230694c873b62c6be96ee46386a"
+    },
+    "full-work-chez-adapted": {
+      "bytes": 99192,
+      "sha256": "1130f6f36219a290e76fe777bfff3d44eebd3c3b0404af4f3dcff6f118da1d6e"
+    },
+    "structure-raw": {
+      "bytes": 193681,
+      "sha256": "7bce74421460b6f058b03ff136715b0a27599230694c873b62c6be96ee46386a"
+    },
+    "full-work-raw": {
+      "bytes": 99192,
+      "sha256": "1130f6f36219a290e76fe777bfff3d44eebd3c3b0404af4f3dcff6f118da1d6e"
+    },
+    "structure-optimized": {
+      "bytes": 193681,
+      "sha256": "7bce74421460b6f058b03ff136715b0a27599230694c873b62c6be96ee46386a"
+    },
+    "full-work-optimized": {
+      "bytes": 99192,
+      "sha256": "1130f6f36219a290e76fe777bfff3d44eebd3c3b0404af4f3dcff6f118da1d6e"
+    },
+    "structure-native": {
+      "bytes": 193681,
+      "sha256": "7bce74421460b6f058b03ff136715b0a27599230694c873b62c6be96ee46386a"
+    },
+    "full-work-native": {
+      "bytes": 99192,
+      "sha256": "1130f6f36219a290e76fe777bfff3d44eebd3c3b0404af4f3dcff6f118da1d6e"
+    }
+  },
+  "command_records": [
+    {
+      "path": "conform/commands/optimized-link/record.json",
+      "returncode": 0,
+      "sha256": "d249b6f5bc8163d22c1bc45e571399634e8843abdf7fc56d2f255f6db302f8e6"
+    },
+    {
+      "path": "conform/commands/strict-build/record.json",
+      "returncode": 0,
+      "sha256": "77a6b1b633e0985b2306ac81590f3fae4024128fee0aa14cf19e659fe55d07da"
+    },
+    {
+      "path": "conform/commands/native-build/record.json",
+      "returncode": 0,
+      "sha256": "e2c77f53036902f7b04cdbf771d7ff4d4ef95db434e46d4f60ae1afe20abd17c"
+    },
+    {
+      "path": "conform/commands/rust-runtime/record.json",
+      "returncode": 0,
+      "sha256": "f38f584505e0c6573dddd1f89124ff95bb0de8e7d273621168ee0e5525339199"
+    },
+    {
+      "path": "conform/commands/raw-link/record.json",
+      "returncode": 0,
+      "sha256": "fe0d7a473eebb80fe0b52838cd5183c595c2488bc1601328e9fcb06a2a44f4d4"
+    },
+    {
+      "path": "conform/commands/chez-build/record.json",
+      "returncode": 0,
+      "sha256": "59aebc7a5f2eeec27d67adf810cb13ab3dcf5266b439f8df9ad83f6f91e124c2"
+    },
+    {
+      "path": "conform/commands/chez-adapted-build/record.json",
+      "returncode": 0,
+      "sha256": "66052a78fc672a26cc7678083ad6eec2229267dcf15a513e2465c0f4a6d8c215"
+    },
+    {
+      "path": "conform/observations/commands/optimized-link/record.json",
+      "returncode": 0,
+      "sha256": "9f0366dd73eafaecbf20bcc6a143c77b335279c1774b478cbb61d6d89e968b38"
+    },
+    {
+      "path": "conform/observations/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "9cdb9c7e8d7b12b471490aaae8930138d3daf6eb6bad637f4b5a0859f622a5ad"
+    },
+    {
+      "path": "conform/observations/commands/strict-build/record.json",
+      "returncode": 0,
+      "sha256": "459c8b42c2d2034e9a1f17a4d43f6d4f3d5ef2827844bddb9d83e54f6ae71764"
+    },
+    {
+      "path": "conform/observations/commands/native-build/record.json",
+      "returncode": 0,
+      "sha256": "6f0da13da3b86dceb7073a4fc048caf3136305f3ad00dbcd62594e809ba7c0af"
+    },
+    {
+      "path": "conform/observations/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "0fc08afcec26beaad0ae369003f7959b69d615ffb9c23c92b1b0b8f86332f8b7"
+    },
+    {
+      "path": "conform/observations/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "af7b0aed4da86ab10959ce2470c4b4bde4496b4161e6347f435a1a64429d3b5d"
+    },
+    {
+      "path": "conform/observations/commands/raw-link/record.json",
+      "returncode": 0,
+      "sha256": "c0eb1f457714a1b240ba2790be40b3654ff489d505f78f3513663b417430e1e4"
+    },
+    {
+      "path": "conform/observations/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "aad94aaa77e0d93b4f8473ee0cfd65778e34b2f2bd75d9ada88c30c0a2bad412"
+    },
+    {
+      "path": "conform/observations/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "2e5aa26b1de19b8f7688b10929266df89b0a78627fb02d4a0dad067ef1a90321"
+    },
+    {
+      "path": "conform/controls/rust/commands/conform-wasm-optimize/record.json",
+      "returncode": 0,
+      "sha256": "c9873e70c5acbe77e810daf16f1d6a7a4435e1734f9f450cda2ed5c563591c87"
+    },
+    {
+      "path": "conform/controls/rust/commands/once-native/record.json",
+      "returncode": 0,
+      "sha256": "539ce0e003594924386cfb5e42568f4538f1a67738cb74b7c7f0cef4b6a5a0a8"
+    },
+    {
+      "path": "conform/controls/rust/commands/extra-name-raw-wasm/record.json",
+      "returncode": 1,
+      "sha256": "0197e9fb4c9fbde57313db54dc974104ec0cad35bab2aa679980fa01200e1dc1"
+    },
+    {
+      "path": "conform/controls/rust/commands/once-raw-wasm/record.json",
+      "returncode": 0,
+      "sha256": "0d9c6f9cfc2902a6cfefa704d7feb0a859246ff51861a0b76c1ab4e92bdb02ec"
+    },
+    {
+      "path": "conform/controls/rust/commands/missing-name-optimized-wasm/record.json",
+      "returncode": 1,
+      "sha256": "44537d9fa6873959baf591e09291056d18e2492c529b58ad336d557d835de9fd"
+    },
+    {
+      "path": "conform/controls/rust/commands/canonical-optimized-wasm/record.json",
+      "returncode": 0,
+      "sha256": "0d98f71fa1b5f3f24f0f65bd55a39d8faf76ed3e5bda11dd9defabfd0b71e182"
+    },
+    {
+      "path": "conform/controls/rust/commands/conform-native-build/record.json",
+      "returncode": 0,
+      "sha256": "510d72017476b824bd724e0e2df7cc6393b3dc0713368bd1699a4889131058b8"
+    },
+    {
+      "path": "conform/controls/rust/commands/conform-wasm-build/record.json",
+      "returncode": 0,
+      "sha256": "d5879fe5b28b9311f0a5e81081ad970f23a58574055de0fd80efb52205a3c60f"
+    },
+    {
+      "path": "conform/controls/rust/commands/unit-tests/record.json",
+      "returncode": 0,
+      "sha256": "085cc2678af539068211d3ec99abf398a64b531a20d21d5da106a65844774d18"
+    },
+    {
+      "path": "conform/controls/rust/commands/extra-name-native/record.json",
+      "returncode": -6,
+      "sha256": "090774bab51873b6f497de001a3f60d7554c5797ce8d1081c3716bdbd350e790"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-order-raw-wasm/record.json",
+      "returncode": 1,
+      "sha256": "58580e7261d6388a664433f5cbeef6e1eaa50ae64a53e7c8435544a0eaac5ff3"
+    },
+    {
+      "path": "conform/controls/rust/commands/twice-native/record.json",
+      "returncode": 0,
+      "sha256": "d5148cb3c35b89b6337d4f283cd0e0453796ce1b7460ced9a7301b594f22ff25"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-name-optimized-wasm/record.json",
+      "returncode": 1,
+      "sha256": "504dd7cd83253d3b83bdb3c1965c07c3f472a805ab8d3719058df5b9aa4fdefc"
+    },
+    {
+      "path": "conform/controls/rust/commands/unicode-names-raw-wasm/record.json",
+      "returncode": 0,
+      "sha256": "08e4216fdb55eae7d9aeb298b82198f1cd4696d5d7c7965b44054a5b9dc13874"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-order-optimized-wasm/record.json",
+      "returncode": 1,
+      "sha256": "02e8ceb16e6d6349cad7082012910c54d61d2b44edecd5ea31715409ba5dbf3f"
+    },
+    {
+      "path": "conform/controls/rust/commands/canonical-native/record.json",
+      "returncode": 0,
+      "sha256": "8d95018d74864583e167d99f0895a6b548c877807d3dfd0c5f6347097874e708"
+    },
+    {
+      "path": "conform/controls/rust/commands/conform-wasm-disassemble/record.json",
+      "returncode": 0,
+      "sha256": "2bf6d9120d8e103f71aaffe39c5684fc3ae23aaa658edc74638035e74a69dafc"
+    },
+    {
+      "path": "conform/controls/rust/commands/missing-name-raw-wasm/record.json",
+      "returncode": 1,
+      "sha256": "6c9bedb0989c0a8fd795e5d2c7b7d08f436cd9ad2a499fea471283482cee7c48"
+    },
+    {
+      "path": "conform/controls/rust/commands/unicode-names-native/record.json",
+      "returncode": 0,
+      "sha256": "d5ad1ab855138bfe8ccfb684fa217c7ac381080f87ba2bf8ee05c61c89d39bf4"
+    },
+    {
+      "path": "conform/controls/rust/commands/canonical-raw-wasm/record.json",
+      "returncode": 0,
+      "sha256": "c368e67f6af1668625bfec2b75cd6d6299360b9cc2cb22164523d5fde66a4125"
+    },
+    {
+      "path": "conform/controls/rust/commands/missing-name-native/record.json",
+      "returncode": -6,
+      "sha256": "0c4f15ace1926a7a0383008b9726d56ad10ff119a5f181b21716673a027ca2fb"
+    },
+    {
+      "path": "conform/controls/rust/commands/twice-raw-wasm/record.json",
+      "returncode": 0,
+      "sha256": "e4c2f8e6df14847c9342c151dc5ed42dd51bd0944aeeddf97a2e676b7819e5da"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-name-native/record.json",
+      "returncode": -6,
+      "sha256": "50aaec0e48693cc7762ec0181a99994c86a4567d065f7e3d007d222a3b48e87f"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-order-native/record.json",
+      "returncode": -6,
+      "sha256": "e183b91b5543c2f91d7ea9cda0d7e6528f54cc3b9d3fe16079c53ecb302d0c12"
+    },
+    {
+      "path": "conform/controls/rust/commands/unicode-names-optimized-wasm/record.json",
+      "returncode": 0,
+      "sha256": "f82ee76a0af4920291eaa536294d24027abd6aeebe77e0e4ac53d2903eb1264d"
+    },
+    {
+      "path": "conform/controls/rust/commands/extra-name-optimized-wasm/record.json",
+      "returncode": 1,
+      "sha256": "1998c5e4b7dd2bf86f6c29dec2c30c0cd7809eec0326b0e66002cbfa99c87d6a"
+    },
+    {
+      "path": "conform/controls/rust/commands/twice-optimized-wasm/record.json",
+      "returncode": 0,
+      "sha256": "fcb83910745e86ec9c88c9e112e78a419b74ce1c506c3b17fc80c41f0566d479"
+    },
+    {
+      "path": "conform/controls/rust/commands/wrong-name-raw-wasm/record.json",
+      "returncode": 1,
+      "sha256": "f7b8bd0384abfd82bf3851b92a1b7b9adf6df49df9ed586331fa3d238714b087"
+    },
+    {
+      "path": "conform/controls/rust/commands/once-optimized-wasm/record.json",
+      "returncode": 0,
+      "sha256": "cb44932832c673c9231ee98459d7a18f153c70fdf05de5c2c3b3747ec294b97b"
+    },
+    {
+      "path": "conform/controls/native/commands/provider-assemble/record.json",
+      "returncode": 0,
+      "sha256": "44f582f122817b736e4e305f71deec32ce40fd1953100ec7396bcbc2c4e7fc40"
+    },
+    {
+      "path": "conform/controls/native/commands/provider-final-interface/record.json",
+      "returncode": 0,
+      "sha256": "d421436a29cefe22ffcc807bb42e67a63df039f3486503df061cf4d89e86085f"
+    },
+    {
+      "path": "conform/controls/native/commands/full-count-validation/record.json",
+      "returncode": 0,
+      "sha256": "a4c0d0301904c3de621abd3a5ecf7c1ceb0aa0537c80ff02db3817f2907f6180"
+    },
+    {
+      "path": "conform/controls/native/commands/prune-scalar-provider/record.json",
+      "returncode": 0,
+      "sha256": "106c46296d1790e69779c5023f2de7475644710575b1809f5896fed430c404df"
+    },
+    {
+      "path": "conform/controls/native/commands/provider-input-interfaces/record.json",
+      "returncode": 0,
+      "sha256": "3b507a53e62805a2b3f0aab9aa867fb8fd3ed1357f8a07fe1a65993bd018e72c"
+    },
+    {
+      "path": "conform/controls/native/commands/identical-wasm-v8-validation/record.json",
+      "returncode": 0,
+      "sha256": "9982e5795e2a0604cf94b02b13f85ef8ce823f6a91a29c4396f861e425b3fe97"
+    },
+    {
+      "path": "conform/controls/native/commands/build/record.json",
+      "returncode": 0,
+      "sha256": "269c98d4b67ff45765ebe58a18734a6d0f0016ff50756722704de13d3a22bcb3"
+    },
+    {
+      "path": "conform/controls/native/commands/provider-disassemble/record.json",
+      "returncode": 0,
+      "sha256": "b08b7637b2d52a6a45be629d29957cddde68c165d46de771fe1f07cbc7f81097"
+    },
+    {
+      "path": "conform/validation/missing-name/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "08527470725838a1e34bd368ee1295745213c1f3b7db87d18f1988aa577bb306"
+    },
+    {
+      "path": "conform/validation/missing-name/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "5730272a377e4c0c1e6782e6a586f0594c255e3830a83a7e33f15e4db9f72767"
+    },
+    {
+      "path": "conform/validation/missing-name/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "ccae1cde7a1cadd8f447816d8eccab5e7799be25dbea517474206514235b5aa2"
+    },
+    {
+      "path": "conform/validation/missing-name/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "ace989e89767ec13d49caae806b873abbc763eae4f0b3a5277d49173e73a50cd"
+    },
+    {
+      "path": "conform/validation/missing-name/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "52436637f74289bce11fe319303ec68f4424f1c5270929a618ae6447de79e70b"
+    },
+    {
+      "path": "conform/validation/wrong-name/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "3fecebab61206857204676bf5fb264afd84dfe426d54a9d91b612f7691042aa8"
+    },
+    {
+      "path": "conform/validation/wrong-name/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "7be30cb4bde8581fd29ff3353d6bddff74d2d9e62870c8c449bbec6b3608493c"
+    },
+    {
+      "path": "conform/validation/wrong-name/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "e31dac4101eca678f75b1e9204c6cd16798b81950fa67d15aa7883a5b8197aed"
+    },
+    {
+      "path": "conform/validation/wrong-name/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "0c23a6477bf25f137b0df9a9252d65053b1514395772f07daadff4ea450558ec"
+    },
+    {
+      "path": "conform/validation/wrong-name/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "01aeaa0f968aadb2b5c7aeba87cf8e4f721975e9b732966c8fd4936079e3b4ff"
+    },
+    {
+      "path": "conform/validation/extra-name/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "11b8f992c81844f6de6b403da83a852e0e3e2893ac40e9c5f97b201904b3970f"
+    },
+    {
+      "path": "conform/validation/extra-name/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "cb33afbe744d8015fd519aaf57e2d3b0206ff0683647e9732c622b045f3c62f8"
+    },
+    {
+      "path": "conform/validation/extra-name/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "719f6fc63c4ef1e10647c697f21ce8a6deaf530117641d75d2188b8259d8c8c8"
+    },
+    {
+      "path": "conform/validation/extra-name/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "b33ca91951cdbdb5a211ce857501f44b25f72433d14b102e9f138314f0779669"
+    },
+    {
+      "path": "conform/validation/extra-name/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "dc1f42fd6741dd03034a1da379fa72e64e6ff43caaa7077538498f6b085fab57"
+    },
+    {
+      "path": "conform/validation/unicode-names/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "08c15a8b1a1305128f78a1e1147944c15975d79323d67305b4f5fcd04b368b68"
+    },
+    {
+      "path": "conform/validation/unicode-names/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "94711703a8897963af55e943693e546efd9892927df2f14f8cfd9f8728891deb"
+    },
+    {
+      "path": "conform/validation/unicode-names/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "5a43a966c65f66f0858629d260adde22b084b4397ec28c4aa6a40884638eb478"
+    },
+    {
+      "path": "conform/validation/unicode-names/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "55ad70a088ee92df2e87308417ce0afca336e05a35d4efa2f67fbde3907482c8"
+    },
+    {
+      "path": "conform/validation/unicode-names/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "999b4121807623a6f130cccf20162b89430775329f3525a7f7bc2a8a3b649c8f"
+    },
+    {
+      "path": "conform/validation/canonical/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "b1282666ae10399d441deb403f1fb0b27ddca2883c78cce2f6042b18a4113361"
+    },
+    {
+      "path": "conform/validation/canonical/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "bfe3ecaf026d15aa85daf36e98cbedc6b084eeaba3a80ae52f1697f2933c2bd4"
+    },
+    {
+      "path": "conform/validation/canonical/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "f6144b0e30fdade5d839213ce6a3d431f26d5ea0498fc88650cfc03bc79d2deb"
+    },
+    {
+      "path": "conform/validation/canonical/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "5ce8f5009106f4fb5cca20551255b8db065089835e5144570c7957030a2eea83"
+    },
+    {
+      "path": "conform/validation/canonical/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "c2bbfe98bbfea5512c7a28f5b5262e5094a93da6c8a14112795b57e76ddc4cb4"
+    },
+    {
+      "path": "conform/validation/once/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "0eec9074424775ae399938ef008f656ae6f85ec2ae0445d8a9e47978b8ec24af"
+    },
+    {
+      "path": "conform/validation/once/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "56a36219ea43473f796b7cfb4e77b77ba66b9c1b5e07dd24b278a6f0540c242f"
+    },
+    {
+      "path": "conform/validation/once/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "3fbe654f66d61801fce0f85a238a130b72881a375b679ea67471aea3096df783"
+    },
+    {
+      "path": "conform/validation/once/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "a278242366475fd941556f3e46ef2139561bfdea4fdc918da5e6a6d9f4b8dfae"
+    },
+    {
+      "path": "conform/validation/once/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "7264b854f25fb2a44ad50d2fbf8b4f3a95d0c696cec2bd7b80eb266cf0b805ea"
+    },
+    {
+      "path": "conform/validation/wrong-order/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "79367f9a910650ed2632de31d575b912b34f7c5cba8af1ce1aefde08fc89fba9"
+    },
+    {
+      "path": "conform/validation/wrong-order/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "82f6bb1efd83a1cc46c5009be58c8b2084989b59d222ee472bfe46c3bed4630d"
+    },
+    {
+      "path": "conform/validation/wrong-order/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "f667e0f2b29db9cad1fa70c4a1dae9e598a765749442bbbf5d382bc90ea1e863"
+    },
+    {
+      "path": "conform/validation/wrong-order/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "675b0a7060c2c05dfec6251e884013953508fd7ac7bc955b1a07bc41f699fac6"
+    },
+    {
+      "path": "conform/validation/wrong-order/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "6ca877010029456bfc275e1e5942ddafea3f1fc239af69dcb509531610971edb"
+    },
+    {
+      "path": "conform/validation/twice/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "3f20cd1d5f7401b6883034bf797096107cd4659f0e78ec352057f24f3de95cf7"
+    },
+    {
+      "path": "conform/validation/twice/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "af33cd38be7624c7f05964b2faab71172c500f005d3b36a5a9c04ce5399eb28d"
+    },
+    {
+      "path": "conform/validation/twice/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "9841d65bc0b62d45629c26c011d763ffc2050711d0bc3b53c045aa1198742946"
+    },
+    {
+      "path": "conform/validation/twice/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "283c3890fe34d4d52564f0d0bbc730235a8e048ff1c0455f78fe111c2aa41a1d"
+    },
+    {
+      "path": "conform/validation/twice/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "5543979ff7fb510ee31942f5c560af03c7ecc210e0c94ad6a1e21ee837b26a4f"
+    },
+    {
+      "path": "conform/observations/full-work/commands/raw/record.json",
+      "returncode": 0,
+      "sha256": "9c7edf9389b123b0c6bdc19011c6987ec2e31a141d4c29d10e0c6718e2a83eaa"
+    },
+    {
+      "path": "conform/observations/full-work/commands/chez-adapted/record.json",
+      "returncode": 0,
+      "sha256": "ac90beae79165fb607642fd45c43f7a714acab8085f2837690ddd3907a5cad68"
+    },
+    {
+      "path": "conform/observations/full-work/commands/native/record.json",
+      "returncode": 0,
+      "sha256": "82b96554c509f4d3bf029ae5d498b713f06e2b99eaf3e539d35d62d0d15efccf"
+    },
+    {
+      "path": "conform/observations/full-work/commands/chez/record.json",
+      "returncode": 0,
+      "sha256": "9f067fe998555b6bc66b2289f08bbb0ee3b5c8008de481be84e455709ab65a56"
+    },
+    {
+      "path": "conform/observations/full-work/commands/optimized/record.json",
+      "returncode": 0,
+      "sha256": "b5149f74d23b538d10c291129e0a9fab305759214a7bbe4f26d8715de79e5917"
+    },
+    {
+      "path": "conform/observations/full-work/commands/native-frequent-collection/record.json",
+      "returncode": 0,
+      "sha256": "d69f95a064332f101e23a65c90fccc6aa1abdfb64bc7c5d597cea19c30e69f3d"
+    },
+    {
+      "path": "conform/observations/fatal/NONE-getter/commands/raw/record.json",
+      "returncode": 1,
+      "sha256": "43e88b2486faa36b52447c736cc35767e7d810d45467d3cf6fd9aee95a0f26c6"
+    },
+    {
+      "path": "conform/observations/fatal/NONE-getter/commands/chez-adapted/record.json",
+      "returncode": 255,
+      "sha256": "dc02d9b04868a168f201028708e24007a4b11474441133ed483fecfc3df1298f"
+    },
+    {
+      "path": "conform/observations/fatal/NONE-getter/commands/native/record.json",
+      "returncode": 1,
+      "sha256": "f1d70361865f756dc201b71982f6bcfbd1ea7b86377f8e8cd79765fee97b0e1a"
+    },
+    {
+      "path": "conform/observations/fatal/NONE-getter/commands/chez/record.json",
+      "returncode": 255,
+      "sha256": "9c34f0bcc1da0ffef30162d58fb45acb0bbfa11c521d2ec67fa5237a4ba0a38c"
+    },
+    {
+      "path": "conform/observations/fatal/NONE-getter/commands/optimized/record.json",
+      "returncode": 1,
+      "sha256": "d158538aea8bcd7ec0afb538b7cc83fbfd6d065aa3dfd163e4c45d09d2cb659e"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-setter/commands/raw/record.json",
+      "returncode": 1,
+      "sha256": "4af576d8a67db180babcb41ae61a94358f27a07dd52d9800b5ac82dfe8ea9ba9"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-setter/commands/chez-adapted/record.json",
+      "returncode": 255,
+      "sha256": "f24225833c6576aaa07e22f0f0c21b7433f10c7d7a2931467b12a6abe8d9cb1e"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-setter/commands/native/record.json",
+      "returncode": 1,
+      "sha256": "3b2f6c548e19b576aeaacd3412fc18eed4ac96874f0e6c4fde9969b350c4f5da"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-setter/commands/chez/record.json",
+      "returncode": 255,
+      "sha256": "b3ac587ed884438155ba4b5ab35f4f7da12ad32f0368198225697e6a98f72c30"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-setter/commands/optimized/record.json",
+      "returncode": 1,
+      "sha256": "cba7118195c796ffac21f2a962f25e87d5aa82067967e8045704cef5d5642e46"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-getter/commands/raw/record.json",
+      "returncode": 1,
+      "sha256": "69dd5971dc56f026fa38338884ee45aa1bd2c1ff61c5bb868192e654120531f6"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-getter/commands/chez-adapted/record.json",
+      "returncode": 255,
+      "sha256": "753a42b7301f3e5a2edd4e06d0c6e56bdf96637cac2e0dc83855f258654cdfea"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-getter/commands/native/record.json",
+      "returncode": 1,
+      "sha256": "9ef5dc12fdc01826457a62ab32498ef6585501e3b12cba4b3e512c5287825e26"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-getter/commands/chez/record.json",
+      "returncode": 255,
+      "sha256": "39fe2a772a3c054b9424883507604284c270038758f450625a6468a27fd87311"
+    },
+    {
+      "path": "conform/observations/fatal/ANY-getter/commands/optimized/record.json",
+      "returncode": 1,
+      "sha256": "c0a981efce3df9351c20d3fa43ef805b04bf0abbc06f35c94ee3de6f8613702d"
+    },
+    {
+      "path": "conform/observations/fatal/unfinished-list-use/commands/raw/record.json",
+      "returncode": 1,
+      "sha256": "9fc0b0276e1e00d562f08936494fd36488c2d62c00518abc8c45c417190d7b52"
+    },
+    {
+      "path": "conform/observations/fatal/unfinished-list-use/commands/chez-adapted/record.json",
+      "returncode": 255,
+      "sha256": "7a8dd79da9470c6703b583d48038fa13a8203ba7cd1a5e3506ee3ba7e4eb8191"
+    },
+    {
+      "path": "conform/observations/fatal/unfinished-list-use/commands/native/record.json",
+      "returncode": 1,
+      "sha256": "d506562bb072634c3d2e7b745c9411c551c70bbe0a141c80f96a0061ea33372c"
+    },
+    {
+      "path": "conform/observations/fatal/unfinished-list-use/commands/chez/record.json",
+      "returncode": 255,
+      "sha256": "dd72d5a30e758b6a61839da730c4c291205beae418ec7b72492cace3f4b71441"
+    },
+    {
+      "path": "conform/observations/fatal/unfinished-list-use/commands/optimized/record.json",
+      "returncode": 1,
+      "sha256": "9607950551359b16d002581a8cdd640c24e8be6e3493ee4345d7e27190e9ffcd"
+    }
+  ],
+  "all_owned_build_workload_handles_terminal": true,
+  "clean_timing_samples": 0
+}

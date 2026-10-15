@@ -1,73 +1,88 @@
-;; The driver joins four explicit stages: located syntax, resolved HIR, stack
-;; instructions, and LLVM text. The current Scheme host still runs this module.
+;; Portable source compilation: library loading, expansion, and Wasm datums.
+;; A build driver can supply a generator resolver without importing host effects.
 (define-library (snail-scheme compiler)
-  (export compile-file compiler-main)
-  (import (scheme base) (scheme file) (scheme time) (scheme write)
-          (snail-scheme bootstrap)
-          (snail-scheme reader) (snail-scheme parser) (snail-scheme syntax-parser)
-          (snail-scheme expand) (snail-scheme lower)
-          (snail-scheme vm) (snail-scheme llvm))
+  (export source-file->wasm source-file->wat-file syntax-list->wasm
+          library-generator read-library-form)
+  (import (scheme base) (scheme cxr) (scheme file)
+          (snail-scheme chromium-trace) (snail-scheme bootstrap)
+          (snail-scheme reader) (snail-scheme syntax-parser)
+          (snail-scheme expand) (snail-scheme wasm) (snail-scheme syntax)
+          (only (snail-scheme ir) make-value-definition)
+          (only (snail-scheme library) make-library make-named-binding))
   (begin
-    ;; Optional diagnostics stay off program stdout and do not change artifacts.
-    (define timing-port (make-parameter #f))
 
-    (define (compiler-main arguments)
-      (let ((operands (without-timing-flag (cdr arguments)))
-            (report? (member "--timing" (cdr arguments))))
-        (if (not (memv (length operands) '(3 4)))
-            (error "usage: compile.scm ROOT INPUT OUTPUT [VM-DUMP] [--timing]"))
-        (parameterize ((timing-port (and report? (current-error-port))))
-          (apply compile-file operands))))
+    ;; ---- Portable compilation ----
 
-    (define (without-timing-flag arguments)
-      (cond ((null? arguments) '())
-            ((string=? (car arguments) "--timing") (without-timing-flag (cdr arguments)))
-            (else (cons (car arguments) (without-timing-flag (cdr arguments))))))
+    (define source-file->wat-file
+      (chromium-trace
+       "source-file->wat-file"
+       (lambda (root input output . options)
+         (let ((datum (apply source-file->wasm root input options)))
+           (call-with-output-file output (lambda (port) (write-wasm datum port)))))))
 
-    (define (compile-file root input output . optional-dump)
-      (let* ((forms (time-stage 'parse (lambda () (read-source input))))
-             (core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
-             (hir (time-stage 'expand
-                              (lambda () (expand-program forms (library-loader root) (list core)))))
-             (program (time-stage 'lower (lambda () (lower-program hir)))))
-        (time-stage 'llvm (lambda () (write-program output program write-llvm-program)))
-        (if (pair? optional-dump)
-            (time-stage 'vm-dump
-                        (lambda () (write-program (car optional-dump) program write-vm-program))))))
+    (define source-file->wasm
+      (chromium-trace
+       "source-file->wasm"
+       (lambda (root input . options)
+         (when (> (length options) 3) (error "expected foreign declarations, library directories, and CLI entry"))
+         (syntax-list->wasm root (source-file->syntax-list input)
+                            (if (null? options) '() (car options))
+                            (if (< (length options) 2) '() (cadr options))
+                            (if (= (length options) 3) (caddr options) #f)))))
 
-    (define (write-program path program writer)
-      (call-with-output-file path (lambda (port) (writer program port))))
+    (define (make-extension-library names)
+      (make-library '(snail-scheme extensions) '()
+                    (map (lambda (name) (make-named-binding name (make-value-definition name #f))) names)
+                    '() '() #f))
 
-    (define (time-stage name thunk)
-      (if (not (timing-port)) (thunk)
-          (let* ((start (current-jiffy)) (result (thunk)))
-            (report-timing name (- (current-jiffy) start))
-            result)))
+    (define (syntax-list->wasm root forms foreign directories entry)
+      (let* ((core (make-core-library '(snail-scheme core) bootstrap-primitive-names))
+             (extensions (make-extension-library (map car foreign)))
+             (program (syntax-list->ir-library forms (library-loader root directories) (list core extensions))))
+        (ir-library->wasm program foreign entry)))
 
-    (define (report-timing name ticks)
-      (let ((port (timing-port)) (frequency (jiffies-per-second)))
-        (display "compiler: " port) (display name port) (display " " port)
-        (display (+ (* (quotient ticks frequency) 1000000)
-                    (quotient (* (remainder ticks frequency) 1000000) frequency)) port)
-        (display " us\n" port)))
+    ;; ---- Library loading and the build-stage boundary ----
 
-    (define (read-source path)
-      (let ((result (s-file (file->reader path))))
-        (if (parse-result-err? result)
-            (error "cannot parse Scheme source" path (reader-loc (parse-result-input result))))
-        (parse-result-value result)))
+    ;; The callback returns an ordinary located define-library form. The portable
+    ;; default reports the missing capability at the wrapper, before any effects.
+    (define library-generator
+      (make-parameter (lambda (root path wrapper directories)
+                        (error "generate-library requires a build compilation" path))))
 
-    (define (library-loader root)
+    (define source-file->syntax-list
+      (chromium-trace "source-file->syntax-list"
+                      (lambda (path) (reader->syntax-list (file->reader path)))))
+
+    (define (read-library-form path)
+      (let ((forms (source-file->syntax-list path)))
+        (unless (= (length forms) 1) (error "expected exactly one library declaration" path))
+        (car forms)))
+
+    (define (generated-form? form)
+      (and (list-syntax? form) (pair? (list-syntax-elements form))
+           (eq? (syntax->datum (car (list-syntax-elements form))) 'generate-library)))
+
+    (define (library-loader root directories)
       (lambda (name)
-        (let* ((path (library-path root name))
-               (forms (read-source path)))
-          (if (not (= (length forms) 1))
-              (error "expected exactly one library declaration" path))
-          (car forms))))
+        (let* ((path (library-path root directories name)) (form (read-library-form path)))
+          (if (not (generated-form? form)) form
+              (begin
+                (unless (and (>= (length (list-syntax-elements form)) 2)
+                             (equal? (syntax->datum (cadr (list-syntax-elements form))) name))
+                  (error "library name does not match import" path name))
+                ((library-generator) root path form directories))))))
 
-    (define (library-path root name)
-      (string-append root "/" (if (eq? (car name) 'scheme) "bootstrap/" "src/")
-                     (library-name-path name) ".sld"))
+    ;; Standard libraries belong to the bootstrap runtime. Project directories
+    ;; precede the compiler's own sources for every other library name.
+    (define (library-path root directories name)
+      (let* ((roots (if (eq? (car name) 'scheme) (list (string-append root "/bootstrap"))
+                        (append directories (list (string-append root "/src")))))
+             (paths (map (lambda (directory)
+                           (string-append directory "/" (library-name-path name) ".sld")) roots)))
+        (let search ((remaining paths))
+          (cond ((null? remaining) (error "library not found; searched paths" name paths))
+                ((file-exists? (car remaining)) (car remaining))
+                (else (search (cdr remaining)))))))
 
     (define (library-name-path name)
       (let ((first (if (symbol? (car name)) (symbol->string (car name))

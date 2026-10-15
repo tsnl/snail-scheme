@@ -1,0 +1,73 @@
+{
+  "data_contracts": {
+    "passed": 48,
+    "total": 48
+  },
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/cargo-fmt-all-check.json"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/cargo-test-offline.json"
+    },
+    {
+      "command": [
+        "make",
+        "check"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/make-check.json"
+    },
+    {
+      "command": [
+        "make",
+        "test"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/make-test.json"
+    },
+    {
+      "command": [
+        "scripts/test-backend"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/test-backend.json"
+    },
+    {
+      "command": [
+        "scripts/test-build"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/test-build.json"
+    },
+    {
+      "command": [
+        "scripts/test-native"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/test-native.json"
+    },
+    {
+      "command": [
+        "scripts/test-strict-io"
+      ],
+      "status": 0,
+      "log": "/tmp/snail-strict-empty-variants-20261014/build/empty-variants/validation/test-strict-io.json"
+    }
+  ],
+  "native_process_records": 198
+}

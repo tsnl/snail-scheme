@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "/tmp/snail-strict-matrix-20261014/benchmarks/results/2026-10-14-strict-matrix-preparation/prepare-native-final.py"
+  ],
+  "returncode": 0,
+  "stdout": "Validated native-final Wasm on V8 at count 2500 with 5000 opacity calls; no rebuild\n",
+  "stderr": "",
+  "timeout": false,
+  "process_group": 3,
+  "executing_descendants": [],
+  "process_seconds": 2.4618175009964034
+}

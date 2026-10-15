@@ -1,0 +1,38 @@
+[
+  {
+    "threshold": 16,
+    "count": 200000,
+    "final_length": 22,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/16/plan.json"
+  },
+  {
+    "threshold": 64,
+    "count": 100000,
+    "final_length": 118,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/64/plan.json"
+  },
+  {
+    "threshold": 1024,
+    "count": 10000,
+    "final_length": 2038,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/1024/plan.json"
+  },
+  {
+    "threshold": 4096,
+    "count": 2500,
+    "final_length": 8182,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/4096/plan.json"
+  },
+  {
+    "threshold": 8192,
+    "count": 1250,
+    "final_length": 16374,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/8192/plan.json"
+  },
+  {
+    "threshold": 32768,
+    "count": 500,
+    "final_length": 65526,
+    "plan": "/tmp/snail-string-size-controls-20261014/build/size-controls/32768/plan.json"
+  }
+]

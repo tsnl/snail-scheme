@@ -1,0 +1,11 @@
+{
+  "rendering_scene_geometry_io_source_byte_identical": true,
+  "region_start": "// ---- Points and sphere intersections ----",
+  "region_end_exclusive": "// ---- Benchmark driver ----",
+  "region_sha256": "ed9d2858a58dd486765089d3ef4eef87fa260293a8d922d10e7de2d48aa4fbac",
+  "historical_module_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+  "corrected_module_sha256": "ce6f79344bfea516ca4bf58adb554065583f992947653cf37a9c74d5d38a6ea3",
+  "historical_wasm_sha256": "cc4855cd2bb13b58a38bbcf9eea542b632304d43fc411632b875a430c067950c",
+  "correction": "Signed count and exact symbol/false result predicate only; shared reporting accepts signed labels.",
+  "historical_sources_verified": 44
+}

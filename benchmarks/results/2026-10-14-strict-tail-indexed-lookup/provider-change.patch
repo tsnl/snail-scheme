@@ -1,0 +1,109 @@
+--- baseline/src/strict_io.rs
++++ indexed/src/strict_io.rs
+@@ -5,14 +5,15 @@
+ //! A trapped instance is terminal. There is no GC finalization of these files.
+ 
+ use crate::{fail_message, host::Port};
+-use std::{cell::RefCell, collections::BTreeMap, path::Path};
++use std::{cell::RefCell, path::Path};
+ 
+ // ---- Owned resources and synchronous pathname transfer ----
+ 
+ #[derive(Default)]
+ struct Files {
+     next: u32,
+-    live: BTreeMap<u32, Port>,
++    // Diagnostic only: historical ID holes remain until invocation cleanup.
++    live: Vec<Option<Port>>,
+ }
+ 
+ thread_local! {
+@@ -27,15 +28,27 @@
+         Ok(id)
+     }
+ 
++    fn insert(&mut self, id: u32, port: Port) {
++        // The opened Port stays locally owned until its slot is published.
++        // reserve_id never reuses an ID, so publication cannot replace a live Port.
++        let index = id as usize;
++        if self.live.len() <= index {
++            self.live.resize_with(index + 1, || None);
++        }
++        self.live[index] = Some(port);
++    }
++
+     fn get(&mut self, id: u32) -> Result<&mut Port, String> {
+         self.live
+-            .get_mut(&id)
++            .get_mut(id as usize)
++            .and_then(Option::as_mut)
+             .ok_or_else(|| "unknown or closed file port".into())
+     }
+ 
+     fn take(&mut self, id: u32) -> Result<Port, String> {
+         self.live
+-            .remove(&id)
++            .get_mut(id as usize)
++            .and_then(Option::take)
+             .ok_or_else(|| "unknown or closed file port".into())
+     }
+ }
+@@ -92,7 +105,7 @@
+     // consume an ID too; no old integer can ever acquire a different resource.
+     let id = FILES.with_borrow_mut(Files::reserve_id)?;
+     let port = Port::output_file(&path)?;
+-    FILES.with_borrow_mut(|files| files.live.insert(id as u32, port));
++    FILES.with_borrow_mut(|files| files.insert(id as u32, port));
+     Ok(id)
+ }
+ 
+@@ -104,7 +117,7 @@
+ fn open_input(path: String) -> Result<i32, String> {
+     let id = FILES.with_borrow_mut(Files::reserve_id)?;
+     let port = Port::input_file(&path)?;
+-    FILES.with_borrow_mut(|files| files.live.insert(id as u32, port));
++    FILES.with_borrow_mut(|files| files.insert(id as u32, port));
+     Ok(id)
+ }
+ 
+@@ -163,7 +176,7 @@
+     PATHNAME.with_borrow_mut(Option::take);
+     let ports = FILES.with_borrow_mut(|files| std::mem::take(&mut files.live));
+     let mut result = Ok(());
+-    for port in ports.into_values() {
++    for port in ports.into_iter().flatten() {
+         let closed = release_file(port);
+         if result.is_ok() {
+             result = closed;
+@@ -217,7 +230,6 @@
+         let id = FILES.with_borrow_mut(|files| {
+             let id = files.reserve_id().unwrap();
+             files
+-                .live
+                 .insert(id as u32, Port::input_string("\0λ😀\u{10ffff}".into()));
+             id as u32
+         });
+@@ -234,12 +246,12 @@
+     fn absent_and_stale_ids_never_alias_new_resources() {
+         let mut files = Files::default();
+         let first = files.reserve_id().unwrap() as u32;
+-        files.live.insert(first, Port::output_string());
++        files.insert(first, Port::output_string());
+         release_file(files.take(first).unwrap()).unwrap();
+         assert!(files.get(first).is_err());
+         assert!(files.take(first).is_err());
+         let second = files.reserve_id().unwrap() as u32;
+-        files.live.insert(second, Port::output_string());
++        files.insert(second, Port::output_string());
+         assert_ne!(first, second);
+         assert!(files.get(first).is_err());
+         assert!(files.get(u32::MAX).is_err());
+@@ -267,7 +279,7 @@
+         path_begin();
+         FILES.with_borrow_mut(|files| {
+             let id = files.reserve_id().unwrap();
+-            files.live.insert(id as u32, Port::output_string());
++            files.insert(id as u32, Port::output_string());
+         });
+         assert_eq!(close_all(), 0);
+         assert!(take_pathname().is_err());

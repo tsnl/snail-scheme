@@ -1,0 +1,42 @@
+[
+  {
+    "name": "review-abstract-family-premise",
+    "result": "42"
+  },
+  {
+    "name": "review-later-result",
+    "result": "42"
+  },
+  {
+    "name": "review-qualified-overlap",
+    "result": "42"
+  },
+  {
+    "name": "review-qualified-overlap-reject",
+    "error": "ambiguous overload"
+  },
+  {
+    "name": "review-default-sharing",
+    "result": "42"
+  },
+  {
+    "name": "review-default-trap-effects",
+    "result": "42",
+    "exports": {
+      "allocate": "trap",
+      "calls": "3"
+    }
+  },
+  {
+    "name": "review-returned-captures",
+    "result": "42"
+  },
+  {
+    "name": "review-later-result-reversed",
+    "result": "42"
+  },
+  {
+    "name": "review-unused-nested-late-error",
+    "error": "no compatible overload"
+  }
+]

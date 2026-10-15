@@ -1,0 +1,554 @@
+{
+  "started_utc": "2026-10-14T03:33:42.837725+00:00",
+  "benchmark": "quicksort",
+  "scope": "Uninstrumented original workload; initialization excluded, V8 default tiering included.",
+  "compiler_before": "a4030ce190058db3e9d64f6942401b5fa38dbd58",
+  "compiler_after": "35d5baa52c2a0e25d0c86c02adefd661a6457a3b",
+  "cpu": 5,
+  "node_options": null,
+  "identities_before": {
+    "old-strict": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+      "sha256": "e947322337325a79d278ffb0d7f3cb95340d54ab50e8b98a95a49868d8ece282"
+    },
+    "direct-strict": {
+      "path": "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+      "sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd"
+    },
+    "original-chez": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so",
+      "sha256": "a770a257fe9021804c9520ae276b9b7eb00bfb8f6cfd62627334f7eae275bf4d"
+    },
+    "adapted-chez": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so",
+      "sha256": "be60774df926ef7971f811fb3eaa18f4be75ea32d31ea08d306e32cee05ecf93"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+      "sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2"
+    },
+    "spec": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    },
+    "input": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/input.txt",
+      "sha256": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f"
+    },
+    "runner": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+      "sha256": "6f40cd3b4a698c8fdd65b6aaf1644870234ebf6fa80749b4c4a2bf86fcc69782"
+    }
+  },
+  "observations": [
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.202522026,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.228259273979347,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 2.202522026
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.394032686,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.415766513964627,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.394032686
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.768643421 seconds (1.769) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.768643421\n",
+      "stderr": "",
+      "process_seconds": 1.7996187300304882,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.768643421
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.754970368 seconds (1.755) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.754970368\n",
+      "stderr": "",
+      "process_seconds": 1.7861015149974264,
+      "round": -1,
+      "retained": false,
+      "workload_seconds": 1.754970368
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.202461956,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.2290737330331467,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 2.202461956
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.388979303,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.4136919910088181,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.388979303
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.778489489 seconds (1.778) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.778489489\n",
+      "stderr": "",
+      "process_seconds": 1.8098563280072995,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.778489489
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.762718939 seconds (1.763) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.762718939\n",
+      "stderr": "",
+      "process_seconds": 1.7946464300039224,
+      "round": 0,
+      "retained": true,
+      "workload_seconds": 1.762718939
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.403435282,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.4261216090526432,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.403435282
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.802781257 seconds (1.803) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.802781257\n",
+      "stderr": "",
+      "process_seconds": 1.835566194029525,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.802781257
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.75402664 seconds (1.754) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.75402664\n",
+      "stderr": "",
+      "process_seconds": 1.787134038982913,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 1.75402664
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.203719787,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.228926596988458,
+      "round": 1,
+      "retained": true,
+      "workload_seconds": 2.203719787
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.775517909 seconds (1.776) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.775517909\n",
+      "stderr": "",
+      "process_seconds": 1.8089108410058543,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.775517909
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.758633486 seconds (1.759) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.758633486\n",
+      "stderr": "",
+      "process_seconds": 1.7911500080372207,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.758633486
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.202819871,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.230748337053228,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 2.202819871
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.398214381,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.420924471982289,
+      "round": 2,
+      "retained": true,
+      "workload_seconds": 1.398214381
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.74887207 seconds (1.749) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.74887207\n",
+      "stderr": "",
+      "process_seconds": 1.780898288008757,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.74887207
+    },
+    {
+      "variant": "old-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":2.208940551,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 2.2365148459794,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 2.208940551
+    },
+    {
+      "variant": "direct-strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+      ],
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.384517841,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 1.4074408899759874,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.384517841
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so"
+      ],
+      "stdin": "2500\n10000\n1000000\nignored\n",
+      "returncode": 0,
+      "stdout": "Running quicksort:10000:2500\nElapsed time: 1.775935159 seconds (1.776) for quicksort:10000:2500\n+!CSVLINE!+chez,quicksort:10000:2500,1.775935159\n",
+      "stderr": "",
+      "process_seconds": 1.8076932200347073,
+      "round": 3,
+      "retained": true,
+      "workload_seconds": 1.775935159
+    }
+  ],
+  "complete": true,
+  "identities_after": {
+    "old-strict": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/strict.wasm",
+      "sha256": "e947322337325a79d278ffb0d7f3cb95340d54ab50e8b98a95a49868d8ece282"
+    },
+    "direct-strict": {
+      "path": "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+      "sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd"
+    },
+    "original-chez": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/program.so",
+      "sha256": "a770a257fe9021804c9520ae276b9b7eb00bfb8f6cfd62627334f7eae275bf4d"
+    },
+    "adapted-chez": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/same-source-chez/program.so",
+      "sha256": "be60774df926ef7971f811fb3eaa18f4be75ea32d31ea08d306e32cee05ecf93"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    "chez": {
+      "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce"
+    },
+    "taskset": {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    "host": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+      "sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2"
+    },
+    "spec": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    },
+    "input": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/input.txt",
+      "sha256": "a806d5a4c5a01c585fbee8770bab188c9a31e56c32b3df4b28ff77dc7bbeb92f"
+    },
+    "runner": {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/r7rs.py",
+      "sha256": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+    },
+    "driver": {
+      "path": "/tmp/snail-strict-direct-calls-review-20261013/build/parent-review/measure-direct-calls.py",
+      "sha256": "6f40cd3b4a698c8fdd65b6aaf1644870234ebf6fa80749b4c4a2bf86fcc69782"
+    }
+  },
+  "summary": {
+    "old-strict": {
+      "samples": [
+        2.202461956,
+        2.203719787,
+        2.202819871,
+        2.208940551
+      ],
+      "median": 2.203269829,
+      "min": 2.202461956,
+      "max": 2.208940551
+    },
+    "direct-strict": {
+      "samples": [
+        1.388979303,
+        1.403435282,
+        1.398214381,
+        1.384517841
+      ],
+      "median": 1.393596842,
+      "min": 1.384517841,
+      "max": 1.403435282
+    },
+    "original-chez": {
+      "samples": [
+        1.778489489,
+        1.802781257,
+        1.775517909,
+        1.775935159
+      ],
+      "median": 1.7772123240000002,
+      "min": 1.775517909,
+      "max": 1.802781257
+    },
+    "adapted-chez": {
+      "samples": [
+        1.762718939,
+        1.75402664,
+        1.758633486,
+        1.74887207
+      ],
+      "median": 1.756330063,
+      "min": 1.74887207,
+      "max": 1.762718939
+    }
+  },
+  "ratios": {
+    "old-strict": 0.6325130148187583,
+    "original-chez": 0.7841476356991546,
+    "adapted-chez": 0.7934709263130115
+  },
+  "finished_utc": "2026-10-14T03:34:19.137314+00:00"
+}

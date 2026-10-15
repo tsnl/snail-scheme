@@ -1,0 +1,19 @@
+{
+  "base": "869c505af67ad71d1f8e53fb146bede6619b196f",
+  "selected_commit": "478a8d7",
+  "sources": {
+    "baseline": {
+      "source": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/baseline-source/precise-gc.c",
+      "sha256": "e438a67d641d7ad176bed0a72ad199d4c772b6074aef96443e61923a6edf5020"
+    },
+    "cold": {
+      "source": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/cold-precise-gc.c",
+      "sha256": "06fa0295d2a3c5fa9d1de652398725d83d624c24d4af363ec66fe31610430f0b"
+    },
+    "ordinary": {
+      "source": "/tmp/snail-native-allocation-path-20261014/src/precise-gc.c",
+      "sha256": "ada99c2b775bfef4f7e6070fdccec717fbd7af116fd94d64bd17474d8f46c47d"
+    }
+  },
+  "driver_record": "/tmp/snail-native-allocation-path-20261014/build/allocation-path/compiler-driver.json"
+}

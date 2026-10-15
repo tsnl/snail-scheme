@@ -1,12 +1,15 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test
+.PHONY: format check test benchmark
 
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
 
 test:
-	"$(CHIBI)" -I src -I tests tests/snail-scheme/test.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests tests/snail-scheme/test.scm
+
+benchmark:
+	./benchmarks/r7rs.py
 
 format:
 	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --write {} +
@@ -15,5 +18,5 @@ format:
 check:
 	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --check {} +
 	awk -v limit=100 -f scripts/check-line-length.awk \
-		src/snail-scheme/expand.sld src/snail-scheme/hir.sld
+		src/snail-scheme/expand.sld src/snail-scheme/ir.sld
 	$(NIXFMT) --check shell.nix
