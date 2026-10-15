@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-class (Has T) (: get (-> T)))
+(define-instance (Has I64) (get (lambda () 42)))
+(define-overload choose (All (T) (=> ((Has T)) (-> T T)))
+  (lambda (ignored) (get)))
+(define-overload choose (-> Bool Bool) (lambda (value) value))
+(choose #t)

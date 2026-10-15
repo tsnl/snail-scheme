@@ -6,8 +6,8 @@
           make-binding binding? binding-definition binding-scheme set-binding-scheme!
           binding-initializer set-binding-initializer! binding-kind binding-payload
           make-program program? program-body program-globals program-classes program-instances
-          make-class class? class-definition class-variables class-methods
-          make-instance instance? instance-class instance-types instance-members
+          make-class class? class-definition class-variables class-methods class-overload?
+          make-instance instance? instance-class instance-types instance-members instance-scheme
           node-location children)
   (import (scheme base) (prefix (snail-scheme ir) ir:))
   (begin
@@ -32,11 +32,13 @@
     ;; ---- Static class evidence ----
 
     (define-record-type <class>
-      (make-class definition variables methods) class?
-      (definition class-definition) (variables class-variables) (methods class-methods))
+      (make-class definition variables methods overload?) class?
+      (definition class-definition) (variables class-variables) (methods class-methods)
+      (overload? class-overload?))
     (define-record-type <instance>
-      (make-instance class types members) instance?
-      (class instance-class) (types instance-types) (members instance-members))
+      (make-instance class types members scheme) instance?
+      (class instance-class) (types instance-types) (members instance-members)
+      (scheme instance-scheme))
 
     ;; ---- Located expansion input ----
 
@@ -51,6 +53,7 @@
             ((ir:instantiation? node) (ir:instantiation-loc node))
             ((ir:class-declaration? node) (ir:class-declaration-loc node))
             ((ir:instance-declaration? node) (ir:instance-declaration-loc node))
+            ((ir:overload-declaration? node) (ir:overload-declaration-loc node))
             ((ir:extern-declaration? node) (ir:extern-declaration-loc node)) (else #f)))
     (define (children node)
       (cond ((ir:lambda? node) (list (ir:lambda-body node)))

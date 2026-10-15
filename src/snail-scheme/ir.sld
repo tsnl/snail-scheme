@@ -3,8 +3,10 @@
 ;; expand.sld constructs these immutable records from located syntax. Environments
 ;; are transient alists passed through expansion, never fields of IR nodes.
 ;;
-;; Item        = value-binding | Expression
+;; Item        = value-binding | type-declaration | record-schema | class-declaration
+;;             | instance-declaration | overload-declaration | extern-declaration | Expression
 ;; Expression  = name | literal | application | lambda | block | conditional | assignment
+;;             | annotation | instantiation
 ;;
 ;; Binding nodes and name references share value-definition identities. Reserving
 ;; those identities before expanding bodies supports recursion without mutation.
@@ -42,6 +44,8 @@
    class-declaration-variables class-declaration-methods class-declaration-loc
    make-instance-declaration instance-declaration? instance-declaration-class
    instance-declaration-types instance-declaration-methods instance-declaration-loc
+   make-overload-declaration overload-declaration? overload-declaration-definition
+   overload-declaration-type overload-declaration-implementation overload-declaration-loc
    make-extern-declaration extern-declaration? extern-declaration-definition
    extern-declaration-module extern-declaration-symbol extern-declaration-type
    extern-declaration-loc
@@ -198,6 +202,14 @@
       instance-declaration?
       (class instance-declaration-class) (types instance-declaration-types)
       (methods instance-declaration-methods) (loc instance-declaration-loc))
+
+    ;; Repeated overload declarations share one resolved family identity. Each
+    ;; concrete signature contributes one implementation at this source site.
+    (define-record-type <overload-declaration>
+      (make-overload-declaration definition type implementation loc)
+      overload-declaration?
+      (definition overload-declaration-definition) (type overload-declaration-type)
+      (implementation overload-declaration-implementation) (loc overload-declaration-loc))
 
     ;; Defining nodes and references share this object; neither stores a scope.
     (define-record-type <value-definition>

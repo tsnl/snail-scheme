@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-overload same (All (T) (-> T T)) (lambda (value) value))
+(define (wrapper value) (same value))
+(define-overload same (-> I64 I64) (lambda (value) value))
+(if (wrapper #t) 42 (unreachable))
