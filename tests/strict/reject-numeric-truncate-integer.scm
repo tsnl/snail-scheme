@@ -1,2 +1,2 @@
 (import (snail strict))
-(make-vector 2)
+(f64-truncate 42)

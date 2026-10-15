@@ -1,0 +1,4 @@
+(import (snail strict))
+(define answer (add-two 40))
+(define-overload add-two (-> I64 I64) (lambda (value) (+ value 2)))
+answer

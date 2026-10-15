@@ -101,7 +101,12 @@ Export-Spec    ::= Name | (rename Name Name)
 Library-Name   ::= (Library-Part+)
 Library-Part   ::= Name | Nonnegative-Integer
 
-Item           ::= Definition | Expr | (begin Item*)
+Item           ::= Definition | Static-Decl | Expr | (begin Item*)
+Static-Decl    ::= (: Name Type)
+                 | (define-class (Name Name+) (: Name Type)+)
+                 | (define-instance (Name Type+) (Name Expr)+)
+                 | (define-overload Name Type Expr)
+                 | (define-extern Name String String Type)
 Definition     ::= (define Name Expr)
                  | (define (Name . Formals) Body)
                  | (define-syntax Name Rules-Spec)
@@ -115,6 +120,8 @@ Expr           ::= Name
                  | (if Expr Expr)
                  | (if Expr Expr Expr)
                  | (set! Name Expr)
+                 | (ann Expr Type)
+                 | (inst Name Type+)
                  | (begin Expr+)
                  | (Expr Expr*)
                  | (let-syntax (Syntax-Binding*) Body)
@@ -125,6 +132,14 @@ Rules-Spec     ::= (syntax-rules (Name*) Rule*)
                  | (syntax-rules Name (Name*) Rule*)
 Rule           ::= (Macro-Pattern Template)
 ```
+
+Static declarations retain resolved binding identities and located type syntax;
+expansion does not check row compatibility or choose overloads. Every overload
+record owns its signature and implementation expression. The family identity is
+shared across rows and imported extensions; individual implementation bindings
+retain their own initializer sites. The strict compiler's elaborator currently
+constructs separate typed records; consolidating them into this same IR with
+explicit type holes is a planned follow-up, not current expansion behavior.
 
 Library-level `cond-expand` selects the first matching clause and recursively
 splices its declarations before imports, exports, or bodies are expanded. Only

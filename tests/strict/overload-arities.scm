@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-overload select (-> I64 I64) (lambda (value) value))
+(define-overload select (-> I64 I64 I64) i64-add)
+(define alias select)
+(define (one x) (alias x))
+(define (two x y) (alias x y))
+(if (and (= (one 42) 42) (= (two 20 22) 42)) 42 (unreachable))

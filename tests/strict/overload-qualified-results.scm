@@ -1,0 +1,8 @@
+(import (snail strict))
+(define-overload view (-> I64 I64) (lambda (value) value))
+(define-overload view (-> I64 F64) i64->f64)
+(: pair-views (All (A R S) (=> ((view (-> A R)) (view (-> A S))) (-> A R S S))))
+(define (pair-views input left right)
+  (if #f left (view input))
+  (if #f right (view input)))
+(if (= (pair-views 42 0 0.0) 42.0) 42 (unreachable))

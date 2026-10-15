@@ -9,6 +9,7 @@
           function-index function-type* function-parameters function-rest-binding
           function-body function-captures function-source)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
+          (snail-scheme strict-overloads)
           (only (snail-scheme wasm-extern) native-scalar-signature)
           (only (snail-scheme ir) value-definition-name value-definition-loc))
   (begin
@@ -56,12 +57,12 @@
       (globals mono-program-globals)
       (exports mono-program-exports))
     (define-record-type <state>
-      (make-state functions next-value globals depth instances) state?
+      (make-state functions next-value globals depth instances classes) state?
       (functions state-functions set-state-functions!)
       (next-value state-next-value set-state-next-value!)
       (globals state-globals set-state-globals!)
       (depth state-depth set-state-depth!)
-      (instances state-instances))
+      (instances state-instances) (classes state-classes))
 
     ;; ---- Lexical identity and concrete substitutions ----
 
@@ -130,6 +131,8 @@
     ;; ---- Concrete expression copies ----
 
     (define (clone node context state)
+      (require-overloads! (substitute (node-constraints node) (context-substitutions context))
+                          (state-classes state) (state-instances state) (node-loc node))
       (let ((type (concrete (node-type node) context (node-loc node))))
         (case (node-kind node)
           ((name) (clone-name node type context state))
@@ -160,12 +163,18 @@
             (cdar (site-instances site))
             (request-value site type (cadr view) context loc state))))
     (define (exact-instance constraint context loc state)
-      (let ((types (map (lambda (type) (concrete type context loc)) (cdr constraint))))
-        (let find ((instances (state-instances state)))
-          (cond ((null? instances) (strict-error loc "no exact static typeclass instance" constraint))
-                ((and (eq? (car constraint) (class-definition (instance-class (car instances))))
-                      (type-equal? types (instance-types (car instances)))) (car instances))
-                (else (find (cdr instances)))))))
+      (let* ((types (map (lambda (type) (concrete type context loc)) (cdr constraint)))
+             (class (overload-class (car constraint) (state-classes state))))
+        (if class
+            (let ((view (select-overload-view class (car types) (state-instances state) loc #t)))
+              (require-overloads! (overload-view-constraints view) (state-classes state) (state-instances state) loc)
+              (for-each (lambda (goal) (exact-instance goal context loc state)) (overload-view-constraints view))
+              (overload-view-instance view))
+            (let find ((instances (state-instances state)))
+              (cond ((null? instances) (strict-error loc "no exact static typeclass instance" constraint))
+                    ((and (eq? (car constraint) (class-definition (instance-class (car instances))))
+                          (type-equal? types (instance-types (car instances)))) (car instances))
+                    (else (find (cdr instances))))))))
     (define (check-obligations node context state)
       (for-each (lambda (constraint) (exact-instance constraint context (node-loc node) state)) (node-constraints node)))
     (define (resolve-method node type context state)
@@ -174,6 +183,7 @@
              (binding (cdr (assq (binding-definition method) (instance-members instance)))))
         (let-values (((signature obligations substitutions) (instantiate (binding-scheme binding))))
           (unify! signature type (node-loc node))
+          (require-overloads! obligations (state-classes state) (state-instances state) (node-loc node))
           (for-each (lambda (constraint) (exact-instance constraint context (node-loc node) state)) obligations)
           (list binding substitutions))))
 
@@ -330,7 +340,7 @@
     ;; ---- Checked templates to a concrete program ----
 
     (define (monomorphize program . export-names)
-      (let* ((state (make-state '() 0 '() 0 (program-instances program))) (context (make-context '() #f '()))
+      (let* ((state (make-state '() 0 '() 0 (program-instances program) (program-classes program))) (context (make-context '() #f '()))
              (body (clone-block (program-body program) context #t state)))
         (check-export-names export-names (node-loc body))
         (settle-captures! (state-functions state))

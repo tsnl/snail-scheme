@@ -25,9 +25,10 @@ the repository root and source path inside a trace scope.
 ## Types, inference and immutable bindings
 
 Concrete scalars are `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
-Integer literals default to I64, floating literals to F64. An immediate I32 or
-F32 annotation chooses that literal's representation. Widths remain distinct;
-there is no automatic numeric coercion. Integer literals must fit their width.
+Integer literals default to I64, floating literals to F64. A compatible expected
+I32 or F32 type selects that literal's narrower representation. An annotation
+or a checked function parameter can supply the expectation. Already typed values
+retain their width; there is no automatic numeric coercion. Integer literals must fit their width.
 Native fixed-width arithmetic uses Wasm wraparound and division traps.
 `(unit)` constructs Unit. `when` and `unless` evaluate their selected bodies and
 produce Unit, including when their bodies are empty.
@@ -48,6 +49,12 @@ An explicit `(: identity (All (T) (-> T T)))` checks the body with rigid T.
 not acquire a machine representation. Declaration-bound type names are currently
 scoped to the signature, not to annotations or `inst` syntax in the body.
 
+Polymorphism is rank one: a binding scheme is monomorphic or has one outermost
+`All`. Nested `All` in function results, parameters, or stored element types is
+rejected. An outer `All` may quantify the types used by a returned closure; each
+concrete copy still returns a monomorphic function. Unknown semantic types or
+operations never acquire a generic runtime representation or JIT fallback.
+
 The existing `let` macro expands to a directly applied lambda. The strict checker
 elaborates that exact fixed-arity syntactic form as a typed let: actuals are
 checked in the caller environment, then eligible bindings generalize. This also
@@ -60,6 +67,119 @@ mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
 `cons`, `car`, `cdr`, `null?`, and typed empty lists.
 
+## Free overloads and numeric operations
+
+`define-overload` gives one name several function signatures. Argument types,
+expected result types, and later uses constrain the complete signature. A unique
+compatible row supplies the remaining type information. An ambiguous use requires
+more context; declaration order never chooses a row. Each family lowers to a
+static class over one complete function type and uses the existing member checking
+and specialization path. There are no runtime dictionaries or tagged arithmetic.
+
+```scheme
+(define-overload convert (-> I64 I64) (lambda (value) value))
+(define-overload convert (-> I64 F64) i64->f64)
+(ann (convert 42) F64) ; 42.0
+```
+
+Families currently require module scope. Each row owns its declared signature and
+its lambda or stable named implementation. Detached `(: family ...)` declarations
+are rejected rather than assigned to a row by source order. Rows may have different
+fixed arities and rank-one generic signatures. Rest signatures are unsupported.
+All bodies are checked, including unused rows. Declarations may extend an imported
+family through its original, renamed, or prefixed binding identity. A family cannot
+replace an ordinary value or class method with the same identity.
+
+Exact or alpha-equivalent complete row signatures are duplicates, regardless of
+their class prerequisites. Other overlaps may be declared, but a use compatible
+with several rows remains ambiguous. There is no specificity ordering. Prerequisites
+are proved after row selection and do not rank candidates or guess missing types
+from the available class instances. Candidate trials use private type copies;
+only committing a unique applicable row constrains the actual use.
+
+A family name also names its generic obligation, with one complete function type:
+
+```scheme
+(: combine (All (A B R) (=> ((+ (-> A B R))) (-> A B R))))
+(define (combine left right) (+ left right))
+(combine 20 22.0) ; F64, value 42.0
+(define mixed-add (inst + (-> I64 F64 F64)))
+
+(define-overload choose (All (T) (-> T T T))
+  (lambda (left right) left))
+```
+
+Without a declaration, inference derives a qualified scheme. A unique compatible
+given family obligation can solve a body's remaining holes without weakening rigid
+`All` variables. Different result obligations for identical inputs remain distinct.
+Selection repeats after unification and before concrete specialization so nested
+calls and later uses can settle earlier holes. Ordinary `define-class` contracts
+retain exact full-head lookup and never infer a type from an available instance.
+Declared obligations remain assumptions throughout checks of an unused generic
+body, even if the current rows cannot fulfill that abstract premise. A concrete
+use must prove it. Row prerequisites share one fresh instantiation while they
+are jointly improved and proved; this lets one prerequisite determine another's
+otherwise hidden type. Repeated equal complete obligations are one proof, so
+reading a constrained value twice does not duplicate its proof graph.
+
+Numeric families supplied by `(snail strict)` are:
+
+| Family | Same-type signatures | Mixed signatures |
+| --- | --- | --- |
+| Binary `+`, `-`, `*` | I32, I64, F32, F64; result has the same type | I64/F64 in either order; result F64 |
+| Binary `=`, `<`, `<=`, `>`, `>=` | I32, I64, F32, F64; result Bool | I64/F64 in either order; result Bool |
+| Binary `quotient`, `remainder` | I32, I64; result has the same type | None |
+| Binary `/` | F32, F64; result has the same type | I64/F64 in either order; result F64 |
+| Unary `sqrt`, `truncate` | F32, F64; result has the same type | None |
+
+Mixed rows explicitly convert the integer, then call the float row. For example,
+the library defines:
+
+```scheme
+(define-overload + (-> I64 F64 F64)
+  (lambda (left right) (+ (i64->f64 left) right)))
+```
+
+There is no search for a common numeric type. I32/I64 and F32/F64 pairs are absent
+unless the program supplies an explicit overload. Bool and Char have no numeric
+rows despite sharing the physical i32 layout. Integer-only `/` is rejected;
+`quotient` is signed integer division. Floating comparisons retain Wasm's NaN
+behavior: all five comparisons are false when either operand is NaN. Integer
+arithmetic wraps; division by zero and signed division overflow trap.
+
+Each overload argument is checked without consulting candidates. Literals default
+to I64/F64 unless ordinary type context supplies a concrete width. Consequently,
+both `(+ (ann 40 I32) 2)` and `(+ 2 (ann 40 I32))` reject their I32/I64 pair.
+Annotate both literals, or use a concrete function view such as
+`((ann + (-> I32 I32 I32)) 40 2)`. A result annotation alone does not choose operand
+widths. Calls still evaluate arguments from left to right, then the operator.
+
+First-class family aliases generalize under the usual value restriction. A
+concrete use selects an implementation before emission. Named implementations
+retain their original initialization and readiness checks; lambda implementations
+initialize at the overload declaration. Specialization copies code and never
+reevaluates an effectful initializer.
+
+`truncate`, `f32-truncate`, and `f64-truncate` round toward zero while keeping their floating
+representation. They preserve signed zero and infinities, and return NaN for a
+NaN input. Unlike a conversion to an integer, they also accept finite values
+outside the I64 range. These operations emit native Wasm `f32.trunc` and
+`f64.trunc` instructions.
+
+Conversions are explicit native unary functions:
+
+| Function | Native behavior |
+| --- | --- |
+| `i32->i64` | Signed extension. |
+| `i64->i32` | Keep the low 32 bits. |
+| `i64->f64` | Signed conversion, rounding to the nearest representable F64. |
+| `f32->f64` | Exact floating promotion. |
+| `f64->f32` | Floating demotion with native rounding and overflow behavior. |
+| `f64->i64` | Truncate toward zero; trap on NaN or an out-of-range result. |
+
+The explicitly named `i32-*`, `i64-*`, `f32-*`, and `f64-*` primitives remain
+available for code that requires a fixed representation.
+
 ## Concrete mutable vectors
 
 `Vector T` has fixed length, mutable identity, and native T element storage.
@@ -69,17 +189,18 @@ invariant: aliases see one vector, and a write cannot change its element type.
 Heterogeneous storage requires an explicit `Vector Top` with explicit injections.
 
 ```scheme
-(define values (make-vector 3 0))
+(define values (make-vector 3)) ; later writes determine Vector I64
 (vector-set! values 1 42)
 (vector-ref (vector-append values (vector 7 8)) 1)
 ```
 
-The native storage operations are:
+The public vector operations are:
 
 | Operation | Contract |
 | --- | --- |
 | `(empty-vector)` | Fresh empty vector; context must determine T. |
-| `(make-vector length fill)` | Fresh vector with every element set to fill. |
+| `(make-vector length fill)` | Fresh vector with every element set to fill; no Default obligation. |
+| `(make-vector length)` | Fresh vector; one `default` call per element under Default T. |
 | `(vector-length source)` | Length as I64. |
 | `(vector-ref source index)` | Element at an I64 index. |
 | `(vector-set! target index value)` | Replace one T element; return Unit. |
@@ -97,8 +218,21 @@ then the operator, before these checks.
 are ordinary polymorphic functions in `(snail strict)`. Their concrete copies
 use those storage operations without a dynamic element boundary. `vector-copy`
 currently copies a whole vector; `vector-copy!` takes exactly five arguments.
-`make-vector` requires an explicit fill, even for zero length. The constructors
-create fresh outer storage and preserve the identities of referenced elements.
+`make-vector` has two generic rows. `(make-vector length fill)` uses the fill's
+type, requires no `Default` instance, and shares that fill's identity across slots.
+`(make-vector length)` requires `(Default T)` and creates each element with the
+ordinary zero-argument `default` method. Expected `Vector T` context or later uses
+must determine T; available defaults never choose it. The library supplies defaults
+for I32, I64, F32, F64, Bool, Char, and Unit. Programs may define exact instances for
+other types.
+
+The one-argument constructor validates the length before invoking `default`. Zero
+length invokes it zero times; positive length invokes it once per element. Its
+private vector does not escape before all slots are initialized. Mutable defaults
+therefore retain distinct element identities when the method constructs fresh
+values. Both forms create fresh outer storage.
+The default and list conversion fill loops use native tail calls, so their stack
+use does not grow with the vector length.
 Allocations obey the value restriction: one empty vector cannot be reused at
 different element types. For an otherwise unconstrained empty vector, write
 `(ann (empty-vector) (Vector I64))`.
@@ -266,3 +400,18 @@ records, dynamic `apply`, or universal-value operation dispatch. The
 existing parser may recognize forms outside this surface; the strict checker
 rejects unsupported expressions. No benchmark speedup is claimed from
 correctness tests alone.
+
+## Planned shared IR refinement
+
+The current prototype elaborates resolved `ir.sld` expression records into
+`strict-core.sld` typed records. A follow-up refactor will consolidate those into
+one located IR whose attached type holes are refined by inference and replaced
+by concrete substitutions during specialization. Expansion will still resolve
+names and attach declared type syntax without performing type inference.
+
+Inferred overload signatures are also planned for that layer: each omitted row
+signature will own a fresh hole and independent implementation identity. All
+candidate rows must be considered before selection; unresolved competing rows
+cannot be ignored. Dependency groups must infer coherent row schemes or request
+a signature when recursive selection cannot settle them. These APIs are not yet
+implemented by the explicit-signature prototype described above.

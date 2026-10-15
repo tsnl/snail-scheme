@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-overload choose (All (T) (-> T T T)) (lambda (left right) left))
+(define-overload choose (All (T) (-> T T)) (lambda (value) value))
+(define alias choose)
+(: constrained (All (T) (=> ((choose (-> T T T))) (-> T T T))))
+(define (constrained left right) (choose left right))
+(if (and (choose #t #f) (alias #t) (= (constrained 42 0) 42)) 42 (unreachable))

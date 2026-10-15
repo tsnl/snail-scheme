@@ -1,0 +1,7 @@
+(import (snail strict))
+(define-overload promote (-> I64 F64) i64->f64)
+(define convert promote)
+(: add (-> I64 F64 F64))
+(define add +)
+(define (apply-twice function value) (function (function value)))
+(if (= (add 20 (convert 22)) 42.0) 42 (unreachable))
