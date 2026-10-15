@@ -14,9 +14,9 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def restore(destination):
-    manifest = json.loads((REPORT / 'manifest.json').read_text())
-    archive = REPORT / 'artifacts.tar.xz'
+def restore(destination, report=REPORT):
+    manifest = json.loads((report / 'manifest.json').read_text())
+    archive = report / 'artifacts.tar.xz'
     if digest(archive) != manifest['archive_sha256']:
         raise ValueError('archive hash mismatch')
     destination.mkdir(parents=True, exist_ok=False)
@@ -37,4 +37,6 @@ def restore(destination):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('destination', type=Path)
-    restore(parser.parse_args().destination.resolve())
+    parser.add_argument('--report', type=Path, default=REPORT)
+    options = parser.parse_args()
+    restore(options.destination.resolve(), options.report.resolve())

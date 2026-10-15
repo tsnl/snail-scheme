@@ -18,12 +18,12 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
-         'takl', 'ntakl', 'diviter', 'divrec')
+         'takl', 'ntakl', 'diviter', 'divrec', 'array1')
 FLOATS = ('fibfp', 'sumfp')
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
 KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
-               diviter='iterative-div2', divrec='recursive-div2')
+               diviter='iterative-div2', divrec='recursive-div2', array1='go')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -66,6 +66,10 @@ def input_values(text):
 
 def case_specification(name, data):
     values = input_values(data.decode())
+    if name == 'array1':
+        repeats, size, expected = values
+        return dict(name=name, count=1, inputs=[repeats, size], expected=expected,
+                    barriers_per_iteration=2)
     arity = 3 if name in ('tak', 'cpstak', 'takl', 'ntakl') else 2 if name == 'ack' else 1
     count, *rest = values
     inputs, expected = rest[:arity], rest[arity]
@@ -106,7 +110,17 @@ def kernel_source(name, source):
             source = source.replace('(' + operation + ' ', '(' + native + ' ')
     if name in ('diviter', 'divrec'):
         source = '(: create-n (-> I64 (List (List Never))))\n' + source
+    if name == 'array1':
+        source = array1_kernel(source)
     return source
+
+
+def array1_kernel(source):
+    # Both fill loops overwrite every element before reading it. The original
+    # empty-list initial result is unreachable at its positive repeat count.
+    assert source.count('(make-vector n)') == 2
+    assert source.count("(result '())") == 1
+    return source.replace('(make-vector n)', '(make-vector n 0)').replace("(result '())", '(result 0)')
 
 
 def input_bindings(name, spec):
@@ -124,7 +138,8 @@ def input_bindings(name, spec):
 def strict_program(name, spec, upstream):
     arguments = [f'input{i}' for i in range(len(spec['inputs']))]
     if spec['barriers_per_iteration']:
-        arguments = [f'(hide count {value})' for value in arguments]
+        opacity_count = 'input0' if name == 'array1' else 'count'
+        arguments = [f'(hide {opacity_count} {value})' for value in arguments]
     call = f'({KERNELS[name]} {" ".join(arguments)})'
     initial = "'()" if name in LISTS else '0.0' if name in FLOATS else '0'
     result = 'F64' if name in FLOATS else 'I64'
@@ -181,16 +196,25 @@ def build_strict(directory, tools, environment):
 def validate_strict(directory, tools, environment):
     spec = load(directory / 'spec.json')
     checks = []
-    for count in (1, 2):
-        spec['count'] = count
-        save(directory / f'validation-spec-{count}.json', spec)
+    for label, probe in validation_specifications(spec):
+        save(directory / f'validation-spec-{label}.json', probe)
         for suffix in ('.raw.wasm', ''):
             command = [tools['NODE'], directory.parent / 'host.mjs', directory / ('strict.wasm' + suffix),
-                       directory / f'validation-spec-{count}.json', '--validate']
+                       directory / f'validation-spec-{label}.json', '--validate']
             record = execute(command, directory, environment)
             checks.append(record)
             save(directory / 'validation.json', checks)
             require_success(record)
+
+
+def validation_specifications(spec):
+    if spec['name'] != 'array1':
+        return [(str(count), dict(spec, count=count)) for count in (1, 2)]
+    # These are behavior probes, not performance samples. The discarded full
+    # pair later checks the unchanged original workload on both systems.
+    return [(f'{count}-{repeats}-{size}',
+             dict(spec, count=count, inputs=[repeats, size], expected=size if repeats else 0))
+            for count, repeats, size in ((1, 1, 0), (1, 1, 1), (2, 3, 7), (1, 0, 7))]
 
 
 def prepare_case(name, files, output, runner, tools, environment):
@@ -228,7 +252,8 @@ def prepare(options):
                   tools={key: dict(path=value, sha256=digest(value)) for key, value in tools.items()},
                   compiler_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
-                  upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'))
+                  upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
+                  driver_sha256=digest(__file__))
     for name in options.benchmarks:
         try:
             case = prepare_case(name, files, options.output, runner, tools, environment)
@@ -276,6 +301,8 @@ def measure(options):
     if os.environ.get('NODE_OPTIONS'):
         raise ValueError('NODE_OPTIONS must be unset')
     prepared = load(options.output / 'prepared.json')
+    if prepared.get('driver_sha256', digest(__file__)) != digest(__file__):
+        raise ValueError('driver changed')
     for record in prepared['tools'].values():
         if digest(record['path']) != record['sha256']:
             raise ValueError('tool changed')
