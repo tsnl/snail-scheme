@@ -3,7 +3,7 @@
 
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
 };
 
 // ---- Ports ----
@@ -122,6 +122,32 @@ impl TextInput {
             None => read_utf8_char(&mut self.input),
         }
     }
+
+    // Positive packets hold up to seven ASCII code+1 byte lanes. Zero ends
+    // the lanes; -1 is EOF; other negatives hold one scalar as -code-2.
+    // Only the first character may fill the buffer or decode UTF-8. Extra
+    // lanes never wait for input or report a later malformed suffix early.
+    pub(crate) fn read_packet(&mut self) -> Result<i64, String> {
+        Ok(match self.read_char()? {
+            None => -1,
+            Some(character) if character.is_ascii() => self.ascii_packet(character as u8),
+            Some(character) => -i64::from(character as u32) - 2,
+        })
+    }
+
+    fn ascii_packet(&mut self, first: u8) -> i64 {
+        let mut packet = i64::from(first) + 1;
+        let mut count = 0;
+        for &byte in self.input.buffer().iter().take(6) {
+            if !byte.is_ascii() {
+                break;
+            }
+            packet |= (i64::from(byte) + 1) << (8 * (count + 1));
+            count += 1;
+        }
+        self.input.consume(count);
+        packet
+    }
 }
 
 // ---- UTF-8 and stream I/O ----
@@ -218,5 +244,78 @@ mod tests {
         assert!(!port.is_open());
         assert!(port.read_char().is_err());
         assert!(port.text_input().is_err());
+    }
+
+    #[test]
+    fn ascii_packets_distinguish_nul_del_exhaustion_unicode_and_eof() {
+        let mut input = TextInput::new(std::io::Cursor::new(
+            "\0\u{7f}abcdeZλ😀\u{10ffff}".as_bytes(),
+        ));
+        let mut packet = input.read_packet().unwrap();
+        for byte in b"\0\x7fabcde" {
+            assert_eq!(packet & 255, i64::from(*byte) + 1);
+            packet >>= 8;
+        }
+        assert_eq!(packet, 0);
+        assert_eq!(input.read_packet().unwrap(), i64::from(b'Z') + 1);
+        for character in ['λ', '😀', '\u{10ffff}'] {
+            assert_eq!(
+                input.read_packet().unwrap(),
+                -i64::from(character as u32) - 2
+            );
+        }
+        assert_eq!(input.read_packet().unwrap(), -1);
+        assert_eq!(input.read_packet().unwrap(), -1);
+    }
+
+    #[test]
+    fn packet_returns_valid_prefix_before_malformed_or_truncated_utf8() {
+        for suffix in [
+            &b"\xff"[..],
+            &b"\xf0\x9f"[..],
+            &b"\xed\xa0\x80"[..],
+            &b"\xc2a"[..],
+        ] {
+            let mut bytes = b"abc".to_vec();
+            bytes.extend_from_slice(suffix);
+            let mut input = TextInput::new(std::io::Cursor::new(bytes));
+            assert_eq!(input.read_packet().unwrap(), 98 | (99 << 8) | (100 << 16));
+            assert!(input.read_packet().is_err());
+        }
+    }
+
+    #[test]
+    fn packet_preserves_lookahead_and_scalars_split_across_buffer_fills() {
+        let mut input = TextInput {
+            input: BufReader::with_capacity(4, Box::new(std::io::Cursor::new("abcλ😀".as_bytes()))),
+            peeked: None,
+        };
+        assert_eq!(input.peek_char().unwrap(), Some('a'));
+        assert_eq!(input.read_packet().unwrap(), 98 | (99 << 8) | (100 << 16));
+        assert_eq!(input.read_packet().unwrap(), -i64::from('λ' as u32) - 2);
+        assert_eq!(input.read_packet().unwrap(), -i64::from('😀' as u32) - 2);
+        assert_eq!(input.read_packet().unwrap(), -1);
+    }
+
+    struct OneRead(bool);
+
+    impl Read for OneRead {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            assert!(!self.0, "packet attempted an extra underlying read");
+            self.0 = true;
+            buffer[0] = b'a';
+            Ok(1)
+        }
+    }
+
+    #[test]
+    fn packet_does_not_fill_again_after_one_available_character() {
+        for peek in [false, true] {
+            let mut input = TextInput::new(OneRead(false));
+            if peek {
+                assert_eq!(input.peek_char().unwrap(), Some('a'));
+            }
+            assert_eq!(input.read_packet().unwrap(), i64::from(b'a') + 1);
+        }
     }
 }
