@@ -55,7 +55,9 @@ builds direct dependencies once and groups mutually recursive bindings. Group
 members retain source order. Overload-row readiness is checked separately as
 signatures become known; this never reorders runtime initializers. Mutable
 allocations obey the value restriction. Concrete calls have positional arguments
-and an optional typed rest parameter.
+and an optional typed rest parameter. Declared initializer proofs retain their
+lexical scope until enclosing monotypes settle. Their own quantified requirements
+must then hold; obligations on captured monotypes remain with enclosing inference.
 
 [`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) resolves complete
 argument/result constraints with coherent class requirements.

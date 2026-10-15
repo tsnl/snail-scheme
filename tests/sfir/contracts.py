@@ -116,6 +116,51 @@ PASS = {
   (let number initial-number)
   (identity #t)
   (identity number))''', '42'),
+    'captured-monotype-immediate': ('''(import (only (sfir base) <))
+((lambda (length)
+   (begin
+     (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+     (if (smaller (ann 1 I64)) (ann 42 I64) (ann 0 I64))))
+ (ann 2 I64))''', '42'),
+    'captured-monotype-named': ('''(import (only (sfir base) <))
+(def outer
+  (lambda (length)
+    (begin
+      (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+      (if (smaller (ann 1 I64)) (ann 42 I64) (ann 0 I64)))))
+(outer (ann 2 I64))''', '42'),
+    'captured-monotype-late-body': ('''(import (only (sfir base) <))
+((lambda (length)
+   (begin
+     (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+     (i64-add length (ann 0 I64))
+     (if (smaller (ann 1 I64)) (ann 42 I64) (ann 0 I64))))
+ (ann 2 I64))''', '42'),
+    'captured-monotype-unused-body': ('''(import (only (sfir base) <))
+((lambda (length)
+   (begin
+     (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+     (ann 42 I64)))
+ (ann 2 I64))''', '42'),
+    'captured-monotype-unused-generic': ('''(define-library (test captured)
+  (export make-smaller)
+  (import (sfir base))
+  (begin
+    (def make-smaller
+      (lambda (length)
+        (begin
+          (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+          smaller)))
+    (ann 42 I64)))''', '42'),
+    'captured-monotype-mixed-quantifier': ('''(define-overload compatible
+  (All (T) (-> I64 T Bool)) (lambda (number value) #t))
+(define-overload compatible (-> Bool Bool Bool) (lambda (left right) #f))
+((lambda (outer)
+   (begin
+     (def inner (All (A) (-> A Bool))
+       (lambda (value) (compatible outer value)))
+     (if (inner #t) (ann 42 I64) (ann 0 I64))))
+ (ann 2 I64))''', '42'),
 }
 
 FAIL = {
@@ -178,4 +223,39 @@ identity-i64''', 'static definition is not a value'),
     'legacy-top': ('(ann 42 Top)', 'Top'),
     'legacy-prefix': ('(import (prefix (test shared) p:))\n42', 'unsupported SFIR import modifier'),
     'legacy-except': ('(import (except (test shared) cell))\n42', 'unsupported SFIR import modifier'),
+    'captured-monotype-wrong-argument': ('''(import (only (sfir base) <))
+((lambda (length)
+   (begin
+     (def smaller (-> I64 Bool) (lambda (value) (< value length)))
+     (smaller (ann 1 I64))))
+ #t)''', 'no compatible overload signature'),
+    'captured-monotype-missing-all': ('''(import (only (sfir base) <))
+(def compare (All (A) (-> A A Bool)) (lambda (left right) (< left right)))
+(ann 42 I64)''', 'typeclass obligation is absent from declared constraints'),
+    'captured-monotype-mixed-missing': ('''(define-overload compatible
+  (-> I64 I64 Bool) (lambda (number value) #t))
+(define-overload compatible (-> Bool Bool Bool) (lambda (left right) #f))
+((lambda (outer)
+   (begin
+     (def inner (All (A) (-> A Bool))
+       (lambda (value) (compatible outer value)))
+     (ann 42 I64)))
+ (ann 2 I64))''', 'typeclass obligation is absent from declared constraints'),
+    'captured-monotype-private-obligation': ('''(define-overload choose
+  (-> I64) (lambda () (ann 1 I64)))
+(define-overload choose (-> F64) (lambda () (ann 1.0 F64)))
+(def unused (-> Bool)
+  (lambda () (begin (let private (choose)) #t)))
+(ann 42 I64)''', 'typeclass obligation is absent from declared constraints'),
+    'captured-monotype-late-skolem-escape': ('''(define-overload choose
+  (All (T) (-> I64 T T)) (lambda (number value) value))
+(define-overload choose
+  (All (T) (-> Bool T T)) (lambda (boolean value) value))
+(def make
+  (lambda (length captured)
+    (begin
+      (def inner (All (A) (-> A A)) (lambda (unused) (choose length captured)))
+      (i64-add length (ann 0 I64))
+      inner)))
+(ann 42 I64)''', 'rigid type escapes its declaration'),
 }
