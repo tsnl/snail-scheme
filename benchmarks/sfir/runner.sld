@@ -28,7 +28,9 @@
     (define execution-variables
       '(BINARYEN_CORES RUSTUP_TOOLCHAIN RUSTUP_HOME CARGO_HOME NODE_OPTIONS NODE_V8_COVERAGE
                        LD_PRELOAD SNAIL_NATIVE_GC_INTERVAL SNAIL_GC_STATS SNAIL_GC_HEAP_BYTES SNAIL_GC_MIN_BYTES
-                       RUSTFLAGS CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET LD_LIBRARY_PATH LIBRARY_PATH
+                       RUSTFLAGS RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET
+                       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER
+                       CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS CARGO_TARGET_WASM32_WASIP1_LINKER LD_LIBRARY_PATH LIBRARY_PATH
                        SNAIL_NATIVE_LIBC SNAIL_NATIVE_GCC SNAIL_NATIVE_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
     (define runtime-features
       '("--mvp-features" "--enable-mutable-globals" "--enable-nontrapping-float-to-int"
@@ -126,6 +128,17 @@
              (map (lambda (name) (cons name (or (get-environment-variable (symbol->string name)) 'null))) execution-variables)
              (map (lambda (entry) (cons (string->symbol (car entry)) (cdr entry))) (native-system-environment))))
 
+    (define (frozen-wrapper-environment root directory environment)
+      (let ((wrapper (field environment 'RUSTC_WRAPPER 'null))
+            (workspace (field environment 'RUSTC_WORKSPACE_WRAPPER 'null)))
+        (unless (or (not (string? wrapper)) (string=? wrapper "")
+                    (paths-alias? wrapper (path-join root "scripts/rustc-native")))
+          (error "benchmark freeze requires the repository Rust compiler wrapper; unset RUSTC_WRAPPER" wrapper))
+        (when (and (string? workspace) (not (string=? workspace "")))
+          (error "benchmark freeze requires no workspace wrapper; unset RUSTC_WORKSPACE_WRAPPER" workspace))
+        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/scripts/rustc-native"))
+                     (cons 'RUSTC_WORKSPACE_WRAPPER 'null))))
+
     (define (file-identity path)
       `((path . ,path) (sha256 . ,(file-sha256 path))))
 
@@ -193,7 +206,7 @@
                            (tools . ,(tool-identities)) (cases . ,(list->vector cases)) (measurement . "not-measured")
                            (source_revision . ,(trim (run-command! (list "git" "-C" root "rev-parse" "HEAD"))))
                            (source_status . ,(run-command! (list "git" "-C" root "status" "--porcelain" "--ignore-submodules=all")))
-                           (execution_environment . ,(captured-environment))))
+                           (execution_environment . ,(frozen-wrapper-environment root destination (captured-environment)))))
                (manifest (vendor-rust destination (freeze-rust destination manifest)))
                (supervisor (path-join destination "toolchain/snail-native-supervisor")))
           (copy-file (current-process-supervisor) supervisor)
@@ -688,6 +701,13 @@
                   (list 0 -1 #t (string->number "+nan.0") (string->number "+inf.0")))
         (expect (timeout-value 1800.5) 1800.5))
 
+      (define (test-frozen-wrapper)
+        (let ((environment (frozen-wrapper-environment "/checkout" "/frozen" '())))
+          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/scripts/rustc-native")
+          (expect (field environment 'RUSTC_WORKSPACE_WRAPPER) 'null))
+        (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WRAPPER . "/unrecorded/wrapper"))))) #t)
+        (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WORKSPACE_WRAPPER . "sccache"))))) #t))
+
       (define (test-execution-files)
         (call-with-temp-dir "sfir-execution"
                             (lambda (root preserve)
@@ -794,6 +814,7 @@
         (run-test test-frozen-source)
         (run-test test-path-containment)
         (run-test test-timeout-contract)
+        (run-test test-frozen-wrapper)
         (run-test test-execution-files)
         (run-test test-provider-exports)
         (run-test test-fatal-result)

@@ -85,6 +85,11 @@ digest. The manifest also retains the original Rustup dispatcher identities and
 selected installation path as provenance; subsequent builds use the copied
 installation and dependency sources.
 
+The frozen compiler wrapper comes from `source/scripts/rustc-native`, so Cargo
+host build scripts also use Rust's linker without consulting the mutable
+checkout. Custom `RUSTC_WRAPPER` or `RUSTC_WORKSPACE_WRAPPER` commands must be
+unset for a campaign; their unrecorded dependencies would defeat the freeze.
+
 Validation invokes the SFIR compiler, whose build contract always runs Binaryen,
 and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills

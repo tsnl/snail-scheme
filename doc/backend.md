@@ -28,6 +28,13 @@ still uses the system C runtime and startup objects; `SNAIL_NATIVE_LIBC` and
 ordinary file copying and hashing for the Scheme tools.
 See [command options](options.md).
 
+The Nix shell sets `RUSTC_WRAPPER` to `scripts/rustc-native`. This small Scheme
+wrapper also supplies the native linker for Cargo's host build scripts during
+Wasm builds. It preserves Cargo's selected compiler, explicit target and linker.
+On x86-64 Linux outside the Nix shell, enable it from the checkout with
+`export RUSTC_WRAPPER="$PWD/scripts/rustc-native"` before running Cargo directly.
+SFIR native build commands configure their linker themselves.
+
 ## Checks
 
 The reader checks use canonical data from the pinned benchmark submodule.
