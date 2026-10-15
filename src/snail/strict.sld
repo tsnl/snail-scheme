@@ -6,7 +6,7 @@
           let let* letrec letrec* and or when unless
           : ann inst All -> Rest => define-data match
           define-class define-instance define-overload define-extern
-          I32 I64 F32 F64 Bool Char String Unit Top Never Ref List Vector
+          I32 I64 F32 F64 Bool Char String Bytevector Unit Top Never Ref List Vector
           Default default
           + - * / sqrt truncate round quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder

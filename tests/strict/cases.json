@@ -306,6 +306,20 @@
   {"name": "string-readonly-errors", "result": "42", "exports": {
     "set-literal": "trap", "set-effects": "123", "copy-literal": "trap", "copy-effects": "12345",
     "empty-literal-copy": "trap", "literal-endpoint-copy": "trap", "unchanged": "1"}},
+  {"name": "bytevector-builtins", "result": "42"},
+  {"name": "bytevector-utf8", "result": "42"},
+  {"name": "bytevector-errors", "result": "42", "exports": {
+    "negative-length": "trap", "overflow-length": "trap", "empty-invalid-fill": "trap", "negative-fill": "trap",
+    "negative-index": "trap", "wrapped-index": "trap", "endpoint-index": "trap", "invalid-byte": "trap",
+    "readonly-write": "trap", "observed-effects": "123", "readonly-empty-copy": "trap",
+    "source-range": "trap", "target-range": "trap", "reversed-range": "trap", "negative-range": "trap",
+    "empty-source-range": "trap", "empty-target-range": "trap", "negative-copy": "trap",
+    "wrong-top": "trap", "wrong-string": "trap", "unchanged": "1"}},
+  {"name": "bytevector-utf8-errors", "result": "42", "exports": {
+    "isolated-tail": "trap", "invalid-lead": "trap", "truncated-two": "trap", "truncated-three": "trap",
+    "truncated-four": "trap", "bad-tail": "trap", "overlong-two": "trap", "overlong-three": "trap",
+    "overlong-four": "trap", "surrogate": "trap", "too-large": "trap", "cut-start": "trap", "cut-end": "trap",
+    "negative-start": "trap", "past-end": "trap", "reversed": "trap", "encode-range": "trap", "encode-negative": "trap"}},
   {"name": "character-conversions", "result": "42", "exports": {
     "negative": "trap", "surrogate-low": "trap", "surrogate-high": "trap", "too-large": "trap", "huge": "trap"}}
 ]

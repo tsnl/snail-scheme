@@ -298,6 +298,15 @@ directory. Constructors publish only fully initialized, independently owned
 blocks. Copies validate both complete I64 ranges before traversing bounded native
 array-copy spans in the overlap-safe direction. Readonly literal globals and
 fresh mutable strings share the same layout.
+Bytevectors use immutable owners with permission and private packed i8 arrays.
+Their native operations check bytes and I64 indices before narrowing, and bulk
+copy checks both complete ranges before mutation. Readonly literals are rooted
+globals; mutable constructors and copies retain fresh identity. The ordinary
+Scheme library [`(snail bytes)`](src/snail/bytes.sld) implements constructors,
+copy/append helpers and strict UTF-8 conversions with scalar loops. It translates
+between bytes and Unicode scalars without passing managed references to Rust or
+allocating a product for each character. The native executor's existing
+eight-byte array slots preserve semantics but do not yet provide packed storage.
 Unicode scalar conversions reject surrogate and out-of-range values. Nominal records use immutable native fields;
 closed sums add a constructor tag and typed case subtypes. The layout registry
 reserves applications before following recursive fields, and accessors explicitly
