@@ -338,8 +338,10 @@ providers, checks mismatched signatures and exercises reusable worker captures
 and one-shot initialization through raw and optimized modules.
 
 [`(snail io)`](src/snail/io.sld) provides strict text files with concrete
-`InputPort` and `OutputPort` wrappers, explicit close, Scheme character loops and
-I64 decimal formatting. Its `LineResult` distinguishes EOF from empty lines;
+`InputPort` and `OutputPort` wrappers, explicit close, stable borrowed stdout,
+Scheme character loops and I64 decimal formatting. Default output overloads call
+the same explicit-port implementations; stdout never enters the owned-file
+registry. Its `LineResult` distinguishes EOF from empty lines;
 Scheme constructs lines using a geometrically growing String buffer while Rust's
 existing text reader owns UTF-8 decoding and one-character lookahead.
 [`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
@@ -351,6 +353,17 @@ rejects any remaining legacy value-ABI import. The host initializes WASI before
 Scheme and invokes the retained cleanup export after traps. See
 [strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
 [`scripts/test-strict-io`](scripts/test-strict-io).
+
+[`(snail write)`](src/snail/write.sld) formats every concrete Datum variant using
+those scalar output operations and the existing Number formatter. A query-local
+storage-identity scan separates sharing from cycles; explicit render continuations
+emit proper/dotted lists and vectors without consuming the machine stack.
+Acyclic sharing expands normally, while cyclic graphs use first-output-order
+`#n=`/`#n#` labels, including repeated strings and bytevectors. `display` recursively
+emits direct strings, characters and symbol names. This graph output extension
+does not add graph input to the strict reader. See [typed datum output](doc/strict-write.md)
+and [`scripts/test-strict-write`](scripts/test-strict-write) for exact linked
+Wasm/native output and observed port lifetime checks.
 
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
 datums, interned symbols, the shared Number domain, structural equality and
