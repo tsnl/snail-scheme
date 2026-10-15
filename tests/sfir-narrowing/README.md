@@ -22,8 +22,9 @@ this suite requires the overflowing value to trap. The scalar-service suite
 likewise preserves its four finite F64-to-F32 overflow inputs as explicit trap
 cases rather than accepting infinities.
 
-These checks cover primitive conversions. Runtime arithmetic overflow remains
-separate work in the roadmap. Native execution uses the ordinary process
+These checks cover primitive conversions. The
+[arithmetic suite](../sfir-arithmetic/README.md) separately checks runtime
+arithmetic overflow. Native execution uses the ordinary process
 floating-point environment; altered rounding modes and flush-to-zero settings
 are outside this verification.
 
