@@ -115,9 +115,6 @@ def generate(data, folding):
             lines.append(f"        '{escaped(code)}' => \"{text}\",")
     lines += ["        _ => return collect_folded(character.to_lowercase()),", "    };",
               "    collect_folded(exception.chars())", "}", "",
-              "pub(crate) fn fold_into(character: char, output: &mut String) {",
-              "    let folded = full_fold(character);",
-              "    output.extend(&folded.scalars[..folded.len]);", "}", "",
               "// ---- Decimal digits ----", "",
               "pub(crate) fn digit_value(character: char) -> Option<u8> {", "    const STARTS: &[u32] = &["]
     for start in range(0, len(digits), 8):

@@ -96,6 +96,13 @@ resource cleanup. The [SFIR libraries](lib/sfir/README.md) implement numeric,
 container, datum and I/O behavior in SFIR; Rust externs supply concrete host
 operations. Wasm owns managed collection.
 
+[`lib.rs`](src/lib.rs) contains runtime initialization, diagnostics and shared
+floating-point text. [`strict_io.rs`](src/strict_io.rs) owns file IDs and terminal
+cleanup; [`host.rs`](src/host.rs) implements buffered Unicode streams. The datum
+services retain temporary token text and stable symbol IDs, while SFIR owns the
+reader and managed datum graph. These services accept scalars and never retain
+guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
+
 [`text.sfir`](lib/sfir/text.sfir) owns string ordering and full case-fold output
 storage. [`strict_text.rs`](src/strict_text.rs) exposes Unicode operations as
 scalar C/Wasm functions. [`unicode.rs`](src/unicode.rs) keeps one generated
@@ -108,8 +115,9 @@ Unicode data and Rust's recorded casing baseline.
 [`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld) resolves Wasm identities.
 [`llvm.sld`](src/snail-scheme/llvm.sld) mechanically lowers those operations;
 [`llvmlite.sld`](src/snail-scheme/llvmlite.sld) writes LLVM text. Native uses the
-same Rust extern implementations, authoritative C provider declarations, and
-[`precise-gc.c`](src/precise-gc.c). Root and slot lifetime invariants live beside
+same Rust extern implementations and resolves imports directly against
+authoritative C provider declarations. [`precise-gc.c`](src/precise-gc.c) owns
+native managed collection. Root and slot lifetime invariants live beside
 the lowering and collector that rely on them.
 
 ## Checks and measurements

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 extern uint64_t native_resource_release_count(void);
-extern uint64_t native_array_release_count(void);
 static void observe_count(const char *variable, uint64_t count) {
     const char *path = getenv(variable);
     if (!path) return;
@@ -15,5 +14,4 @@ static void observe_count(const char *variable, uint64_t count) {
 }
 static void observe_cleanup(void) {
     observe_count("SNAIL_NATIVE_CLEANUP_LOG", native_resource_release_count());
-    observe_count("SNAIL_NATIVE_ARRAY_LOG", native_array_release_count());
 }

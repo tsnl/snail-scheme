@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Link SFIR scalar imports to the Rust runtime, removing the legacy value ABI."""
+"""Link SFIR scalar imports to their shared Rust implementations."""
 
 import argparse
 import json
@@ -76,7 +76,7 @@ def merge(source, provider, output, records, log):
 
 def prune(linked, output, raw, records, log):
     # These namespaces belong to the provider and its diagnostic alias. Removing
-    # their exports lets reachability discard every unused legacy Root operation.
+    # their exports lets reachability discard unused scalar services.
     optimize = ['--remove-unused-module-elements'] if raw else [
         '-O3', '--closed-world', '--always-inline-max-function-size=40', '--converge']
     run([tool('WASM_OPT', 'wasm-opt'), '-g', *FEATURES, '--remove-exports',
@@ -84,7 +84,7 @@ def prune(linked, output, raw, records, log):
          linked, '-o', output], records, log)
     text = disassemble(output, Path(str(output) + '.wat'), records, log)
     if re.search(r'\(import "snail\.(abi|library|platform)"', text):
-        raise ValueError('linked SFIR program retains an unresolved runtime or legacy Root import')
+        raise ValueError('linked SFIR program retains an unresolved runtime import')
 
 
 def link(options):

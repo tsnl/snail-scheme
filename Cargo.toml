@@ -10,9 +10,6 @@ crate-type = ["rlib"]
 [features]
 native-runtime = []
 
-[dependencies]
-num-complex = "=0.4.6"
-
 [profile.release]
 panic = "abort"
 lto = true

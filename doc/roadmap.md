@@ -7,15 +7,17 @@ describes the implementation. Chibi continues to host the compiler.
 ## Current SFIR migration
 
 - [x] Land the SFIR language design before implementation (PR #225).
-- [ ] Make `snail-sfir` the sole product command and remove Scheme compilation,
+- [x] Make `snail-sfir` the sole product command and remove Scheme compilation,
   interpretation, macro expansion and the legacy emitter.
-- [ ] Complete the direct located-syntax → resolved IR → inference → concrete
+- [x] Complete the direct located-syntax → resolved IR → inference → concrete
   specialization → WasmGC pipeline, with visible contracts between passes.
-- [ ] Retain explicit storage, positional calls, typed externs and library
+- [x] Retain explicit storage, positional calls, typed externs and library
   specialization; reject unresolved representations instead of adding a fallback.
-- [ ] Retire obsolete Scheme-only examples, commands and documentation. Keep
+- [x] Retire obsolete Scheme-only examples, commands and documentation. Keep
   `build.scm` outside this migration and historical measurements identifiable.
-- [ ] Validate the public command, imported libraries, error paths and actual
+- [x] Remove the boxed Scheme-value runtime and wrapper-finalizer bridge. Keep
+  scalar host services, explicit resource cleanup and native managed roots.
+- [x] Validate the public command, imported libraries, error paths and actual
   linked Wasm/native execution. Compilation alone is insufficient.
 - [ ] Complete all 57 bare SFIR benchmark ports with canonical inputs,
   algorithms and result predicates. Keep absent ports and failing targets visible.
@@ -25,6 +27,12 @@ describes the implementation. Chibi continues to host the compiler.
 - [ ] Repeatedly simplify measured compiler and runtime bottlenecks. Preserve
   type evidence and ownership invariants; use independent explanations and
   execution checks to justify each substantial rewrite.
+
+The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
+with frontend, integration, library, public-command and native execution checks.
+[PR #228](https://github.com/tsnl/snail-scheme/pull/228) adds full Unicode string
+folding through scalar services. The first [six clean measurements](../benchmarks/sfir/evidence/20261015-clean-six.md)
+are complete; full-corpus validation and measurement remain ongoing.
 
 The [corpus manifest](../benchmarks/sfir/corpus.json) tracks source presence,
 validation and measurement independently. Pre-migration strict-Scheme results

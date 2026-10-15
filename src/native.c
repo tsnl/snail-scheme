@@ -1,5 +1,5 @@
 // Native host for lowered Wasm: exact roots, checked operations and cleanup.
-// Rust retains Scheme values through the same owned ABI handles as Wasm.
+// Compiled code publishes managed roots; Rust services own scalar resources.
 // Managed references, native C pointers and scalar handles stay distinct.
 
 #define _GNU_SOURCE
@@ -18,20 +18,14 @@
 // ---- Traps and collection ----
 
 extern int snail_native_cleanup(void);
-void native_poll_finalizers(void);
-static bool terminating;
 static uint64_t released_resources;
-static uint64_t released_arrays;
 void native_resource_released(void) { released_resources++; }
 uint64_t native_resource_release_count(void) { return released_resources; }
-void native_array_released(void) { released_arrays++; }
-uint64_t native_array_release_count(void) { return released_arrays; }
 
 // Every runtime service drops its resource borrow before an allocation or
-// callback. Cleanup closes owned files without calling Scheme or releasing
+// callback. Cleanup closes owned files without calling guest code or releasing
 // roots. Expected failure never unwinds or longjmps through Rust frames.
 int native_finish(int status) {
-    terminating = true;
     if (snail_native_cleanup() && !status) status = 1;
     return status;
 }
@@ -46,14 +40,14 @@ _Noreturn void native_trap(void) { native_fail("WebAssembly trap"); }
 // This boundary accepts a native pointer and size_t; it is deliberately not
 // the Wasm memory32 diagnostics import with the same conceptual purpose.
 _Noreturn void native_report_error(const uint8_t *bytes, size_t length) {
-    fputs("snail-scheme: ", stderr);
+    fputs("snail-sfir: ", stderr);
     fwrite(bytes, 1, length, stderr);
     fputc('\n', stderr);
     exit(native_finish(1));
 }
 
 // A tail call unlinks before transfer. The callee links before any collection.
-// Rust callbacks temporarily link above suspended guest frames. No async GC.
+// Collecting calls see every live translated frame. There is no asynchronous GC.
 NativeRoots *volatile native_roots;
 static uint64_t root_depth, peak_root_depth;
 void native_roots_reset_peak(void) { peak_root_depth = root_depth; }
@@ -77,10 +71,7 @@ static uint64_t allocations, collection_interval;
 
 static void *try_allocate(uint64_t size) {
     if (collection_interval && ++allocations % collection_interval == 0) native_gc_collect();
-    void *object = native_gc_alloc(size);
-    // Collector callbacks only queue scalar IDs. Calling Rust here
-    // could reenter a borrowed RefCell, so cleanup waits for a host safepoint.
-    return object;
+    return native_gc_alloc(size);
 }
 
 __attribute__((always_inline)) uint64_t native_alloc(uint64_t size) {
@@ -117,7 +108,7 @@ uint32_t native_ref_test(uint64_t reference, int64_t type, uint32_t nullable, ui
 // LLVM supplies a constant stride from the validated storage type: 1/2/4/8
 // bytes for numeric elements, always eight for references. Lengths remain
 // unsigned wasm32. The collector traces only reference arrays; their layout
-// is unchanged. Rust retains these objects through handles in a scanned table.
+// is unchanged. Translated frames and tables expose live references to the GC.
 
 static void array_fill(void *payload, uint32_t length, uint64_t initial, uint32_t stride) {
     // Typed stores retain the low bits on either native byte order. No allocation
@@ -238,69 +229,6 @@ SIGNED_DIVISION(int64_t, i64, INT64_MIN)
     }
 TRUNCATIONS(float, f32)
 TRUNCATIONS(double, f64)
-
-// ---- ABI finalization ----
-
-extern void drop_resource(uint32_t kind, uint32_t id) __asm__("snail:drop-resource");
-extern void drop_array(uint32_t id) __asm__("snail:drop-array");
-
-typedef struct Resource { uint32_t kind, id; struct Resource *next; } Resource;
-static Resource *pending_resources;
-static uint64_t finalized_resources;
-
-static void finalize_resource(void *object, void *data) {
-    (void)object;
-    Resource *resource = data;
-    resource->next = pending_resources;
-    pending_resources = resource;
-}
-
-void native_register_finalizer(uint64_t reference, uint32_t kind, uint32_t id) {
-    Resource *resource = malloc(sizeof(Resource)), *old = NULL;
-    if (!resource) native_trap();
-    *resource = (Resource){kind, id, NULL};
-    // The held data contains only scalar IDs, never the watched wrapper.
-    native_gc_watch(object_words(reference), finalize_resource,
-                                   resource, NULL, (void **)&old);
-    free(old);
-}
-
-void native_unregister_finalizer(uint64_t reference) {
-    Resource *old = NULL;
-    native_gc_watch(object_words(reference), NULL, NULL, NULL, (void **)&old);
-    free(old);
-}
-
-// Only call this with no active translated Wasm frames. Cleanup may itself
-// execute Rust; held records never contain the watched object.
-void native_poll_finalizers(void) {
-    if (terminating) return;
-    Resource *batch = pending_resources;
-    pending_resources = NULL;
-    while (batch) {
-        Resource *resource = batch;
-        batch = resource->next;
-        if (resource->kind == 2) drop_array(resource->id);
-        else drop_resource(resource->kind, resource->id);
-        finalized_resources++;
-        free(resource);
-    }
-}
-
-uint64_t native_finalizer_count(void) { return finalized_resources; }
-
-// ---- Identity hashing ----
-
-// The collector does not move live objects. Mixing the tagged reference is therefore
-// stable while the key is live; unlike an ABI slot, it identifies the value.
-// No registry retains hashed values, so self-referential tables remain garbage.
-uint32_t native_hash_identity(uint64_t reference) {
-    reference ^= reference >> 30;
-    reference *= UINT64_C(0xbf58476d1ce4e5b9);
-    reference ^= reference >> 27;
-    reference *= UINT64_C(0x94d049bb133111eb);
-    return (reference ^ (reference >> 31)) & UINT32_C(0x3fffffff);
-}
 
 // ---- Process initialization ----
 

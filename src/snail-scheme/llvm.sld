@@ -800,16 +800,11 @@
 
     ;; Each binding is ((module name) C-symbol (parameters) (results)). The
     ;; build driver supplies provider declarations, never inferred call types.
-    ;; Managed-reference services belong to this host, not the scalar C ABI.
     (define current-native-imports (make-parameter '()))
-    (define native-host-imports
-      '((("snail.host" "register-finalizer") "native_register_finalizer" ((ref null eq) i32 i32) ())
-        (("snail.host" "unregister-finalizer") "native_unregister_finalizer" ((ref null eq)) ())
-        (("snail.host" "hash-identity") "native_hash_identity" ((ref null eq)) (i32))))
 
     (define (import-name function)
       (let* ((import (function-import function))
-             (entry (assoc import (append native-host-imports (current-native-imports))))
+             (entry (assoc import (current-native-imports)))
              (signature (type-definition (function-wasm-type function))))
         (unless entry (error "native import has no provider declaration" import))
         (unless (equal? (cdr signature) (cddr entry))
