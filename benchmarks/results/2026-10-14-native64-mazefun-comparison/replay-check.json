@@ -1,0 +1,60 @@
+{
+  "started_utc": "2026-10-14T13:28:47.100775+00:00",
+  "destination": "/tmp/snail-native64-mazefun-relocated-20261014",
+  "archive_sha256": "56887fa56125d157f32feb3c82bad416719075398ea8ae5f436462e3bceddbbd",
+  "observations": [
+    {
+      "variant": "native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native64-mazefun-relocated-20261014/files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/mazefun-native"
+      ],
+      "cwd": "/tmp/snail-native64-mazefun-relocated-20261014/run-native",
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.248220954,\"result\":\"1\"}\n",
+      "stderr": "",
+      "process_seconds": 1.2507771689561196,
+      "valid": true,
+      "workload_seconds": 1.248220954
+    },
+    {
+      "variant": "v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-native64-mazefun-relocated-20261014/files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/host.mjs",
+        "/tmp/snail-native64-mazefun-relocated-20261014/files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/common.wasm",
+        "/tmp/snail-native64-mazefun-relocated-20261014/files/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/spec.json"
+      ],
+      "cwd": "/tmp/snail-native64-mazefun-relocated-20261014/run-v8",
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.672070429,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "process_seconds": 0.694301305047702,
+      "valid": true,
+      "workload_seconds": 0.672070429
+    }
+  ],
+  "complete": true,
+  "excluded_from_clean_timing": true,
+  "restore": {
+    "command": [
+      "python3",
+      "/tmp/snail-native64-mazefun-comparison-20261014/benchmarks/strict-suite/replay.py",
+      "/tmp/snail-native64-mazefun-relocated-20261014",
+      "--report",
+      "/tmp/snail-native64-mazefun-comparison-20261014/benchmarks/results/2026-10-14-native64-mazefun-comparison"
+    ],
+    "returncode": 0,
+    "stdout": "Verified 467 files in /tmp/snail-native64-mazefun-relocated-20261014\n",
+    "stderr": ""
+  },
+  "finished_utc": "2026-10-14T13:28:49.245411+00:00",
+  "archive_regular_files_verified": 467,
+  "external_files_verified": 17
+}

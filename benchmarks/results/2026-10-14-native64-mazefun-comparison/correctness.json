@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "observations": [
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.669648325,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "variant": "v8",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/host.mjs",
+        "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/common.wasm",
+        "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/input/spec.json"
+      ],
+      "cwd": "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/correctness/v8",
+      "process_seconds": 0.693460546026472,
+      "workload_seconds": 0.669648325,
+      "valid": true
+    },
+    {
+      "returncode": 0,
+      "stdout": "{\"seconds\":1.245072333,\"result\":\"1\"}\n",
+      "stderr": "",
+      "variant": "native",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/mazefun-native"
+      ],
+      "cwd": "/tmp/snail-native64-mazefun-comparison-20261014/build/native-mazefun/correctness/native",
+      "process_seconds": 1.2481686379760504,
+      "workload_seconds": 1.245072333,
+      "valid": true
+    }
+  ]
+}
