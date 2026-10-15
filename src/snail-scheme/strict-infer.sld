@@ -47,7 +47,7 @@
 
     (define (source-type type variables loc)
       (cond ((lookup type variables) => (lambda (type) type))
-            ((or (memq type scalar-types) (eq? type 'String)) type)
+            ((or (memq type scalar-types) (memq type '(String Bytevector))) type)
             ((and (pair? type) (memq (car type) '(Ref List Vector)) (= (length type) 2))
              (list (car type) (source-type (cadr type) variables loc)))
             ((and (pair? type) (eq? (car type) '->)) (source-function type variables loc))
@@ -580,6 +580,7 @@
             (else (strict-error (node-loc node) "unsupported strict expression")) ))
     (define (literal-type value expected loc)
       (cond ((boolean? value) 'Bool) ((char? value) 'Char) ((string? value) 'String)
+            ((bytevector? value) 'Bytevector)
             ((null? value) (list 'List (fresh-variable)))
             ((exact-integer? value)
              (let ((type (if (memq expected '(I32 I64)) expected 'I64)))
