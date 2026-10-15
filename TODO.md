@@ -3,6 +3,19 @@
 The compiler stays Chibi-hosted. Current behavior is described in [TOUR.md](TOUR.md);
 this list contains work that has not landed.
 
+- [ ] Complete the strict native compiler and measure the entire benchmark suite
+  - Preserve the language contracts in [the strict core guide](doc/strict-core.md)
+  - Extend the [measured subset](benchmarks/results/2026-10-13-strict-kernels/README.md)
+    without shortening inputs, hiding failures, or claiming unmeasured gains
+  - Hold the entire project to an educational standard: each module explains
+    its data, inputs, outputs, decisions, and required invariants
+  - Simplify extensively, including complete module rewrites when warranted;
+    repeat independent explanation, critique, rewriting, and execution checks
+    until the remaining complexity has a concrete behavioral purpose
+  - Keep source initialization, concrete specialization, representation,
+    and execution visibly distinct; avoid hidden fallback representations
+  - Update the tour and contracts as responsibilities change, preserve measured
+    artifacts, and keep the implementation in a reviewable draft PR stack
 - [ ] Follow up the [57-workload comparison](benchmarks/results/2026-10-12-native-v8/README.md)
   - Reduce measured compiler allocation churn and repeated single-value handling
   - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC

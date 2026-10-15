@@ -99,6 +99,46 @@ erasing a concrete payload never erases a required early-binding failure.
 Only Ref allocation identity is exposed by the language. Pure specialized
 closures may have separate wrappers while sharing their captured Ref values.
 
+## Reading the specialization pass
+
+Three compiler objects explain this separation. A **site** belongs to a lexical
+source binding and records its initialization position. A **value** is one
+concrete payload demanded from that site. A **function** is a concrete copy of
+lambda code. None of these compiler objects is a runtime polymorphic dispatch
+table. Executing an enclosing function creates its local storage anew.
+
+For example, the following program returns 2:
+
+```scheme
+(define count (ref 0))
+(define (counted x)
+  (ref-set! count (+ (ref-get count) 1))
+  x)
+(counted 42)
+(counted #t)
+(ref-get count)
+```
+
+The `count` initializer allocates one cell. `counted` needs I64 and Bool code
+copies, each referring to that existing cell. Cloning the lambda does not run
+its body or repeat the allocation. There is no need for another universal
+closure object to connect the copies.
+
+Specialization first reserves a requested value, then clones its initializer.
+A recursive use can find that pending value without expanding forever. The
+source bind node remains responsible for runtime initialization: monomorphic
+initializers are demanded even when unused, and generalized names retain any
+required source read even when no concrete payload is needed. Consequently,
+`(define alias later)` before `later` is initialized still fails if `alias` is
+unused. A payload-free readiness token preserves this behavior.
+
+After cloning discovers all demands, capture analysis follows value references
+and propagates the requirements of nested closures. It excludes a function's
+own parameters and local bindings. The emitter uses the specializer's same
+site-value enumeration to assign storage, then emits source initialization in
+order. Code reservation, runtime storage allocation, and successful binding
+initialization are distinct events; only the last makes a source read legal.
+
 ## Explicit universal values
 
 The bounded lattice is `Never <: T <: Top`. Top means a checked universal value;
