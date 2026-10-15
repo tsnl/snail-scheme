@@ -3,7 +3,7 @@
 This diagnostic adapts thirty original R7RS kernels to the strict compiler:
 `ack`, `tak`, `cpstak`, `fib`, `fibfp`, `sum`, `sumfp`, `takl`, `ntakl`,
 `diviter`, `divrec`, `array1`, `primes`, `nqueens`, `triangl`, `mbrot`, and
-`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, and `destruc`.
+`pnpoly`, `fft`, `quicksort`, `paraffins`, `gcbench`, `graphs`, `mperm`, `simplex`, `deriv`, `mbrotZ`, `string`, `puzzle`, `lattice`, `destruc`, and `ray`.
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
@@ -585,3 +585,50 @@ The complete canonical output is also observed separately. Predicate probes
 reject changed late items, item tags, inner/outer lengths and false expectations.
 Counts 1, 2 and 4,000 run the original workload in raw/optimized Wasm and both
 Chez forms. No clean measurement is produced during preparation.
+
+Select `--benchmarks ray` for the original 50 complete 100 × 100 renders. Every
+invocation rebuilds the 33-sphere scene, visits every sphere for every pixel,
+replaces the destination file and closes it before returning `ok`. Geometry,
+coordinate conversions, decimal formatting and character iteration stay in
+Scheme. The existing Rust runtime supplies owned buffered files through the
+strict scalar I/O library; explicit export pruning removes the legacy value
+interface. The dedicated Ray host initializes runtime inputs before timing and
+brackets reactor initialization, Scheme main and the worker with final cleanup.
+
+Immutable Point/Sphere products replace heterogeneous vectors. Explicit root
+and point options retain absent versus zero/negative intersections; a correlated
+Hit carries its selected sphere and point. The world uses one explicit Ref.
+All 33 visits, Euclidean candidate distances, strict-less-than tie selection,
+reverse construction order and the finite `1e308` initial distance remain.
+Binary floating expressions explicitly preserve the original left association,
+single discriminant square root and conversion sites. Two-argument min/max
+preserve the pinned Chez implementation's NaN propagation and right-operand
+signed-zero ties. Round uses the general ties-to-even numeric operation.
+
+The adapted Chez control uses the identical adapted kernel, concrete tagged
+wrappers and the strict library's exact Scheme character/decimal formatting
+bodies. Root/Candidate wrappers and a Hit at each improvement can add allocations;
+the original allocates its two-field hit vector only after traversal. Physical
+allocation parity is not claimed. Native Chez ports and Rust's scalar port
+registry also retain their respective runtime representations.
+
+The original result domain is false before any iteration and symbol `ok` after
+a completed render. Strict encodes those as I64 0/1 and classifies every other
+expected datum as 2, preserving the complete equality answer. Chez's actual
+reader performs that classification before timing, including escaped symbols,
+booleans, numbers, strings and compound data. Wrong expectations still execute
+every requested render. The adapted Chez harness restores the original values
+for the predicate and diagnostics. Reversing the counted edits restores the
+complete original Chez program, including its formatting compatibility prelude.
+
+Preparation checks counts 1, 2 and 50 in original/adapted Chez and raw/optimized
+linked Wasm. The complete canonical file is 29,517 bytes with SHA-256
+`38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d`;
+the established pixel checksum is checked separately. Separate viewport modules
+test complete small images at resolutions 0, 1, 2 and 3, Unicode pathnames,
+existing-file replacement, nonpositive counts and wrong expectations. Separate
+geometry modules compare floating bit patterns, optional results, tie order,
+nonfinite cases and every scene field against original Chez and an independent
+ordered-scene oracle. These viewport changes and observers never enter the
+canonical artifact. The supported evidence covers these bounded I64 inputs;
+arbitrary-precision resolutions or overflowing extents are not claimed.
