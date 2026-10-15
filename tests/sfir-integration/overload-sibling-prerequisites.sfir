@@ -1,5 +1,5 @@
 (import (sfir base))
-(define-overload source (-> I64) (lambda () 42))
+(define-overload source (-> I64) (lambda () (ann 42 I64)))
 (define-overload source (-> Bool) (lambda () #t))
 (define-overload destination (-> I64 F64) i64->f64)
 (define-overload compose
@@ -14,4 +14,4 @@
 
 (def second F64
      (reverse-compose))
-(if (if (= first 42.0) (= second 42.0) #f) 42 (unreachable))
+(if (if (= first 42.0) (= second 42.0) #f) (ann 42 I64) (unreachable))

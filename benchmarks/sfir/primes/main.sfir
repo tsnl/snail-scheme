@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs.3)
-    (((lambda () (begin (def loop.2 (lambda (xs.4 n.4) (if (null? xs.4) n.4 (loop.2 (cdr xs.4) (+ n.4 1))))) loop.2)))
+    (((lambda () (begin (def loop.2 (lambda (xs.4 n.4) (if (null? xs.4) n.4 (loop.2 (cdr xs.4) (+ n.4 (ann 1 I64)))))) loop.2)))
       xs.3
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -31,7 +31,7 @@
 
 (def expected-list
   (lambda ()
-    (((lambda () (begin (def loop.1 (lambda (n.3 xs.1) (if (= n.3 0) xs.1 (loop.1 (- n.3 1) (cons (native-expected-i64 (- n.3 1)) xs.1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (n.3 xs.1) (if (= n.3 (ann 0 I64)) xs.1 (loop.1 (- n.3 (ann 1 I64)) (cons (native-expected-i64 (- n.3 (ann 1 I64))) xs.1))))) loop.1)))
       (native-expected-length)
       (empty-list ))))
 
@@ -44,14 +44,14 @@
 (def hide (lambda (count.1 x) (hide-i64 x)))
 
 (def interval-list
-  (lambda (m n.2) (if (> m n.2) (empty-list ) (cons m (interval-list (+ 1 m) n.2)))))
+  (lambda (m n.2) (if (> m n.2) (empty-list ) (cons m (interval-list (+ (ann 1 I64) m) n.2)))))
 
 (def sieve
   (lambda (l)
-    ((lambda () (begin (def remove-multiples (lambda (n.1 l.1) (if (null? l.1) (empty-list ) (if (= (remainder (car l.1) n.1) 0) (remove-multiples n.1 (cdr l.1)) (cons (car l.1) (remove-multiples n.1 (cdr l.1))))))) (if (null? l) (empty-list ) (cons (car l) (sieve (remove-multiples (car l) (cdr l)))))))
+    ((lambda () (begin (def remove-multiples (lambda (n.1 l.1) (if (null? l.1) (empty-list ) (if (= (remainder (car l.1) n.1) (ann 0 I64)) (remove-multiples n.1 (cdr l.1)) (cons (car l.1) (remove-multiples n.1 (cdr l.1))))))) (if (null? l) (empty-list ) (cons (car l) (sieve (remove-multiples (car l) (cdr l)))))))
 )))
 
-(def primes<= (lambda (n) (sieve (interval-list 2 n))))
+(def primes<= (lambda (n) (sieve (interval-list (ann 2 I64) n))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
@@ -59,8 +59,8 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (if (same-i64-list? (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (primes<= (hide count input0))) result))) loop))) 0 (empty-list )) expected)
-      1
-      0)))
+    (if (same-i64-list? (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (primes<= (hide count input0))) result))) loop))) (ann 0 I64) (empty-list )) expected)
+      (ann 1 I64)
+      (ann 0 I64))))
 
 (unit)

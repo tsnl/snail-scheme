@@ -1,16 +1,16 @@
 (import (sfir base))
 
 (def effects
-     (ref 0))
+     (ref (ann 0 I64)))
 
 (def checked (-> I64)
      (lambda ()
-       (begin (let x 42)
+       (begin (let x (ann 42 I64))
               (begin
                 (def read-alias
                      (lambda ()
                        (begin
-                         (ref-set! effects 1)
+                         (ref-set! effects (ann 1 I64))
                          alias)))
                 (def early
                      (read-alias))
@@ -21,4 +21,4 @@
 (def observed (-> I64)
      (lambda () (ref-get effects)))
 
-42
+(ann 42 I64)

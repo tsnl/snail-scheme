@@ -6,5 +6,5 @@
 (def early
      (read-later))
 (def later
-     42)
+     (ann 42 I64))
 early

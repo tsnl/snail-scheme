@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 1))))) loop.1)))
+    (((lambda () (begin (def loop.1 (lambda (xs.1 n.1) (if (null? xs.1) n.1 (loop.1 (cdr xs.1) (+ n.1 (ann 1 I64)))))) loop.1)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -22,14 +22,14 @@
 
 (def hide (lambda (count.1 x) (hide-i64 x)))
 
-(def fib (lambda (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))))
+(def fib (lambda (n) (if (< n (ann 2 I64)) n (+ (fib (- n (ann 1 I64))) (fib (- n (ann 2 I64)))))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (fib (hide count input0))) result))) loop)))
-      0
-      0)))
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (fib (hide count input0))) result))) loop)))
+      (ann 0 I64)
+      (ann 0 I64))))
 
 (unit)

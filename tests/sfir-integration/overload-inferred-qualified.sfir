@@ -6,4 +6,4 @@
 
 (def wrapper (All (T) (=> ((Identity T)) (-> T T)))
      (lambda (value) (choose value)))
-(if (wrapper #t) (wrapper 42) (unreachable))
+(if (wrapper #t) (wrapper (ann 42 I64)) (unreachable))

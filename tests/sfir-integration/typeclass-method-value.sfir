@@ -8,4 +8,4 @@
      combine-alias)
 (def twice-with
      (lambda (operation x) (operation x x)))
-(twice-with selected 21)
+(twice-with selected (ann 21 I64))

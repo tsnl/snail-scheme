@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.6 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.6 (cdr xs.1) (+ n.4 1))))) loop.6)))
+    (((lambda () (begin (def loop.6 (lambda (xs.1 n.4) (if (null? xs.1) n.4 (loop.6 (cdr xs.1) (+ n.4 (ann 1 I64)))))) loop.6)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -45,9 +45,9 @@
 
 (def power-of-two
   (lambda (n.2)
-    (((lambda () (begin (def loop.5 (lambda (n.3 value.1) (if (= n.3 0) value.1 (loop.5 (- n.3 1) (* value.1 2))))) loop.5)))
+    (((lambda () (begin (def loop.5 (lambda (n.3 value.1) (if (= n.3 (ann 0 I64)) value.1 (loop.5 (- n.3 (ann 1 I64)) (* value.1 (ann 2 I64)))))) loop.5)))
       n.2
-      1)))
+      (ann 1 I64))))
 
 (def min (lambda (a b) (if (< a b) a b)))
 
@@ -61,25 +61,25 @@
 
 (def hide (lambda (count.1 x) (hide-i64 x)))
 
-(def run-benchmark2 (lambda (name thunk) (begin (print-text name) (print-text 0) (thunk))))
+(def run-benchmark2 (lambda (name thunk) (begin (print-text name) (print-text (ann 0 I64)) (thunk))))
 
-(def PrintDiagnostics (lambda () (begin (print-text 1) (print-text 2) (print-text 0))))
+(def PrintDiagnostics (lambda () (begin (print-text (ann 1 I64)) (print-text (ann 2 I64)) (print-text (ann 0 I64)))))
 
 (def gcbench
   (lambda (kStretchTreeDepth)
     (begin
-      (def TreeSize (lambda (i.5) (- (power-of-two (+ i.5 1)) 1)))
-      (def NumIters (lambda (i.4) (quotient (* 2 (TreeSize kStretchTreeDepth)) (TreeSize i.4))))
-      ((lambda (kLongLivedTreeDepth) ((lambda (kArraySize) ((lambda (kMinTreeDepth) ((lambda (kMaxTreeDepth) ((lambda () (begin (def nil (Nil)) ((lambda (make-empty-node make-node) (begin (def Populate (lambda (iDepth.1 thisNode) (if (<= iDepth.1 0) (unit) ((lambda (iDepth.2) (begin (node.left-set! thisNode (make-empty-node)) (node.right-set! thisNode (make-empty-node)) (Populate iDepth.2 (node.left thisNode)) (Populate iDepth.2 (node.right thisNode)))) (- iDepth.1 1))))) (def MakeTree (lambda (iDepth) (if (<= iDepth 0) (make-empty-node) (make-node (MakeTree (- iDepth 1)) (MakeTree (- iDepth 1)))))) (def TimeConstruction (lambda (depth) ((lambda (iNumIters) (begin (print-construction iNumIters depth) (print-text 0) (run-benchmark2 4 (lambda () (((lambda () (begin (def loop.4 (lambda (i.3) (if (>= i.3 iNumIters) (unit) (begin (Populate depth (make-empty-node)) (loop.4 (+ i.3 1)))))) loop.4))) 0))) (run-benchmark2 5 (lambda () (((lambda () (begin (def loop.3 (lambda (i.2) (if (>= i.2 iNumIters) (unit) (begin (MakeTree depth) (loop.3 (+ i.2 1)))))) loop.3))) 0))))) (NumIters depth)))) (def run-benchmark-x (lambda () (begin (print-text 3) (print-text 0) (print-size 0 kStretchTreeDepth) (print-text 0) (PrintDiagnostics) (run-benchmark2 6 (lambda () (begin (MakeTree kStretchTreeDepth) (print-size 1 kLongLivedTreeDepth) (print-text 0) ((lambda (longLivedTree) (begin (Populate kLongLivedTreeDepth longLivedTree) (print-size 2 kArraySize) (print-text 0) ((lambda (array) (begin (((lambda () (begin (def loop.2 (lambda (i.1) (if (>= i.1 (quotient kArraySize 2)) (unit) (begin (vector-set! array i.1 (/ 1.0 (inexact (+ i.1 1)))) (loop.2 (+ i.1 1)))))) loop.2))) 0) (PrintDiagnostics) (((lambda () (begin (def loop.1 (lambda (d) (if (> d kMaxTreeDepth) (unit) (begin (TimeConstruction d) (loop.1 (+ d 2)))))) loop.1))) kMinTreeDepth) (if ((lambda (value) (if value value ((lambda (n) (not (= (vector-ref array n) (/ 1.0 (inexact (+ n 1)))))) (min 1000 (- (quotient (vector-length array) 2) 1))))) (empty-node? longLivedTree)) (begin (print-text 7) (print-text 0)) (unit)))) (make-vector kArraySize 0.0)))) (make-empty-node))))) (PrintDiagnostics)))) (run-benchmark-x))) (lambda () (make-node-raw nil nil 0 0)) (lambda (l r) (make-node-raw l r 0 0))))))) kLongLivedTreeDepth)) 4)) (* 4 (TreeSize kLongLivedTreeDepth))))
-        (- kStretchTreeDepth 2)))))
+      (def TreeSize (lambda (i.5) (- (power-of-two (+ i.5 (ann 1 I64))) (ann 1 I64))))
+      (def NumIters (lambda (i.4) (quotient (* (ann 2 I64) (TreeSize kStretchTreeDepth)) (TreeSize i.4))))
+      ((lambda (kLongLivedTreeDepth) ((lambda (kArraySize) ((lambda (kMinTreeDepth) ((lambda (kMaxTreeDepth) ((lambda () (begin (def nil (Nil)) ((lambda (make-empty-node make-node) (begin (def Populate (lambda (iDepth.1 thisNode) (if (<= iDepth.1 (ann 0 I64)) (unit) ((lambda (iDepth.2) (begin (node.left-set! thisNode (make-empty-node)) (node.right-set! thisNode (make-empty-node)) (Populate iDepth.2 (node.left thisNode)) (Populate iDepth.2 (node.right thisNode)))) (- iDepth.1 (ann 1 I64)))))) (def MakeTree (lambda (iDepth) (if (<= iDepth (ann 0 I64)) (make-empty-node) (make-node (MakeTree (- iDepth (ann 1 I64))) (MakeTree (- iDepth (ann 1 I64))))))) (def TimeConstruction (lambda (depth) ((lambda (iNumIters) (begin (print-construction iNumIters depth) (print-text (ann 0 I64)) (run-benchmark2 (ann 4 I64) (lambda () (((lambda () (begin (def loop.4 (lambda (i.3) (if (>= i.3 iNumIters) (unit) (begin (Populate depth (make-empty-node)) (loop.4 (+ i.3 (ann 1 I64))))))) loop.4))) (ann 0 I64)))) (run-benchmark2 (ann 5 I64) (lambda () (((lambda () (begin (def loop.3 (lambda (i.2) (if (>= i.2 iNumIters) (unit) (begin (MakeTree depth) (loop.3 (+ i.2 (ann 1 I64))))))) loop.3))) (ann 0 I64)))))) (NumIters depth)))) (def run-benchmark-x (lambda () (begin (print-text (ann 3 I64)) (print-text (ann 0 I64)) (print-size (ann 0 I64) kStretchTreeDepth) (print-text (ann 0 I64)) (PrintDiagnostics) (run-benchmark2 (ann 6 I64) (lambda () (begin (MakeTree kStretchTreeDepth) (print-size (ann 1 I64) kLongLivedTreeDepth) (print-text (ann 0 I64)) ((lambda (longLivedTree) (begin (Populate kLongLivedTreeDepth longLivedTree) (print-size (ann 2 I64) kArraySize) (print-text (ann 0 I64)) ((lambda (array) (begin (((lambda () (begin (def loop.2 (lambda (i.1) (if (>= i.1 (quotient kArraySize (ann 2 I64))) (unit) (begin (vector-set! array i.1 (/ 1.0 (inexact (+ i.1 (ann 1 I64))))) (loop.2 (+ i.1 (ann 1 I64))))))) loop.2))) (ann 0 I64)) (PrintDiagnostics) (((lambda () (begin (def loop.1 (lambda (d) (if (> d kMaxTreeDepth) (unit) (begin (TimeConstruction d) (loop.1 (+ d (ann 2 I64))))))) loop.1))) kMinTreeDepth) (if ((lambda (value) (if value value ((lambda (n) (not (= (vector-ref array n) (/ 1.0 (inexact (+ n (ann 1 I64))))))) (min (ann 1000 I64) (- (quotient (vector-length array) (ann 2 I64)) (ann 1 I64)))))) (empty-node? longLivedTree)) (begin (print-text (ann 7 I64)) (print-text (ann 0 I64))) (unit)))) (make-vector kArraySize 0.0)))) (make-empty-node))))) (PrintDiagnostics)))) (run-benchmark-x))) (lambda () (make-node-raw nil nil (ann 0 I64) (ann 0 I64))) (lambda (l r) (make-node-raw l r (ann 0 I64) (ann 0 I64)))))))) kLongLivedTreeDepth)) (ann 4 I64))) (* (ann 4 I64) (TreeSize kLongLivedTreeDepth))))
+        (- kStretchTreeDepth (ann 2 I64))))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
 (def bench (-> I64 I64)
   (lambda (count)
     (begin
-      (((lambda () (begin (def loop (lambda (i) (if (= i count) (unit) (begin (gcbench (hide count input0)) (loop (+ i 1)) (unit))))) loop)))
-        0)
-      1)))
+      (((lambda () (begin (def loop (lambda (i) (if (= i count) (unit) (begin (gcbench (hide count input0)) (loop (+ i (ann 1 I64))) (unit))))) loop)))
+        (ann 0 I64))
+      (ann 1 I64))))
 
 (unit)

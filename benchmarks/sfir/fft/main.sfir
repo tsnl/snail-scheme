@@ -6,9 +6,9 @@
 
 (def length
   (lambda (xs)
-    (((lambda () (begin (def loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 1))))) loop.3)))
+    (((lambda () (begin (def loop.3 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.3 (cdr xs.1) (+ n.2 (ann 1 I64)))))) loop.3)))
       xs
-      0)))
+      (ann 0 I64))))
 
 (define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
 
@@ -26,7 +26,7 @@
 
 (def input-vector
   (lambda (index)
-    ((lambda (n.1) ((lambda (result.1) (begin (((lambda () (begin (def loop.2 (lambda (i.4) (if (< i.4 n.1) (begin (vector-set! result.1 i.4 (native-vector-f64 index i.4)) (loop.2 (+ i.4 1)) (unit)) (unit)))) loop.2))) 0) result.1)) (make-vector n.1 0.0)))
+    ((lambda (n.1) ((lambda (result.1) (begin (((lambda () (begin (def loop.2 (lambda (i.4) (if (< i.4 n.1) (begin (vector-set! result.1 i.4 (native-vector-f64 index i.4)) (loop.2 (+ i.4 (ann 1 I64))) (unit)) (unit)))) loop.2))) (ann 0 I64)) result.1)) (make-vector n.1 0.0)))
       (native-vector-length index))))
 
 (def inexact (lambda (value.1) (i64->f64 value.1)))
@@ -47,20 +47,20 @@
 
 (def fft-probe (-> I64 I64)
   (lambda (count.2)
-    ((lambda (data.3) (begin (four1 data.3) (if (if (= (vector-length data.3) (native-expected-length)) (((lambda () (begin (def loop.1 (lambda (i.3) ((lambda (value) (if value value (if (close-f64? (vector-ref data.3 i.3) (native-expected-f64 i.3)) (loop.1 (+ i.3 1)) #f))) (= i.3 (vector-length data.3))))) loop.1))) 0) #f) 1 0)))
+    ((lambda (data.3) (begin (four1 data.3) (if (if (= (vector-length data.3) (native-expected-length)) (((lambda () (begin (def loop.1 (lambda (i.3) ((lambda (value) (if value value (if (close-f64? (vector-ref data.3 i.3) (native-expected-f64 i.3)) (loop.1 (+ i.3 (ann 1 I64))) #f))) (= i.3 (vector-length data.3))))) loop.1))) (ann 0 I64)) #f) (ann 1 I64) (ann 0 I64))))
       (input-vector (ann 2 I32)))))
 
 (def hide (lambda (count.1 x.1) (if (barrier) x.1 (unreachable))))
 
 (def four1
   (lambda (data.2)
-    ((lambda (n pi*2) (begin (((lambda () (begin (def loop1 (lambda (i.2 j.1) (if (< i.2 n) (begin (if (< i.2 j.1) (begin ((lambda (temp.1) (begin (vector-set! data.2 i.2 (vector-ref data.2 j.1)) (vector-set! data.2 j.1 temp.1))) (vector-ref data.2 i.2)) ((lambda (temp) (begin (vector-set! data.2 (+ i.2 1) (vector-ref data.2 (+ j.1 1))) (vector-set! data.2 (+ j.1 1) temp))) (vector-ref data.2 (+ i.2 1))) (unit)) (unit)) (((lambda () (begin (def loop2 (lambda (m.1 j.2) (if (if (>= m.1 2) (>= j.2 m.1) #f) (loop2 (quotient m.1 2) (- j.2 m.1)) (loop1 (+ i.2 2) (+ j.2 m.1))))) loop2))) (quotient n 2) j.1) (unit)) (unit)))) loop1))) 0 0) (((lambda () (begin (def loop3 (lambda (mmax) (if (< mmax n) (begin ((lambda (theta) ((lambda (wpr) ((lambda (wpi) ((lambda () (begin (((lambda () (begin (def loop4 (lambda (wr wi m) (if (< m mmax) (begin (((lambda () (begin (def loop5 (lambda (i.1) (if (< i.1 n) ((lambda (j) ((lambda (tempr) ((lambda (tempi) ((lambda () (begin (vector-set! data.2 j (- (vector-ref data.2 i.1) tempr)) (vector-set! data.2 (+ j 1) (- (vector-ref data.2 (+ i.1 1)) tempi)) (vector-set! data.2 i.1 (+ (vector-ref data.2 i.1) tempr)) (vector-set! data.2 (+ i.1 1) (+ (vector-ref data.2 (+ i.1 1)) tempi)) (loop5 (+ j mmax)))))) (+ (* wr (vector-ref data.2 (+ j 1))) (* wi (vector-ref data.2 j))))) (- (* wr (vector-ref data.2 j)) (* wi (vector-ref data.2 (+ j 1)))))) (+ i.1 mmax)) (loop4 (+ (- (* wr wpr) (* wi wpi)) wr) (+ (+ (* wi wpr) (* wr wpi)) wi) (+ m 2))))) loop5))) m) (unit)) (unit)))) loop4))) 1.0 0.0 0) (loop3 (* mmax 2)))))) (sin theta))) ((lambda (x) (* -2.0 (* x x))) (sin (* 0.5 theta))))) (/ pi*2 (inexact mmax))) (unit)) (unit)))) loop3))) 2)))
+    ((lambda (n pi*2) (begin (((lambda () (begin (def loop1 (lambda (i.2 j.1) (if (< i.2 n) (begin (if (< i.2 j.1) (begin ((lambda (temp.1) (begin (vector-set! data.2 i.2 (vector-ref data.2 j.1)) (vector-set! data.2 j.1 temp.1))) (vector-ref data.2 i.2)) ((lambda (temp) (begin (vector-set! data.2 (+ i.2 (ann 1 I64)) (vector-ref data.2 (+ j.1 (ann 1 I64)))) (vector-set! data.2 (+ j.1 (ann 1 I64)) temp))) (vector-ref data.2 (+ i.2 (ann 1 I64)))) (unit)) (unit)) (((lambda () (begin (def loop2 (lambda (m.1 j.2) (if (if (>= m.1 (ann 2 I64)) (>= j.2 m.1) #f) (loop2 (quotient m.1 (ann 2 I64)) (- j.2 m.1)) (loop1 (+ i.2 (ann 2 I64)) (+ j.2 m.1))))) loop2))) (quotient n (ann 2 I64)) j.1) (unit)) (unit)))) loop1))) (ann 0 I64) (ann 0 I64)) (((lambda () (begin (def loop3 (lambda (mmax) (if (< mmax n) (begin ((lambda (theta) ((lambda (wpr) ((lambda (wpi) ((lambda () (begin (((lambda () (begin (def loop4 (lambda (wr wi m) (if (< m mmax) (begin (((lambda () (begin (def loop5 (lambda (i.1) (if (< i.1 n) ((lambda (j) ((lambda (tempr) ((lambda (tempi) ((lambda () (begin (vector-set! data.2 j (- (vector-ref data.2 i.1) tempr)) (vector-set! data.2 (+ j (ann 1 I64)) (- (vector-ref data.2 (+ i.1 (ann 1 I64))) tempi)) (vector-set! data.2 i.1 (+ (vector-ref data.2 i.1) tempr)) (vector-set! data.2 (+ i.1 (ann 1 I64)) (+ (vector-ref data.2 (+ i.1 (ann 1 I64))) tempi)) (loop5 (+ j mmax)))))) (+ (* wr (vector-ref data.2 (+ j (ann 1 I64)))) (* wi (vector-ref data.2 j))))) (- (* wr (vector-ref data.2 j)) (* wi (vector-ref data.2 (+ j (ann 1 I64))))))) (+ i.1 mmax)) (loop4 (+ (- (* wr wpr) (* wi wpi)) wr) (+ (+ (* wi wpr) (* wr wpi)) wi) (+ m (ann 2 I64)))))) loop5))) m) (unit)) (unit)))) loop4))) 1.0 0.0 (ann 0 I64)) (loop3 (* mmax (ann 2 I64))))))) (sin theta))) ((lambda (x) (* -2.0 (* x x))) (sin (* 0.5 theta))))) (/ pi*2 (inexact mmax))) (unit)) (unit)))) loop3))) (ann 2 I64))))
       (vector-length data.2)
       6.28318530717959)))
 
-(def data (make-vector 1024 0.0))
+(def data (make-vector (ann 1024 I64) 0.0))
 
-(def run (lambda (data.1) (begin (four1 data.1) (vector-ref data.1 0))))
+(def run (lambda (data.1) (begin (four1 data.1) (vector-ref data.1 (ann 0 I64)))))
 
 (def input0 (native-input-i64 (ann 0 I32)))
 
@@ -68,8 +68,8 @@
 
 (def bench (-> I64 F64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i 1) (run (hide count (make-vector input0 input1)))) result))) loop)))
-      0
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (run (hide count (make-vector input0 input1)))) result))) loop)))
+      (ann 0 I64)
       0.0)))
 
 (unit)

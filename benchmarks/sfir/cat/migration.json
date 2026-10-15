@@ -12,7 +12,7 @@
     "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
     "chez-adapted.scm": "adf2a5ae1fa50d8f5b098f5999275a1e925fefcd3b05c3bfc95cba1068e32125"
   },
-  "sfir_sha256": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+  "sfir_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
   "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services.",
   "adapted_control_import_correction": {
     "before_sha256": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2",
@@ -45,5 +45,14 @@
     "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
     "numeric_policy": "unchanged",
     "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  },
+  "literal_width_migration": {
+    "before_sha256": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+    "after_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
+    "annotations_added": 3,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
   }
 }

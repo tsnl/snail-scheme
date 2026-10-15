@@ -1,15 +1,15 @@
 (import (sfir base))
 (def values
-     (make-vector 3 1))
+     (make-vector (ann 3 I64) (ann 1 I64)))
 (def alias
      values)
-(vector-set! alias 1 42)
+(vector-set! alias (ann 1 I64) (ann 42 I64))
 (if (if (vector-eq? values alias)
-        (if (= (vector-length values) 3)
-            (if (= (vector-ref values 0) 1)
-                (if (= (vector-ref values 1) 42) (not (vector-eq? values (vector-copy values))) #f)
+        (if (= (vector-length values) (ann 3 I64))
+            (if (= (vector-ref values (ann 0 I64)) (ann 1 I64))
+                (if (= (vector-ref values (ann 1 I64)) (ann 42 I64)) (not (vector-eq? values (vector-copy values))) #f)
                 #f)
             #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

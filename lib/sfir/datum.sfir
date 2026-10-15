@@ -53,8 +53,8 @@
                            (if (= index count)
                                handle
                                (begin (token-character handle (string-ref text index))
-                                      (loop (+ index 1))))))
-                    (loop 0)))))
+                                      (loop (+ index (ann 1 I64)))))))
+                    (loop (ann 0 I64))))))
 
     (def datum-fail (-> String Never)
          (lambda (message)
@@ -88,8 +88,8 @@
                                          (if (= index count)
                                              result
                                              (begin (string-set! result index (symbol-character id (i64->i32 index)))
-                                                    (loop (+ index 1))))))
-                                  (loop 0)))))))
+                                                    (loop (+ index (ann 1 I64)))))))
+                                  (loop (ann 0 I64))))))))
 
     ;; ---- Exact lexical fields become SFIR-owned numeric values ----
 
@@ -107,8 +107,8 @@
                                   (if (= at count)
                                       text
                                       (begin (string-set! text at (raw-number-text-character handle part term (i64->i32 at)))
-                                             (loop (+ at 1))))))
-                           (loop 0))))))
+                                             (loop (+ at (ann 1 I64)))))))
+                           (loop (ann 0 I64)))))))
 
     (def token-rational (-> I32 I32 String Rational)
          (lambda (handle part numerator-text)
@@ -116,8 +116,8 @@
                   (begin (let scale (raw-number-scale handle part))
                          (begin (let numerator (integer-from-string/radix numerator-text radix))
                                 (begin (let denominator (integer-from-string/radix (token-exact-text handle part (ann 1 I32)) radix))
-                                       (begin (let factor (integer-power (integer-from-i64 10) (if (< scale 0) (- 0 scale) scale)))
-                                              (if (< scale 0)
+                                       (begin (let factor (integer-power (integer-from-i64 (ann 10 I64)) (if (< scale (ann 0 I64)) (- (ann 0 I64) scale) scale)))
+                                              (if (< scale (ann 0 I64))
                                                   (make-rational numerator (integer-multiply denominator factor))
                                                   (make-rational (integer-multiply numerator factor) denominator)))))))))
 
@@ -129,7 +129,7 @@
                              (scalar-from-rational value)
                              ;; Exact zero has no sign, so retain the lexical sign until #i has
                              ;; produced its binary64 zero. Nonzero underflow keeps its own sign.
-                             (inexact-scalar (if (if (rational-zero? value) (char=? (string-ref text 0) #\-) #f)
+                             (inexact-scalar (if (if (rational-zero? value) (char=? (string-ref text (ann 0 I64)) #\-) #f)
                                                  (* -1.0 0.0)
                                                  (rational->f64 value))))))))
 
@@ -152,8 +152,8 @@
                                   (if (= index count)
                                       result
                                       (begin (string-set! result index (error-character handle (i64->i32 index)))
-                                             (loop (+ index 1))))))
-                           (loop 0))))))
+                                             (loop (+ index (ann 1 I64)))))))
+                           (loop (ann 0 I64)))))))
 
     (def token-polar-result (-> I32 I32 NumberResult)
          (lambda (handle kind)
@@ -182,7 +182,7 @@
 
     (def string->number/radix (-> String I64 NumberResult)
          (lambda (text radix)
-           (if (not (if (= radix 2) #t (if (= radix 8) #t (if (= radix 10) #t (= radix 16)))))
+           (if (not (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64))))))
                (number-error "string->number: radix must be 2, 8, 10 or 16")
                (begin (let handle (stage-text text))
                       (begin (let kind (token-parse-radix handle (i64->i32 radix)))
@@ -190,7 +190,7 @@
                                     (begin
                                       (token-close handle) result)))))))
     (define-overload string->number (-> String NumberResult)
-      (lambda (text) (string->number/radix text 10)))
+      (lambda (text) (string->number/radix text (ann 10 I64))))
     (define-overload string->number (-> String I64 NumberResult) string->number/radix)
 
     ;; ---- Recursive datums and explicit mutable pair fields ----
@@ -243,14 +243,14 @@
     ;; Never recycling an ID lets a comparison remember it without rooting the
     ;; object. The only global state is a scalar; it retains no SFIR graph.
     (def next-datum-identity
-         (ref 1))
+         (ref (ann 1 I64)))
 
     (def fresh-datum-identity (-> I64)
          (lambda ()
            (begin (let identity (ref-get next-datum-identity))
-                  (if (= identity 9223372036854775807)
+                  (if (= identity (ann 9223372036854775807 I64))
                       (datum-fail "datum: recursive view identity exhausted")
-                      (begin (ref-set! next-datum-identity (+ identity 1)) identity)))))
+                      (begin (ref-set! next-datum-identity (+ identity (ann 1 I64))) identity)))))
 
     (def datum-pair (-> (Ref Datum) (Ref Datum) Datum)
          (lambda (first rest) (pair-datum first rest (fresh-datum-identity))))
@@ -276,22 +276,22 @@
     (def datum-kind (-> Datum I64)
          (lambda (value)
            (match value
-             ((datum-null) 0) ((datum-boolean value) 1) ((datum-character value) 2)
-             ((datum-string value) 3) ((datum-symbol value) 4) ((datum-number value) 5)
-             ((pair-datum first rest identity) 6) ((vector-datum values identity) 7) ((datum-bytevector values) 8))))
+             ((datum-null) (ann 0 I64)) ((datum-boolean value) (ann 1 I64)) ((datum-character value) (ann 2 I64))
+             ((datum-string value) (ann 3 I64)) ((datum-symbol value) (ann 4 I64)) ((datum-number value) (ann 5 I64))
+             ((pair-datum first rest identity) (ann 6 I64)) ((vector-datum values identity) (ann 7 I64)) ((datum-bytevector values) (ann 8 I64)))))
 
     (def datum-number? (-> Datum Bool)
-         (lambda (value) (= (datum-kind value) 5)))
+         (lambda (value) (= (datum-kind value) (ann 5 I64))))
 
     (def datum-null? (-> Datum Bool)
-         (lambda (value) (= (datum-kind value) 0)))
+         (lambda (value) (= (datum-kind value) (ann 0 I64))))
 
     (def datum-pair? (-> Datum Bool)
-         (lambda (value) (= (datum-kind value) 6)))
+         (lambda (value) (= (datum-kind value) (ann 6 I64))))
 
     (def datum-truth? (-> Datum Bool)
          (lambda (value)
-           (if (= (datum-kind value) 1) (datum-boolean-value value) #t)))
+           (if (= (datum-kind value) (ann 1 I64)) (datum-boolean-value value) #t)))
 
     ;; ---- Atomic equivalence and mutable storage identity ----
 
@@ -332,8 +332,8 @@
            (begin
              (def loop
                   (lambda (values count)
-                    (if (datum-null? values) count (loop (datum-cdr values) (+ count 1)))))
-             (loop values 0))))
+                    (if (datum-null? values) count (loop (datum-cdr values) (+ count (ann 1 I64))))))
+             (loop values (ann 0 I64)))))
 
     (def datum-append (-> Datum Datum Datum)
          (lambda (first rest)
@@ -375,7 +375,7 @@
 
     (def make-equality-history (-> EqualityHistory)
          (lambda ()
-           (equality-history (ref (make-vector 32 0)) (ref (make-vector 32 0)) (ref 0))))
+           (equality-history (ref (make-vector (ann 32 I64) (ann 0 I64))) (ref (make-vector (ann 32 I64) (ann 0 I64))) (ref (ann 0 I64)))))
     ;; Mix complete I64 bit patterns with wrapping arithmetic and logical shifts.
     ;; Odd multiplication and xor-with-shift are each invertible. Mixing the
     ;; right ID before combining it with the left avoids diagonal cancellation.
@@ -385,19 +385,19 @@
 
     (def equality-mix-word (-> I64 I64)
          (lambda (word)
-           (begin (let first (i64-mul (i64-bitwise-xor word (i64-shift-right/logical word 30)) -4658895280553007687))
-                  (begin (let second (i64-mul (i64-bitwise-xor first (i64-shift-right/logical first 27)) -7723592293110705685))
-                         (i64-bitwise-xor second (i64-shift-right/logical second 31))))))
+           (begin (let first (i64-mul (i64-bitwise-xor word (i64-shift-right/logical word (ann 30 I64))) (ann -4658895280553007687 I64)))
+                  (begin (let second (i64-mul (i64-bitwise-xor first (i64-shift-right/logical first (ann 27 I64))) (ann -7723592293110705685 I64)))
+                         (i64-bitwise-xor second (i64-shift-right/logical second (ann 31 I64)))))))
 
     (def equality-pair-hash (-> I64 I64 I64)
          (lambda (left right)
-           (equality-mix-word (i64-bitwise-xor left (equality-mix-word (i64-add right -7046029254386353131))))))
+           (equality-mix-word (i64-bitwise-xor left (equality-mix-word (i64-add right (ann -7046029254386353131 I64)))))))
     ;; Capacity starts at 32 and only doubles, through at most 2^31. Its mask
     ;; selects a nonnegative bucket even when the full hash has its high bit set.
 
     (def equality-bucket (-> I64 I64 I64 I64)
          (lambda (left right capacity)
-           (i64-bitwise-and (equality-pair-hash left right) (- capacity 1))))
+           (i64-bitwise-and (equality-pair-hash left right) (- capacity (ann 1 I64)))))
 
     (def equality-slot (-> I64 I64 (Vector I64) (Vector I64) I64)
          (lambda (left right keys partners)
@@ -405,11 +405,11 @@
                   (begin
                     (def loop
                          (lambda (index)
-                           (if (if (= (vector-ref keys index) 0)
+                           (if (if (= (vector-ref keys index) (ann 0 I64))
                                    #t
                                    (if (= (vector-ref keys index) left) (= (vector-ref partners index) right) #f))
                                index
-                               (loop (if (= (+ index 1) capacity) 0 (+ index 1))))))
+                               (loop (if (= (+ index (ann 1 I64)) capacity) (ann 0 I64) (+ index (ann 1 I64)))))))
                     (loop (equality-bucket left right capacity))))))
 
     (def place-equality-key! (-> I64 I64 (Vector I64) (Vector I64) Unit)
@@ -426,24 +426,24 @@
                     (if (= index (vector-length old-left))
                         (unit)
                         (begin
-                          (if (= (vector-ref old-left index) 0)
+                          (if (= (vector-ref old-left index) (ann 0 I64))
                               (unit)
                               (begin
                                 (place-equality-key! (vector-ref old-left index) (vector-ref old-right index) keys partners)
                                 (unit)))
-                          (loop (+ index 1))))))
-             (loop 0))))
+                          (loop (+ index (ann 1 I64)))))))
+             (loop (ann 0 I64)))))
 
     (def grow-equality-history! (-> EqualityHistory Unit)
          (lambda (history)
            (begin (let old-left (ref-get (history-left history)))
                   (begin (let old-right (ref-get (history-right history)))
                          (begin (let capacity (vector-length old-left))
-                                (begin (let grown (if (> capacity 1073741824)
+                                (begin (let grown (if (> capacity (ann 1073741824 I64))
                                                       (datum-fail "datum=?: comparison history exhausted")
-                                                      (* capacity 2)))
-                                       (begin (let keys (make-vector grown 0))
-                                              (begin (let partners (make-vector grown 0))
+                                                      (* capacity (ann 2 I64))))
+                                       (begin (let keys (make-vector grown (ann 0 I64)))
+                                              (begin (let partners (make-vector grown (ann 0 I64)))
                                                      (begin
                                                        (rehash-equality-keys! old-left old-right keys partners)
                                                        (ref-set! (history-left history) keys) (ref-set! (history-right history) partners))))))))))
@@ -451,7 +451,7 @@
     (def equality-seen? (-> I64 I64 EqualityHistory Bool)
          (lambda (left right history)
            (begin
-             (if (= (* (ref-get (history-size history)) 2) (vector-length (ref-get (history-left history))))
+             (if (= (* (ref-get (history-size history)) (ann 2 I64)) (vector-length (ref-get (history-left history))))
                  (begin
                    (grow-equality-history! history)
                    (unit))
@@ -462,7 +462,7 @@
                                   (if (= (vector-ref keys slot) left)
                                       #t
                                       (begin (vector-set! keys slot left) (vector-set! partners slot right)
-                                             (ref-set! (history-size history) (+ (ref-get (history-size history)) 1)) #f))))))))
+                                             (ref-set! (history-size history) (+ (ref-get (history-size history)) (ann 1 I64))) #f))))))))
 
     ;; ---- Stack-safe equality of finite graphs ----
 
@@ -502,7 +502,7 @@
            (if (= index (vector-length left))
                (equality-continue pending history)
                (equality-compare (vector-ref left index) (vector-ref right index)
-                                 (equality-elements left right (+ index 1) pending) history))))
+                                 (equality-elements left right (+ index (ann 1 I64)) pending) history))))
 
     (def equality-vector-datum (-> Datum Datum EqualityWork EqualityHistory Bool)
          (lambda (left right pending history)
@@ -512,7 +512,7 @@
                   (if (= (vector-length values) (vector-length others))
                       (if (equality-seen? (vector-datum-identity left) (vector-datum-identity right) history)
                           (equality-continue pending history)
-                          (equality-vector values others 0 pending history))
+                          (equality-vector values others (ann 0 I64) pending history))
                       #f))))
 
     (def equality-compare (-> Datum Datum EqualityWork EqualityHistory Bool)
@@ -545,9 +545,9 @@
                                (if (= index count)
                                    #t
                                    (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
-                                       (loop (+ index 1))
+                                       (loop (+ index (ann 1 I64)))
                                        #f))))
-                        (loop 0))
+                        (loop (ann 0 I64)))
                       #f))))
 
     ;; ---- Tests ----
@@ -579,7 +579,7 @@
                                 (begin (let tail (datum-list b))
                                        (begin (let head (datum-list a))
                                               (begin (let joined (datum-append head tail))
-                                                     (if (= (datum-length joined) 2)
+                                                     (if (= (datum-length joined) (ann 2 I64))
                                                          (if (datum-eq? (datum-cdr joined) tail)
                                                              (if (not (datum-eq? head joined))
                                                                  (if (datum-eq? (datum-car joined) a)
@@ -595,7 +595,7 @@
     (def test-storage-identity
          (lambda ()
            (begin (let text (string-copy "a"))
-                  (begin (let bytes (bytevector 1))
+                  (begin (let bytes (bytevector (ann 1 I64)))
                          (begin (let elements (vector (datum-null)))
                                 (if (datum-eq? (datum-string text) (datum-string text))
                                     (if (not (datum-eq? (datum-string text) (datum-string (string-copy text))))
@@ -665,9 +665,9 @@
          (lambda ()
            (if (datum=? (datum-string (string-copy "ab")) (datum-string (string-copy "ab")))
                (if (not (datum=? (datum-string "ab") (datum-string "ac")))
-                   (if (datum=? (datum-bytevector (bytevector 1 2)) (datum-bytevector (bytevector 1 2)))
-                       (if (not (datum=? (datum-bytevector (bytevector 1 2)) (datum-bytevector (bytevector 1 3))))
-                           (if (not (datum=? (datum-bytevector (bytevector 1 2)) (datum-bytevector (bytevector 1))))
+                   (if (datum=? (datum-bytevector (bytevector (ann 1 I64) (ann 2 I64))) (datum-bytevector (bytevector (ann 1 I64) (ann 2 I64))))
+                       (if (not (datum=? (datum-bytevector (bytevector (ann 1 I64) (ann 2 I64))) (datum-bytevector (bytevector (ann 1 I64) (ann 3 I64)))))
+                           (if (not (datum=? (datum-bytevector (bytevector (ann 1 I64) (ann 2 I64))) (datum-bytevector (bytevector (ann 1 I64)))))
                                (not (datum=? (datum-null) (datum-boolean #f)))
                                #f)
                            #f)
@@ -728,12 +728,12 @@
                                               (begin (let a (datum-cons (datum-character #\a) x))
                                                      (begin (let b (datum-cons (datum-character #\a) y))
                                                             (begin
-                                                              (vector-set! left 0 a) (vector-set! right 0 b)
+                                                              (vector-set! left (ann 0 I64) a) (vector-set! right (ann 0 I64) b)
                                                               (if (datum=? alias y)
                                                                   (if (datum-eq? alias x)
                                                                       (if (not (datum=? x (datum-vector (empty-vector))))
                                                                           (if (begin (datum-set-car! b (datum-character #\b)) (not (datum=? x y)))
-                                                                              (if (datum-eq? (vector-ref left 0) a) (datum-eq? (datum-cdr a) x) #f)
+                                                                              (if (datum-eq? (vector-ref left (ann 0 I64)) a) (datum-eq? (datum-cdr a) x) #f)
                                                                               #f)
                                                                           #f)
                                                                       #f)
@@ -756,9 +756,9 @@
                          (begin (let x (datum-cons (datum-vector left) (datum-null)))
                                 (begin (let y (datum-cons (datum-vector right) (datum-null)))
                                        (begin
-                                         (vector-set! left 0 x) (vector-set! right 0 y)
+                                         (vector-set! left (ann 0 I64) x) (vector-set! right (ann 0 I64) y)
                                          (if (not (datum=? x y))
-                                             (begin (vector-set! right 1 (datum-character #\a)) (datum=? x y))
+                                             (begin (vector-set! right (ann 1 I64) (datum-character #\a)) (datum=? x y))
                                              #f))))))))
     (def test-ring
          (lambda (count)
@@ -766,15 +766,15 @@
                   (begin
                     (def loop
                          (lambda (count last)
-                           (if (= count 0)
+                           (if (= count (ann 0 I64))
                                (begin (datum-set-cdr! last root) root)
                                (begin (let next (datum-cons (datum-character #\a) (datum-null)))
                                       (begin
-                                        (datum-set-cdr! last next) (loop (- count 1) next))))))
-                    (loop (- count 1) root)))))
+                                        (datum-set-cdr! last next) (loop (- count (ann 1 I64)) next))))))
+                    (loop (- count (ann 1 I64)) root)))))
     (def test-equality-coprime-cycles
          (lambda ()
-           (begin (let sfir-migration-let-11 (test-ring 17)) (let sfir-migration-let-12 (test-ring 19))
+           (begin (let sfir-migration-let-11 (test-ring (ann 17 I64))) (let sfir-migration-let-12 (test-ring (ann 19 I64)))
                   (let left sfir-migration-let-11)
                   (let right sfir-migration-let-12)
                   (if (datum=? left right)
@@ -786,13 +786,13 @@
            (begin
              (def loop
                   (lambda (count value)
-                    (if (= count 0) value (loop (- count 1) (datum-cons value (datum-null))))))
+                    (if (= count (ann 0 I64)) value (loop (- count (ann 1 I64)) (datum-cons value (datum-null))))))
              (loop count leaf))))
     (def test-equality-depth
          (lambda ()
-           (begin (let sfir-migration-let-13 (test-deep-datum 5000 (datum-character #\a)))
-                  (let sfir-migration-let-14 (test-deep-datum 5000 (datum-character #\a)))
-                  (let sfir-migration-let-15 (test-deep-datum 5000 (datum-character #\b)))
+           (begin (let sfir-migration-let-13 (test-deep-datum (ann 5000 I64) (datum-character #\a)))
+                  (let sfir-migration-let-14 (test-deep-datum (ann 5000 I64) (datum-character #\a)))
+                  (let sfir-migration-let-15 (test-deep-datum (ann 5000 I64) (datum-character #\b)))
                   (let left sfir-migration-let-13)
                   (let right sfir-migration-let-14)
                   (let different sfir-migration-let-15)
@@ -805,19 +805,19 @@
     ;; Include changes above 32 bits, both result signs, and reversed keys.
     (def test-equality-hash-words
          (lambda ()
-           (if (= (equality-pair-hash 1 1) 6652587683579779273)
-               (if (= (equality-pair-hash 1 2) -972091869234291113)
-                   (if (= (equality-pair-hash 2 1) 583880340377267059)
-                       (if (= (equality-pair-hash 9223372036854775807 9223372036854775807) 4218948218474539009)
-                           (if (= (equality-pair-hash 1 9223372036854775807) 6459536036652829431)
-                               (if (= (equality-pair-hash 9223372036854775807 1) -421409582817843346)
-                                   (if (= (equality-pair-hash 2097153 7) 1992281314829590827)
-                                       (if (= (equality-pair-hash 2147483649 7) -1548759241620248504)
-                                           (if (= (equality-pair-hash 4294967297 7) 2205320672614223687)
-                                               (if (= (equality-pair-hash 4398046511105 7) -2359351969197311418)
-                                                   (if (= (equality-pair-hash 4611686018427387905 7) -5466481419058493644)
-                                                       (if (= (equality-pair-hash 4611690416475996161 7) -5320575393637501446)
-                                                           (= (equality-pair-hash 7 4611690416475996161) -1025925624717699660)
+           (if (= (equality-pair-hash (ann 1 I64) (ann 1 I64)) (ann 6652587683579779273 I64))
+               (if (= (equality-pair-hash (ann 1 I64) (ann 2 I64)) (ann -972091869234291113 I64))
+                   (if (= (equality-pair-hash (ann 2 I64) (ann 1 I64)) (ann 583880340377267059 I64))
+                       (if (= (equality-pair-hash (ann 9223372036854775807 I64) (ann 9223372036854775807 I64)) (ann 4218948218474539009 I64))
+                           (if (= (equality-pair-hash (ann 1 I64) (ann 9223372036854775807 I64)) (ann 6459536036652829431 I64))
+                               (if (= (equality-pair-hash (ann 9223372036854775807 I64) (ann 1 I64)) (ann -421409582817843346 I64))
+                                   (if (= (equality-pair-hash (ann 2097153 I64) (ann 7 I64)) (ann 1992281314829590827 I64))
+                                       (if (= (equality-pair-hash (ann 2147483649 I64) (ann 7 I64)) (ann -1548759241620248504 I64))
+                                           (if (= (equality-pair-hash (ann 4294967297 I64) (ann 7 I64)) (ann 2205320672614223687 I64))
+                                               (if (= (equality-pair-hash (ann 4398046511105 I64) (ann 7 I64)) (ann -2359351969197311418 I64))
+                                                   (if (= (equality-pair-hash (ann 4611686018427387905 I64) (ann 7 I64)) (ann -5466481419058493644 I64))
+                                                       (if (= (equality-pair-hash (ann 4611690416475996161 I64) (ann 7 I64)) (ann -5320575393637501446 I64))
+                                                           (= (equality-pair-hash (ann 7 I64) (ann 4611690416475996161 I64)) (ann -1025925624717699660 I64))
                                                            #f)
                                                        #f)
                                                    #f)
@@ -832,8 +832,8 @@
                #f)))
     (def test-equality-history-high-bits
          (lambda ()
-           (begin (let sfir-migration-let-16 (vector 1 2097153 2147483649 4294967297 4398046511105
-                                                     4611686018427387905 4611690416475996161 9223372036854775807))
+           (begin (let sfir-migration-let-16 (vector (ann 1 I64) (ann 2097153 I64) (ann 2147483649 I64) (ann 4294967297 I64) (ann 4398046511105 I64)
+                                                     (ann 4611686018427387905 I64) (ann 4611690416475996161 I64) (ann 9223372036854775807 I64)))
                   (let sfir-migration-let-17 (make-equality-history))
                   (let ids sfir-migration-let-16)
                   (let history sfir-migration-let-17)
@@ -841,16 +841,16 @@
                     (def loop
                          (lambda (index)
                            (if (= index (vector-length ids))
-                               (= (ref-get (history-size history)) 16)
+                               (= (ref-get (history-size history)) (ann 16 I64))
                                (begin (let id (vector-ref ids index))
-                                      (if (not (equality-seen? id 7 history))
-                                          (if (not (equality-seen? 7 id history))
-                                              (if (equality-seen? id 7 history)
-                                                  (if (equality-seen? 7 id history) (loop (+ index 1)) #f)
+                                      (if (not (equality-seen? id (ann 7 I64) history))
+                                          (if (not (equality-seen? (ann 7 I64) id history))
+                                              (if (equality-seen? id (ann 7 I64) history)
+                                                  (if (equality-seen? (ann 7 I64) id history) (loop (+ index (ann 1 I64))) #f)
                                                   #f)
                                               #f)
                                           #f)))))
-                    (loop 0)))))
+                    (loop (ann 0 I64))))))
     (def test-insert-colliding-keys
          (lambda (keys history)
            (begin
@@ -858,12 +858,12 @@
                   (lambda (index)
                     (if (= index (vector-length keys))
                         #t
-                        (if (if (not (= index 32)) #t (= (vector-length (ref-get (history-left history))) 32))
-                            (if (not (equality-seen? (vector-ref keys index) (vector-ref keys (+ index 1)) history))
-                                (loop (+ index 2))
+                        (if (if (not (= index (ann 32 I64))) #t (= (vector-length (ref-get (history-left history))) (ann 32 I64)))
+                            (if (not (equality-seen? (vector-ref keys index) (vector-ref keys (+ index (ann 1 I64))) history))
+                                (loop (+ index (ann 2 I64)))
                                 #f)
                             #f))))
-             (loop 0))))
+             (loop (ann 0 I64)))))
     (def test-find-colliding-keys
          (lambda (keys history)
            (begin
@@ -871,42 +871,42 @@
                   (lambda (index)
                     (if (= index (vector-length keys))
                         #t
-                        (if (equality-seen? (vector-ref keys index) (vector-ref keys (+ index 1)) history)
-                            (loop (+ index 2))
+                        (if (equality-seen? (vector-ref keys index) (vector-ref keys (+ index (ann 1 I64))) history)
+                            (loop (+ index (ann 2 I64)))
                             #f))))
-             (loop 0))))
+             (loop (ann 0 I64)))))
     (def test-equality-history-collisions
          (lambda ()
            ;; All keys start at bucket 31 modulo 32. Growth splits their homes
            ;; between 31 and 63, exercising wraparound and rehashing together.
-           (begin (let sfir-migration-let-18 (vector 23 4611686018427387973
-                                                     46 4611686018427388042
-                                                     65 4611686018427388099
-                                                     134 4611686018427388306
-                                                     189 4611686018427388471
-                                                     213 4611686018427388543
-                                                     247 4611686018427388645
-                                                     271 4611686018427388717
-                                                     284 4611686018427388756
-                                                     387 4611686018427389065
-                                                     474 4611686018427389326
-                                                     486 4611686018427389362
-                                                     506 4611686018427389422
-                                                     513 4611686018427389443
-                                                     529 4611686018427389491
-                                                     539 4611686018427389521
-                                                     541 4611686018427389527
-                                                     567 4611686018427389605))
+           (begin (let sfir-migration-let-18 (vector (ann 23 I64) (ann 4611686018427387973 I64)
+                                                     (ann 46 I64) (ann 4611686018427388042 I64)
+                                                     (ann 65 I64) (ann 4611686018427388099 I64)
+                                                     (ann 134 I64) (ann 4611686018427388306 I64)
+                                                     (ann 189 I64) (ann 4611686018427388471 I64)
+                                                     (ann 213 I64) (ann 4611686018427388543 I64)
+                                                     (ann 247 I64) (ann 4611686018427388645 I64)
+                                                     (ann 271 I64) (ann 4611686018427388717 I64)
+                                                     (ann 284 I64) (ann 4611686018427388756 I64)
+                                                     (ann 387 I64) (ann 4611686018427389065 I64)
+                                                     (ann 474 I64) (ann 4611686018427389326 I64)
+                                                     (ann 486 I64) (ann 4611686018427389362 I64)
+                                                     (ann 506 I64) (ann 4611686018427389422 I64)
+                                                     (ann 513 I64) (ann 4611686018427389443 I64)
+                                                     (ann 529 I64) (ann 4611686018427389491 I64)
+                                                     (ann 539 I64) (ann 4611686018427389521 I64)
+                                                     (ann 541 I64) (ann 4611686018427389527 I64)
+                                                     (ann 567 I64) (ann 4611686018427389605 I64)))
                   (let sfir-migration-let-19 (make-equality-history))
                   (let keys sfir-migration-let-18)
                   (let history sfir-migration-let-19)
                   (if (test-insert-colliding-keys keys history)
-                      (if (= (vector-length (ref-get (history-left history))) 64)
-                          (if (= (ref-get (history-size history)) 18)
+                      (if (= (vector-length (ref-get (history-left history))) (ann 64 I64))
+                          (if (= (ref-get (history-size history)) (ann 18 I64))
                               (if (test-find-colliding-keys keys history)
-                                  (if (= (ref-get (history-size history)) 18)
-                                      (if (not (equality-seen? 640 4611686018427389824 history))
-                                          (not (equality-seen? (vector-ref keys 0) (vector-ref keys 1) (make-equality-history)))
+                                  (if (= (ref-get (history-size history)) (ann 18 I64))
+                                      (if (not (equality-seen? (ann 640 I64) (ann 4611686018427389824 I64) history))
+                                          (not (equality-seen? (vector-ref keys (ann 0 I64)) (vector-ref keys (ann 1 I64)) (make-equality-history)))
                                           #f)
                                       #f)
                                   #f)
@@ -963,5 +963,5 @@
                            #f)
                        #f)
                    #f)
-               42
-               0)))))
+               (ann 42 I64)
+               (ann 0 I64))))))

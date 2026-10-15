@@ -4,18 +4,18 @@
      (lambda ()
        (begin
          (def count
-              (ref 0))
+              (ref (ann 0 I64)))
          (def loop (-> I64 Unit)
               (lambda (remaining)
                 (begin
-                  (if (> remaining 0)
+                  (if (> remaining (ann 0 I64))
                       (begin
-                        ((begin (let next (- remaining 1))
+                        ((begin (let next (- remaining (ann 1 I64)))
                                 (begin
                                   (def repeat
                                        (lambda ()
                                          (begin
-                                           (ref-set! count (+ (ref-get count) 1))
+                                           (ref-set! count (+ (ref-get count) (ann 1 I64)))
                                            ((begin loop) next))))
                                   repeat)))
                         (unit))
@@ -23,13 +23,13 @@
                   (unit))))
          (def add-first (-> I64 (Rest I64) I64)
               (lambda (first . remaining) (+ first (car remaining))))
-         (loop 100000)
+         (loop (ann 100000 I64))
          (begin
            (def again
                 (lambda (remaining)
-                  (if (= remaining 0)
-                      (if (= (ref-get count) 100000) ((begin add-first) 40 2 99) 0)
-                      ((begin again) (- remaining 1)))))
-           (again 100000)))))
+                  (if (= remaining (ann 0 I64))
+                      (if (= (ref-get count) (ann 100000 I64)) ((begin add-first) (ann 40 I64) (ann 2 I64) (ann 99 I64)) (ann 0 I64))
+                      ((begin again) (- remaining (ann 1 I64))))))
+           (again (ann 100000 I64))))))
 
 (exercise)

@@ -4,10 +4,10 @@
 
 (def pattern-character
      (lambda (index)
-       (begin (let choice (remainder index 5))
-              (if (= choice 0)
+       (begin (let choice (remainder index (ann 5 I64)))
+              (if (= choice (ann 0 I64))
                   #\null
-                  (if (= choice 1) #\é (if (= choice 2) #\x1f600 (if (= choice 3) #\x10ffff #\x301)))))))
+                  (if (= choice (ann 1 I64)) #\é (if (= choice (ann 2 I64)) #\x1f600 (if (= choice (ann 3 I64)) #\x10ffff #\x301)))))))
 (def pattern-string
      (lambda (length)
        (begin (let value (make-string length))
@@ -19,9 +19,9 @@
                              (unit)
                              (begin
                                (string-set! value index (pattern-character index))
-                               (loop (+ index 1))
+                               (loop (+ index (ann 1 I64)))
                                (unit)))))
-                  (loop 0))
+                  (loop (ann 0 I64)))
                 value))))
 (def copied-range?
      (lambda (length at start end)
@@ -36,7 +36,7 @@
                                            (unit)
                                            (begin
                                              (string-set! expected (+ at (- index start)) (string-ref before index))
-                                             (loop (+ index 1))
+                                             (loop (+ index (ann 1 I64)))
                                              (unit)))))
                                 (loop start))
                               (string-copy! value at value start end)
@@ -45,36 +45,36 @@
 ;; ---- Fresh buffers, aliases and block-edge overlap ----
 
 (def original
-     (pattern-string 16385))
+     (pattern-string (ann 16385 I64)))
 (def alias
      original)
 (def copied
      (string-copy original))
 (def middle
-     (substring original 8191 16385))
+     (substring original (ann 8191 I64) (ann 16385 I64)))
 (def joined
      (string-append "[" original "]"))
-(string-set! alias 8192 #\Z)
+(string-set! alias (ann 8192 I64) #\Z)
 (if (if (string-eq? alias original)
         (if (not (string-eq? copied original))
-            (if (char=? (string-ref original 8192) #\Z)
-                (if (char=? (string-ref copied 8192) (pattern-character 8192))
-                    (if (char=? (string-ref middle 1) (pattern-character 8192))
-                        (if (char=? (string-ref joined 8193) (pattern-character 8192))
-                            (if (char=? (string-ref copied 16384) (pattern-character 16384))
-                                (if (copied-range? 0 0 0 0)
-                                    (if (copied-range? 1 0 0 1)
-                                        (if (copied-range? 8191 1 0 8190)
-                                            (if (copied-range? 8192 0 1 8192)
-                                                (if (copied-range? 8193 1 0 8192)
-                                                    (if (copied-range? 16384 1 0 16383)
-                                                        (if (copied-range? 16384 0 1 16384)
-                                                            (if (copied-range? 16385 8190 8188 16381)
-                                                                (if (copied-range? 24579 8191 8189 16393)
-                                                                    (if (copied-range? 24579 0 8190 24579)
-                                                                        (if (copied-range? 24579 16387 0 8192)
-                                                                            (if (copied-range? 32801 123 8159 25000)
-                                                                                (if (copied-range? 24576 0 0 24576) (copied-range? 24579 24579 24579 24579) #f)
+            (if (char=? (string-ref original (ann 8192 I64)) #\Z)
+                (if (char=? (string-ref copied (ann 8192 I64)) (pattern-character (ann 8192 I64)))
+                    (if (char=? (string-ref middle (ann 1 I64)) (pattern-character (ann 8192 I64)))
+                        (if (char=? (string-ref joined (ann 8193 I64)) (pattern-character (ann 8192 I64)))
+                            (if (char=? (string-ref copied (ann 16384 I64)) (pattern-character (ann 16384 I64)))
+                                (if (copied-range? (ann 0 I64) (ann 0 I64) (ann 0 I64) (ann 0 I64))
+                                    (if (copied-range? (ann 1 I64) (ann 0 I64) (ann 0 I64) (ann 1 I64))
+                                        (if (copied-range? (ann 8191 I64) (ann 1 I64) (ann 0 I64) (ann 8190 I64))
+                                            (if (copied-range? (ann 8192 I64) (ann 0 I64) (ann 1 I64) (ann 8192 I64))
+                                                (if (copied-range? (ann 8193 I64) (ann 1 I64) (ann 0 I64) (ann 8192 I64))
+                                                    (if (copied-range? (ann 16384 I64) (ann 1 I64) (ann 0 I64) (ann 16383 I64))
+                                                        (if (copied-range? (ann 16384 I64) (ann 0 I64) (ann 1 I64) (ann 16384 I64))
+                                                            (if (copied-range? (ann 16385 I64) (ann 8190 I64) (ann 8188 I64) (ann 16381 I64))
+                                                                (if (copied-range? (ann 24579 I64) (ann 8191 I64) (ann 8189 I64) (ann 16393 I64))
+                                                                    (if (copied-range? (ann 24579 I64) (ann 0 I64) (ann 8190 I64) (ann 24579 I64))
+                                                                        (if (copied-range? (ann 24579 I64) (ann 16387 I64) (ann 0 I64) (ann 8192 I64))
+                                                                            (if (copied-range? (ann 32801 I64) (ann 123 I64) (ann 8159 I64) (ann 25000 I64))
+                                                                                (if (copied-range? (ann 24576 I64) (ann 0 I64) (ann 0 I64) (ann 24576 I64)) (copied-range? (ann 24579 I64) (ann 24579 I64) (ann 24579 I64) (ann 24579 I64)) #f)
                                                                                 #f)
                                                                             #f)
                                                                         #f)
@@ -94,5 +94,5 @@
                 #f)
             #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

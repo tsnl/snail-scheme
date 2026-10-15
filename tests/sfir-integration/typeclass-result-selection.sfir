@@ -8,4 +8,4 @@
 
 (def second F64
      (zero))
-(if (if (i32-eq first (ann 0 I32)) (f64-eq second 0.0) #f) 42 0)
+(if (if (i32-eq first (ann 0 I32)) (f64-eq second 0.0) #f) (ann 42 I64) (ann 0 I64))

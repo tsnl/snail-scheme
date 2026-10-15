@@ -13,8 +13,8 @@
     "chez-original.scm": "ddca50c7c5ea6db504cd887428eec0e4ea587f09dcb011ec3f4df9201ecc2eb1"
   },
   "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
-  "sfir_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
-  "observation_sfir_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+  "sfir_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+  "observation_sfir_sha256": "30fa87bbb0825010154bd5537319f4693404093692ec8bef2c8acfc9af8f0840",
   "canonical_validation": "/tmp/snail-sfir-continuation-validation-20261015/validation.json",
   "clarity_review": "Fresh independent no-files explanation and focused critique of closed continuation contexts, CTAK shadowing captures, source operand order, ownership and complete Peano addition; measured sources unchanged.",
   "surface_migration": {
@@ -33,6 +33,20 @@
       "before_sha256": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3",
       "migrated_unformatted_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
       "after_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc"
+    }
+  },
+  "literal_width_migration": {
+    "before_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "after_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+    "annotations_added": 10,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources.",
+    "observer": {
+      "before_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+      "after_sha256": "30fa87bbb0825010154bd5537319f4693404093692ec8bef2c8acfc9af8f0840",
+      "annotations_added": 18
     }
   }
 }

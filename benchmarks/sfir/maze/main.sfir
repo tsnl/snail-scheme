@@ -64,9 +64,9 @@
   (lambda (cell.2 parent.1)
     (if (present? parent.1) (same-cell? cell.2 (optional-value parent.1)) #f)))
 
-(def maze-zero? (lambda (value.8) (= value.8 0)))
+(def maze-zero? (lambda (value.8) (= value.8 (ann 0 I64))))
 
-(def maze-odd? (lambda (value.7) (not (= (remainder value.7 2) 0))))
+(def maze-odd? (lambda (value.7) (not (= (remainder value.7 (ann 2 I64)) (ann 0 I64)))))
 
 (def maze-exact-integer? (-> I64 Bool) (lambda (value.6) #t))
 
@@ -78,8 +78,8 @@
 
 (def vector-until-rev (All (T) (-> (-> T Bool) (Vector T) Unit))
   (lambda (procedure values)
-    (((lambda () (begin (def loop.13 (lambda (index.1) (if (>= index.1 0) (begin (if (procedure (vector-ref values index.1)) (unit) (begin (loop.13 (- index.1 1)) (unit))) (unit)) (unit)))) loop.13)))
-      (- (vector-length values) 1))))
+    (((lambda () (begin (def loop.13 (lambda (index.1) (if (>= index.1 (ann 0 I64)) (begin (if (procedure (vector-ref values index.1)) (unit) (begin (loop.13 (- index.1 (ann 1 I64))) (unit))) (unit)) (unit)))) loop.13)))
+      (- (vector-length values) (ann 1 I64)))))
 
 (def same-characters?
   (lambda (actual.1 expected.2)
@@ -103,51 +103,51 @@
           ((other-output) #f)))
       ((other-output) #f))))
 
-(def bitwise-not (-> I64 I64) (lambda (x.10) (- (- 0 x.10) 1)))
+(def bitwise-not (-> I64 I64) (lambda (x.10) (- (- (ann 0 I64) x.10) (ann 1 I64))))
 
 (def bitwise-and (-> I64 I64 I64)
   (lambda (x.9 y.7)
-    (if (= x.9 0)
-      0
-      (if (= y.7 0)
-        0
-        (if (= x.9 -1)
+    (if (= x.9 (ann 0 I64))
+      (ann 0 I64)
+      (if (= y.7 (ann 0 I64))
+        (ann 0 I64)
+        (if (= x.9 (ann -1 I64))
           y.7
-          (if (= y.7 -1)
+          (if (= y.7 (ann -1 I64))
             x.9
-            ((lambda (z) (if (if (maze-odd? x.9) (maze-odd? y.7) #f) (+ (+ z z) 1) (+ z z)))
-              (bitwise-and (div x.9 2) (div y.7 2)))))))))
+            ((lambda (z) (if (if (maze-odd? x.9) (maze-odd? y.7) #f) (+ (+ z z) (ann 1 I64)) (+ z z)))
+              (bitwise-and (div x.9 (ann 2 I64)) (div y.7 (ann 2 I64))))))))))
 
 (def div (-> I64 I64 I64)
   (lambda (x.8 y.6)
-    (if (if (maze-exact-integer? x.8) (if (maze-exact-integer? y.6) (>= x.8 0) #f) #f)
+    (if (if (maze-exact-integer? x.8) (if (maze-exact-integer? y.6) (>= x.8 (ann 0 I64)) #f) #f)
       (quotient x.8 y.6)
-      (if (< y.6 0)
-        ((lambda (q.3) ((lambda (r.12) ((lambda () (if (= r.12 0) q.3 (+ q.3 1))))) (- x.8 (* q.3 y.6))))
+      (if (< y.6 (ann 0 I64))
+        ((lambda (q.3) ((lambda (r.12) ((lambda () (if (= r.12 (ann 0 I64)) q.3 (+ q.3 (ann 1 I64)))))) (- x.8 (* q.3 y.6))))
           (quotient x.8 y.6))
-        ((lambda (q.2) ((lambda (r.11) ((lambda () (if (= r.11 0) q.2 (- q.2 1))))) (- x.8 (* q.2 y.6))))
+        ((lambda (q.2) ((lambda (r.11) ((lambda () (if (= r.11 (ann 0 I64)) q.2 (- q.2 (ann 1 I64)))))) (- x.8 (* q.2 y.6))))
           (quotient x.8 y.6))))))
 
 (def mod (-> I64 I64 I64)
   (lambda (x.7 y.5)
-    (if (if (maze-exact-integer? x.7) (if (maze-exact-integer? y.5) (>= x.7 0) #f) #f)
+    (if (if (maze-exact-integer? x.7) (if (maze-exact-integer? y.5) (>= x.7 (ann 0 I64)) #f) #f)
       (remainder x.7 y.5)
-      (if (< y.5 0)
-        ((lambda (q.1) ((lambda (r.10) ((lambda () (if (= r.10 0) 0 (- r.10 y.5))))) (- x.7 (* q.1 y.5))))
+      (if (< y.5 (ann 0 I64))
+        ((lambda (q.1) ((lambda (r.10) ((lambda () (if (= r.10 (ann 0 I64)) (ann 0 I64) (- r.10 y.5))))) (- x.7 (* q.1 y.5))))
           (quotient x.7 y.5))
-        ((lambda (q) ((lambda (r.9) ((lambda () (if (= r.9 0) 0 (+ r.9 y.5))))) (- x.7 (* q y.5))))
+        ((lambda (q) ((lambda (r.9) ((lambda () (if (= r.9 (ann 0 I64)) (ann 0 I64) (+ r.9 y.5))))) (- x.7 (* q y.5))))
           (quotient x.7 y.5))))))
 
 (def random-state (-> I64 (Ref I64)) (lambda (n.4) (ref n.4)))
 
 (def rand (-> (Ref I64) I64)
   (lambda (state.1)
-    ((lambda (seed A M Q R) ((lambda (hi) ((lambda (lo) ((lambda (test) ((lambda (val.1) ((lambda () (begin (ref-set! state.1 val.1) val.1)))) (if (> test 0) test (+ test M)))) (- (* A lo) (* R hi)))) (mod seed Q))) (div seed Q)))
+    ((lambda (seed A M Q R) ((lambda (hi) ((lambda (lo) ((lambda (test) ((lambda (val.1) ((lambda () (begin (ref-set! state.1 val.1) val.1)))) (if (> test (ann 0 I64)) test (+ test M)))) (- (* A lo) (* R hi)))) (mod seed Q))) (div seed Q)))
       (ref-get state.1)
-      2813
-      8388607
-      2787
-      2699)))
+      (ann 2813 I64)
+      (ann 8388607 I64)
+      (ann 2787 I64)
+      (ann 2699 I64))))
 
 (def random-int (-> I64 (Ref I64) I64) (lambda (n.3 state) (mod (rand state) n.3)))
 
@@ -184,7 +184,7 @@
 
 (def make-cell
   (lambda (reachable id.1)
-    (cell-record (ref reachable) (ref id.1) (ref -1) (ref (absent)) (ref #f))))
+    (cell-record (ref reachable) (ref id.1) (ref (ann -1 I64)) (ref (absent)) (ref #f))))
 
 (def cell:reachable (lambda (o.16) (ref-get (cell-reachable-field o.16))))
 
@@ -208,14 +208,14 @@
 
 (def vector-for-each-rev (All (T) (-> (-> T Unit) (Vector T) Unit))
   (lambda (proc.3 v.5)
-    (((lambda () (begin (def lp.3 (lambda (i.2) (if (>= i.2 0) (begin (proc.3 (vector-ref v.5 i.2)) (lp.3 (- i.2 1))) (unit)))) lp.3)))
-      (- (vector-length v.5) 1))))
+    (((lambda () (begin (def lp.3 (lambda (i.2) (if (>= i.2 (ann 0 I64)) (begin (proc.3 (vector-ref v.5 i.2)) (lp.3 (- i.2 (ann 1 I64)))) (unit)))) lp.3)))
+      (- (vector-length v.5) (ann 1 I64)))))
 
 (def permute-vec! (All (T) (-> (Vector T) (Ref I64) (Vector T)))
   (lambda (v.4 random-state.1)
     (begin
-      (((lambda () (begin (def lp.2 (lambda (i.1) (if (> i.1 1) (begin ((lambda (elt-i j.1) (begin (vector-set! v.4 i.1 (vector-ref v.4 j.1)) (vector-set! v.4 j.1 elt-i))) (vector-ref v.4 i.1) (random-int i.1 random-state.1)) (lp.2 (- i.1 1))) (unit)))) lp.2)))
-        (- (vector-length v.4) 1))
+      (((lambda () (begin (def lp.2 (lambda (i.1) (if (> i.1 (ann 1 I64)) (begin ((lambda (elt-i j.1) (begin (vector-set! v.4 i.1 (vector-ref v.4 j.1)) (vector-set! v.4 j.1 elt-i))) (vector-ref v.4 i.1) (random-int i.1 random-state.1)) (lp.2 (- i.1 (ann 1 I64)))) (unit)))) lp.2)))
+        (- (vector-length v.4) (ann 1 I64)))
       v.4)))
 
 (def dig-maze (-> (Vector Wall) I64 Unit)
@@ -240,8 +240,8 @@
 
 (def path-length (-> Cell I64)
   (lambda (cell.1)
-    (((lambda () (begin (def loop.12 (lambda (len node.2) (if (not (present? node.2)) (begin (unit) len) (loop.12 (+ len 1) (cell:parent (optional-value node.2)))))) loop.12)))
-      0
+    (((lambda () (begin (def loop.12 (lambda (len node.2) (if (not (present? node.2)) (begin (unit) len) (loop.12 (+ len (ann 1 I64)) (cell:parent (optional-value node.2)))))) loop.12)))
+      (ann 0 I64)
       (cell:parent cell.1))))
 
 (def mark-path (-> Cell Unit)
@@ -270,56 +270,56 @@
 (def href
   (lambda (ha.2 x.5 y.4)
     ((lambda (r.6 c.10) (vector-ref (harr:elts ha.2) (+ (* (harr:ncols ha.2) r.6) c.10)))
-      (div y.4 2)
-      (div x.5 3))))
+      (div y.4 (ann 2 I64))
+      (div x.5 (ann 3 I64)))))
 
 (def hset!
   (lambda (ha.1 x.4 y.3 val)
     ((lambda (r.5 c.9) (vector-set! (harr:elts ha.1) (+ (* (harr:ncols ha.1) r.5) c.9) val))
-      (div y.3 2)
-      (div x.4 3))))
+      (div y.3 (ann 2 I64))
+      (div x.4 (ann 3 I64)))))
 
 (def href/rc (lambda (ha r.4 c.8) (vector-ref (harr:elts ha) (+ (* (harr:ncols ha) r.4) c.8))))
 
 (def harr-tabulate (-> I64 I64 (-> I64 I64 Cell) HexArray)
   (lambda (nrows.6 ncols.6 proc.2)
-    ((lambda (v) (begin (((lambda () (begin (def loop.10 (lambda (r.3) (if (< r.3 0) (unit) (begin (((lambda () (begin (def loop.11 (lambda (c.7 i) (if (= c.7 ncols.6) (unit) (begin (vector-set! v i (proc.2 (* 3 c.7) (+ (* 2 r.3) (bitwise-and c.7 1)))) (loop.11 (+ c.7 1) (+ i 1)))))) loop.11))) 0 (* r.3 ncols.6)) (loop.10 (- r.3 1)))))) loop.10))) (- nrows.6 1)) (make-harr nrows.6 ncols.6 v)))
+    ((lambda (v) (begin (((lambda () (begin (def loop.10 (lambda (r.3) (if (< r.3 (ann 0 I64)) (unit) (begin (((lambda () (begin (def loop.11 (lambda (c.7 i) (if (= c.7 ncols.6) (unit) (begin (vector-set! v i (proc.2 (* (ann 3 I64) c.7) (+ (* (ann 2 I64) r.3) (bitwise-and c.7 (ann 1 I64))))) (loop.11 (+ c.7 (ann 1 I64)) (+ i (ann 1 I64))))))) loop.11))) (ann 0 I64) (* r.3 ncols.6)) (loop.10 (- r.3 (ann 1 I64))))))) loop.10))) (- nrows.6 (ann 1 I64))) (make-harr nrows.6 ncols.6 v)))
       (make-vector (* nrows.6 ncols.6) (uninitialized-cell)))))
 
 (def harr-for-each (-> (-> Cell Unit) HexArray Unit)
   (lambda (proc.1 harr.6) (vector-for-each-rev proc.1 (harr:elts harr.6))))
 
-(def south-west 1)
+(def south-west (ann 1 I64))
 
-(def south 2)
+(def south (ann 2 I64))
 
-(def south-east 4)
+(def south-east (ann 4 I64))
 
 (def gen-maze-array
   (lambda (r.2 c.6)
-    (harr-tabulate r.2 c.6 (lambda (x.3 y.2) (make-cell (base-set 1) (coordinate x.3 y.2))))))
+    (harr-tabulate r.2 c.6 (lambda (x.3 y.2) (make-cell (base-set (ann 1 I64)) (coordinate x.3 y.2))))))
 
 (def make-wall-vec (-> HexArray (Vector Wall))
   (lambda (harr.5)
-    ((lambda (nrows.5) ((lambda (ncols.5) ((lambda (xmax) ((lambda (walls.3) ((lambda (add-wall) ((lambda () (begin (((lambda () (begin (def loop.8 (lambda (x.2) (if (< x.2 0) (unit) (begin (((lambda () (begin (def loop.9 (lambda (y.1) (if (<= y.1 1) (unit) (begin ((lambda (hex) (begin (if (not (maze-zero? x.2)) (add-wall hex (href harr.5 (- x.2 3) (- y.1 1)) south-west) (unit)) (add-wall hex (href harr.5 x.2 (- y.1 2)) south) (if (< x.2 xmax) (add-wall hex (href harr.5 (+ x.2 3) (- y.1 1)) south-east) (unit)))) (href harr.5 x.2 y.1)) (loop.9 (- y.1 2)))))) loop.9))) (+ (* (- nrows.5 1) 2) (bitwise-and x.2 1))) (loop.8 (- x.2 3)))))) loop.8))) (* (- ncols.5 1) 3)) (if (> ncols.5 1) ((lambda (rmoc-x) (begin ((lambda (rmoc-hex) (begin (if (< rmoc-x xmax) (add-wall rmoc-hex (href harr.5 xmax 0) south-east) (unit)) (add-wall rmoc-hex (href harr.5 (- rmoc-x 3) 0) south-west))) (href harr.5 rmoc-x 1)) (((lambda () (begin (def loop.7 (lambda (x.1) (if (< x.1 3) (unit) (begin (add-wall (href harr.5 x.1 1) (href harr.5 (- x.1 3) 0) south-west) (add-wall (href harr.5 x.1 1) (href harr.5 (+ x.1 3) 0) south-east) (loop.7 (- x.1 6)))))) loop.7))) (- rmoc-x 6)))) (+ 3 (* 6 (div (- ncols.5 2) 2)))) (unit)) (list->vector (ref-get walls.3)))))) (lambda (o n.1 b) (ref-set! walls.3 (cons (make-wall o n.1 b) (ref-get walls.3)))))) (ref (ann (empty-list ) (List Wall))))) (* 3 (- ncols.5 1)))) (harr:ncols harr.5)))
+    ((lambda (nrows.5) ((lambda (ncols.5) ((lambda (xmax) ((lambda (walls.3) ((lambda (add-wall) ((lambda () (begin (((lambda () (begin (def loop.8 (lambda (x.2) (if (< x.2 (ann 0 I64)) (unit) (begin (((lambda () (begin (def loop.9 (lambda (y.1) (if (<= y.1 (ann 1 I64)) (unit) (begin ((lambda (hex) (begin (if (not (maze-zero? x.2)) (add-wall hex (href harr.5 (- x.2 (ann 3 I64)) (- y.1 (ann 1 I64))) south-west) (unit)) (add-wall hex (href harr.5 x.2 (- y.1 (ann 2 I64))) south) (if (< x.2 xmax) (add-wall hex (href harr.5 (+ x.2 (ann 3 I64)) (- y.1 (ann 1 I64))) south-east) (unit)))) (href harr.5 x.2 y.1)) (loop.9 (- y.1 (ann 2 I64))))))) loop.9))) (+ (* (- nrows.5 (ann 1 I64)) (ann 2 I64)) (bitwise-and x.2 (ann 1 I64)))) (loop.8 (- x.2 (ann 3 I64))))))) loop.8))) (* (- ncols.5 (ann 1 I64)) (ann 3 I64))) (if (> ncols.5 (ann 1 I64)) ((lambda (rmoc-x) (begin ((lambda (rmoc-hex) (begin (if (< rmoc-x xmax) (add-wall rmoc-hex (href harr.5 xmax (ann 0 I64)) south-east) (unit)) (add-wall rmoc-hex (href harr.5 (- rmoc-x (ann 3 I64)) (ann 0 I64)) south-west))) (href harr.5 rmoc-x (ann 1 I64))) (((lambda () (begin (def loop.7 (lambda (x.1) (if (< x.1 (ann 3 I64)) (unit) (begin (add-wall (href harr.5 x.1 (ann 1 I64)) (href harr.5 (- x.1 (ann 3 I64)) (ann 0 I64)) south-west) (add-wall (href harr.5 x.1 (ann 1 I64)) (href harr.5 (+ x.1 (ann 3 I64)) (ann 0 I64)) south-east) (loop.7 (- x.1 (ann 6 I64))))))) loop.7))) (- rmoc-x (ann 6 I64))))) (+ (ann 3 I64) (* (ann 6 I64) (div (- ncols.5 (ann 2 I64)) (ann 2 I64))))) (unit)) (list->vector (ref-get walls.3)))))) (lambda (o n.1 b) (ref-set! walls.3 (cons (make-wall o n.1 b) (ref-get walls.3)))))) (ref (ann (empty-list ) (List Wall))))) (* (ann 3 I64) (- ncols.5 (ann 1 I64))))) (harr:ncols harr.5)))
       (harr:nrows harr.5))))
 
 (def pick-entrances (-> HexArray Entrances)
   (lambda (harr.4)
     (begin
-      (dfs-maze harr.4 (href/rc harr.4 0 0) for-each-hex-child)
-      ((lambda (nrows.4 ncols.4) (((lambda () (begin (def tp-lp (lambda (max-len entrance.3 exit.2 tcol) (if (< tcol 0) (entrances entrance.3 exit.2) ((lambda (top-cell) (begin (reroot-maze top-cell) ((lambda (result.4) ((lambda (max-len.2 entrance.5 exit.4) (tp-lp max-len.2 entrance.5 exit.4 (- tcol 1))) (longest-length result.4) (longest-top result.4) (longest-bottom result.4))) (((lambda () (begin (def bt-lp (lambda (max-len.1 entrance.4 exit.3 bcol) (if (< bcol 0) (longest-path max-len.1 entrance.4 exit.3) ((lambda (this-len) (if (> this-len max-len.1) (bt-lp this-len (present tcol) (present bcol) (- bcol 1)) (bt-lp max-len.1 entrance.4 exit.3 (- bcol 1)))) (path-length (href/rc harr.4 0 bcol)))))) bt-lp))) max-len entrance.3 exit.2 (- ncols.4 1))))) (href/rc harr.4 (- nrows.4 1) tcol))))) tp-lp))) -1 (absent) (absent) (- ncols.4 1)))
+      (dfs-maze harr.4 (href/rc harr.4 (ann 0 I64) (ann 0 I64)) for-each-hex-child)
+      ((lambda (nrows.4 ncols.4) (((lambda () (begin (def tp-lp (lambda (max-len entrance.3 exit.2 tcol) (if (< tcol (ann 0 I64)) (entrances entrance.3 exit.2) ((lambda (top-cell) (begin (reroot-maze top-cell) ((lambda (result.4) ((lambda (max-len.2 entrance.5 exit.4) (tp-lp max-len.2 entrance.5 exit.4 (- tcol (ann 1 I64)))) (longest-length result.4) (longest-top result.4) (longest-bottom result.4))) (((lambda () (begin (def bt-lp (lambda (max-len.1 entrance.4 exit.3 bcol) (if (< bcol (ann 0 I64)) (longest-path max-len.1 entrance.4 exit.3) ((lambda (this-len) (if (> this-len max-len.1) (bt-lp this-len (present tcol) (present bcol) (- bcol (ann 1 I64))) (bt-lp max-len.1 entrance.4 exit.3 (- bcol (ann 1 I64))))) (path-length (href/rc harr.4 (ann 0 I64) bcol)))))) bt-lp))) max-len entrance.3 exit.2 (- ncols.4 (ann 1 I64)))))) (href/rc harr.4 (- nrows.4 (ann 1 I64)) tcol))))) tp-lp))) (ann -1 I64) (absent) (absent) (- ncols.4 (ann 1 I64))))
         (harr:nrows harr.4)
         (harr:ncols harr.4)))))
 
 (def for-each-hex-child (-> (-> Cell Unit) HexArray Cell Unit)
   (lambda (proc harr.3 cell)
-    ((lambda (walls.2) ((lambda (id) ((lambda (x) ((lambda (y) ((lambda (nr) ((lambda (nc) ((lambda (maxy) ((lambda (maxx) ((lambda () (begin (if (not (bit-test walls.2 south-west)) (proc (href harr.3 (- x 3) (- y 1))) (unit)) (if (not (bit-test walls.2 south)) (proc (href harr.3 x (- y 2))) (unit)) (if (not (bit-test walls.2 south-east)) (proc (href harr.3 (+ x 3) (- y 1))) (unit)) (if (if (> x 0) ((lambda (value.4) (if value.4 value.4 (maze-zero? (mod x 6)))) (<= y maxy)) #f) ((lambda (nw) (if (not (bit-test (cell:walls nw) south-east)) (proc nw) (unit))) (href harr.3 (- x 3) (+ y 1))) (unit)) (if (< y maxy) ((lambda (n) (if (not (bit-test (cell:walls n) south)) (proc n) (unit))) (href harr.3 x (+ y 2))) (unit)) (if (if (< x maxx) ((lambda (value.3) (if value.3 value.3 (maze-zero? (mod x 6)))) (<= y maxy)) #f) ((lambda (ne) (if (not (bit-test (cell:walls ne) south-west)) (proc ne) (unit))) (href harr.3 (+ x 3) (+ y 1))) (unit)))))) (* 3 (- nc 1)))) (* 2 (- nr 1)))) (harr:ncols harr.3))) (harr:nrows harr.3))) (coordinate-y id))) (coordinate-x id))) (cell:id cell)))
+    ((lambda (walls.2) ((lambda (id) ((lambda (x) ((lambda (y) ((lambda (nr) ((lambda (nc) ((lambda (maxy) ((lambda (maxx) ((lambda () (begin (if (not (bit-test walls.2 south-west)) (proc (href harr.3 (- x (ann 3 I64)) (- y (ann 1 I64)))) (unit)) (if (not (bit-test walls.2 south)) (proc (href harr.3 x (- y (ann 2 I64)))) (unit)) (if (not (bit-test walls.2 south-east)) (proc (href harr.3 (+ x (ann 3 I64)) (- y (ann 1 I64)))) (unit)) (if (if (> x (ann 0 I64)) ((lambda (value.4) (if value.4 value.4 (maze-zero? (mod x (ann 6 I64))))) (<= y maxy)) #f) ((lambda (nw) (if (not (bit-test (cell:walls nw) south-east)) (proc nw) (unit))) (href harr.3 (- x (ann 3 I64)) (+ y (ann 1 I64)))) (unit)) (if (< y maxy) ((lambda (n) (if (not (bit-test (cell:walls n) south)) (proc n) (unit))) (href harr.3 x (+ y (ann 2 I64)))) (unit)) (if (if (< x maxx) ((lambda (value.3) (if value.3 value.3 (maze-zero? (mod x (ann 6 I64))))) (<= y maxy)) #f) ((lambda (ne) (if (not (bit-test (cell:walls ne) south-west)) (proc ne) (unit))) (href harr.3 (+ x (ann 3 I64)) (+ y (ann 1 I64)))) (unit)))))) (* (ann 3 I64) (- nc (ann 1 I64))))) (* (ann 2 I64) (- nr (ann 1 I64))))) (harr:ncols harr.3))) (harr:nrows harr.3))) (coordinate-y id))) (coordinate-x id))) (cell:id cell)))
       (cell:walls cell))))
 
 (def make-maze (-> I64 I64 Maze)
   (lambda (nrows.3 ncols.3)
-    ((lambda (cells.1) ((lambda (walls.1) ((lambda () (begin (dig-maze walls.1 (* nrows.3 ncols.3)) ((lambda (result.3) ((lambda (entrance.2 exit.1) ((lambda (exit-cell) ((lambda (walls) ((lambda () (begin (reroot-maze (href/rc cells.1 (- nrows.3 1) entrance.2)) (mark-path exit-cell) (set-cell:walls exit-cell (bitwise-and walls (bitwise-not south))) (maze-result cells.1 entrance.2 exit.1))))) (cell:walls exit-cell))) (href/rc cells.1 0 exit.1))) (optional-value (entrance-top result.3)) (optional-value (entrance-bottom result.3)))) (pick-entrances cells.1)))))) (permute-vec! (make-wall-vec cells.1) (random-state 20))))
+    ((lambda (cells.1) ((lambda (walls.1) ((lambda () (begin (dig-maze walls.1 (* nrows.3 ncols.3)) ((lambda (result.3) ((lambda (entrance.2 exit.1) ((lambda (exit-cell) ((lambda (walls) ((lambda () (begin (reroot-maze (href/rc cells.1 (- nrows.3 (ann 1 I64)) entrance.2)) (mark-path exit-cell) (set-cell:walls exit-cell (bitwise-and walls (bitwise-not south))) (maze-result cells.1 entrance.2 exit.1))))) (cell:walls exit-cell))) (href/rc cells.1 (ann 0 I64) exit.1))) (optional-value (entrance-top result.3)) (optional-value (entrance-bottom result.3)))) (pick-entrances cells.1)))))) (permute-vec! (make-wall-vec cells.1) (random-state (ann 20 I64)))))
       (gen-maze-array nrows.3 ncols.3))))
 
 (def pmaze (-> I64 I64 Unit)
@@ -333,13 +333,13 @@
 
 (def print-hexmaze (-> HexArray I64 Unit)
   (lambda (harr.2 entrance)
-    ((lambda (nrows.1) ((lambda (ncols.1) ((lambda (ncols2) ((lambda () (begin (((lambda () (begin (def loop.6 (lambda (c.4) (if (>= c.4 ncols.1) (unit) (begin (write-ch #\space) (write-ch #\space) (write-ch #\space) (write-ch (if (= c.4 entrance) #\space #\_)) (loop.6 (+ c.4 2)))))) loop.6))) 1) (write-ch #\newline) (write-ch #\space) (((lambda () (begin (def loop.5 (lambda (c.3) (if (>= c.3 ncols2) (unit) (begin (write-ch (if (= c.3 entrance) #\space #\_)) (write-ch #\/) (write-ch (dot/space harr.2 (- nrows.1 1) (+ c.3 1))) (write-ch #\\) (loop.5 (+ c.3 2)))))) loop.5))) 0) (if (maze-odd? ncols.1) (write-ch (if (= entrance (- ncols.1 1)) #\space #\_)) (unit)) (write-ch #\newline) (((lambda () (begin (def loop.2 (lambda (r.1) (if (< r.1 0) (unit) (begin (write-ch #\/) (((lambda () (begin (def loop.4 (lambda (c.2) (if (>= c.2 ncols2) (unit) (begin (write-ch (dot/space harr.2 r.1 (- c.2 1))) (display-hexbottom (cell:walls (href/rc harr.2 r.1 c.2))) (loop.4 (+ c.2 2)))))) loop.4))) 1) (if (maze-odd? ncols.1) (begin (write-ch (dot/space harr.2 r.1 (- ncols.1 1))) (write-ch #\\)) (unit)) (write-ch #\newline) (((lambda () (begin (def loop.3 (lambda (c.1) (if (>= c.1 ncols2) (unit) (begin (display-hexbottom (cell:walls (href/rc harr.2 r.1 c.1))) (write-ch (dot/space harr.2 (- r.1 1) (+ c.1 1))) (loop.3 (+ c.1 2)))))) loop.3))) 0) (if (maze-odd? ncols.1) (display-hexbottom (cell:walls (href/rc harr.2 r.1 (- ncols.1 1)))) (if (not (maze-zero? r.1)) (write-ch #\\) (unit))) (write-ch #\newline) (loop.2 (- r.1 1)))))) loop.2))) (- nrows.1 1)))))) (* 2 (div ncols.1 2)))) (harr:ncols harr.2)))
+    ((lambda (nrows.1) ((lambda (ncols.1) ((lambda (ncols2) ((lambda () (begin (((lambda () (begin (def loop.6 (lambda (c.4) (if (>= c.4 ncols.1) (unit) (begin (write-ch #\space) (write-ch #\space) (write-ch #\space) (write-ch (if (= c.4 entrance) #\space #\_)) (loop.6 (+ c.4 (ann 2 I64))))))) loop.6))) (ann 1 I64)) (write-ch #\newline) (write-ch #\space) (((lambda () (begin (def loop.5 (lambda (c.3) (if (>= c.3 ncols2) (unit) (begin (write-ch (if (= c.3 entrance) #\space #\_)) (write-ch #\/) (write-ch (dot/space harr.2 (- nrows.1 (ann 1 I64)) (+ c.3 (ann 1 I64)))) (write-ch #\\) (loop.5 (+ c.3 (ann 2 I64))))))) loop.5))) (ann 0 I64)) (if (maze-odd? ncols.1) (write-ch (if (= entrance (- ncols.1 (ann 1 I64))) #\space #\_)) (unit)) (write-ch #\newline) (((lambda () (begin (def loop.2 (lambda (r.1) (if (< r.1 (ann 0 I64)) (unit) (begin (write-ch #\/) (((lambda () (begin (def loop.4 (lambda (c.2) (if (>= c.2 ncols2) (unit) (begin (write-ch (dot/space harr.2 r.1 (- c.2 (ann 1 I64)))) (display-hexbottom (cell:walls (href/rc harr.2 r.1 c.2))) (loop.4 (+ c.2 (ann 2 I64))))))) loop.4))) (ann 1 I64)) (if (maze-odd? ncols.1) (begin (write-ch (dot/space harr.2 r.1 (- ncols.1 (ann 1 I64)))) (write-ch #\\)) (unit)) (write-ch #\newline) (((lambda () (begin (def loop.3 (lambda (c.1) (if (>= c.1 ncols2) (unit) (begin (display-hexbottom (cell:walls (href/rc harr.2 r.1 c.1))) (write-ch (dot/space harr.2 (- r.1 (ann 1 I64)) (+ c.1 (ann 1 I64)))) (loop.3 (+ c.1 (ann 2 I64))))))) loop.3))) (ann 0 I64)) (if (maze-odd? ncols.1) (display-hexbottom (cell:walls (href/rc harr.2 r.1 (- ncols.1 (ann 1 I64))))) (if (not (maze-zero? r.1)) (write-ch #\\) (unit))) (write-ch #\newline) (loop.2 (- r.1 (ann 1 I64))))))) loop.2))) (- nrows.1 (ann 1 I64))))))) (* (ann 2 I64) (div ncols.1 (ann 2 I64))))) (harr:ncols harr.2)))
       (harr:nrows harr.2))))
 
 (def bit-test (lambda (j bit) (not (maze-zero? (bitwise-and j bit)))))
 
 (def dot/space
-  (lambda (harr.1 r c) (if (if (>= r 0) (cell:mark (href/rc harr.1 r c)) #f) #\. #\space)))
+  (lambda (harr.1 r c) (if (if (>= r (ann 0 I64)) (cell:mark (href/rc harr.1 r c)) #f) #\. #\space)))
 
 (def display-hexbottom
   (lambda (hexwalls)
@@ -369,9 +369,9 @@
 
 (def maze-input-output
   (lambda (value.1)
-    (if (if (= (datum-kind value.1) 1) (not (datum-boolean-value value.1)) #f)
+    (if (if (= (datum-kind value.1) (ann 1 I64)) (not (datum-boolean-value value.1)) #f)
       (initial-output)
-      (((lambda () (begin (def loop.1 (lambda (tail result.1) (if (datum-null? tail) (character-output (maze-reverse result.1)) (if (if (datum-pair? tail) (= (datum-kind (datum-car tail)) 2) #f) (loop.1 (datum-cdr tail) (cons (datum-character-value (datum-car tail)) result.1)) (other-output))))) loop.1)))
+      (((lambda () (begin (def loop.1 (lambda (tail result.1) (if (datum-null? tail) (character-output (maze-reverse result.1)) (if (if (datum-pair? tail) (= (datum-kind (datum-car tail)) (ann 2 I64)) #f) (loop.1 (datum-cdr tail) (cons (datum-character-value (datum-car tail)) result.1)) (other-output))))) loop.1)))
         value.1
         (ann (empty-list ) (List Char))))))
 
@@ -390,8 +390,8 @@
 
 (def bench (-> I64 I64)
   (lambda (count)
-    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index 1) (character-output (run (hide count (specification-rows configured)) (hide count (specification-columns configured))))) (if (same-output? result (specification-expected configured)) 1 0)))) loop)))
-      0
+    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index (ann 1 I64)) (character-output (run (hide count (specification-rows configured)) (hide count (specification-columns configured))))) (if (same-output? result (specification-expected configured)) (ann 1 I64) (ann 0 I64))))) loop)))
+      (ann 0 I64)
       (initial-output))))
 
 (unit)

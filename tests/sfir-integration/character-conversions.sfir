@@ -3,23 +3,23 @@
      (lambda (procedure value) (procedure value)))
 
 (def negative (-> Char)
-     (lambda () (integer->char -1)))
+     (lambda () (integer->char (ann -1 I64))))
 
 (def surrogate-low (-> Char)
-     (lambda () (integer->char 55296)))
+     (lambda () (integer->char (ann 55296 I64))))
 
 (def surrogate-high (-> Char)
-     (lambda () (integer->char 57343)))
+     (lambda () (integer->char (ann 57343 I64))))
 
 (def too-large (-> Char)
-     (lambda () (integer->char 1114112)))
+     (lambda () (integer->char (ann 1114112 I64))))
 
 (def huge (-> Char)
-     (lambda () (convert integer->char 9223372036854775807)))
-(if (if (= (char->integer (integer->char 0)) 0)
-        (if (= (char->integer (integer->char 55295)) 55295)
-            (if (= (char->integer (integer->char 57344)) 57344)
-                (if (= (char->integer (convert integer->char 1114111)) 1114111)
+     (lambda () (convert integer->char (ann 9223372036854775807 I64))))
+(if (if (= (char->integer (integer->char (ann 0 I64))) (ann 0 I64))
+        (if (= (char->integer (integer->char (ann 55295 I64))) (ann 55295 I64))
+            (if (= (char->integer (integer->char (ann 57344 I64))) (ann 57344 I64))
+                (if (= (char->integer (convert integer->char (ann 1114111 I64))) (ann 1114111 I64))
                     (if (char<? #\A #\é)
                         (if (char<=? #\λ #\λ)
                             (if (char>? #\😀 #\λ) (if (char>=? #\😀 #\😀) (not (char=? #\é #\λ)) #f) #f)
@@ -29,5 +29,5 @@
                 #f)
             #f)
         #f)
-    42
+    (ann 42 I64)
     (unreachable))

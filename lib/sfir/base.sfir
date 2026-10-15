@@ -119,7 +119,7 @@
 
     (def Default (typeclass ( T) (: default (-> T))))
     (def sfir-migration-instance-1 (instance (Default I32) (default (lambda () (ann 0 I32)))))
-    (def sfir-migration-instance-2 (instance (Default I64) (default (lambda () 0))))
+    (def sfir-migration-instance-2 (instance (Default I64) (default (lambda () (ann 0 I64)))))
     (def sfir-migration-instance-3 (instance (Default F32) (default (lambda () (ann 0.0 F32)))))
     (def sfir-migration-instance-4 (instance (Default F64) (default (lambda () 0.0))))
     (def sfir-migration-instance-5 (instance (Default Bool) (default (lambda () #f))))
@@ -133,9 +133,9 @@
         ;; Validate before user code runs; zero invokes no default. WasmGC
         ;; roots the private vector and every unfinished slot holds the first
         ;; result until replaced. The vector escapes only after full initialization.
-        (if (if (< count 0) #t (> count 4294967295))
+        (if (if (< count (ann 0 I64)) #t (> count (ann 4294967295 I64)))
             (unreachable)
-            (if (= count 0)
+            (if (= count (ann 0 I64))
                 (empty-vector)
                 (begin (let result (make-filled-vector count (default)))
                        (begin
@@ -145,8 +145,8 @@
                                     result
                                     (begin
                                       (vector-set! result index (default))
-                                      (loop (+ index 1))))))
-                         (loop 1)))))))
+                                      (loop (+ index (ann 1 I64)))))))
+                         (loop (ann 1 I64))))))))
 
     ;; These are ordinary polymorphic SFIR functions. Specialization keeps
     ;; each element type through native allocation and bulk copying. Constructors
@@ -165,8 +165,8 @@
                                    result
                                    (begin
                                      (vector-set! result index (car tail))
-                                     (loop (cdr tail) (+ index 1))))))
-                        (loop elements 0))))))
+                                     (loop (cdr tail) (+ index (ann 1 I64)))))))
+                        (loop elements (ann 0 I64)))))))
     (def element-count
          (lambda (elements)
            (begin
@@ -174,32 +174,32 @@
                   (lambda (tail count)
                     (if (null? tail)
                         count
-                        (if (= count 4294967295) (unreachable) (loop (cdr tail) (+ count 1))))))
-             (loop elements 0))))
+                        (if (= count (ann 4294967295 I64)) (unreachable) (loop (cdr tail) (+ count (ann 1 I64)))))))
+             (loop elements (ann 0 I64)))))
     (def vector->list
          (lambda (source)
            (begin
              (def loop
                   (lambda (index result)
-                    (if (= index 0) result (loop (- index 1) (cons (vector-ref source (- index 1)) result)))))
+                    (if (= index (ann 0 I64)) result (loop (- index (ann 1 I64)) (cons (vector-ref source (- index (ann 1 I64))) result)))))
              (loop (vector-length source) (empty-list )))))
     (def vector-copy
          (lambda (source)
            (begin (let count (vector-length source))
-                  (if (= count 0)
+                  (if (= count (ann 0 I64))
                       (empty-vector)
-                      (begin (let result (make-vector count (vector-ref source 0)))
+                      (begin (let result (make-vector count (vector-ref source (ann 0 I64))))
                              (begin
-                               (vector-copy! result 0 source 0 count)
+                               (vector-copy! result (ann 0 I64) source (ann 0 I64) count)
                                result))))))
     (def vector-append
          (lambda sources
            (begin (let count (appended-length sources))
-                  (if (= count 0)
+                  (if (= count (ann 0 I64))
                       (empty-vector)
                       (begin (let result (make-vector count (first-element sources)))
                              (begin
-                               (append-into! result sources 0)
+                               (append-into! result sources (ann 0 I64))
                                result))))))
     (def appended-length
          (lambda (sources)
@@ -208,23 +208,23 @@
            (begin
              (def loop
                   (lambda (tail count)
-                    (if (> count 4294967295)
+                    (if (> count (ann 4294967295 I64))
                         (unreachable)
                         (if (null? tail) count (loop (cdr tail) (+ count (vector-length (car tail))))))))
-             (loop sources 0))))
+             (loop sources (ann 0 I64)))))
     (def first-element
          (lambda (sources)
            ;; A positive combined length guarantees a nonempty source will be found.
-           (if (= (vector-length (car sources)) 0)
+           (if (= (vector-length (car sources)) (ann 0 I64))
                (first-element (cdr sources))
-               (vector-ref (car sources) 0))))
+               (vector-ref (car sources) (ann 0 I64)))))
     (def append-into!
          (lambda (result sources offset)
            (if (null? sources)
                (unit)
                (begin (let count (vector-length (car sources)))
                       (begin
-                        (vector-copy! result offset (car sources) 0 count)
+                        (vector-copy! result offset (car sources) (ann 0 I64) count)
                         (append-into! result (cdr sources) (+ offset count)))))))
 
     ;; ---- Mutable Unicode strings and readonly literals ----
@@ -246,32 +246,32 @@
                                result
                                (begin
                                  (string-set! result index (car tail))
-                                 (loop (cdr tail) (+ index 1))))))
-                    (loop characters 0)))))
+                                 (loop (cdr tail) (+ index (ann 1 I64)))))))
+                    (loop characters (ann 0 I64))))))
     (def string->list
          (lambda (source)
            (begin
              (def loop
                   (lambda (index result)
-                    (if (= index 0) result (loop (- index 1) (cons (string-ref source (- index 1)) result)))))
+                    (if (= index (ann 0 I64)) result (loop (- index (ann 1 I64)) (cons (string-ref source (- index (ann 1 I64))) result)))))
              (loop (string-length source) (empty-list )))))
     (def substring
          (lambda (source start end)
            ;; Validate before allocation; the difference is then nonnegative and
            ;; bounded by the source length, so I64 subtraction cannot wrap.
-           (if (if (< start 0) #t (if (< end start) #t (> end (string-length source))))
+           (if (if (< start (ann 0 I64)) #t (if (< end start) #t (> end (string-length source))))
                (unreachable)
                (begin (let result (make-string (- end start)))
                       (begin
-                        (string-copy! result 0 source start end)
+                        (string-copy! result (ann 0 I64) source start end)
                         result)))))
     (def string-copy
-         (lambda (source) (substring source 0 (string-length source))))
+         (lambda (source) (substring source (ann 0 I64) (string-length source))))
     (def string-append
          (lambda sources
            (begin (let result (make-string (appended-string-length sources)))
                   (begin
-                    (append-strings-into! result sources 0)
+                    (append-strings-into! result sources (ann 0 I64))
                     result))))
     (def appended-string-length
          (lambda (sources)
@@ -280,17 +280,17 @@
            (begin
              (def loop
                   (lambda (tail count)
-                    (if (> count 4294967294)
+                    (if (> count (ann 4294967294 I64))
                         (unreachable)
                         (if (null? tail) count (loop (cdr tail) (+ count (string-length (car tail))))))))
-             (loop sources 0))))
+             (loop sources (ann 0 I64)))))
     (def append-strings-into!
          (lambda (result sources offset)
            (if (null? sources)
                (unit)
                (begin (let count (string-length (car sources)))
                       (begin
-                        (string-copy! result offset (car sources) 0 count)
+                        (string-copy! result offset (car sources) (ann 0 I64) count)
                         (append-strings-into! result (cdr sources) (+ offset count)))))))
     (def string=?
          (lambda (left right)
@@ -300,6 +300,6 @@
                       (lambda (index)
                         (if (= index (string-length left))
                             #t
-                            (if (char=? (string-ref left index) (string-ref right index)) (loop (+ index 1)) #f))))
-                 (loop 0))
+                            (if (char=? (string-ref left index) (string-ref right index)) (loop (+ index (ann 1 I64))) #f))))
+                 (loop (ann 0 I64)))
                #f)))))

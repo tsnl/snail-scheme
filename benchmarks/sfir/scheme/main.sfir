@@ -51,21 +51,21 @@
 (def value-kind (-> Value I64)
   (lambda (value)
     (match value
-      ((value-null) 0)
-      ((value-boolean boolean) 1)
-      ((value-character character) 2)
-      ((value-string string) 3)
-      ((value-symbol symbol) 4)
-      ((value-number number) 5)
-      ((value-pair first rest) 6)
-      ((value-vector vector) 7)
-      ((value-bytevector bytes) 8)
-      ((value-input identity port) 9)
-      ((value-output port) 10)
-      ((value-procedure identity procedure) 11)
-      ((value-eof) 12)
-      ((value-unspecified) 13)
-      ((value-uninitialized) 14))))
+      ((value-null) (ann 0 I64))
+      ((value-boolean boolean) (ann 1 I64))
+      ((value-character character) (ann 2 I64))
+      ((value-string string) (ann 3 I64))
+      ((value-symbol symbol) (ann 4 I64))
+      ((value-number number) (ann 5 I64))
+      ((value-pair first rest) (ann 6 I64))
+      ((value-vector vector) (ann 7 I64))
+      ((value-bytevector bytes) (ann 8 I64))
+      ((value-input identity port) (ann 9 I64))
+      ((value-output port) (ann 10 I64))
+      ((value-procedure identity procedure) (ann 11 I64))
+      ((value-eof) (ann 12 I64))
+      ((value-unspecified) (ann 13 I64))
+      ((value-uninitialized) (ann 14 I64)))))
 
 ;; ---- Source binding cells detect reads before initialization ----
 
@@ -93,35 +93,35 @@
       ((value-unspecified) #t)
       ((value-uninitialized) #t))))
 
-(def value-null? (-> Value Bool) (lambda (value) (= (value-kind value) 0)))
+(def value-null? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 0 I64))))
 
-(def value-boolean? (-> Value Bool) (lambda (value) (= (value-kind value) 1)))
+(def value-boolean? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 1 I64))))
 
-(def value-character? (-> Value Bool) (lambda (value) (= (value-kind value) 2)))
+(def value-character? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 2 I64))))
 
-(def value-string? (-> Value Bool) (lambda (value) (= (value-kind value) 3)))
+(def value-string? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 3 I64))))
 
-(def value-symbol? (-> Value Bool) (lambda (value) (= (value-kind value) 4)))
+(def value-symbol? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 4 I64))))
 
-(def value-number? (-> Value Bool) (lambda (value) (= (value-kind value) 5)))
+(def value-number? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 5 I64))))
 
-(def value-pair? (-> Value Bool) (lambda (value) (= (value-kind value) 6)))
+(def value-pair? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 6 I64))))
 
-(def value-vector? (-> Value Bool) (lambda (value) (= (value-kind value) 7)))
+(def value-vector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 7 I64))))
 
-(def value-bytevector? (-> Value Bool) (lambda (value) (= (value-kind value) 8)))
+(def value-bytevector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 8 I64))))
 
-(def value-input? (-> Value Bool) (lambda (value) (= (value-kind value) 9)))
+(def value-input? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 9 I64))))
 
-(def value-output? (-> Value Bool) (lambda (value) (= (value-kind value) 10)))
+(def value-output? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 10 I64))))
 
-(def value-procedure? (-> Value Bool) (lambda (value) (= (value-kind value) 11)))
+(def value-procedure? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 11 I64))))
 
-(def value-eof? (-> Value Bool) (lambda (value) (= (value-kind value) 12)))
+(def value-eof? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 12 I64))))
 
-(def value-unspecified? (-> Value Bool) (lambda (value) (= (value-kind value) 13)))
+(def value-unspecified? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 13 I64))))
 
-(def value-uninitialized? (-> Value Bool) (lambda (value) (= (value-kind value) 14)))
+(def value-uninitialized? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 14 I64))))
 
 ;; ---- Mutable pairs keep identity in their field cells ----
 
@@ -154,7 +154,7 @@
       #f)))
 
 (def value-length (-> Value I64)
-  (lambda (values) (if (value-null? values) 0 (+ 1 (value-length (value-cdr values))))))
+  (lambda (values) (if (value-null? values) (ann 0 I64) (+ (ann 1 I64) (value-length (value-cdr values))))))
 
 (def value-append (-> Value Value Value)
   (lambda (left right)
@@ -169,7 +169,7 @@
       (value-reverse (value-cdr values) (value-cons (value-car values) result)))))
 
 (def value-tail (-> Value I64 Value)
-  (lambda (values index) (if (= index 0) values (value-tail (value-cdr values) (- index 1)))))
+  (lambda (values index) (if (= index (ann 0 I64)) values (value-tail (value-cdr values) (- index (ann 1 I64))))))
 
 (def value-member (-> Value Value (-> Value Value Bool) Value)
   (lambda (value values same?)
@@ -287,7 +287,7 @@
 
 (def integer-radix-string (-> Integer I64 String)
   (lambda (number radix)
-    (if (if (= radix 2) #t (if (= radix 8) #t (if (= radix 10) #t (= radix 16))))
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
       (if (integer-zero? number)
         "0"
         (string-append
@@ -735,8 +735,8 @@
         (value-compare-strings
           (string-foldcase (value-string-string a0))
           (string-foldcase (value-string-string a1))
-          0)
-        0))))
+          (ann 0 I64))
+        (ann 0 I64)))))
 
 (def primitive/string-ci<?/2 (-> Value Value Value)
   (lambda (a0 a1)
@@ -745,8 +745,8 @@
         (value-compare-strings
           (string-foldcase (value-string-string a0))
           (string-foldcase (value-string-string a1))
-          0)
-        0))))
+          (ann 0 I64))
+        (ann 0 I64)))))
 
 (def primitive/string-ci=?/2 (-> Value Value Value)
   (lambda (a0 a1)
@@ -755,8 +755,8 @@
         (value-compare-strings
           (string-foldcase (value-string-string a0))
           (string-foldcase (value-string-string a1))
-          0)
-        0))))
+          (ann 0 I64))
+        (ann 0 I64)))))
 
 (def primitive/string-ci>=?/2 (-> Value Value Value)
   (lambda (a0 a1)
@@ -765,8 +765,8 @@
         (value-compare-strings
           (string-foldcase (value-string-string a0))
           (string-foldcase (value-string-string a1))
-          0)
-        0))))
+          (ann 0 I64))
+        (ann 0 I64)))))
 
 (def primitive/string-ci>?/2 (-> Value Value Value)
   (lambda (a0 a1)
@@ -775,8 +775,8 @@
         (value-compare-strings
           (string-foldcase (value-string-string a0))
           (string-foldcase (value-string-string a1))
-          0)
-        0))))
+          (ann 0 I64))
+        (ann 0 I64)))))
 
 (def primitive/string-length/1 (-> Value Value)
   (lambda (a0) (value-number (exact-number (string-length (value-string-string a0))))))
@@ -800,27 +800,27 @@
 (def primitive/string<=?/2 (-> Value Value Value)
   (lambda (a0 a1)
     (value-boolean
-      (<= (value-compare-strings (value-string-string a0) (value-string-string a1) 0) 0))))
+      (<= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
 
 (def primitive/string<?/2 (-> Value Value Value)
   (lambda (a0 a1)
     (value-boolean
-      (< (value-compare-strings (value-string-string a0) (value-string-string a1) 0) 0))))
+      (< (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
 
 (def primitive/string=?/2 (-> Value Value Value)
   (lambda (a0 a1)
     (value-boolean
-      (= (value-compare-strings (value-string-string a0) (value-string-string a1) 0) 0))))
+      (= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
 
 (def primitive/string>=?/2 (-> Value Value Value)
   (lambda (a0 a1)
     (value-boolean
-      (>= (value-compare-strings (value-string-string a0) (value-string-string a1) 0) 0))))
+      (>= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
 
 (def primitive/string>?/2 (-> Value Value Value)
   (lambda (a0 a1)
     (value-boolean
-      (> (value-compare-strings (value-string-string a0) (value-string-string a1) 0) 0))))
+      (> (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
 
 (def primitive/string?/1 (-> Value Value) (lambda (a0) (value-boolean (value-string? a0))))
 
@@ -1041,7 +1041,7 @@
   (lambda (a0 remaining)
     (value-number
       (if (value-null? remaining)
-        (number-divide (exact-number 1) (value-number-number a0))
+        (number-divide (exact-number (ann 1 I64)) (value-number-number a0))
         (numeric-fold number-divide (value-number-number a0) remaining)))))
 
 (def primitive-value// Value (value-procedure (ref (unit)) (function-rest-1 primitive-rest//)))
@@ -1049,13 +1049,13 @@
 (def primitive-value/abs Value (value-procedure (ref (unit)) (function-1 primitive/abs/1)))
 
 (def primitive-rest/gcd (-> Value Value)
-  (lambda (remaining) (value-number (numeric-gcd-fold #f (integer-from-i64 0) remaining #f))))
+  (lambda (remaining) (value-number (numeric-gcd-fold #f (integer-from-i64 (ann 0 I64)) remaining #f))))
 
 (def primitive-value/gcd Value
   (value-procedure (ref (unit)) (function-rest-0 primitive-rest/gcd)))
 
 (def primitive-rest/lcm (-> Value Value)
-  (lambda (remaining) (value-number (numeric-gcd-fold #t (integer-from-i64 1) remaining #f))))
+  (lambda (remaining) (value-number (numeric-gcd-fold #t (integer-from-i64 (ann 1 I64)) remaining #f))))
 
 (def primitive-value/lcm Value
   (value-procedure (ref (unit)) (function-rest-0 primitive-rest/lcm)))
@@ -1433,13 +1433,13 @@
       (begin (let lo (number->integer (numeric-floor x)))
         (begin (let fraction (number-subtract x (number-from-integer lo)))
           (number-from-integer
-            (if (number<? fraction (rational-number (make-rational (integer-from-i64 1) (integer-from-i64 2))))
+            (if (number<? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
               lo
-              (if (number>? fraction (rational-number (make-rational (integer-from-i64 1) (integer-from-i64 2))))
-                (integer-add lo (integer-from-i64 1))
-                (if (integer-zero? (integer-remainder lo (integer-from-i64 2)))
+              (if (number>? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
+                (integer-add lo (integer-from-i64 (ann 1 I64)))
+                (if (integer-zero? (integer-remainder lo (integer-from-i64 (ann 2 I64))))
                   lo
-                  (integer-add lo (integer-from-i64 1))))))))
+                  (integer-add lo (integer-from-i64 (ann 1 I64)))))))))
       (inexact-number (round (number->f64 x))))))
 
 (def numeric-fold (-> (-> Number Number Number) Number Value Number)
@@ -1471,7 +1471,7 @@
 (def numeric-lcm (-> Integer Integer Integer)
   (lambda (a b)
     (if (if (integer-zero? a) #t (integer-zero? b))
-      (integer-from-i64 0)
+      (integer-from-i64 (ann 0 I64))
       (integer-abs (integer-multiply (integer-quotient a (integer-gcd a b)) b)))))
 
 (def numeric-gcd-fold (-> Bool Integer Value Bool Number)
@@ -1489,7 +1489,7 @@
 
 ;; ---- Complex promotion precedes real scalar services ----
 
-(def numeric-i Number (complex-number (exact-scalar 0) (exact-scalar 1)))
+(def numeric-i Number (complex-number (exact-scalar (ann 0 I64)) (exact-scalar (ann 1 I64))))
 
 (def numeric-complex? (-> Number Bool)
   (lambda (x)
@@ -1525,7 +1525,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 1)
+        (exact-number (ann 1 I64))
         (inexact-number (exp (number->f64 x))))
       (begin (let sfir-migration-let-5 (exp (numeric-real x))) (let sfir-migration-let-6 (numeric-imag x))
         (let m sfir-migration-let-5)
@@ -1535,8 +1535,8 @@
 (def numeric-log (-> Number Number)
   (lambda (x)
     (if (if (not (numeric-complex? x)) (not (number-negative? x)) #f)
-      (if (if (number-exact? x) (number=? x (exact-number 1)) #f)
-        (exact-number 0)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
         (inexact-number (log (number->f64 x))))
       (numeric-rectangular
         (log (numeric-hypot (numeric-real x) (numeric-imag x)))
@@ -1576,7 +1576,7 @@
 (if (if (integer-zero? (root-remainder n)) (integer-zero? (root-remainder d)) #f)
             (begin (let root (scalar-from-rational (make-rational (root-value n) (root-value d))))
               (if (number-negative? x)
-                (number-rectangular (exact-scalar 0) root)
+                (number-rectangular (exact-scalar (ann 0 I64)) root)
                 (number-from-scalar root)))
             (numeric-inexact-root x))))
       (numeric-inexact-root x))))
@@ -1589,7 +1589,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (sin (number->f64 x))))
       (begin (let sfir-migration-let-9 (numeric-real x)) (let sfir-migration-let-10 (numeric-imag x))
         (let a sfir-migration-let-9)
@@ -1600,7 +1600,7 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 1)
+        (exact-number (ann 1 I64))
         (inexact-number (cos (number->f64 x))))
       (begin (let sfir-migration-let-11 (numeric-real x)) (let sfir-migration-let-12 (numeric-imag x))
         (let a sfir-migration-let-11)
@@ -1611,28 +1611,28 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (tan (number->f64 x))))
       (number-divide (numeric-sin x) (numeric-cos x)))))
 
 (def numeric-asin (-> Number Number)
   (lambda (x)
-    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number -1)) (number<=? x (exact-number 1)) #f) #f)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (asin (number->f64 x))))
       (number-multiply
         (number-negate numeric-i)
         (numeric-log
           (number-add
             (number-multiply numeric-i x)
-            (numeric-sqrt (number-subtract (exact-number 1) (number-multiply x x)))))))))
+            (numeric-sqrt (number-subtract (exact-number (ann 1 I64)) (number-multiply x x)))))))))
 
 (def numeric-acos (-> Number Number)
   (lambda (x)
-    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number -1)) (number<=? x (exact-number 1)) #f) #f)
-      (if (if (number-exact? x) (number=? x (exact-number 1)) #f)
-        (exact-number 0)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
         (inexact-number (acos (number->f64 x))))
       (number-subtract (inexact-number (acos 0.0)) (numeric-asin x)))))
 
@@ -1640,19 +1640,19 @@
   (lambda (x)
     (if (not (numeric-complex? x))
       (if (if (number-exact? x) (number-zero? x) #f)
-        (exact-number 0)
+        (exact-number (ann 0 I64))
         (inexact-number (atan (number->f64 x))))
       (number-multiply
-        (number-divide numeric-i (exact-number 2))
+        (number-divide numeric-i (exact-number (ann 2 I64)))
         (number-subtract
-          (numeric-log (number-subtract (exact-number 1) (number-multiply numeric-i x)))
-          (numeric-log (number-add (exact-number 1) (number-multiply numeric-i x))))))))
+          (numeric-log (number-subtract (exact-number (ann 1 I64)) (number-multiply numeric-i x)))
+          (numeric-log (number-add (exact-number (ann 1 I64)) (number-multiply numeric-i x))))))))
 
 (def numeric-integer-power (-> Number Integer Number Number)
   (lambda (base exponent result)
     (if (integer-zero? exponent)
       result
-      (begin (let division (integer-divide exponent (integer-from-i64 2)))
+      (begin (let division (integer-divide exponent (integer-from-i64 (ann 2 I64))))
         (numeric-integer-power
           (number-multiply base base)
           (division-quotient division)
@@ -1662,8 +1662,8 @@
   (lambda (base exponent)
     (if (number-exact-integer? exponent)
       (begin (let n (number->integer exponent))
-        (begin (let result (numeric-integer-power base (integer-abs n) (exact-number 1)))
-          (if (integer-negative? n) (number-divide (exact-number 1) result) result)))
+        (begin (let result (numeric-integer-power base (integer-abs n) (exact-number (ann 1 I64))))
+          (if (integer-negative? n) (number-divide (exact-number (ann 1 I64)) result) result)))
       (if (if (not (numeric-complex? base)) (if (not (numeric-complex? exponent)) (not (number-negative? base)) #f) #f)
         (inexact-number (pow (number->f64 base) (number->f64 exponent)))
         (numeric-exp (number-multiply exponent (numeric-log base)))))))
@@ -1716,8 +1716,8 @@
 
 (def numeric-radix-string (-> Number I64 String)
   (lambda (x radix)
-    (if (if (= radix 2) #t (if (= radix 8) #t (if (= radix 10) #t (= radix 16))))
-      (if (= radix 10)
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
+      (if (= radix (ann 10 I64))
         (number->string x)
         (if (numeric-complex? x)
           (begin (let sfir-migration-let-13 (numeric-radix-real (number-real-part x) radix)) (let sfir-migration-let-14 (numeric-radix-real (number-imag-part x) radix))
@@ -1725,7 +1725,7 @@
 (let imag sfir-migration-let-14)
 (string-append
               real
-              (if (if (char=? (string-ref imag 0) #\+) #t (char=? (string-ref imag 0) #\-)) "" "+")
+              (if (if (char=? (string-ref imag (ann 0 I64)) #\+) #t (char=? (string-ref imag (ann 0 I64)) #\-)) "" "+")
               imag
               "i"))
           (numeric-radix-real x radix)))
@@ -1797,17 +1797,17 @@
 (def value-compare-strings (-> String String I64 I64)
   (lambda (left right index)
     (if (= index (string-length left))
-      (if (= index (string-length right)) 0 -1)
+      (if (= index (string-length right)) (ann 0 I64) (ann -1 I64))
       (if (= index (string-length right))
-        1
+        (ann 1 I64)
         (begin (let sfir-migration-let-15 (string-ref left index)) (let sfir-migration-let-16 (string-ref right index))
           (let a sfir-migration-let-15)
 (let b sfir-migration-let-16)
-(if (char=? a b) (value-compare-strings left right (+ index 1)) (if (char<? a b) -1 1)))))))
+(if (char=? a b) (value-compare-strings left right (+ index (ann 1 I64))) (if (char<? a b) (ann -1 I64) (ann 1 I64))))))))
 
 (def value-strings-length (-> Value I64 I64)
   (lambda (values count)
-    (if (> count 4294967294)
+    (if (> count (ann 4294967294 I64))
       (datum-fail "string exceeds representation bound")
       (if (value-null? values)
         count
@@ -1821,12 +1821,12 @@
       result
       (begin (let text (value-string-string (value-car values)))
         (begin
-          (string-copy! result offset text 0 (string-length text))
+          (string-copy! result offset text (ann 0 I64) (string-length text))
           (value-copy-strings (value-cdr values) result (+ offset (string-length text))))))))
 
 (def value-join-strings (-> Value Value)
   (lambda (values)
-    (value-string (value-copy-strings values (make-string (value-strings-length values 0)) 0))))
+    (value-string (value-copy-strings values (make-string (value-strings-length values (ann 0 I64))) (ann 0 I64)))))
 
 (def value-append-many (-> Value Value)
   (lambda (lists)
@@ -1877,7 +1877,7 @@
       (if (= index (bytevector-length left))
         #t
         (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
-          (equal-bytes? left right (+ index 1))
+          (equal-bytes? left right (+ index (ann 1 I64)))
           #f))
       #f)))
 
@@ -1905,7 +1905,7 @@
         (if (value-string? left)
           (string=? (value-string-string left) (value-string-string right))
           (if (value-bytevector? left)
-            (equal-bytes? (value-bytevector-bytes left) (value-bytevector-bytes right) 0)
+            (equal-bytes? (value-bytevector-bytes left) (value-bytevector-bytes right) (ann 0 I64))
             (if (if (value-pair? left) #t (value-vector? left))
               (if (equal-seen? left right seen)
                 #t
@@ -1914,7 +1914,7 @@
                     (if (equal-graph? (value-car left) (value-car right) seen)
                       (equal-graph? (value-cdr left) (value-cdr right) seen)
                       #f)
-                    (equal-vectors? (value-vector-vector left) (value-vector-vector right) 0 seen))))
+                    (equal-vectors? (value-vector-vector left) (value-vector-vector right) (ann 0 I64) seen))))
               #f)))))))
 
 (def equal-vectors? (-> (Vector Value) (Vector Value) I64 (List EqualPair) Bool)
@@ -1923,7 +1923,7 @@
       (if (= index (vector-length left))
         #t
         (if (equal-graph? (vector-ref left index) (vector-ref right index) seen)
-          (equal-vectors? left right (+ index 1) seen)
+          (equal-vectors? left right (+ index (ann 1 I64)) seen)
           #f))
       #f)))
 
@@ -1974,19 +1974,19 @@
 (def inward-graph (-> Datum (Ref (List InwardMemo)) Value)
   (lambda (source seen)
     (begin (let kind (datum-kind source))
-      (if (= kind 0)
+      (if (= kind (ann 0 I64))
         (value-null)
-        (if (= kind 1)
+        (if (= kind (ann 1 I64))
           (value-boolean (datum-boolean-value source))
-          (if (= kind 2)
+          (if (= kind (ann 2 I64))
             (value-character (datum-character-value source))
-            (if (= kind 3)
+            (if (= kind (ann 3 I64))
               (value-string (datum-string-value source))
-              (if (= kind 4)
+              (if (= kind (ann 4 I64))
                 (value-symbol (datum-symbol-value source))
-                (if (= kind 5)
+                (if (= kind (ann 5 I64))
                   (value-number (datum-number-value source))
-                  (if (= kind 8)
+                  (if (= kind (ann 8 I64))
                     (value-bytevector (datum-bytevector-values source))
                     (begin (let prior (inward-find source (ref-get seen)))
                       (if (value-uninitialized? prior) (inward-node source kind seen) prior))))))))))))
@@ -1996,14 +1996,14 @@
 ;; their existing mutable owner rather than copying it into a new object.
 (def inward-node (-> Datum I64 (Ref (List InwardMemo)) Value)
   (lambda (source kind seen)
-    (begin (let result (if (= kind 6) (value-cons (value-unspecified) (value-unspecified)) (value-vector (make-vector (vector-length (datum-vector-values source)) (value-unspecified)))))
+    (begin (let result (if (= kind (ann 6 I64)) (value-cons (value-unspecified) (value-unspecified)) (value-vector (make-vector (vector-length (datum-vector-values source)) (value-unspecified)))))
       (begin
         (ref-set! seen (cons (inward source result) (ref-get seen)))
-        (if (= kind 6)
+        (if (= kind (ann 6 I64))
           (begin
             (ref-set! (value-pair-first result) (inward-graph (datum-car source) seen))
             (ref-set! (value-pair-rest result) (inward-graph (datum-cdr source) seen)))
-          (inward-vector (datum-vector-values source) (value-vector-vector result) 0 seen))
+          (inward-vector (datum-vector-values source) (value-vector-vector result) (ann 0 I64) seen))
         result))))
 
 (def inward-vector (-> (Vector Datum) (Vector Value) I64 (Ref (List InwardMemo)) Unit)
@@ -2012,7 +2012,7 @@
       (unit)
       (begin
         (vector-set! result index (inward-graph (vector-ref source index) seen))
-        (inward-vector source result (+ index 1) seen)))))
+        (inward-vector source result (+ index (ann 1 I64)) seen)))))
 
 (def value->datum (-> Value Datum)
   (lambda (source) (outward-graph source (ref (ann (empty-list ) (List OutwardMemo))))))
@@ -2051,7 +2051,7 @@
           (begin
             (datum-set-car! result (outward-graph (value-car source) seen))
             (datum-set-cdr! result (outward-graph (value-cdr source) seen)))
-          (outward-vector (value-vector-vector source) (datum-vector-values result) 0 seen))
+          (outward-vector (value-vector-vector source) (datum-vector-values result) (ann 0 I64) seen))
         result))))
 
 (def outward-vector (-> (Vector Value) (Vector Datum) I64 (Ref (List OutwardMemo)) Unit)
@@ -2060,7 +2060,7 @@
       (unit)
       (begin
         (vector-set! result index (outward-graph (vector-ref source index) seen))
-        (outward-vector source result (+ index 1) seen)))))
+        (outward-vector source result (+ index (ann 1 I64)) seen)))))
 
 ;; ---- Source constants retain their complete numeric and datum domain ----
 
@@ -2158,42 +2158,42 @@
 (def literal.25 Value (value-cons (value-boolean #f) (value-null)))
 
 (def literal.26 Value
-  (value-cons (value-number (exact-number 1)) (value-number (exact-number 1))))
+  (value-cons (value-number (exact-number (ann 1 I64))) (value-number (exact-number (ann 1 I64)))))
 
 (def literal.27 Value
-  (value-cons (value-number (exact-number 0)) (value-number (exact-number 1))))
+  (value-cons (value-number (exact-number (ann 0 I64))) (value-number (exact-number (ann 1 I64)))))
 
 (def literal.28 Value (value-symbol (string->symbol "lambda")))
 
-(def literal.29 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.29 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.30 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.30 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.31 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.31 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.32 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.32 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.33 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.33 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.34 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.34 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.35 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.35 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.36 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.36 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.37 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.37 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.38 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.38 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.39 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.39 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.40 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.40 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.41 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.41 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.42 Value (value-cons (value-number (exact-number -1)) (value-null)))
+(def literal.42 Value (value-cons (value-number (exact-number (ann -1 I64))) (value-null)))
 
-(def literal.43 Value (value-cons (value-number (exact-number -2)) (value-null)))
+(def literal.43 Value (value-cons (value-number (exact-number (ann -2 I64))) (value-null)))
 
 (def literal.44 Value (value-cons (value-boolean #t) (value-null)))
 
@@ -2201,61 +2201,61 @@
 
 (def literal.46 Value (value-cons (value-null) (value-null)))
 
-(def literal.47 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.47 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.48 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.48 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.49 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.49 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.50 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.50 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.51 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.51 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.52 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.52 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.53 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.53 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.54 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.54 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.55 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.55 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.56 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.56 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.57 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.57 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.58 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.58 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.59 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.59 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.60 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.60 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.61 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.61 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.62 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.62 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.63 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.63 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.64 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.64 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.65 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.65 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.66 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.66 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.67 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.67 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
-(def literal.68 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.68 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.69 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.69 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.70 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.70 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.71 Value (value-cons (value-number (exact-number 3)) (value-null)))
+(def literal.71 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
 
-(def literal.72 Value (value-cons (value-number (exact-number 2)) (value-null)))
+(def literal.72 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
 
-(def literal.73 Value (value-cons (value-number (exact-number 1)) (value-null)))
+(def literal.73 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
 
-(def literal.74 Value (value-cons (value-number (exact-number 0)) (value-null)))
+(def literal.74 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
 
 (def literal.75 Value (value-symbol (string->symbol "define-macro")))
 
@@ -2647,7 +2647,7 @@
 
 (def body/source/lst->vector (-> Value Value)
   (lambda (source/l)
-    ((lambda (source/n) ((lambda (source/v) ((lambda () (invoke-2 ((lambda () (begin (def source/loop (Ref Value) (ref (value-uninitialized))) (def body/source/loop (-> Value Value Value) (lambda (source/l.1 source/i) (if (value-truth? (primitive/pair?/1 source/l.1)) (begin (primitive/vector-set!/3 source/v source/i (primitive/car/1 source/l.1)) (body/source/loop (primitive/cdr/1 source/l.1) (primitive/+/2 source/i (value-number (exact-number 1))))) source/v))) (ref-set! source/loop (value-procedure (ref (unit)) (function-2 body/source/loop))) (binding-value source/loop)))) source/l (value-number (exact-number 0)))))) (primitive/make-vector/1 source/n)))
+    ((lambda (source/n) ((lambda (source/v) ((lambda () (invoke-2 ((lambda () (begin (def source/loop (Ref Value) (ref (value-uninitialized))) (def body/source/loop (-> Value Value Value) (lambda (source/l.1 source/i) (if (value-truth? (primitive/pair?/1 source/l.1)) (begin (primitive/vector-set!/3 source/v source/i (primitive/car/1 source/l.1)) (body/source/loop (primitive/cdr/1 source/l.1) (primitive/+/2 source/i (value-number (exact-number (ann 1 I64)))))) source/v))) (ref-set! source/loop (value-procedure (ref (unit)) (function-2 body/source/loop))) (binding-value source/loop)))) source/l (value-number (exact-number (ann 0 I64))))))) (primitive/make-vector/1 source/n)))
       (primitive/length/1 source/l))))
 
 (ref-set! source/lst->vector (value-procedure (ref (unit)) (function-1 body/source/lst->vector)))
@@ -2659,10 +2659,10 @@
 (def body/source/vector->lst (-> Value Value)
   (lambda (source/v.1)
     (invoke-2
-      ((lambda () (begin (def source/loop.1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.1 (-> Value Value Value) (lambda (source/l.2 source/i.1) (if (value-truth? (primitive/</2 source/i.1 (value-number (exact-number 0)))) source/l.2 (body/source/loop.1 (primitive/cons/2 (primitive/vector-ref/2 source/v.1 source/i.1) source/l.2) (primitive/-/2 source/i.1 (value-number (exact-number 1))))))) (ref-set! source/loop.1 (value-procedure (ref (unit)) (function-2 body/source/loop.1))) (binding-value source/loop.1)))
+      ((lambda () (begin (def source/loop.1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.1 (-> Value Value Value) (lambda (source/l.2 source/i.1) (if (value-truth? (primitive/</2 source/i.1 (value-number (exact-number (ann 0 I64))))) source/l.2 (body/source/loop.1 (primitive/cons/2 (primitive/vector-ref/2 source/v.1 source/i.1) source/l.2) (primitive/-/2 source/i.1 (value-number (exact-number (ann 1 I64)))))))) (ref-set! source/loop.1 (value-procedure (ref (unit)) (function-2 body/source/loop.1))) (binding-value source/loop.1)))
 )
       (value-null)
-      (primitive/-/2 (primitive/vector-length/1 source/v.1) (value-number (exact-number 1))))))
+      (primitive/-/2 (primitive/vector-length/1 source/v.1) (value-number (exact-number (ann 1 I64)))))))
 
 (ref-set! source/vector->lst (value-procedure (ref (unit)) (function-1 body/source/vector->lst)))
 
@@ -2691,10 +2691,10 @@
 (def body/source/lookup-var (-> Value Value Value)
   (lambda (source/name.1 source/env.1)
     (invoke-2
-      ((lambda () (begin (def source/loop1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop1 (-> Value Value Value) (lambda (source/chain source/up) (if (value-truth? (primitive/null?/1 source/chain)) source/name.1 (invoke-4 ((lambda () (begin (def source/loop2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop2 (-> Value Value Value Value Value) (lambda (source/chain.1 source/up.1 source/frame.1 source/over) (if (value-truth? (primitive/null?/1 source/frame.1)) (body/source/loop1 (primitive/car/1 source/chain.1) (primitive/+/2 source/up.1 (value-number (exact-number 1)))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/frame.1) source/name.1)) (primitive/cons/2 source/up.1 source/over) (body/source/loop2 source/chain.1 source/up.1 (primitive/cdr/1 source/frame.1) (primitive/+/2 source/over (value-number (exact-number 1)))))))) (ref-set! source/loop2 (value-procedure (ref (unit)) (function-4 body/source/loop2))) (binding-value source/loop2)))) source/chain source/up (primitive/cdr/1 source/chain) (value-number (exact-number 1)))))) (ref-set! source/loop1 (value-procedure (ref (unit)) (function-2 body/source/loop1))) (binding-value source/loop1)))
+      ((lambda () (begin (def source/loop1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop1 (-> Value Value Value) (lambda (source/chain source/up) (if (value-truth? (primitive/null?/1 source/chain)) source/name.1 (invoke-4 ((lambda () (begin (def source/loop2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop2 (-> Value Value Value Value Value) (lambda (source/chain.1 source/up.1 source/frame.1 source/over) (if (value-truth? (primitive/null?/1 source/frame.1)) (body/source/loop1 (primitive/car/1 source/chain.1) (primitive/+/2 source/up.1 (value-number (exact-number (ann 1 I64))))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/frame.1) source/name.1)) (primitive/cons/2 source/up.1 source/over) (body/source/loop2 source/chain.1 source/up.1 (primitive/cdr/1 source/frame.1) (primitive/+/2 source/over (value-number (exact-number (ann 1 I64))))))))) (ref-set! source/loop2 (value-procedure (ref (unit)) (function-4 body/source/loop2))) (binding-value source/loop2)))) source/chain source/up (primitive/cdr/1 source/chain) (value-number (exact-number (ann 1 I64))))))) (ref-set! source/loop1 (value-procedure (ref (unit)) (function-2 body/source/loop1))) (binding-value source/loop1)))
 )
       (primitive/car/1 source/env.1)
-      (value-number (exact-number 0)))))
+      (value-number (exact-number (ann 0 I64))))))
 
 (ref-set! source/lookup-var (value-procedure (ref (unit)) (function-2 body/source/lookup-var)))
 
@@ -2755,7 +2755,7 @@
 (def body/source/shape (-> Value Value Value)
   (lambda (source/form source/n.1)
     (invoke-3
-      ((lambda () (begin (def source/loop.2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.2 (-> Value Value Value Value) (lambda (source/form.1 source/n.2 source/l.3) ((lambda (source/value) (if (value-truth? source/value) source/value (if (value-truth? (primitive/pair?/1 source/l.3)) (body/source/loop.2 source/form.1 (primitive/-/2 source/n.2 (value-number (exact-number 1))) (primitive/cdr/1 source/l.3)) (body/source/scheme-error literal.3 (value-cons source/form.1 (value-null)))))) (primitive/<=/2 source/n.2 (value-number (exact-number 0)))))) (ref-set! source/loop.2 (value-procedure (ref (unit)) (function-3 body/source/loop.2))) (binding-value source/loop.2)))
+      ((lambda () (begin (def source/loop.2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.2 (-> Value Value Value Value) (lambda (source/form.1 source/n.2 source/l.3) ((lambda (source/value) (if (value-truth? source/value) source/value (if (value-truth? (primitive/pair?/1 source/l.3)) (body/source/loop.2 source/form.1 (primitive/-/2 source/n.2 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.3)) (body/source/scheme-error literal.3 (value-cons source/form.1 (value-null)))))) (primitive/<=/2 source/n.2 (value-number (exact-number (ann 0 I64))))))) (ref-set! source/loop.2 (value-procedure (ref (unit)) (function-3 body/source/loop.2))) (binding-value source/loop.2)))
 )
       source/form
       source/n.1
@@ -2805,7 +2805,7 @@
 (def body/source/comp-quote (-> Value Value Value)
   (lambda (source/expr.4 source/env.8)
     (begin
-      (body/source/shape source/expr.4 (value-number (exact-number 2)))
+      (body/source/shape source/expr.4 (value-number (exact-number (ann 2 I64))))
       (body/source/gen-cst (primitive/cadr/1 source/expr.4)))))
 
 (ref-set! source/comp-quote (value-procedure (ref (unit)) (function-2 body/source/comp-quote)))
@@ -2818,7 +2818,7 @@
   (lambda (source/expr.5 source/env.9)
     (body/source/comp-quasiquotation
       (primitive/cadr/1 source/expr.5)
-      (value-number (exact-number 1))
+      (value-number (exact-number (ann 1 I64)))
       source/env.9)))
 
 (ref-set!
@@ -2831,29 +2831,29 @@
 
 (def body/source/comp-quasiquotation (-> Value Value Value Value)
   (lambda (source/form.2 source/level source/env.10)
-    (if (value-truth? (primitive/=/2 source/level (value-number (exact-number 0))))
+    (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 0 I64)))))
       (body/source/scheme-comp source/form.2 source/env.10)
       (if (value-truth? (primitive/pair?/1 source/form.2))
         (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.7))
           (body/source/comp-quasiquotation-list
             source/form.2
-            (primitive/+/2 source/level (value-number (exact-number 1)))
+            (primitive/+/2 source/level (value-number (exact-number (ann 1 I64))))
             source/env.10)
           (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.6))
-            (if (value-truth? (primitive/=/2 source/level (value-number (exact-number 1))))
+            (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 1 I64)))))
               (body/source/scheme-comp (primitive/cadr/1 source/form.2) source/env.10)
               (body/source/comp-quasiquotation-list
                 source/form.2
-                (primitive/-/2 source/level (value-number (exact-number 1)))
+                (primitive/-/2 source/level (value-number (exact-number (ann 1 I64))))
                 source/env.10))
             (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.5))
               (begin
-                (if (value-truth? (primitive/=/2 source/level (value-number (exact-number 1))))
+                (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 1 I64)))))
                   (body/source/scheme-error literal.4 (value-cons source/form.2 (value-null)))
                   (value-unspecified))
                 (body/source/comp-quasiquotation-list
                   source/form.2
-                  (primitive/-/2 source/level (value-number (exact-number 1)))
+                  (primitive/-/2 source/level (value-number (exact-number (ann 1 I64))))
                   source/env.10))
               (body/source/comp-quasiquotation-list source/form.2 source/level source/env.10))))
         (if (value-truth? (primitive/vector?/1 source/form.2))
@@ -2875,7 +2875,7 @@
 (def body/source/comp-quasiquotation-list (-> Value Value Value Value)
   (lambda (source/l.4 source/level.1 source/env.11)
     (if (value-truth? (primitive/pair?/1 source/l.4))
-      ((lambda (source/first) (if (value-truth? (primitive/=/2 source/level.1 (value-number (exact-number 1)))) (if (value-truth? (body/source/unquote-splicing? source/first)) (begin (body/source/shape source/first (value-number (exact-number 2))) (body/source/gen-append-form (body/source/scheme-comp (primitive/cadr/1 source/first) source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) (value-number (exact-number 1)) source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))))
+      ((lambda (source/first) (if (value-truth? (primitive/=/2 source/level.1 (value-number (exact-number (ann 1 I64))))) (if (value-truth? (body/source/unquote-splicing? source/first)) (begin (body/source/shape source/first (value-number (exact-number (ann 2 I64)))) (body/source/gen-append-form (body/source/scheme-comp (primitive/cadr/1 source/first) source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) (value-number (exact-number (ann 1 I64))) source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))))
         (primitive/car/1 source/l.4))
       (body/source/comp-quasiquotation source/l.4 source/level.1 source/env.11))))
 
@@ -2928,7 +2928,7 @@
 (def body/source/comp-set! (-> Value Value Value)
   (lambda (source/expr.8 source/env.14)
     (begin
-      (body/source/shape source/expr.8 (value-number (exact-number 3)))
+      (body/source/shape source/expr.8 (value-number (exact-number (ann 3 I64))))
       (body/source/variable (primitive/cadr/1 source/expr.8))
       (body/source/gen-var-set
         (body/source/lookup-var (primitive/cadr/1 source/expr.8) source/env.14)
@@ -2943,7 +2943,7 @@
 (def body/source/comp-lambda (-> Value Value Value)
   (lambda (source/expr.9 source/env.15)
     (begin
-      (body/source/shape source/expr.9 (value-number (exact-number 3)))
+      (body/source/shape source/expr.9 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/parms) ((lambda (source/frame.2) ((lambda (source/nb-vars source/code.1) (if (value-truth? (body/source/rest-param? source/parms)) (body/source/gen-lambda-rest source/nb-vars source/code.1) (body/source/gen-lambda source/nb-vars source/code.1))) (primitive/length/1 source/frame.2) (body/source/comp-body (primitive/cddr/1 source/expr.9) (body/source/push-frame source/frame.2 source/env.15)))) (body/source/parms->frame source/parms)))
         (primitive/cadr/1 source/expr.9)))))
 
@@ -3013,7 +3013,7 @@
 (def body/source/definition-name (-> Value Value)
   (lambda (source/expr.11)
     (begin
-      (body/source/shape source/expr.11 (value-number (exact-number 3)))
+      (body/source/shape source/expr.11 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/pattern) ((lambda (source/name.5) (begin (if (value-truth? (primitive/symbol?/1 source/name.5)) (if (value-truth? (value-boolean #f)) (value-boolean #f) (value-unspecified)) (body/source/scheme-error literal.15 (value-cons source/name.5 (value-null)))) source/name.5)) (if (value-truth? (primitive/pair?/1 source/pattern)) (primitive/car/1 source/pattern) source/pattern)))
         (primitive/cadr/1 source/expr.11)))))
 
@@ -3041,7 +3041,7 @@
 (def body/source/comp-if (-> Value Value Value)
   (lambda (source/expr.13 source/env.19)
     (begin
-      (body/source/shape source/expr.13 (value-number (exact-number 3)))
+      (body/source/shape source/expr.13 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/code1 source/code2) (if (value-truth? (primitive/pair?/1 (primitive/cdddr/1 source/expr.13))) (body/source/gen-if source/code1 source/code2 (body/source/scheme-comp (primitive/cadddr/1 source/expr.13) source/env.19)) (body/source/gen-when source/code1 source/code2)))
         (body/source/scheme-comp (primitive/cadr/1 source/expr.13) source/env.19)
         (body/source/scheme-comp (primitive/caddr/1 source/expr.13) source/env.19)))))
@@ -3065,7 +3065,7 @@
 (def body/source/comp-cond-aux (-> Value Value Value)
   (lambda (source/clauses source/env.21)
     (if (value-truth? (primitive/pair?/1 source/clauses))
-      ((lambda (source/clause) (begin (body/source/shape source/clause (value-number (exact-number 1))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause) literal.18)) (begin (body/source/shape source/clause (value-number (exact-number 2))) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21)) (if (value-truth? (primitive/not/1 (primitive/pair?/1 (primitive/cdr/1 source/clause)))) (body/source/gen-or (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)) (if (value-truth? (primitive/eq?/2 (primitive/cadr/1 source/clause) literal.17)) (begin (body/source/shape source/clause (value-number (exact-number 3))) (body/source/gen-cond-send (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/scheme-comp (primitive/caddr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21))) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)))))))
+      ((lambda (source/clause) (begin (body/source/shape source/clause (value-number (exact-number (ann 1 I64)))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause) literal.18)) (begin (body/source/shape source/clause (value-number (exact-number (ann 2 I64)))) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21)) (if (value-truth? (primitive/not/1 (primitive/pair?/1 (primitive/cdr/1 source/clause)))) (body/source/gen-or (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)) (if (value-truth? (primitive/eq?/2 (primitive/cadr/1 source/clause) literal.17)) (begin (body/source/shape source/clause (value-number (exact-number (ann 3 I64)))) (body/source/gen-cond-send (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/scheme-comp (primitive/caddr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21))) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)))))))
         (primitive/car/1 source/clauses))
       (body/source/gen-cst (value-null)))))
 
@@ -3126,7 +3126,7 @@
 (def body/source/comp-case (-> Value Value Value)
   (lambda (source/expr.17 source/env.26)
     (begin
-      (body/source/shape source/expr.17 (value-number (exact-number 3)))
+      (body/source/shape source/expr.17 (value-number (exact-number (ann 3 I64))))
       (body/source/gen-case
         (body/source/scheme-comp (primitive/cadr/1 source/expr.17) source/env.26)
         (body/source/comp-case-aux (primitive/cddr/1 source/expr.17) source/env.26)))))
@@ -3140,7 +3140,7 @@
 (def body/source/comp-case-aux (-> Value Value Value)
   (lambda (source/clauses.1 source/env.27)
     (if (value-truth? (primitive/pair?/1 source/clauses.1))
-      ((lambda (source/clause.1) (begin (body/source/shape source/clause.1 (value-number (exact-number 2))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause.1) literal.19)) (body/source/gen-case-else (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27)) (body/source/gen-case-clause (primitive/car/1 source/clause.1) (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27) (body/source/comp-case-aux (primitive/cdr/1 source/clauses.1) source/env.27)))))
+      ((lambda (source/clause.1) (begin (body/source/shape source/clause.1 (value-number (exact-number (ann 2 I64)))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause.1) literal.19)) (body/source/gen-case-else (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27)) (body/source/gen-case-clause (primitive/car/1 source/clause.1) (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27) (body/source/comp-case-aux (primitive/cdr/1 source/clauses.1) source/env.27)))))
         (primitive/car/1 source/clauses.1))
       (body/source/gen-case-else (body/source/gen-cst (value-null))))))
 
@@ -3155,8 +3155,8 @@
 (def body/source/comp-let (-> Value Value Value)
   (lambda (source/expr.18 source/env.28)
     (begin
-      (body/source/shape source/expr.18 (value-number (exact-number 3)))
-      ((lambda (source/x.5) (if (value-truth? (primitive/symbol?/1 source/x.5)) (begin (body/source/shape source/expr.18 (value-number (exact-number 4))) ((lambda (source/y) ((lambda (source/proc.2) (body/source/scheme-comp (primitive/cons/2 (primitive/list/3 literal.22 (primitive/list/1 (primitive/list/2 source/x.5 source/proc.2)) source/x.5) (body/source/bindings->vals source/y)) source/env.28)) (primitive/cons/2 literal.21 (primitive/cons/2 (body/source/bindings->vars source/y) (primitive/cdddr/1 source/expr.18))))) (primitive/caddr/1 source/expr.18))) (if (value-truth? (primitive/pair?/1 source/x.5)) (body/source/scheme-comp (primitive/cons/2 (primitive/cons/2 literal.20 (primitive/cons/2 (body/source/bindings->vars source/x.5) (primitive/cddr/1 source/expr.18))) (body/source/bindings->vals source/x.5)) source/env.28) (body/source/comp-body (primitive/cddr/1 source/expr.18) source/env.28))))
+      (body/source/shape source/expr.18 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/x.5) (if (value-truth? (primitive/symbol?/1 source/x.5)) (begin (body/source/shape source/expr.18 (value-number (exact-number (ann 4 I64)))) ((lambda (source/y) ((lambda (source/proc.2) (body/source/scheme-comp (primitive/cons/2 (primitive/list/3 literal.22 (primitive/list/1 (primitive/list/2 source/x.5 source/proc.2)) source/x.5) (body/source/bindings->vals source/y)) source/env.28)) (primitive/cons/2 literal.21 (primitive/cons/2 (body/source/bindings->vars source/y) (primitive/cdddr/1 source/expr.18))))) (primitive/caddr/1 source/expr.18))) (if (value-truth? (primitive/pair?/1 source/x.5)) (body/source/scheme-comp (primitive/cons/2 (primitive/cons/2 literal.20 (primitive/cons/2 (body/source/bindings->vars source/x.5) (primitive/cddr/1 source/expr.18))) (body/source/bindings->vals source/x.5)) source/env.28) (body/source/comp-body (primitive/cddr/1 source/expr.18) source/env.28))))
         (primitive/cadr/1 source/expr.18)))))
 
 (ref-set! source/comp-let (value-procedure (ref (unit)) (function-2 body/source/comp-let)))
@@ -3168,7 +3168,7 @@
 (def body/source/bindings->vars (-> Value Value)
   (lambda (source/bindings)
     (if (value-truth? (primitive/pair?/1 source/bindings))
-      ((lambda (source/binding) (begin (body/source/shape source/binding (value-number (exact-number 2))) ((lambda (source/x.6) (begin (body/source/variable source/x.6) (primitive/cons/2 source/x.6 (body/source/bindings->vars (primitive/cdr/1 source/bindings))))) (primitive/car/1 source/binding))))
+      ((lambda (source/binding) (begin (body/source/shape source/binding (value-number (exact-number (ann 2 I64)))) ((lambda (source/x.6) (begin (body/source/variable source/x.6) (primitive/cons/2 source/x.6 (body/source/bindings->vars (primitive/cdr/1 source/bindings))))) (primitive/car/1 source/binding))))
         (primitive/car/1 source/bindings))
       (value-null))))
 
@@ -3198,7 +3198,7 @@
 (def body/source/comp-let* (-> Value Value Value)
   (lambda (source/expr.19 source/env.29)
     (begin
-      (body/source/shape source/expr.19 (value-number (exact-number 3)))
+      (body/source/shape source/expr.19 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/bindings.2) (if (value-truth? (primitive/pair?/1 source/bindings.2)) (body/source/scheme-comp (primitive/list/3 literal.23 (primitive/list/1 (primitive/car/1 source/bindings.2)) (primitive/cons/2 literal.24 (primitive/cons/2 (primitive/cdr/1 source/bindings.2) (primitive/cddr/1 source/expr.19)))) source/env.29) (body/source/comp-body (primitive/cddr/1 source/expr.19) source/env.29)))
         (primitive/cadr/1 source/expr.19)))))
 
@@ -3211,7 +3211,7 @@
 (def body/source/comp-letrec (-> Value Value Value)
   (lambda (source/expr.20 source/env.30)
     (begin
-      (body/source/shape source/expr.20 (value-number (exact-number 3)))
+      (body/source/shape source/expr.20 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/bindings.3) (body/source/comp-letrec-aux (body/source/bindings->vars source/bindings.3) (body/source/bindings->vals source/bindings.3) (primitive/cddr/1 source/expr.20) source/env.30))
         (primitive/cadr/1 source/expr.20)))))
 
@@ -3253,7 +3253,7 @@
 (def body/source/comp-begin (-> Value Value Value)
   (lambda (source/expr.21 source/env.33)
     (begin
-      (body/source/shape source/expr.21 (value-number (exact-number 2)))
+      (body/source/shape source/expr.21 (value-number (exact-number (ann 2 I64))))
       (body/source/comp-sequence (primitive/cdr/1 source/expr.21) source/env.33))))
 
 (ref-set! source/comp-begin (value-procedure (ref (unit)) (function-2 body/source/comp-begin)))
@@ -3293,8 +3293,8 @@
 (def body/source/comp-do (-> Value Value Value)
   (lambda (source/expr.22 source/env.36)
     (begin
-      (body/source/shape source/expr.22 (value-number (exact-number 3)))
-      ((lambda (source/bindings.4 source/exit) (begin (body/source/shape source/exit (value-number (exact-number 1))) ((lambda (source/vars.3) ((lambda (source/new-env1) ((lambda (source/new-env2) ((lambda () (body/source/gen-letrec (primitive/list/1 (body/source/gen-lambda (primitive/length/1 source/vars.3) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/exit) source/new-env2) (body/source/comp-sequence (primitive/cdr/1 source/exit) source/new-env2) (body/source/gen-sequence (body/source/comp-sequence (primitive/cdddr/1 source/expr.22) source/new-env2) (body/source/gen-combination (body/source/gen-var-ref literal.26) (body/source/comp-vals (body/source/bindings->steps source/bindings.4) source/new-env2)))))) (body/source/gen-combination (body/source/gen-var-ref literal.27) (body/source/comp-vals (body/source/bindings->vals source/bindings.4) source/new-env1)))))) (body/source/push-frame source/vars.3 source/new-env1))) (body/source/push-frame literal.25 source/env.36))) (body/source/bindings->vars source/bindings.4))))
+      (body/source/shape source/expr.22 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/bindings.4 source/exit) (begin (body/source/shape source/exit (value-number (exact-number (ann 1 I64)))) ((lambda (source/vars.3) ((lambda (source/new-env1) ((lambda (source/new-env2) ((lambda () (body/source/gen-letrec (primitive/list/1 (body/source/gen-lambda (primitive/length/1 source/vars.3) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/exit) source/new-env2) (body/source/comp-sequence (primitive/cdr/1 source/exit) source/new-env2) (body/source/gen-sequence (body/source/comp-sequence (primitive/cdddr/1 source/expr.22) source/new-env2) (body/source/gen-combination (body/source/gen-var-ref literal.26) (body/source/comp-vals (body/source/bindings->steps source/bindings.4) source/new-env2)))))) (body/source/gen-combination (body/source/gen-var-ref literal.27) (body/source/comp-vals (body/source/bindings->vals source/bindings.4) source/new-env1)))))) (body/source/push-frame source/vars.3 source/new-env1))) (body/source/push-frame literal.25 source/env.36))) (body/source/bindings->vars source/bindings.4))))
         (primitive/cadr/1 source/expr.22)
         (primitive/caddr/1 source/expr.22)))))
 
@@ -3322,7 +3322,7 @@
 (def body/source/comp-define (-> Value Value Value)
   (lambda (source/expr.23 source/env.37)
     (begin
-      (body/source/shape source/expr.23 (value-number (exact-number 3)))
+      (body/source/shape source/expr.23 (value-number (exact-number (ann 3 I64))))
       ((lambda (source/pattern.2) ((lambda (source/x.7) (begin (body/source/variable source/x.7) (body/source/gen-sequence (body/source/gen-var-set (body/source/lookup-var source/x.7 source/env.37) (body/source/scheme-comp (if (value-truth? (primitive/pair?/1 source/pattern.2)) (primitive/cons/2 literal.28 (primitive/cons/2 (primitive/cdr/1 source/pattern.2) (primitive/cddr/1 source/expr.23))) (primitive/caddr/1 source/expr.23)) source/env.37)) (body/source/gen-cst source/x.7)))) (if (value-truth? (primitive/pair?/1 source/pattern.2)) (primitive/car/1 source/pattern.2) source/pattern.2)))
         (primitive/cadr/1 source/expr.23)))))
 
@@ -3373,7 +3373,7 @@
 
 (def body/source/gen-rte-ref (-> Value Value Value)
   (lambda (source/up.2 source/over.1)
-    ((lambda (source/value.1) (if (value-truth? (primitive/memv/2 source/value.1 literal.30)) (body/source/gen-slot-ref-0 source/over.1) ((lambda (source/value.2) (if (value-truth? (primitive/memv/2 source/value.2 literal.29)) (body/source/gen-slot-ref-1 source/over.1) ((lambda (source/value.3) (body/source/gen-slot-ref-up-2 (body/source/gen-rte-ref (primitive/-/2 source/up.2 (value-number (exact-number 2))) source/over.1))) source/value.2))) source/value.1)))
+    ((lambda (source/value.1) (if (value-truth? (primitive/memv/2 source/value.1 literal.30)) (body/source/gen-slot-ref-0 source/over.1) ((lambda (source/value.2) (if (value-truth? (primitive/memv/2 source/value.2 literal.29)) (body/source/gen-slot-ref-1 source/over.1) ((lambda (source/value.3) (body/source/gen-slot-ref-up-2 (body/source/gen-rte-ref (primitive/-/2 source/up.2 (value-number (exact-number (ann 2 I64)))) source/over.1))) source/value.2))) source/value.1)))
       source/up.2)))
 
 (ref-set! source/gen-rte-ref (value-procedure (ref (unit)) (function-2 body/source/gen-rte-ref)))
@@ -3384,7 +3384,7 @@
 
 (def body/source/gen-slot-ref-0 (-> Value Value)
   (lambda (source/i.2)
-    ((lambda (source/value.4) (if (value-truth? (primitive/memv/2 source/value.4 literal.34)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.4) (primitive/vector-ref/2 source/rte.4 (value-number (exact-number 0)))))) ((lambda (source/value.5) (if (value-truth? (primitive/memv/2 source/value.5 literal.33)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.3) (primitive/vector-ref/2 source/rte.3 (value-number (exact-number 1)))))) ((lambda (source/value.6) (if (value-truth? (primitive/memv/2 source/value.6 literal.32)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.2) (primitive/vector-ref/2 source/rte.2 (value-number (exact-number 2)))))) ((lambda (source/value.7) (if (value-truth? (primitive/memv/2 source/value.7 literal.31)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.1) (primitive/vector-ref/2 source/rte.1 (value-number (exact-number 3)))))) ((lambda (source/value.8) (value-procedure (ref (unit)) (function-1 (lambda (source/rte) (primitive/vector-ref/2 source/rte source/i.2))))) source/value.7))) source/value.6))) source/value.5))) source/value.4)))
+    ((lambda (source/value.4) (if (value-truth? (primitive/memv/2 source/value.4 literal.34)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.4) (primitive/vector-ref/2 source/rte.4 (value-number (exact-number (ann 0 I64))))))) ((lambda (source/value.5) (if (value-truth? (primitive/memv/2 source/value.5 literal.33)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.3) (primitive/vector-ref/2 source/rte.3 (value-number (exact-number (ann 1 I64))))))) ((lambda (source/value.6) (if (value-truth? (primitive/memv/2 source/value.6 literal.32)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.2) (primitive/vector-ref/2 source/rte.2 (value-number (exact-number (ann 2 I64))))))) ((lambda (source/value.7) (if (value-truth? (primitive/memv/2 source/value.7 literal.31)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.1) (primitive/vector-ref/2 source/rte.1 (value-number (exact-number (ann 3 I64))))))) ((lambda (source/value.8) (value-procedure (ref (unit)) (function-1 (lambda (source/rte) (primitive/vector-ref/2 source/rte source/i.2))))) source/value.7))) source/value.6))) source/value.5))) source/value.4)))
       source/i.2)))
 
 (ref-set!
@@ -3397,7 +3397,7 @@
 
 (def body/source/gen-slot-ref-1 (-> Value Value)
   (lambda (source/i.3)
-    ((lambda (source/value.9) (if (value-truth? (primitive/memv/2 source/value.9 literal.38)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.9) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.9 (value-number (exact-number 0))) (value-number (exact-number 0)))))) ((lambda (source/value.10) (if (value-truth? (primitive/memv/2 source/value.10 literal.37)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.8) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.8 (value-number (exact-number 0))) (value-number (exact-number 1)))))) ((lambda (source/value.11) (if (value-truth? (primitive/memv/2 source/value.11 literal.36)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.7) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.7 (value-number (exact-number 0))) (value-number (exact-number 2)))))) ((lambda (source/value.12) (if (value-truth? (primitive/memv/2 source/value.12 literal.35)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.6) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.6 (value-number (exact-number 0))) (value-number (exact-number 3)))))) ((lambda (source/value.13) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.5) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.5 (value-number (exact-number 0))) source/i.3))))) source/value.12))) source/value.11))) source/value.10))) source/value.9)))
+    ((lambda (source/value.9) (if (value-truth? (primitive/memv/2 source/value.9 literal.38)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.9) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.9 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 0 I64))))))) ((lambda (source/value.10) (if (value-truth? (primitive/memv/2 source/value.10 literal.37)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.8) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.8 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 1 I64))))))) ((lambda (source/value.11) (if (value-truth? (primitive/memv/2 source/value.11 literal.36)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.7) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.7 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 2 I64))))))) ((lambda (source/value.12) (if (value-truth? (primitive/memv/2 source/value.12 literal.35)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.6) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.6 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 3 I64))))))) ((lambda (source/value.13) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.5) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.5 (value-number (exact-number (ann 0 I64)))) source/i.3))))) source/value.12))) source/value.11))) source/value.10))) source/value.9)))
       source/i.3)))
 
 (ref-set!
@@ -3417,8 +3417,8 @@
           (invoke-1
             source/code.5
             (primitive/vector-ref/2
-              (primitive/vector-ref/2 source/rte.10 (value-number (exact-number 0)))
-              (value-number (exact-number 0)))))))))
+              (primitive/vector-ref/2 source/rte.10 (value-number (exact-number (ann 0 I64))))
+              (value-number (exact-number (ann 0 I64))))))))))
 
 (ref-set!
   source/gen-slot-ref-up-2
@@ -3442,7 +3442,7 @@
 
 (def body/source/gen-cst (-> Value Value)
   (lambda (source/val)
-    ((lambda (source/value.14) (if (value-truth? (primitive/memv/2 source/value.14 literal.46)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.20) (value-null)))) ((lambda (source/value.15) (if (value-truth? (primitive/memv/2 source/value.15 literal.45)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.19) (value-boolean #f)))) ((lambda (source/value.16) (if (value-truth? (primitive/memv/2 source/value.16 literal.44)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.18) (value-boolean #t)))) ((lambda (source/value.17) (if (value-truth? (primitive/memv/2 source/value.17 literal.43)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.17) (value-number (exact-number -2))))) ((lambda (source/value.18) (if (value-truth? (primitive/memv/2 source/value.18 literal.42)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.16) (value-number (exact-number -1))))) ((lambda (source/value.19) (if (value-truth? (primitive/memv/2 source/value.19 literal.41)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.15) (value-number (exact-number 0))))) ((lambda (source/value.20) (if (value-truth? (primitive/memv/2 source/value.20 literal.40)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.14) (value-number (exact-number 1))))) ((lambda (source/value.21) (if (value-truth? (primitive/memv/2 source/value.21 literal.39)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.13) (value-number (exact-number 2))))) ((lambda (source/value.22) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.12) source/val)))) source/value.21))) source/value.20))) source/value.19))) source/value.18))) source/value.17))) source/value.16))) source/value.15))) source/value.14)))
+    ((lambda (source/value.14) (if (value-truth? (primitive/memv/2 source/value.14 literal.46)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.20) (value-null)))) ((lambda (source/value.15) (if (value-truth? (primitive/memv/2 source/value.15 literal.45)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.19) (value-boolean #f)))) ((lambda (source/value.16) (if (value-truth? (primitive/memv/2 source/value.16 literal.44)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.18) (value-boolean #t)))) ((lambda (source/value.17) (if (value-truth? (primitive/memv/2 source/value.17 literal.43)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.17) (value-number (exact-number (ann -2 I64)))))) ((lambda (source/value.18) (if (value-truth? (primitive/memv/2 source/value.18 literal.42)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.16) (value-number (exact-number (ann -1 I64)))))) ((lambda (source/value.19) (if (value-truth? (primitive/memv/2 source/value.19 literal.41)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.15) (value-number (exact-number (ann 0 I64)))))) ((lambda (source/value.20) (if (value-truth? (primitive/memv/2 source/value.20 literal.40)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.14) (value-number (exact-number (ann 1 I64)))))) ((lambda (source/value.21) (if (value-truth? (primitive/memv/2 source/value.21 literal.39)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.13) (value-number (exact-number (ann 2 I64)))))) ((lambda (source/value.22) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.12) source/val)))) source/value.21))) source/value.20))) source/value.19))) source/value.18))) source/value.17))) source/value.16))) source/value.15))) source/value.14)))
       source/val)))
 
 (ref-set! source/gen-cst (value-procedure (ref (unit)) (function-1 body/source/gen-cst)))
@@ -3519,7 +3519,7 @@
 
 (def body/source/gen-rte-set (-> Value Value Value Value)
   (lambda (source/up.3 source/over.2 source/code.8)
-    ((lambda (source/value.23) (if (value-truth? (primitive/memv/2 source/value.23 literal.48)) (body/source/gen-slot-set-0 source/over.2 source/code.8) ((lambda (source/value.24) (if (value-truth? (primitive/memv/2 source/value.24 literal.47)) (body/source/gen-slot-set-1 source/over.2 source/code.8) ((lambda (source/value.25) (body/source/gen-slot-set-n (body/source/gen-rte-ref (primitive/-/2 source/up.3 (value-number (exact-number 2))) (value-number (exact-number 0))) source/over.2 source/code.8)) source/value.24))) source/value.23)))
+    ((lambda (source/value.23) (if (value-truth? (primitive/memv/2 source/value.23 literal.48)) (body/source/gen-slot-set-0 source/over.2 source/code.8) ((lambda (source/value.24) (if (value-truth? (primitive/memv/2 source/value.24 literal.47)) (body/source/gen-slot-set-1 source/over.2 source/code.8) ((lambda (source/value.25) (body/source/gen-slot-set-n (body/source/gen-rte-ref (primitive/-/2 source/up.3 (value-number (exact-number (ann 2 I64)))) (value-number (exact-number (ann 0 I64)))) source/over.2 source/code.8)) source/value.24))) source/value.23)))
       source/up.3)))
 
 (ref-set! source/gen-rte-set (value-procedure (ref (unit)) (function-3 body/source/gen-rte-set)))
@@ -3530,7 +3530,7 @@
 
 (def body/source/gen-slot-set-0 (-> Value Value Value)
   (lambda (source/i.5 source/code.9)
-    ((lambda (source/value.26) (if (value-truth? (primitive/memv/2 source/value.26 literal.52)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.28) (primitive/vector-set!/3 source/rte.28 (value-number (exact-number 0)) (invoke-1 source/code.9 source/rte.28))))) ((lambda (source/value.27) (if (value-truth? (primitive/memv/2 source/value.27 literal.51)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.27) (primitive/vector-set!/3 source/rte.27 (value-number (exact-number 1)) (invoke-1 source/code.9 source/rte.27))))) ((lambda (source/value.28) (if (value-truth? (primitive/memv/2 source/value.28 literal.50)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.26) (primitive/vector-set!/3 source/rte.26 (value-number (exact-number 2)) (invoke-1 source/code.9 source/rte.26))))) ((lambda (source/value.29) (if (value-truth? (primitive/memv/2 source/value.29 literal.49)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.25) (primitive/vector-set!/3 source/rte.25 (value-number (exact-number 3)) (invoke-1 source/code.9 source/rte.25))))) ((lambda (source/value.30) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.24) (primitive/vector-set!/3 source/rte.24 source/i.5 (invoke-1 source/code.9 source/rte.24)))))) source/value.29))) source/value.28))) source/value.27))) source/value.26)))
+    ((lambda (source/value.26) (if (value-truth? (primitive/memv/2 source/value.26 literal.52)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.28) (primitive/vector-set!/3 source/rte.28 (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.9 source/rte.28))))) ((lambda (source/value.27) (if (value-truth? (primitive/memv/2 source/value.27 literal.51)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.27) (primitive/vector-set!/3 source/rte.27 (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.9 source/rte.27))))) ((lambda (source/value.28) (if (value-truth? (primitive/memv/2 source/value.28 literal.50)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.26) (primitive/vector-set!/3 source/rte.26 (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.9 source/rte.26))))) ((lambda (source/value.29) (if (value-truth? (primitive/memv/2 source/value.29 literal.49)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.25) (primitive/vector-set!/3 source/rte.25 (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.9 source/rte.25))))) ((lambda (source/value.30) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.24) (primitive/vector-set!/3 source/rte.24 source/i.5 (invoke-1 source/code.9 source/rte.24)))))) source/value.29))) source/value.28))) source/value.27))) source/value.26)))
       source/i.5)))
 
 (ref-set!
@@ -3543,7 +3543,7 @@
 
 (def body/source/gen-slot-set-1 (-> Value Value Value)
   (lambda (source/i.6 source/code.10)
-    ((lambda (source/value.31) (if (value-truth? (primitive/memv/2 source/value.31 literal.56)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.33) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.33 (value-number (exact-number 0))) (value-number (exact-number 0)) (invoke-1 source/code.10 source/rte.33))))) ((lambda (source/value.32) (if (value-truth? (primitive/memv/2 source/value.32 literal.55)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.32) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.32 (value-number (exact-number 0))) (value-number (exact-number 1)) (invoke-1 source/code.10 source/rte.32))))) ((lambda (source/value.33) (if (value-truth? (primitive/memv/2 source/value.33 literal.54)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.31) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.31 (value-number (exact-number 0))) (value-number (exact-number 2)) (invoke-1 source/code.10 source/rte.31))))) ((lambda (source/value.34) (if (value-truth? (primitive/memv/2 source/value.34 literal.53)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.30) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.30 (value-number (exact-number 0))) (value-number (exact-number 3)) (invoke-1 source/code.10 source/rte.30))))) ((lambda (source/value.35) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.29) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.29 (value-number (exact-number 0))) source/i.6 (invoke-1 source/code.10 source/rte.29)))))) source/value.34))) source/value.33))) source/value.32))) source/value.31)))
+    ((lambda (source/value.31) (if (value-truth? (primitive/memv/2 source/value.31 literal.56)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.33) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.33 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.10 source/rte.33))))) ((lambda (source/value.32) (if (value-truth? (primitive/memv/2 source/value.32 literal.55)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.32) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.32 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.10 source/rte.32))))) ((lambda (source/value.33) (if (value-truth? (primitive/memv/2 source/value.33 literal.54)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.31) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.31 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.10 source/rte.31))))) ((lambda (source/value.34) (if (value-truth? (primitive/memv/2 source/value.34 literal.53)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.30) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.30 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.10 source/rte.30))))) ((lambda (source/value.35) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.29) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.29 (value-number (exact-number (ann 0 I64)))) source/i.6 (invoke-1 source/code.10 source/rte.29)))))) source/value.34))) source/value.33))) source/value.32))) source/value.31)))
       source/i.6)))
 
 (ref-set!
@@ -3556,7 +3556,7 @@
 
 (def body/source/gen-slot-set-n (-> Value Value Value Value)
   (lambda (source/up.4 source/i.7 source/code.11)
-    ((lambda (source/value.36) (if (value-truth? (primitive/memv/2 source/value.36 literal.60)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.38) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.38 (value-number (exact-number 0)))) (value-number (exact-number 0)) (invoke-1 source/code.11 source/rte.38))))) ((lambda (source/value.37) (if (value-truth? (primitive/memv/2 source/value.37 literal.59)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.37) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.37 (value-number (exact-number 0)))) (value-number (exact-number 1)) (invoke-1 source/code.11 source/rte.37))))) ((lambda (source/value.38) (if (value-truth? (primitive/memv/2 source/value.38 literal.58)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.36) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.36 (value-number (exact-number 0)))) (value-number (exact-number 2)) (invoke-1 source/code.11 source/rte.36))))) ((lambda (source/value.39) (if (value-truth? (primitive/memv/2 source/value.39 literal.57)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.35) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.35 (value-number (exact-number 0)))) (value-number (exact-number 3)) (invoke-1 source/code.11 source/rte.35))))) ((lambda (source/value.40) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.34) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.34 (value-number (exact-number 0)))) source/i.7 (invoke-1 source/code.11 source/rte.34)))))) source/value.39))) source/value.38))) source/value.37))) source/value.36)))
+    ((lambda (source/value.36) (if (value-truth? (primitive/memv/2 source/value.36 literal.60)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.38) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.38 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.11 source/rte.38))))) ((lambda (source/value.37) (if (value-truth? (primitive/memv/2 source/value.37 literal.59)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.37) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.37 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.11 source/rte.37))))) ((lambda (source/value.38) (if (value-truth? (primitive/memv/2 source/value.38 literal.58)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.36) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.36 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.11 source/rte.36))))) ((lambda (source/value.39) (if (value-truth? (primitive/memv/2 source/value.39 literal.57)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.35) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.35 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.11 source/rte.35))))) ((lambda (source/value.40) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.34) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.34 (value-number (exact-number (ann 0 I64))))) source/i.7 (invoke-1 source/code.11 source/rte.34)))))) source/value.39))) source/value.38))) source/value.37))) source/value.36)))
       source/i.7)))
 
 (ref-set!
@@ -3666,9 +3666,9 @@
             (ref (unit))
             (function-rest-3
               (lambda (source/a.3 source/b.2 source/c.1 source/d)
-                ((lambda (source/x.9) (begin (primitive/vector-set!/3 source/x.9 (value-number (exact-number 0)) source/rte.43) (primitive/vector-set!/3 source/x.9 (value-number (exact-number 1)) source/a.3) (primitive/vector-set!/3 source/x.9 (value-number (exact-number 2)) source/b.2) (primitive/vector-set!/3 source/x.9 (value-number (exact-number 3)) source/c.1) (invoke-4 ((lambda () (begin (def source/loop.3 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.3 (-> Value Value Value Value Value) (lambda (source/n.3 source/x.10 source/i.9 source/l.8) (if (value-truth? (primitive/</2 source/i.9 source/n.3)) (begin (primitive/vector-set!/3 source/x.10 source/i.9 (primitive/car/1 source/l.8)) (body/source/loop.3 source/n.3 source/x.10 (primitive/+/2 source/i.9 (value-number (exact-number 1))) (primitive/cdr/1 source/l.8))) (primitive/vector-set!/3 source/x.10 source/i.9 source/l.8)))) (ref-set! source/loop.3 (value-procedure (ref (unit)) (function-4 body/source/loop.3))) (binding-value source/loop.3)))) source/nb-vars.2 source/x.9 (value-number (exact-number 4)) source/d) (invoke-1 source/body.8 source/x.9)))
+                ((lambda (source/x.9) (begin (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 0 I64))) source/rte.43) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 1 I64))) source/a.3) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 2 I64))) source/b.2) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 3 I64))) source/c.1) (invoke-4 ((lambda () (begin (def source/loop.3 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.3 (-> Value Value Value Value Value) (lambda (source/n.3 source/x.10 source/i.9 source/l.8) (if (value-truth? (primitive/</2 source/i.9 source/n.3)) (begin (primitive/vector-set!/3 source/x.10 source/i.9 (primitive/car/1 source/l.8)) (body/source/loop.3 source/n.3 source/x.10 (primitive/+/2 source/i.9 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.8))) (primitive/vector-set!/3 source/x.10 source/i.9 source/l.8)))) (ref-set! source/loop.3 (value-procedure (ref (unit)) (function-4 body/source/loop.3))) (binding-value source/loop.3)))) source/nb-vars.2 source/x.9 (value-number (exact-number (ann 4 I64))) source/d) (invoke-1 source/body.8 source/x.9)))
                   (primitive/make-vector/1
-                    (primitive/+/2 source/nb-vars.2 (value-number (exact-number 1)))))))))))))
+                    (primitive/+/2 source/nb-vars.2 (value-number (exact-number (ann 1 I64))))))))))))))
 
 (ref-set!
   source/gen-lambda-n-rest
@@ -3771,9 +3771,9 @@
             (ref (unit))
             (function-rest-3
               (lambda (source/a.7 source/b.5 source/c.3 source/d.1)
-                ((lambda (source/x.11) (begin (primitive/vector-set!/3 source/x.11 (value-number (exact-number 0)) source/rte.48) (primitive/vector-set!/3 source/x.11 (value-number (exact-number 1)) source/a.7) (primitive/vector-set!/3 source/x.11 (value-number (exact-number 2)) source/b.5) (primitive/vector-set!/3 source/x.11 (value-number (exact-number 3)) source/c.3) (invoke-4 ((lambda () (begin (def source/loop.4 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.4 (-> Value Value Value Value Value) (lambda (source/n.4 source/x.12 source/i.10 source/l.9) (if (value-truth? (primitive/<=/2 source/i.10 source/n.4)) (begin (primitive/vector-set!/3 source/x.12 source/i.10 (primitive/car/1 source/l.9)) (body/source/loop.4 source/n.4 source/x.12 (primitive/+/2 source/i.10 (value-number (exact-number 1))) (primitive/cdr/1 source/l.9))) (value-unspecified)))) (ref-set! source/loop.4 (value-procedure (ref (unit)) (function-4 body/source/loop.4))) (binding-value source/loop.4)))) source/nb-vars.4 source/x.11 (value-number (exact-number 4)) source/d.1) (invoke-1 source/body.14 source/x.11)))
+                ((lambda (source/x.11) (begin (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 0 I64))) source/rte.48) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 1 I64))) source/a.7) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 2 I64))) source/b.5) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 3 I64))) source/c.3) (invoke-4 ((lambda () (begin (def source/loop.4 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.4 (-> Value Value Value Value Value) (lambda (source/n.4 source/x.12 source/i.10 source/l.9) (if (value-truth? (primitive/<=/2 source/i.10 source/n.4)) (begin (primitive/vector-set!/3 source/x.12 source/i.10 (primitive/car/1 source/l.9)) (body/source/loop.4 source/n.4 source/x.12 (primitive/+/2 source/i.10 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.9))) (value-unspecified)))) (ref-set! source/loop.4 (value-procedure (ref (unit)) (function-4 body/source/loop.4))) (binding-value source/loop.4)))) source/nb-vars.4 source/x.11 (value-number (exact-number (ann 4 I64))) source/d.1) (invoke-1 source/body.14 source/x.11)))
                   (primitive/make-vector/1
-                    (primitive/+/2 source/nb-vars.4 (value-number (exact-number 1)))))))))))))
+                    (primitive/+/2 source/nb-vars.4 (value-number (exact-number (ann 1 I64))))))))))))))
 
 (ref-set! source/gen-lambda-n (value-procedure (ref (unit)) (function-2 body/source/gen-lambda-n)))
 
@@ -3937,7 +3937,7 @@
       (ref (unit))
       (function-1
         (lambda (source/rte.58)
-          ((lambda (source/x.13) (begin (primitive/vector-set!/3 source/x.13 (value-number (exact-number 1)) (invoke-1 source/val1 source/x.13)) (invoke-1 source/body.16 source/x.13)))
+          ((lambda (source/x.13) (begin (primitive/vector-set!/3 source/x.13 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1 source/x.13)) (invoke-1 source/body.16 source/x.13)))
             (primitive/vector/2 source/rte.58 (value-boolean #f))))))))
 
 (ref-set! source/gen-letrec-1 (value-procedure (ref (unit)) (function-2 body/source/gen-letrec-1)))
@@ -3952,7 +3952,7 @@
       (ref (unit))
       (function-1
         (lambda (source/rte.59)
-          ((lambda (source/x.14) (begin (primitive/vector-set!/3 source/x.14 (value-number (exact-number 1)) (invoke-1 source/val1.1 source/x.14)) (primitive/vector-set!/3 source/x.14 (value-number (exact-number 2)) (invoke-1 source/val2 source/x.14)) (invoke-1 source/body.17 source/x.14)))
+          ((lambda (source/x.14) (begin (primitive/vector-set!/3 source/x.14 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1.1 source/x.14)) (primitive/vector-set!/3 source/x.14 (value-number (exact-number (ann 2 I64))) (invoke-1 source/val2 source/x.14)) (invoke-1 source/body.17 source/x.14)))
             (primitive/vector/3 source/rte.59 (value-boolean #f) (value-boolean #f))))))))
 
 (ref-set! source/gen-letrec-2 (value-procedure (ref (unit)) (function-3 body/source/gen-letrec-2)))
@@ -3967,7 +3967,7 @@
       (ref (unit))
       (function-1
         (lambda (source/rte.60)
-          ((lambda (source/x.15) (begin (primitive/vector-set!/3 source/x.15 (value-number (exact-number 1)) (invoke-1 source/val1.2 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number 2)) (invoke-1 source/val2.1 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number 3)) (invoke-1 source/val3 source/x.15)) (invoke-1 source/body.18 source/x.15)))
+          ((lambda (source/x.15) (begin (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1.2 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 2 I64))) (invoke-1 source/val2.1 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 3 I64))) (invoke-1 source/val3 source/x.15)) (invoke-1 source/body.18 source/x.15)))
             (primitive/vector/4
               source/rte.60
               (value-boolean #f)
@@ -3986,9 +3986,9 @@
       (ref (unit))
       (function-1
         (lambda (source/rte.61)
-          ((lambda (source/x.16) (begin (primitive/vector-set!/3 source/x.16 (value-number (exact-number 0)) source/rte.61) (invoke-3 ((lambda () (begin (def source/loop.5 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.5 (-> Value Value Value Value) (lambda (source/x.17 source/i.11 source/l.10) (if (value-truth? (primitive/pair?/1 source/l.10)) (begin (primitive/vector-set!/3 source/x.17 source/i.11 (invoke-1 (primitive/car/1 source/l.10) source/x.17)) (body/source/loop.5 source/x.17 (primitive/+/2 source/i.11 (value-number (exact-number 1))) (primitive/cdr/1 source/l.10))) (value-unspecified)))) (ref-set! source/loop.5 (value-procedure (ref (unit)) (function-3 body/source/loop.5))) (binding-value source/loop.5)))) source/x.16 (value-number (exact-number 1)) source/vals.4) (invoke-1 source/body.19 source/x.16)))
+          ((lambda (source/x.16) (begin (primitive/vector-set!/3 source/x.16 (value-number (exact-number (ann 0 I64))) source/rte.61) (invoke-3 ((lambda () (begin (def source/loop.5 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.5 (-> Value Value Value Value) (lambda (source/x.17 source/i.11 source/l.10) (if (value-truth? (primitive/pair?/1 source/l.10)) (begin (primitive/vector-set!/3 source/x.17 source/i.11 (invoke-1 (primitive/car/1 source/l.10) source/x.17)) (body/source/loop.5 source/x.17 (primitive/+/2 source/i.11 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.10))) (value-unspecified)))) (ref-set! source/loop.5 (value-procedure (ref (unit)) (function-3 body/source/loop.5))) (binding-value source/loop.5)))) source/x.16 (value-number (exact-number (ann 1 I64))) source/vals.4) (invoke-1 source/body.19 source/x.16)))
             (primitive/make-vector/1
-              (primitive/+/2 source/nb-vals.1 (value-number (exact-number 1))))))))))
+              (primitive/+/2 source/nb-vals.1 (value-number (exact-number (ann 1 I64)))))))))))
 
 (ref-set! source/gen-letrec-n (value-procedure (ref (unit)) (function-3 body/source/gen-letrec-n)))
 
@@ -4570,11 +4570,11 @@
         (lambda (index result)
           (if (< index count)
             (repeat
-              (+ index 1)
+              (+ index (ann 1 I64))
               (body/source/scheme-eval
                 (if (barrier) (specification-input configured) (unreachable))))
-            (if (value-equal? result (specification-expected configured)) 1 0))))
-      (repeat 0 (value-boolean #f)))))
+            (if (value-equal? result (specification-expected configured)) (ann 1 I64) (ann 0 I64)))))
+      (repeat (ann 0 I64) (value-boolean #f)))))
 
 (unit)
 
@@ -4593,7 +4593,7 @@
                   index
                   (begin (let actual (body/source/scheme-eval (value-car next)))
                     (if (value-equal? actual (value-car (value-cdr next)))
-                      (loop (+ index 1))
+                      (loop (+ index (ann 1 I64)))
                       (begin
                         (write
                           (value->datum
@@ -4602,4 +4602,4 @@
                               (value-cons actual (value-null)))))
                         (newline)
                         (datum-fail "interpreter diagnostic mismatch"))))))))
-          (loop 0))))))
+          (loop (ann 0 I64)))))))

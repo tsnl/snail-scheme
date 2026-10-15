@@ -55,8 +55,8 @@
             (begin
               (go (hide-path count (specification-input configured))
                   (hide-path count (specification-output configured)))
-              (repeat (+ index 1)))
-            1)))
-      (repeat 0))))
+              (repeat (+ index (ann 1 I64))))
+            (ann 1 I64))))
+      (repeat (ann 0 I64)))))
 
 (unit)

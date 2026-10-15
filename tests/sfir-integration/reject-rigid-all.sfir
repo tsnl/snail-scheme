@@ -1,5 +1,5 @@
 (import (sfir base))
 
 (def identity (All (T) (-> T T))
-     (lambda (x) (+ x 1)))
-(identity 41)
+     (lambda (x) (+ x (ann 1 I64))))
+(identity (ann 41 I64))

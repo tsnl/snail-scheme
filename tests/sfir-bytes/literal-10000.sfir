@@ -3,7 +3,7 @@
 (begin
   (def loop
        (lambda (i)
-         (if (= i 10000) 42
-             (if (= (bytevector-u8-ref bytes i) (remainder i 256))
-                 (loop (+ i 1)) (unreachable)))))
-  (loop 0))
+         (if (= i (ann 10000 I64)) (ann 42 I64)
+             (if (= (bytevector-u8-ref bytes i) (remainder i (ann 256 I64)))
+                 (loop (+ i (ann 1 I64))) (unreachable)))))
+  (loop (ann 0 I64)))

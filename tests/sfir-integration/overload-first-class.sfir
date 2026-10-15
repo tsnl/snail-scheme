@@ -7,4 +7,4 @@
      +)
 (def apply-twice
      (lambda (function value) (function (function value))))
-(if (= (add 20 (convert 22)) 42.0) 42 (unreachable))
+(if (= (add (ann 20 I64) (convert (ann 22 I64))) 42.0) (ann 42 I64) (unreachable))
