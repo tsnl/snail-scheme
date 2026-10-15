@@ -188,6 +188,7 @@
            (begin
              (match (inspect-expression text)
                ((view-string-literal value location) (string-set! value (ann 0 I64) #\x))
+               ((view-number-literal spelling location) (unreachable))
                ((view-literal-i32 value location) (unreachable))
                ((view-literal-i64 value location) (unreachable))
                ((view-literal-f32 value location) (unreachable))
@@ -206,6 +207,7 @@
                ((view-match subject arms location) (unreachable)))
              (match (inspect-expression bytes)
                ((view-bytevector-literal value location) (bytevector-u8-set! value (ann 0 I64) (ann 255 I64)))
+               ((view-number-literal spelling location) (unreachable))
                ((view-literal-i32 value location) (unreachable))
                ((view-literal-i64 value location) (unreachable))
                ((view-literal-f32 value location) (unreachable))

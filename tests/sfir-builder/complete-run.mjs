@@ -5,7 +5,7 @@ import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/snail
 
 const directory = process.argv[2];
 const provider = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(join(directory, 'complete-provider.wasm'))));
-for (const suffix of ['generated', 'source']) {
+for (const suffix of ['generated', 'source', 'parsed']) {
   const code = loadWasm(readFileSync(join(directory, `complete-${suffix}.wasm`)));
   for (let repeat = 0; repeat < 2; ++repeat) {
     const instance = instantiate(code, new Map([['tests.builder', provider]]));
@@ -24,4 +24,4 @@ for (const suffix of ['generated', 'source']) {
   api.main();
   for (const input of [-7, 0, 9, 42]) assert.equal(api.entry(input), input * 3 + 20);
 }
-console.log('PASS complete generated/source equivalence, typed views, literals and independent Wasm instances');
+console.log('PASS complete generated/source/parsed equivalence, typed views, literals and independent Wasm instances');

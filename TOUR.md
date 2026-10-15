@@ -154,7 +154,7 @@ instance; a trapped call retains its instance and preceding effects. A lost
 compiler process invalidates map operations while copied artifacts and existing
 runtime instances remain owned by the service scope. See the
 [service API](doc/sfir-compiler-service.md) for lifecycle rules, supported targets
-and the pending first-class parsed `SfirLibrary` return path. The Python native
+and first-class parsed `SfirLibrary` values. The Python native
 loading adapter is described below; native target support in this SFIR service
 remains pending.
 
@@ -165,7 +165,7 @@ cleanup. The driver registers the returned syntax and separately obtains its
 imports. See [source recipes](doc/sfir-generation.md) for the API, command example,
 source context and preparation errors.
 
-## Constructed library values
+## Parsed and constructed library values
 
 [`compiler-builder.sfir`](lib/sfir/compiler-builder.sfir) lets compiled SFIR
 producers compose nominal library, declaration, type, scope, binding and reference
@@ -181,6 +181,8 @@ handles do not expose managed pointers.
 constructors in an invocation-owned arena. `invokeLibraryGenerator` initializes
 and calls an ordinary compiled producer, copies its completed syntax graph into
 an owned transfer, and closes the arena and producer instance on success or trap.
+The same arena receives copied parse packets with checked structure and fresh
+local identities; parsed and constructed values share all typed views.
 The transfer has a versioned schema and preserves nodes and their local IDs.
 
 [`library-transfer.sld`](src/snail-sfir/library-transfer.sld) receives that data
@@ -191,7 +193,11 @@ and static binding roles. It shares the frontend's reserved binding-name rule
 and creates an unresolved `SfirLibrary`. An explicit receiving context preserves
 reuse of legitimate owned transfers; reading raw bytes again creates fresh
 identities.
-Output imports need their own supplied map. The receiver neither discovers
+Its reverse writer traverses unresolved parser declarations with binder identity
+maps, deriving scope owners from lexical structure. `def`/`let` evidence, attached
+signature locations, quantified variables and numeric source spellings survive
+that copy. Parsing still uses only `frontend.sld`; no types are inferred during
+transfer. Output imports need their own supplied map. The receiver neither discovers
 dependencies nor accepts inferred IR as evidence. See the [builder API and
 executable example](doc/sfir-builder.md) for ownership, supported constructors,
 and typed inspection.

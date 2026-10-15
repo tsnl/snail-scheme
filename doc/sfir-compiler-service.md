@@ -39,6 +39,38 @@ string. `(provider-set name)` selects a provider map explicitly installed by the
 host. The service snapshots these maps when opened; their Wasm instances remain
 borrowed services that the host may deliberately share.
 
+## Parsing inspectable library values
+
+`(parse-library source-name source-text)` returns `(CompilerResult SfirLibrary)`.
+It reads exactly one `define-library` using the existing Chibi frontend and copies
+its unresolved declarations into the same immutable [syntax API](sfir-builder.md)
+used by generators. The result supports every builder inspection view and can be
+rebuilt or transformed before `library-map-insert`.
+
+```scheme
+(let original (require (parse-library "math.sfir" source-text)))
+(let changed
+  (match (inspect-library original)
+    ((view-library key scope imports exports declarations span)
+      (sfir-library replacement-key scope imports exports declarations span))))
+(let libraries (require (library-map-insert dependencies application-key changed)))
+(let artifact (require (compile libraries (entry application-key "run") (wasm-target))))
+```
+
+The example assumes supplied text, name lists, dependencies and a `require`
+function that handles `CompilerResult`. Source names provide diagnostic locations;
+parsing does not read files, obtain imports, execute initializers, infer types or
+optimize. Numeric syntax retains its original spelling until the ordinary checker
+selects a representation. Attached quantified identities remain visible in their
+initializers. Forward definitions and sequential lets retain their distinct scope
+rules and original declaration order.
+
+Fresh parsing creates fresh scope and binding identities. Aliasing or reinserting
+the same returned value preserves its library identity within the service scope.
+Constructing a replacement library creates a new library value. Source strings
+and mutable data obtained from views are copied, so changing them cannot change
+an existing library. All values retain the service's builder lifetime.
+
 ## Supplying libraries
 
 | Operation | Arguments | Success value |
@@ -46,7 +78,7 @@ borrowed services that the host may deliberately share.
 | `empty-library-map` | none | `LibraryMap` |
 | `library-map-primitives` | map | map containing `(sfir primitive)` |
 | `library-map-parse` | map, key, source name, source string | map containing the parsed library |
-| `library-map-insert` | map, key, constructed `SfirLibrary` | map containing the received library |
+| `library-map-insert` | map, key, parsed or constructed `SfirLibrary` | map containing the received library |
 | `library-map-alias` | map, existing key, new key | map with another key for the same library |
 
 All operations return a new map and preserve the prior map. Insertion replaces
@@ -60,20 +92,20 @@ after insertion cannot change the stored library. Parsing identical text again
 creates fresh local identities. The primitive library is added only by the
 explicit `library-map-primitives` call.
 
-Constructed insertion uses the existing [builder protocol](sfir-builder.md).
+Syntax-value insertion uses the existing [builder protocol](sfir-builder.md).
 The builder checks its invocation handle, copies reachable immutable syntax into
 an owned packet, and Chibi checks and receives that packet. Repeated insertion
-of the same constructed library preserves identity within this service scope.
+of the same parsed or constructed library preserves identity within this service scope.
 The receiver caches only the unresolved library; resolution and checking still
 use each supplied map. Aliases preserve identity for both construction paths.
 Imports in either kind of library must be supplied separately.
 
-`library-map-parse` combines parsing and map insertion. It does **not** implement
-the book's first-class `parse-library -> SfirLibrary` interface: parsed values
-cannot yet be returned to SFIR for syntax inspection or transformation. The
-constructive `SfirLibrary` type retains its existing inspectable, transferable
-meaning; no opaque compiler descriptor masquerades as that type. Completing the
-reverse structured transfer is a separate pending boundary.
+`library-map-parse` retains its combined source-to-map operation for callers that
+need no intermediate syntax value. Both parsing operations use the same frontend.
+The first-class path transfers the parser's syntax graph into the builder arena;
+its checked token conversion verifies builder ownership and the library category.
+Full reception checks lexical ownership again before inserting the library. The
+packet contains declared syntax and identities, never inferred checking evidence.
 
 ## Artifacts and independently initialized instances
 
@@ -174,3 +206,13 @@ closure and temporary-file cleanup. Noisy and stalled hosts test deadlines;
 a host and descendant that ignore SIGTERM test bounded group shutdown and reaping.
 Command records are retained under
 `build/sfir-compiler-service/`; they are correctness diagnostics, not timings.
+
+`scripts/test-sfir-parsed-library` executes an ordinary compiled SFIR program that
+parses source, inspects and rebuilds its syntax, changes its public export,
+compiles explicit maps and invokes the results. It checks fresh parse identities,
+repeated insertion aliases, source-string ownership, original-library reuse, and
+errors deferred until map resolution or type checking. The builder suite also
+reconstructs a complete parsed library through SFIR views, compares linked Wasm
+and native behavior, and checks exact numeric precision and diagnostic locations.
+The parsing runner retains bounded command records and artifacts under
+`build/sfir-parsed-library/attempt-*/`.

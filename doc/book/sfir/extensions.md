@@ -87,6 +87,6 @@ overflow/domain results. These library contracts do not weaken fixed-width
 arithmetic or insert an implicit numeric promotion.
 
 The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
-remaining differences, including first-class library compilation APIs.
+remaining differences and the implemented first-class library compiler APIs.
 These gaps do not weaken the language
 contract.
