@@ -35,6 +35,10 @@ materialization differ. The comparison does not isolate a Ref or codegen cost.
 Ray has a [complete four-system comparison](../results/2026-10-14-strict-ray-comparison/README.md):
 6.584× faster than original Chez, 6.181× faster than adapted Chez, and 2.387×
 Rust/Wasm time. All 50 full renders and complete output validation remain.
+Mazefun has a [full-count four-system comparison](../results/2026-10-14-strict-mazefun-comparison/README.md):
+1.619× faster than original Chez, 1.425× faster than adapted Chez and 3.691×
+faster than this Rust/Wasm reference. All 10,000 full 11 × 11 constructions and
+the complete supplied grid predicate remain; Rc/GC and layout differences are explicit.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -74,7 +78,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | lattice | Measured original count 10, input 44 and result 120549: 1.647× original Chez time, 1.504× adapted Chez and 1.815× Rust/Wasm. Raw/optimized Wasm and untouched/adapted Chez correctness checks pass. Parametric lattice/binding products, mutable-tail list variants and finite I64 comparison codes preserve destructive reversal, ordered constraints, branch-result lists and append sharing. Separate complete-poset, callback-order and node-identity probes pass. Additional Ref/empty objects and Rust vector/enum/Rc layout/control differences are disclosed; the timed Rust artifact has limited complete-payload checks. No compiler changes or dynamic fallback. |
 | matrix | Improper heterogeneous products, mutable pair tails, symbol messages and structured search state; fixed-width numeric helpers alone do not represent its matrix enumeration. |
 | maze | Heterogeneous cell/wall records, mutable disjoint-set pairs, escape continuations and text output. |
-| mazefun | Improper coordinate pairs, cell-or-false data, symbolic wall markers and structural equality; preserve its functional maze algorithm. |
+| mazefun | Measured original 10,000 × make-maze(11,11): 1.619× faster than original Chez, 1.425× faster than adapted Chez and 3.691× faster than this Rust/Wasm reference. Concrete coordinate/dimension products, wall/coordinate and result variants, and persistent nested lists preserve deterministic shuffle, ordered flooding, copied prefixes/shared suffixes and complete 121-cell equality. Original/adapted Chez and raw/optimized Wasm correctness probes plus separate retained-work observers pass. Rust Rc, inline values, temporary vectors and destruction schedules differ; no equal-allocation or isolated collector claim. |
 | paraffins | Measured canonical source program. Closed `H`/`C` and `BCP`/`CCP` variants preserve the source algorithm. Canonical optimized code legally removes unused product payloads and radical child edges; this is not a same-allocation GC comparison. Separate modules check complete ordered structures. |
 | parsing | Mutable strings/lexer state, file input, symbols and heterogeneous parsed AST. |
 | peval | Symbolic recursive expression AST, generated names and destructive pair edits. |
@@ -88,8 +92,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 31 of 57 workloads,
-with 30 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 32 of 57 workloads,
+with 31 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
