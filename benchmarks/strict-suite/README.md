@@ -832,6 +832,8 @@ native-final module: 0.700726 s versus native's 1.901276 s, a 2.713× ratio.
 Every ordered result and frozen identity passes; ownership, algorithm and
 allocation differences remain explicit.
 
+## Complete exact-integer workloads
+
 The complete pi and Chudnovsky preparation uses the reusable
 [`(snail integer)`](../../src/snail/integer.sld) library. Run
 `python3 benchmarks/strict-suite/integer_ports.py pi chudnovsky` after
@@ -870,6 +872,15 @@ modules, including their `data_ports.py` dependency. The native-final V8 module
 is checked byte-for-byte against the module consumed by native lowering.
 The [control evidence](../results/2026-10-14-strict-integer-controls/README.md)
 records actual default-V8 tiers and native code alongside the separate probes.
+
+The subsequent [eight-system comparison](../results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned processes. Snail/V8 takes 2.243027 s for pi and
+0.716851 s for Chudnovsky, 10.497× and 8.264× original Chez time. Native takes
+1.782729 s and 0.658789 s: 19.88% and 8.28% less time than V8 on the identical
+native-final Scheme modules. Original/adapted Chez native bigints, checked
+limb-body Chez and Rust num-bigint remain separate controls. Together with the
+reader measurements below, historical coverage reaches 41 workloads and 40
+paired Chez comparisons across different compiler checkpoints.
 
 ## Complete file readers
 
