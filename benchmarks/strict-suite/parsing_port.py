@@ -597,65 +597,6 @@ def retain_source_proof(directory, driver):
 
 # ---- Separate observers expose all top-level datums, work and shared tails ----
 
-OBSERVERS = '''(define observer-details (ref #f))
-(define observer-sharing-enabled (ref #f))
-(: observer-tick! (-> I64 Unit))
-(define (observer-tick! index)
-  (vector-set! observer-counts index (+ (vector-ref observer-counts index) 1)))
-(: observer-assert (-> Bool String Unit))
-(define (observer-assert value message) (unless value (datum-fail message)))
-(: observer-token (-> Symbol String Unit))
-(define (observer-token kind text)
-  (when (ref-get observer-details)
-    (emit-i64 100) (observe-string (typed-symbol->string kind)) (observe-string text)))
-(: observer-datum (-> Datum Datum))
-(define (observer-datum value)
-  (when (ref-get observer-details) (emit-i64 101) (observe value)) value)
-(: observer-counters (-> Unit))
-(define (observer-counters)
-  (emit-i64 102) (emit-i64 (vector-length observer-counts))
-  (let loop ((index 0))
-    (when (< index (vector-length observer-counts))
-      (emit-i64 (vector-ref observer-counts index)) (loop (+ index 1)))))
-(: observer-sharing (-> (-> Datum Datum Datum) Unit))
-(define (observer-sharing append-prefix)
-  (let* ((element (datum-list (parsing-integer 7))) (tail (datum-list (parsing-integer 9)))
-         (prefix (datum-list element element)) (copy (append-prefix prefix tail)))
-    (observer-assert (datum-eq? (append-prefix (datum-null) tail) tail) "empty prefix identity")
-    (observer-assert (and (not (datum-eq? prefix copy))
-      (not (datum-eq? (datum-cdr prefix) (datum-cdr copy)))
-      (datum-eq? (datum-car prefix) (datum-car copy))
-      (datum-eq? (datum-car (datum-cdr prefix)) (datum-car (datum-cdr copy)))
-      (datum-eq? (datum-cdr (datum-cdr copy)) tail)) "prefix copy and suffix sharing")
-    (datum-set-car! copy (parsing-integer 42))
-    (observer-assert (datum-eq? (datum-car prefix) element) "prefix mutation isolation")
-    (datum-set-car! element (parsing-integer 11))
-    (datum-set-car! tail (parsing-integer 12))
-    (observer-assert (= (parsing-exact (datum-car (datum-car (datum-cdr copy)))) 11) "shared element mutation")
-    (observer-assert (= (parsing-exact (datum-car (datum-cdr (datum-cdr copy)))) 12) "shared tail mutation")))
-(: semantics-probe (-> I64))
-(define (semantics-probe)
-  (ref-set! observer-sharing-enabled #t)
-  (let* ((first (parse-string "(same same #(1) \\\"first\\\" \\\"last\\\")"))
-         (middle (parse-string "old eof ignored"))
-         (last (parse-string "(same same #(1) \\\"first\\\" \\\"last\\\")")))
-    (observer-assert (datum=? first last) "sequential parser reset")
-    (observer-assert (not (datum-eq? first last)) "fresh pair results")
-    (observer-assert (datum-eq? (datum-car first) (datum-car (datum-cdr first))) "interned symbol identity")
-    (observe first) (observe middle) (observe last))
-  42)
-(: observe-once (-> I64))
-(define (observe-once)
-  (ref-set! observer-details #t)
-  (observe-work))
-(: work-probe (-> I64))
-(define (work-probe) (observe-work))
-(: observe-work (-> I64))
-(define (observe-work)
-  (let ((result (parsing-benchmark (parsing-integer observer-count) (datum-string observer-path))))
-    (emit-i64 103) (observe result) (observer-counters)
-    (if (datum=? result observer-expected) 1 0)))
-'''
 ORIGINAL_ALIASES = '''(define datum-cons cons)
 (define datum-car car)
 (define datum-cdr cdr)
@@ -672,26 +613,6 @@ ORIGINAL_ALIASES = '''(define datum-cons cons)
 (define typed-symbol->string symbol->string)
 (define (datum-null) '())
 (define (datum-fail text) (error 'parsing text))
-'''
-PROBE_ENTRY = r'''#include <inttypes.h>
-#include <stdio.h>
-#include <string.h>
-extern void native_host_init(int, char **);
-extern void native_module_init(void);
-extern int native_finish(int);
-extern void guest_main(void) __asm__("wasm.main");
-extern int64_t observe_once(void) __asm__("wasm.observe-once");
-extern int64_t work_probe(void) __asm__("wasm.work-probe");
-extern int64_t semantics_probe(void) __asm__("wasm.semantics-probe");
-int main(int argc, char **argv) {
-    native_host_init(argc, argv); native_module_init(); guest_main();
-    const char *mode = argc > 1 ? argv[1] : "observe-once";
-    int64_t result = !strcmp(mode, "semantics-probe") ? semantics_probe() :
-                     !strcmp(mode, "work-probe") ? work_probe() : observe_once();
-    int status = native_finish(0);
-    printf("result:%" PRId64 "\n", result);
-    return status;
-}
 '''
 
 
@@ -731,7 +652,7 @@ def observer_prefix(source, root, adapted):
     names = counter_names(source)
     prefix = f'(define observer-counts (make-vector {len(names)} 0))\n'
     observer = reader_ports.strict_observer(root) if adapted else reader_ports.original_observer(root)
-    return prefix + observer.replace('(symbol->string ', '(typed-symbol->string ') + OBSERVERS
+    return prefix + observer.replace('(symbol->string ', '(typed-symbol->string ') + (root / 'tests/strict-parsing/probe.scm').read_text()
 
 
 def strict_probe(source, root):
@@ -798,7 +719,7 @@ def build_probe(directory, tools, environment, driver):
     reader_ports.record(target, 'compile', [driver.ROOT / 'scripts/build-strict', *exports,
                         target / 'strict.scm', target / 'strict.wasm'], environment, driver.ROOT)
     link_program(directory, target, target / 'strict.wasm', tools, environment, driver)
-    (target / 'entry.c').write_text(PROBE_ENTRY)
+    shutil.copy2(driver.ROOT / 'tests/strict-parsing/entry.c', target / 'entry.c')
     reader_ports.record(target, 'native-build', [driver.ROOT / 'scripts/build-native', '--wasm',
         '--c-provider', 'benchmark', directory / 'native-provider.h', directory / 'native-provider.c',
         '--c-provider', 'reader.test', driver.ROOT / 'tests/strict-reader/observer.h', driver.ROOT / 'tests/strict-reader/observer.c',

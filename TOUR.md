@@ -829,7 +829,10 @@ grammar or character-list file loader. The full 2,500-parse worker retains its
 actual timed file load, simultaneous updates, EOF quirks and complete result
 predicate. Preparation compares original/adapted Chez, raw/optimized Wasm,
 native and the independent Rust control. Separate token/datum streams, named
-procedure counters and alias/reset checks remain outside clean timing.
+procedure counters and alias/reset checks remain outside clean timing. The
+[observation fixture](tests/strict-parsing/probe.scm) and its native entry live
+under `tests/`; preparation records them as driver inputs separately from the
+historical compiler-source basis.
 
 The
 [vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)

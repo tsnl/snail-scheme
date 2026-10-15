@@ -2258,6 +2258,13 @@ def prepare(options):
         target = options.output / 'compiler-source' / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    fixtures = [ROOT / 'tests/strict-parsing' / name for name in ('probe.scm', 'entry.c')] if 'parsing' in options.benchmarks else []
+    driver_fixtures = {}
+    for source in fixtures:
+        target = options.output / 'driver-source' / source.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        driver_fixtures[str(source.relative_to(ROOT))] = digest(target)
     basis = compiler_basis(sources, options.compiler_basis)
     report = dict(date=datetime.now(timezone.utc).isoformat(), cases=[],
                   tools={key: dict(path=value, sha256=digest(value)) for key, value in tools.items()},
@@ -2290,6 +2297,7 @@ def prepare(options):
                   nucleic_port_sha256=digest(HERE / 'nucleic_port.py'),
                   nucleic_host_sha256=digest(HERE / 'nucleic-host.mjs'),
                   earley_port_sha256=digest(HERE / 'earley_port.py'),
+                  driver_fixtures=driver_fixtures,
                   compiler_files={str(p.relative_to(ROOT)): digest(p) for p in sources},
                   upstream_commit=runner.REVISION, host_sha256=digest(options.output / 'host.mjs'),
                   runner_sha256=digest(ROOT / 'benchmarks/r7rs.py'),
@@ -2304,6 +2312,8 @@ def prepare(options):
         print(case['status'], name, flush=True)
     if report['compiler_files'] != {str(p.relative_to(ROOT)): digest(p) for p in sources}:
         raise ValueError('compiler changed during preparation')
+    if any(digest(ROOT / name) != expected for name, expected in driver_fixtures.items()):
+        raise ValueError('driver fixture changed during preparation')
 
 
 # ---- Clean fresh-process measurements ----
@@ -2355,6 +2365,9 @@ def checked_preparation(output):
     if os.environ.get('NODE_OPTIONS'):
         raise ValueError('NODE_OPTIONS must be unset')
     prepared = load(output / 'prepared.json')
+    for name, expected in prepared.get('driver_fixtures', {}).items():
+        if any(digest(path) != expected for path in (ROOT / name, output / 'driver-source' / name)):
+            raise ValueError('driver fixture changed: ' + name)
     if prepared.get('maze_port_sha256', digest(HERE / 'maze_port.py')) != digest(HERE / 'maze_port.py'):
         raise ValueError('Maze source adapter changed')
     if prepared.get('parsing_port_sha256', digest(HERE / 'parsing_port.py')) != digest(HERE / 'parsing_port.py'):
