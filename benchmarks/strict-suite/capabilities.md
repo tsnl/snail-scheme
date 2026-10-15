@@ -39,6 +39,10 @@ Mazefun has a [full-count four-system comparison](../results/2026-10-14-strict-m
 1.619× faster than original Chez, 1.425× faster than adapted Chez and 3.691×
 faster than this Rust/Wasm reference. All 10,000 full 11 × 11 constructions and
 the complete supplied grid predicate remain; Rc/GC and layout differences are explicit.
+Tail has a [complete four-system comparison](../results/2026-10-14-strict-tail-comparison/README.md):
+all 50 reversals and every byte of the 4,460,056-byte output pass. It takes
+5.173× original Chez time, 2.712× adapted Chez and 22.658× Rust/Wasm time;
+line I/O, storage and ownership differences remain explicit.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -69,7 +73,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
 | sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
-| tail | Prepared all 50 original 4,460,056-byte file reversals in raw/optimized linked Wasm, original/adapted Chez and native. Concrete input/line results, scalar Rust character reads and Scheme geometric line construction retain every line before output. Complete byte and lifecycle checks cover 95 supplemental executions; unchanged Chez's LF-only `get-line` differs on CR fixtures. No clean timing yet. See the [preparation report](../results/2026-10-14-strict-tail/README.md). |
+| tail | Measured all 50 complete 4,460,056-byte bibliography reversals: 5.173× original Chez time, 2.712× adapted Chez and 22.658× Rust/Wasm. Full outputs and separate file-lifecycle/byte observations pass. Strict Unicode-scalar lists/scalar I/O, adapted Chez helpers and Rust UTF8 Vec<String>/buffered I/O/earlier input-close differ. |
 | read1 | General datum reader and file ports, EOF and heterogeneous parsed data. |
 | compiler | Symbolic heterogeneous compiler IR, mutable pairs/vectors, strings, files and binary/text output; a scalar kernel slice would not port this compiler workload. |
 | conform | Heterogeneous graph/node/edge products, string/symbol names, mutable association pairs and structural equality. |
@@ -92,8 +96,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 32 of 57 workloads,
-with 31 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 33 of 57 workloads,
+with 32 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime

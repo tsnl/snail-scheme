@@ -46,8 +46,13 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 32 measured workloads,
-31 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 33 measured workloads,
+32 with paired Chez controls. The latest
+[Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
+4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
+time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
+retained-file work checks pass; line I/O, storage and reclamation differences
+remain explicit. The preceding
 [Mazefun report](results/2026-10-14-strict-mazefun-comparison/README.md) records
 0.629 s for all 10,000 complete 11 × 11 mazes: 1.619× faster than original
 Chez, 1.425× faster than adapted Chez, and 3.691× faster than this Rust/Wasm
