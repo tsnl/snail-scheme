@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "benchmarks/strict-suite/replay.py",
+    "/tmp/snail-mazefun-archive-verification-20261014-r2",
+    "--report",
+    "benchmarks/results/2026-10-14-strict-mazefun"
+  ],
+  "returncode": 0,
+  "stdout": "Verified 601 files in /tmp/snail-mazefun-archive-verification-20261014-r2\n",
+  "archive_sha256": "ee6e708853f3f0eacb4dea2ce63220de3409f9c7fc3b0fa7fb9029e2a80c1f8c",
+  "verified_files": 601
+}
