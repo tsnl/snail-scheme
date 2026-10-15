@@ -30,21 +30,25 @@ extern_declaration ::= "(" "define-extern" name string_literal string_literal fu
 ```
 
 These library-level declarations add members to one named family. Each member
-has its own initializer and optional signature. Its declared or inferred type
-must be a fixed-arity function type. A family cannot share a name with an
+has its own initializer and an explicit signature. The signature must describe
+a fixed-arity function, optionally quantified with `All` and qualified by class
+requirements. Every alternative needs its own signature, even when its
+initializer names an already annotated function. A family cannot share a name with an
 ordinary definition, datatype or class method. An imported family can be extended
 through its original identity, including after renaming.
 
 ```text
-overload_declaration ::= "(" "define-overload" name [signature] expression ")"
+overload_declaration ::= "(" "define-overload" name signature expression ")"
 ```
 
 The [typeclass and overload rules](types.md#typeclasses-and-overloads) govern
 selection: argument and result constraints must leave exactly one compatible
 complete signature. Declaration order and prerequisites do not rank candidates.
-An overload signature can be inferred; unresolved captures that prevent a stable
-signature are errors. Implementations retain their ordinary initialization
-sites and effects.
+Omitting a signature is an error, including for unused alternatives and imported
+family extensions. The compiler checks each implementation against its declared
+signature; it does not infer the family members from their bodies or uses.
+Ordinary `def` and `let` bindings still infer their types when unannotated.
+Implementations retain their ordinary initialization sites and effects.
 
 A qualified signature can require a family at a complete function type, for
 example `(All (T) (=> ((add (-> T T T))) (-> T T T)))`. This reuses class evidence

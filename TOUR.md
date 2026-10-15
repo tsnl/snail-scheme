@@ -78,9 +78,10 @@ and its class evidence.
 [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) checks every body, including
 unused functions, on an owned copy of the resolved graph. Each lexical block
 builds direct dependencies once and groups mutually recursive bindings. Group
-members retain source order. Overload-row readiness is checked separately as
-signatures become known; this never reorders runtime initializers. Mutable
-allocations obey the value restriction. Concrete calls have positional arguments
+members retain source order. Every overload row supplies an explicit signature,
+so checking can use the complete family before checking implementation bodies.
+Ordinary groups are checked once in dependency order. Mutable allocations obey
+the value restriction. Concrete calls have positional arguments
 and an optional typed rest parameter. Declared initializer proofs retain their
 lexical scope until enclosing monotypes settle. Their own quantified requirements
 must then hold; obligations on captured monotypes remain with enclosing inference.
@@ -359,7 +360,7 @@ checking evidence.
 execution lifecycle from an SFIR build program. It checks recoverable diagnostics,
 source and constructed dependencies, provider signatures, instance ownership and
 continued artifact execution after the owned Chibi process is lost.
-`scripts/test-sfir-integration` executes 315 authored SFIR fixtures retaining the
+`scripts/test-sfir-integration` executes 320 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises
 mechanical lowering, collection, C signatures and resource cleanup.

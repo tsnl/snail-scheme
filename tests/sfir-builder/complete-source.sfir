@@ -15,7 +15,7 @@
     (def read-value (All (T) (=> ((Value T)) (-> T I32))) (lambda (input) (value input)))
     (def first-two (-> I32 (Rest I32) I32) (lambda (first . rest) (i32-add first (car rest))))
     (define-overload choose (-> I32 I32) (lambda (value) value))
-    (define-overload choose (lambda (value) (if value #f #t)))
+    (define-overload choose (-> Bool Bool) (lambda (value) (if value #f #t)))
     (let counter (ref 0))
     (def text String "A🙂\x0;Z")
     (def bytes Bytevector #u8(1 0 255))
