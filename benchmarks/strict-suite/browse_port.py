@@ -87,6 +87,7 @@ INPUTS = '''(define-data Specification
 (define (exact-count datum)
   (match (datum-number-value datum)
     ((exact-number value) value)
+    ((rational-number value) (datum-fail "browse: count must be exact"))
     ((inexact-number value) (datum-fail "browse: count must be exact"))
     ((complex-number real imaginary) (datum-fail "browse: count must be exact"))))
 (: read-specification (-> InputPort Specification))

@@ -2,10 +2,10 @@
 ;; scalar characters, number fields and owned temporary IDs, never Scheme roots.
 (define-library (snail datum)
   (export Symbol string->symbol symbol->string symbol=? i64->string
-          Scalar exact-scalar inexact-scalar scalar->f64 scalar-equivalent?
-          Number exact-number inexact-number complex-number number->f64 number-equivalent?
+          Scalar exact-scalar rational-scalar inexact-scalar scalar->f64 scalar-equivalent?
+          Number exact-number rational-number inexact-number complex-number number->f64 number-equivalent?
           NumberResult not-a-number parsed-number number-error parsed-number-value number-error-text
-          string->number string->atom identifier? datum-fail
+          string->number string->number/radix string->atom identifier? datum-fail
           ReadResult read-end read-value read-error read-value-datum read-error-message
           Datum datum-null datum-boolean datum-character datum-string datum-symbol datum-number
           datum-pair datum-vector datum-bytevector datum=? datum-cons datum-car datum-cdr
@@ -13,7 +13,7 @@
           datum-null? datum-pair? datum-truth? datum-eq? datum-kind
           datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
           datum-list datum-length datum-append datum-assq datum-map)
-  (import (snail strict) (snail bytes))
+  (import (snail strict) (snail bytes) (snail integer) (snail rational) (snail number))
   (begin
 
     ;; ---- Explicit scalar service ownership ----
@@ -22,17 +22,21 @@
     (define-extern token-character "snail.library" "snail:datum/token-character" (-> I32 Char Unit))
     (define-extern token-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
     (define-extern token-parse "snail.library" "snail:datum/token-parse" (-> I32 I32))
+    (define-extern token-parse-radix "snail.library" "snail:datum/token-parse-radix" (-> I32 I32 I32))
     (define-extern token-identifier "snail.library" "snail:datum/token-identifier" (-> I32 I32))
     (define-extern token-intern "snail.library" "snail:datum/token-intern" (-> I32 I32))
     (define-extern raw-number-kind "snail.library" "snail:datum/number-kind" (-> I32 I32 I32))
     (define-extern raw-number-integer "snail.library" "snail:datum/number-integer" (-> I32 I32 I64))
     (define-extern raw-number-real "snail.library" "snail:datum/number-real" (-> I32 I32 F64))
+    (define-extern raw-number-radix "snail.library" "snail:datum/number-radix" (-> I32 I32 I32))
+    (define-extern raw-number-scale "snail.library" "snail:datum/number-scale" (-> I32 I32 I64))
+    (define-extern raw-number-text-length "snail.library" "snail:datum/number-text-length" (-> I32 I32 I32 I32))
+    (define-extern raw-number-text-character "snail.library" "snail:datum/number-text-character" (-> I32 I32 I32 I32 Char))
     (define-extern error-length "snail.library" "snail:datum/error-length" (-> I32 I32))
     (define-extern error-character "snail.library" "snail:datum/error-character" (-> I32 I32 Char))
     (define-extern raw-fail "snail.library" "snail:datum/fail" (-> I32 Unit))
     (define-extern symbol-length "snail.library" "snail:datum/symbol-length" (-> I32 I64))
     (define-extern symbol-character "snail.library" "snail:datum/symbol-character" (-> I32 I32 Char))
-    (define-extern real-equivalent "snail.library" "snail:datum/real-equivalent" (-> F64 F64 I32))
 
     ;; The caller owns this ID until close or intern consumes it. These loops
     ;; invoke no user callbacks. Rust trap cleanup releases outstanding tokens.
@@ -66,46 +70,40 @@
               (begin (string-set! result index (symbol-character id (i64->i32 index)))
                      (loop (+ index 1)))))))
 
-    ;; Work with a nonpositive magnitude so the minimum I64 needs no positive
-    ;; counterpart. Each remainder lies in [-9,0]; negating that digit is safe.
-    (: decimal-digits (-> I64 I64))
-    (define (decimal-digits value)
-      (let loop ((value value) (count 1))
-        (if (> value -10) count (loop (quotient value 10) (+ count 1)))))
-    (: i64->string (-> I64 String))
-    (define (i64->string value)
-      (let* ((negative (< value 0)) (magnitude (if negative value (- 0 value)))
-             (count (+ (decimal-digits magnitude) (if negative 1 0)))
-             (text (make-string count)))
-        (when negative (string-set! text 0 #\-))
-        (let loop ((remaining magnitude) (index (- count 1)))
-          (string-set! text index (integer->char (- 48 (remainder remaining 10))))
-          (if (> remaining -10) text (loop (quotient remaining 10) (- index 1))))))
+    ;; ---- Exact lexical fields become Scheme-owned numeric values ----
 
-    ;; ---- Numbers preserve exactness and binary64 zero signs ----
-
-    (define-data Scalar (exact-scalar (value I64)) (inexact-scalar (value F64)))
-    (define-data Number (exact-number (value I64 exact-number-value))
-      (inexact-number (value F64 inexact-number-value))
-      (complex-number (real Scalar complex-real) (imaginary Scalar complex-imaginary)))
     (define-data NumberResult (not-a-number)
       (parsed-number (value Number parsed-number-value))
       (number-error (message String number-error-text)))
-    (: scalar->f64 (-> Scalar F64))
-    (define (scalar->f64 value)
-      (match value ((exact-scalar value) (i64->f64 value)) ((inexact-scalar value) value)))
-    (: number->f64 (-> Number F64))
-    (define (number->f64 value)
-      (match value
-        ((exact-number value) (i64->f64 value)) ((inexact-number value) value)
-        ((complex-number real imaginary)
-         (if (= (scalar->f64 imaginary) 0.0) (scalar->f64 real)
-             (datum-fail "number->f64: expected a real-valued number")))))
+    (: token-exact-text (-> I32 I32 I32 String))
+    (define (token-exact-text handle part term)
+      (let* ((count (i32->i64 (raw-number-text-length handle part term))) (text (make-string count)))
+        (let loop ((at 0))
+          (if (= at count) text
+              (begin (string-set! text at (raw-number-text-character handle part term (i64->i32 at)))
+                     (loop (+ at 1)))))))
+    (: token-rational (-> I32 I32 String Rational))
+    (define (token-rational handle part numerator-text)
+      (let* ((radix (i32->i64 (raw-number-radix handle part))) (scale (raw-number-scale handle part))
+             (numerator (integer-from-string/radix numerator-text radix))
+             (denominator (integer-from-string/radix (token-exact-text handle part (ann 1 I32)) radix))
+             (factor (integer-power (integer-from-i64 10) (if (< scale 0) (- 0 scale) scale))))
+        (if (< scale 0) (make-rational numerator (integer-multiply denominator factor))
+            (make-rational (integer-multiply numerator factor) denominator))))
+    (: token-exact-scalar (-> I32 I32 I32 Scalar))
+    (define (token-exact-scalar handle part kind)
+      (let* ((text (token-exact-text handle part (ann 0 I32))) (value (token-rational handle part text)))
+        (if (i32-eq kind (ann 5 I32)) (scalar-from-rational value)
+            ;; Exact zero has no sign, so retain the lexical sign until #i has
+            ;; produced its binary64 zero. Nonzero underflow keeps its own sign.
+            (inexact-scalar (if (and (rational-zero? value) (char=? (string-ref text 0) #\-))
+                                (* -1.0 0.0) (rational->f64 value))))))
     (: token-scalar (-> I32 I32 Scalar))
     (define (token-scalar handle part)
-      (if (i32-eq (raw-number-kind handle part) (ann 1 I32))
-          (exact-scalar (raw-number-integer handle part))
-          (inexact-scalar (raw-number-real handle part))))
+      (let ((kind (raw-number-kind handle part)))
+        (if (i32-eq kind (ann 1 I32)) (exact-scalar (raw-number-integer handle part))
+            (if (i32-eq kind (ann 2 I32)) (inexact-scalar (raw-number-real handle part))
+                (token-exact-scalar handle part kind)))))
     (: token-error-text (-> I32 String))
     (define (token-error-text handle)
       (let* ((count (i32->i64 (error-length handle))) (result (make-string count)))
@@ -113,41 +111,32 @@
           (if (= index count) result
               (begin (string-set! result index (error-character handle (i64->i32 index)))
                      (loop (+ index 1)))))))
+    (: token-polar-result (-> I32 I32 NumberResult))
+    (define (token-polar-result handle kind)
+      (let ((radius (token-scalar handle (ann 0 I32))) (angle (token-scalar handle (ann 1 I32))))
+        (if (and (i32-eq kind (ann 8 I32))
+                 (not (or (and (scalar-exact? radius) (scalar-zero? radius))
+                          (and (scalar-exact? angle) (scalar-zero? angle)))))
+            (number-error "exact nonaxis polar number is not supported")
+            (parsed-number (number-polar radius angle)))))
     (: token-number-result (-> I32 I32 NumberResult))
     (define (token-number-result handle kind)
       (if (i32-eq kind (ann 0 I32)) (not-a-number)
-          (if (i32-eq kind (ann 1 I32)) (parsed-number (exact-number (raw-number-integer handle (ann 0 I32))))
-              (if (i32-eq kind (ann 2 I32)) (parsed-number (inexact-number (raw-number-real handle (ann 0 I32))))
-                  (if (i32-eq kind (ann 3 I32))
-                      (parsed-number (complex-number (token-scalar handle (ann 0 I32))
-                                                     (token-scalar handle (ann 1 I32))))
-                      (number-error (token-error-text handle)))))))
-    (: string->number (-> String NumberResult))
-    (define (string->number text)
-      (let* ((handle (stage-text text)) (kind (token-parse handle))
-             (result (token-number-result handle kind)))
-        (token-close handle) result))
-
-    ;; Equivalence follows the selected Chez contract: exact/inexact differ,
-    ;; signed zeros differ, all NaNs are equivalent, and infinities keep sign.
-    (: scalar-equivalent? (-> Scalar Scalar Bool))
-    (define (scalar-equivalent? left right)
-      (match left
-        ((exact-scalar left) (match right ((exact-scalar right) (= left right)) ((inexact-scalar right) #f)))
-        ((inexact-scalar left) (match right
-                                 ((inexact-scalar right) (i32-eq (real-equivalent left right) (ann 1 I32))) ((exact-scalar right) #f)))))
-    (: number-kind (-> Number I64))
-    (define (number-kind value)
-      (match value ((exact-number value) 0) ((inexact-number value) 1) ((complex-number real imaginary) 2)))
-    (: number-equivalent? (-> Number Number Bool))
-    (define (number-equivalent? left right)
-      (and (= (number-kind left) (number-kind right))
-           (match left
-             ((exact-number left) (= left (exact-number-value right)))
-             ((inexact-number left) (i32-eq (real-equivalent left (inexact-number-value right)) (ann 1 I32)))
-             ((complex-number real imaginary)
-              (and (scalar-equivalent? real (complex-real right))
-                   (scalar-equivalent? imaginary (complex-imaginary right)))))))
+          (if (i32-eq kind (ann 4 I32)) (number-error (token-error-text handle))
+              (if (i32-eq kind (ann 3 I32))
+                  (parsed-number (number-rectangular (token-scalar handle (ann 0 I32)) (token-scalar handle (ann 1 I32))))
+                  (if (or (i32-eq kind (ann 7 I32)) (i32-eq kind (ann 8 I32))) (token-polar-result handle kind)
+                      (parsed-number (number-from-scalar (token-scalar handle (ann 0 I32)))))))))
+    (: string->number/radix (-> String I64 NumberResult))
+    (define (string->number/radix text radix)
+      (if (not (or (= radix 2) (= radix 8) (= radix 10) (= radix 16)))
+          (number-error "string->number: radix must be 2, 8, 10 or 16")
+          (let* ((handle (stage-text text)) (kind (token-parse-radix handle (i64->i32 radix)))
+                 (result (token-number-result handle kind)))
+            (token-close handle) result)))
+    (define-overload string->number (-> String NumberResult)
+      (lambda (text) (string->number/radix text 10)))
+    (define-overload string->number (-> String I64 NumberResult) string->number/radix)
 
     ;; ---- Recursive datums and explicit mutable pair fields ----
 
@@ -184,7 +173,7 @@
             (if (i32-eq (token-identifier handle) (ann 1 I32))
                 (read-value (datum-symbol (symbol (token-intern handle))))
                 (begin (token-close handle)
-                       (read-error "invalid numeric token or identifier; rational numbers are not supported")))
+                       (read-error "invalid numeric token or identifier")))
             (token-number-datum handle kind))))
 
     ;; ---- Explicit mutable pair fields ----
@@ -454,7 +443,7 @@
         (let ((number (parsed-number-value (string->number text))))
           (match number
             ((exact-number value) (string=? text (i64->string value)))
-            ((inexact-number value) #f) ((complex-number real imaginary) #f))))
+            ((rational-number value) #f) ((inexact-number value) #f) ((complex-number real imaginary) #f))))
       (: test-atom-number (-> String Bool))
       (define (test-atom-number text)
         (match (string->atom text)
@@ -473,7 +462,7 @@
       (define (test-invalid-atom text)
         (match (string->atom text)
           ((read-error message)
-           (string=? message "invalid numeric token or identifier; rational numbers are not supported"))
+           (string=? message "invalid numeric token or identifier"))
           ((read-value value) #f) ((read-end) #f)))
       (: test-atoms (-> Bool))
       (define (test-atoms)
@@ -481,8 +470,8 @@
               (second (read-value-datum (string->atom (string-copy "same")))))
           (and (datum-eq? first second)
                (test-atom-number "42") (test-atom-number "1.0") (test-atom-number "1+2i")
-               (test-atom-error "1/2") (test-atom-error "#e1.5")
-               (test-atom-error "9223372036854775808")
+               (test-atom-number "1/2") (test-atom-number "#e1.5")
+               (test-atom-number "9223372036854775808") (test-atom-error "1/0")
                (test-invalid-atom "123abc") (test-invalid-atom ""))))
       (define (test-equality-leaves)
         (and (datum=? (datum-string (string-copy "ab")) (datum-string (string-copy "ab")))

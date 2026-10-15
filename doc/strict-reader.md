@@ -1,8 +1,9 @@
 # Strict typed datum input
 
-`(snail datum)` owns concrete `Symbol`, `Scalar`, `Number` and recursive `Datum`
-values. `(snail read)` incrementally reads one datum from a `(snail io)` input
-port. Scheme performs tokenization, syntax checking and construction; the same
+`(snail datum)` owns concrete `Symbol` and recursive `Datum` values and re-exports
+the `Scalar`/`Number` domain from `(snail number)`. `(snail read)` incrementally
+reads one datum from a `(snail io)` input port. Scheme performs tokenization,
+syntax checking and construction; the same
 Rust scalar exports supply Unicode file input, numeric conversion and symbol
 interning on Wasm and native. No operation converts through `Top` or the legacy
 value ABI.
@@ -108,25 +109,36 @@ an unrepresentable positive counterpart.
 
 ## Numbers and equality
 
-`Number` distinguishes signed I64 exact integers, F64 inexact reals and complex
-pairs of `Scalar` values. `string->number : String -> NumberResult` returns a
-parsed value, `not-a-number`, or an explicit unsupported/range error.
+`Number` distinguishes signed I64 exact integers, arbitrary exact rationals,
+F64 inexact reals and complex pairs of `Scalar` values. The exact rational
+variant also holds integers outside I64, using denominator one.
+`string->number : String -> NumberResult` returns a parsed value, `not-a-number`,
+or an explicit numeric error. Its two-argument static overload accepts an
+initial radix of 2, 8, 10 or 16; a token prefix overrides that radix.
 `number->f64` accepts real-valued numbers, including complex values with zero
 imaginary component, and rejects non-real values. It does not change how tokens
-are parsed. Ordinary arithmetic remains the concrete operations in `(snail strict)`.
+are parsed. `(snail number)` supplies concrete arithmetic, conversions,
+projections, predicates and static operator methods; see
+[the Number contract](strict-number.md). Explicit I64 arithmetic retains its
+existing bounded behavior, while exact Number arithmetic produces arbitrary
+Integer/Rational results.
 
 Numeric input supports binary/octal/decimal/hexadecimal integer prefixes and
 `#e`/`#i`, decimal fractions and exponents, signed infinities/NaNs, rectangular
-complex forms and inexact polar forms. Exact decimals are checked with decimal
-digit arithmetic: `#e9007199254740993.0` remains exact, while `#e1.5` fails. Exact
-integers must fit I64. Rational syntax, including `4/2`, and bignums are unsupported.
+complex forms and inexact polar forms. Exact decimal digits and scale remain
+exact: `#e9007199254740993.0` retains that integer and `#e1.5` becomes `3/2`.
+Integer size is limited by available storage. Rational syntax is normalized,
+so `4/2` becomes the ordinary exact integer two. Denominator zero is an error;
+the denominator's textual digits must be unsigned, even though `make-rational`
+accepts negative denominators as data. Explicit `#i` converts an exact integer
+or ratio with one nearest-even rounding; its negative-zero spelling is retained.
 Finite-looking inexact overflow becomes infinity and underflow becomes signed
 zero, following the selected Rust/IEEE conversion contract and tested Chez
 behavior. The strict wrapper preserves the two exact polar axes after applying
 prefix exactness: an exact zero magnitude produces exact zero, and an exact zero
 angle preserves the magnitude. Thus `0@1.0` is exact zero, `1.0@0` is an inexact
-real, and `#i1@0` remains an inexact complex value. Other polar conversion follows
-the existing Rust helper's trigonometric implementation; shared source does not
+real, and `#i1@0` remains an inexact complex value. Other polar conversion uses
+the shared scalar trigonometric implementation; shared source does not
 promise identical transcendental rounding. Nontrivial exact polar forms fail.
 
 Parsing applies exactness first, then collapses an exact imaginary zero to the
@@ -135,8 +147,9 @@ matching the selected Chez reader. The public data constructors expose their
 representation directly; callers constructing numbers manually retain the given
 variants rather than invoking parser normalization.
 
-`number-equivalent?` and `datum=?` compare matching numeric variants and scalar
-exactness. Exact `1` differs from inexact `1.0`; positive and negative zero differ;
+`number-equivalent?` and `datum=?` retain complex shape and scalar exactness.
+Exact values compare numerically across the small and rational representations.
+Exact `1` differs from inexact `1.0`; positive and negative zero differ;
 all NaNs are equivalent; infinities keep their sign. Other binary64 values compare
 by their bits. These choices match the tested Chez `eqv?`/`equal?` boundary for
 reader-produced numbers. `datum=?` compares strings and characters by scalar
@@ -162,3 +175,11 @@ an explicit lexical subset, not a claim to every R7RS Unicode identifier categor
 square/brace delimiters, bare identifier escapes and unsupported numeric forms
 are rejected. The reader does not silently reinterpret malformed numbers as
 symbols.
+
+Numeric spelling retains decimal `e`/`E` exponents; alternate precision markers
+and digit placeholders are outside this grammar. Exact decimal syntax is checked
+without converting to binary64. For a nonzero value, the effective scale
+(exponent minus fractional digit count) and its magnitude must fit I64.
+An excessive scale reports an error rather than wrapping or rounding; zero
+still requires a complete valid exponent. Exact nonaxis polar forms and exact
+infinities/NaNs remain explicit errors.

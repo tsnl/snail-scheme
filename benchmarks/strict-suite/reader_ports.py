@@ -39,6 +39,7 @@ COMMON = '''(: workload-read (-> InputPort ReadResult))
 (define (exact-datum value)
   (match (datum-number-value value)
     ((exact-number value) value)
+    ((rational-number value) (datum-fail "benchmark count must be exact"))
     ((inexact-number value) (datum-fail "benchmark count must be exact"))
     ((complex-number real imaginary) (datum-fail "benchmark count must be exact"))))
 '''

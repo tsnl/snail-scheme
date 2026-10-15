@@ -1,4 +1,4 @@
-(import (snail strict) (snail datum) (snail read) (snail io) (snail bytes))
+(import (snail integer) (snail rational) (snail strict) (snail datum) (snail read) (snail io) (snail bytes))
 
 ;; ---- Exactness, stable symbols and observable mutable datum fields ----
 
@@ -63,15 +63,22 @@
   (let loop ((index 0))
     (unless (= index (string-length text))
       (emit-char (string-ref text index)) (loop (+ index 1)))))
+(: observe-rational (-> Rational Unit))
+(define (observe-rational value)
+  (emit-i64 3)
+  (observe-string (integer->string (rational-numerator value)))
+  (observe-string (integer->string (rational-denominator value))))
 (: observe-scalar (-> Scalar Unit))
 (define (observe-scalar value)
   (match value
     ((exact-scalar value) (emit-i64 0) (emit-i64 value))
+    ((rational-scalar value) (observe-rational value))
     ((inexact-scalar value) (emit-i64 1) (emit-f64 value))))
 (: observe-number (-> Number Unit))
 (define (observe-number value)
   (match value
     ((exact-number value) (emit-i64 0) (emit-i64 value))
+    ((rational-number value) (observe-rational value))
     ((inexact-number value) (emit-i64 1) (emit-f64 value))
     ((complex-number real imaginary) (emit-i64 2) (observe-scalar real) (observe-scalar imaginary))))
 (: observe (-> Datum Unit))

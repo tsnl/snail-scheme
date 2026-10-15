@@ -355,7 +355,7 @@
     (define (byte-value value)
       (if (datum-number? value)
           (match (datum-number-value value) ((exact-number value) value)
-                 ((inexact-number value) -1) ((complex-number real imaginary) -1)) -1))
+                 ((rational-number value) -1) ((inexact-number value) -1) ((complex-number real imaginary) -1)) -1))
     (: fill-bytes (-> (List Datum) Bytevector I64 ReadResult))
     (define (fill-bytes reversed result index)
       (if (null? reversed) (read-value (datum-bytevector result))

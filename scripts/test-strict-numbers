@@ -97,21 +97,45 @@ def fixtures():
 # ---- The same exported Scheme operation runs on Wasm and native64 ----
 
 
+def domain_source(output):
+    source = output / 'domain.scm'
+    text = (FIXTURES / 'domain.scm').read_text()
+    for module in ['rational', 'number']:
+        library = (ROOT / 'src/snail' / (module + '.sld')).read_text()
+        text += '\n' + SUPPORT.form(library, '(begin\n      (define (test-' + module + ')')
+        text += f'\n(unless (= (test-{module}) 42) (unreachable))\n'
+    source.write_text(text)
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/strict-numbers')
+    parser.add_argument('--domain', action='store_true', help='Exercise parsed Number values and the linked scalar runtime')
     options = parser.parse_args(); output = options.output.resolve(); output.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, 'BINARYEN_CORES': '1'}
-    cases = fixtures(); (output / 'oracle.json').write_text(json.dumps(cases, indent=2) + '\n')
+    domain = importlib.machinery.SourceFileLoader('number_domain_cases', str(FIXTURES / 'domain.py')).load_module() if options.domain else None
+    cases = domain.fixtures() if domain else fixtures()
+    (output / 'oracle.json').write_text(json.dumps(cases, indent=2) + '\n')
     def execute(command, label, expected=0, environment=env):
         return SUPPORT.execute(command, output / (label + '.json'), environment, expected)
     def rows(items):
         return ''.join('\t'.join(str(item[key]) for key in ['operation', 'a', 'b', 'input', 'bits', 'text']) + '\n' for item in items)
     (output / 'valid.tsv').write_text(rows(item for item in cases if not item['error']))
     wasm = output / 'oracle.wasm'
-    execute([ROOT / 'scripts/build-strict', '--export', 'probe', FIXTURES / 'oracle.scm', wasm], 'compile')
+    source = domain_source(output) if options.domain else FIXTURES / 'oracle.scm'
+    execute([ROOT / 'scripts/build-strict', '--export', 'probe', source, wasm], 'compile')
+    if options.domain:
+        execute([env.get('CARGO', 'cargo'), 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
+                 '--release', '--target', 'wasm32-wasip1', '--target-dir', ROOT / 'build/wasm-runtime'], 'runtime')
+    runtime = ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
     for kind, artifact in [('raw', Path(str(wasm) + '.raw.wasm')), ('optimized', wasm)]:
-        execute([env.get('NODE', 'node'), FIXTURES / 'oracle.mjs', artifact, output / 'oracle.json'], kind)
+        if options.domain:
+            linked = output / f'{kind}-linked.wasm'
+            flags = ['--diagnostic-prune-only'] if kind == 'raw' else []
+            execute([ROOT / 'scripts/link-strict-runtime', '--runtime', runtime, *flags, artifact, linked], kind + '-link')
+            artifact = linked
+        execute([env.get('NODE', 'node'), '--disable-warning=ExperimentalWarning', FIXTURES / 'oracle.mjs', artifact, output / 'oracle.json'], kind)
     native = output / 'native'
     transport = ROOT / 'tests/strict-integer'
     execute([ROOT / 'scripts/build-native', '--wasm', '--c-provider', 'oracle', transport / 'oracle.h',

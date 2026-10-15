@@ -353,22 +353,25 @@ Scheme and invokes the retained cleanup export after traps. See
 [`scripts/test-strict-io`](scripts/test-strict-io).
 
 [`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
-datums, interned symbols, exact I64/inexact F64/complex numeric variants,
-structural equality and proper-list operations. Mutable datum identity names
+datums, interned symbols, the shared Number domain, structural equality and
+proper-list operations. Mutable datum identity names
 backing storage; pair identity compares both explicit Ref fields. Equality
 follows finite cyclic graphs with explicit continuations and a query-local
 table of private recursive-view IDs. Those IDs do not replace storage identity
 or add fields to Ref/vector storage; the scalar counter retains no objects.
 The public constructors and read-only projections keep the private IDs
-unforgeable. Decimal I64 formatting stays in Scheme. The module owns the shared
-`ReadResult` data and interprets each ordinary atom through one staged text
-handle, closing it or consuming it into a symbol before returning.
+unforgeable. The module owns the shared `ReadResult` data and interprets each
+ordinary atom through one staged text handle, closing it or consuming it into
+a symbol before returning. Exact lexical fields become normalized Scheme-owned
+Integers/Rationals before that handle closes.
 [`(snail read)`](src/snail/read.sld) re-exports the unchanged result API and consumes Unicode input
 incrementally, owns token buffers and parsing in Scheme, and distinguishes a
 datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
-owned scalar token handles, checked numeric conversion and a root-free strict
-symbol identity domain. It shares the legacy numeric parser and symbol storage
-implementation without importing legacy Scheme roots. Terminal file cleanup
+owned scalar token handles and a root-free strict symbol identity domain.
+[`strict_number.rs`](src/strict_number.rs) validates complete numeric tokens and
+retains exact digits, radix and decimal scale without introducing a Rust bigint.
+The strict interner shares the existing symbol storage implementation without
+importing legacy Scheme roots. Terminal file cleanup
 also releases unfinished token handles. [The reader contract](doc/strict-reader.md)
 states exactness, signed-zero/NaN equality, resource lifetimes and unsupported
 syntax; [`scripts/test-strict-reader`](scripts/test-strict-reader) compares complete
@@ -378,7 +381,7 @@ datum streams with Chez on linked raw/optimized Wasm and native.
 exact integers in ordinary strict Scheme. Private I32 WasmGC arrays hold 30-bit
 limbs; I64 intermediates bound carries, products and quotient estimates. Static
 numeric methods add exact arithmetic without changing existing I64 semantics.
-The same module owns checked decimal and machine conversions, normalized long
+The same module owns checked radix and machine conversions, normalized long
 division, exponentiation and floor square root. Binary64 conversion distinguishes
 exact integral input from explicit truncation; exact ratios choose the final
 binary64 spacing and round once using their integer remainder. No managed number
@@ -395,6 +398,17 @@ value, while conversion back rounds the exact ratio once. The independent
 Fraction oracle in [`scripts/test-strict-numbers`](scripts/test-strict-numbers)
 checks complete values on raw/optimized Wasm and native64. See
 [the rational contracts](doc/strict-rational.md).
+
+[`(snail number)`](src/snail/number.sld) owns the explicit numeric boundary:
+small I64 exact values, arbitrary Rational values, F64 values and rectangular
+complex components. Exact arithmetic promotes beyond I64 through the same
+Integer/Rational operations; finite mixed comparisons preserve the exact dyadic
+float value. Static overloads, named conversions, projections and decimal
+formatting share these concrete representations. Rust formats only scalar F64
+text through an owned temporary handle. The `--domain` mode of
+[`scripts/test-strict-numbers`](scripts/test-strict-numbers) checks full values,
+round trips, signed zeros and rejected conversions on linked raw/optimized Wasm
+and native64. See [the Number contracts](doc/strict-number.md).
 
 [`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
 one-argument `atan` as ordinary typed externs. Their scalar C signatures call

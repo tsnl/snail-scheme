@@ -27,6 +27,8 @@ retains its existing bounded behavior. There is no dynamic numeric fallback.
 | `integer-bit-length`, `integer-gcd` | Magnitude bit length (zero has length zero), and nonnegative greatest common divisor. |
 | `integer-floor-quotient`, `integer-modulo` | Floor division and its remainder; the remainder is zero or has the divisor's sign. |
 | `integer-from-string`, `integer->string` | Decimal grammar `[+-]?[0-9]+`; canonical decimal output with no leading zeros or negative zero. |
+| `integer-from-string/radix` | Exact signed digits in radix 2 through 36, with ASCII letters representing digits 10 through 35. Prefixes and separators belong to the Number reader. |
+| `integer-fits-i64?` | Whether checked `integer->i64` conversion can preserve the value. |
 | `integer-zero?`, `integer-negative?`, `integer-abs`, `integer-negate` | Sign operations on immutable values. |
 | `integer-compare` | Returns I64 `-1`, `0` or `1`. Named comparison and arithmetic procedures accompany the operator methods. |
 | `integer-divide` | Returns `IntegerDivision`, inspected with `division-quotient` and `division-remainder`. |

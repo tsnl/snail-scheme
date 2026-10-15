@@ -3,6 +3,7 @@
 (define-library (snail integer)
   (export Integer IntegerDivision IntegerRoot
           integer-from-i64 integer->i64 integer-from-string integer->string
+          integer-from-string/radix integer-fits-i64?
           integer-from-f64 integer-truncate-f64 integer->f64 integer-ratio->f64
           integer-bit-length integer-gcd integer-floor-quotient integer-modulo
           integer-zero? integer-negative? integer-abs integer-negate
@@ -327,6 +328,27 @@
           (let* ((first (string-ref text 0)) (negative (char=? first #\-))
                  (signed (or negative (char=? first #\+))))
             (parse-decimal text (if signed 1 0) negative))))
+    (: radix-digit (-> Char I64 I64))
+    (define (radix-digit character base)
+      (let* ((code (char->integer character))
+             (digit (if (and (>= code 48) (<= code 57)) (- code 48)
+                        (if (and (>= code 65) (<= code 90)) (- code 55)
+                            (if (and (>= code 97) (<= code 122)) (- code 87) -1)))))
+        (if (or (< digit 0) (>= digit base)) (unreachable) digit)))
+    (: parse-radix-digits (-> String I64 Bool I64 Integer))
+    (define (parse-radix-digits text start negative base)
+      (if (= start (string-length text)) (unreachable)
+          (let loop ((at start) (value zero))
+            (if (= at (string-length text)) (if negative (integer-negate value) value)
+                (loop (+ at 1) (integer-add (publish #f (magnitude-scale (integer-limbs value) base))
+                                            (integer-from-i64 (radix-digit (string-ref text at) base))))))))
+    (: integer-from-string/radix (-> String I64 Integer))
+    (define (integer-from-string/radix text base)
+      (if (or (< base 2) (> base 36) (= (string-length text) 0)) (unreachable)
+          (if (= base 10) (integer-from-string text)
+              (let* ((first (string-ref text 0)) (negative (char=? first #\-))
+                     (start (if (or negative (char=? first #\+)) 1 0)))
+                (parse-radix-digits text start negative base)))))
     (: decimal-chunks (-> (Vector I32) (List I64)))
     (define (decimal-chunks digits)
       (let loop ((digits (vector-copy digits)) (chunks '()))
@@ -486,6 +508,10 @@
                         (integer-negative? denominator)) (* -1.0 value) value)))))
     (: integer->f64 (-> Integer F64))
     (define (integer->f64 value) (integer-ratio->f64 value (integer-from-i64 1)))
+    (: integer-fits-i64? (-> Integer Bool))
+    (define (integer-fits-i64? value)
+      (and (integer>=? value (integer-from-i64 -9223372036854775808))
+           (integer<=? value (integer-from-i64 9223372036854775807))))
 
     ;; ---- Euclidean reduction and floor division ----
 

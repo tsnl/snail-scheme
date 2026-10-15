@@ -331,6 +331,7 @@ INPUTS = '''(define-data Specification
 (define (input-count value)
   (match (datum-number-value value)
     ((exact-number count) count)
+    ((rational-number number) (datum-fail "Conform count must be exact"))
     ((inexact-number number) (datum-fail "Conform count must be exact"))
     ((complex-number real imaginary) (datum-fail "Conform count must be exact"))))
 (define (read-specification port)
