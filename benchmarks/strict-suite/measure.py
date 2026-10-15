@@ -20,16 +20,18 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 NAMES = ('ack', 'tak', 'cpstak', 'fib', 'fibfp', 'sum', 'sumfp',
          'takl', 'ntakl', 'diviter', 'divrec', 'array1',
-         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
+         'primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly', 'fft')
 NEXT_PORTS = ('primes', 'nqueens', 'triangl', 'mbrot', 'pnpoly')
+MATCHED_PORTS = NEXT_PORTS + ('fft',)
 FLOATS = ('fibfp', 'sumfp')
+FLOAT_RESULTS = FLOATS + ('fft',)
 LISTS = ('takl', 'ntakl', 'diviter', 'divrec')
 FULL_LISTS = ('primes', 'triangl')
 KERNELS = dict(ack='ack', tak='tak', cpstak='cpstak', fib='fib', fibfp='fibfp',
                sum='run', sumfp='run', takl='mas', ntakl='mas',
                diviter='iterative-div2', divrec='recursive-div2', array1='go',
                primes='primes<=', nqueens='nqueens', triangl='test',
-               mbrot='test', pnpoly='run')
+               mbrot='test', pnpoly='run', fft='run')
 
 
 # ---- Fixed inputs and mechanical source adaptation ----
@@ -76,17 +78,19 @@ def case_specification(name, data):
         repeats, size, expected = values
         return dict(name=name, count=1, inputs=[repeats, size], expected=expected,
                     barriers_per_iteration=2)
-    arity = 3 if name in ('tak', 'cpstak', 'takl', 'ntakl') else 2 if name in ('ack', 'triangl', 'pnpoly') else 1
+    arity = 3 if name in ('tak', 'cpstak', 'takl', 'ntakl') else 2 if name in ('ack', 'triangl', 'pnpoly', 'fft') else 1
     count, *rest = values
     inputs, expected = rest[:arity], rest[arity]
     if name in ('takl', 'ntakl'):
         assert all(xs == list(range(len(xs), 0, -1)) for xs in inputs)
         inputs = list(map(len, inputs))
-    barriers = 0 if name in ('diviter', 'divrec') else arity
+    barriers = 0 if name in ('diviter', 'divrec') else 1 if name == 'fft' else arity
     spec = dict(name=name, count=count, inputs=inputs, expected=expected,
                 barriers_per_iteration=barriers)
     if name in FULL_LISTS:
         spec['result_kind'] = 'i64-list-values'
+    if name == 'fft':
+        spec['math_provider'] = 'math-provider.wasm'
     return spec
 
 
@@ -198,6 +202,28 @@ VECTOR_PRELUDE = '''(define-extern native-vector-length "benchmark" "vector_leng
           (loop (+ i 1))))
       result)))
 '''
+FFT_PRELUDE = '''(define (inexact value) (i64->f64 value))
+(define-extern sin "math" "snail_sin" (-> F64 F64))
+(define-extern native-expected-length "benchmark" "expected_length" (-> I64))
+(define-extern native-expected-f64 "benchmark" "expected_f64" (-> I64 F64))
+(define-extern native-tolerance "benchmark" "tolerance" (-> F64))
+(: close-f64? (-> F64 F64 Bool))
+(define (close-f64? actual expected)
+  (let ((difference (- actual expected))
+        (scale (if (< expected 0.0) (- 0.0 expected) expected)))
+    (let ((error (if (< difference 0.0) (- 0.0 difference) difference)))
+      (<= error (* (native-tolerance) (if (< scale 1.0) 1.0 scale))))))
+(: fft-probe (-> I64 I64))
+(define (fft-probe count)
+  (let ((data (input-vector (ann 2 I32))))
+    (four1 data)
+    (if (and (= (vector-length data) (native-expected-length))
+             (let loop ((i 0))
+               (or (= i (vector-length data))
+                   (and (close-f64? (vector-ref data i) (native-expected-f64 i))
+                        (loop (+ i 1))))))
+        1 0)))
+'''
 
 
 def input_bindings(name, spec):
@@ -211,7 +237,8 @@ def input_bindings(name, spec):
 def input_expression(name, index):
     if name == 'pnpoly':
         return f'(input-vector (ann {index} I32))'
-    value = f'(native-input-{"f64" if name in FLOATS else "i64"} (ann {index} I32))'
+    floating = name in FLOATS or (name == 'fft' and index == 1)
+    value = f'(native-input-{"f64" if floating else "i64"} (ann {index} I32))'
     if name in ('takl', 'ntakl'):
         return f'(listn {value})'
     if name in ('diviter', 'divrec'):
@@ -220,6 +247,8 @@ def input_expression(name, index):
 
 
 def kernel_call(name, spec):
+    if name == 'fft':
+        return '(run (hide count (make-vector input0 input1)))'
     arguments = [f'input{i}' for i in range(len(spec['inputs']))]
     if spec['barriers_per_iteration']:
         opacity_count = 'input0' if name == 'array1' else 'count'
@@ -228,7 +257,7 @@ def kernel_call(name, spec):
 
 
 def worker_body(name, spec):
-    initial = "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOATS else '0'
+    initial = "'()" if name in LISTS + FULL_LISTS else '0.0' if name in FLOAT_RESULTS else '0'
     loop = f'''(let loop ((i 0) (result {initial}))
     (if (< i count) (loop (+ i 1) {kernel_call(name, spec)}) result))'''
     if name in LISTS:
@@ -239,11 +268,13 @@ def worker_body(name, spec):
 
 
 def strict_program(name, spec, upstream):
-    result = 'F64' if name in FLOATS else 'I64'
+    result = 'F64' if name in FLOAT_RESULTS else 'I64'
     worker = f'(: bench (-> I64 {result}))\n(define (bench count) {worker_body(name, spec)})\n(unit)\n'
-    hide = '(if (barrier) x (unreachable))' if name in LISTS or name == 'pnpoly' else f'(hide-{"f64" if name in FLOATS else "i64"} x)'
+    hide = '(if (barrier) x (unreachable))' if name in LISTS or name in ('pnpoly', 'fft') else f'(hide-{"f64" if name in FLOATS else "i64"} x)'
     prelude = PRELUDE + (NEXT_PRELUDE if name in NEXT_PORTS else '')
     prelude += EXPECTED_PRELUDE if name in FULL_LISTS else VECTOR_PRELUDE if name == 'pnpoly' else ''
+    if name == 'fft':
+        prelude += VECTOR_PRELUDE + FFT_PRELUDE
     return (prelude + f'(define (hide count x) {hide})\n' + kernel_source(name, upstream)
             + input_bindings(name, spec) + '\n' + worker)
 
@@ -268,9 +299,11 @@ def require_success(record):
         raise RuntimeError(str(record))
 
 
-def tool_paths():
+def tool_paths(benchmarks=()):
     names = dict(CHIBI='chibi-scheme', NODE='node', WASM_AS='wasm-as', WASM_OPT='wasm-opt',
                  WASM_DIS='wasm-dis', CHEZ='scheme')
+    if 'fft' in benchmarks:
+        names['RUSTC'] = 'rustc'
     paths = {key: shutil.which(os.environ.get(key, value)) for key, value in names.items()}
     if not all(paths.values()):
         raise ValueError(f'missing tools: {paths}')
@@ -280,12 +313,48 @@ def tool_paths():
 def build_strict(directory, tools, environment):
     command = [ROOT / 'scripts/build-strict', '--export', 'bench',
                directory / 'strict.scm', directory / 'strict.wasm']
+    if load(directory / 'spec.json')['name'] == 'fft':
+        command[3:3] = ['--export', 'fft-probe']
     record = execute(command, ROOT, environment)
     save(directory / 'strict-build.json', record)
     require_success(record)
     record = execute([tools['WASM_DIS'], directory / 'strict.wasm', '-o',
                       directory / 'strict.optimized.wat'], ROOT, environment)
     require_success(record)
+
+
+def build_fft_provider(directory, tools, environment):
+    shutil.copyfile(HERE / 'fft-math.rs', directory / 'math-provider.rs')
+    compiler = freeze_fft_toolchain(directory, tools['RUSTC'], environment)
+    command = [compiler, '--edition=2024', '--crate-name=snail_fft_math', '--crate-type=cdylib', '--target=wasm32-wasip1',
+               '-C', 'opt-level=3', '-C', 'lto=yes', '-C', 'codegen-units=1', '-C', 'panic=abort',
+               directory / 'math-provider.rs', '-o', directory / 'math-provider.wasm']
+    record = execute(command, ROOT, environment)
+    save(directory / 'math-provider-build.json', record)
+    require_success(record)
+    record = execute([tools['WASM_DIS'], directory / 'math-provider.wasm', '-o',
+                      directory / 'math-provider.wat'], ROOT, environment)
+    save(directory / 'math-provider-disassemble.json', record)
+    require_success(record)
+
+
+def freeze_fft_toolchain(directory, launcher, environment):
+    queries = dict(version=['--version', '--verbose'], sysroot=['--print', 'sysroot'],
+                   target_libdir=['--print', 'target-libdir', '--target=wasm32-wasip1'])
+    report = {}
+    for name, arguments in queries.items():
+        report[name] = execute([launcher, *arguments], ROOT, environment)
+        save(directory / 'math-provider-toolchain.json', report)
+        require_success(report[name])
+    sysroot = Path(report['sysroot']['stdout'].strip())
+    library = Path(report['target_libdir']['stdout'].strip())
+    host = next(line.removeprefix('host: ') for line in report['version']['stdout'].splitlines() if line.startswith('host: '))
+    compiler, linker = sysroot / 'bin/rustc', sysroot / 'lib/rustlib' / host / 'bin/rust-lld'
+    files = [compiler, linker, *sysroot.glob('lib/librustc_driver*'), *(p for p in library.rglob('*') if p.is_file())]
+    report['toolchain_files'] = {str(path): digest(path) for path in files}
+    report['actual_compiler'] = str(compiler)
+    save(directory / 'math-provider-toolchain.json', report)
+    return compiler
 
 
 def validate_strict(directory, tools, environment):
@@ -301,10 +370,36 @@ def validate_strict(directory, tools, environment):
             save(directory / 'validation.json', checks)
             require_success(record)
     if spec['name'] in FULL_LISTS:
-        validate_list_failures(directory, tools, environment, spec)
+        validate_sequence_failures(directory, tools, environment, spec)
+    if spec['name'] == 'fft':
+        validate_sequence_failures(directory, tools, environment, fft_probe_specification(spec, FFT_NONZERO))
+
+
+FFT_NONZERO = [1.0, 0.0, 2.0, 0.5, -1.0, 1.0, 0.0, -2.0,
+               0.75, -0.25, -0.5, 0.5, 1.5, -1.0, -2.0, 0.75]
+
+
+def direct_dft(values):
+    size, result = len(values) // 2, []
+    for k in range(size):
+        total = 0j
+        for n in range(size):
+            phase = math.tau * k * n / size
+            total += complex(values[2 * n], values[2 * n + 1]) * complex(math.cos(phase), math.sin(phase))
+        result.extend([total.real, total.imag])
+    return result
+
+
+def fft_probe_specification(spec, values):
+    return dict(spec, count=1, inputs=[*spec['inputs'], values], expected=direct_dft(values),
+                result_kind='f64-vector-values', export='fft-probe', tolerance=1e-12, barriers_per_iteration=0)
 
 
 def validation_specifications(spec):
+    if spec['name'] == 'fft':
+        return [(str(count), dict(spec, count=count)) for count in (1, 2)] + [
+            ('nonzero', fft_probe_specification(spec, FFT_NONZERO)),
+            ('impulse', fft_probe_specification(spec, [1.0, 0.0] + [0.0] * 14))]
     if spec['name'] == 'primes':
         return [(str(count), dict(spec, count=count)) for count in (1, 2)] + [
             ('empty', dict(spec, count=1, inputs=[1], expected=[]))]
@@ -320,7 +415,7 @@ def validation_specifications(spec):
             for count, repeats, size in ((1, 1, 0), (1, 1, 1), (2, 3, 7), (1, 0, 7))]
 
 
-def validate_list_failures(directory, tools, environment, spec):
+def validate_sequence_failures(directory, tools, environment, spec):
     changed = list(spec['expected'])
     changed[len(changed) // 2] += 1
     probes = [('wrong-value', changed), ('short', spec['expected'][:-1]),
@@ -336,14 +431,14 @@ def validate_list_failures(directory, tools, environment, spec):
             checks.append(dict(record, label=label, rejected=rejected, checked_flag=0 if rejected else None))
             save(directory / 'validation-negative.json', checks)
             if not rejected or 'AssertionError' not in record.get('stderr', ''):
-                raise ValueError('list predicate must reject the changed expected result')
+                raise ValueError('full result predicate must reject the changed expected result')
 
 
 CHEZ_REF_HELPERS = '''(define (ref value) (vector value))
 (define (ref-get cell) (vector-ref cell 0))
 (define (ref-set! cell value) (vector-set! cell 0 value))
 '''
-CHEZ_HELPERS = dict(primes='', nqueens='', pnpoly=CHEZ_REF_HELPERS,
+CHEZ_HELPERS = dict(primes='', nqueens='', fft='', pnpoly=CHEZ_REF_HELPERS,
                    triangl='''(define-syntax ann
   (syntax-rules () ((_ expression type) expression)))
 ''' + CHEZ_REF_HELPERS,
@@ -363,8 +458,8 @@ def matched_chez_source(name, directory):
     adapted = replace_exact(original, original_kernel, CHEZ_HELPERS[name] + adapted_kernel)
     if replace_exact(adapted, CHEZ_HELPERS[name] + adapted_kernel, original_kernel) != original:
         raise ValueError('adapted Chez source changed outside the kernel and compatibility helpers')
-    if name == 'primes' and adapted != original:
-        raise ValueError('primes must have identical complete original/adapted Chez source')
+    if name in ('primes', 'fft') and adapted != original:
+        raise ValueError('this kernel must have identical complete original/adapted Chez source')
     return adapted, original_kernel, adapted_kernel
 
 
@@ -386,7 +481,12 @@ def prepare_adapted_chez(name, directory, runner, environment):
     patch = difflib.unified_diff(original_kernel.splitlines(True), adapted_kernel.splitlines(True),
                                  fromfile='original-kernel', tofile='adapted-kernel')
     (directory / 'kernel-adaptation.patch').write_text(''.join(patch))
-    build_chez(control, runner, environment, 'build.json')
+    if name == 'fft':
+        shutil.copyfile(directory / 'program.so', control / 'program.so')
+        shutil.copyfile(directory / 'compile.scm', control / 'compile.scm')
+        save(control / 'build.json', dict(reused_original_artifact=True, original_sha256=digest(directory / 'program.so')))
+    else:
+        build_chez(control, runner, environment, 'build.json')
     save(directory / 'source-proof.json', dict(kernel_exact_match=True,
          complete_source_only_kernel_edits_and_helpers=True,
          complete_original_adapted_source_equal=adapted == (directory / 'program.scm').read_text(),
@@ -419,19 +519,61 @@ def validate_chez(directory, runner, tools, environment, spec):
                 raise ValueError('Chez behavior validation failed')
 
 
+CHEZ_FFT_PROBE = '''(let* ((data (read)) (expected (read)) (tolerance (read)))
+  (four1 data)
+  (display
+   (and (= (vector-length data) (vector-length expected))
+        (let loop ((i 0))
+          (or (= i (vector-length data))
+              (and (<= (abs (- (vector-ref data i) (vector-ref expected i)))
+                       (* tolerance (max 1.0 (abs (vector-ref expected i)))))
+                   (loop (+ i 1)))))))
+  (newline))
+'''
+
+
+def validate_fft_chez_dft(directory, runner, tools, environment, spec):
+    target = directory / 'chez-dft-probe'
+    target.mkdir()
+    kernel = (directory / 'original-kernel.scm').read_text()
+    (target / 'program.scm').write_text('(import (chezscheme))\n' + kernel + CHEZ_FFT_PROBE)
+    command = build_chez(target, runner, environment, 'build.json')
+    nonzero = fft_probe_specification(spec, FFT_NONZERO)
+    changed = list(nonzero['expected'])
+    changed[len(changed) // 2] += 1
+    probes = [('nonzero', nonzero, True), ('impulse', fft_probe_specification(spec, [1.0, 0.0] + [0.0] * 14), True)]
+    probes += [(label, dict(nonzero, expected=expected), False) for label, expected in
+               [('wrong-value', changed), ('short', nonzero['expected'][:-1]), ('long', nonzero['expected'] + [0.0])]]
+    checks = []
+    for label, probe, expected_flag in probes:
+        vectors = [probe['inputs'][2], probe['expected']]
+        data = '\n'.join('#(' + ' '.join(repr(float(value)) for value in values) + ')' for values in vectors)
+        data += '\n' + repr(probe['tolerance']) + '\n'
+        record = execute(command, target, environment, stdin=data)
+        checks.append(dict(record, label=label, stdin=data, expected_flag=expected_flag))
+        save(target / 'validation.json', checks)
+        require_success(record)
+        if record['stderr'] or record['stdout'].strip() != ('#t' if expected_flag else '#f'):
+            raise ValueError('Chez must check every nonzero DFT component and reject changed expectations')
+
+
 def prepare_case(name, files, output, runner, tools, environment):
     directory = output / name
     directory.mkdir()
     spec = case_specification(name, files[f'inputs/{name}.input'])
     write_case_sources(name, files, directory, spec, runner)
+    if name == 'fft':
+        build_fft_provider(directory, tools, environment)
     build_strict(directory, tools, environment)
     run = build_chez(directory, runner, environment, 'chez-build.json')
     validate_strict(directory, tools, environment)
-    if name in NEXT_PORTS:
+    if name in MATCHED_PORTS:
         prepare_adapted_chez(name, directory, runner, environment)
         validate_chez(directory, runner, tools, environment, spec)
+    if name == 'fft':
+        validate_fft_chez_dft(directory, runner, tools, environment, spec)
     return dict(name=name, status='ready', spec=spec, chez_command=run,
-                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS else ['strict', 'chez'],
+                systems=['strict', 'chez', 'chez-adapted'] if name in NEXT_PORTS else ['strict', 'chez-adapted'] if name == 'fft' else ['strict', 'chez'],
                 hashes={str(p.relative_to(directory)): digest(p) for p in directory.rglob('*') if p.is_file()})
 
 
@@ -444,7 +586,7 @@ def write_case_sources(name, files, directory, spec, runner):
 
 
 def prepare(options):
-    runner, tools = upstream_runner(), tool_paths()
+    runner, tools = upstream_runner(), tool_paths(options.benchmarks)
     environment = {**os.environ, **tools, 'BINARYEN_CORES': '1'}
     files = runner.suite_sources()
     options.output.mkdir(parents=True, exist_ok=False)
