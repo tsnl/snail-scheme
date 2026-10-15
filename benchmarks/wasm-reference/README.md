@@ -23,6 +23,13 @@ Historical five-case measurements remain in their immutable result archives.
 Active preparation uses the authored Chez controls in `benchmarks/sfir`; no
 Scheme source generator or Snail Scheme compiler is used.
 
+The [completed SFIR full57 comparison](../sfir/evidence/20261015-full57.md)
+retains 56 measured Rust Wasm routes and all 57 native routes, with default
+Wasm Ack's stack failure visible. It compares matching SFIR targets and keeps
+original/adapted Chez, source representations and opacity differences explicit.
+Corrected Mperm is a separate six-way campaign; later packet-I/O timings are
+also separate. Earlier Rust checkpoints below keep their original provenance.
+
 At the latest completed execution checkpoint, all 57 workload executables have
 been built and checked, and 56 pass unchanged canonical inputs/counts in Node/Wasm.
 The default recursive Ackermann variant retains its native-stack failure;

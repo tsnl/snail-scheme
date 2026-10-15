@@ -86,7 +86,7 @@ The scalar externs in `(sfir math)` likewise expose their documented IEEE
 overflow/domain results. These library contracts do not weaken fixed-width
 arithmetic or insert an implicit numeric promotion.
 
-The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
-remaining differences and the implemented first-class library compiler APIs.
-These gaps do not weaken the language
-contract.
+The [implementation
+roadmap](https://github.com/tsnl/snail-scheme/blob/main/doc/roadmap.md#align-with-the-sfir-book)
+tracks remaining differences and the implemented first-class library compiler APIs. These gaps do
+not weaken the language contract.

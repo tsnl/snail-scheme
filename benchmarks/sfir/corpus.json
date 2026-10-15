@@ -14,7 +14,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "browse/chez-original.scm",
       "chez_adapted": "browse/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/browse.rs",
@@ -25,14 +25,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "deriv",
@@ -43,7 +75,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "deriv/chez-original.scm",
       "chez_adapted": "deriv/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/deriv.rs",
@@ -56,8 +88,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "destruc",
@@ -68,7 +132,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "destruc/chez-original.scm",
       "chez_adapted": "destruc/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/destruc.rs",
@@ -81,8 +145,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "diviter",
@@ -93,7 +189,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "diviter/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/diviter.rs",
@@ -106,8 +202,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "divrec",
@@ -118,7 +245,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "divrec/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/divrec.rs",
@@ -131,8 +258,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "puzzle",
@@ -143,7 +301,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "puzzle/chez-original.scm",
       "chez_adapted": "puzzle/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/puzzle.rs",
@@ -156,8 +314,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "triangl",
@@ -168,7 +358,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "triangl/chez-original.scm",
       "chez_adapted": "triangl/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/triangl.rs",
@@ -181,8 +371,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "tak",
@@ -193,7 +415,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "tak/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/tak.rs",
@@ -206,8 +428,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "takl",
@@ -218,7 +471,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "takl/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/takl.rs",
@@ -231,8 +484,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "ntakl",
@@ -243,7 +527,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "ntakl/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/ntakl.rs",
@@ -256,8 +540,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "cpstak",
@@ -268,7 +583,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "cpstak/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/cpstak.rs",
@@ -281,8 +596,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "ctak",
@@ -304,8 +650,6 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-continuations.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
         "sfir-wasm",
         "sfir-native",
@@ -315,7 +659,43 @@
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "available-routes-measured",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "chez-adapted",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-continuations.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "fib",
@@ -326,7 +706,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "fib/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/fib.rs",
@@ -339,8 +719,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "fibc",
@@ -362,8 +773,6 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-continuations.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
         "sfir-wasm",
         "sfir-native",
@@ -373,7 +782,43 @@
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "available-routes-measured",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "chez-adapted",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-continuations.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "fibfp",
@@ -395,8 +840,6 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "unavailable",
-      "validation_evidence": "evidence/20261015-canonical.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
         "sfir-wasm",
         "sfir-native",
@@ -405,7 +848,42 @@
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "available-routes-measured",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-canonical.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "sum",
@@ -416,7 +894,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "sum/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/sum.rs",
@@ -429,8 +907,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "sumfp",
@@ -441,7 +950,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "sumfp/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/sumfp.rs",
@@ -454,8 +963,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "fft",
@@ -466,7 +1006,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "fft/chez-original.scm",
       "chez_adapted": "fft/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/fft.rs",
@@ -477,8 +1017,42 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-specialized.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "mbrot",
@@ -489,7 +1063,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "mbrot/chez-original.scm",
       "chez_adapted": "mbrot/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/mbrot.rs",
@@ -502,8 +1076,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "mbrotZ",
@@ -514,7 +1120,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "mbrotZ/chez-original.scm",
       "chez_adapted": "mbrotZ/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/mbrotZ.rs",
@@ -527,8 +1133,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "nucleic",
@@ -539,7 +1177,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "nucleic/chez-original.scm",
       "chez_adapted": "nucleic/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/nucleic.rs",
@@ -550,8 +1188,42 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-specialized.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "pi",
@@ -562,7 +1234,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "pi/chez-original.scm",
       "chez_adapted": "pi/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/pi.rs",
@@ -573,9 +1245,43 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-specialized.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "pnpoly",
@@ -586,7 +1292,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "pnpoly/chez-original.scm",
       "chez_adapted": "pnpoly/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/pnpoly.rs",
@@ -599,8 +1305,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "ray",
@@ -611,7 +1349,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "ray/chez-original.scm",
       "chez_adapted": "ray/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/ray.rs",
@@ -622,8 +1360,42 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-specialized.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "simplex",
@@ -634,7 +1406,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "simplex/chez-original.scm",
       "chez_adapted": "simplex/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/simplex.rs",
@@ -647,8 +1419,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "ack",
@@ -657,7 +1461,7 @@
       "sfir": "ack/main.sfir",
       "host": "scalar",
       "entry": "bench",
-      "wasm_validation": "passed",
+      "wasm_validation": "failed",
       "native_validation": "passed",
       "measurement": "partial-routes",
       "chez_original": "ack/chez-original.scm",
@@ -670,16 +1474,57 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "unavailable",
-      "validation_evidence": "evidence/20261015-canonical.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
-        "sfir-wasm",
         "sfir-native",
         "chez-original",
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "failed",
+        "rust_native_validation": "passed",
+        "measurement": "partial-routes",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-canonical.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "partial",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "failed",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "failed",
+        "rust-native": "ready"
+      },
+      "measurement_failures": [
+        {
+          "route": "sfir-wasm",
+          "status": "failed"
+        },
+        {
+          "route": "rust-wasm",
+          "status": "failed"
+        }
+      ]
     },
     {
       "name": "array1",
@@ -690,7 +1535,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "array1/chez-original.scm",
       "chez_adapted": null,
       "rust": "benchmarks/wasm-reference/src/bin/array1.rs",
@@ -703,8 +1548,39 @@
       "chez_adapted_validation": "unavailable",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "unavailable",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "unavailable",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "string",
@@ -715,7 +1591,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "string/chez-original.scm",
       "chez_adapted": "string/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/string.rs",
@@ -728,8 +1604,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "sum1",
@@ -740,7 +1648,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "sum1/chez-original.scm",
       "chez_adapted": "sum1/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/sum1.rs",
@@ -751,14 +1659,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "cat",
@@ -780,8 +1720,6 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-canonical.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
         "sfir-wasm",
         "sfir-native",
@@ -791,7 +1729,44 @@
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "available-routes-measured",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "chez-adapted",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-canonical.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      },
+      "separate_packet_input_measurement": "evidence/20261015-input-packets.json"
     },
     {
       "name": "tail",
@@ -802,7 +1777,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "tail/chez-original.scm",
       "chez_adapted": "tail/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/tail.rs",
@@ -813,8 +1788,42 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-specialized.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "wc",
@@ -836,8 +1845,6 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-canonical.json",
-      "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
       "measured_routes": [
         "sfir-wasm",
         "sfir-native",
@@ -847,7 +1854,44 @@
         "rust-native"
       ],
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "available-routes-measured",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "chez-adapted",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-canonical.json",
+        "measurement_evidence": "evidence/20261015-clean-six-measurement.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      },
+      "separate_packet_input_measurement": "evidence/20261015-input-packets.json"
     },
     {
       "name": "read1",
@@ -858,7 +1902,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "read1/chez-original.scm",
       "chez_adapted": "read1/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/read1.rs",
@@ -869,14 +1913,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "compiler",
@@ -887,7 +1963,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "compiler/chez-original.scm",
       "chez_adapted": "compiler/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/compiler.rs",
@@ -901,8 +1977,40 @@
       "source_resolution": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "compiler/validation.json",
-      "current_surface_validation": "passed"
+      "current_surface_validation": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "current_surface_validation": "passed",
+        "validation_evidence": "compiler/validation.json"
+      },
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "conform",
@@ -913,7 +2021,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "conform/chez-original.scm",
       "chez_adapted": "conform/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/conform.rs",
@@ -924,16 +2032,48 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
-      "target_evidence": "evidence/20261015-conform-host.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json",
-        "evidence/20261015-conform-host.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "target_evidence": "evidence/20261015-conform-host.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json",
+          "evidence/20261015-conform-host.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "dynamic",
@@ -944,7 +2084,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "dynamic/chez-original.scm",
       "chez_adapted": "dynamic/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/dynamic.rs",
@@ -959,8 +2099,40 @@
       "optimized": "passed",
       "source_resolution": "passed",
       "current_surface_validation": "passed",
-      "validation_evidence": "evidence/20261015-dynamic-scheme.json",
-      "native_parity_evidence": "evidence/20261015-dynamic-scheme.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "current_surface_validation": "passed",
+        "validation_evidence": "evidence/20261015-dynamic-scheme.json",
+        "native_parity_evidence": "evidence/20261015-dynamic-scheme.json"
+      },
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "earley",
@@ -971,7 +2143,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "earley/chez-original.scm",
       "chez_adapted": "earley/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/earley.rs",
@@ -984,8 +2156,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "graphs",
@@ -996,7 +2200,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "graphs/chez-original.scm",
       "chez_adapted": "graphs/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/graphs.rs",
@@ -1009,8 +2213,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "lattice",
@@ -1021,7 +2257,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "lattice/chez-original.scm",
       "chez_adapted": "lattice/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/lattice.rs",
@@ -1034,8 +2270,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "matrix",
@@ -1046,7 +2314,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "matrix/chez-original.scm",
       "chez_adapted": "matrix/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/matrix.rs",
@@ -1059,8 +2327,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "maze",
@@ -1071,7 +2371,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "maze/chez-original.scm",
       "chez_adapted": "maze/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/maze.rs",
@@ -1084,8 +2384,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "mazefun",
@@ -1096,7 +2428,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "mazefun/chez-original.scm",
       "chez_adapted": "mazefun/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/mazefun.rs",
@@ -1109,8 +2441,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "nqueens",
@@ -1121,7 +2485,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "nqueens/chez-original.scm",
       "chez_adapted": "nqueens/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/nqueens.rs",
@@ -1134,8 +2498,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "paraffins",
@@ -1146,7 +2542,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "paraffins/chez-original.scm",
       "chez_adapted": "paraffins/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/paraffins.rs",
@@ -1159,8 +2555,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "parsing",
@@ -1171,7 +2599,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "parsing/chez-original.scm",
       "chez_adapted": "parsing/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/parsing.rs",
@@ -1182,16 +2610,48 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
-      "target_evidence": "evidence/20261015-parsing-observations.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json",
-        "evidence/20261015-parsing-observations.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "target_evidence": "evidence/20261015-parsing-observations.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json",
+          "evidence/20261015-parsing-observations.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "peval",
@@ -1202,7 +2662,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "peval/chez-original.scm",
       "chez_adapted": "peval/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/peval.rs",
@@ -1215,8 +2675,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "primes",
@@ -1227,7 +2719,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "primes/chez-original.scm",
       "chez_adapted": "primes/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/primes.rs",
@@ -1240,9 +2732,41 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "quicksort",
@@ -1253,7 +2777,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "quicksort/chez-original.scm",
       "chez_adapted": "quicksort/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/quicksort.rs",
@@ -1266,8 +2790,40 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "scheme",
@@ -1278,7 +2834,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "scheme/chez-original.scm",
       "chez_adapted": "scheme/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/scheme.rs",
@@ -1293,8 +2849,40 @@
       "optimized": "passed",
       "source_resolution": "passed",
       "current_surface_validation": "passed",
-      "validation_evidence": "evidence/20261015-dynamic-scheme.json",
-      "native_parity_evidence": "evidence/20261015-dynamic-scheme.json"
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "current_surface_validation": "passed",
+        "validation_evidence": "evidence/20261015-dynamic-scheme.json",
+        "native_parity_evidence": "evidence/20261015-dynamic-scheme.json"
+      },
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "slatex",
@@ -1305,7 +2893,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "slatex/chez-original.scm",
       "chez_adapted": "slatex/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/slatex.rs",
@@ -1319,8 +2907,40 @@
       "source_resolution": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "slatex/validation.json",
-      "current_surface_validation": "passed"
+      "current_surface_validation": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "current_surface_validation": "passed",
+        "validation_evidence": "slatex/validation.json"
+      },
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "chudnovsky",
@@ -1331,7 +2951,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "chudnovsky/chez-original.scm",
       "chez_adapted": "chudnovsky/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/chudnovsky.rs",
@@ -1342,8 +2962,42 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "validation_evidence": "evidence/20261015-specialized.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-specialized.json"
+      },
+      "build": "passed",
+      "optimized": "passed",
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "nboyer",
@@ -1354,7 +3008,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "nboyer/chez-original.scm",
       "chez_adapted": "nboyer/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/nboyer.rs",
@@ -1365,14 +3019,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "sboyer",
@@ -1383,7 +3069,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "sboyer/chez-original.scm",
       "chez_adapted": "sboyer/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/sboyer.rs",
@@ -1394,14 +3080,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "gcbench",
@@ -1412,7 +3130,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "gcbench/chez-original.scm",
       "chez_adapted": "gcbench/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/gcbench.rs",
@@ -1425,12 +3143,44 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
       "native_optimized_program_parity": "passed",
-      "native_parity_evidence": "evidence/20261015-native-parity.json",
-      "validation_corrections": [
-        "evidence/20261015-native-parity.json"
-      ]
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "passed",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "native_parity_evidence": "evidence/20261015-native-parity.json",
+        "validation_corrections": [
+          "evidence/20261015-native-parity.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "mperm",
@@ -1441,7 +3191,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "partial-routes",
       "chez_original": "mperm/chez-original.scm",
       "chez_adapted": "mperm/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/mperm.rs",
@@ -1454,8 +3204,63 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "failed-result",
+        "chez-adapted": "failed-result",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      },
+      "measurement_failures": [
+        {
+          "route": "chez-original",
+          "status": "failed-result"
+        },
+        {
+          "route": "chez-adapted",
+          "status": "failed-result"
+        }
+      ],
+      "separate_measurement_correction": {
+        "evidence": "evidence/20261015-full57.json",
+        "campaign": "/tmp/sfir-mperm-timer-correction-20261015-v1",
+        "compiler_revision": "5cd5b6b43551edcb103b0f42e81463aa52a89221",
+        "status": "complete",
+        "measured_routes": [
+          "sfir-wasm",
+          "sfir-native",
+          "chez-original",
+          "chez-adapted",
+          "rust-wasm",
+          "rust-native"
+        ],
+        "scope": "Explicit Chez/Rust timer identities only; same production timing runtime and raw/optimized guest. Primary Chez name rejections and measured_routes remain unchanged."
+      }
     },
     {
       "name": "equal",
@@ -1466,7 +3271,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "equal/chez-original.scm",
       "chez_adapted": "equal/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/equal.rs",
@@ -1477,14 +3282,46 @@
       "rust_native_validation": "passed",
       "source_resolution": "passed",
       "chez_adapted_validation": "passed",
-      "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "validation_corrections": [
-        "evidence/20261015-chez-vector-copy.json"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "chez_adapted_evidence": "evidence/20261015-chez-vector-copy.json",
+        "validation_evidence": "evidence/20261015-existing41.json",
+        "validation_corrections": [
+          "evidence/20261015-chez-vector-copy.json"
+        ]
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
       ],
-      "native_optimized_program_parity": "not-established"
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     },
     {
       "name": "bv2string",
@@ -1495,7 +3332,7 @@
       "entry": "bench",
       "wasm_validation": "passed",
       "native_validation": "passed",
-      "measurement": "not-measured",
+      "measurement": "available-routes-measured",
       "chez_original": "bv2string/chez-original.scm",
       "chez_adapted": "bv2string/chez-adapted.scm",
       "rust": "benchmarks/wasm-reference/src/bin/bv2string.rs",
@@ -1508,16 +3345,57 @@
       "chez_adapted_validation": "passed",
       "build": "passed",
       "optimized": "passed",
-      "validation_evidence": "evidence/20261015-existing41.json",
-      "native_optimized_program_parity": "not-established"
+      "native_optimized_program_parity": "passed",
+      "historical_evidence": {
+        "wasm_validation": "passed",
+        "native_validation": "passed",
+        "chez_validation": "passed",
+        "chez_adapted_validation": "passed",
+        "rust_wasm_validation": "passed",
+        "rust_native_validation": "passed",
+        "measurement": "not-measured",
+        "native_optimized_program_parity": "not-established",
+        "validation_evidence": "evidence/20261015-existing41.json"
+      },
+      "current_surface_validation": "passed",
+      "evidence_compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+      "validation_evidence": "evidence/20261015-full57-correctness.json",
+      "clean_native_optimized_program_parity": "passed",
+      "native_parity_evidence": "evidence/20261015-full57.json",
+      "measurement_evidence": "evidence/20261015-full57.json",
+      "measured_routes": [
+        "sfir-wasm",
+        "sfir-native",
+        "chez-original",
+        "chez-adapted",
+        "rust-wasm",
+        "rust-native"
+      ],
+      "clean_route_status": {
+        "sfir-wasm": "ready",
+        "sfir-native": "ready",
+        "chez-original": "ready",
+        "chez-adapted": "ready",
+        "rust-wasm": "ready",
+        "rust-native": "ready"
+      }
     }
   ],
-  "measurement_status_meaning": "Measured status names only the listed routes and exact evidence protocol; unavailable and failed routes remain visible. It never establishes all-57 coverage.",
+  "measurement_status_meaning": "Current measured_routes name only complete primary full57 routes at compiler 8e547bfb. Primary Ack Wasm failures, Mperm Chez timer-name rejections and unavailable controls remain visible. Corrected Mperm and later packet-input measurements have distinct campaign identities. Historical evidence and its measured_routes remain separate.",
   "current_surface": {
     "specification_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
     "source_manifest": "tests/sfir/surface-migration.json",
-    "validation": "pending",
-    "evidence_scope": "Existing per-case evidence predates the surface migration unless current_surface_validation is passed. New evidence records its source and compiler snapshot; archived results and external controls are unchanged.",
-    "source_presence": "All 57 complete static main sources are present and registered. Per-route correctness, compiler revision and measurement statuses remain separate."
+    "validation": "complete-with-retained-failures",
+    "evidence_scope": "All 57 current static main source hashes match the frozen checked full57 campaign. SFIR Wasm has 56 passes and one Ack stack failure; native has 57 passes. Initial and clean native optimized-guest parity pass for all 57 cases. These are compiler 8e547bfb results, not a full-suite validation of later library/service/packet-input changes. Per-case historical_evidence preserves earlier statuses and links.",
+    "source_presence": "All 57 complete static main sources are present, registered and hash-matched; source presence alone proves no target outcome.",
+    "compiler_revision": "8e547bfb353fa5c5aa7c17bc805db13af0d2bca1",
+    "validation_evidence": "evidence/20261015-full57-correctness.json",
+    "measurement_evidence": "evidence/20261015-full57.json",
+    "measurement": {
+      "status": "complete",
+      "scheduled_routes": 326,
+      "successful_attempts": 1956,
+      "scope": "All eligible primary routes; primary exclusions and separate corrected Mperm remain explicit."
+    }
   }
 }
