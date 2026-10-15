@@ -1,0 +1,5 @@
+(import (sfir core))
+(define exercise
+  (lambda (x)
+    ((let ((y x)) (lambda () y)))))
+(exercise 42)

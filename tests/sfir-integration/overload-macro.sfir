@@ -1,0 +1,6 @@
+(import (sfir core))
+;; These declarations are authored explicitly; macro syntax and grammar aliases
+;; are absent from SFIR. Both members still share one overload family.
+(define-overload select (-> I64 I64) (lambda (value) value))
+(define-overload select (-> Bool I64) (lambda (value) (if value 42 0)))
+(select #t)

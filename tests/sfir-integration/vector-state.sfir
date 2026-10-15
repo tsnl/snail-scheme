@@ -1,0 +1,15 @@
+(import (sfir core))
+(define values
+  (make-vector 3 1))
+(define alias
+  values)
+(vector-set! alias 1 42)
+(if (if (vector-eq? values alias)
+        (if (= (vector-length values) 3)
+            (if (= (vector-ref values 0) 1)
+                (if (= (vector-ref values 1) 42) (not (vector-eq? values (vector-copy values))) #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

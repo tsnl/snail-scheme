@@ -1,0 +1,20 @@
+;; String is fixed type syntax, so the former imported alias is spelled directly.
+(import (sfir core))
+
+(define literal (-> String)
+  (lambda () "A\x0;é😀"))
+(define value
+  (literal))
+(if (if (= (string-length value) 4)
+        (if (= (string-length "") 0)
+            (if (char=? (string-ref value 0) #\A)
+                (if (= (char->integer (string-ref value 1)) 0)
+                    (if (= (char->integer (string-ref value 2)) 233)
+                        (if (= (char->integer (string-ref value 3)) 128512) (string-eq? value (literal)) #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

@@ -1,6 +1,0 @@
-(import (snail strict))
-(define (exercise)
-  (define delayed (lambda () (later 42)))
-  (define (later x) x)
-  (delayed))
-(exercise)

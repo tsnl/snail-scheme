@@ -1,0 +1,8 @@
+(import (sfir core))
+(define calls
+  (ref 0))
+(define-data (Box T) (box (value T unbox)))
+
+(define make (All (T) (-> T (Box T)))
+  (begin (ref-set! calls (+ (ref-get calls) 1)) box))
+(unbox (make 42))

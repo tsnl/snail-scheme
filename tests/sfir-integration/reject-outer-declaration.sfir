@@ -1,0 +1,10 @@
+;; SFIR rejects detached signatures as syntax. The original binding context is retained.
+(import (sfir core))
+(define identity (All (A) (-> A A))
+  (lambda (value) value))
+(define use
+  (lambda ()
+    (begin
+      (: identity (-> I64 I64))
+      (identity #t))))
+(use)

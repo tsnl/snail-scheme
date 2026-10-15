@@ -1,0 +1,2 @@
+(import (sfir core))
+(if 1 40 42)

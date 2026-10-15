@@ -1,0 +1,19 @@
+(import (sfir core))
+(define-data First (first))
+(define-data Second (second))
+(define-data (Marker T) (marker))
+
+(define nominal (-> I64)
+  (lambda ()
+    (match (ann (ann (first) Top) Second) ((second) 0))))
+
+(define arguments (-> I64)
+  (lambda ()
+    (match (ann (ann (ann (marker) (Marker I32)) Top) (Marker Char))
+      ((marker) 0))))
+
+(define valid (-> I64)
+  (lambda ()
+    (match (ann (ann (ann (marker) (Marker Char)) Top) (Marker Char))
+      ((marker) 42))))
+42

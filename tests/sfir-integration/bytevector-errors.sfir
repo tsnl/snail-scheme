@@ -1,0 +1,77 @@
+(import (sfir core) (sfir bytes))
+(define target
+  (bytevector 1 2 3))
+(define effects
+  (ref 0))
+(define mark
+  (lambda (digit value)
+    (begin
+      (ref-set! effects (+ (* (ref-get effects) 10) digit)) value)))
+
+(define negative-length (-> I64)
+  (lambda () (bytevector-length (make-bytevector -1))))
+
+(define overflow-length (-> I64)
+  (lambda () (bytevector-length (make-bytevector 4294967296))))
+
+(define empty-invalid-fill (-> I64)
+  (lambda () (bytevector-length (make-bytevector 0 256))))
+
+(define negative-fill (-> I64)
+  (lambda () (bytevector-length (make-bytevector 0 -1))))
+
+(define negative-index (-> I64)
+  (lambda () (bytevector-u8-ref target -1)))
+
+(define wrapped-index (-> I64)
+  (lambda () (bytevector-u8-ref target 4294967296)))
+
+(define endpoint-index (-> I64)
+  (lambda () (bytevector-u8-ref target 3)))
+
+(define invalid-byte (-> Unit)
+  (lambda () (bytevector-u8-set! target 0 256)))
+
+(define readonly-write (-> Unit)
+  (lambda ()
+    (bytevector-u8-set! (mark 1 #u8(0)) (mark 2 0) (mark 3 42))))
+
+(define observed-effects (-> I64)
+  (lambda () (ref-get effects)))
+
+(define readonly-empty-copy (-> Unit)
+  (lambda () (bytevector-copy! #u8() 0 #u8() 0 0)))
+
+(define source-range (-> Unit)
+  (lambda () (bytevector-copy! target 0 #u8(9 8) 0 3)))
+
+(define target-range (-> Unit)
+  (lambda () (bytevector-copy! target 2 #u8(9 8) 0 2)))
+
+(define reversed-range (-> Unit)
+  (lambda () (bytevector-copy! target 0 #u8(9 8) 2 1)))
+
+(define negative-range (-> Unit)
+  (lambda () (bytevector-copy! target 0 #u8(9 8) -1 0)))
+
+(define empty-source-range (-> Unit)
+  (lambda () (bytevector-copy! target 0 #u8() 1 1)))
+
+(define empty-target-range (-> Unit)
+  (lambda () (bytevector-copy! target 4 #u8() 0 0)))
+
+(define negative-copy (-> I64)
+  (lambda () (bytevector-length (bytevector-copy target -1 0))))
+
+(define wrong-top (-> I64)
+  (lambda () (bytevector-length (ann (ann (vector 1 2) Top) Bytevector))))
+
+(define wrong-string (-> I64)
+  (lambda () (string-length (ann (ann target Top) String))))
+
+(define unchanged (-> Bool)
+  (lambda ()
+    (if (= (bytevector-u8-ref target 0) 1)
+        (if (= (bytevector-u8-ref target 1) 2) (= (bytevector-u8-ref target 2) 3) #f)
+        #f)))
+42

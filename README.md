@@ -1,48 +1,37 @@
-# Snail Scheme
+# SFIR
 
-> 🚧 Work in progress, claims may change.
->
-> We are still slower than Chez Scheme and Guile, but we very much aim to be
-> faster.
+> 🚧 Work in progress. The SFIR migration and benchmark validation are ongoing.
 
-Snail Scheme compiles Scheme to WebAssembly GC. The Wasm engine owns Scheme
-memory. A common library supplies value operations; a selected platform supplies
-named effect handlers for files, ports, clocks, diagnostics, and host services.
-The available command runtime uses Node.js, WASI, and a small JavaScript adapter
-for subprocesses and build publication.
+SFIR (Snail functional IR, pronounced “sphere”) is a typed functional language
+and compiler target with an explicit s-expression surface. Type inference and
+specialization determine concrete storage and calls before emitting WasmGC.
+Binaryen always optimizes that Wasm. Run it on V8, or mechanically lower it to
+LLVM for a 64-bit native executable with the in-house collector.
 
-The [book](doc/book/index.md) explains the longer-term model of nodes, artifacts,
-spawn, connect, and messages. Node connections and browser GUI adapters are still
-unimplemented; the book distinguishes that model from runnable examples.
+The compiler is written in Scheme and hosted by Chibi. Its input language is
+SFIR. Scheme elaboration, macros and self-hosting are deferred.
 
 ## Getting started
 
 ```sh
 nix-shell
 rustup target add wasm32-wasip1
-chibi-scheme -h512M -I src build.scm
-node --no-warnings scripts/run-wasi.mjs build/snail-scheme.wasm examples/fibonacci.scm
+./snail-sfir run examples/fibonacci.sfir
+./snail-sfir run --target native examples/fibonacci.sfir
+./snail-sfir compile -o fibonacci.wasm examples/fibonacci.sfir
 ```
 
-Chibi remains the bootstrap host. Binaryen is a required build dependency,
-provided by `nix-shell` and checked before compilation. See
-[build and toolchain setup](doc/backend.md).
+Binaryen is required and checked before compilation. Native builds currently
+test x86-64 Linux and use Clang, LLD and the same Rust extern implementations.
+See [commands](doc/options.md) and [build requirements](doc/backend.md).
 
-The [benchmark suite](BENCHMARKS.md) retains all 57 pinned R7RS workloads,
-including unsupported cases. The completed Native/V8 comparison and compiler
-baseline are in [the migration report](benchmarks/results/2026-10-12-native-v8/README.md).
-The removed LLVM emitter and native collector remain on
-[`archive/llvm-backend-20261012`](https://github.com/tsnl/snail-scheme/tree/archive/llvm-backend-20261012).
+The [language design](doc/sfir.md) defines the surface and type model.
+The [compiler tour](TOUR.md) follows source locations and type evidence through
+the implementation. [The roadmap](doc/roadmap.md) separates current work from
+future frontends and self-hosting. `build.scm` is outside this migration.
 
-[Static typeclasses](doc/book/typeclasses.md) provide user-defined overloads and
-compile-time specialization. [Iverson Ghost](doc/book/tutorials/tensors.md)
-supplies `object`, `f64`, `f32`, and `i32` tensors with eager and symbolic
-instances of a shared interface.
+The [benchmark corpus](benchmarks/README.md) retains all 57 workloads and compares
+SFIR, Chez and Rust. Source ports, target validation and clean measurements are
+recorded separately. Historical Scheme reports remain historical evidence.
 
-[Tour](TOUR.md) · [Effect interfaces](doc/book/effects.md) ·
-[Build and tests](doc/backend.md) · [Apache-2.0](LICENSE)
-
-The [actor prototype](examples/actors/README.md) builds independent library instances
-with S-expression calls over Node subprocess connections. The
-[HTML prototype](doc/ui.md) provides a Chibi-hosted local UI; it is separate from
-the planned browser adapters.
+[Apache-2.0](LICENSE)

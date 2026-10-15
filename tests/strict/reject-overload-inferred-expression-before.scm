@@ -1,5 +1,0 @@
-(import (snail strict))
-(define cell (ref (empty-vector)))
-(ref-set! cell (make-vector 1 42))
-(define-overload stored (lambda () (ref-get cell)))
-(vector-ref (stored) 0)

@@ -1,0 +1,5 @@
+(import (sfir core))
+
+(define square (All (T) (-> T T))
+  (lambda (x) (* x x)))
+(square 2)

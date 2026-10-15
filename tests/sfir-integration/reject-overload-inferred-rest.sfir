@@ -1,0 +1,3 @@
+(import (sfir core))
+(define-overload collect (lambda values values))
+42

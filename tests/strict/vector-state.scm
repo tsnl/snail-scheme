@@ -1,7 +1,0 @@
-(import (snail strict))
-(define values (make-vector 3 1))
-(define alias values)
-(vector-set! alias 1 42)
-(if (and (vector-eq? values alias) (= (vector-length values) 3)
-         (= (vector-ref values 0) 1) (= (vector-ref values 1) 42)
-         (not (vector-eq? values (vector-copy values)))) 42 (unreachable))

@@ -1,6 +1,0 @@
-(import (snail strict))
-(define values (ann (make-vector 100000) (Vector I64)))
-(if (and (= (vector-length values) 100000)
-         (= (vector-ref values 0) 0)
-         (= (vector-ref values 99999) 0))
-    42 (unreachable))

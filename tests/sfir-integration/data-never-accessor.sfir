@@ -1,0 +1,3 @@
+(import (sfir core))
+(define-data Choice (live) (dead (impossible Never dead-value)))
+(dead-value (live))

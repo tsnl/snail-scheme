@@ -1,0 +1,5 @@
+(import (sfir core))
+
+(define identity (All (T) (-> T T))
+  (lambda (x) x))
+((inst identity I64) 42)

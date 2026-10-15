@@ -1,0 +1,7 @@
+(import (sfir core))
+
+(define alias (All (T) (-> T T))
+  later)
+(define later
+  (lambda (x) x))
+42

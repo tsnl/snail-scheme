@@ -1,0 +1,16 @@
+(import (sfir core))
+(define count
+  (ref 0))
+
+(define calls (-> I64)
+  (lambda () (ref-get count)))
+(define-instance (Default (Ref I64))
+  (default (lambda ()
+             (begin (ref-set! count (+ (ref-get count) 1)) (ref 0)))))
+
+(define allocate (-> I64)
+  (lambda ()
+    (begin
+      (ann (make-vector -1) (Vector (Ref I64)))
+      0)))
+42

@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Check explicit SFIR syntax and typing, then execute accepted programs on V8."""
+
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / 'build/sfir-contracts'
+spec = importlib.util.spec_from_file_location('contracts', ROOT / 'tests/sfir/contracts.py')
+contracts = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(contracts)
+
+
+def compile_case(name, source):
+    path, wasm = OUTPUT / f'{name}.sfir', OUTPUT / f'{name}.wasm'
+    prefix = '' if source.startswith('(library') else '(import (sfir primitive))\n'
+    path.write_text(prefix + source + '\n')
+    result = subprocess.run([ROOT / 'scripts/build-sfir', '-I', OUTPUT / 'lib', path, wasm], capture_output=True, text=True,
+                            timeout=180, env={**os.environ, 'BINARYEN_CORES': '1'})
+    (OUTPUT / f'{name}.log').write_text(result.stdout + result.stderr)
+    return result, wasm
+
+
+def check_case(name, source, expected, rejected):
+    result, wasm = compile_case(name, source)
+    if rejected:
+        if result.returncode == 0 or expected not in result.stderr:
+            raise RuntimeError(f'{name}: expected rejection containing {expected!r}: {result.stderr}')
+    else:
+        if result.returncode:
+            raise RuntimeError(f'{name}: compilation failed: {result.stderr}')
+        subprocess.run([os.environ.get('NODE', 'node'), ROOT / 'tests/sfir/run.mjs', wasm, expected],
+                       check=True, capture_output=True, text=True, timeout=20)
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    for name, source in contracts.MODULES.items():
+        path = OUTPUT / 'lib' / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source + '\n')
+    results = []
+    for rejected, cases in [(False, contracts.PASS), (True, contracts.FAIL)]:
+        for name, (source, expected) in cases.items():
+            try:
+                check_case(name, source, expected, rejected)
+                results.append(dict(name=name, passed=True, rejected=rejected))
+                print('PASS', name, flush=True)
+            except (RuntimeError, subprocess.SubprocessError) as error:
+                results.append(dict(name=name, passed=False, error=str(error)))
+                print('FAIL', name, str(error), flush=True)
+            (OUTPUT / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+    return int(any(not row['passed'] for row in results))
+
+
+if __name__ == '__main__':
+    sys.exit(main())

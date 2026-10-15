@@ -1,0 +1,2 @@
+(import (sfir core))
+(string-set! (make-string 1) 0 65)

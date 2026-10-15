@@ -1,0 +1,16 @@
+(import (sfir core))
+
+(define cell
+  (ref 0))
+(define answer
+  ((let ((cell (ref (+ (ref-get cell) 1))))
+     (begin
+       (define finish
+         (lambda (amount)
+           (begin
+             (ref-set! cell (+ (ref-get cell) amount))
+             (ref-get cell))))
+       finish))
+   (begin (ref-set! cell 40) 1)))
+
+(if (if (= answer 42) (= (ref-get cell) 40) #f) 42 0)

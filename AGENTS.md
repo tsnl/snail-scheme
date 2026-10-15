@@ -1,8 +1,12 @@
-# Working on Snail-Scheme
+# Working on SFIR
 
 Make the implementation educational to read. Follow the program from located
-syntax through resolved IR, WasmGC, and the Rust ABI library.
+syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
+
+- SFIR is the sole product input language. Keep Scheme elaboration, macro
+  staging and self-hosting deferred; the compiler implementation remains
+  Scheme hosted by Chibi. See [the language contract](doc/sfir.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries
@@ -21,8 +25,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Each tested Scheme module exports one `test-<module>` entry point under the
   `snail-tests` feature; test cases and helpers stay private. Keep integration
   fixtures, runners, and shared assertion support in `tests/`.
-  Inactive test sections must still be readable by the bootstrap parser; decode
-  unsupported numeric expectations from strings only when the host tests run.
+  Inactive test sections must remain readable by the Chibi compiler host.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
   atomic VM transitions, and tests may be longer when keeping them together
@@ -38,9 +41,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   explanation and refactoring of newly written modules. Keep backend cleanup
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
-  The Wasm engine owns Scheme collection; Rust keeps Scheme values in owned
-  ABI roots across allocations and callbacks. Resource cleanup must not retain
-  the wrapper it watches.
+  Wasm engines trace managed references; native lowering must publish live
+  roots across collecting calls. Rust scalar providers own external resources
+  behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Keep the compiler hosted by Chibi until a separate self-hosting milestone.
   Type inference follows the working, measured backend baseline.
 - Update [TOUR.md](TOUR.md) when module responsibilities change. Keep proposed
@@ -49,6 +52,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 Relevant checks are `make test`, `make check`,
 `cargo test --offline`,
 `cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
-Backend changes should execute linked Wasm. Host adapter changes also need actual Node execution; compilation alone does
-not test target behavior. See [doc/backend.md](doc/backend.md) for tools
+Backend changes should execute linked Wasm. Native executor changes need actual
+native execution; compilation alone does not test target behavior. Keep the
+57-workload comparison complete and distinguish source presence, correctness,
+clean measurements and instrumented diagnostics. See [doc/backend.md](doc/backend.md) for tools
 and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

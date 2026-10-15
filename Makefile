@@ -4,19 +4,20 @@
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
+BENCH_OUTPUT ?= build/sfir-benchmarks
 
 test:
-	"$(CHIBI)" -D snail-tests -I src -I tests tests/snail-scheme/test.scm
+	"$(CHIBI)" -D snail-tests -I src -I tests tests/sfir/host.scm
 
 benchmark:
-	./benchmarks/r7rs.py
+	python3 benchmarks/sfir/runner.py prepare --output "$(BENCH_OUTPUT)"
+	python3 benchmarks/sfir/runner.py validate --output "$(BENCH_OUTPUT)"
 
 format:
-	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --write {} +
+	EMACS="$(EMACS)" find src lib tests examples -type f \( -name '*.scm' -o -name '*.sld' -o -name '*.sfir' \) -exec ./scripts/format-scheme --write {} +
 	$(NIXFMT) shell.nix
 
 check:
-	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --check {} +
-	awk -v limit=100 -f scripts/check-line-length.awk \
-		src/snail-scheme/expand.sld src/snail-scheme/ir.sld
+	EMACS="$(EMACS)" find src lib tests examples -type f \( -name '*.scm' -o -name '*.sld' -o -name '*.sfir' \) -exec ./scripts/format-scheme --check {} +
+	awk -v limit=100 -f scripts/check-line-length.awk src/snail-scheme/ir.sld
 	$(NIXFMT) --check shell.nix

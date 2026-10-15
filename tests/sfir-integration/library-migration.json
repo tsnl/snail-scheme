@@ -1,0 +1,262 @@
+{
+  "source_revision": "78734dd1103f450dfe2969a39dc2268358730792",
+  "temporary_converter_sha256": "b6b14dc35ecd9d0da0700625002ef0b214173c617a6ffebda7c99710a49809ab",
+  "files": [
+    {
+      "old_path": "tests/strict-bytes/unicode.scm",
+      "old_sha256": "ecc234e6c50f7e0ce89030afb25f9950186b10fb01f9646e6e5d97a418bd28c5",
+      "path": "tests/sfir-bytes/unicode.sfir",
+      "transformations": {
+        "attached-signatures": 2,
+        "recursive-loop-blocks": 2,
+        "explicit-lambdas": 2
+      },
+      "sha256": "abf9281d6c421ab5102a4e20a915f0a18aa81f09895fab3cb19f6d85ae49c019"
+    },
+    {
+      "old_path": "tests/strict-integer/oracle.scm",
+      "old_sha256": "81ea3c2f326535be9c0e22aa602fcbe5ea7351369d14733a67965dda64835ae4",
+      "path": "tests/sfir-integer/oracle.sfir",
+      "transformations": {
+        "recursive-loop-blocks": 2,
+        "nested-sequential-lets": 5,
+        "explicit-lambdas": 9,
+        "explicit-unless": 1,
+        "explicit-and": 4,
+        "explicit-body-blocks": 3,
+        "attached-signatures": 1
+      },
+      "sha256": "e7ca77d4975005f7ec13c6fe1189d7cf442a4fb485f4fce11653d1ad9ec3144f"
+    },
+    {
+      "old_path": "tests/strict-numbers/bridge.scm",
+      "old_sha256": "7a81432830381648b16bf6b2fa84a4131ba0f71c17ca0fcc62965b455594227e",
+      "path": "tests/sfir-numbers/bridge.sfir",
+      "transformations": {
+        "recursive-loop-blocks": 5,
+        "explicit-lambdas": 13,
+        "explicit-when": 3,
+        "explicit-body-blocks": 13,
+        "explicit-unless": 4,
+        "explicit-or": 1,
+        "explicit-cond": 1,
+        "nested-sequential-lets": 1,
+        "attached-signatures": 1
+      },
+      "sha256": "9705e0de171505f23a6a7a3f20cf63a1f0ba59b1061a801016d7efc1a7e5e27b"
+    },
+    {
+      "old_path": "tests/strict-numbers/domain.scm",
+      "old_sha256": "c27316a23069ac14286417c541d08e07fa1d9c3b05463dd0215c769d0d8bae92",
+      "path": "tests/sfir-numbers/domain.sfir",
+      "transformations": {
+        "recursive-loop-blocks": 2,
+        "nested-sequential-lets": 2,
+        "explicit-lambdas": 11,
+        "explicit-unless": 2,
+        "attached-signatures": 1,
+        "explicit-or": 1,
+        "explicit-and": 1,
+        "explicit-body-blocks": 1
+      },
+      "sha256": "452888ad17e40103d95365eb591beeb8a01ce8cf5498fda368fcbee022a3d881"
+    },
+    {
+      "old_path": "tests/strict-numbers/oracle.scm",
+      "old_sha256": "27b52a54e0e62b8d65ae2de4e1b85ee20c54f283eb5187fc320cc32860ca2c9e",
+      "path": "tests/sfir-numbers/oracle.sfir",
+      "transformations": {
+        "recursive-loop-blocks": 3,
+        "nested-sequential-lets": 1,
+        "explicit-lambdas": 6,
+        "explicit-unless": 1,
+        "attached-signatures": 1
+      },
+      "sha256": "380f87c57b9fe1402d9a98ebfbc30f1361dd25a6dfe9b4cff4dff3a5b258ac15"
+    },
+    {
+      "old_path": "tests/strict-reader/reader.scm",
+      "old_sha256": "006436e4e726694611e6ac62c517e36a7863fb7d4d09527dfa79228cf047673c",
+      "path": "tests/sfir-reader/reader.sfir",
+      "transformations": {
+        "attached-signatures": 12,
+        "explicit-lambdas": 12,
+        "explicit-and": 3,
+        "nested-sequential-lets": 3,
+        "explicit-body-blocks": 14,
+        "explicit-unless": 3,
+        "recursive-loop-blocks": 4
+      },
+      "sha256": "1e22794d5f7c2ed0b9fd715181b6e16bb480354a230ab52ca40fd640cded056a"
+    },
+    {
+      "old_path": "tests/strict-reader/scalars.scm",
+      "old_sha256": "3bcc9f3e228a7092d56d2e29893a9be000bdadd59b48cfcbfe557d1e1860a1f8",
+      "path": "tests/sfir-reader/scalars.sfir",
+      "transformations": {
+        "attached-signatures": 2,
+        "explicit-lambdas": 2,
+        "explicit-and": 1,
+        "explicit-body-blocks": 1,
+        "nested-sequential-lets": 1
+      },
+      "sha256": "467b06082577fdaa407a73b2fedd4e48464ba59db4fa9d99caa052cc24ce4730"
+    },
+    {
+      "old_path": "tests/strict-text/text.scm",
+      "old_sha256": "91bb8a9ea34edd85674aa6794bcc0526c508c06508340a1d92abd97b20e22427",
+      "path": "tests/sfir-text/text.sfir",
+      "transformations": {
+        "attached-signatures": 10,
+        "explicit-lambdas": 10,
+        "explicit-body-blocks": 2
+      },
+      "sha256": "57ed66eaf5ebf381241c1d34d35c0c1858b07a321ea68399c5eca28c1727fa79"
+    },
+    {
+      "old_path": "tests/strict-write/output.scm",
+      "old_sha256": "f49ca30ce1401a7dee510bf9f8726e93fbab85982d21ec193cfef48ac17ec8cc",
+      "path": "tests/sfir-write/output.sfir",
+      "transformations": {
+        "attached-signatures": 16,
+        "explicit-body-blocks": 14,
+        "recursive-loop-blocks": 3,
+        "explicit-lambdas": 16,
+        "explicit-and": 3,
+        "explicit-unless": 2,
+        "nested-sequential-lets": 3
+      },
+      "sha256": "611fb5972eb38bd0c210138e8c7a140bcfd6f6e574f6d0c8d99280e2972810eb"
+    },
+    {
+      "old_path": "tests/strict-math.scm",
+      "old_sha256": "7777d7e075694cb4ed83e9700621dda0ea44cbc42ced7a1e26c1606ba894df21",
+      "path": "tests/sfir-math.sfir",
+      "transformations": {
+        "attached-signatures": 1,
+        "explicit-lambdas": 1
+      },
+      "sha256": "3a81be8e8bd304e0c72e889a3e8578fbb0101c809a4136bfb2122272ce910d27"
+    }
+  ],
+  "compiler_validation_revision": "6983894",
+  "runtime_generation": "Runners generate data and oracle answers only. Target SFIR programs, small-radix library and external Chez control programs are static files.",
+  "additional_authored_fixtures": {
+    "tests/sfir-bytes/literal-10000.sfir": "6fd448935b351ab6568b81b08d8be863dbba7c4362a2491278f8db4df50da3a0",
+    "tests/sfir-bytes/literal-10001.sfir": "afe719a2ebf3e4ffce94737f439073c88b6afa6a48e417989dd504378ff4981c",
+    "tests/sfir-integer/reject-limbs.sfir": "17536135d1fabed7910d9abf79ae24e7e1ab47d8023989c8079f929153de118c",
+    "tests/sfir-integer/reject-mixed.sfir": "6ec25e9b443368fcf2da9c822a6054e79286a61a1bd6a012cfaf65da1ebd19e6",
+    "tests/sfir-integer/reject-private.sfir": "d8844eadaa6bfef696a93e344e7d945bba648e860d0e73d14bbd27c224e51b70",
+    "tests/sfir-integer/small-radix/sfir/integer.sfir": "e0433f0987f87417beecdfb19323e9d0918be1cae3da60c7736fe93d082de91c",
+    "tests/sfir-integer/unit.sfir": "06a9caa5fe64add84b2d17f0837281c3f19bc0c7d5cfa1ed5dddfa714739f070"
+  },
+  "small_radix_contract": "The entire authored Integer library equals lib/sfir/integer.sfir except radix 1073741824 -> 4 and limb-bits 30 -> 2. The runner verifies this before execution and verifies distinct emitted radix constants.",
+  "static_chez_controls": "tests/sfir-numbers/chez/provenance.json records the frozen external controls and their old numeric library inputs. check-chez-bridge.py never expands or generates program syntax.",
+  "unchanged_hosts_and_oracles": [
+    {
+      "old_path": "tests/strict-bytes/unicode.c",
+      "path": "tests/sfir-bytes/unicode.c",
+      "sha256": "8240d9c624fff5231f718a3f08b0bdf9a54d2737844fadc7ad2f5c57b1d8bafe"
+    },
+    {
+      "old_path": "tests/strict-bytes/unicode.mjs",
+      "path": "tests/sfir-bytes/unicode.mjs",
+      "sha256": "6524fcd1a085d89dfdf68511c5e4892a42609fd650fd7957a8aa113094fd7652"
+    },
+    {
+      "old_path": "tests/strict-integer/oracle-provider.c",
+      "path": "tests/sfir-integer/oracle-provider.c",
+      "sha256": "29c2afd8b9ab5fda771a1760fff842efd0bacfc3822479d8f8b4a5aae542e592"
+    },
+    {
+      "old_path": "tests/strict-integer/oracle.c",
+      "path": "tests/sfir-integer/oracle.c",
+      "sha256": "1314c52978bb167e53fd1104918a2f8a08c394bc024bf5bf097220227e373952"
+    },
+    {
+      "old_path": "tests/strict-integer/oracle.h",
+      "path": "tests/sfir-integer/oracle.h",
+      "sha256": "be4f710c183497173f952f9b5784d961b63094807fc96d1c55cbdfa9221160ad"
+    },
+    {
+      "old_path": "tests/strict-integer/oracle.mjs",
+      "path": "tests/sfir-integer/oracle.mjs",
+      "sha256": "e5959191249afe61759f060701728042696bd7b19b3f15a864d47f02d0ed178f"
+    },
+    {
+      "old_path": "tests/strict-numbers/bridge-ownership.scm",
+      "path": "tests/sfir-numbers/bridge-ownership.scm",
+      "sha256": "0806e06f38214adf6838deb9c68d26c7cc12076722b751bcec15ab6c1893654e"
+    },
+    {
+      "old_path": "tests/strict-numbers/domain.py",
+      "path": "tests/sfir-numbers/domain.py",
+      "sha256": "74d1367df8e5bb1caa449da1907347fc147f896b956483e6945301a2be4d6167"
+    },
+    {
+      "old_path": "tests/strict-numbers/oracle.c",
+      "path": "tests/sfir-numbers/oracle.c",
+      "sha256": "61d90f04d4ae11c4798b59ec42fcb22263c7a920c399bd2852cb2d5f0ee9ae90"
+    },
+    {
+      "old_path": "tests/strict-numbers/oracle.mjs",
+      "path": "tests/sfir-numbers/oracle.mjs",
+      "sha256": "f6c905c68edbce9e3b7c72e9c26e4a9186568fcd28627a2386cb55ecbc3da5d9"
+    },
+    {
+      "old_path": "tests/strict-reader/entry.c",
+      "path": "tests/sfir-reader/entry.c",
+      "sha256": "fcc8b6d6a7c4d1c8465a43b396417dc7f864c005005f603052a11ebc2f853abb"
+    },
+    {
+      "old_path": "tests/strict-reader/observer.c",
+      "path": "tests/sfir-reader/observer.c",
+      "sha256": "dfc6b704aa8c9e9d4e77ad06ea7e43715f0a996c8b94a78609f52962ace165df"
+    },
+    {
+      "old_path": "tests/strict-reader/observer.h",
+      "path": "tests/sfir-reader/observer.h",
+      "sha256": "5cd986826997a6d6384c2637ec9397fad07cd72de95bcb911344b1ac23e98c8e"
+    },
+    {
+      "old_path": "tests/strict-reader/oracle.scm",
+      "path": "tests/sfir-reader/oracle.scm",
+      "sha256": "b1441e037cf5f60e9e01baf1bd98e3faeb74881ea645b36eefa460e918727568"
+    },
+    {
+      "old_path": "tests/strict-reader/run.mjs",
+      "path": "tests/sfir-reader/run.mjs",
+      "sha256": "227bebac8f03ff10e5bb71fae9e14dfa67a2e25aec36d38732027abc11193bc1"
+    },
+    {
+      "old_path": "tests/strict-text/entry.c",
+      "path": "tests/sfir-text/entry.c",
+      "sha256": "667c6e9fddaa80efef1e5d7c8a50e494e80baa73d7e30f36cd8644762a6b013f"
+    },
+    {
+      "old_path": "tests/strict-text/run.mjs",
+      "path": "tests/sfir-text/run.mjs",
+      "sha256": "7c885ec52866d9f47a4e44bd840810e0baa7bd6d413da419a3170b5c882886b9"
+    },
+    {
+      "old_path": "tests/strict-write/entry.c",
+      "path": "tests/sfir-write/entry.c",
+      "sha256": "02b7fb2cc25097d52dab51aee54756cea607a66d1957e8b5f19298840536ca1b"
+    },
+    {
+      "old_path": "tests/strict-write/oracle.scm",
+      "path": "tests/sfir-write/oracle.scm",
+      "sha256": "d444ac2d2e157f807378d6c518889f924799daa27ea0d2d2b32b89942d009868"
+    },
+    {
+      "old_path": "tests/strict-write/run.mjs",
+      "path": "tests/sfir-write/run.mjs",
+      "sha256": "108d0aa33adce4b3c08d6cf51423144b5d3bac628bf05609b8e4083f35d2408a"
+    },
+    {
+      "old_path": "tests/strict-math.mjs",
+      "path": "tests/sfir-math.mjs",
+      "sha256": "e870e5d87859b86c9fc5fafa286406f678794573026055d5566d27bb928b77c5"
+    }
+  ]
+}

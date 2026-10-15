@@ -1,0 +1,10 @@
+(import (sfir core))
+(define-overload promote (-> I64 F64) i64->f64)
+(define convert
+  promote)
+
+(define add (-> I64 F64 F64)
+  +)
+(define apply-twice
+  (lambda (function value) (function (function value))))
+(if (= (add 20 (convert 22)) 42.0) 42 (unreachable))

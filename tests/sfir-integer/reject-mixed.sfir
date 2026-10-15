@@ -1,0 +1,2 @@
+(import (sfir core) (sfir integer))
+(+ (integer-from-i64 1) 1)

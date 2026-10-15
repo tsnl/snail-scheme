@@ -1,0 +1,28 @@
+(import (sfir core) (sfir math) (sfir text))
+
+;; ---- Concrete scalar calls retain their public ABI ----
+
+(define unary (-> I64 F64 F64)
+  (lambda (operation value)
+    (if (= operation 0) (exp value)
+        (if (= operation 1) (log value)
+            (if (= operation 2) (tan value)
+                (if (= operation 3) (asin value)
+                    (if (= operation 4) (acos value)
+                        (if (= operation 5) (floor value)
+                            (if (= operation 6) (ceiling value)
+                                (if (= operation 7)
+                                    (f32->f64 (floor (f64->f32 value)))
+                                    (f32->f64 (ceiling (f64->f32 value)))))))))))))
+
+(define binary (-> I64 F64 F64 F64)
+  (lambda (operation left right)
+    (if (= operation 0) (atan2 left right) (pow left right))))
+
+(define character (-> I64 Char I64)
+  (lambda (operation value)
+    (if (= operation 0) (char->integer (char-upcase value))
+        (if (= operation 1) (char->integer (char-foldcase value))
+            (if (char-lower-case? value) 1 0)))))
+
+(unit)

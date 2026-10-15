@@ -1,0 +1,2 @@
+(import (sfir core))
+(vector-append (vector 1) (vector #t))

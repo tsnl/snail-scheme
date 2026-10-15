@@ -1,0 +1,7 @@
+(import (sfir core))
+(define ints
+  (make-vector 2 (ann 42 I32)))
+(define flags
+  (make-vector 2 #f))
+(vector-set! flags 1 #t)
+(if (vector-ref flags 1) (vector-ref ints 0) (ann 0 I32))

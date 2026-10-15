@@ -1,0 +1,3 @@
+(import (sfir core))
+(define-data (Growing T) (end) (more (child (Growing (List T)))))
+(ann (end) (Growing I64))

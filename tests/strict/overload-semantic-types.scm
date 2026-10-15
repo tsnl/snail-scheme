@@ -1,4 +1,0 @@
-(import (snail strict))
-(define-overload distinguish (-> I32 I64) (lambda (value) 20))
-(define-overload distinguish (-> Bool I64) (lambda (value) 22))
-(+ (distinguish (ann 0 I32)) (distinguish #f))

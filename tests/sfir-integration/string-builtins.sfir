@@ -1,0 +1,43 @@
+(import (sfir core))
+(define source
+  (string #\A #\null #\é #\x1f600))
+(define copied
+  (string-copy source))
+(define middle
+  (substring source 1 3))
+(define joined
+  (string-append "" "[" source "]" ""))
+(define one
+  (string-append source))
+(define empty
+  (string-append))
+(define chars
+  (string->list source))
+(string-set! source 0 #\Z)
+(if (if (string=? copied "A\x0;é😀")
+        (if (string=? (list->string chars) copied)
+            (if (string=? middle "\x0;é")
+                (if (string=? joined "[A\x0;é😀]")
+                    (if (string=? one copied)
+                        (if (not (string-eq? one copied))
+                            (if (not (string-eq? (string-copy empty) empty))
+                                (if (not (string-eq? (substring source 4 4) empty))
+                                    (if (not (string-eq? (string) (string)))
+                                        (if (string=? (list->string (quote ())) "")
+                                            (if (string=? (make-string 2) "\x0;\x0;")
+                                                (if (string=? (make-string 3 #\λ) "λλλ")
+                                                    (if (not (string=? "ab" "ac")) (not (string=? "a" "ab")) #f)
+                                                    #f)
+                                                #f)
+                                            #f)
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

@@ -1,0 +1,204 @@
+(import (sfir integer) (sfir rational) (sfir core) (sfir datum) (sfir read) (sfir io) (sfir bytes))
+
+;; ---- Exactness, stable symbols and observable mutable datum fields ----
+
+(define parsed (-> String Number)
+  (lambda (text) (parsed-number-value (string->number text))))
+
+(define equivalence (-> Bool)
+  (lambda ()
+    (let ((one (datum-number (exact-number 1))))
+      (let ((two (datum-number (exact-number 2))))
+        (let ((left (datum-cons one (datum-null))))
+          (let ((right (datum-cons one (datum-null))))
+            (let ((bytes (bytevector 1 2)))
+              (let ((elements (vector one two)))
+                (if (datum=? left right)
+                    (if (not (datum=? left (datum-cons two (datum-null))))
+                        (if (not (datum=? left (datum-cons one right)))
+                            (if (datum=? (datum-vector elements) (datum-vector (vector-copy elements)))
+                                (if (not (datum=? (datum-vector elements) (datum-vector (vector two one))))
+                                    (if (datum=? (datum-bytevector bytes) (datum-bytevector (bytevector 1 2)))
+                                        (if (not (datum=? (datum-bytevector bytes) (datum-bytevector (bytevector 1 3))))
+                                            (not (datum=? (datum-string "1") one))
+                                            #f)
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)
+                        #f)
+                    #f)))))))))
+
+(define check (-> I64)
+  (lambda ()
+    (let ((name (string->symbol "λ😀")))
+      (let ((same (string->symbol (string-copy "λ😀"))))
+        (let ((pair (datum-cons (datum-symbol name) (datum-null))))
+          (begin
+            (datum-set-car! pair (datum-number (parsed "#e9007199254740993.0")))
+            (if (if (equivalence)
+                    (if (symbol=? name same)
+                        (if (string=? (symbol->string name) "λ😀")
+                            (if (number-equivalent? (parsed "#x-8000000000000000") (exact-number -9223372036854775808))
+                                (if (number-equivalent? (parsed "1+0i") (parsed "1"))
+                                    (if (not (number-equivalent? (parsed "0.0") (parsed "-0.0")))
+                                        (if (number-equivalent? (parsed "+nan.0") (parsed "-nan.0"))
+                                            (if (not (number-equivalent? (parsed "1") (parsed "1.0")))
+                                                (if (datum=? (datum-car pair) (datum-number (exact-number 9007199254740993)))
+                                                    (= (number->f64 (parsed "12.5")) 12.5)
+                                                    #f)
+                                                #f)
+                                            #f)
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)
+                        #f)
+                    #f)
+                42
+                0)))))))
+
+;; ---- Independently read mutable fields and names keep their ownership ----
+
+(define storage (-> Bool)
+  (lambda ()
+    (call-with-input-file "ownership.scm"
+      (lambda (port)
+        (let ((pair (read-value! (read port))))
+          (let ((alias pair))
+            (let ((name (datum-symbol-value (datum-car pair))))
+              (let ((same (datum-symbol-value (read-value! (read port)))))
+                (let ((spelling (symbol->string same)))
+                  (let ((first (datum-string-value (read-value! (read port)))))
+                    (let ((second (datum-string-value (read-value! (read port)))))
+                      (begin
+                        (datum-set-cdr! pair (datum-number (exact-number 42)))
+                        (string-set! first 0 #\X)
+                        (string-set! spelling 0 #\X)
+                        (if (symbol=? name same)
+                            (if (string=? (symbol->string name) "same")
+                                (if (string=? first "Xext")
+                                    (if (string=? second "text")
+                                        (if (datum=? (datum-cdr alias) (datum-number (exact-number 42)))
+                                            (read-end? (read port))
+                                            #f)
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)))))))))))))
+
+;; ---- Observe every datum field independently of the final-value predicate ----
+
+(define-extern emit-i64 "reader.test" "emit_i64" (-> I64 Unit))
+(define-extern emit-f64 "reader.test" "emit_f64" (-> F64 Unit))
+(define-extern emit-char "reader.test" "emit_char" (-> Char Unit))
+
+(define observe-string (-> String Unit)
+  (lambda (text)
+    (begin
+      (emit-i64 (string-length text))
+      (begin
+        (define loop
+          (lambda (index)
+            (if (= index (string-length text))
+                (unit)
+                (begin
+                  (emit-char (string-ref text index)) (loop (+ index 1))
+                  (unit)))))
+        (loop 0)))))
+
+(define observe-rational (-> Rational Unit)
+  (lambda (value)
+    (begin
+      (emit-i64 3)
+      (observe-string (integer->string (rational-numerator value)))
+      (observe-string (integer->string (rational-denominator value))))))
+
+(define observe-scalar (-> Scalar Unit)
+  (lambda (value)
+    (match value
+      ((exact-scalar value)
+       (begin (emit-i64 0) (emit-i64 value)))
+      ((rational-scalar value) (observe-rational value))
+      ((inexact-scalar value)
+       (begin (emit-i64 1) (emit-f64 value))))))
+
+(define observe-number (-> Number Unit)
+  (lambda (value)
+    (match value
+      ((exact-number value)
+       (begin (emit-i64 0) (emit-i64 value)))
+      ((rational-number value) (observe-rational value))
+      ((inexact-number value)
+       (begin (emit-i64 1) (emit-f64 value)))
+      ((complex-number real imaginary)
+       (begin (emit-i64 2) (observe-scalar real) (observe-scalar imaginary))))))
+
+(define observe (-> Datum Unit)
+  (lambda (datum)
+    ;; Recursive constructors are private so callers cannot forge traversal IDs.
+    ;; Observe the same nine public contents through read-only projections.
+    (let ((kind (datum-kind datum)))
+      (begin
+        (emit-i64 kind)
+        (if (= kind 0)
+            (unit)
+            (if (= kind 1)
+                (emit-i64 (if (datum-boolean-value datum) 1 0))
+                (if (= kind 2)
+                    (emit-char (datum-character-value datum))
+                    (if (= kind 3)
+                        (observe-string (datum-string-value datum))
+                        (if (= kind 4)
+                            (let ((value (datum-symbol-value datum))) (observe-string (symbol->string value)))
+                            (if (= kind 5)
+                                (observe-number (datum-number-value datum))
+                                (if (= kind 6)
+                                    (begin (observe (datum-car datum)) (observe (datum-cdr datum)))
+                                    (if (= kind 7)
+                                        (observe-vector (datum-vector-values datum))
+                                        (observe-bytes (datum-bytevector-values datum))))))))))))))
+
+(define observe-vector (-> (Vector Datum) Unit)
+  (lambda (values)
+    (begin
+      (emit-i64 (vector-length values))
+      (begin
+        (define loop
+          (lambda (index)
+            (if (= index (vector-length values))
+                (unit)
+                (begin
+                  (observe (vector-ref values index)) (loop (+ index 1))
+                  (unit)))))
+        (loop 0)))))
+
+(define observe-bytes (-> Bytevector Unit)
+  (lambda (values)
+    (begin
+      (emit-i64 (bytevector-length values))
+      (begin
+        (define loop
+          (lambda (index)
+            (if (= index (bytevector-length values))
+                (unit)
+                (begin
+                  (emit-i64 (bytevector-u8-ref values index)) (loop (+ index 1))
+                  (unit)))))
+        (loop 0)))))
+
+(define scan (-> I64)
+  (lambda ()
+    (call-with-input-file "input.scm"
+      (lambda (port)
+        (begin
+          (define loop
+            (lambda (count)
+              (match (read port)
+                ((read-value value)
+                 (begin (observe value) (loop (+ count 1))))
+                ((read-end) (if (read-end? (read port)) count (unreachable)))
+                ((read-error message)
+                 (begin (emit-i64 99) (observe-string message) -1)))))
+          (loop 0))))))
+(unit)

@@ -1,0 +1,25 @@
+(import (sfir core))
+(define values
+  (list->vector
+   (begin
+     (define loop
+       (lambda (index result)
+         (if (< index 0) result (loop (- index 1) (cons index result)))))
+     (loop 99999 (quote ())))))
+(define joined
+  (vector-append (vector -1) values (vector 100000)))
+(if (if (= (vector-length values) 100000)
+        (if (= (vector-ref values 0) 0)
+            (if (= (vector-ref values 99999) 99999)
+                (if (= (vector-length joined) 100002)
+                    (if (= (vector-ref joined 0) -1)
+                        (if (= (vector-ref joined 1) 0)
+                            (if (= (vector-ref joined 100000) 99999) (= (vector-ref joined 100001) 100000) #f)
+                            #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

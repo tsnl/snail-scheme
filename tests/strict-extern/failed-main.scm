@@ -1,6 +1,0 @@
-(import (snail strict))
-(define-extern mark "probe" "mark" (-> I32 Unit))
-(: worker (-> I32 I32))
-(define (worker value) value)
-(mark (ann 8 I32))
-(unreachable)

@@ -1,5 +1,0 @@
-(import (snail strict))
-(define (bad captured)
-  (let ((get (lambda (ignored) captured)))
-    (+ (get 0) (if (get #t) 1 2))))
-(bad 41)

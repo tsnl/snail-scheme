@@ -1,0 +1,24 @@
+(import (sfir core))
+
+(define effects
+  (ref 0))
+
+(define checked (-> I64)
+  (lambda ()
+    (begin
+      (define make-probe
+        (lambda ()
+          (let ((copy later))
+            (begin
+              (ref-set! effects 1)
+              (lambda () (copy 42))))))
+      (define saved
+        (make-probe))
+      (define later
+        (lambda (x) x))
+      (saved))))
+
+(define observed (-> I64)
+  (lambda () (ref-get effects)))
+
+42

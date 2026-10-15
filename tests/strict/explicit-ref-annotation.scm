@@ -1,5 +1,0 @@
-(import (snail strict))
-(: cell (Ref I64))
-(define cell (ref 40))
-(ref-set! cell (+ (ref-get cell) 2))
-(ref-get cell)

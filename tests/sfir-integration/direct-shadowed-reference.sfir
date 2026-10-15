@@ -1,0 +1,21 @@
+(import (sfir core))
+
+(define exercise
+  (lambda (seed)
+    (begin
+      (define cell
+        (ref seed))
+      (define left
+        (lambda (n)
+          (begin
+            (define step
+              (lambda ()
+                (begin
+                  (ref-set! cell (+ (ref-get cell) 1))
+                  (right n))))
+            (step))))
+      (define right
+        (lambda (n) (+ n (ref-get cell))))
+      (let ((cell (ref 0))) (+ (left 1) (ref-get cell))))))
+
+(exercise 40)

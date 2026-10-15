@@ -1,7 +1,0 @@
-(import (snail strict))
-(define cell (ref 0))
-(define (record digit)
-  (ref-set! cell (+ (* (ref-get cell) 10) digit))
-  digit)
-(let ((first (record 4)) (second (record 2)))
-  (ref-get cell))

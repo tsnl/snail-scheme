@@ -1,0 +1,6 @@
+(import (sfir core))
+(define bad
+  (lambda (captured)
+    (let ((get (lambda (ignored) captured)))
+      (+ (get 0) (if (get #t) 1 2)))))
+(bad 41)

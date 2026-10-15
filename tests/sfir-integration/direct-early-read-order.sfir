@@ -1,0 +1,23 @@
+(import (sfir core))
+
+(define state
+  (ref 0))
+
+(define checked (-> I64)
+  (lambda ()
+    (begin
+      (define read-later
+        (lambda ()
+          (begin
+            (ref-set! state 7)
+            (vector-ref later 0))))
+      (define early
+        (read-later))
+      (define later
+        (make-vector 1 42))
+      early)))
+
+(define observed (-> I64)
+  (lambda () (ref-get state)))
+
+42

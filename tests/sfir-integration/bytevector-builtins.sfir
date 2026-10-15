@@ -1,0 +1,67 @@
+(import (sfir core) (sfir bytes))
+(define same-bytes?
+  (lambda (left right)
+    (if (= (bytevector-length left) (bytevector-length right))
+        (begin
+          (define loop
+            (lambda (index)
+              (if (= index (bytevector-length left))
+                  #t
+                  (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
+                      (loop (+ index 1))
+                      #f))))
+          (loop 0))
+        #f)))
+(define source
+  (bytevector 0 127 128 255))
+(define alias
+  (ann (ann source Top) Bytevector))
+(define copied
+  (bytevector-copy source))
+(define joined
+  (bytevector-append #u8() source #u8(42)))
+(define one
+  (bytevector-append source))
+(define empty
+  (make-bytevector 0))
+(define overlap
+  (bytevector 1 2 3 4 5))
+(bytevector-u8-set! alias 0 254)
+(bytevector-copy! overlap 1 overlap 0 4)
+(define right-correct
+  (same-bytes? overlap #u8(1 1 2 3 4)))
+(bytevector-copy! overlap 0 overlap 1 5)
+(define left-correct
+  (same-bytes? overlap #u8(1 2 3 4 4)))
+(bytevector-copy! overlap 5 overlap 5 5)
+(define by-procedure
+  bytevector-u8-ref)
+(if (if (bytevector-eq? source alias)
+        (if (= (by-procedure source 0) 254)
+            (if (same-bytes? copied #u8(0 127 128 255))
+                (if (same-bytes? joined #u8(0 127 128 255 42))
+                    (if (same-bytes? one copied)
+                        (if (not (bytevector-eq? one copied))
+                            (if (same-bytes? (bytevector-copy copied 1 3) #u8(127 128))
+                                (if (same-bytes? (bytevector-copy copied 2) #u8(128 255))
+                                    (if (same-bytes? (make-bytevector 3 255) #u8(255 255 255))
+                                        (if (same-bytes? (make-bytevector 2) #u8(0 0))
+                                            (if (not (bytevector-eq? empty (bytevector-copy empty)))
+                                                (if (not (bytevector-eq? (bytevector) (bytevector)))
+                                                    (if (not (bytevector-eq? (bytevector-append) empty))
+                                                        (if right-correct left-correct #f)
+                                                        #f)
+                                                    #f)
+                                                #f)
+                                            #f)
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

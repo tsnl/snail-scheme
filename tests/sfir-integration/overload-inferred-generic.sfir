@@ -1,0 +1,11 @@
+(import (sfir core))
+(define-overload choose (lambda (left right) left))
+(define-overload choose identity)
+(define identity
+  (lambda (value) value))
+
+(define constrained (All (T) (=> ((choose (-> T T))) (-> T T)))
+  (lambda (value) (choose value)))
+(define unary
+  (ann choose (-> Bool Bool)))
+(if (if (unary #t) (constrained #t) #f) (choose 42 #f) (unreachable))

@@ -1,5 +1,0 @@
-(import (snail strict))
-(: increment (-> I64 I64))
-(define (increment x) (+ x 1))
-(define erased (ann increment Top))
-((ann erased (-> I64 I64)) 41)

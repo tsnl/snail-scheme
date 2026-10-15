@@ -1,0 +1,2 @@
+(import (sfir core))
+(make-vector 1)

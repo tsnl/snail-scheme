@@ -1,0 +1,16 @@
+(import (sfir core))
+
+(define make-probe
+  (lambda ()
+    (begin
+      (define first
+        (lambda () (second)))
+      (define second
+        (lambda () (lambda () (vector-ref later 0))))
+      (define saved
+        (first))
+      (define later
+        (make-vector 1 42))
+      saved)))
+
+((make-probe))

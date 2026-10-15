@@ -1,0 +1,5 @@
+(import (sfir core))
+
+(define worker (-> Unit)
+  (lambda () (unit)))
+(unit)

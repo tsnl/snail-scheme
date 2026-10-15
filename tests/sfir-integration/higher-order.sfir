@@ -1,0 +1,6 @@
+(import (sfir core))
+(define increment
+  (lambda (x) (+ x 1)))
+(define twice
+  (lambda (f x) (f (f x))))
+(twice increment 40)

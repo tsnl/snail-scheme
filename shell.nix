@@ -27,7 +27,5 @@ pkgs.mkShell {
     clang
     llvmPackages.lld
     nodejs
-    mdbook
-    graphviz
   ];
 }

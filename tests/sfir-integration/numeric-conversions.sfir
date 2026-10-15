@@ -1,0 +1,18 @@
+(import (sfir core))
+(define invoke
+  (lambda (operation value) (operation value)))
+(if (if (= (i64->f64 -9223372036854775808) -9223372036854775808.0)
+        (if (= (i64->f64 9007199254740993) 9007199254740992.0)
+            (if (= (i32->i64 (ann -2147483648 I32)) -2147483648)
+                (if (= (i64->i32 4294967295) (ann -1 I32))
+                    (if (= (f64->i64 -3.75) -3)
+                        (if (= (f32->f64 (f64->f32 1.5)) 1.5)
+                            (if (= (invoke i64->f64 -42) -42.0) (= (invoke sqrt (ann 2.25 F32)) (ann 1.5 F32)) #f)
+                            #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

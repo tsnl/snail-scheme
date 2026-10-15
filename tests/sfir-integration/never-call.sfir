@@ -1,0 +1,4 @@
+(import (sfir core))
+(define stop
+  (lambda () (unreachable)))
+(if #t 42 (stop))

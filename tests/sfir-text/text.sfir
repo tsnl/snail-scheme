@@ -1,0 +1,57 @@
+(import (sfir core) (sfir text) (sfir io))
+
+;; ---- Public Char APIs retain scalar types across the worker boundary ----
+
+(define lower (-> Char Char)
+  (lambda (value) (char-downcase value)))
+
+(define alphabetic (-> Char Bool)
+  (lambda (value) (char-alphabetic? value)))
+
+(define numeric (-> Char Bool)
+  (lambda (value) (char-numeric? value)))
+
+(define whitespace (-> Char Bool)
+  (lambda (value) (char-whitespace? value)))
+
+;; ---- Hosts populate ordinary mutable Scheme strings through scalar workers ----
+
+(define left
+  (ref (make-string 0)))
+(define right
+  (ref (make-string 0)))
+
+(define fresh-strings (-> I64 I64 Unit)
+  (lambda (a b)
+    (begin (ref-set! left (make-string a)) (ref-set! right (make-string b)))))
+
+(define fill-left (-> I64 Char Unit)
+  (lambda (index value) (string-set! (ref-get left) index value)))
+
+(define fill-right (-> I64 Char Unit)
+  (lambda (index value) (string-set! (ref-get right) index value)))
+
+(define ordered (-> Bool)
+  (lambda () (string<? (ref-get left) (ref-get right))))
+
+(define self-ordered (-> Bool)
+  (lambda () (string<? (ref-get left) (ref-get left))))
+
+;; ---- Malformed raw callers must release files before the fatal diagnostic ----
+
+(define-extern raw-downcase "snail.library" "snail:text/downcase" (-> I32 I32))
+(define-extern raw-alphabetic "snail.library" "snail:text/alphabetic" (-> I32 I32))
+(define-extern raw-numeric "snail.library" "snail:text/numeric" (-> I32 I32))
+(define-extern raw-whitespace "snail.library" "snail:datum/whitespace" (-> I32 I32))
+
+(define malformed (-> I64 I32 Unit)
+  (lambda (operation code)
+    (begin
+      (let ((port (open-output-file "pending.txt"))) (write-string "buffered" port))
+      (if (= operation 0)
+          (raw-downcase code)
+          (if (= operation 1)
+              (raw-alphabetic code)
+              (if (= operation 2) (raw-numeric code) (raw-whitespace code))))
+      (unreachable))))
+(unit)

@@ -1,0 +1,55 @@
+(import (sfir core) (sfir bytes))
+(define scalars
+  "\x0;\x7f;\x80;\x7ff;\x800;\xd7ff;\xe000;\xfeff;\xffff;\x10000;\x10ffff;")
+(define encoded
+  #u8(0 127 194 128 223 191 224 160 128 237 159 191 238 128 128
+        239 187 191 239 191 191 240 144 128 128 244 143 191 191))
+(define actual
+  (string->utf8 scalars))
+(define decoded
+  (utf8->string encoded))
+(define empty1
+  (utf8->string #u8(194 128) 1 1))
+(define empty2
+  (utf8->string #u8()))
+(define bytes-match?
+  (lambda (a b)
+    (if (= (bytevector-length a) (bytevector-length b))
+        (begin
+          (define loop
+            (lambda (index)
+              (if (= index (bytevector-length a))
+                  #t
+                  (if (= (bytevector-u8-ref a index) (bytevector-u8-ref b index)) (loop (+ index 1)) #f))))
+          (loop 0))
+        #f)))
+(define large
+  (make-string 17000 #\λ))
+(string-set! large 8192 #\x1f600)
+(define large-copy
+  (utf8->string (string->utf8 large)))
+(define stable
+  (if (bytes-match? actual encoded) (string=? decoded scalars) #f))
+(bytevector-u8-set! actual 0 42)
+(string-set! decoded 0 #\A)
+(if (if stable
+        (if (string=? large-copy large)
+            (if (= (bytevector-u8-ref encoded 0) 0)
+                (if (char=? (string-ref scalars 0) #\null)
+                    (if (not (string-eq? empty1 empty2))
+                        (if (not (bytevector-eq? (string->utf8 "") (string->utf8 "")))
+                            (if (string=? (utf8->string #u8(255 65 194 128 255) 1 4) "A\x80;")
+                                (if (bytes-match? (string->utf8 "Aé😀Z" 1 3) #u8(195 169 240 159 152 128))
+                                    (if (bytes-match? (string->utf8 "Aé" 1) #u8(195 169))
+                                        (string=? (utf8->string #u8(65 195 169) 1) "é")
+                                        #f)
+                                    #f)
+                                #f)
+                            #f)
+                        #f)
+                    #f)
+                #f)
+            #f)
+        #f)
+    42
+    (unreachable))

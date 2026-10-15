@@ -1,0 +1,4 @@
+(import (sfir core))
+(define forget
+  (lambda (x) (ann x Top)))
+(ann (forget 4294967296) I64)

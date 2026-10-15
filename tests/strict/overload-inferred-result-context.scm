@@ -1,5 +1,0 @@
-(import (snail strict))
-(define-overload result (lambda (value) (i64-add value 1)))
-(define-overload result (lambda (value) (i64->f64 (i64-add value 1))))
-(define value (result 41))
-(i64-add (result 0) (f64->i64 (f64-sub (ann value F64) 1.0)))
