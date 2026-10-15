@@ -406,14 +406,21 @@ site-value enumeration to assign storage, then emits source initialization in
 order. Code reservation, runtime storage allocation, and successful binding
 initialization are distinct events; only the last makes a source read legal.
 
-Bindings captured by a surviving closure keep shared initialization cells,
-including dependencies carried through direct calls. Other local captures can
-travel as raw payloads and readiness flags while their synchronous owner is
-suspended. Passing that state performs no source read: an unready reference
-stays nullable until the original use checks readiness. A direct procedure's
-binding also keeps its readiness flag, checked after operand effects and at the
-original invocation. Explicit Ref objects remain shared when their references
-are passed as parameters.
+Parameters and nonrecursive `let` bindings are initialized before their body
+can create a closure. Captures of those bindings therefore carry their concrete
+values directly; match fields follow the same rule after successful extraction.
+Copying a Ref or vector reference preserves the original object's identity.
+This guarantee belongs to the source binding: a recursive alias of a ready value
+still has its own initialization event, and a let initializer must still check
+any recursive binding it reads.
+
+Recursive bindings captured by a surviving closure keep shared initialization
+cells, including dependencies carried through direct calls. Other recursive
+captures can travel as raw payloads and readiness flags while their synchronous
+owner is suspended. Passing that state performs no source read: an unready
+reference stays nullable until the original use checks readiness. A direct
+procedure's binding also keeps its readiness flag, checked after operand effects
+and at the original invocation.
 
 ## Explicit universal values
 
