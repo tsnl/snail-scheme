@@ -1,13 +1,15 @@
 ;; The SFIR source boundary is a direct parser/resolver, with no Scheme expander.
 ;; Inference, specialization and code generation refine the existing shared IR.
 (define-library (snail-sfir compiler)
-  (export library-directories source-file->core source-file->wasm source-file->wat-file)
+  (export library-directories command-program? source-file->core source-file->wasm source-file->wat-file)
   (import (scheme base) (scheme file) (scheme write)
           (snail-scheme reader) (snail-scheme syntax-parser) (snail-sfir frontend)
           (snail-scheme strict-infer) (snail-scheme strict-primitives)
           (snail-scheme strict-specialize) (snail-scheme strict-wasm)
           (snail-scheme chromium-trace)
-          (only (snail-scheme strict-types) strict-error) (only (snail-scheme source) loc?)
+          (only (snail-scheme strict-types) strict-error resolve)
+          (only (snail-scheme strict-core) program-body)
+          (only (snail-scheme ir) node-type node-loc) (only (snail-scheme source) loc?)
           (only (snail-scheme wasm) write-wasm)
           (prefix (snail-scheme library) library:))
   (begin
@@ -50,10 +52,16 @@
 
     ;; ---- Concrete specialization and Wasm emission ----
 
+    (define command-program? (make-parameter #f))
+    (define (check-command-result core)
+      (let ((body (program-body core)))
+        (when (and (command-program?) (not (memq (resolve (node-type body)) '(Unit I32 I64 Never))))
+          (strict-error (node-loc body) "command result must be Unit, I32, I64 or Never" (node-type body)))))
     (define (source-file->wasm root path . exports)
-      (let* ((core (source-file->core root path))
-             (concrete (apply (chromium-trace "sfir.specialize" monomorphize) core exports)))
-        ((chromium-trace "sfir.emit-wasm" strict-core->wasm) concrete)))
+      (let ((core (source-file->core root path)))
+        (check-command-result core)
+        (let ((concrete (apply (chromium-trace "sfir.specialize" monomorphize) core exports)))
+          ((chromium-trace "sfir.emit-wasm" strict-core->wasm) concrete))))
     (define (source-file->wat-file root path output . exports)
       (let ((module (apply source-file->wasm root path exports)))
         (call-with-output-file output (lambda (port) (write-wasm module port)))))))

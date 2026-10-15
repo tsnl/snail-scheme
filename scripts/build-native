@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile Scheme through Binaryen Wasm optimization to a 64-bit native executable."""
+"""Compile SFIR through Binaryen Wasm optimization to a 64-bit native executable."""
 
 import argparse
 import hashlib
@@ -135,13 +135,13 @@ def binding_text(bindings):
 
 
 def configuration(options, directory, bindings):
-    mode = 'wasm' if options.wasm else 'strict' if options.strict else 'scheme'
+    mode = 'wasm' if options.wasm else 'sfir'
     fields = {'root': scheme(str(ROOT)), 'source': scheme(str(options.source.resolve())),
               'directory': scheme(str(directory)), 'llvm': scheme(str(directory / 'module.ll')),
               'mode': mode, 'bindings': binding_text(bindings),
               'exports': scheme(options.exports),
               'libraries': scheme([str(path.resolve()) for path in options.library]),
-              'foreign': scheme(options.foreign)}
+              'command': '#f' if options.entry_c else '#t'}
     path = directory / 'build.scm'
     path.write_text('(' + '\n'.join(f'({key} {value})' for key, value in fields.items()) + ')\n')
     return path
@@ -150,7 +150,7 @@ def configuration(options, directory, bindings):
 def entry_source(options, directory):
     if options.entry_c:
         return options.entry_c.resolve()
-    name = 'snail_main' if not options.strict and not options.wasm else 'main'
+    name = 'main'
     llvm = (directory / 'module.ll').read_text()
     signature = re.search(r'^define (\w+) @"wasm\.' + name + r'"\(\)', llvm, re.MULTILINE)
     if not signature or signature[1] not in ('void', 'i32', 'i64'):
@@ -159,12 +159,9 @@ def entry_source(options, directory):
     invoke = 'guest_main(); int status = 0;'
     if name == 'main' and ctype != 'void':
         invoke = 'int64_t value = guest_main(); int status = (value >= 0 && value <= 255) ? (int)value : 1;'
-    if name == 'snail_main':
-        invoke += '\n  native_poll_finalizers();'
     path = directory / 'entry.c'
     path.write_text('#include <stdint.h>\nextern void native_host_init(int, char **);\n'
                     'extern void native_module_init(void);\nextern int native_finish(int);\n'
-                    'extern void native_poll_finalizers(void);\n'
                     f'extern {ctype} guest_main(void) __asm__("wasm.{name}");\n'
                     'int main(int argc, char **argv) {\n  native_host_init(argc, argv);\n'
                     f'  native_module_init();\n  {invoke}\n  return native_finish(status);\n}}\n')
@@ -205,24 +202,16 @@ def protected_inputs(options):
     inputs = [options.source, *([options.entry_c] if options.entry_c else [])]
     inputs += [Path(item) for provider in options.c_provider for item in provider[1:]]
     inputs += [path for path in (ROOT / 'src').rglob('*') if path.is_file()]
-    inputs += [path for library in options.library for path in library.rglob('*.sld')]
+    inputs += [path for library in [ROOT / 'lib', *options.library] for path in library.rglob('*.sfir')]
     inputs += [ROOT / 'Cargo.toml', ROOT / 'Cargo.lock', Path(__file__), ROOT / 'scripts/build-native.scm']
     inputs += [ROOT / 'build/native-runtime/release/libsnail_runtime.a']
     return {path.resolve() for path in inputs}
 
 
 def publish_program(output, directory, inputs):
-    manifest = directory / 'artifact-inputs'
-    if manifest.exists():
-        inputs.update(Path(path).resolve() for path in manifest.read_text().split('\0') if path)
     if output.resolve() in inputs:
         raise ValueError('native output must not replace an input')
-    if (directory / 'artifacts').exists():
-        link = directory / 'publish-link'
-        link.symlink_to(os.path.relpath(directory / 'program', output.parent))
-        os.replace(link, output)
-    else:
-        os.replace(directory / 'program', output)
+    os.replace(directory / 'program', output)
 
 
 def record_evidence(directory, tools, records, inputs, output):
@@ -253,12 +242,9 @@ def build(options):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    modes = parser.add_mutually_exclusive_group()
-    modes.add_argument('--strict', action='store_true', help='use the existing strict frontend')
-    modes.add_argument('--wasm', action='store_true', help='consume an unlinked Wasm binary')
+    parser.add_argument('--wasm', action='store_true', help='consume an unlinked Wasm binary')
     parser.add_argument('--export', dest='exports', action='append', default=[])
     parser.add_argument('-I', dest='library', type=Path, action='append', default=[])
-    parser.add_argument('--foreign', nargs=2, action='append', default=[], metavar=('NAME', 'MODULE'))
     parser.add_argument('--c-provider', nargs=3, action='append', default=[], metavar=('MODULE', 'HEADER', 'SOURCE_OR_ARCHIVE'))
     parser.add_argument('--entry-c', type=Path, help='C invocation host with an explicit entry contract')
     parser.add_argument('source', type=Path)
