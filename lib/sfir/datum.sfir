@@ -14,7 +14,8 @@
           datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
           datum-list datum-length datum-append datum-assq datum-map
           test-datum)
-  (import (sfir base) (sfir bytes) (sfir integer) (sfir rational) (sfir number))
+  (import (sfir base) (sfir bytes) (sfir integer) (sfir rational) (sfir number)
+          (only (sfir primitive) i64-wrapping-add i64-wrapping-mul))
 
   ;; ---- Explicit scalar service ownership ----
 
@@ -385,13 +386,13 @@
 
     (def equality-mix-word (-> I64 I64)
          (lambda (word)
-           (begin (let first (i64-mul (i64-bitwise-xor word (i64-shift-right/logical word (ann 30 I64))) (ann -4658895280553007687 I64)))
-                  (begin (let second (i64-mul (i64-bitwise-xor first (i64-shift-right/logical first (ann 27 I64))) (ann -7723592293110705685 I64)))
+           (begin (let first (i64-wrapping-mul (i64-bitwise-xor word (i64-shift-right/logical word (ann 30 I64))) (ann -4658895280553007687 I64)))
+                  (begin (let second (i64-wrapping-mul (i64-bitwise-xor first (i64-shift-right/logical first (ann 27 I64))) (ann -7723592293110705685 I64)))
                          (i64-bitwise-xor second (i64-shift-right/logical second (ann 31 I64)))))))
 
     (def equality-pair-hash (-> I64 I64 I64)
          (lambda (left right)
-           (equality-mix-word (i64-bitwise-xor left (equality-mix-word (i64-add right (ann -7046029254386353131 I64)))))))
+           (equality-mix-word (i64-bitwise-xor left (equality-mix-word (i64-wrapping-add right (ann -7046029254386353131 I64)))))))
     ;; Capacity starts at 32 and only doubles, through at most 2^31. Its mask
     ;; selects a nonnegative bucket even when the full hash has its high bit set.
 
