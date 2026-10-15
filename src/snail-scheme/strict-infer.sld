@@ -585,7 +585,10 @@
                       (quantified (cdr remaining)))))))
     (define (initializer-scope binding scope)
       (let ((annotation (binding-annotation binding)) (scheme (binding-scheme binding)))
-        (if annotation (make-scope (scope-bindings scope) (cdr annotation) (scheme-constraints scheme)
+        ;; A signature adds assumptions for its fresh binders; it does not hide
+        ;; evidence already available for captured types in the lexical scope.
+        (if annotation (make-scope (scope-bindings scope) (cdr annotation)
+                                   (append (scheme-constraints scheme) (scope-assumptions scope))
                                    (scope-classes scope) (scope-instances scope) (scope-recursive scope)) scope)))
     (define (check-initializer! binding scope)
       (let* ((annotation (binding-annotation binding)) (scheme (binding-scheme binding))

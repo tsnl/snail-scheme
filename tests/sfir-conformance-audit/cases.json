@@ -1,0 +1,9 @@
+[
+  {"name": "nested-qualified-capture", "result": "42"},
+  {"name": "nested-own-and-outer-evidence", "result": "42"},
+  {"name": "nested-recursive-qualified-capture", "result": "42"},
+  {"name": "recursive-captured-monotype", "result": "42"},
+  {"name": "nested-missing-obligation", "error": "obligation is absent"},
+  {"name": "nested-fresh-all-missing-obligation", "error": "obligation is absent"},
+  {"name": "recursive-private-missing-obligation", "error": "obligation is absent"}
+]
