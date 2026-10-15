@@ -92,10 +92,15 @@ declares an operation; instances provide implementations for particular types.
 (to-hex-string (primary (red))) ; "#ff0000ff"
 ```
 
-`(example hex)` supplies `byte->hex : (-> I32 String)`, which formats an integer
+[`(example hex)`](https://github.com/tsnl/snail-scheme/blob/main/examples/example/hex.sfir) supplies
+`byte->hex : (-> I32 String)`, which formats an integer
 from 0 through 255 as two lowercase hexadecimal digits. Components here must be
 finite and between zero and one; `f32->i32` truncates toward zero. Production
 input handling would check those conditions before calling `channel-hex`.
+
+The repository checks both examples directly from this chapter with
+`scripts/test-sfir-book`, using `-I examples` to find the formatting library.
+The checks execute raw and optimized Wasm and the native target.
 
 `datatype` covers both structs and closed unions: one constructor makes a
 struct, and several constructors make a union. `primary` and `rgb` explicitly

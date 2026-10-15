@@ -57,6 +57,10 @@ the examples. `(sfir primitive)` exposes the compiler's concrete primitives.
 `(ann (empty-list) (List I32))` constructs an empty immutable list. There is no
 `quote` form in SFIR. List construction otherwise uses ordinary `cons` calls.
 
+`f32->i32 : (-> F32 I32)` truncates toward zero and traps on NaN, infinity or a
+result outside the signed I32 range. It uses Wasm's checked conversion on both
+execution targets; it does not silently clamp or wrap the result.
+
 The [implementation roadmap](../../roadmap.md#align-with-the-sfir-book) tracks
 remaining differences, including runtime overflow checks and
 first-class library compilation APIs. These gaps do not weaken the language
