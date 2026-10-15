@@ -1,0 +1,21 @@
+{
+  "started_utc": "2026-10-14T09:05:59.887393+00:00",
+  "cpu": 5,
+  "agents_holding_builds": true,
+  "agents": [
+    "/root/gc_string_storage completed with no active handles",
+    "/root/rust_full_benchmark_suite confirmed no active handles",
+    "/root/strict_remaining_benchmarks confirmed no active handles"
+  ],
+  "scope": "String blocks then Lattice. All agent-controlled builds/tests/workloads/profiling/compression held. Static reading/writing/reviewer discussion allowed. Unrelated system activity is possible.",
+  "runs": {
+    "string_blocks": 30,
+    "lattice": 20
+  },
+  "diagnostics_enabled": false,
+  "clean_completed_utc": "2026-10-14T09:09:10.656400+00:00",
+  "separate_resource_followup": "Four uninstrumented-Wasm process.resourceUsage observations in ABBA order, after clean runs; resource host only, not included in performance medians.",
+  "finished_utc": "2026-10-14T09:10:13.352392+00:00",
+  "all_clean_results_pass": true,
+  "all_resource_results_pass": true
+}
