@@ -6,11 +6,12 @@
           make-native-import native-import?
           artifact? artifact-target artifact-entry artifact-parameters artifact-result artifact-bytes
           emit-artifact)
-  (import (scheme base) (scheme file)
+  (import (scheme base) (scheme file) (scheme write)
           (only (chibi temp-file) call-with-temp-dir)
           (only (chibi json) json->string)
           (snail-scheme build-host) (snail-scheme chromium-trace)
           (snail-scheme wasm-optimize) (snail-scheme native)
+          (snail-scheme wasm-read) (snail-sfir native-entry)
           (only (snail-scheme llvm) current-native-imports)
           (only (snail-scheme wasm) write-wasm))
   (begin
@@ -85,12 +86,17 @@
       (let ((rest (quotient value 128)) (low (remainder value 128)))
         (write-u8 (if (zero? rest) low (+ low 128)) port)
         (unless (zero? rest) (write-unsigned-leb rest port))))
+    (define (entry-description entry parameters result)
+      (unless (and (let visit ((types parameters))
+                     (or (null? types) (and (memq (car types) '(I32 I64 F32 F64 Bool Char)) (visit (cdr types)))))
+                   (memq result '(I32 I64 F32 F64 Bool Char Unit)))
+        (error "execution artifact requires scalar entry parameters and a scalar or Unit result"))
+      `((version . 1) (library . ,(list->vector (map symbol->string (entry-library entry))))
+        (export . ,(symbol->string (entry-export entry)))
+        (parameters . ,(list->vector (map symbol->string parameters)))
+        (result . ,(symbol->string result))))
     (define (entry-metadata entry parameters result)
-      (string->utf8
-       (json->string `((version . 1) (library . ,(list->vector (map symbol->string (entry-library entry))))
-                       (export . ,(symbol->string (entry-export entry)))
-                       (parameters . ,(list->vector (map symbol->string parameters)))
-                       (result . ,(symbol->string result))))))
+      (string->utf8 (json->string (entry-description entry parameters result))))
     (define (wasm-entry-section entry parameters result)
       (let* ((name (string->utf8 "sfir.entry")) (data (entry-metadata entry parameters result))
              (payload (open-output-bytevector)) (section (open-output-bytevector)))
@@ -110,13 +116,27 @@
         (assemble-wasm text binary)
         (optimize-scheme-wasm binary output)
         (file-bytes output)))
-    (define (native-artifact module target directory)
+    (define (native-entry-llvm directory parameters result description imports)
+      (let ((source (string-append directory "/module.ll")) (output (string-append directory "/entry.ll"))
+            (module (read-binaryen-module (string-append directory "/optimized.wat")
+                                          (string-append directory "/entry-reader.scm"))))
+        (call-with-output-file output
+          (lambda (port)
+            (call-with-input-file source
+              (lambda (input)
+                (let copy ((line (read-line input)))
+                  (unless (eof-object? line) (display line port) (newline port) (copy (read-line input))))))
+            (write-native-entry module parameters result description imports port)))
+        output))
+    (define (native-artifact module target directory entry parameters result)
       (let ((llvm (string-append directory "/module.ll")) (output (string-append directory "/artifact.o")))
         (parameterize ((current-native-imports (target-imports target)))
           (native-wasm->llvm module directory llvm))
         (run-command "native.object"
                      (list (tool-name "CLANG" "clang") "--target=x86_64-unknown-linux-gnu" "-O3"
-                           "-ffunction-sections" "-fdata-sections" "-c" llvm "-o" output))
+                           "-ffunction-sections" "-fdata-sections" "-c"
+                           (native-entry-llvm directory parameters result (entry-description entry parameters result)
+                                              (target-imports target)) "-o" output))
         (file-bytes output)))
     (define (emit-artifact module entry parameters result target)
       (unless (target? target) (error "compile requires a target value" target))
@@ -130,7 +150,7 @@
                            (case (target-name target)
                              ((wasm) (bytevector-append (wasm-artifact module directory)
                                                         (wasm-entry-section entry parameters result)))
-                             ((native64) (native-artifact module target directory))))))))))
+                             ((native64) (native-artifact module target directory entry parameters result))))))))))
 
   ;; ---- Tests ----
 
