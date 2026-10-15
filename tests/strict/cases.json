@@ -9,6 +9,7 @@
   {"name": "parameter-relations", "result": "42"},
   {"name": "tail-recursion", "result": "5000050000"},
   {"name": "mutual-recursion", "result": "0"},
+  {"name": "dependency-diamond", "result": "1048576"},
   {"name": "higher-order", "result": "42"},
   {"name": "closure", "result": "42"},
   {"name": "reference-alias", "result": "42"},

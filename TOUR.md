@@ -243,6 +243,10 @@ declarations to classes and instances, checks source groups, generalizes eligibl
 values and retains class obligations. Omitted row signatures wait for relevant
 family signatures and ordinary helper dependencies before their schemes become
 available. Declared schemes can break signature cycles; all bodies still check.
+Each dependency reachability query shares its visited identities across branches,
+so repeated paths through shared dependencies are explored once. Testing the
+target on an edge preserves the distinction between an isolated binding and a
+cycle that returns to it.
 Runtime initializer order stays in the original block sequence. Abstract obligations bound by a generalized
 initializer stay in its template; concrete uses instantiate them. Call operands
 are inferred in source order without using overload candidates to choose widths.
