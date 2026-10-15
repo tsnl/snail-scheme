@@ -362,6 +362,17 @@ states exactness, signed-zero/NaN equality, resource lifetimes and unsupported
 syntax; [`scripts/test-strict-reader`](scripts/test-strict-reader) compares complete
 datum streams with Chez on linked raw/optimized Wasm and native.
 
+[`(snail integer)`](src/snail/integer.sld) implements immutable arbitrary-precision
+exact integers in ordinary strict Scheme. Private I32 WasmGC arrays hold 30-bit
+limbs; I64 intermediates bound carries, products and quotient estimates. Static
+numeric methods add exact arithmetic without changing existing I64 semantics.
+The same module owns checked decimal and machine conversions, normalized long
+division, exponentiation and floor square root. No managed number crosses the
+Rust ABI. [`scripts/test-strict-integer`](scripts/test-strict-integer) checks
+independent arithmetic and ownership oracles on raw/optimized Wasm and native64,
+including an exhaustive small-radix copy of its module-local tests. See
+[the integer contracts](doc/strict-integer.md).
+
 [`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
 one-argument `atan` as ordinary typed externs. Their scalar C signatures call
 [`strict_math.rs`](src/strict_math.rs) in both the native and Wasm runtime;

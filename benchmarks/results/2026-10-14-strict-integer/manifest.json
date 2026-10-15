@@ -1,0 +1,22 @@
+{
+  "compiler_base": "5b61de743c4d533eb82da837e53687b4fa6d3c1c",
+  "diagnostic_only": true,
+  "files": {
+    "src/snail/integer.sld": "9838b7363d271432e194c045aef1d09c345675c5dad67765e3c899b0de143989",
+    "scripts/test-strict-integer": "d82d1db0e0676ee7bebfc22ef68d37bad0791902c7bd69a2c6e0ca0d5e2a4a54",
+    "tests/strict-integer/oracle-provider.c": "29c2afd8b9ab5fda771a1760fff842efd0bacfc3822479d8f8b4a5aae542e592",
+    "tests/strict-integer/oracle.scm": "755b993543767d143fc6043e59afef93b9941a9055267dba83d5d1f6e8705bb7",
+    "tests/strict-integer/oracle.c": "1314c52978bb167e53fd1104918a2f8a08c394bc024bf5bf097220227e373952",
+    "tests/strict-integer/oracle.h": "be4f710c183497173f952f9b5784d961b63094807fc96d1c55cbdfa9221160ad",
+    "tests/strict-integer/oracle.mjs": "e5959191249afe61759f060701728042696bd7b19b3f15a864d47f02d0ed178f"
+  },
+  "artifacts": {
+    "arithmetic.tar.gz": "5bae18438d49794561c80de48da0bdcaf694f02596f419a226dc71605fbfccb6"
+  },
+  "tool_paths": {
+    "chibi": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "node": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "binaryen": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin",
+    "chez": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme"
+  }
+}
