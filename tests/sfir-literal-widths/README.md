@@ -56,3 +56,9 @@ and smallest subnormal.
 attempts and their artifact hashes. The existing 315 target contracts and the
 public CLI, library, native, instance and recursive-group suites pass. Canonical
 benchmark runtime validation and new timing campaigns remain separate work.
+
+An additional [artifact comparison](artifact-parity.json) checks `ack`, `fibfp`,
+`array1` and `cat`. Their raw and Binaryen-optimized Wasm bytes are identical
+before this policy, after the isolated migration, and after integration with the
+class-evidence and Any-projection fixes. This checks emitted code for those four
+programs; it is not a new benchmark timing campaign.
