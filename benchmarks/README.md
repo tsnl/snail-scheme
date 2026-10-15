@@ -46,8 +46,12 @@ The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
 separately measures character counting inside the original benchmark harness.
 
 Later strict ports and their measurement checkpoints are tracked in the
-[coverage inventory](strict-suite/capabilities.md): 30 measured workloads,
-29 with paired Chez controls. The latest
+[coverage inventory](strict-suite/capabilities.md): 31 measured workloads,
+30 with paired Chez controls. The latest
+[Ray report](results/2026-10-14-strict-ray-comparison/README.md) records 0.129 s
+for all 50 complete renders: 6.584× faster than original Chez and 6.181× faster
+than the adapted source on Chez; Rust/Wasm is 2.387× faster than Snail.
+Complete images and separate retained-work diagnostics pass. The
 [Destruc report](results/2026-10-14-strict-destruc-comparison/README.md) records
 3.382× original Chez time, 1.344× adapted Chez and 1.167× Rust/Wasm for all
 4,000 original invocations and the complete ten-row predicate. Adapted Chez

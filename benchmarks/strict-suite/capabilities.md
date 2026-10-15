@@ -32,6 +32,9 @@ with its mutable-list/closure and Rust vector/enum/Rc differences disclosed.
 Destruc has a [complete four-system comparison](../results/2026-10-14-strict-destruc-comparison/README.md):
 the adapted source is already slower on Chez, and Rust ownership/predicate
 materialization differ. The comparison does not isolate a Ref or codegen cost.
+Ray has a [complete four-system comparison](../results/2026-10-14-strict-ray-comparison/README.md):
+6.584× faster than original Chez, 6.181× faster than adapted Chez, and 2.387×
+Rust/Wasm time. All 50 full renders and complete output validation remain.
 Paraffins has reviewed canonical source-program
 timing and separate complete-structure probes; unused payload removal is
 disclosed. Gcbench has correctness evidence, but its optimized program loses the
@@ -59,7 +62,7 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | mbrotZ | Measured original complex Mandelbrot, 1,000 × 75 × 75 pixels: 0.397× original Chez time, 0.159× adapted Chez and 1.565× Rust/Wasm. Immutable two-F64 products preserve complex arithmetic and all matrix stores. Complete grids, exact component bits and cap/radius probes pass; representation and opacity differences are recorded. |
 | nucleic | Trigonometric functions and heterogeneous recursively linked nucleotide/transform records represented by vectors, with symbolic tags. Nominal products/variants now cover the structural representation; trigonometric helpers and a faithful full port remain. |
 | pi | Arbitrary precision exact integer arithmetic, powers, exact integer square root and multiple values. |
-| ray | Closed optional variants and sphere/hit products are implemented. A faithful port still needs numeric helpers and actual PGM file output; it has not been executed. |
+| ray | Measured all 50 original 100 × 100 renders: 0.152× original Chez time, 0.162× adapted Chez and 2.387× Rust/Wasm. Concrete geometry/products/options, world-list Ref and typed scalar Rust I/O preserve scene order, Euclidean distances, shading, rounding and every PGM byte. Separate optimized-site observations retain all 16.5 million sphere visits; file diagnostics retain 50 opens, 49 deletions and 50 closes. Rust inline storage, arithmetic hoisting and scene cleanup differ. |
 | string | Measured original 100 × 10-trial workload with owned Unicode blocks: 0.983 seconds, 5.04× faster than flat storage; 17.02× idiomatic Rust/Wasm time and 2.11× the u32/fresh/zeroed control. Chez varies 0.949–2.239 seconds, so the 0.553 median ratio is not a stable win. Separate size controls show 2–22% smaller-input overhead; a same-Wasm comparison now favors V8 over archived LLVM/Immix by 2.27×. Full payload/alias checks and the original predicate remain. |
 | sum1 | Text file ports, datum reader and EOF, with mixed integer/inexact numeric data. The file read is the measured work. |
 | tail | Line/string file input and output, EOF and a list of strings; preserve reverse-file behavior. |
@@ -85,8 +88,8 @@ tree root during later allocation. That lifetime issue blocks its GC comparison.
 | bv2string | Bytevectors, UTF-8 string conversions and mutable strings, with the complete round-trip validation. Vector I64 is a different representation. |
 
 The original inventory counts describe its historical selection, not current
-measured coverage. Historical strict measurements now cover 30 of 57 workloads,
-with 29 paired Chez comparisons; this is not a complete rerun on the current
+measured coverage. Historical strict measurements now cover 31 of 57 workloads,
+with 30 paired Chez comparisons; this is not a complete rerun on the current
 compiler. The
 [data-port report](../results/2026-10-13-strict-data-ports/README.md) distinguishes
 passing behavior checks, legal payload elimination, and the gcbench lifetime
