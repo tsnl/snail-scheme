@@ -1,0 +1,8 @@
+{
+  "actual_tool_terminal": true,
+  "chunk_id": "61af53",
+  "wall_time_seconds": 0.080044779,
+  "exit_code": 0,
+  "original_token_count": 19,
+  "output": "PASS independent canonical-input/frame/schedule review; no guest started\n"
+}

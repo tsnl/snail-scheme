@@ -1,0 +1,162 @@
+{
+  "target_logic_lines": 10,
+  "scope": "Focused newly written measurement/evidence modules only",
+  "counting": "Nonempty noncomment body source lines; multiline data and complete tests/transactions remain cohesive.",
+  "exceptions": {
+    "freeze-plan.py": [
+      {
+        "function": "check_preparation",
+        "logic_lines": 11
+      },
+      {
+        "function": "frozen_identities",
+        "logic_lines": 12
+      },
+      {
+        "function": "plan",
+        "logic_lines": 18
+      },
+      {
+        "function": "main",
+        "logic_lines": 11
+      }
+    ],
+    "measure-seven.py": [
+      {
+        "function": "run_owned",
+        "logic_lines": 21
+      },
+      {
+        "function": "sample",
+        "logic_lines": 20
+      },
+      {
+        "function": "execute",
+        "logic_lines": 16
+      },
+      {
+        "function": "main",
+        "logic_lines": 19
+      },
+      {
+        "function": "test_frames",
+        "logic_lines": 12
+      },
+      {
+        "function": "test_processes",
+        "logic_lines": 12
+      }
+    ],
+    "package.py": [
+      {
+        "function": "evidence_files",
+        "logic_lines": 15
+      },
+      {
+        "function": "private_copy",
+        "logic_lines": 13
+      },
+      {
+        "function": "check_snapshot",
+        "logic_lines": 17
+      },
+      {
+        "function": "tar_inventory",
+        "logic_lines": 14
+      },
+      {
+        "function": "publish",
+        "logic_lines": 17
+      },
+      {
+        "function": "prepare",
+        "logic_lines": 14
+      },
+      {
+        "function": "main",
+        "logic_lines": 11
+      },
+      {
+        "function": "self_test",
+        "logic_lines": 11
+      },
+      {
+        "function": "test_rejections",
+        "logic_lines": 12
+      }
+    ],
+    "prepare.py": [
+      {
+        "function": "copy_reusable",
+        "logic_lines": 11
+      },
+      {
+        "function": "current_sources",
+        "logic_lines": 18
+      },
+      {
+        "function": "command",
+        "logic_lines": 21
+      },
+      {
+        "function": "current_native",
+        "logic_lines": 14
+      },
+      {
+        "function": "configurations",
+        "logic_lines": 14
+      },
+      {
+        "function": "current_predicate_controls",
+        "logic_lines": 23
+      },
+      {
+        "function": "main",
+        "logic_lines": 23
+      }
+    ],
+    "review-raw.py": [
+      {
+        "function": "character_list",
+        "logic_lines": 18
+      },
+      {
+        "function": "expectation",
+        "logic_lines": 12
+      },
+      {
+        "function": "check_schedule",
+        "logic_lines": 13
+      },
+      {
+        "function": "check_captures",
+        "logic_lines": 17
+      },
+      {
+        "function": "read_samples",
+        "logic_lines": 16
+      },
+      {
+        "function": "recompute",
+        "logic_lines": 11
+      },
+      {
+        "function": "audit",
+        "logic_lines": 15
+      },
+      {
+        "function": "reject_corruptions",
+        "logic_lines": 15
+      },
+      {
+        "function": "protocol_self_test",
+        "logic_lines": 14
+      },
+      {
+        "function": "main",
+        "logic_lines": 14
+      }
+    ]
+  },
+  "rationale": "See simplify-review.md for complete ownership/admission/staging transactions, exhaustive data/dispatch and test exceptions."
+}

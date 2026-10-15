@@ -1,0 +1,8 @@
+{
+  "actual_tool_terminal": true,
+  "chunk_id": "6918e9",
+  "wall_time_seconds": 0.00000853,
+  "exit_code": 0,
+  "original_token_count": 17,
+  "output": "PASS retained archive integrity/corruption tests; no guest started\n"
+}
