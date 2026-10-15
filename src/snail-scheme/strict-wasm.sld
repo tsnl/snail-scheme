@@ -108,8 +108,6 @@
               `((struct.set ,name 1 ,(slot-cell slot) ,expression) (struct.set ,name 0 ,(slot-cell slot) (i32.const 1))))
             (let ((set (if (eq? (car slot) 'global) 'global.set 'local.set)))
               `((,set ,(cadr slot) ,expression) (,set ,(caddr slot) (i32.const 1)))))))
-    (define (site-values sites)
-      (apply append (map (lambda (site) (append (if (site-token site) (list (site-token site)) '()) (map cdr (site-instances site)))) sites)))
     (define (prepare-value value context)
       (cond ((site-global? (value-site value)) '())
             ((cell-value? value (context-state context))

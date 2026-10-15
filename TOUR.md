@@ -216,7 +216,11 @@ supplies concrete primitive signatures and opcodes.
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
-methods, and computes capture dependencies. [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
+methods, and computes capture dependencies. The same initializer policy serves
+recursive definitions and typed lets, with their source scopes explicit. This
+module also owns the enumeration of concrete site storage used by the emitter;
+readiness tokens and payload copies therefore have one definition.
+[`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
 and emits explicit universal-value conversions. Native foreign declarations
 retain their resolved identity in IR. [`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
