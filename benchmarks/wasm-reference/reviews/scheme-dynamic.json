@@ -1,0 +1,52 @@
+{
+  "reviewed_base": "1f0f76d",
+  "scope": [
+    "benchmarks/wasm-reference/src/bin/scheme.rs",
+    "benchmarks/wasm-reference/src/bin/dynamic.rs"
+  ],
+  "method": "Fresh no-files Sol 6.1 max behavioral explanation, parent code inspection, then challenge and reconciliation before edits.",
+  "accepted_design": [
+    "Scheme compiles and executes the complete input on every invocation; the original predicate checks the final result once after all repetitions.",
+    "Scheme frame indices are reclaimed only between complete evaluations; global bindings, macros, live values and compiled closure constants contribute roots.",
+    "Dynamic retains persistent primitive type graphs across iterations. Resetting outer bindings does not reconstruct those graphs.",
+    "Dynamic graph retention follows representative links and source definitions, including polymorphic captures behind nonrepresentative nodes.",
+    "Dynamic constructs the complete tagged output during each timed invocation; the extra complete dump after timing is another inference run over persistent state.",
+    "Stable slots and monotonically increasing construction identifiers have distinct purposes and must remain separate."
+  ],
+  "changes": [
+    "Scheme test retains a captured mutable frame through a quoted closure in compiled code while unrelated evaluations create reusable frames.",
+    "Dynamic test retains a polymorphic capture after union with dynamic, reclaims an unrelated slot and verifies fresh construction identity on reuse."
+  ],
+  "validation": {
+    "native_tests": {
+      "command": "cargo test --offline --manifest-path benchmarks/wasm-reference/Cargo.toml --bin scheme --bin dynamic",
+      "passed": 9,
+      "failed": 0
+    },
+    "format": "cargo fmt --manifest-path benchmarks/wasm-reference/Cargo.toml --all -- --check passed",
+    "whitespace": "git diff --check passed",
+    "release_build": "cargo build --offline --release --target wasm32-wasip1 --manifest-path benchmarks/wasm-reference/Cargo.toml --bin scheme --bin dynamic passed",
+    "runtime_hashes": {
+      "scheme": {
+        "wasm_sha256": "cf91aee5f6c5c564f72f608e88fd0b7f208cbfb2eb1f267bd32bdf5e192c5bb8",
+        "prior_wasm_sha256": "cf91aee5f6c5c564f72f608e88fd0b7f208cbfb2eb1f267bd32bdf5e192c5bb8",
+        "byte_identical_to_validated_runtime": true,
+        "reviewed_source_sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed"
+      },
+      "dynamic": {
+        "wasm_sha256": "927bcde3ca4dad0763fb27bf605ba9541fa79cfaca27f6e01c6b0254b1ece432",
+        "prior_wasm_sha256": "927bcde3ca4dad0763fb27bf605ba9541fa79cfaca27f6e01c6b0254b1ece432",
+        "byte_identical_to_validated_runtime": true,
+        "reviewed_source_sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad"
+      }
+    }
+  },
+  "exceptions_to_ten_line_target": "Keep exhaustive source-form, primitive, type-constructor and tagged-output dispatch together. Mark/sweep transitions and lifetime regression tests expose complete invariants and are intentionally cohesive.",
+  "limits": [
+    "This review covers these two reference ports, not the still-pending structural-port cohort.",
+    "No fresh performance observations were collected. Test-only edits produce byte-identical release Wasm to the previously validated complete canonical runs.",
+    "Scheme arbitrary cyclic mutable pair/vector collection remains outside the checked workload domain, as documented in PORTING.md.",
+    "Dynamic post-timer full-output audit is an extra invocation, not a retained snapshot of the last timed invocation."
+  ],
+  "decision": "Accept both focused modules with the two lifetime regression tests. No runtime refactor is justified by this review."
+}

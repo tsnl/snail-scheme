@@ -66,6 +66,7 @@ impl Expression {
                 Operator::parse(values[0].atom()),
                 values[1..].iter().map(Self::parse).collect(),
             ),
+            _ => panic!("expected an arithmetic expression"),
         }
     }
 }
