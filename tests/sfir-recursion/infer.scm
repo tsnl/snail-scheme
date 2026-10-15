@@ -3,4 +3,4 @@
         (snail-sfir compiler) (snail-scheme chromium-trace))
 (let ((arguments (cdr (command-line))))
   (with-chromium-trace-to (caddr arguments)
-    (lambda () (source-file->core (car arguments) (cadr arguments)))))
+                          (lambda () (source-file->core (car arguments) (cadr arguments)))))
