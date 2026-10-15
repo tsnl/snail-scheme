@@ -1,0 +1,2 @@
+[ perf record: Woken up 3 times to write data ]
+[ perf record: Captured and wrote 0.657 MB build/gc-fastpath/nursery-baseline.perf (14250 samples) ]

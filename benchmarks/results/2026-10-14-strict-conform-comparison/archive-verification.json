@@ -1,0 +1,7 @@
+{
+  "complete": true,
+  "regular_files": 943,
+  "archive_sha256": "80d0f6c72c7118aca93aaca0aa07c28849109fa76908c5645755c6c0a2e668b8",
+  "scope": "Archive and member byte integrity only; no semantic replay or guest execution.",
+  "manifest_sha256": "ebffda1039273ef39557a5d6704b7e2b9e4b3285fc4844913a328b8e1ddbcb7e"
+}

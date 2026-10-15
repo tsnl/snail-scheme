@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+"""Execute native Wasm lowering, exact GC, direct C contracts and shared Rust services."""
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / 'build/native-tests'
+RECORDS = []
+RESULTS = BUILD / f'results-{time.time_ns()}.json'
+CHIBI = os.environ.get('CHIBI', 'chibi-scheme')
+CLANG = os.environ.get('CLANG', 'clang')
+FEATURES = ['--mvp-features', '--enable-gc', '--enable-reference-types', '--enable-tail-call',
+            '--enable-mutable-globals', '--enable-sign-ext', '--enable-bulk-memory',
+            '--enable-nontrapping-float-to-int']
+FOREIGN = ['rust-triple', 'rust-remember', 'rust-recalled', 'rust-call', 'rust-forget', 'rust-root-stress']
+IO_EXPORTS = ['format-number', 'unicode', 'callback-result', 'exists', 'remove', 'callback-trap',
+              'close-failure', 'missing-directory', 'invalid-character', 'invalid-handle', 'escaped-alias', 'close-alias']
+INPUT_EXPORTS = ['copy-lines', 'line-storage', 'close-input-alias', 'input-callback-close',
+                 'input-escaped-alias', 'input-missing', 'input-callback-trap', 'read-invalid',
+                 'input-raw-output', 'input-stale-handle', 'input-invalid-handle', 'input-invalid-peek']
+
+
+# ---- Retained commands and actual process outcomes ----
+
+
+def run(command, stdout='', status=0, error=None, cwd=ROOT, **environment):
+    result = subprocess.run(list(map(str, command)), cwd=cwd, capture_output=True, text=True, timeout=300,
+                            env={**os.environ, 'BINARYEN_CORES': '1', **environment})
+    RECORDS.append(dict(command=list(map(str, command)), cwd=str(cwd), environment=environment,
+                        status=result.returncode, stdout=result.stdout, stderr=result.stderr))
+    evidence = json.dumps(RECORDS, indent=2) + '\n'
+    RESULTS.write_text(evidence)
+    (BUILD / 'results.json').write_text(evidence)
+    if result.returncode != status or (stdout is not None and result.stdout != stdout):
+        raise RuntimeError(f'{command}: exit {result.returncode}\n{result.stdout}\n{result.stderr}')
+    if error is not None and error not in result.stderr:
+        raise RuntimeError(f'expected diagnostic {error!r}: {result.stderr}')
+    if status == 0 and result.stderr:
+        raise RuntimeError(result.stderr)
+    return result
+
+
+def build(source, name, *options):
+    output = BUILD / name
+    run([ROOT / 'scripts/build-native', *options, ROOT / source, output])
+    return output
+
+
+def observed(program, name, arguments=(), releases=0, failure=False, **environment):
+    directory = Path(tempfile.mkdtemp(prefix=name + '-', dir=BUILD))
+    run([program, *arguments], cwd=directory, status=int(failure),
+        SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'), SNAIL_NATIVE_GC_INTERVAL='1', **environment)
+    assert int((directory / 'released').read_text()) == releases
+    return directory
+
+
+# ---- Shared semantics, traps, recursion and exact collection ----
+
+
+def compile_fixture(llvm, name):
+    executable = BUILD / name
+    run([CLANG, '-O3', '-flto', '-fuse-ld=lld', '-I', ROOT / 'src', llvm,
+         ROOT / 'src/native.c', ROOT / 'src/precise-gc.c', ROOT / 'tests/native-runner.c',
+         '-lm', '-o', executable])
+    return executable
+
+
+def check_semantics():
+    run([CHIBI, '-I', 'src', 'tests/build-native-datums.scm', BUILD])
+    assert (BUILD / 'semantics.ll').read_bytes() == (BUILD / 'semantics-again.ll').read_bytes()
+    run([os.environ.get('WASM_AS', 'wasm-as'), *FEATURES, BUILD / 'semantics.wat', '-o', BUILD / 'semantics.wasm'])
+    run([os.environ.get('NODE', 'node'), ROOT / 'tests/check-native-semantics.mjs',
+         BUILD / 'semantics.wasm', BUILD / 'saturation.json'])
+    executable = compile_fixture(BUILD / 'semantics.ll', 'semantics')
+    run([executable], SNAIL_NATIVE_GC_INTERVAL='1')
+    for sample in json.loads((BUILD / 'saturation.json').read_text()):
+        run([executable, 'saturate', sample['input']], ' '.join(sample['results']) + '\n')
+    for kind in [*range(13), 'subtype-trap']:
+        run([executable, kind], status=1, error='WebAssembly trap')
+    for kind in range(5):
+        run([executable, 'storage-trap', kind], status=1, error='WebAssembly trap')
+    stress = compile_fixture(BUILD / 'semantics-stress.ll', 'semantics-stress')
+    run([stress], SNAIL_NATIVE_TAIL_STRESS='1')
+    optimized = build('build/native-tests/semantics.wasm', 'optimized-semantics',
+                      '--wasm', '--entry-c', ROOT / 'tests/native-runner.c')
+    run([optimized], SNAIL_NATIVE_GC_INTERVAL='1')
+    for kind in range(5):
+        run([optimized, 'storage-trap', kind], status=1, error='WebAssembly trap')
+    print('PASS native scalar/control semantics, array storage, subtype identity, 19 traps and tail/root bounds', flush=True)
+
+
+def check_element_segments():
+    # Node and native instantiate the exact optimized bytes, including empty
+    # active segments whose offsets remain observable even without any stores.
+    probe = "const fs=require('fs'); WebAssembly.instantiate(fs.readFileSync(process.argv[1])).catch(e=>{if(e instanceof WebAssembly.RuntimeError)process.exit(1);throw e;});"
+    for length, offset, elements, traps in [(0, 0, '', False), (0, 1, '', True),
+                                           (0, -1, '', True), (1, 0, '$f', False), (1, 1, '$f', True)]:
+        name = f'element-{length}-{offset}-{bool(elements)}'
+        wat, wasm = BUILD / (name + '.wat'), BUILD / (name + '.wasm')
+        wat.write_text(f'(module (table {length} funcref) '
+                       f'(func $f) (elem (i32.const {offset}) func {elements}) '
+                       '(func (export "size") (result i32) (table.size 0)) '
+                       '(func (export "main") (result i32) (i32.const 0)))\n')
+        run([os.environ.get('WASM_AS', 'wasm-as'), *FEATURES, wat, '-o', wasm])
+        program = build(wasm, name, '--wasm')
+        optimized = max(BUILD.glob(name + '.native-*/optimized.wasm'), key=lambda path: path.stat().st_mtime_ns)
+        run([os.environ.get('NODE', 'node'), '-e', probe, optimized], status=int(traps))
+        run([program], status=int(traps), error='WebAssembly trap' if traps else None)
+    print('PASS optimized active element segment bounds, including empty and unsigned offsets', flush=True)
+
+
+def check_collector():
+    for name in ['precise-gc', 'immix-gc']:
+        output = BUILD / name
+        run([CLANG, '-O2', '-I', ROOT / 'src', ROOT / 'src/precise-gc.c', ROOT / f'tests/{name}.c', '-o', output])
+        run([output])
+        if name == 'immix-gc':
+            run([output, 'wrap'])
+            run([output, 'wrap-large'])
+            run([output, 'boundaries'])
+    output = BUILD / 'growing-gc'
+    run([CLANG, '-O2', '-I', ROOT / 'src', ROOT / 'src/precise-gc.c', ROOT / 'tests/growing-gc.c',
+         '-Wl,--wrap=malloc,--wrap=calloc,--wrap=free,--wrap=mmap', '-o', output])
+    for mode in ['growth', 'failure']:
+        run([output, mode], SNAIL_GC_INITIAL_BYTES='32768')
+    run([output, 'bump'], SNAIL_GC_INITIAL_BYTES='131072')
+    run([output, 'cap'], SNAIL_GC_INITIAL_BYTES='32896', SNAIL_GC_HEAP_BYTES='327809')
+    run([output, 'sizes'], SNAIL_GC_INITIAL_BYTES='32768', SNAIL_GC_MIN_BYTES='32768')
+    for mode in ['headroom', 'headroom-low', 'headroom-failure', 'headroom-large']:
+        run([output, mode], SNAIL_GC_INITIAL_BYTES='131072')
+    run([output, 'headroom-cap'], SNAIL_GC_HEAP_BYTES='131072')
+    print('PASS exact tracing, weak cleanup, Immix reuse, automatic growth, capped/failing growth and size bounds', flush=True)
+
+
+# ---- Typed C signatures and current strict frontend output ----
+
+
+def check_scalar_providers():
+    provider = ['--c-provider', 'fixture', ROOT / 'tests/native-mixed.h', ROOT / 'tests/native-mixed.c']
+    run([build('tests/native-mixed.scm', 'mixed', '--strict', *provider)])
+    bad = BUILD / 'wrong-signature.scm'
+    bad.write_text('(import (snail strict))\n(define-extern f "fixture" "scalar_i32" (-> I64 I64))\n(f 1)\n')
+    run([ROOT / 'scripts/build-native', '--strict', *provider, bad, BUILD / 'wrong-signature'],
+        status=1, error='native provider signature does not match Wasm import')
+    assert not (BUILD / 'wrong-signature').exists()
+    check_rejected_c_contracts()
+    options = [arg for name in ['worker', 'round32', 'view64', 'view32'] for arg in ['--export', name]]
+    rounding = build('tests/strict-extern/round.scm', 'round', '--strict', '--entry-c', ROOT / 'tests/native-round.c', *options)
+    run([rounding])
+    for source, result in [('data-native-fields', 12), ('data-tree', 14), ('data-gcbench', 62), ('data-empty-cases', 42),
+                           ('string-literals', 42), ('string-block-literal', 42),
+                           ('bytevector-builtins', 42), ('bytevector-utf8', 42)]:
+        executable = build(f'tests/strict/{source}.scm', source, '--strict')
+        run([executable], status=result, SNAIL_NATIVE_GC_INTERVAL='1')
+    print('PASS real mixed C ABI, mismatched-signature rejection, rounding, variants and string blocks', flush=True)
+
+
+def bytevector_trap_entry(source, names):
+    # The fixtures declare zero-argument scalar observers. Match their real C
+    # result types even though trap probes must never return a result.
+    signatures = dict(re.findall(r'\(: ([\w!?-]+) \(-> (I64|Bool|Unit)\)\)', source))
+    types = {'I64': 'int64_t', 'Bool': 'int32_t', 'Unit': 'void'}
+    declarations = [f'extern {types[signatures[name]]} probe{i}(void) __asm__("wasm.{name}");'
+                    for i, name in enumerate(names)]
+    calls = [f'if (!strcmp(argv[1], "{name}")) {{ probe{i}(); return native_finish(0); }}'
+             for i, name in enumerate(names)]
+    return '\n'.join(['#include <stdint.h>', '#include <string.h>',
+                      'extern void native_host_init(int, char **);', 'extern void native_module_init(void);',
+                      'extern int native_finish(int);', 'extern int64_t guest_main(void) __asm__("wasm.main");',
+                      *declarations, 'int main(int argc, char **argv) {', 'native_host_init(argc, argv);',
+                      'native_module_init();', 'if (argc != 2 || guest_main() != 42) return native_finish(2);',
+                      *calls, 'return native_finish(3);', '}']) + '\n'
+
+
+def check_bytevector_traps():
+    cases = json.loads((ROOT / 'tests/strict/cases.json').read_text())
+    for case in cases:
+        if case['name'] not in ('bytevector-errors', 'bytevector-utf8-errors'):
+            continue
+        names = [name for name, result in case['exports'].items() if result == 'trap']
+        source = f'tests/strict/{case["name"]}.scm'
+        entry = BUILD / (case['name'] + '-entry.c')
+        entry.write_text(bytevector_trap_entry((ROOT / source).read_text(), names))
+        options = [arg for name in names for arg in ['--export', name]]
+        program = build(source, case['name'], '--strict', '--entry-c', entry, *options)
+        for name in names:
+            run([program, name], status=1, error='WebAssembly trap', SNAIL_NATIVE_GC_INTERVAL='1')
+    print('PASS native bytevector permissions, byte/range checks and strict UTF-8 traps', flush=True)
+
+
+def check_rejected_c_contracts():
+    for declaration, diagnostic in [('int f();', 'explicit C prototype'),
+                                     ('int f(int, ...);', 'nonvariadic C prototype'),
+                                     ('int __attribute__((ms_abi)) f(int);', 'calling convention'),
+                                     ('int __attribute__((vectorcall)) f(float);', 'calling convention')]:
+        header = BUILD / 'unsupported-provider.h'
+        header.write_text(declaration + '\n')
+        run([ROOT / 'scripts/build-native', '--strict', '--c-provider', 'bad', header,
+             ROOT / 'tests/native-mixed.c', ROOT / 'tests/native-mixed.scm', BUILD / 'bad-provider'],
+            status=1, error=diagnostic)
+
+
+# ---- Real Rust I/O with observed release before process exit ----
+
+
+def check_io():
+    options = [arg for name in IO_EXPORTS for arg in ['--export', name]]
+    executable = build('tests/strict-io/output.scm', 'io', '--strict', '--entry-c', ROOT / 'tests/native-io-runner.c', *options)
+    observed(executable, 'normal', releases=3)
+    directory = observed(executable, 'unicode', ['unicode'], releases=1)
+    assert (directory / 'λ😀.txt').read_bytes() == '\0λ😀\U0010ffff\n'.encode()
+    for number in [-(1 << 63), (1 << 63) - 1, (1 << 53) + 1, -1, 0]:
+        directory = observed(executable, 'number', ['number', str(number)], releases=1)
+        assert (directory / 'number.txt').read_text() == str(number) + '\n'
+    directory = observed(executable, 'trap', ['trap'], releases=1, failure=True)
+    assert (directory / 'trap.txt').read_text() == 'buffered'
+    for kind, released in [('missing', 0), ('character', 0), ('handle', 0), ('alias', 1)]:
+        observed(executable, kind, [kind], releases=released, failure=True)
+    directory = Path(tempfile.mkdtemp(prefix='io-error-', dir=BUILD))
+    (directory / 'first.txt').symlink_to('/dev/full')
+    run([executable, 'io-error'], cwd=directory, status=1, error='No space left on device',
+        SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'))
+    assert (directory / 'released').read_text() == '2\n'
+    assert (directory / 'second.txt').read_text() == 'second'
+    observed(executable, 'initialization-failure', releases=0, failure=True, SNAIL_GC_HEAP_BYTES='1')
+    observed(executable, 'initial-reservation-failure', releases=0, failure=True, SNAIL_GC_INITIAL_BYTES='1')
+    observed(executable, 'initial-over-cap', releases=0, failure=True,
+             SNAIL_GC_INITIAL_BYTES='65536', SNAIL_GC_HEAP_BYTES='32768')
+    exhaust = build('tests/native-exhaust.scm', 'exhaust', '--strict', '--export', 'read-huge',
+                    '--entry-c', ROOT / 'tests/native-lifecycle.c')
+    directory = observed(exhaust, 'exhaust', releases=1, failure=True, SNAIL_GC_HEAP_BYTES='32768')
+    assert (directory / 'exhaust.txt').read_text() == 'buffered before exhaustion'
+    print('PASS shared Rust Unicode/I64 I/O and explicit normal/trap/I/O-error/exhaustion cleanup', flush=True)
+
+
+def input_observed(program, label, contents, arguments, releases, failure=False):
+    directory = Path(tempfile.mkdtemp(prefix='input-' + label + '-', dir=BUILD))
+    path = directory / 'λ😀.txt'
+    if contents is None:
+        path.mkdir()
+    else:
+        path.write_bytes(contents)
+    run([program, *arguments], cwd=directory, status=int(failure),
+        SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'), SNAIL_NATIVE_GC_INTERVAL='1')
+    assert int((directory / 'released').read_text()) == releases
+    return directory
+
+
+def check_input_values(program):
+    cases = [('', '', 0), ('\n', '\n', 1), ('\n\n', '\n\n', 2), ('last', 'last\n', 1),
+             ('last\r', 'last\n', 1), ('\r', '\n', 1),
+             ('first\nlast\n', 'first\nlast\n', 2), ('a\rb\r\nc\n\r\n\rfinal', 'a\nb\nc\n\n\nfinal\n', 6),
+             ('\0λ😀\U0010ffff\n\t\u0085\u2028\u2029', '\0λ😀\U0010ffff\n\t\u0085\u2028\u2029\n', 2)]
+    for count in [1, 63, 64, 65, 127, 128, 129, 4095, 4096, 4097, 65537]:
+        line = '😀' * count
+        cases.append((line + '\r\nend', line + '\nend\n', 2))
+    for index, (source, expected, count) in enumerate(cases):
+        directory = input_observed(program, str(index), source.encode(), ['copy', str(count)], 2)
+        assert (directory / 'lines.txt').read_bytes() == expected.encode()
+    input_observed(program, 'ownership', b'same\nsame\n', ['ownership'], 3)
+
+
+def check_input_failures(program):
+    for kind, released in [('alias', 1), ('missing', 0), ('trap', 1), ('output', 1), ('stale', 1), ('handle', 0), ('peek', 0)]:
+        input_observed(program, kind, b'line\n', [kind], released, failure=True)
+    for index, contents in enumerate([b'\xff', b'\xf0\x9f', b'\r\xff', None]):
+        directory = input_observed(program, 'invalid-' + str(index), contents, ['invalid'], 2, failure=True)
+        assert (directory / 'buffered.txt').read_text() == 'released after read failure'
+
+
+def check_input():
+    options = [arg for name in INPUT_EXPORTS for arg in ['--export', name]]
+    executable = build('tests/strict-io/input.scm', 'input', '--strict',
+                       '--entry-c', ROOT / 'tests/native-input-runner.c', *options)
+    check_input_values(executable)
+    check_input_failures(executable)
+    trapped = build('tests/strict-io/input-main-trap.scm', 'input-main-trap', '--strict',
+                    '--entry-c', ROOT / 'tests/native-lifecycle.c')
+    input_observed(trapped, 'main-trap', b'line\n', [], 1, failure=True)
+    print('PASS native strict line input, Unicode, buffer growth, aliases and terminal cleanup', flush=True)
+
+
+def check_legacy_runtime():
+    options = [arg for name in FOREIGN for arg in ['--foreign', name, 'snail.library']]
+    interop = build('examples/rust-interop/main.scm', 'interop', *options)
+    run([interop], '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n', SNAIL_NATIVE_GC_INTERVAL='1')
+    resources = build('tests/programs/backend-native-resources.scm', 'resources',
+                      '--entry-c', ROOT / 'tests/native-legacy-runner.c')
+    run([resources, 'finalizers'], 'native resource checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
+    literals = build('tests/native-literals.scm', 'literals')
+    run([literals], 'native literal checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
+    callback = build('tests/native-callback-trap.scm', 'callback-trap', *options,
+                     '--entry-c', ROOT / 'tests/native-legacy-runner.c')
+    directory = Path(tempfile.mkdtemp(prefix='callback-trap-', dir=BUILD))
+    run([callback], cwd=directory, status=1, error='native callback failure',
+        SNAIL_NATIVE_GC_INTERVAL='1', SNAIL_NATIVE_CLEANUP_LOG=str(directory / 'released'))
+    assert int((directory / 'released').read_text()) >= 1
+    assert (directory / 'callback.txt').read_text() == 'buffered before callback failure'
+    check_native_arrays(options)
+    print('PASS shared Rust ABI roots, reentrant callbacks, deferred finalizers and literal graphs', flush=True)
+
+
+def check_native_arrays(options):
+    executable = build('tests/native-arrays.scm', 'arrays', *options,
+                       '--entry-c', ROOT / 'tests/native-legacy-runner.c')
+    run([executable, 'arrays'], 'native numeric resource checks passed\n', SNAIL_NATIVE_GC_INTERVAL='1')
+    observer = BUILD / 'array-releases'
+    observer.unlink(missing_ok=True)
+    run([executable, 'arrays-trap'], status=1, error='native numeric resource failure',
+        SNAIL_NATIVE_GC_INTERVAL='1', SNAIL_NATIVE_ARRAY_LOG=str(observer))
+    assert observer.read_text() == '65\n'
+
+
+# ---- Publication and dependency ownership ----
+
+
+def check_build_ownership():
+    directory = Path(tempfile.mkdtemp(prefix='ownership-', dir=BUILD))
+    source, output = directory / 'main.scm', directory / 'application'
+    source.write_text('(import (scheme write)) (display "kept")\n')
+    output.write_text('previous executable')
+    run([ROOT / 'scripts/build-native', source, output], status=1, error='missing or unusable', WASM_OPT='/missing/wasm-opt')
+    assert output.read_text() == 'previous executable'
+    alias = directory / 'source-alias'
+    alias.symlink_to(source)
+    run([ROOT / 'scripts/build-native', source, alias], status=1, error='must not replace an input')
+    check_native_artifacts(directory, source, output)
+    print('PASS native input protection, failure preservation and relocated artifact generations', flush=True)
+
+
+def check_native_artifacts(directory, source, output):
+    project = directory / 'project'
+    project.mkdir()
+    (project / 'value.txt').write_text('42')
+    (project / 'answer.sld').write_text('''(generate-library (project answer)
+      (export answer) (import (scheme base) (snail-scheme generation) (snail-scheme artifacts))
+      (begin (generated-library
+        '((import (scheme base) (scheme file) (snail artifacts))
+          (begin (define (answer) (call-with-input-file (artifact-path "answer λ.txt")
+                                   (lambda (port) (read-string 100 port))))))
+        (list (make-artifact "answer λ.txt" (generation-source-path "value.txt") '())))))''')
+    source.write_text('(import (scheme base) (scheme write) (project answer)) (display (answer)) (newline)\n')
+    command = [ROOT / 'scripts/build-native', '-I', directory, source]
+    run([*command, output])
+    run([output], '42\n', cwd='/tmp')
+    original = output.resolve()
+    assert output.is_symlink()
+    (project / 'value.txt').write_text('43')
+    run([*command, output])
+    run([output], '43\n', cwd='/tmp')
+    run([original], '42\n', cwd='/tmp')
+    moved = directory / 'relocated'
+    shutil.copytree(output.resolve().parent, moved)
+    run([moved / 'program'], '43\n', cwd='/tmp')
+    run([*command, project / 'value.txt'], status=1, error='must not replace an input')
+    assert (project / 'value.txt').read_text() == '43'
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    check_semantics()
+    check_element_segments()
+    check_collector()
+    check_scalar_providers()
+    check_bytevector_traps()
+    check_io()
+    check_input()
+    check_legacy_runtime()
+    check_build_ownership()
+    files = [path for directory in ['src', 'tests'] for path in (ROOT / directory).rglob('*') if path.is_file()]
+    files += [ROOT / 'scripts/build-native', ROOT / 'scripts/test-native', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock']
+    (BUILD / 'source-hashes.json').write_text(json.dumps({str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                                                       for path in files}, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        sys.exit(str(error))

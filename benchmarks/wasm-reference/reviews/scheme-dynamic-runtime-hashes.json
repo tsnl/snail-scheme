@@ -1,0 +1,14 @@
+{
+  "scheme": {
+    "wasm_sha256": "cf91aee5f6c5c564f72f608e88fd0b7f208cbfb2eb1f267bd32bdf5e192c5bb8",
+    "prior_wasm_sha256": "cf91aee5f6c5c564f72f608e88fd0b7f208cbfb2eb1f267bd32bdf5e192c5bb8",
+    "byte_identical_to_validated_runtime": true,
+    "reviewed_source_sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed"
+  },
+  "dynamic": {
+    "wasm_sha256": "927bcde3ca4dad0763fb27bf605ba9541fa79cfaca27f6e01c6b0254b1ece432",
+    "prior_wasm_sha256": "927bcde3ca4dad0763fb27bf605ba9541fa79cfaca27f6e01c6b0254b1ece432",
+    "byte_identical_to_validated_runtime": true,
+    "reviewed_source_sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad"
+  }
+}

@@ -1,0 +1,5 @@
+(import (snail strict))
+(define-data (Box T) (box (value T unbox)))
+(define original (ref (box (ann 65 I32))))
+(define erased (ann original Top))
+(unbox (ref-get (ann erased (Ref (Box Char)))))

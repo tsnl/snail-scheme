@@ -1,0 +1,346 @@
+{
+  "scope": "Restoration/hash verification, recorded-contract audit and bounded correctness; no new clean samples",
+  "archive": "/tmp/snail-runtime-comparison-replay-20261014",
+  "archived_contracts": 74,
+  "checks": [
+    {
+      "comparison": "deriv",
+      "variant": "strict",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000156884,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "strict",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/deriv-strict-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv",
+        "stdin": null,
+        "process_seconds": 0.024802016967441887,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "deriv",
+      "variant": "original-chez",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Running deriv:2\nElapsed time: 2.406e-6 seconds (0.0) for deriv:2\n+!CSVLINE!+chez,deriv:2,2.406e-6\n",
+        "stderr": "",
+        "variant": "original-chez",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv/program.so"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv",
+        "stdin": "2\n\n(+ (* 3 x x) (* a x x) (* b x) 5)\n\n(+ (* (* 3 x x) (+ (/ 0 3) (/ 1 x) (/ 1 x)))\n   (* (* a x x) (+ (/ 0 a) (/ 1 x) (/ 1 x)))\n   (* (* b x) (+ (/ 0 b) (/ 1 x)))\n   0)\n",
+        "process_seconds": 0.036142818978987634,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "deriv",
+      "variant": "adapted-chez",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Running deriv:2\nElapsed time: 2.433e-6 seconds (0.0) for deriv:2\n+!CSVLINE!+chez,deriv:2,2.433e-6\n",
+        "stderr": "",
+        "variant": "adapted-chez",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv/same-source-chez/program.so"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-deriv-parent-preparation-20261013/deriv",
+        "stdin": "2\n\n(+ (* 3 x x) (* a x x) (* b x) 5)\n\n(+ (* (* 3 x x) (+ (/ 0 3) (/ 1 x) (/ 1 x)))\n   (* (* a x x) (+ (/ 0 a) (/ 1 x) (/ 1 x)))\n   (* (* b x) (+ (/ 0 b) (/ 1 x)))\n   0)\n",
+        "process_seconds": 0.03561536699999124,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "deriv",
+      "variant": "rust-wasm",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Result: (+ (* (* 3 x x) (+ (/ 0 3) (/ 1 x) (/ 1 x))) (* (* a x x) (+ (/ 0 a) (/ 1 x) (/ 1 x))) (* (* b x) (+ (/ 0 b) (/ 1 x))) 0)\n+!CSVLINE!+rust-wasm,deriv:2,0.000062258\n",
+        "stderr": "",
+        "variant": "rust-wasm",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/reference-source/run-wasi.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/deriv/rust-wasm/program.wasm"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-wasm-five-20261013/build/wasm-reference/final/cases/deriv/rust-wasm",
+        "stdin": "2\n\n(+ (* 3 x x) (* a x x) (* b x) 5)\n\n(+ (* (* 3 x x) (+ (/ 0 3) (/ 1 x) (/ 1 x)))\n   (* (* a x x) (+ (/ 0 a) (/ 1 x) (/ 1 x)))\n   (* (* b x) (+ (/ 0 b) (/ 1 x)))\n   0)\n",
+        "process_seconds": 0.024467745970468968,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mbrotZ",
+      "variant": "strict",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.003032968,\"result\":\"5\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "strict",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/mbrotZ-strict-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ",
+        "stdin": null,
+        "process_seconds": 0.025524288997985423,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mbrotZ",
+      "variant": "original-chez",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Running mbrotZ:75:2\nElapsed time: 0.005266631 seconds (0.005) for mbrotZ:75:2\n+!CSVLINE!+chez,mbrotZ:75:2,0.005266631\n",
+        "stderr": "",
+        "variant": "original-chez",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/program.so"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ",
+        "stdin": "2\n75\n5\n",
+        "process_seconds": 0.04110605001915246,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mbrotZ",
+      "variant": "adapted-chez",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Running mbrotZ:75:2\nElapsed time: 0.009245879 seconds (0.009) for mbrotZ:75:2\n+!CSVLINE!+chez,mbrotZ:75:2,0.009245879\n",
+        "stderr": "",
+        "variant": "adapted-chez",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+          "--program",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/same-source-chez/program.so"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ",
+        "stdin": "2\n75\n5\n",
+        "process_seconds": 0.043932500993832946,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mbrotZ",
+      "variant": "rust-wasm",
+      "observation": {
+        "returncode": 0,
+        "stdout": "Result: 5\n+!CSVLINE!+rust-wasm,mbrotZ:2,0.002550453\n",
+        "stderr": "",
+        "variant": "rust-wasm",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-warnings",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-full-reference-20261013/build/rust-group2-full/reference-source/run-wasi.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-full-reference-20261013/build/rust-group2-full/cases/mbrotZ/program.wasm"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-rust-full-reference-20261013/build/rust-group2-full/cases/mbrotZ",
+        "stdin": "2\n75\n5\n",
+        "process_seconds": 0.027473384980112314,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "graphs-callbacks",
+      "variant": "baseline",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000237741,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "baseline",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/baseline/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/graphs-callbacks-baseline-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013",
+        "stdin": null,
+        "process_seconds": 0.023193348024506122,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "graphs-callbacks",
+      "variant": "variant",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000245562,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "variant",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013/experiments/proc-vector-callable-ablation/variant/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/graphs-callbacks-variant-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-proc-vector-ablation-20261013",
+        "stdin": null,
+        "process_seconds": 0.022618797956965864,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mperm-policies",
+      "variant": "default",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000146305,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "default",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/mperm-policies-default-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+        "stdin": null,
+        "process_seconds": 0.024552622984629124,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mperm-policies",
+      "variant": "serial-scavenge",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000145305,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "serial-scavenge",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-parallel-scavenge",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/mperm-policies-serial-scavenge-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+        "stdin": null,
+        "process_seconds": 0.02456497703678906,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mperm-policies",
+      "variant": "semi128",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000156123,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "semi128",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--max-semi-space-size=128",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/mperm-policies-semi128-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+        "stdin": null,
+        "process_seconds": 0.02412065997486934,
+        "round": -1,
+        "retained": false
+      }
+    },
+    {
+      "comparison": "mperm-policies",
+      "variant": "minor-ms",
+      "observation": {
+        "returncode": 0,
+        "stdout": "{\"seconds\":0.000151415,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+        "stderr": "",
+        "variant": "minor-ms",
+        "command": [
+          "/run/current-system/sw/bin/taskset",
+          "-c",
+          "5",
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--minor-ms",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/host.mjs",
+          "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+          "/tmp/snail-v8-mperm-policy-20261013/build/runtime-replay-checks/mperm-policies-minor-ms-spec.json"
+        ],
+        "cwd": "/tmp/snail-runtime-comparison-replay-20261014/files/tmp/snail-strict-enumeration-preparation-20261013/mperm",
+        "stdin": null,
+        "process_seconds": 0.031156309007201344,
+        "round": -1,
+        "retained": false
+      }
+    }
+  ],
+  "complete": true,
+  "checked_archived_contracts": 74,
+  "bounded_executions": 14,
+  "verified_archive_files": 743
+}

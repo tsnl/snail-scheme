@@ -1,0 +1,37 @@
+{
+  "captured": "2026-10-14T16:16:54.748238+00:00",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "loadavg": [
+    0.47998046875,
+    0.38623046875,
+    0.38330078125
+  ],
+  "governor": "powersave",
+  "frequency_khz": "5084135",
+  "note": "Observed snapshot, not fixed-frequency guarantee; detailed tools/clocks in preparation pre-campaign-host.json"
+}

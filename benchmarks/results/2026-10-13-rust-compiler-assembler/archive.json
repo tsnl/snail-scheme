@@ -1,0 +1,6 @@
+{
+  "archive_sha256": "33b11edc3a75ff3a408013589aa32509300b958ba4a1f7a6df88c147d1c7d5c3",
+  "archive_bytes": 1254112,
+  "verified_files": 132,
+  "full_compiler_status": "pending; assembler diagnostics and one-pass GVM regression only"
+}

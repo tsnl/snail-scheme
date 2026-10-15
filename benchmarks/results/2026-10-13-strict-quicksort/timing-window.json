@@ -1,0 +1,27 @@
+{
+  "authorized_by_parent": true,
+  "authorization": "Independent review accepted frozen implementation; parent/Rust/explainers idle, no builds/tests until timing ends.",
+  "driver_commit": "86d49d4d7f36b00f48724f3fe63854a2afe2413d",
+  "preparation_compiler_base": "5894df771cace27507e0f1ab15f6dd320d2a6ad4",
+  "start_utc": "2026-10-14T01:11:12.006896+00:00",
+  "preflight_archive_files_verified": 443,
+  "preflight_live_artifact_files_verified": 115,
+  "preflight_case_driver_host_runner_tools_verified": true,
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "/tmp/snail-strict-quicksort-20261013/benchmarks/strict-suite/measure.py",
+    "measure",
+    "--output",
+    "/tmp/strict-quicksort-frozen-final-5894df7",
+    "--cpu",
+    "5",
+    "--rounds",
+    "3"
+  ],
+  "NODE_OPTIONS": null,
+  "default_v8_tiering": true,
+  "cpu": 5,
+  "end_utc": "2026-10-14T01:11:35.439162+00:00",
+  "batch_process_seconds": 23.432124834973365,
+  "returncode": 0
+}

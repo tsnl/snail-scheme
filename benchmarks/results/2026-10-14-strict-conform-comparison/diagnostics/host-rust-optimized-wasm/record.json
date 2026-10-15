@@ -1,0 +1,30 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "--disable-warning=ExperimentalWarning",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/rust/run-wasi.mjs",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/rust/conform.wasm"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform",
+  "phase": "setup-diagnostic",
+  "clean_sample": false,
+  "retained": false,
+  "status": "completed",
+  "pid": 21,
+  "process_group": 21,
+  "returncode": 0,
+  "stdout": "Result: (\"(((b v d) ^ a) v c)\" \"(c ^ d)\" \"(b v (a ^ d))\" \"((a v d) ^ b)\" \"(b v d)\" \"(b ^ (a v c))\" \"(a v (c ^ d))\" \"((b v d) ^ a)\" \"(c v (a v d))\" \"(a v c)\" \"(d v (b ^ (a v c)))\" \"(d ^ (a v c))\" \"((a ^ d) v c)\" \"((a ^ b) v d)\" \"(((a v d) ^ b) v (a ^ d))\" \"(b ^ d)\" \"(b v (a v d))\" \"(a ^ c)\" \"(b ^ (c v d))\" \"(a ^ b)\" \"(a v b)\" \"((a ^ d) ^ b)\" \"(a ^ d)\" \"(a v d)\" \"d\" \"(c v d)\" \"a\" \"b\" \"c\" \"any\" \"none\")\n+!CSVLINE!+rust-wasm,conform:500,0.713612629\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 21,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.7409591830219142
+}

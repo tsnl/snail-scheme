@@ -1,0 +1,48 @@
+{
+  "benchmark": "read1",
+  "system": "rust-native",
+  "round": 5,
+  "retained": true,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.native"
+  ],
+  "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference",
+  "status": "valid",
+  "started": "2026-10-14T19:13:55.223060+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 422,
+  "process_group": 422,
+  "returncode": 0,
+  "stdout": "Result: (should return this list)\n+!CSVLINE!+rust-wasm,read1:2500,0.352189094\n",
+  "stderr": "",
+  "timeout": false,
+  "executing_descendants": [],
+  "process_seconds": 0.35460728098405525,
+  "cleanup": {
+    "process_group": 422,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "capture_and_cleanup_seconds": 0.354425635014195,
+  "workload_seconds": 0.352189094
+}

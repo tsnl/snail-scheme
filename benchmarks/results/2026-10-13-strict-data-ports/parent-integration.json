@@ -1,0 +1,33 @@
+{
+  "integration_commit": "58479b0eb37b9c3b67fa78960fa507046959c528",
+  "frozen_compiler_commit": "af02dac81890a00dad92a0a564664ff59aaca102",
+  "build_contract": "scripts/build-strict --export bench <frozen strict.scm> <output>",
+  "artifacts": [
+    {
+      "case": "paraffins",
+      "artifact": ".wasm",
+      "sha256": "060753de612717ae8646a62f9aa30008a97c2411d9f8967136cd9e60a113a551",
+      "byte_identical": true
+    },
+    {
+      "case": "paraffins",
+      "artifact": ".wasm.raw.wasm",
+      "sha256": "7c3147e212e910b58fc395af58c9db52dc3a89ee8e75e7105a230d038da3ed23",
+      "byte_identical": true
+    },
+    {
+      "case": "gcbench",
+      "artifact": ".wasm",
+      "sha256": "1ab157c4862c483d9ce11e19290d97fb8e65025cd74f4d2b3b26296384615263",
+      "byte_identical": true
+    },
+    {
+      "case": "gcbench",
+      "artifact": ".wasm.raw.wasm",
+      "sha256": "e2284f52aa603f823d5fdf5e1a3c526c0de9a4c0341c75a1b299a7d236af2eff",
+      "byte_identical": true
+    }
+  ],
+  "meaning": "Reviewed stack compiler emits byte-identical raw and optimized Wasm for both frozen data-port sources. No new timings or gcbench lifecycle claims.",
+  "excluded_attempt": "Initial parent replay omitted --export bench; retained in main-only-replay and excluded from comparison."
+}

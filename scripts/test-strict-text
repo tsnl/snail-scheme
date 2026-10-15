@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Verify Unicode scalar helpers and mutable string ordering on Wasm/native64."""
+
+import hashlib
+import importlib.machinery
+import json
+import os
+from pathlib import Path
+import random
+import signal
+import time
+import unicodedata
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / 'build' / f'strict-text-{time.time_ns()}'
+FIXTURES = ROOT / 'tests/strict-text'
+SUPPORT = importlib.machinery.SourceFileLoader('reader_checks', str(ROOT / 'scripts/test-strict-reader')).load_module()
+SUPPORT.OUTPUT = SUPPORT.ARTIFACTS = OUTPUT
+SUPPORT.ENV['SNAIL_NATIVE_GC_INTERVAL'] = '1'
+run = SUPPORT.run
+EXPORTS = ['lower', 'alphabetic', 'numeric', 'whitespace', 'fresh-strings', 'fill-left',
+           'fill-right', 'ordered', 'self-ordered', 'malformed']
+WHITESPACE = {9, 10, 11, 12, 13, 32, 0x85, 0xa0, 0x1680, *range(0x2000, 0x200b),
+              0x2028, 0x2029, 0x202f, 0x205f, 0x3000}
+
+
+# ---- Independent Unicode 16 casing/decimal oracle and explicit property cases ----
+
+
+def scalar_cases():
+    if unicodedata.unidata_version != '16.0.0':
+        raise RuntimeError('the casing/decimal oracle requires Python Unicode 16.0.0 data')
+    rows = {}
+    def add(code, lower=-1, alphabetic=-1, numeric=-1, whitespace=-1):
+        row = rows.setdefault(code, [code, -1, -1, -1, -1])
+        for index, value in enumerate([lower, alphabetic, numeric, whitespace], 1):
+            if value >= 0:
+                assert row[index] in (-1, value), (code, row, index, value)
+                row[index] = value
+    for code in range(128):
+        add(code, ord(chr(code).lower()), int(chr(code).isalpha()), int(48 <= code <= 57), int(code in WHITESPACE))
+    for code in range(0x110000):
+        if 0xd800 <= code <= 0xdfff:
+            continue
+        character = chr(code)
+        lowered = character.lower()
+        # UnicodeData's simple U+0130 mapping is i; full lowercase also appends
+        # U+0307. It is the sole multi-scalar Python 16 lowercase result.
+        if len(lowered) > 1:
+            assert code == 0x130 and lowered == 'i\u0307'
+            add(code, 0x69)
+        elif lowered != character:
+            add(code, ord(lowered))
+        if unicodedata.category(character) == 'Nd':
+            add(code, code, numeric=1)
+    for code in WHITESPACE:
+        add(code, code, 0, 0, 1)
+    for code in {point + delta for point in WHITESPACE for delta in [-1, 1]} | {0x200b, 0xfeff}:
+        add(code, whitespace=int(code in WHITESPACE))
+    for code in [0x130, 0x3a3, 0x3c2, 0x345, 0x93e, 0x212a, 0x1e9e, 0xdf, 0x13a0,
+                 0xab70, 0xfb00, 0x4e00, 0xac00, 0x10400, 0x10428, 0x20000, 0x2167]:
+        add(code, alphabetic=1, numeric=0, whitespace=0)
+    for code in [0xb2, 0x2460, 0x1f600, 0xd7ff, 0xe000, 0xffff, 0x10ffff]:
+        add(code, code, 0, 0, 0)
+    # These newer native casing pairs remain unchanged in the pinned Unicode16
+    # simple mapping; Alphabetic intentionally follows the native Rust version.
+    for code in [0xa7ce, 0xa7d2, 0xa7d4, 0x16ea0]:
+        add(code, code, numeric=0, whitespace=0)
+    random_source = random.Random(0x554e49434f4445)
+    for _ in range(1024):
+        code = random_source.randrange(0x110000)
+        if 0xd800 <= code <= 0xdfff:
+            continue
+        lowered = chr(code).lower()
+        add(code, 0x69 if code == 0x130 else ord(lowered),
+            numeric=int(unicodedata.category(chr(code)) == 'Nd'), whitespace=int(code in WHITESPACE))
+    return [rows[code] for code in sorted(rows)]
+
+
+def string_cases():
+    rows = [('', ''), ('', 'a'), ('a', ''), ('same', 'same'), ('a', 'aa'), ('aa', 'a'),
+            ('ab', 'ac'), ('ac', 'ab'), ('Z', 'a'), ('\ue000', '\U00010000'), ('\U00010000', '\ue000'),
+            ('e\u0301', 'é'), ('é', 'e\u0301'), ('a\0b', 'a\0c'), ('a', 'a\0'),
+            ('\U0010ffff', '\U0010fffe'), ('λ😀', 'λ😁'), ('\0', '\0'),
+            ('x' * 8192 + 'a', 'x' * 8192 + 'b'), ('x' * 8192, 'x' * 8192 + '\0')]
+    random_source = random.Random(0x5343414c4152)
+    alphabet = ['\0', 'a', 'Z', 'é', '\u0301', 'λ', '\ue000', '\U00010000', '😀', '\U0010ffff']
+    for _ in range(128):
+        rows.append(tuple(''.join(random_source.choice(alphabet) for _ in range(random_source.randrange(12)))
+                          for _ in range(2)))
+    return rows
+
+
+# ---- Retained sources and actual raw/optimized Wasm and native builds ----
+
+
+def build():
+    source = OUTPUT / 'text.wasm'
+    exports = [word for name in EXPORTS for word in ['--export', name]]
+    run([ROOT / 'scripts/build-strict', *exports, FIXTURES / 'text.scm', source], 'compile')
+    run([os.environ.get('CARGO', 'cargo'), 'rustc', '--crate-type=cdylib', '--quiet', '--offline',
+         '--release', '--target', 'wasm32-wasip1', '--target-dir', ROOT / 'build/wasm-runtime'], 'runtime')
+    runtime = ROOT / 'build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm'
+    for name, suffix, flags in [('raw', '.raw.wasm', ['--diagnostic-prune-only']), ('optimized', '', [])]:
+        run([ROOT / 'scripts/link-strict-runtime', '--runtime', runtime, *flags,
+             Path(str(source) + suffix), OUTPUT / (name + '.wasm')], name + '-link')
+    run([ROOT / 'scripts/build-native', '--wasm', '--entry-c', FIXTURES / 'entry.c', source,
+         OUTPUT / 'native'], 'native-build')
+
+
+def check(system, action, arguments=()):
+    label = '-'.join(map(str, [system, action, *arguments]))
+    directory = OUTPUT / 'cases' / label
+    directory.mkdir(parents=True)
+    for name in ['scalars.txt', 'strings.txt']:
+        (directory / name).write_bytes((OUTPUT / name).read_bytes())
+    SUPPORT.ENV['SNAIL_NATIVE_CLEANUP_LOG'] = str(directory / 'released')
+    command = ([OUTPUT / 'native', action, *arguments] if system == 'native' else
+               [os.environ.get('NODE', 'node'), '--disable-warning=ExperimentalWarning', FIXTURES / 'run.mjs',
+                OUTPUT / (system + '.wasm'), directory, action, *arguments])
+    stdout = run(command, label, cwd=directory, failure=action == 'malformed' and system == 'native')
+    stderr = (OUTPUT / 'commands' / label / 'stderr').read_text()
+    if action == 'malformed':
+        assert not stdout and 'invalid Unicode scalar' in stderr
+        assert (directory / 'pending.txt').read_bytes() == b'buffered'
+    else:
+        assert not stderr, stderr
+    if system == 'native':
+        assert int((directory / 'released').read_text()) == int(action == 'malformed')
+    return stdout
+
+
+def check_scalars(output, expected):
+    actual = [list(map(int, row.split())) for row in output.splitlines()]
+    assert len(actual) == len(expected)
+    for row, targets in zip(actual, expected):
+        assert len(row) == 5 and all(value in (0, 1) for value in row[2:]), row
+        for value, target in zip(row, targets):
+            assert target < 0 or value == target, (targets, row)
+
+
+def freeze_sources():
+    paths = [ROOT / name for name in ['src/snail/text.sld', 'src/strict_text.rs', 'src/unicode.rs',
+             'src/lib.rs', 'src/strict_datum.rs', 'src/strict_io.rs', 'scripts/test-strict-text',
+             'scripts/test-strict-reader', 'tests/native-cleanup-observer.h']]
+    paths += list(FIXTURES.iterdir())
+    identities = {}
+    for path in paths:
+        relative = path.relative_to(ROOT)
+        target = OUTPUT / 'sources' / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+        identities[str(relative)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (OUTPUT / 'source-identities.json').write_text(json.dumps(identities, indent=2) + '\n')
+
+
+def main():
+    OUTPUT.mkdir(parents=True)
+    print(OUTPUT, flush=True)
+    scalars, strings = scalar_cases(), string_cases()
+    (OUTPUT / 'scalars.txt').write_text(''.join(' '.join(map(str, row)) + '\n' for row in scalars))
+    (OUTPUT / 'strings.txt').write_text(''.join(' '.join(map(str, [len(a), len(b), int(a < b),
+         *map(ord, a), *map(ord, b)])) + '\n' for a, b in strings))
+    freeze_sources()
+    SUPPORT.record_tools()
+    build()
+    SUPPORT.record_artifacts()
+    streams = []
+    for system in ['raw', 'optimized', 'native']:
+        output = check(system, 'scalars')
+        check_scalars(output, scalars)
+        streams.append(output)
+        assert check(system, 'strings') == ''.join(str(int(a < b)) + '\n' for a, b in strings)
+        for operation in range(4):
+            for code in [0xd800, 0xdfff, 0x110000, 0xffffffff]:
+                check(system, 'malformed', [operation, code])
+        print('PASS Unicode text ' + system, flush=True)
+    assert streams[0] == streams[1] == streams[2]
+    report = dict(systems=['raw linked Wasm', 'optimized linked Wasm', 'native64'], scalar_cases=len(scalars),
+                  comparison_cases=len(strings), malformed_cases_per_system=16, python_unicode=unicodedata.unidata_version,
+                  oracle='Unicode16 full lowercase plus explicit simple U+0130; decimal category Nd; fixed Alphabetic/White_Space cases',
+                  mutation_checks=4, complete_scalar_fields_equal_across_targets=True)
+    (OUTPUT / 'validation.json').write_text(json.dumps(report, indent=2) + '\n')
+    print('PASS complete Unicode text checks: ' + str(OUTPUT), flush=True)
+
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, SUPPORT.interrupted)
+    main()

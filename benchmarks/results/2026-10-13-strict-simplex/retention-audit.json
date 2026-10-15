@@ -1,0 +1,791 @@
+{
+  "evidence_kind": "Static inspection of the exact canonical optimized Wasm; no dynamic allocation or machine-code claim.",
+  "compiler_commit": "a4030ce190058db3e9d64f6942401b5fa38dbd58",
+  "hashes": {
+    "strict.scm": "42bab80fec36f86579032b44dfefbd07331b55ce3e43236d22a77211854e4476",
+    "strict.wasm.raw.wasm": "ca0a443a4508dbb2c8b652fa8a871c95616e6c46d7c93eaced7079a7c174c5ff",
+    "strict.wasm": "7c8a32500b4d03308ccfced12f647c5967e477d169dbe680691bdccd7d96644e",
+    "strict.optimized.wat": "8fa758db84e92a36b4db9daf8443762fc038c7d93062fd63903cd07094fcc3b7"
+  },
+  "exports": [
+    "bench",
+    "main"
+  ],
+  "layouts": {
+    "I64 index array": {
+      "raw": "(type $type12 (array (mut i64)))",
+      "optimized": "(type $type12 (array (mut i64)))"
+    },
+    "Bool flag array": {
+      "raw": "(type $type14 (array (mut i32)))",
+      "optimized": "(type $type14 (array (mut i32)))"
+    },
+    "F64 row array": {
+      "raw": "(type $type17 (array (mut f64)))",
+      "optimized": "(type $type17 (array (mut f64)))"
+    },
+    "matrix of F64 rows": {
+      "raw": "(type $type20 (array (mut (ref $type17))))",
+      "optimized": "(type $type20 (array (mut (ref $type17))))"
+    },
+    "temporary F64 constructor list": {
+      "raw": "(type $type16 (struct (field f64) (field (ref null $type16))))",
+      "optimized": "(type $type16 (struct (field f64) (field (ref null $type16))))"
+    },
+    "solved index-vector list": {
+      "raw": "(type $type26 (struct (field (ref $type12)) (field (ref null $type26))))",
+      "optimized": "(type $type26 (struct (field (ref $type12)) (field (ref null $type26))))"
+    },
+    "I64 Ref payload": {
+      "raw": "(type $type33 (struct (field (mut i64))))",
+      "optimized": "(type $type33 (struct (field (mut i64))))"
+    },
+    "F64 Ref payload": {
+      "raw": "(type $type59 (struct (field (mut f64))))",
+      "optimized": "(type $type59 (struct (field (mut f64))))"
+    },
+    "Bool Ref payload": {
+      "raw": "(type $type61 (struct (field (mut i32))))",
+      "optimized": "(type $type61 (struct (field (mut i32))))"
+    },
+    "result parent": {
+      "raw": "(type $type39 (sub (struct (field i32))))",
+      "optimized": "(type $type39 (sub (struct (field i32))))"
+    },
+    "infeasible case": {
+      "raw": "(type $type40 (sub $type39 (struct (field i32))))",
+      "optimized": "(type $type40 (sub $type39 (struct (field i32))))"
+    },
+    "unbounded case": {
+      "raw": "(type $type41 (sub $type39 (struct (field i32))))",
+      "optimized": "(type $type41 (sub $type39 (struct (field i32))))"
+    },
+    "solved case": {
+      "raw": "(type $type42 (sub $type39 (struct (field i32) (field (ref null $type26)))))",
+      "optimized": "(type $type42 (sub $type39 (struct (field i32) (field (ref $type26)))))"
+    }
+  },
+  "functions": {
+    "$function29": {
+      "start_line": 217,
+      "end_line": 222,
+      "static_instruction_sites": {},
+      "direct_calls": [],
+      "referenced_functions": []
+    },
+    "$function34": {
+      "start_line": 223,
+      "end_line": 328,
+      "static_instruction_sites": {
+        "array.set": 1,
+        "call": 1,
+        "return_call": 1,
+        "struct.get": 14,
+        "struct.set": 1
+      },
+      "direct_calls": [
+        "$foreign0",
+        "$function34"
+      ],
+      "referenced_functions": []
+    },
+    "$function36": {
+      "start_line": 329,
+      "end_line": 509,
+      "static_instruction_sites": {
+        "array.new_default": 1,
+        "call": 3,
+        "call_ref": 1,
+        "struct.get": 17,
+        "struct.new": 5,
+        "struct.new_default": 1,
+        "struct.set": 3
+      },
+      "direct_calls": [
+        "$foreign1",
+        "$foreign0",
+        "$function36"
+      ],
+      "referenced_functions": [
+        "$function34"
+      ]
+    },
+    "$function41": {
+      "start_line": 510,
+      "end_line": 618,
+      "static_instruction_sites": {
+        "array.new_default": 1,
+        "array.new_fixed": 1,
+        "return_call_ref": 1,
+        "struct.get": 4,
+        "struct.new": 3,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [],
+      "referenced_functions": [
+        "$function42"
+      ]
+    },
+    "$function42": {
+      "start_line": 619,
+      "end_line": 700,
+      "static_instruction_sites": {
+        "array.set": 1,
+        "return_call": 1,
+        "struct.get": 10
+      },
+      "direct_calls": [
+        "$function42"
+      ],
+      "referenced_functions": []
+    },
+    "$function43": {
+      "start_line": 701,
+      "end_line": 809,
+      "static_instruction_sites": {
+        "array.new_default": 1,
+        "array.new_fixed": 1,
+        "return_call_ref": 1,
+        "struct.get": 4,
+        "struct.new": 3,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [],
+      "referenced_functions": [
+        "$function44"
+      ]
+    },
+    "$function44": {
+      "start_line": 810,
+      "end_line": 889,
+      "static_instruction_sites": {
+        "array.set": 1,
+        "return_call": 1,
+        "struct.get": 10
+      },
+      "direct_calls": [
+        "$function44"
+      ],
+      "referenced_functions": []
+    },
+    "$function45": {
+      "start_line": 890,
+      "end_line": 1027,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "return_call_ref": 1,
+        "struct.get": 17,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 4
+      },
+      "direct_calls": [],
+      "referenced_functions": [
+        "$function47"
+      ],
+      "inspected_role": "simp1 coefficient selection and initialization"
+    },
+    "$function47": {
+      "start_line": 1028,
+      "end_line": 1479,
+      "static_instruction_sites": {
+        "array.get": 10,
+        "f64.const": 9,
+        "f64.eq": 2,
+        "f64.gt": 1,
+        "f64.lt": 2,
+        "f64.sub": 4,
+        "return_call": 1,
+        "struct.get": 33,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function47"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "remaining coefficient scan"
+    },
+    "$function48": {
+      "start_line": 1480,
+      "end_line": 1563,
+      "static_instruction_sites": {
+        "return_call_ref": 1,
+        "struct.get": 13,
+        "struct.new": 4,
+        "struct.new_default": 3,
+        "struct.set": 3
+      },
+      "direct_calls": [],
+      "referenced_functions": [
+        "$function49"
+      ],
+      "inspected_role": "simp2 ratio selection setup"
+    },
+    "$function49": {
+      "start_line": 1564,
+      "end_line": 2352,
+      "static_instruction_sites": {
+        "array.get": 21,
+        "call_ref": 1,
+        "f64.const": 4,
+        "f64.div": 2,
+        "f64.eq": 1,
+        "f64.lt": 4,
+        "f64.sub": 4,
+        "return_call": 1,
+        "struct.get": 81,
+        "struct.new": 4,
+        "struct.new_default": 3,
+        "struct.set": 8
+      },
+      "direct_calls": [
+        "$function49"
+      ],
+      "referenced_functions": [
+        "$function50"
+      ],
+      "inspected_role": "ratio candidate traversal"
+    },
+    "$function50": {
+      "start_line": 2353,
+      "end_line": 2738,
+      "static_instruction_sites": {
+        "array.get": 10,
+        "f64.const": 2,
+        "f64.div": 2,
+        "f64.eq": 1,
+        "f64.sub": 2,
+        "return_call": 1,
+        "struct.get": 37,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function50"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "lexicographic ratio tie traversal"
+    },
+    "$function51": {
+      "start_line": 2739,
+      "end_line": 3005,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "call_ref": 2,
+        "f64.const": 1,
+        "f64.div": 1,
+        "struct.get": 32,
+        "struct.new": 5,
+        "struct.new_default": 2,
+        "struct.set": 4
+      },
+      "direct_calls": [],
+      "referenced_functions": [
+        "$function52",
+        "$function55"
+      ],
+      "inspected_role": "simp3 pivot reciprocal and row-loop setup"
+    },
+    "$function52": {
+      "start_line": 3006,
+      "end_line": 3249,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "call_ref": 1,
+        "f64.mul": 1,
+        "return_call": 1,
+        "struct.get": 28,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function52"
+      ],
+      "referenced_functions": [
+        "$function54"
+      ],
+      "inspected_role": "pivot elimination outer row traversal"
+    },
+    "$function54": {
+      "start_line": 3250,
+      "end_line": 3534,
+      "static_instruction_sites": {
+        "array.get": 7,
+        "array.set": 1,
+        "f64.mul": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 22
+      },
+      "direct_calls": [
+        "$function54"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "pivot elimination inner column updates"
+    },
+    "$function55": {
+      "start_line": 3535,
+      "end_line": 3732,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "f64.const": 1,
+        "f64.mul": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 20
+      },
+      "direct_calls": [
+        "$function55"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "pivot row updates"
+    },
+    "$function56": {
+      "start_line": 3733,
+      "end_line": 3829,
+      "static_instruction_sites": {
+        "array.set": 2,
+        "return_call": 1,
+        "struct.get": 11
+      },
+      "direct_calls": [
+        "$function56"
+      ],
+      "referenced_functions": []
+    },
+    "$function57": {
+      "start_line": 3830,
+      "end_line": 4014,
+      "static_instruction_sites": {
+        "array.get": 2,
+        "array.set": 2,
+        "f64.const": 1,
+        "f64.lt": 1,
+        "return_call": 1,
+        "struct.get": 14
+      },
+      "direct_calls": [
+        "$function57"
+      ],
+      "referenced_functions": []
+    },
+    "$function59": {
+      "start_line": 4015,
+      "end_line": 4087,
+      "static_instruction_sites": {
+        "array.set": 1,
+        "return_call": 1,
+        "struct.get": 7
+      },
+      "direct_calls": [
+        "$function59"
+      ],
+      "referenced_functions": []
+    },
+    "$function60": {
+      "start_line": 4088,
+      "end_line": 4182,
+      "static_instruction_sites": {
+        "call": 1,
+        "f64.const": 1,
+        "return_call": 1,
+        "struct.get": 12,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function61",
+        "$function60"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "auxiliary objective construction"
+    },
+    "$function61": {
+      "start_line": 4183,
+      "end_line": 4354,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "f64.add": 1,
+        "f64.const": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 13
+      },
+      "direct_calls": [
+        "$function61"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "auxiliary coefficient sum"
+    },
+    "$function62": {
+      "start_line": 4355,
+      "end_line": 5419,
+      "static_instruction_sites": {
+        "array.get": 14,
+        "array.set": 4,
+        "call": 4,
+        "call_ref": 3,
+        "f64.add": 1,
+        "f64.const": 2,
+        "f64.ge": 1,
+        "f64.le": 1,
+        "f64.lt": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 154,
+        "struct.new": 6,
+        "struct.new_default": 3,
+        "struct.set": 12
+      },
+      "direct_calls": [
+        "$function45",
+        "$function48",
+        "$function48",
+        "$function51",
+        "$function62"
+      ],
+      "referenced_functions": [
+        "$function63",
+        "$function67",
+        "$function70"
+      ],
+      "inspected_role": "phase-one control and basis exchange"
+    },
+    "$function63": {
+      "start_line": 5420,
+      "end_line": 5655,
+      "static_instruction_sites": {
+        "array.get": 1,
+        "call": 1,
+        "f64.const": 1,
+        "f64.gt": 1,
+        "return_call": 1,
+        "return_call_ref": 1,
+        "struct.get": 32,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 4
+      },
+      "direct_calls": [
+        "$function45",
+        "$function63"
+      ],
+      "referenced_functions": [
+        "$function64"
+      ]
+    },
+    "$function64": {
+      "start_line": 5656,
+      "end_line": 5784,
+      "static_instruction_sites": {
+        "array.get": 1,
+        "call_ref": 1,
+        "return_call": 1,
+        "struct.get": 15,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function64"
+      ],
+      "referenced_functions": [
+        "$function65"
+      ]
+    },
+    "$function65": {
+      "start_line": 5785,
+      "end_line": 5952,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "f64.const": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 10
+      },
+      "direct_calls": [
+        "$function65"
+      ],
+      "referenced_functions": []
+    },
+    "$function66": {
+      "start_line": 5953,
+      "end_line": 5957,
+      "static_instruction_sites": {},
+      "direct_calls": [],
+      "referenced_functions": []
+    },
+    "$function67": {
+      "start_line": 5958,
+      "end_line": 6287,
+      "static_instruction_sites": {
+        "array.get": 4,
+        "array.set": 1,
+        "call_ref": 1,
+        "f64.add": 1,
+        "f64.const": 1,
+        "return_call": 1,
+        "return_call_ref": 1,
+        "struct.get": 40,
+        "struct.new": 4,
+        "struct.new_default": 2,
+        "struct.set": 5
+      },
+      "direct_calls": [
+        "$function67"
+      ],
+      "referenced_functions": [
+        "$function68",
+        "$function69"
+      ]
+    },
+    "$function68": {
+      "start_line": 6288,
+      "end_line": 6388,
+      "static_instruction_sites": {
+        "array.get": 1,
+        "array.set": 1,
+        "return_call": 1,
+        "struct.get": 12
+      },
+      "direct_calls": [
+        "$function68"
+      ],
+      "referenced_functions": []
+    },
+    "$function69": {
+      "start_line": 6389,
+      "end_line": 6568,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "f64.const": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 15
+      },
+      "direct_calls": [
+        "$function69"
+      ],
+      "referenced_functions": []
+    },
+    "$function70": {
+      "start_line": 6569,
+      "end_line": 6748,
+      "static_instruction_sites": {
+        "array.get": 3,
+        "array.set": 1,
+        "f64.const": 1,
+        "f64.sub": 1,
+        "return_call": 1,
+        "struct.get": 15
+      },
+      "direct_calls": [
+        "$function70"
+      ],
+      "referenced_functions": []
+    },
+    "$function71": {
+      "start_line": 6749,
+      "end_line": 7037,
+      "static_instruction_sites": {
+        "array.get": 2,
+        "array.set": 2,
+        "call": 3,
+        "f64.const": 1,
+        "f64.gt": 1,
+        "return_call": 1,
+        "struct.get": 47,
+        "struct.new": 4
+      },
+      "direct_calls": [
+        "$function45",
+        "$function48",
+        "$function51",
+        "$function71"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "phase-two control, basis exchange and complete solved result"
+    },
+    "$function74": {
+      "start_line": 7038,
+      "end_line": 8354,
+      "static_instruction_sites": {
+        "array.get": 1,
+        "array.len": 3,
+        "array.new": 1,
+        "array.set": 6,
+        "call": 13,
+        "call_ref": 5,
+        "f64.const": 29,
+        "return_call": 1,
+        "struct.get": 122,
+        "struct.new": 71,
+        "struct.new_default": 15,
+        "struct.set": 16
+      },
+      "direct_calls": [
+        "$foreign2",
+        "$function77",
+        "$function77",
+        "$function77",
+        "$function77",
+        "$function77",
+        "$function77",
+        "$function41",
+        "$function41",
+        "$function43",
+        "$function41",
+        "$function41",
+        "$function71",
+        "$function74"
+      ],
+      "referenced_functions": [
+        "$function56",
+        "$function57",
+        "$function59",
+        "$function48",
+        "$function60",
+        "$function62"
+      ],
+      "inspected_role": "repetition, hide call, fresh tableau and simplex setup"
+    },
+    "$function77": {
+      "start_line": 8355,
+      "end_line": 9895,
+      "static_instruction_sites": {
+        "array.new": 1,
+        "array.set": 15,
+        "call": 1,
+        "return_call": 1,
+        "struct.get": 284,
+        "struct.new": 5,
+        "struct.new_default": 2,
+        "struct.set": 4
+      },
+      "direct_calls": [
+        "$function80",
+        "$function81"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "typed variadic F64 vector construction"
+    },
+    "$function80": {
+      "start_line": 9896,
+      "end_line": 9950,
+      "static_instruction_sites": {
+        "return_call": 1,
+        "struct.get": 6
+      },
+      "direct_calls": [
+        "$function80"
+      ],
+      "referenced_functions": []
+    },
+    "$function81": {
+      "start_line": 9951,
+      "end_line": 10023,
+      "static_instruction_sites": {
+        "array.set": 1,
+        "return_call": 1,
+        "struct.get": 11
+      },
+      "direct_calls": [
+        "$function81"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "F64 list-to-vector copying loop"
+    },
+    "$function88": {
+      "start_line": 10024,
+      "end_line": 10169,
+      "static_instruction_sites": {
+        "array.len": 2,
+        "call_ref": 1,
+        "return_call": 1,
+        "struct.get": 8,
+        "struct.new": 2,
+        "struct.new_default": 1,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function88"
+      ],
+      "referenced_functions": [
+        "$function90"
+      ],
+      "inspected_role": "complete result-list comparison"
+    },
+    "$function90": {
+      "start_line": 10170,
+      "end_line": 10259,
+      "static_instruction_sites": {
+        "array.get": 2,
+        "array.len": 1,
+        "return_call": 1,
+        "struct.get": 8
+      },
+      "direct_calls": [
+        "$function90"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "complete I64 vector comparison"
+    },
+    "$export0": {
+      "start_line": 10260,
+      "end_line": 10395,
+      "static_instruction_sites": {
+        "call": 2,
+        "struct.get": 5,
+        "struct.new": 2,
+        "struct.new_default": 2,
+        "struct.set": 2
+      },
+      "direct_calls": [
+        "$function74",
+        "$function88"
+      ],
+      "referenced_functions": [],
+      "inspected_role": "bench: repeat then check the final result once"
+    },
+    "$main": {
+      "start_line": 10396,
+      "end_line": 10733,
+      "static_instruction_sites": {
+        "call": 3,
+        "struct.get": 6,
+        "struct.new": 7,
+        "struct.new_default": 33,
+        "struct.set": 3
+      },
+      "direct_calls": [
+        "$foreign3",
+        "$foreign0",
+        "$function36"
+      ],
+      "referenced_functions": [
+        "$function41",
+        "$function43",
+        "$function29",
+        "$function66"
+      ],
+      "inspected_role": "untimed inputs and expected-value setup"
+    }
+  },
+  "repetition": "function74 tests the runtime count, calls hide_f64, constructs six fresh rows and the matrix, executes both phases, and tail-calls itself with the incremented index and current result.",
+  "predicate": "export0 calls the repeat loop once, then matches its final result and traverses every list/vector element through function88/function90.",
+  "mutation": "Mutable F64 rows, I64 work/result arrays, Bool flags and explicit scalar Ref payloads remain. Pivot arithmetic and array stores remain in both phases.",
+  "result": "function71 retains the nominal solved wrapper, both list nodes, and both mutable I64 vector references; all are observed by the final predicate.",
+  "representation_cost": "The strict variadic vector constructor retains temporary F64 list nodes and copying in function77/function81. Chez native vector construction need not perform this work. Ref binding and closure wrapper shapes are optimized independently.",
+  "probe_isolation": "Canonical exports are bench and main only. Matrix-store observers, full tableau encoding and predicate probes use separate modules.",
+  "limits": "Static sites are not execution counts. This does not establish V8 machine-code allocation, live-heap overlap, equal allocation across systems or Chez optimizer retention.",
+  "performance_samples": 0
+}

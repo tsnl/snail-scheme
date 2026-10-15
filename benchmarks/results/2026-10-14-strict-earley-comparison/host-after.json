@@ -1,0 +1,39 @@
+{
+  "captured": "2026-10-14T16:19:28.950963+00:00",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "loadavg": [
+    0.521484375,
+    0.513671875,
+    0.4404296875
+  ],
+  "governor": "powersave",
+  "frequency_khz": "800000",
+  "note": "Observed after terminal campaign and before comparison packaging; no fixed-frequency guarantee",
+  "final_common_wasm_sha256": "2f2d788d5851dd964550b26054d5cf034dc598015a163b79378aa7a214029ea5",
+  "plan_sha256": "063472786ad5ea7d0d20c6b50ee025a7d9719f3b2dc13f241cab71ef9ad06168"
+}

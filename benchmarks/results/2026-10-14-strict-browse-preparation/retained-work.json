@@ -1,0 +1,495 @@
+{
+  "raw": {
+    "module_sha256": "95e3bdc57f7242f14897d3b9a9d25c33187c49e6490028022c04e04f4f8c6080",
+    "wat_sha256": "5d4d54e283b08f017cac09bd5f1d517dea852c4d6b8ad00774846ae9f4eec50b",
+    "paths": {
+      "$export0": [
+        "$export0"
+      ],
+      "$function252": [
+        "$export0",
+        "$function251",
+        "$function252"
+      ],
+      "$function243": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243"
+      ],
+      "$function244": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244"
+      ],
+      "$function245": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245"
+      ],
+      "$function239": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239"
+      ],
+      "$function240": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240"
+      ],
+      "$function225": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240",
+        "$function225"
+      ],
+      "$function117": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function117"
+      ],
+      "$function118": [
+        "$export0",
+        "$function251",
+        "$function252",
+        "$function241",
+        "$function242",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function118"
+      ]
+    },
+    "calls": {
+      "$export0": {
+        "$function251": 1
+      },
+      "$function252": {
+        "$function250": 1,
+        "$function241": 1,
+        "$function252": 1,
+        "$function120": 1
+      },
+      "$function243": {
+        "$function109": 1,
+        "$function244": 1,
+        "$function104": 1,
+        "$function243": 1
+      },
+      "$function244": {
+        "$function109": 1,
+        "$function103": 1,
+        "$function222": 1,
+        "$function245": 1,
+        "$function104": 1,
+        "$function244": 1
+      },
+      "$function245": {
+        "$function109": 1,
+        "$function103": 2,
+        "$function239": 1,
+        "$function104": 1,
+        "$function245": 1
+      },
+      "$function239": {
+        "$function109": 3,
+        "$function212": 2,
+        "$function103": 14,
+        "$function112": 3,
+        "$function104": 14,
+        "$function239": 9,
+        "$function213": 4,
+        "$function110": 2,
+        "$function217": 2,
+        "$string-block": 2,
+        "$function118": 2,
+        "$function111": 2,
+        "$function102": 4,
+        "$function117": 1,
+        "$function240": 1
+      },
+      "$function240": {
+        "$function109": 4,
+        "$function104": 3,
+        "$function103": 2,
+        "$function102": 3,
+        "$function239": 1,
+        "$function213": 1,
+        "$function212": 1,
+        "$function225": 1,
+        "$function240": 1
+      },
+      "$function225": {
+        "$function109": 1,
+        "$function104": 1,
+        "$function226": 1
+      },
+      "$function117": {
+        "$function109": 1,
+        "$function103": 1,
+        "$function104": 1,
+        "$function117": 1,
+        "$function102": 1
+      },
+      "$function118": {
+        "$function109": 1,
+        "$function103": 2,
+        "$function112": 1,
+        "$function104": 1,
+        "$function118": 1
+      }
+    },
+    "matcher_struct_allocations": 0,
+    "prefix_struct_allocations": 0,
+    "observation_imports": false
+  },
+  "optimized": {
+    "module_sha256": "f44563181c29f63fe2e7afdf4d77f06fe93245b9cde9f21d7126aa8ca1b5c407",
+    "wat_sha256": "3808a89ce1427715eb66f7826eb8a5033830a9c17399ebd7443fb656cfa7a7ec",
+    "paths": {
+      "$export0": [
+        "$export0"
+      ],
+      "$function252": [
+        "$export0",
+        "$function252"
+      ],
+      "$function243": [
+        "$export0",
+        "$function252",
+        "$function243"
+      ],
+      "$function244": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244"
+      ],
+      "$function245": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245"
+      ],
+      "$function239": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239"
+      ],
+      "$function240": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240"
+      ],
+      "$function225": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240",
+        "$function225"
+      ],
+      "$function117": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function117"
+      ],
+      "$function118": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function118"
+      ]
+    },
+    "calls": {
+      "$export0": {
+        "$function252": 1
+      },
+      "$function252": {
+        "$function243": 1,
+        "$foreign26": 1,
+        "$function119": 2,
+        "$function252": 1,
+        "$function120": 1
+      },
+      "$function243": {
+        "$function107": 1,
+        "$function244": 1,
+        "$function243": 1
+      },
+      "$function244": {
+        "$function107": 3,
+        "$function221": 2,
+        "$function245": 1,
+        "$function244": 1
+      },
+      "$function245": {
+        "$function107": 1,
+        "$function239": 1,
+        "$function245": 1
+      },
+      "$function239": {
+        "$function107": 7,
+        "$function112": 3,
+        "$function239": 5,
+        "$snail:datum/symbol-length": 2,
+        "$function87": 2,
+        "$string-new": 2,
+        "$function118": 2,
+        "$function117": 1,
+        "$function240": 1
+      },
+      "$function240": {
+        "$function107": 4,
+        "$function239": 1,
+        "$function225": 1,
+        "$function240": 1
+      },
+      "$function225": {
+        "$function107": 20,
+        "$function109": 1,
+        "$function106": 1,
+        "$function226": 1,
+        "$function104": 1
+      },
+      "$function117": {
+        "$function107": 1,
+        "$function117": 1
+      },
+      "$function118": {
+        "$function107": 1,
+        "$function112": 1,
+        "$function118": 1
+      }
+    },
+    "matcher_struct_allocations": 12,
+    "prefix_struct_allocations": 9,
+    "observation_imports": false
+  },
+  "native-final": {
+    "module_sha256": "053d98bfd9e2e2b39515c782832752ce2bc9da343a2e4d04170965329a31be5e",
+    "wat_sha256": "d0ee894dbb1639f2901af9486e1ea2a7ee469d7b258c6021d93988f74d9fae04",
+    "paths": {
+      "$export0": [
+        "$export0"
+      ],
+      "$function252": [
+        "$export0",
+        "$function252"
+      ],
+      "$function243": [
+        "$export0",
+        "$function252",
+        "$function243"
+      ],
+      "$function244": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244"
+      ],
+      "$function245": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245"
+      ],
+      "$function239": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239"
+      ],
+      "$function240": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240"
+      ],
+      "$function225": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function240",
+        "$function225"
+      ],
+      "$function117": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function117"
+      ],
+      "$function118": [
+        "$export0",
+        "$function252",
+        "$function243",
+        "$function244",
+        "$function245",
+        "$function239",
+        "$function118"
+      ]
+    },
+    "calls": {
+      "$export0": {
+        "$function252": 1
+      },
+      "$function252": {
+        "$function243": 1,
+        "$foreign26": 1,
+        "$function119": 2,
+        "$function252": 1,
+        "$function120": 1
+      },
+      "$function243": {
+        "$function107": 1,
+        "$function244": 1,
+        "$function243": 1
+      },
+      "$function244": {
+        "$function107": 3,
+        "$function221": 2,
+        "$function245": 1,
+        "$function244": 1
+      },
+      "$function245": {
+        "$function107": 1,
+        "$function239": 1,
+        "$function245": 1
+      },
+      "$function239": {
+        "$function107": 7,
+        "$function112": 3,
+        "$function239": 5,
+        "$foreign6": 2,
+        "$function87": 2,
+        "$string-new": 2,
+        "$function118": 2,
+        "$function117": 1,
+        "$function240": 1
+      },
+      "$function240": {
+        "$function107": 4,
+        "$function239": 1,
+        "$function225": 1,
+        "$function240": 1
+      },
+      "$function225": {
+        "$function107": 20,
+        "$function109": 1,
+        "$function106": 1,
+        "$function226": 1,
+        "$function104": 1
+      },
+      "$function117": {
+        "$function107": 1,
+        "$function117": 1
+      },
+      "$function118": {
+        "$function107": 1,
+        "$function112": 1,
+        "$function118": 1
+      }
+    },
+    "matcher_struct_allocations": 12,
+    "prefix_struct_allocations": 9,
+    "observation_imports": false
+  },
+  "native-executable": {
+    "executable_sha256": "386cf952227b99c9d3447fb00c814d8d24236cc6fb797efcc88014f341344685",
+    "final_wasm_to_llvm": {
+      "$function239": "f.102",
+      "$function240": "f.103",
+      "$function252": "f.108",
+      "$export0": "f.109"
+    },
+    "main_to_matcher": [
+      "$main",
+      "$f.105",
+      "$f.102"
+    ],
+    "matcher_machine_callers": {
+      "f.105": [
+        "638b1: e8 1a 27 00 00               \tcallq\t0x65fd0 <f.102>"
+      ],
+      "f.102": [
+        "6644a: e8 81 fb ff ff               \tcallq\t0x65fd0 <f.102>",
+        "66524: e8 a7 fa ff ff               \tcallq\t0x65fd0 <f.102>",
+        "66acd: e8 fe f4 ff ff               \tcallq\t0x65fd0 <f.102>"
+      ],
+      "f.103": [
+        "6a59b: e8 30 ba ff ff               \tcallq\t0x65fd0 <f.102>"
+      ]
+    },
+    "matcher_machine_allocations": 24
+  },
+  "source_map_sha256": "668774e44945b84e31214bbfd71be5c05e224b90194ba3b60b4cbfb246269cff",
+  "scope": "Static retained call paths in these exact clean artifacts; no full-count internal trace claim."
+}

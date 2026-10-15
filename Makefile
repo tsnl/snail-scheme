@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test
+.PHONY: format check test benchmark
 
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
@@ -7,6 +7,9 @@ NIXFMT ?= nixfmt
 
 test:
 	"$(CHIBI)" -D snail-tests -I src -I tests tests/snail-scheme/test.scm
+
+benchmark:
+	./benchmarks/r7rs.py
 
 format:
 	EMACS="$(EMACS)" find src tests -type f \( -name '*.scm' -o -name '*.sld' \) -exec ./scripts/format-scheme --write {} +

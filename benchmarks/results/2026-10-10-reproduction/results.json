@@ -1,0 +1,1377 @@
+{
+  "schema": 1,
+  "kind": "native-fibonacci",
+  "complete": true,
+  "scope": "Recursive Fibonacci \u00b7 extracted function with a C workload harness",
+  "date": "2026-10-10T12:12:56.317699+00:00",
+  "rounds": 8,
+  "repetitions": 64,
+  "cpu": 2,
+  "allowed_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "provenance": {
+    "revision": "6fb5ad5249cfe513b09ac8f31129306b1ea791e8",
+    "working_tree": "",
+    "source_sha256": {
+      "benchmarks/chez.scm": "b6587fecb0863c7f054129c68971c8b876079173f5d526c4a2e598f34e6c037d",
+      "benchmarks/chibi.scm": "6edc65a0c8cfd8f41102d178f7b3e1c804ab41d90607fb57b78889553c70aaa7",
+      "benchmarks/cpu.scm": "827bcb13ae40764f7b58a89896901d2fab6eb75d52e643b5326cde90a417ed27",
+      "benchmarks/reproduce.py": "1127b9c6460facb5cd259f1f4685eae87bcfd787fab9d19e351b7b5f45467551",
+      "benchmarks/shell.nix": "a2150ce3fb1d10944c55d881d47b4fde19a361efb854a44cb651fba0ab032e86",
+      "bootstrap/scheme/base.sld": "c57065a494a10392a5f9f3debfea04bd3273203b4e2eac2a3261f3e6cb5b5d8a",
+      "bootstrap/scheme/char.sld": "cc9bf03dc5d491c511c62d20edcbaa9a669e9328e77536c1967559a34675e0f4",
+      "bootstrap/scheme/cxr.sld": "3dbf04a4a4effd29668b9892bde0ec2aabb72a35c653b716ee12059c774ea52e",
+      "bootstrap/scheme/file.sld": "c21a93aecaba05c92173b86318b06547bd3ad4bf7761a5d1e9440c7ea371e955",
+      "bootstrap/scheme/process-context.sld": "f8cbecccc7437f781d49237940513f77ab94371dfa9fe7166cc429eda2dc1677",
+      "bootstrap/scheme/time.sld": "3e4a681e6bff59a053b358af8594b7d333627b95b91a9e13e96f0b570d4058cf",
+      "bootstrap/scheme/write.sld": "2096affce7036e82476cc571ad53f73b6918c4e5c365e2a3572c53b7b3823d6e",
+      "experiments/wasm-llvm/ablate.py": "2d8393b6dcd7798b39cc8c27c7ed96e8688d62401ddaf13a0163a5f11772ce0e",
+      "experiments/wasm-llvm/build.py": "1ef72db263b3146d65043e8c4689017697354fef93e72f00d71958bea6c9e915",
+      "experiments/wasm-llvm/check.py": "a870c7e7d829b9e9b975df654073bdec0540460e66ddfd1463053b1c6bb727a8",
+      "experiments/wasm-llvm/gc-test.wat": "7c66900da499d3efdd021ff3790ce9cae8b4e4ae13b21870cb15863a8ab173e5",
+      "experiments/wasm-llvm/runner.c": "4239dfe73e2d16ed4b7bd0f12d769e2228cdc1453366f2eb2e4fc0f95afa488d",
+      "experiments/wasm-llvm/semantics.c": "5198498b838a33340f5e376d7bd07551329f901f61f4e431d3067d4ee392dcee",
+      "experiments/wasm-llvm/semantics.wat": "568069bcda85a19476f67f67d88988ee64739f46a9a3a8174c468ded3a37b6a7",
+      "experiments/wasm-llvm/translate.py": "1e63d8b92083633d0a56e0bdc6a0b09d5173eb8d0d6a762a10c02b4f97480c07",
+      "experiments/wasmgc/build.py": "b5047be580d889d8c6911e133020f4e04e79881bade5e568631ab83bf06d6ad8",
+      "experiments/wasmgc/check.mjs": "ebc72d0900593bccd73ab55b0a5bff03f1adab9e71f0fc8b331da099ccd13006",
+      "experiments/wasmgc/check.scm": "bad163e5a756db754b6737f1a077d22048888c6de8b2b0836bdceabe577cc7c7",
+      "experiments/wasmgc/compile.scm": "aa0be69bdda5aa4c9626ad50ee35b7763a1f5199f24ef9a7bbdda9a089303483",
+      "experiments/wasmgc/emit.py": "6bb25a6491474848c1fa0837b5720dd3500636f487c6b9c7590a1e83e3e655e4",
+      "experiments/wasmgc/measure.py": "62fce46710fe52bf83123dd434c5029d6a10516816586becdb9fbaa634f3b34a",
+      "experiments/wasmgc/numbers.wat": "31fbf255d31b992fbac5a712a9fe8ebb26a8e799c4e88fc1828dbb59726fabad",
+      "experiments/wasmgc/run.mjs": "37a6d29f8065d74e63a04e15703fb50857a54cbc443e9b523216efa2ea509f86",
+      "experiments/wasmgc/wasmtime-run.c": "70524f7f411cc5df82263d52e3648c5c2d6f2a60b32c8e921be3679675e03b92",
+      "src/runtime/awi.wat": "3320524b9f610e83b6eca1d48c2c0dab4b7e7be6966e8fe468ebbff9decdeea5",
+      "src/runtime/host.mjs": "a919df9534dfc14cdcad751b551a4352d219a6fd505ff9f6177fec808bc76be5",
+      "src/runtime/wasmgc.wat": "d7193290fe105bb43ea4e2a2ca34f741ad3bd0350ce537d8b308f2a03b055d83",
+      "src/snail-scheme/bootstrap.sld": "ae9c16cb70dc1c0d5d1cdea775ac5069461f4a2639196356eb5c65b96b26cba8",
+      "src/snail-scheme/build.sld": "6c773b398ef047c9f152bcf1d061f8330fe109e2e76a6d2c9312482723c6cb8b",
+      "src/snail-scheme/cli.sld": "9f4cb7c4e92ffb8bc94a9a740c52787e1af7649bc3639feb02106c68b8e9c2a5",
+      "src/snail-scheme/common.sld": "43ca96556c01aea88dd77e4e793869a9f5b1207cf421b5bcfc8174238f258f61",
+      "src/snail-scheme/compiler.sld": "fa29bd80777eb4fd2076d52902396d5a01125bc9e3238aa11ad9066f7da93605",
+      "src/snail-scheme/expand.sld": "12c80e5cc12711c5ea5452a84d332888557c3fff0a79f147bf6872fa0142e66d",
+      "src/snail-scheme/ir.sld": "aa41e1ee068c59aefc859370f349df151c4f90323d087bacbcc9752b7cff6c21",
+      "src/snail-scheme/library.sld": "c54ac91c01046efa9f2043e071239de038e8a5c65fde499107d5e272519dfcd1",
+      "src/snail-scheme/main.scm": "08efd5d8bbbdfc6a8fe9dbe47c85c1e219d1c46c571567def7174822ae3dedb0",
+      "src/snail-scheme/parser.sld": "98b887f47cd5943fd27975bc151ee2bc68ccccf560d850cd224bcc3d30b20763",
+      "src/snail-scheme/pattern.sld": "c4cc294c975181003711bde84e448c93a8eb9f759abe2ad0a62d362d91713fa3",
+      "src/snail-scheme/reader.sld": "f257428ffa2f5cefeffa5e40e5acdbf67508bbb69fc773802f7e486c991ae6f8",
+      "src/snail-scheme/runtime.sld": "ed0149d725e3199e39f4e60b6e0bff778e568d7fad182070c0d182ef2ef0366a",
+      "src/snail-scheme/source.sld": "cb168e22185c259cdfd9720a14be7ace1ec338abce4a075115fad453fdd7de50",
+      "src/snail-scheme/syntax-parser.sld": "abfb557c586ed9928f066b9b137035eda418a359ef7b9eed0c241520c2abe5e2",
+      "src/snail-scheme/syntax.sld": "dcc7e2554b42665a97e2c78b182e2a4f313797aff3787e537962b0e56ad04297",
+      "src/snail-scheme/trace.sld": "98c06dbb2642f7d07ec39d218f8a5553294c4bb198a82161a15dfd1b4837bb69",
+      "src/snail-scheme/wasm.sld": "c93d8bd6b801caa1c7c3c50b2a53082a85c71d59ef0155045690c9c62ce7c8d3"
+    },
+    "artifact_sha256": {
+      "build/benchmark-published/cpu-chez.so": "3f86300868bdf4e252ca0691b98fcc459534d121bec9ed8e279454a05d067083",
+      "build/benchmark-published/cpu-chibi.scm": "a24bb4afec3253f5b7664a18b089c67ab44ecc7e1fdcd381488cf831ab381dfc",
+      "build/benchmark-published/cpu.go": "ad16d7a195bea39cb0f34da50d64e6eb0f87342e1e37af047159401d8fd5d7fe",
+      "build/wasm-llvm-ablation/cpu-baseline": "fe3f43f8b86a942e799545ec831e01f74fe1b55df95a69662324c123391a3e9d",
+      "build/wasm-llvm-ablation/cpu-both": "9c4e443aa16e84b124c4b61762dc10816a5e7e87d27888eb50c137de8892a452"
+    },
+    "build_details": {
+      "wasmgc": [
+        [
+          "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+          "-I",
+          "src",
+          "experiments/wasmgc/compile.scm",
+          "/tmp/snail-readme-20261010",
+          "benchmarks/cpu.scm",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.sexp"
+        ],
+        [
+          "python3",
+          "experiments/wasmgc/emit.py",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.sexp",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.wat"
+        ],
+        [
+          "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.wat",
+          "--mvp-features",
+          "--enable-gc",
+          "--enable-reference-types",
+          "--enable-tail-call",
+          "--enable-mutable-globals",
+          "-g",
+          "-o",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.wasm"
+        ],
+        [
+          "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu.wasm",
+          "--mvp-features",
+          "--enable-gc",
+          "--enable-reference-types",
+          "--enable-tail-call",
+          "--enable-mutable-globals",
+          "-O3",
+          "-g",
+          "-o",
+          "/tmp/snail-readme-20261010/build/wasmgc/cpu-opt.wasm"
+        ],
+        [
+          "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+          "-I",
+          "src",
+          "experiments/wasmgc/compile.scm",
+          "/tmp/snail-readme-20261010",
+          "experiments/wasmgc/check.scm",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.sexp"
+        ],
+        [
+          "python3",
+          "experiments/wasmgc/emit.py",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.sexp",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.wat"
+        ],
+        [
+          "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.wat",
+          "--mvp-features",
+          "--enable-gc",
+          "--enable-reference-types",
+          "--enable-tail-call",
+          "--enable-mutable-globals",
+          "-g",
+          "-o",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.wasm"
+        ],
+        [
+          "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.wasm",
+          "--mvp-features",
+          "--enable-gc",
+          "--enable-reference-types",
+          "--enable-tail-call",
+          "--enable-mutable-globals",
+          "-O3",
+          "-g",
+          "-o",
+          "/tmp/snail-readme-20261010/build/wasmgc/check-opt.wasm"
+        ],
+        [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-liftoff",
+          "experiments/wasmgc/check.mjs",
+          "/tmp/snail-readme-20261010/build/wasmgc/check.wasm"
+        ],
+        [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--no-liftoff",
+          "experiments/wasmgc/check.mjs",
+          "/tmp/snail-readme-20261010/build/wasmgc/check-opt.wasm"
+        ],
+        [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--liftoff-only",
+          "experiments/wasmgc/check.mjs",
+          "/tmp/snail-readme-20261010/build/wasmgc/check-opt.wasm"
+        ],
+        [
+          "gcc",
+          "-O3",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "experiments/wasmgc/wasmtime-run.c",
+          "-I/nix/store/zk67k91by6w8h0al8dd764qhl3rgq2g6-wasmtime-48.0.0-dev/include",
+          "-L/nix/store/jrqxad974ahz55ka8dq2xr618mx51x4a-wasmtime-48.0.0-lib/lib",
+          "-Wl,-rpath,/nix/store/jrqxad974ahz55ka8dq2xr618mx51x4a-wasmtime-48.0.0-lib/lib",
+          "-lwasmtime",
+          "-o",
+          "/tmp/snail-readme-20261010/build/wasmgc/wasmtime-run"
+        ]
+      ],
+      "wasm-llvm": {
+        "commands": [
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-O3",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-I/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+            "-c",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/runner.c",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/runner-c.o"
+          ],
+          [
+            "python3",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/translate.py",
+            "/tmp/snail-readme-20261010/build/wasmgc/cpu.wasm",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu.ll"
+          ],
+          [
+            "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+            "-passes=verify",
+            "-disable-output",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu.ll"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-Wno-unused-command-line-argument",
+            "-O3",
+            "-c",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu.ll",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu.o"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu.o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/runner-c.o",
+            "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-lgc",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/cpu"
+          ],
+          [
+            "python3",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/translate.py",
+            "/tmp/snail-readme-20261010/build/wasmgc/check.wasm",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/check.ll"
+          ],
+          [
+            "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+            "-passes=verify",
+            "-disable-output",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/check.ll"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-Wno-unused-command-line-argument",
+            "-O3",
+            "-shared",
+            "-fPIC",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/check.ll",
+            "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-lgc",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/check.so"
+          ],
+          [
+            "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/gc-test.wat",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "-g",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.wasm"
+          ],
+          [
+            "python3",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/translate.py",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.wasm",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.ll"
+          ],
+          [
+            "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+            "-passes=verify",
+            "-disable-output",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.ll"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-Wno-unused-command-line-argument",
+            "-O3",
+            "-c",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.ll",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.o"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test.o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/runner-c.o",
+            "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-lgc",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test"
+          ],
+          [
+            "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/semantics.wat",
+            "--mvp-features",
+            "--enable-gc",
+            "--enable-reference-types",
+            "--enable-tail-call",
+            "--enable-mutable-globals",
+            "-g",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.wasm"
+          ],
+          [
+            "python3",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/translate.py",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.wasm",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.ll"
+          ],
+          [
+            "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+            "-passes=verify",
+            "-disable-output",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.ll"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-O3",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-I/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+            "-c",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/semantics.c",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics-c.o"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "-Wno-unused-command-line-argument",
+            "-O3",
+            "-c",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.ll",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.o"
+          ],
+          [
+            "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics.o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics-c.o",
+            "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+            "-lgc",
+            "-o",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics"
+          ],
+          [
+            "python3",
+            "/tmp/snail-readme-20261010/experiments/wasm-llvm/check.py",
+            "/tmp/snail-readme-20261010/build/wasm-llvm/check.so"
+          ],
+          [
+            "/tmp/snail-readme-20261010/build/wasm-llvm/gc-test",
+            "--gc-test"
+          ],
+          [
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics"
+          ],
+          [
+            "/tmp/snail-readme-20261010/build/wasm-llvm/semantics",
+            "--trap"
+          ]
+        ],
+        "input_sha256": {
+          "build/wasmgc/cpu.wasm": "3b2532cb8e522df6febe1e0e6390e2ec7c7c18ec0f7ecc60fdebb8fbb045c073",
+          "build/wasmgc/check.wasm": "34cec1619e09dd5cd16236b556eeec1ae6ac3337d8a8b173716d912bf5bcd39e",
+          "build/wasm-llvm/gc-test.wasm": "2d3ebd52fd9ae865ca4ebe90bf55ea59bf8ab20c8cd6aa50fd7f8b99860c05a7",
+          "build/wasm-llvm/semantics.wasm": "06443809ae03b1674c43d0303b12fc2c2527f7e372b2557567c72d338a824799"
+        },
+        "target": "x86_64-unknown-linux-gnu"
+      }
+    },
+    "tools": {
+      "CHIBI": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "CHEZ": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "GUILE": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "GUILD": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+      "CLANG": "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "OPT": "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+      "WASM_AS": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+      "WASM_OPT": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "NODE": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node"
+    },
+    "versions": {
+      "CHIBI": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)",
+      "CHEZ": "10.4.1",
+      "GUILE": "guile (GNU Guile) 3.0.11\nCopyright (C) 2024 Free Software Foundation, Inc.\n\nLicense LGPLv3+: GNU LGPL 3 or later <http://gnu.org/licenses/lgpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.",
+      "GUILD": "guild (GNU Guile) 3.0.11\nCopyright (C) 2024 Free Software Foundation, Inc.\n\nLicense LGPLv3+: GNU LGPL 3 or later <http://gnu.org/licenses/lgpl.html>.\nThis is free software: you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.",
+      "CLANG": "clang version 21.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/603yaax3l2jmc0hfv6g3hgjr1qk5jfxk-clang-21.1.8/bin",
+      "OPT": "LLVM (http://llvm.org/):\n  LLVM version 21.1.8\n  Optimized build.\n  Default target: x86_64-unknown-linux-gnu\n  Host CPU: arrowlake-s",
+      "WASM_AS": "wasm-as version 132",
+      "WASM_OPT": "wasm-opt version 132",
+      "NODE": "v24.19.0"
+    },
+    "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+    "cpu_info": "processor\t: 0\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 198\nmodel name\t: Intel(R) Core(TM) Ultra 7 270K Plus\nstepping\t: 2\nmicrocode\t: 0x122\ncpu MHz\t\t: 799.640\ncache size\t: 36864 KB\nphysical id\t: 0\nsiblings\t: 24\ncore id\t\t: 0\ncpu cores\t: 24\napicid\t\t: 0\ninitial apicid\t: 0\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 35\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs pml ept_violation_ve ept_mode_based_exec tsc_scaling usr_wait_pause notify_vm_exiting ipi_virt\nbugs\t\t: spectre_v1 spectre_v2 spec_store_bypass swapgs bhi spectre_v2_user vmscape\nbogomips\t: 7372.80\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:",
+    "environment": {
+      "BDWGC_INCLUDE": "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "GUILE_EXTENSIONS_PATH": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/lib/guile/3.0/extensions",
+      "GUILE_LOAD_COMPILED_PATH": "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/lib/guile/3.0/ccache",
+      "BDWGC_LIB": "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib"
+    }
+  },
+  "build_commands": [
+    [
+      "/nix/store/ia07znklfkp2k7hz5zm6hmgllp0r07jp-python3-3.14.7-env/bin/python3",
+      "/tmp/snail-readme-20261010/experiments/wasmgc/build.py"
+    ],
+    [
+      "/nix/store/ia07znklfkp2k7hz5zm6hmgllp0r07jp-python3-3.14.7-env/bin/python3",
+      "/tmp/snail-readme-20261010/experiments/wasm-llvm/build.py"
+    ],
+    [
+      "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline.ll"
+    ],
+    [
+      "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline.ll",
+      "-o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline.o"
+    ],
+    [
+      "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline.o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline"
+    ],
+    [
+      "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/opt",
+      "-passes=verify",
+      "-disable-output",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both.ll"
+    ],
+    [
+      "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-c",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both.ll",
+      "-o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both.o"
+    ],
+    [
+      "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both.o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm/runner-c.o",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both"
+    ],
+    [
+      "/nix/store/w021fbcg4z6vxihnp6gb6vijyifl051f-clang-wrapper-21.1.8/bin/clang",
+      "-Wno-unused-command-line-argument",
+      "-O3",
+      "-shared",
+      "-fPIC",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/check-both.ll",
+      "-L/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/check-both.so"
+    ],
+    [
+      "python3",
+      "/tmp/snail-readme-20261010/experiments/wasm-llvm/check.py",
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/check-both.so"
+    ],
+    [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--script",
+      "/tmp/snail-readme-20261010/benchmarks/chez.scm",
+      "/tmp/snail-readme-20261010/benchmarks/cpu.scm",
+      "/tmp/snail-readme-20261010/build/benchmark-published/cpu-chez.so"
+    ],
+    [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "/tmp/snail-readme-20261010/benchmarks/chibi.scm",
+      "/tmp/snail-readme-20261010/benchmarks/cpu.scm",
+      "/tmp/snail-readme-20261010/build/benchmark-published/cpu-chibi.scm"
+    ],
+    [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guild",
+      "compile",
+      "--r7rs",
+      "-O2",
+      "-o",
+      "/tmp/snail-readme-20261010/build/benchmark-published/cpu.go",
+      "/tmp/snail-readme-20261010/benchmarks/cpu.scm"
+    ]
+  ],
+  "commands": {
+    "llvm-baseline": [
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-baseline",
+      "64"
+    ],
+    "llvm-tuned": [
+      "/tmp/snail-readme-20261010/build/wasm-llvm-ablation/cpu-both",
+      "64"
+    ],
+    "chez": [
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+      "--program",
+      "/tmp/snail-readme-20261010/build/benchmark-published/cpu-chez.so",
+      "64"
+    ],
+    "guile": [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "--no-auto-compile",
+      "--r7rs",
+      "-c",
+      "(load-compiled \"/tmp/snail-readme-20261010/build/benchmark-published/cpu.go\")",
+      "64"
+    ],
+    "guile-warm": [
+      "/nix/store/ayvbwi3g20975ad2gqxq11wg5wn0sjjn-guile-3.0.11/bin/guile",
+      "--no-auto-compile",
+      "--r7rs",
+      "-c",
+      "(load-compiled \"/tmp/snail-readme-20261010/build/benchmark-published/cpu.go\") (main)",
+      "64"
+    ],
+    "chibi": [
+      "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "/tmp/snail-readme-20261010/build/benchmark-published/cpu-chibi.scm",
+      "64"
+    ]
+  },
+  "preliminary": [
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047462079,
+      "intervals": [
+        {
+          "seconds": 0.047462079,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047462079 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027299281,
+      "intervals": [
+        {
+          "seconds": 0.027299281,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027299281 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030452,
+      "intervals": [
+        {
+          "seconds": 0.030452,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030452 s; repetitions: 64\n",
+      "stderr": ""
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.097702,
+      "intervals": [
+        {
+          "seconds": 0.097702,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.097702 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n"
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.098089,
+      "intervals": [
+        {
+          "seconds": 0.093229,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.098089,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.093229 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.098089 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n"
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.474,
+      "intervals": [
+        {
+          "seconds": 0.474,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.474000 s; repetitions: 64\n",
+      "stderr": ""
+    }
+  ],
+  "samples": [
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047416688,
+      "intervals": [
+        {
+          "seconds": 0.047416688,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047416688 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 1
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027278409,
+      "intervals": [
+        {
+          "seconds": 0.027278409,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027278409 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 1
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.028728,
+      "intervals": [
+        {
+          "seconds": 0.028728,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.028728 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 1
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.092239,
+      "intervals": [
+        {
+          "seconds": 0.092239,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.092239 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 1
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.096341,
+      "intervals": [
+        {
+          "seconds": 0.097396,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.096341,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.097396 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.096341 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 1
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.473,
+      "intervals": [
+        {
+          "seconds": 0.473,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.473000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 1
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027361922,
+      "intervals": [
+        {
+          "seconds": 0.027361922,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027361922 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030539,
+      "intervals": [
+        {
+          "seconds": 0.030539,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030539 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 2
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.094292,
+      "intervals": [
+        {
+          "seconds": 0.094292,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.094292 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 2
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.094148,
+      "intervals": [
+        {
+          "seconds": 0.093499,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.094148,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.093499 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.094148 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 2
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.475,
+      "intervals": [
+        {
+          "seconds": 0.475,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.475000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 2
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047493909,
+      "intervals": [
+        {
+          "seconds": 0.047493909,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047493909 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 2
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030481,
+      "intervals": [
+        {
+          "seconds": 0.030481,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030481 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.09865,
+      "intervals": [
+        {
+          "seconds": 0.09865,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.098650 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 3
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.106509,
+      "intervals": [
+        {
+          "seconds": 0.099222,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.106509,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.099222 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.106509 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 3
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.461,
+      "intervals": [
+        {
+          "seconds": 0.461,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.461000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 3
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047420048,
+      "intervals": [
+        {
+          "seconds": 0.047420048,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047420048 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 3
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027296596,
+      "intervals": [
+        {
+          "seconds": 0.027296596,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027296596 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 3
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.095392,
+      "intervals": [
+        {
+          "seconds": 0.095392,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.095392 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 4
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.097124,
+      "intervals": [
+        {
+          "seconds": 0.090418,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.097124,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.090418 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.097124 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 4
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.472,
+      "intervals": [
+        {
+          "seconds": 0.472,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.472000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 4
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047496074,
+      "intervals": [
+        {
+          "seconds": 0.047496074,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047496074 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 4
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027384866,
+      "intervals": [
+        {
+          "seconds": 0.027384866,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027384866 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 4
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030496,
+      "intervals": [
+        {
+          "seconds": 0.030496,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030496 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 4
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.093532,
+      "intervals": [
+        {
+          "seconds": 0.093714,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.093532,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.093714 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.093532 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 5
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.461,
+      "intervals": [
+        {
+          "seconds": 0.461,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.461000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 5
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047516798,
+      "intervals": [
+        {
+          "seconds": 0.047516798,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047516798 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 5
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027406998,
+      "intervals": [
+        {
+          "seconds": 0.027406998,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027406998 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 5
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030629,
+      "intervals": [
+        {
+          "seconds": 0.030629,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030629 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 5
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.096793,
+      "intervals": [
+        {
+          "seconds": 0.096793,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.096793 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 5
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.463,
+      "intervals": [
+        {
+          "seconds": 0.463,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.463000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 6
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.047511571,
+      "intervals": [
+        {
+          "seconds": 0.047511571,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047511571 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 6
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027357526,
+      "intervals": [
+        {
+          "seconds": 0.027357526,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027357526 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 6
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030499,
+      "intervals": [
+        {
+          "seconds": 0.030499,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030499 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 6
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.09634,
+      "intervals": [
+        {
+          "seconds": 0.09634,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.096340 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 6
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.095355,
+      "intervals": [
+        {
+          "seconds": 0.09356,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.095355,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.093560 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.095355 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 6
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.04757791,
+      "intervals": [
+        {
+          "seconds": 0.04757791,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.047577910 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 7
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.024912433,
+      "intervals": [
+        {
+          "seconds": 0.024912433,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.024912433 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 7
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030543,
+      "intervals": [
+        {
+          "seconds": 0.030543,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030543 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 7
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.099145,
+      "intervals": [
+        {
+          "seconds": 0.099145,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.099145 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 7
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.101215,
+      "intervals": [
+        {
+          "seconds": 0.098198,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.101215,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.098198 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.101215 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 7
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.47,
+      "intervals": [
+        {
+          "seconds": 0.47,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.470000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 7
+    },
+    {
+      "variant": "llvm-tuned",
+      "seconds": 0.027367024,
+      "intervals": [
+        {
+          "seconds": 0.027367024,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.027367024 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 8
+    },
+    {
+      "variant": "chez",
+      "seconds": 0.030588,
+      "intervals": [
+        {
+          "seconds": 0.030588,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.030588 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 8
+    },
+    {
+      "variant": "guile",
+      "seconds": 0.102043,
+      "intervals": [
+        {
+          "seconds": 0.102043,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.102043 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 8
+    },
+    {
+      "variant": "guile-warm",
+      "seconds": 0.094973,
+      "intervals": [
+        {
+          "seconds": 0.095511,
+          "checksum": 269118144,
+          "repetitions": 64
+        },
+        {
+          "seconds": 0.094973,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.095511 s; repetitions: 64\nCPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.094973 s; repetitions: 64\n",
+      "stderr": "WARNING: (guile-user): imported module (scheme base) overrides core binding `for-each'\n",
+      "round": 8
+    },
+    {
+      "variant": "chibi",
+      "seconds": 0.52,
+      "intervals": [
+        {
+          "seconds": 0.52,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "CPU: recursive Fibonacci\nchecksum: 269118144\nelapsed: 0.520000 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 8
+    },
+    {
+      "variant": "llvm-baseline",
+      "seconds": 0.045377478,
+      "intervals": [
+        {
+          "seconds": 0.045377478,
+          "checksum": 269118144,
+          "repetitions": 64
+        }
+      ],
+      "stdout": "checksum: 269118144\nelapsed: 0.045377478 s; repetitions: 64\n",
+      "stderr": "",
+      "round": 8
+    }
+  ]
+}

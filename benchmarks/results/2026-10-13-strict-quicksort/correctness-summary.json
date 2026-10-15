@@ -1,0 +1,29 @@
+{
+  "status": "all expected outcomes passed",
+  "checks": {
+    "validation.json": 32,
+    "validation-negative.json": 6,
+    "validation-negative-rng.json": 6,
+    "chez-validation.json": 6,
+    "chez-output-probe-original/validation.json": 18,
+    "chez-output-probe-same-source-chez/validation.json": 18
+  },
+  "total_checks": 86,
+  "canonical_inputs": {
+    "name": "quicksort",
+    "count": 2500,
+    "inputs": [
+      10000,
+      1000000
+    ],
+    "expected": 1,
+    "unused_output_datum": "ignored",
+    "barriers_per_iteration": 0,
+    "setup_barriers": 3
+  },
+  "default_node_behavior": true,
+  "no_compiler_changes": true,
+  "measurement_observations": 0,
+  "empty_scope": "Empty sorting is supplemental; empty copy identity is not required and the canonical predicate only promises positive-length equivalence.",
+  "scope": "Frozen preparation checks only; correctness runtimes and these 86 expected outcomes are separate from the 12 clean performance observations."
+}

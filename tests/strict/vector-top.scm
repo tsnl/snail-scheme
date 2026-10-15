@@ -1,0 +1,6 @@
+(import (snail strict))
+(define original (make-vector 2 0))
+(define hidden (ann original Top))
+(define recovered (ann hidden (Vector I64)))
+(vector-set! recovered 1 42)
+(if (vector-eq? original recovered) (vector-ref original 1) (unreachable))

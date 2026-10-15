@@ -1,0 +1,39 @@
+{
+  "scope": "Strict specialization and Wasm emission; no frontend or type-system change.",
+  "base_compiler": "efbb1517a28003a8908677038a5bad4ef16bd289",
+  "initialized_capture_compiler": "192d810",
+  "structured_call_compiler": "1d745e68c6abf34d153a8c5d9ef1c75d57cad89a",
+  "combined_compiler": "7ff18c0",
+  "initialized_capture_contract": "Parameters and nonrecursive let bindings are initialized before a closure or direct callee can capture them from their body; transport their concrete values or references directly. Recursive definitions and aliases preserve their own readiness event. Copying Ref/vector references preserves identity.",
+  "structured_call_contract": "An immediately invoked let or block passes invocation context only to its final expression. Initializers and prefixes remain ordinary value contexts. Save operands in their original order before evaluating the operator, then run its prefixes and readiness checks and invoke with the saved operands. Keep escaping closures and tail calls.",
+  "limitations": [
+    "Conditional and conversion operators retain the existing conservative path.",
+    "Returned anonymous lambdas can still construct an environment and closure even when their known code is directly invoked.",
+    "Constructor observers count completed Wasm instructions in instrumented executions, not native allocator events or allocated bytes.",
+    "The compiler changes can overlap; their constructor reductions and timing effects are not additive."
+  ],
+  "independent_review": {
+    "model": "gpt-6.1-sol",
+    "reasoning": "max",
+    "fresh_explanations": "Separate no-history, no-file behavioral explanations for initialized capture semantics, structured invocation semantics, and measurement/observer semantics; informed critique followed source inspection.",
+    "rejected_alternatives": [
+      "Treating a let alias of a recursive definition as proof that the recursive definition was initialized.",
+      "Lifting or duplicating call operands across operator prefixes.",
+      "Propagating invocation context into initializers and intermediate expression value uses.",
+      "Adding another normalization IR to carry arguments already held by emission.",
+      "Interpreting constructor completion reductions as exact native allocation or GC reductions."
+    ],
+    "function_size_exceptions": "Exhaustive expression/use-context dispatch and cohesive measurement record construction remain together; splitting them into fragments would obscure their contracts."
+  },
+  "validation": {
+    "capture_contracts": "264/264 passed, executable cases raw and optimized",
+    "structured_contracts": "267/267 passed plus a separate final escaping-fixture recheck, raw and optimized",
+    "combined_contracts": "271/271 passed with final source fixtures, executable cases raw and optimized",
+    "native_boundaries": "20/20 per compiler variant, raw and optimized actual provider execution",
+    "make_test_check": "passed per compiler variant",
+    "canonical_workloads": "All four compiler configurations passed full graphs, mperm, quicksort and simplex inputs under raw and optimized Node execution.",
+    "capture_fixture_baseline": "All four new capture fixtures also pass on the unchanged baseline compiler.",
+    "structured_fixture_baseline": "All seven structured-call fixtures pass on the unchanged baseline compiler.",
+    "fixture_development": "Two initial capture tests put the intended trap in main, which prevented later observer calls. Their fixtures were corrected to trap in an exported checked call after successful main; no compiler change was made to resolve that test-design failure."
+  }
+}

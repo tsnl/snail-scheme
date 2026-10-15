@@ -1,0 +1,381 @@
+{
+  "scope": "Retained heap accounting after explicit GC; no clean timing, physical-residency, exact-header or isolated engine-build cause claim.",
+  "runs": [
+    {
+      "file": "node-heap-layout.json",
+      "engine": {
+        "node": "v24.19.0",
+        "v8": "13.6.233.17-node.51",
+        "pointerCompression": 0
+      },
+      "shapes": {
+        "inner": {
+          "slope_bytes_per_node": 31.9958572972973,
+          "intercept_bytes": 899.4594594594091,
+          "observations": [
+            {
+              "count": 25000,
+              "delta": 801752,
+              "settled_spread": 1632
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400216,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400184,
+              "settled_spread": 168
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 168
+            }
+          ]
+        },
+        "outer": {
+          "slope_bytes_per_node": 32.00009513513513,
+          "intercept_bytes": 179.0270270272158,
+          "observations": [
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 168
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400216,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400184,
+              "settled_spread": 760
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 336
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 168
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file": "chromium-heap-layout.json",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+      },
+      "shapes": {
+        "inner": {
+          "slope_bytes_per_node": 19.99997837837838,
+          "intercept_bytes": 111.6756756757386,
+          "observations": [
+            {
+              "count": 25000,
+              "delta": 500132,
+              "settled_spread": 392
+            },
+            {
+              "count": 100000,
+              "delta": 2000108,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 4000108,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 4000108,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 2000108,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 500092,
+              "settled_spread": 92
+            }
+          ]
+        },
+        "outer": {
+          "slope_bytes_per_node": 15.999991351351353,
+          "intercept_bytes": 98.27027027029544,
+          "observations": [
+            {
+              "count": 25000,
+              "delta": 400092,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 1600108,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 3200092,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 3200092,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 1600108,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 400092,
+              "settled_spread": 92
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file": "replicate/node-heap-layout.json",
+      "engine": {
+        "node": "v24.19.0",
+        "v8": "13.6.233.17-node.51",
+        "pointerCompression": 0
+      },
+      "shapes": {
+        "inner": {
+          "slope_bytes_per_node": 32.00009513513513,
+          "intercept_bytes": 179.0270270272158,
+          "observations": [
+            {
+              "count": 200000,
+              "delta": 6400184,
+              "settled_spread": 200
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 336
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 728
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400216,
+              "settled_spread": 200
+            }
+          ]
+        },
+        "outer": {
+          "slope_bytes_per_node": 32.005065945945944,
+          "intercept_bytes": -80.81081081042066,
+          "observations": [
+            {
+              "count": 200000,
+              "delta": 6401856,
+              "settled_spread": 1600
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 168
+            },
+            {
+              "count": 25000,
+              "delta": 800184,
+              "settled_spread": 168
+            },
+            {
+              "count": 100000,
+              "delta": 3200184,
+              "settled_spread": 168
+            },
+            {
+              "count": 200000,
+              "delta": 6400216,
+              "settled_spread": 168
+            }
+          ]
+        }
+      }
+    },
+    {
+      "file": "replicate/chromium-heap-layout.json",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+      },
+      "shapes": {
+        "inner": {
+          "slope_bytes_per_node": 20.0,
+          "intercept_bytes": 92.0,
+          "observations": [
+            {
+              "count": 200000,
+              "delta": 4000092,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 2000092,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 500092,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 500092,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 2000092,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 4000092,
+              "settled_spread": 92
+            }
+          ]
+        },
+        "outer": {
+          "slope_bytes_per_node": 16.000114594594596,
+          "intercept_bytes": 88.91891891905107,
+          "observations": [
+            {
+              "count": 200000,
+              "delta": 3200132,
+              "settled_spread": 392
+            },
+            {
+              "count": 100000,
+              "delta": 1600108,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 400092,
+              "settled_spread": 92
+            },
+            {
+              "count": 25000,
+              "delta": 400092,
+              "settled_spread": 92
+            },
+            {
+              "count": 100000,
+              "delta": 1600092,
+              "settled_spread": 92
+            },
+            {
+              "count": 200000,
+              "delta": 3200092,
+              "settled_spread": 92
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "browser_workload": {
+    "small-native-run": {
+      "status": "pass",
+      "result": "1",
+      "setupBarriers": 4,
+      "barriers": 0,
+      "seconds": 0.00010000002384185791,
+      "imports": [
+        {
+          "module": "benchmark",
+          "name": "hide_i64",
+          "kind": "function"
+        },
+        {
+          "module": "benchmark",
+          "name": "input_i64",
+          "kind": "function"
+        },
+        {
+          "module": "benchmark",
+          "name": "count",
+          "kind": "function"
+        }
+      ],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+    },
+    "full-diagnostic-run": {
+      "status": "pass",
+      "result": "1",
+      "setupBarriers": 4,
+      "barriers": 0,
+      "seconds": 14.498900000035762,
+      "imports": [
+        {
+          "module": "benchmark",
+          "name": "hide_i64",
+          "kind": "function"
+        },
+        {
+          "module": "benchmark",
+          "name": "input_i64",
+          "kind": "function"
+        },
+        {
+          "module": "benchmark",
+          "name": "count",
+          "kind": "function"
+        }
+      ],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+    }
+  }
+}

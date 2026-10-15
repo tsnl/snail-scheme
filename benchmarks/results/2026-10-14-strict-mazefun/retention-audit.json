@@ -1,0 +1,2598 @@
+{
+  "original_wat_sha256": "f12aae99daea62dde66b6bc2dd4477772aaa64a98316ae8dcd6770a9f4708ced",
+  "original_wasm_sha256": "90463bc162ca1c78b29bc92f90a18f029fbbf27852bd84a0fa1d5b105b204f0b",
+  "erased_text_exact_match": true,
+  "reoptimized": false,
+  "sites": {
+    "function:$function41": 1,
+    "function:$function46": 1,
+    "function:$function47": 1,
+    "function:$function48": 1,
+    "function:$function49": 1,
+    "function:$function51": 1,
+    "function:$function53": 1,
+    "function:$function54": 1,
+    "function:$function56": 1,
+    "function:$function59": 1,
+    "function:$function61": 1,
+    "function:$function62": 1,
+    "function:$function63": 1,
+    "function:$function66": 1,
+    "function:$function68": 1,
+    "function:$function70": 1,
+    "function:$function71": 1,
+    "function:$function72": 1,
+    "function:$function73": 1,
+    "function:$function74": 1,
+    "function:$function75": 1,
+    "function:$function76": 1,
+    "function:$function77": 1,
+    "function:$function80": 1,
+    "function:$function81": 1,
+    "function:$function82": 1,
+    "function:$function84": 1,
+    "function:$function85": 1,
+    "function:$function86": 1,
+    "function:$function88": 1,
+    "function:$function89": 1,
+    "function:$function91": 1,
+    "function:$function92": 1,
+    "function:$function94": 1,
+    "function:$function98": 1,
+    "function:$function99": 1,
+    "function:$function100": 1,
+    "function:$function101": 1,
+    "function:$function102": 1,
+    "function:$function103": 1,
+    "function:$function104": 1,
+    "function:$function106": 1,
+    "function:$export0": 1,
+    "function:$main": 1,
+    "constructor:$type33:$function53": 17,
+    "constructor:$type65:$function53": 2,
+    "constructor:$environment56:$function53": 1,
+    "constructor:$type74:$function53": 1,
+    "constructor:$environment62:$function53": 1,
+    "constructor:$type28:$function53": 8,
+    "constructor:$type38:$function53": 1,
+    "constructor:$type39:$function53": 9,
+    "constructor:$type54:$function53": 1,
+    "constructor:$environment98:$function53": 1,
+    "constructor:$type31:$function54": 1,
+    "constructor:$type63:$function56": 1,
+    "constructor:$environment57:$function56": 1,
+    "constructor:$type28:$function56": 9,
+    "constructor:$type31:$function56": 4,
+    "constructor:$type28:$function59": 1,
+    "constructor:$type33:$function61": 1,
+    "constructor:$type33:$function62": 9,
+    "constructor:$type65:$function62": 1,
+    "constructor:$environment63:$function62": 1,
+    "constructor:$type28:$function62": 8,
+    "constructor:$type28:$function63": 1,
+    "constructor:$type31:$function63": 1,
+    "constructor:$type28:$function66": 1,
+    "constructor:$type28:$function68": 9,
+    "constructor:$type28:$function70": 11,
+    "constructor:$type28:$function74": 1,
+    "constructor:$type28:$function76": 26,
+    "constructor:$type51:$function76": 1,
+    "constructor:$environment84:$function76": 1,
+    "constructor:$type61:$function76": 1,
+    "constructor:$environment86:$function76": 1,
+    "constructor:$type33:$function76": 16,
+    "constructor:$type28:$function77": 31,
+    "constructor:$type31:$function77": 4,
+    "constructor:$type28:$function85": 1,
+    "constructor:$type28:$function88": 18,
+    "constructor:$type33:$function88": 18,
+    "constructor:$type61:$function88": 1,
+    "constructor:$environment89:$function88": 1,
+    "constructor:$type28:$function91": 2,
+    "constructor:$type33:$function92": 2,
+    "constructor:$type40:$function98": 10,
+    "constructor:$type40:$function99": 1,
+    "constructor:$type39:$function100": 1,
+    "store:$type89:0:$function101": 1,
+    "store:$type89:0:$function102": 11,
+    "constructor:$type38:$function102": 1,
+    "constructor:$type39:$function102": 10,
+    "constructor:$type39:$function103": 1,
+    "constructor:$type40:$function104": 1,
+    "store:$type89:0:$function104": 1,
+    "constructor:$type27:$main": 1,
+    "constructor:$type32:$main": 1,
+    "constructor:$type30:$main": 1,
+    "constructor:$type34:$main": 1,
+    "constructor:$type36:$main": 1,
+    "constructor:$type37:$main": 1,
+    "constructor:$type41:$main": 1,
+    "constructor:$type42:$main": 1,
+    "constructor:$type43:$main": 1,
+    "constructor:$type44:$main": 2,
+    "constructor:$type45:$main": 1,
+    "constructor:$type46:$main": 1,
+    "constructor:$type47:$main": 1,
+    "constructor:$type48:$main": 1,
+    "constructor:$type49:$main": 1,
+    "constructor:$type50:$main": 1,
+    "constructor:$type52:$main": 1,
+    "constructor:$type53:$main": 1,
+    "constructor:$type55:$main": 1,
+    "constructor:$type56:$main": 1,
+    "constructor:$type57:$main": 1,
+    "constructor:$type58:$main": 1,
+    "constructor:$type59:$main": 1,
+    "constructor:$type60:$main": 1,
+    "constructor:$type62:$main": 1,
+    "constructor:$type64:$main": 1,
+    "constructor:$type66:$main": 1,
+    "constructor:$type67:$main": 1,
+    "constructor:$type68:$main": 1,
+    "constructor:$type69:$main": 1,
+    "constructor:$type70:$main": 1,
+    "constructor:$type71:$main": 2,
+    "constructor:$type72:$main": 1,
+    "constructor:$type73:$main": 1,
+    "constructor:$type75:$main": 1,
+    "constructor:$type76:$main": 1,
+    "constructor:$type77:$main": 1,
+    "constructor:$type79:$main": 1,
+    "constructor:$type80:$main": 2,
+    "constructor:$type81:$main": 1,
+    "constructor:$type82:$main": 1,
+    "constructor:$type83:$main": 1,
+    "constructor:$type84:$main": 2,
+    "constructor:$type85:$main": 1,
+    "constructor:$type86:$main": 1,
+    "constructor:$type87:$main": 1,
+    "constructor:$type88:$main": 1,
+    "constructor:$type89:$main": 1,
+    "constructor:$type5:$main": 1,
+    "constructor:$type90:$main": 1,
+    "constructor:$type91:$main": 1,
+    "constructor:$type92:$main": 1,
+    "shuffle-state-advance": 1
+  },
+  "locations": [
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1469
+    },
+    {
+      "key": "constructor:$type65:$function53",
+      "line": 1473
+    },
+    {
+      "key": "constructor:$environment56:$function53",
+      "line": 1475
+    },
+    {
+      "key": "constructor:$type74:$function53",
+      "line": 1477
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1495
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1511
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1523
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1535
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1547
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1559
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1571
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1653
+    },
+    {
+      "key": "constructor:$type65:$function53",
+      "line": 1657
+    },
+    {
+      "key": "constructor:$environment62:$function53",
+      "line": 1659
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1678
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1694
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1706
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1718
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1730
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1742
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1754
+    },
+    {
+      "key": "constructor:$type33:$function53",
+      "line": 1766
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 1907
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 1938
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 1969
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 2000
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 2031
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 2062
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 2093
+    },
+    {
+      "key": "constructor:$type28:$function53",
+      "line": 2124
+    },
+    {
+      "key": "constructor:$type38:$function53",
+      "line": 2801
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2811
+    },
+    {
+      "key": "constructor:$type54:$function53",
+      "line": 2815
+    },
+    {
+      "key": "constructor:$environment98:$function53",
+      "line": 2816
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2853
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2889
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2925
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2961
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 2997
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 3033
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 3069
+    },
+    {
+      "key": "constructor:$type39:$function53",
+      "line": 3105
+    },
+    {
+      "key": "constructor:$type31:$function54",
+      "line": 3238
+    },
+    {
+      "key": "constructor:$type63:$function56",
+      "line": 3291
+    },
+    {
+      "key": "constructor:$environment57:$function56",
+      "line": 3292
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3313
+    },
+    {
+      "key": "constructor:$type31:$function56",
+      "line": 3343
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3416
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3439
+    },
+    {
+      "key": "constructor:$type31:$function56",
+      "line": 3475
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3548
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3571
+    },
+    {
+      "key": "constructor:$type31:$function56",
+      "line": 3607
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3680
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3703
+    },
+    {
+      "key": "constructor:$type31:$function56",
+      "line": 3739
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3814
+    },
+    {
+      "key": "constructor:$type28:$function56",
+      "line": 3824
+    },
+    {
+      "key": "constructor:$type28:$function59",
+      "line": 3903
+    },
+    {
+      "key": "constructor:$type33:$function61",
+      "line": 3947
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4020
+    },
+    {
+      "key": "constructor:$type65:$function62",
+      "line": 4024
+    },
+    {
+      "key": "constructor:$environment63:$function62",
+      "line": 4026
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4045
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4061
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4073
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4085
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4097
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4109
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4121
+    },
+    {
+      "key": "constructor:$type33:$function62",
+      "line": 4133
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4272
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4303
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4334
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4365
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4396
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4427
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4458
+    },
+    {
+      "key": "constructor:$type28:$function62",
+      "line": 4489
+    },
+    {
+      "key": "constructor:$type28:$function63",
+      "line": 4621
+    },
+    {
+      "key": "constructor:$type31:$function63",
+      "line": 4622
+    },
+    {
+      "key": "constructor:$type28:$function66",
+      "line": 4660
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4735
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4766
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4797
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4828
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4859
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4890
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4921
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4952
+    },
+    {
+      "key": "constructor:$type28:$function68",
+      "line": 4983
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5245
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5622
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5660
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5698
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5736
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5774
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5812
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5850
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5888
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5926
+    },
+    {
+      "key": "constructor:$type28:$function70",
+      "line": 5964
+    },
+    {
+      "key": "constructor:$type28:$function74",
+      "line": 6269
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6430
+    },
+    {
+      "key": "constructor:$type51:$function76",
+      "line": 6434
+    },
+    {
+      "key": "constructor:$environment84:$function76",
+      "line": 6435
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6472
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6508
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6544
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6580
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6616
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6652
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6688
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6724
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 6760
+    },
+    {
+      "key": "constructor:$type61:$function76",
+      "line": 6877
+    },
+    {
+      "key": "constructor:$environment86:$function76",
+      "line": 6879
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7490
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7498
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7531
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7539
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7572
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7580
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7613
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7621
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7654
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7662
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7695
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7703
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7736
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7744
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7777
+    },
+    {
+      "key": "constructor:$type28:$function76",
+      "line": 7785
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7864
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7872
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7905
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7913
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7946
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7954
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7987
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 7995
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8028
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8036
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8069
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8077
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8110
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8118
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8151
+    },
+    {
+      "key": "constructor:$type33:$function76",
+      "line": 8159
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 9181
+    },
+    {
+      "key": "constructor:$type31:$function77",
+      "line": 9182
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 9931
+    },
+    {
+      "key": "constructor:$type31:$function77",
+      "line": 9932
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 10683
+    },
+    {
+      "key": "constructor:$type31:$function77",
+      "line": 10684
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11438
+    },
+    {
+      "key": "constructor:$type31:$function77",
+      "line": 11439
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11488
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11519
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11550
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11581
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11612
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11643
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11674
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11705
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11736
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11818
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11849
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11880
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11911
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11942
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 11973
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12004
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12035
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12066
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12148
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12179
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12210
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12241
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12272
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12303
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12334
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12365
+    },
+    {
+      "key": "constructor:$type28:$function77",
+      "line": 12396
+    },
+    {
+      "key": "constructor:$type28:$function85",
+      "line": 13907
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15115
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15123
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15156
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15164
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15197
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15205
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15238
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15246
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15279
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15287
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15320
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15328
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15361
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15369
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15402
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15410
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15443
+    },
+    {
+      "key": "constructor:$type28:$function88",
+      "line": 15451
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15535
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15543
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15576
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15584
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15617
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15625
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15658
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15666
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15699
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15707
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15740
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15748
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15781
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15789
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15822
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15830
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15863
+    },
+    {
+      "key": "constructor:$type33:$function88",
+      "line": 15871
+    },
+    {
+      "key": "constructor:$type61:$function88",
+      "line": 15980
+    },
+    {
+      "key": "constructor:$environment89:$function88",
+      "line": 15982
+    },
+    {
+      "key": "constructor:$type28:$function91",
+      "line": 16277
+    },
+    {
+      "key": "constructor:$type28:$function91",
+      "line": 16285
+    },
+    {
+      "key": "constructor:$type33:$function92",
+      "line": 16325
+    },
+    {
+      "key": "constructor:$type33:$function92",
+      "line": 16333
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16437
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16490
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16538
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16586
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16634
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16682
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16730
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16778
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16826
+    },
+    {
+      "key": "constructor:$type40:$function98",
+      "line": 16874
+    },
+    {
+      "key": "constructor:$type40:$function99",
+      "line": 16954
+    },
+    {
+      "key": "constructor:$type39:$function100",
+      "line": 16998
+    },
+    {
+      "key": "store:$type89:0:$function101",
+      "line": 17062
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17136
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17236
+    },
+    {
+      "key": "constructor:$type38:$function102",
+      "line": 17270
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17301
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17319
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17404
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17422
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17507
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17525
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17610
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17628
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17713
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17731
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17816
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17834
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 17919
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 17937
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 18022
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 18040
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 18125
+    },
+    {
+      "key": "store:$type89:0:$function102",
+      "line": 18143
+    },
+    {
+      "key": "constructor:$type39:$function102",
+      "line": 18220
+    },
+    {
+      "key": "constructor:$type39:$function103",
+      "line": 18348
+    },
+    {
+      "key": "constructor:$type40:$function104",
+      "line": 18427
+    },
+    {
+      "key": "store:$type89:0:$function104",
+      "line": 18443
+    },
+    {
+      "key": "constructor:$type27:$main",
+      "line": 18976
+    },
+    {
+      "key": "constructor:$type32:$main",
+      "line": 18982
+    },
+    {
+      "key": "constructor:$type30:$main",
+      "line": 18988
+    },
+    {
+      "key": "constructor:$type34:$main",
+      "line": 18994
+    },
+    {
+      "key": "constructor:$type36:$main",
+      "line": 19000
+    },
+    {
+      "key": "constructor:$type37:$main",
+      "line": 19006
+    },
+    {
+      "key": "constructor:$type41:$main",
+      "line": 19014
+    },
+    {
+      "key": "constructor:$type42:$main",
+      "line": 19022
+    },
+    {
+      "key": "constructor:$type43:$main",
+      "line": 19028
+    },
+    {
+      "key": "constructor:$type44:$main",
+      "line": 19034
+    },
+    {
+      "key": "constructor:$type44:$main",
+      "line": 19040
+    },
+    {
+      "key": "constructor:$type45:$main",
+      "line": 19046
+    },
+    {
+      "key": "constructor:$type46:$main",
+      "line": 19052
+    },
+    {
+      "key": "constructor:$type47:$main",
+      "line": 19058
+    },
+    {
+      "key": "constructor:$type48:$main",
+      "line": 19064
+    },
+    {
+      "key": "constructor:$type49:$main",
+      "line": 19070
+    },
+    {
+      "key": "constructor:$type50:$main",
+      "line": 19076
+    },
+    {
+      "key": "constructor:$type52:$main",
+      "line": 19082
+    },
+    {
+      "key": "constructor:$type53:$main",
+      "line": 19088
+    },
+    {
+      "key": "constructor:$type55:$main",
+      "line": 19094
+    },
+    {
+      "key": "constructor:$type56:$main",
+      "line": 19100
+    },
+    {
+      "key": "constructor:$type57:$main",
+      "line": 19106
+    },
+    {
+      "key": "constructor:$type58:$main",
+      "line": 19112
+    },
+    {
+      "key": "constructor:$type59:$main",
+      "line": 19118
+    },
+    {
+      "key": "constructor:$type60:$main",
+      "line": 19124
+    },
+    {
+      "key": "constructor:$type62:$main",
+      "line": 19130
+    },
+    {
+      "key": "constructor:$type64:$main",
+      "line": 19136
+    },
+    {
+      "key": "constructor:$type66:$main",
+      "line": 19142
+    },
+    {
+      "key": "constructor:$type67:$main",
+      "line": 19148
+    },
+    {
+      "key": "constructor:$type68:$main",
+      "line": 19154
+    },
+    {
+      "key": "constructor:$type69:$main",
+      "line": 19160
+    },
+    {
+      "key": "constructor:$type70:$main",
+      "line": 19166
+    },
+    {
+      "key": "constructor:$type71:$main",
+      "line": 19172
+    },
+    {
+      "key": "constructor:$type72:$main",
+      "line": 19178
+    },
+    {
+      "key": "constructor:$type73:$main",
+      "line": 19184
+    },
+    {
+      "key": "constructor:$type75:$main",
+      "line": 19190
+    },
+    {
+      "key": "constructor:$type76:$main",
+      "line": 19196
+    },
+    {
+      "key": "constructor:$type77:$main",
+      "line": 19202
+    },
+    {
+      "key": "constructor:$type79:$main",
+      "line": 19208
+    },
+    {
+      "key": "constructor:$type80:$main",
+      "line": 19217
+    },
+    {
+      "key": "constructor:$type81:$main",
+      "line": 19223
+    },
+    {
+      "key": "constructor:$type71:$main",
+      "line": 19229
+    },
+    {
+      "key": "constructor:$type82:$main",
+      "line": 19235
+    },
+    {
+      "key": "constructor:$type83:$main",
+      "line": 19241
+    },
+    {
+      "key": "constructor:$type84:$main",
+      "line": 19247
+    },
+    {
+      "key": "constructor:$type85:$main",
+      "line": 19253
+    },
+    {
+      "key": "constructor:$type84:$main",
+      "line": 19259
+    },
+    {
+      "key": "constructor:$type86:$main",
+      "line": 19265
+    },
+    {
+      "key": "constructor:$type87:$main",
+      "line": 19271
+    },
+    {
+      "key": "constructor:$type88:$main",
+      "line": 19277
+    },
+    {
+      "key": "constructor:$type89:$main",
+      "line": 19283
+    },
+    {
+      "key": "constructor:$type5:$main",
+      "line": 19289
+    },
+    {
+      "key": "constructor:$type90:$main",
+      "line": 19295
+    },
+    {
+      "key": "constructor:$type91:$main",
+      "line": 19301
+    },
+    {
+      "key": "constructor:$type92:$main",
+      "line": 19307
+    },
+    {
+      "key": "constructor:$type80:$main",
+      "line": 19348
+    },
+    {
+      "key": "shuffle-state-advance",
+      "line": 5089
+    }
+  ],
+  "counter_semantics": "Function entry and constructor/shuffle expression entry; canonical checks return normally.",
+  "initialization_excluded": true,
+  "optimized_bytes": 25252,
+  "canonical_exports": [
+    "bench",
+    "main"
+  ],
+  "function_roles": {
+    "$function48": {
+      "line": 504,
+      "role": "same-row?: each Boolean mark and the row terminator"
+    },
+    "$function49": {
+      "line": 594,
+      "role": "same-grid?: each row and the outer terminator"
+    },
+    "$function53": {
+      "line": 1347,
+      "role": "make-maze: parity, construction, shuffle, piercing and final map"
+    },
+    "$function61": {
+      "line": 3939,
+      "role": "specialized increasing outer-list construction recursion"
+    },
+    "$function63": {
+      "line": 4548,
+      "role": "candidate hole parity and coordinate construction callback"
+    },
+    "$function68": {
+      "line": 4689,
+      "role": "right fold concatenating candidate row lists"
+    },
+    "$function70": {
+      "line": 5046,
+      "role": "shuffle-aux: state advance, length, read, removal and recursion"
+    },
+    "$function71": {
+      "line": 6053,
+      "role": "cavity-list length"
+    },
+    "$function72": {
+      "line": 6185,
+      "role": "length accumulator recursion"
+    },
+    "$function73": {
+      "line": 6219,
+      "role": "cavity-list indexed read"
+    },
+    "$function74": {
+      "line": 6257,
+      "role": "list-remove-pos: copied prefix and shared remaining suffix"
+    },
+    "$function75": {
+      "line": 6301,
+      "role": "pierce-randomly recursion remaining after ten inlined steps"
+    },
+    "$function76": {
+      "line": 6360,
+      "role": "try-to-pierce: duplicate labels, ordered flood fold and pierce"
+    },
+    "$function77": {
+      "line": 8222,
+      "role": "neighboring-cavities: bounds and open tests in up/down/left/right order"
+    },
+    "$function82": {
+      "line": 13154,
+      "role": "outer-list indexed read"
+    },
+    "$function86": {
+      "line": 13944,
+      "role": "left-fold callback beginning change-cavity"
+    },
+    "$function88": {
+      "line": 14027,
+      "role": "change-cavity-aux: compare old label, persistent write, neighbor fold"
+    },
+    "$function89": {
+      "line": 16236,
+      "role": "recursive flood left-fold callback"
+    },
+    "$function91": {
+      "line": 16270,
+      "role": "list-write at cavity-list type"
+    },
+    "$function92": {
+      "line": 16318,
+      "role": "list-write at outer-list type"
+    },
+    "$function98": {
+      "line": 16412,
+      "role": "map open cells to one complete Boolean row"
+    },
+    "$function99": {
+      "line": 16944,
+      "role": "row-map recursion remaining after inlining"
+    },
+    "$function100": {
+      "line": 16988,
+      "role": "outer result-map recursion remaining after inlining"
+    },
+    "$function106": {
+      "line": 18490,
+      "role": "runtime repetition, two returned opaque dimensions, final predicate"
+    }
+  },
+  "exact_original_definitions": [
+    "foldr",
+    "foldr-aux",
+    "foldl",
+    "foldl-aux",
+    "for",
+    "for-aux",
+    "list-read",
+    "list-write",
+    "list-remove-pos",
+    "make-matrix",
+    "matrix-read",
+    "matrix-write",
+    "initial-random",
+    "next-random-number",
+    "shuffle",
+    "shuffle-aux",
+    "pierce-randomly"
+  ],
+  "adapted_definitions": [
+    "concat",
+    "duplicates?",
+    "matrix-size",
+    "matrix-map",
+    "make-maze",
+    "cave-to-maze",
+    "pierce",
+    "try-to-pierce",
+    "change-cavity",
+    "change-cavity-aux",
+    "neighboring-cavities"
+  ],
+  "canonical_observations": [
+    {
+      "count": "1",
+      "expectation": "canonical",
+      "result": "1",
+      "hides": 2,
+      "observed": {
+        "function:$function41": "22",
+        "function:$function46": "1310",
+        "function:$function47": "0",
+        "function:$function48": "132",
+        "function:$function49": "12",
+        "function:$function51": "130",
+        "function:$function53": "1",
+        "function:$function54": "33",
+        "function:$function56": "11",
+        "function:$function59": "33",
+        "function:$function61": "40",
+        "function:$function62": "11",
+        "function:$function63": "121",
+        "function:$function66": "0",
+        "function:$function68": "132",
+        "function:$function70": "61",
+        "function:$function71": "720",
+        "function:$function72": "3538",
+        "function:$function73": "1388",
+        "function:$function74": "454",
+        "function:$function75": "51",
+        "function:$function76": "60",
+        "function:$function77": "720",
+        "function:$function80": "2160",
+        "function:$function81": "70",
+        "function:$function82": "1462",
+        "function:$function84": "120",
+        "function:$function85": "0",
+        "function:$function86": "70",
+        "function:$function88": "1250",
+        "function:$function89": "1180",
+        "function:$function91": "197",
+        "function:$function92": "252",
+        "function:$function94": "0",
+        "function:$function98": "11",
+        "function:$function99": "22",
+        "function:$function100": "3",
+        "function:$function101": "0",
+        "function:$function102": "0",
+        "function:$function103": "0",
+        "function:$function104": "0",
+        "function:$function106": "2",
+        "function:$export0": "1",
+        "function:$main": "0",
+        "constructor:$type33:$function53": "17",
+        "constructor:$type65:$function53": "2",
+        "constructor:$environment56:$function53": "1",
+        "constructor:$type74:$function53": "1",
+        "constructor:$environment62:$function53": "1",
+        "constructor:$type28:$function53": "5",
+        "constructor:$type38:$function53": "1",
+        "constructor:$type39:$function53": "9",
+        "constructor:$type54:$function53": "1",
+        "constructor:$environment98:$function53": "1",
+        "constructor:$type31:$function54": "12",
+        "constructor:$type63:$function56": "11",
+        "constructor:$environment57:$function56": "11",
+        "constructor:$type28:$function56": "99",
+        "constructor:$type31:$function56": "24",
+        "constructor:$type28:$function59": "22",
+        "constructor:$type33:$function61": "27",
+        "constructor:$type33:$function62": "99",
+        "constructor:$type65:$function62": "11",
+        "constructor:$environment63:$function62": "11",
+        "constructor:$type28:$function62": "5",
+        "constructor:$type28:$function63": "60",
+        "constructor:$type31:$function63": "60",
+        "constructor:$type28:$function66": "0",
+        "constructor:$type28:$function68": "110",
+        "constructor:$type28:$function70": "512",
+        "constructor:$type28:$function74": "420",
+        "constructor:$type28:$function76": "312",
+        "constructor:$type51:$function76": "60",
+        "constructor:$environment84:$function76": "60",
+        "constructor:$type61:$function76": "35",
+        "constructor:$environment86:$function76": "35",
+        "constructor:$type33:$function76": "189",
+        "constructor:$type28:$function77": "2234",
+        "constructor:$type31:$function77": "1300",
+        "constructor:$type28:$function85": "0",
+        "constructor:$type28:$function88": "4077",
+        "constructor:$type33:$function88": "3995",
+        "constructor:$type61:$function88": "624",
+        "constructor:$environment89:$function88": "624",
+        "constructor:$type28:$function91": "197",
+        "constructor:$type33:$function92": "252",
+        "constructor:$type40:$function98": "110",
+        "constructor:$type40:$function99": "11",
+        "constructor:$type39:$function100": "2",
+        "store:$type89:0:$function101": "0",
+        "store:$type89:0:$function102": "0",
+        "constructor:$type38:$function102": "0",
+        "constructor:$type39:$function102": "0",
+        "constructor:$type39:$function103": "0",
+        "constructor:$type40:$function104": "0",
+        "store:$type89:0:$function104": "0",
+        "constructor:$type27:$main": "0",
+        "constructor:$type32:$main": "0",
+        "constructor:$type30:$main": "0",
+        "constructor:$type34:$main": "0",
+        "constructor:$type36:$main": "0",
+        "constructor:$type37:$main": "0",
+        "constructor:$type41:$main": "0",
+        "constructor:$type42:$main": "0",
+        "constructor:$type43:$main": "0",
+        "constructor:$type44:$main": "0",
+        "constructor:$type45:$main": "0",
+        "constructor:$type46:$main": "0",
+        "constructor:$type47:$main": "0",
+        "constructor:$type48:$main": "0",
+        "constructor:$type49:$main": "0",
+        "constructor:$type50:$main": "0",
+        "constructor:$type52:$main": "0",
+        "constructor:$type53:$main": "0",
+        "constructor:$type55:$main": "0",
+        "constructor:$type56:$main": "0",
+        "constructor:$type57:$main": "0",
+        "constructor:$type58:$main": "0",
+        "constructor:$type59:$main": "0",
+        "constructor:$type60:$main": "0",
+        "constructor:$type62:$main": "0",
+        "constructor:$type64:$main": "0",
+        "constructor:$type66:$main": "0",
+        "constructor:$type67:$main": "0",
+        "constructor:$type68:$main": "0",
+        "constructor:$type69:$main": "0",
+        "constructor:$type70:$main": "0",
+        "constructor:$type71:$main": "0",
+        "constructor:$type72:$main": "0",
+        "constructor:$type73:$main": "0",
+        "constructor:$type75:$main": "0",
+        "constructor:$type76:$main": "0",
+        "constructor:$type77:$main": "0",
+        "constructor:$type79:$main": "0",
+        "constructor:$type80:$main": "0",
+        "constructor:$type81:$main": "0",
+        "constructor:$type82:$main": "0",
+        "constructor:$type83:$main": "0",
+        "constructor:$type84:$main": "0",
+        "constructor:$type85:$main": "0",
+        "constructor:$type86:$main": "0",
+        "constructor:$type87:$main": "0",
+        "constructor:$type88:$main": "0",
+        "constructor:$type89:$main": "0",
+        "constructor:$type5:$main": "0",
+        "constructor:$type90:$main": "0",
+        "constructor:$type91:$main": "0",
+        "constructor:$type92:$main": "0",
+        "shuffle-state-advance": "60"
+      },
+      "constructors_by_type": {
+        "$type33": 4579,
+        "$type65": 13,
+        "$environment56": 1,
+        "$type74": 1,
+        "$environment62": 1,
+        "$type28": 8053,
+        "$type38": 1,
+        "$type39": 11,
+        "$type54": 1,
+        "$environment98": 1,
+        "$type31": 1396,
+        "$type63": 11,
+        "$environment57": 11,
+        "$environment63": 11,
+        "$type51": 60,
+        "$environment84": 60,
+        "$type61": 659,
+        "$environment86": 35,
+        "$environment89": 624,
+        "$type40": 121,
+        "$type27": 0,
+        "$type32": 0,
+        "$type30": 0,
+        "$type34": 0,
+        "$type36": 0,
+        "$type37": 0,
+        "$type41": 0,
+        "$type42": 0,
+        "$type43": 0,
+        "$type44": 0,
+        "$type45": 0,
+        "$type46": 0,
+        "$type47": 0,
+        "$type48": 0,
+        "$type49": 0,
+        "$type50": 0,
+        "$type52": 0,
+        "$type53": 0,
+        "$type55": 0,
+        "$type56": 0,
+        "$type57": 0,
+        "$type58": 0,
+        "$type59": 0,
+        "$type60": 0,
+        "$type62": 0,
+        "$type64": 0,
+        "$type66": 0,
+        "$type67": 0,
+        "$type68": 0,
+        "$type69": 0,
+        "$type70": 0,
+        "$type71": 0,
+        "$type72": 0,
+        "$type73": 0,
+        "$type75": 0,
+        "$type76": 0,
+        "$type77": 0,
+        "$type79": 0,
+        "$type80": 0,
+        "$type81": 0,
+        "$type82": 0,
+        "$type83": 0,
+        "$type84": 0,
+        "$type85": 0,
+        "$type86": 0,
+        "$type87": 0,
+        "$type88": 0,
+        "$type89": 0,
+        "$type5": 0,
+        "$type90": 0,
+        "$type91": 0,
+        "$type92": 0
+      }
+    },
+    {
+      "count": "2",
+      "expectation": "canonical",
+      "result": "1",
+      "hides": 4,
+      "observed": {
+        "function:$function41": "44",
+        "function:$function46": "2620",
+        "function:$function47": "0",
+        "function:$function48": "132",
+        "function:$function49": "12",
+        "function:$function51": "260",
+        "function:$function53": "2",
+        "function:$function54": "66",
+        "function:$function56": "22",
+        "function:$function59": "66",
+        "function:$function61": "80",
+        "function:$function62": "22",
+        "function:$function63": "242",
+        "function:$function66": "0",
+        "function:$function68": "264",
+        "function:$function70": "122",
+        "function:$function71": "1440",
+        "function:$function72": "7076",
+        "function:$function73": "2776",
+        "function:$function74": "908",
+        "function:$function75": "102",
+        "function:$function76": "120",
+        "function:$function77": "1440",
+        "function:$function80": "4320",
+        "function:$function81": "140",
+        "function:$function82": "2924",
+        "function:$function84": "240",
+        "function:$function85": "0",
+        "function:$function86": "140",
+        "function:$function88": "2500",
+        "function:$function89": "2360",
+        "function:$function91": "394",
+        "function:$function92": "504",
+        "function:$function94": "0",
+        "function:$function98": "22",
+        "function:$function99": "44",
+        "function:$function100": "6",
+        "function:$function101": "0",
+        "function:$function102": "0",
+        "function:$function103": "0",
+        "function:$function104": "0",
+        "function:$function106": "3",
+        "function:$export0": "1",
+        "function:$main": "0",
+        "constructor:$type33:$function53": "34",
+        "constructor:$type65:$function53": "4",
+        "constructor:$environment56:$function53": "2",
+        "constructor:$type74:$function53": "2",
+        "constructor:$environment62:$function53": "2",
+        "constructor:$type28:$function53": "10",
+        "constructor:$type38:$function53": "2",
+        "constructor:$type39:$function53": "18",
+        "constructor:$type54:$function53": "2",
+        "constructor:$environment98:$function53": "2",
+        "constructor:$type31:$function54": "24",
+        "constructor:$type63:$function56": "22",
+        "constructor:$environment57:$function56": "22",
+        "constructor:$type28:$function56": "198",
+        "constructor:$type31:$function56": "48",
+        "constructor:$type28:$function59": "44",
+        "constructor:$type33:$function61": "54",
+        "constructor:$type33:$function62": "198",
+        "constructor:$type65:$function62": "22",
+        "constructor:$environment63:$function62": "22",
+        "constructor:$type28:$function62": "10",
+        "constructor:$type28:$function63": "120",
+        "constructor:$type31:$function63": "120",
+        "constructor:$type28:$function66": "0",
+        "constructor:$type28:$function68": "220",
+        "constructor:$type28:$function70": "1024",
+        "constructor:$type28:$function74": "840",
+        "constructor:$type28:$function76": "624",
+        "constructor:$type51:$function76": "120",
+        "constructor:$environment84:$function76": "120",
+        "constructor:$type61:$function76": "70",
+        "constructor:$environment86:$function76": "70",
+        "constructor:$type33:$function76": "378",
+        "constructor:$type28:$function77": "4468",
+        "constructor:$type31:$function77": "2600",
+        "constructor:$type28:$function85": "0",
+        "constructor:$type28:$function88": "8154",
+        "constructor:$type33:$function88": "7990",
+        "constructor:$type61:$function88": "1248",
+        "constructor:$environment89:$function88": "1248",
+        "constructor:$type28:$function91": "394",
+        "constructor:$type33:$function92": "504",
+        "constructor:$type40:$function98": "220",
+        "constructor:$type40:$function99": "22",
+        "constructor:$type39:$function100": "4",
+        "store:$type89:0:$function101": "0",
+        "store:$type89:0:$function102": "0",
+        "constructor:$type38:$function102": "0",
+        "constructor:$type39:$function102": "0",
+        "constructor:$type39:$function103": "0",
+        "constructor:$type40:$function104": "0",
+        "store:$type89:0:$function104": "0",
+        "constructor:$type27:$main": "0",
+        "constructor:$type32:$main": "0",
+        "constructor:$type30:$main": "0",
+        "constructor:$type34:$main": "0",
+        "constructor:$type36:$main": "0",
+        "constructor:$type37:$main": "0",
+        "constructor:$type41:$main": "0",
+        "constructor:$type42:$main": "0",
+        "constructor:$type43:$main": "0",
+        "constructor:$type44:$main": "0",
+        "constructor:$type45:$main": "0",
+        "constructor:$type46:$main": "0",
+        "constructor:$type47:$main": "0",
+        "constructor:$type48:$main": "0",
+        "constructor:$type49:$main": "0",
+        "constructor:$type50:$main": "0",
+        "constructor:$type52:$main": "0",
+        "constructor:$type53:$main": "0",
+        "constructor:$type55:$main": "0",
+        "constructor:$type56:$main": "0",
+        "constructor:$type57:$main": "0",
+        "constructor:$type58:$main": "0",
+        "constructor:$type59:$main": "0",
+        "constructor:$type60:$main": "0",
+        "constructor:$type62:$main": "0",
+        "constructor:$type64:$main": "0",
+        "constructor:$type66:$main": "0",
+        "constructor:$type67:$main": "0",
+        "constructor:$type68:$main": "0",
+        "constructor:$type69:$main": "0",
+        "constructor:$type70:$main": "0",
+        "constructor:$type71:$main": "0",
+        "constructor:$type72:$main": "0",
+        "constructor:$type73:$main": "0",
+        "constructor:$type75:$main": "0",
+        "constructor:$type76:$main": "0",
+        "constructor:$type77:$main": "0",
+        "constructor:$type79:$main": "0",
+        "constructor:$type80:$main": "0",
+        "constructor:$type81:$main": "0",
+        "constructor:$type82:$main": "0",
+        "constructor:$type83:$main": "0",
+        "constructor:$type84:$main": "0",
+        "constructor:$type85:$main": "0",
+        "constructor:$type86:$main": "0",
+        "constructor:$type87:$main": "0",
+        "constructor:$type88:$main": "0",
+        "constructor:$type89:$main": "0",
+        "constructor:$type5:$main": "0",
+        "constructor:$type90:$main": "0",
+        "constructor:$type91:$main": "0",
+        "constructor:$type92:$main": "0",
+        "shuffle-state-advance": "120"
+      },
+      "constructors_by_type": {
+        "$type33": 9158,
+        "$type65": 26,
+        "$environment56": 2,
+        "$type74": 2,
+        "$environment62": 2,
+        "$type28": 16106,
+        "$type38": 2,
+        "$type39": 22,
+        "$type54": 2,
+        "$environment98": 2,
+        "$type31": 2792,
+        "$type63": 22,
+        "$environment57": 22,
+        "$environment63": 22,
+        "$type51": 120,
+        "$environment84": 120,
+        "$type61": 1318,
+        "$environment86": 70,
+        "$environment89": 1248,
+        "$type40": 242,
+        "$type27": 0,
+        "$type32": 0,
+        "$type30": 0,
+        "$type34": 0,
+        "$type36": 0,
+        "$type37": 0,
+        "$type41": 0,
+        "$type42": 0,
+        "$type43": 0,
+        "$type44": 0,
+        "$type45": 0,
+        "$type46": 0,
+        "$type47": 0,
+        "$type48": 0,
+        "$type49": 0,
+        "$type50": 0,
+        "$type52": 0,
+        "$type53": 0,
+        "$type55": 0,
+        "$type56": 0,
+        "$type57": 0,
+        "$type58": 0,
+        "$type59": 0,
+        "$type60": 0,
+        "$type62": 0,
+        "$type64": 0,
+        "$type66": 0,
+        "$type67": 0,
+        "$type68": 0,
+        "$type69": 0,
+        "$type70": 0,
+        "$type71": 0,
+        "$type72": 0,
+        "$type73": 0,
+        "$type75": 0,
+        "$type76": 0,
+        "$type77": 0,
+        "$type79": 0,
+        "$type80": 0,
+        "$type81": 0,
+        "$type82": 0,
+        "$type83": 0,
+        "$type84": 0,
+        "$type85": 0,
+        "$type86": 0,
+        "$type87": 0,
+        "$type88": 0,
+        "$type89": 0,
+        "$type5": 0,
+        "$type90": 0,
+        "$type91": 0,
+        "$type92": 0
+      }
+    },
+    {
+      "count": "10000",
+      "expectation": "canonical",
+      "result": "1",
+      "hides": 20000,
+      "observed": {
+        "function:$function41": "220000",
+        "function:$function46": "13100000",
+        "function:$function47": "0",
+        "function:$function48": "132",
+        "function:$function49": "12",
+        "function:$function51": "1300000",
+        "function:$function53": "10000",
+        "function:$function54": "330000",
+        "function:$function56": "110000",
+        "function:$function59": "330000",
+        "function:$function61": "400000",
+        "function:$function62": "110000",
+        "function:$function63": "1210000",
+        "function:$function66": "0",
+        "function:$function68": "1320000",
+        "function:$function70": "610000",
+        "function:$function71": "7200000",
+        "function:$function72": "35380000",
+        "function:$function73": "13880000",
+        "function:$function74": "4540000",
+        "function:$function75": "510000",
+        "function:$function76": "600000",
+        "function:$function77": "7200000",
+        "function:$function80": "21600000",
+        "function:$function81": "700000",
+        "function:$function82": "14620000",
+        "function:$function84": "1200000",
+        "function:$function85": "0",
+        "function:$function86": "700000",
+        "function:$function88": "12500000",
+        "function:$function89": "11800000",
+        "function:$function91": "1970000",
+        "function:$function92": "2520000",
+        "function:$function94": "0",
+        "function:$function98": "110000",
+        "function:$function99": "220000",
+        "function:$function100": "30000",
+        "function:$function101": "0",
+        "function:$function102": "0",
+        "function:$function103": "0",
+        "function:$function104": "0",
+        "function:$function106": "10001",
+        "function:$export0": "1",
+        "function:$main": "0",
+        "constructor:$type33:$function53": "170000",
+        "constructor:$type65:$function53": "20000",
+        "constructor:$environment56:$function53": "10000",
+        "constructor:$type74:$function53": "10000",
+        "constructor:$environment62:$function53": "10000",
+        "constructor:$type28:$function53": "50000",
+        "constructor:$type38:$function53": "10000",
+        "constructor:$type39:$function53": "90000",
+        "constructor:$type54:$function53": "10000",
+        "constructor:$environment98:$function53": "10000",
+        "constructor:$type31:$function54": "120000",
+        "constructor:$type63:$function56": "110000",
+        "constructor:$environment57:$function56": "110000",
+        "constructor:$type28:$function56": "990000",
+        "constructor:$type31:$function56": "240000",
+        "constructor:$type28:$function59": "220000",
+        "constructor:$type33:$function61": "270000",
+        "constructor:$type33:$function62": "990000",
+        "constructor:$type65:$function62": "110000",
+        "constructor:$environment63:$function62": "110000",
+        "constructor:$type28:$function62": "50000",
+        "constructor:$type28:$function63": "600000",
+        "constructor:$type31:$function63": "600000",
+        "constructor:$type28:$function66": "0",
+        "constructor:$type28:$function68": "1100000",
+        "constructor:$type28:$function70": "5120000",
+        "constructor:$type28:$function74": "4200000",
+        "constructor:$type28:$function76": "3120000",
+        "constructor:$type51:$function76": "600000",
+        "constructor:$environment84:$function76": "600000",
+        "constructor:$type61:$function76": "350000",
+        "constructor:$environment86:$function76": "350000",
+        "constructor:$type33:$function76": "1890000",
+        "constructor:$type28:$function77": "22340000",
+        "constructor:$type31:$function77": "13000000",
+        "constructor:$type28:$function85": "0",
+        "constructor:$type28:$function88": "40770000",
+        "constructor:$type33:$function88": "39950000",
+        "constructor:$type61:$function88": "6240000",
+        "constructor:$environment89:$function88": "6240000",
+        "constructor:$type28:$function91": "1970000",
+        "constructor:$type33:$function92": "2520000",
+        "constructor:$type40:$function98": "1100000",
+        "constructor:$type40:$function99": "110000",
+        "constructor:$type39:$function100": "20000",
+        "store:$type89:0:$function101": "0",
+        "store:$type89:0:$function102": "0",
+        "constructor:$type38:$function102": "0",
+        "constructor:$type39:$function102": "0",
+        "constructor:$type39:$function103": "0",
+        "constructor:$type40:$function104": "0",
+        "store:$type89:0:$function104": "0",
+        "constructor:$type27:$main": "0",
+        "constructor:$type32:$main": "0",
+        "constructor:$type30:$main": "0",
+        "constructor:$type34:$main": "0",
+        "constructor:$type36:$main": "0",
+        "constructor:$type37:$main": "0",
+        "constructor:$type41:$main": "0",
+        "constructor:$type42:$main": "0",
+        "constructor:$type43:$main": "0",
+        "constructor:$type44:$main": "0",
+        "constructor:$type45:$main": "0",
+        "constructor:$type46:$main": "0",
+        "constructor:$type47:$main": "0",
+        "constructor:$type48:$main": "0",
+        "constructor:$type49:$main": "0",
+        "constructor:$type50:$main": "0",
+        "constructor:$type52:$main": "0",
+        "constructor:$type53:$main": "0",
+        "constructor:$type55:$main": "0",
+        "constructor:$type56:$main": "0",
+        "constructor:$type57:$main": "0",
+        "constructor:$type58:$main": "0",
+        "constructor:$type59:$main": "0",
+        "constructor:$type60:$main": "0",
+        "constructor:$type62:$main": "0",
+        "constructor:$type64:$main": "0",
+        "constructor:$type66:$main": "0",
+        "constructor:$type67:$main": "0",
+        "constructor:$type68:$main": "0",
+        "constructor:$type69:$main": "0",
+        "constructor:$type70:$main": "0",
+        "constructor:$type71:$main": "0",
+        "constructor:$type72:$main": "0",
+        "constructor:$type73:$main": "0",
+        "constructor:$type75:$main": "0",
+        "constructor:$type76:$main": "0",
+        "constructor:$type77:$main": "0",
+        "constructor:$type79:$main": "0",
+        "constructor:$type80:$main": "0",
+        "constructor:$type81:$main": "0",
+        "constructor:$type82:$main": "0",
+        "constructor:$type83:$main": "0",
+        "constructor:$type84:$main": "0",
+        "constructor:$type85:$main": "0",
+        "constructor:$type86:$main": "0",
+        "constructor:$type87:$main": "0",
+        "constructor:$type88:$main": "0",
+        "constructor:$type89:$main": "0",
+        "constructor:$type5:$main": "0",
+        "constructor:$type90:$main": "0",
+        "constructor:$type91:$main": "0",
+        "constructor:$type92:$main": "0",
+        "shuffle-state-advance": "600000"
+      },
+      "constructors_by_type": {
+        "$type33": 45790000,
+        "$type65": 130000,
+        "$environment56": 10000,
+        "$type74": 10000,
+        "$environment62": 10000,
+        "$type28": 80530000,
+        "$type38": 10000,
+        "$type39": 110000,
+        "$type54": 10000,
+        "$environment98": 10000,
+        "$type31": 13960000,
+        "$type63": 110000,
+        "$environment57": 110000,
+        "$environment63": 110000,
+        "$type51": 600000,
+        "$environment84": 600000,
+        "$type61": 6590000,
+        "$environment86": 350000,
+        "$environment89": 6240000,
+        "$type40": 1210000,
+        "$type27": 0,
+        "$type32": 0,
+        "$type30": 0,
+        "$type34": 0,
+        "$type36": 0,
+        "$type37": 0,
+        "$type41": 0,
+        "$type42": 0,
+        "$type43": 0,
+        "$type44": 0,
+        "$type45": 0,
+        "$type46": 0,
+        "$type47": 0,
+        "$type48": 0,
+        "$type49": 0,
+        "$type50": 0,
+        "$type52": 0,
+        "$type53": 0,
+        "$type55": 0,
+        "$type56": 0,
+        "$type57": 0,
+        "$type58": 0,
+        "$type59": 0,
+        "$type60": 0,
+        "$type62": 0,
+        "$type64": 0,
+        "$type66": 0,
+        "$type67": 0,
+        "$type68": 0,
+        "$type69": 0,
+        "$type70": 0,
+        "$type71": 0,
+        "$type72": 0,
+        "$type73": 0,
+        "$type75": 0,
+        "$type76": 0,
+        "$type77": 0,
+        "$type79": 0,
+        "$type80": 0,
+        "$type81": 0,
+        "$type82": 0,
+        "$type83": 0,
+        "$type84": 0,
+        "$type85": 0,
+        "$type86": 0,
+        "$type87": 0,
+        "$type88": 0,
+        "$type89": 0,
+        "$type5": 0,
+        "$type90": 0,
+        "$type91": 0,
+        "$type92": 0
+      }
+    }
+  ],
+  "invalid_expectation": {
+    "count": "10000",
+    "expectation": "3",
+    "result": "0",
+    "hides": 20000,
+    "observed": {
+      "function:$function41": "220000",
+      "function:$function46": "13100000",
+      "function:$function47": "0",
+      "function:$function48": "0",
+      "function:$function49": "0",
+      "function:$function51": "1300000",
+      "function:$function53": "10000",
+      "function:$function54": "330000",
+      "function:$function56": "110000",
+      "function:$function59": "330000",
+      "function:$function61": "400000",
+      "function:$function62": "110000",
+      "function:$function63": "1210000",
+      "function:$function66": "0",
+      "function:$function68": "1320000",
+      "function:$function70": "610000",
+      "function:$function71": "7200000",
+      "function:$function72": "35380000",
+      "function:$function73": "13880000",
+      "function:$function74": "4540000",
+      "function:$function75": "510000",
+      "function:$function76": "600000",
+      "function:$function77": "7200000",
+      "function:$function80": "21600000",
+      "function:$function81": "700000",
+      "function:$function82": "14620000",
+      "function:$function84": "1200000",
+      "function:$function85": "0",
+      "function:$function86": "700000",
+      "function:$function88": "12500000",
+      "function:$function89": "11800000",
+      "function:$function91": "1970000",
+      "function:$function92": "2520000",
+      "function:$function94": "0",
+      "function:$function98": "110000",
+      "function:$function99": "220000",
+      "function:$function100": "30000",
+      "function:$function101": "0",
+      "function:$function102": "0",
+      "function:$function103": "0",
+      "function:$function104": "0",
+      "function:$function106": "10001",
+      "function:$export0": "1",
+      "function:$main": "0",
+      "constructor:$type33:$function53": "170000",
+      "constructor:$type65:$function53": "20000",
+      "constructor:$environment56:$function53": "10000",
+      "constructor:$type74:$function53": "10000",
+      "constructor:$environment62:$function53": "10000",
+      "constructor:$type28:$function53": "50000",
+      "constructor:$type38:$function53": "10000",
+      "constructor:$type39:$function53": "90000",
+      "constructor:$type54:$function53": "10000",
+      "constructor:$environment98:$function53": "10000",
+      "constructor:$type31:$function54": "120000",
+      "constructor:$type63:$function56": "110000",
+      "constructor:$environment57:$function56": "110000",
+      "constructor:$type28:$function56": "990000",
+      "constructor:$type31:$function56": "240000",
+      "constructor:$type28:$function59": "220000",
+      "constructor:$type33:$function61": "270000",
+      "constructor:$type33:$function62": "990000",
+      "constructor:$type65:$function62": "110000",
+      "constructor:$environment63:$function62": "110000",
+      "constructor:$type28:$function62": "50000",
+      "constructor:$type28:$function63": "600000",
+      "constructor:$type31:$function63": "600000",
+      "constructor:$type28:$function66": "0",
+      "constructor:$type28:$function68": "1100000",
+      "constructor:$type28:$function70": "5120000",
+      "constructor:$type28:$function74": "4200000",
+      "constructor:$type28:$function76": "3120000",
+      "constructor:$type51:$function76": "600000",
+      "constructor:$environment84:$function76": "600000",
+      "constructor:$type61:$function76": "350000",
+      "constructor:$environment86:$function76": "350000",
+      "constructor:$type33:$function76": "1890000",
+      "constructor:$type28:$function77": "22340000",
+      "constructor:$type31:$function77": "13000000",
+      "constructor:$type28:$function85": "0",
+      "constructor:$type28:$function88": "40770000",
+      "constructor:$type33:$function88": "39950000",
+      "constructor:$type61:$function88": "6240000",
+      "constructor:$environment89:$function88": "6240000",
+      "constructor:$type28:$function91": "1970000",
+      "constructor:$type33:$function92": "2520000",
+      "constructor:$type40:$function98": "1100000",
+      "constructor:$type40:$function99": "110000",
+      "constructor:$type39:$function100": "20000",
+      "store:$type89:0:$function101": "0",
+      "store:$type89:0:$function102": "0",
+      "constructor:$type38:$function102": "0",
+      "constructor:$type39:$function102": "0",
+      "constructor:$type39:$function103": "0",
+      "constructor:$type40:$function104": "0",
+      "store:$type89:0:$function104": "0",
+      "constructor:$type27:$main": "0",
+      "constructor:$type32:$main": "0",
+      "constructor:$type30:$main": "0",
+      "constructor:$type34:$main": "0",
+      "constructor:$type36:$main": "0",
+      "constructor:$type37:$main": "0",
+      "constructor:$type41:$main": "0",
+      "constructor:$type42:$main": "0",
+      "constructor:$type43:$main": "0",
+      "constructor:$type44:$main": "0",
+      "constructor:$type45:$main": "0",
+      "constructor:$type46:$main": "0",
+      "constructor:$type47:$main": "0",
+      "constructor:$type48:$main": "0",
+      "constructor:$type49:$main": "0",
+      "constructor:$type50:$main": "0",
+      "constructor:$type52:$main": "0",
+      "constructor:$type53:$main": "0",
+      "constructor:$type55:$main": "0",
+      "constructor:$type56:$main": "0",
+      "constructor:$type57:$main": "0",
+      "constructor:$type58:$main": "0",
+      "constructor:$type59:$main": "0",
+      "constructor:$type60:$main": "0",
+      "constructor:$type62:$main": "0",
+      "constructor:$type64:$main": "0",
+      "constructor:$type66:$main": "0",
+      "constructor:$type67:$main": "0",
+      "constructor:$type68:$main": "0",
+      "constructor:$type69:$main": "0",
+      "constructor:$type70:$main": "0",
+      "constructor:$type71:$main": "0",
+      "constructor:$type72:$main": "0",
+      "constructor:$type73:$main": "0",
+      "constructor:$type75:$main": "0",
+      "constructor:$type76:$main": "0",
+      "constructor:$type77:$main": "0",
+      "constructor:$type79:$main": "0",
+      "constructor:$type80:$main": "0",
+      "constructor:$type81:$main": "0",
+      "constructor:$type82:$main": "0",
+      "constructor:$type83:$main": "0",
+      "constructor:$type84:$main": "0",
+      "constructor:$type85:$main": "0",
+      "constructor:$type86:$main": "0",
+      "constructor:$type87:$main": "0",
+      "constructor:$type88:$main": "0",
+      "constructor:$type89:$main": "0",
+      "constructor:$type5:$main": "0",
+      "constructor:$type90:$main": "0",
+      "constructor:$type91:$main": "0",
+      "constructor:$type92:$main": "0",
+      "shuffle-state-advance": "600000"
+    }
+  },
+  "initial_false": {
+    "count": "0",
+    "expectation": "0",
+    "result": "1",
+    "hides": 0,
+    "observed": {
+      "function:$function41": "0",
+      "function:$function46": "0",
+      "function:$function47": "0",
+      "function:$function48": "0",
+      "function:$function49": "0",
+      "function:$function51": "0",
+      "function:$function53": "0",
+      "function:$function54": "0",
+      "function:$function56": "0",
+      "function:$function59": "0",
+      "function:$function61": "0",
+      "function:$function62": "0",
+      "function:$function63": "0",
+      "function:$function66": "0",
+      "function:$function68": "0",
+      "function:$function70": "0",
+      "function:$function71": "0",
+      "function:$function72": "0",
+      "function:$function73": "0",
+      "function:$function74": "0",
+      "function:$function75": "0",
+      "function:$function76": "0",
+      "function:$function77": "0",
+      "function:$function80": "0",
+      "function:$function81": "0",
+      "function:$function82": "0",
+      "function:$function84": "0",
+      "function:$function85": "0",
+      "function:$function86": "0",
+      "function:$function88": "0",
+      "function:$function89": "0",
+      "function:$function91": "0",
+      "function:$function92": "0",
+      "function:$function94": "0",
+      "function:$function98": "0",
+      "function:$function99": "0",
+      "function:$function100": "0",
+      "function:$function101": "0",
+      "function:$function102": "0",
+      "function:$function103": "0",
+      "function:$function104": "0",
+      "function:$function106": "1",
+      "function:$export0": "1",
+      "function:$main": "0",
+      "constructor:$type33:$function53": "0",
+      "constructor:$type65:$function53": "0",
+      "constructor:$environment56:$function53": "0",
+      "constructor:$type74:$function53": "0",
+      "constructor:$environment62:$function53": "0",
+      "constructor:$type28:$function53": "0",
+      "constructor:$type38:$function53": "0",
+      "constructor:$type39:$function53": "0",
+      "constructor:$type54:$function53": "0",
+      "constructor:$environment98:$function53": "0",
+      "constructor:$type31:$function54": "0",
+      "constructor:$type63:$function56": "0",
+      "constructor:$environment57:$function56": "0",
+      "constructor:$type28:$function56": "0",
+      "constructor:$type31:$function56": "0",
+      "constructor:$type28:$function59": "0",
+      "constructor:$type33:$function61": "0",
+      "constructor:$type33:$function62": "0",
+      "constructor:$type65:$function62": "0",
+      "constructor:$environment63:$function62": "0",
+      "constructor:$type28:$function62": "0",
+      "constructor:$type28:$function63": "0",
+      "constructor:$type31:$function63": "0",
+      "constructor:$type28:$function66": "0",
+      "constructor:$type28:$function68": "0",
+      "constructor:$type28:$function70": "0",
+      "constructor:$type28:$function74": "0",
+      "constructor:$type28:$function76": "0",
+      "constructor:$type51:$function76": "0",
+      "constructor:$environment84:$function76": "0",
+      "constructor:$type61:$function76": "0",
+      "constructor:$environment86:$function76": "0",
+      "constructor:$type33:$function76": "0",
+      "constructor:$type28:$function77": "0",
+      "constructor:$type31:$function77": "0",
+      "constructor:$type28:$function85": "0",
+      "constructor:$type28:$function88": "0",
+      "constructor:$type33:$function88": "0",
+      "constructor:$type61:$function88": "0",
+      "constructor:$environment89:$function88": "0",
+      "constructor:$type28:$function91": "0",
+      "constructor:$type33:$function92": "0",
+      "constructor:$type40:$function98": "0",
+      "constructor:$type40:$function99": "0",
+      "constructor:$type39:$function100": "0",
+      "store:$type89:0:$function101": "0",
+      "store:$type89:0:$function102": "0",
+      "constructor:$type38:$function102": "0",
+      "constructor:$type39:$function102": "0",
+      "constructor:$type39:$function103": "0",
+      "constructor:$type40:$function104": "0",
+      "store:$type89:0:$function104": "0",
+      "constructor:$type27:$main": "0",
+      "constructor:$type32:$main": "0",
+      "constructor:$type30:$main": "0",
+      "constructor:$type34:$main": "0",
+      "constructor:$type36:$main": "0",
+      "constructor:$type37:$main": "0",
+      "constructor:$type41:$main": "0",
+      "constructor:$type42:$main": "0",
+      "constructor:$type43:$main": "0",
+      "constructor:$type44:$main": "0",
+      "constructor:$type45:$main": "0",
+      "constructor:$type46:$main": "0",
+      "constructor:$type47:$main": "0",
+      "constructor:$type48:$main": "0",
+      "constructor:$type49:$main": "0",
+      "constructor:$type50:$main": "0",
+      "constructor:$type52:$main": "0",
+      "constructor:$type53:$main": "0",
+      "constructor:$type55:$main": "0",
+      "constructor:$type56:$main": "0",
+      "constructor:$type57:$main": "0",
+      "constructor:$type58:$main": "0",
+      "constructor:$type59:$main": "0",
+      "constructor:$type60:$main": "0",
+      "constructor:$type62:$main": "0",
+      "constructor:$type64:$main": "0",
+      "constructor:$type66:$main": "0",
+      "constructor:$type67:$main": "0",
+      "constructor:$type68:$main": "0",
+      "constructor:$type69:$main": "0",
+      "constructor:$type70:$main": "0",
+      "constructor:$type71:$main": "0",
+      "constructor:$type72:$main": "0",
+      "constructor:$type73:$main": "0",
+      "constructor:$type75:$main": "0",
+      "constructor:$type76:$main": "0",
+      "constructor:$type77:$main": "0",
+      "constructor:$type79:$main": "0",
+      "constructor:$type80:$main": "0",
+      "constructor:$type81:$main": "0",
+      "constructor:$type82:$main": "0",
+      "constructor:$type83:$main": "0",
+      "constructor:$type84:$main": "0",
+      "constructor:$type85:$main": "0",
+      "constructor:$type86:$main": "0",
+      "constructor:$type87:$main": "0",
+      "constructor:$type88:$main": "0",
+      "constructor:$type89:$main": "0",
+      "constructor:$type5:$main": "0",
+      "constructor:$type90:$main": "0",
+      "constructor:$type91:$main": "0",
+      "constructor:$type92:$main": "0",
+      "shuffle-state-advance": "0"
+    }
+  },
+  "all_kernel_counters_scale": true,
+  "invalid_expectation_keeps_all_kernel_counters": true,
+  "canonical_disassembly_reproduced": true,
+  "clean_measurements": 0,
+  "limitations": "Counts are function/expression entries in a separate observer copy. They are not physical V8 GC allocations, uninstrumented native instruction counts, or performance samples. Optimizer inlining means residual function entries are not totals of every corresponding source call. Constructor expression entry precedes operand evaluation; these canonical runs finish without traps."
+}

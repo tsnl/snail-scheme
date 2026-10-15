@@ -1,0 +1,610 @@
+{
+  "cpu": 5,
+  "taskset": "/run/current-system/sw/bin/taskset",
+  "cases": [
+    {
+      "name": "string",
+      "expected": "1",
+      "count": 100,
+      "variants": [
+        {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wasm",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/spec.json"
+          ],
+          "environment": {},
+          "name": "v8",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        },
+        {
+          "command": [
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/inputs.txt"
+          ],
+          "environment": {
+            "SNAIL_GC_HEAP_BYTES": "314572800"
+          },
+          "name": "native_immix_300mib",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        }
+      ]
+    },
+    {
+      "name": "mbrotZ",
+      "expected": "5",
+      "count": 1000,
+      "variants": [
+        {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wasm",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/spec.json"
+          ],
+          "environment": {},
+          "name": "v8",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        },
+        {
+          "command": [
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/native",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/inputs.txt"
+          ],
+          "environment": {
+            "SNAIL_GC_HEAP_BYTES": "314572800"
+          },
+          "name": "native_immix_300mib",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        }
+      ]
+    },
+    {
+      "name": "quicksort",
+      "expected": "1",
+      "count": 2500,
+      "variants": [
+        {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wasm",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/spec.json"
+          ],
+          "environment": {},
+          "name": "v8",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        },
+        {
+          "command": [
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/native",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/inputs.txt"
+          ],
+          "environment": {
+            "SNAIL_GC_HEAP_BYTES": "314572800"
+          },
+          "name": "native_immix_300mib",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        }
+      ]
+    },
+    {
+      "name": "mperm",
+      "expected": "1",
+      "count": 20,
+      "variants": [
+        {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wasm",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/spec.json"
+          ],
+          "environment": {},
+          "name": "v8",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        },
+        {
+          "command": [
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/native",
+            "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/inputs.txt"
+          ],
+          "environment": {
+            "SNAIL_GC_HEAP_BYTES": "1073741824"
+          },
+          "name": "native_immix_1gib",
+          "cwd": "/tmp/snail-current-wasm-llvm-20261014"
+        }
+      ]
+    }
+  ],
+  "files": [
+    "/nix/store/5rhnyy8qnwnasmadd83bbrp1agylvwjs-lld-21.1.8/bin/ld.lld",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/nix/store/mw4gasdvwgscgpxpzihjgchfhs3hhqhn-clang-wrapper-21.1.8/bin/clang",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+    "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "/run/current-system/sw/bin/taskset",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/handoff.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/build.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/host.o",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wasm",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wat",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/inputs.txt",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/manifest.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/module.ll",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/native",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/spec.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/build.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/host.o",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wasm",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wat",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/inputs.txt",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/manifest.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/module.ll",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/native",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/spec.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/build.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/host.o",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wasm",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wat",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/inputs.txt",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/manifest.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/module.ll",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/native",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/spec.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/build.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/host.o",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wasm",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wat",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/inputs.txt",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/manifest.json",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/module.ll",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/spec.json",
+    "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/host.c",
+    "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+    "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/prepare.py",
+    "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/translate.scm",
+    "/tmp/snail-current-wasm-llvm-20261014/src/native.c",
+    "/tmp/snail-current-wasm-llvm-20261014/src/precise-gc.c",
+    "/tmp/snail-current-wasm-llvm-20261014/src/precise-gc.h",
+    "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/llvm.sld",
+    "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/llvmlite.sld",
+    "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/wasm-read.sld",
+    "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/wasm-resolve.sld",
+    "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+    "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/quicksort/quicksort/strict.wasm",
+    "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+    "/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/spec.json",
+    "/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/strict.wasm",
+    "/tmp/snail-strict-string-measurement-20261014/build/freeze-current-llvm.py",
+    "/tmp/snail-strict-string-measurement-20261014/build/measure-current-llvm.py",
+    "/tmp/snail-strict-string-preparation-20261014-r3/string/spec.json",
+    "/tmp/snail-strict-string-preparation-20261014-r3/string/strict.wasm",
+    "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json"
+  ],
+  "identities": [
+    {
+      "path": "/nix/store/5rhnyy8qnwnasmadd83bbrp1agylvwjs-lld-21.1.8/bin/ld.lld",
+      "sha256": "5f3a4b7f7d6fba5972c164e4bd27188ff453fe8a8566a3f8d027fb4c4548bc14"
+    },
+    {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b"
+    },
+    {
+      "path": "/nix/store/mw4gasdvwgscgpxpzihjgchfhs3hhqhn-clang-wrapper-21.1.8/bin/clang",
+      "sha256": "faf53eadd7625e8cfdd8c158a9af059d6d65ad31cc9475a59096468cb52a736b"
+    },
+    {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+      "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045"
+    },
+    {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090"
+    },
+    {
+      "path": "/run/current-system/sw/bin/taskset",
+      "sha256": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/handoff.json",
+      "sha256": "e6420e7b89f123d8ab53459b62180a391aad84a2c308e78e4f9e94e0d8ece1ff"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/build.json",
+      "sha256": "7f3f5ead7cecf4fef2742aa3b2fdaccc585e084e4d9e970e159ce3cee879a407"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/host.o",
+      "sha256": "83bc7ab8c303bbc04816908eab42077dbd92b1af710192bf95d64fe32c204fb8"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wasm",
+      "sha256": "29c01c02814ae4684a680087de04d8d8d0ddd996cf95a3b39a2f665d2987d888"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wat",
+      "sha256": "75bbc95a7cfc8d1b04659b1de57f86efc0f93f992451028e1f0f7b824534531c"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/inputs.txt",
+      "sha256": "770f432d83d21ebeb7b8b60c8e19e862dd87eb63f6c8dcc22eca5971e560979d"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/manifest.json",
+      "sha256": "bc7fb088c1f18f600ab36105116a02f98b33e290771e947b286909a0eeed0a3a"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/module.ll",
+      "sha256": "b6152028504f3f6795e36e8b008f058159e552d5d9ad8851613762bda27ad9ad"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/native",
+      "sha256": "bbd351a63ec12d7d5f8a8454e76bb0c7dc4172fbf0f8b05ca559ef7d574d7c26"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/spec.json",
+      "sha256": "bb65395a80424c1bd45c5e5dc056f611ac42ebde8222e72623a5112cb89a7bc9"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/build.json",
+      "sha256": "392b7b4c599d51d87f0160a3f53e81759278028841fada6508de2f42a52d91be"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/host.o",
+      "sha256": "83bc7ab8c303bbc04816908eab42077dbd92b1af710192bf95d64fe32c204fb8"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wasm",
+      "sha256": "d0ae034b61a5387b2c51d22311555aeb523cc5f7c2b500517f322757be10ddf3"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wat",
+      "sha256": "7ae6a6f57d66d327bb08b9c3ce43e9946667deb8bb21435948c2a121578052f9"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/inputs.txt",
+      "sha256": "913eefee43ecc53dd3372e49203ccc98a6585ed54814aaa58c71e932342d438f"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/manifest.json",
+      "sha256": "c65e33b92ea092586eac9fa3014ecfa0b5e3ccb2f2faaee89dff4242103b0e3d"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/module.ll",
+      "sha256": "d14bc96c9cdf84bf3d4f933fd4a27b06c9d4c9d6428bc30519e872907af31d66"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/native",
+      "sha256": "b7effdb31639cd4bb3fb94d0b0b1bb88ac9313bdb3d3fe13d0d7e1aee570755d"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/build.json",
+      "sha256": "6754a11735276f5e88fec06213d9079de236b9fb90deb1d4fb8964b57940dc9d"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/host.o",
+      "sha256": "83bc7ab8c303bbc04816908eab42077dbd92b1af710192bf95d64fe32c204fb8"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wasm",
+      "sha256": "2e6915cad5b86abdaa4e08f9152e23af4d2de3781e1a6a0cb5a0ac1f6649a21d"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wat",
+      "sha256": "364863e18444d580c981dfea8f7cdf8466df12d5d8e4539557a642a3d19a7876"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/inputs.txt",
+      "sha256": "1f4bed0de9b349ab0872d6a0be4a1f5ab5c335073ee65806eb2daa097bba5441"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/manifest.json",
+      "sha256": "2cbcec4cf84cad4ab5451fb3d58b0f1149eb5a4e39553770cb400feb2e92fa3c"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/module.ll",
+      "sha256": "560694992b2c48c90a745b604360441c921a96f5bfe4f570543f2aa77b6bb654"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/native",
+      "sha256": "8d797c89fdde9b56e35e91376d50dbce6cfb0cf528c834237b6f429a8f2f0f94"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/build.json",
+      "sha256": "99618e82fe38128611f5df0684d6cbd902c458987a32a0b88cb8cad03fd25031"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/host.o",
+      "sha256": "83bc7ab8c303bbc04816908eab42077dbd92b1af710192bf95d64fe32c204fb8"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wasm",
+      "sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wat",
+      "sha256": "ed01584dbd9d03acc6ceeb5c300cd5ae7d2699148ad45db44f646263d69d6a71"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/inputs.txt",
+      "sha256": "17a9b4f8e2c4cb44c4ff74a7e04634e27828eedfa1b05fd3a7f8abe14ab60946"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/manifest.json",
+      "sha256": "8d1d0a5fb5045f8e3261760651478becdfe7f9d8b22c7536581232e5ecd6f1e4"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/module.ll",
+      "sha256": "c39716259dcb2a24294e7182d5245e3c6653f2999f4e23738cd69a7a4aec32b4"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+      "sha256": "188a3ae4306f7a1691535b677aded0ebf86942a3f6408b1afd1ee37d515fe639"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/spec.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/host.c",
+      "sha256": "44e6fe9c2312221bbdb9947054ac89d8609b00ba6d905d7532f6bd039d400b77"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+      "sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/prepare.py",
+      "sha256": "5b25038f39ac01766d25f8c565aaf0f2905af8a1a2241b5ebc85ecef6658c977"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/translate.scm",
+      "sha256": "1a787026ba7b885c0b00b70b1926d2a4266639ca109eceff33e146cb730b1533"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/native.c",
+      "sha256": "135343a288152bc27406e6ef2ae18082a445da86926b46a30cd70eab75eb0d08"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/precise-gc.c",
+      "sha256": "88942bfab0d520dd51c732626c67c9a230aed7202508454efca3d972c3788601"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/precise-gc.h",
+      "sha256": "b35383048c322c9c2a67bd399575070cba331ef63a0526052fdea479731f20b3"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/llvm.sld",
+      "sha256": "c48c93d6ec9c4fb4d55b04b2833a3bad6c97bd271e95205c76ae033d4440fe77"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/llvmlite.sld",
+      "sha256": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/wasm-read.sld",
+      "sha256": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef"
+    },
+    {
+      "path": "/tmp/snail-current-wasm-llvm-20261014/src/snail-scheme/wasm-resolve.sld",
+      "sha256": "7404ba55f0a74f332e1ca10243f3081d7f40e7e72a9e478009bb1573926e87e7"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/mperm/mperm/strict.wasm",
+      "sha256": "d0ae034b61a5387b2c51d22311555aeb523cc5f7c2b500517f322757be10ddf3"
+    },
+    {
+      "path": "/tmp/snail-strict-call-capture-combined-20261013/build/initialized-capture-benchmarks/quicksort/quicksort/strict.wasm",
+      "sha256": "2e6915cad5b86abdaa4e08f9152e23af4d2de3781e1a6a0cb5a0ac1f6649a21d"
+    },
+    {
+      "path": "/tmp/snail-strict-enumeration-preparation-20261013/mperm/spec.json",
+      "sha256": "0afa5d7a56187e4a9baee3d2fa8e6100974d060050da933d2ab7499c64248c39"
+    },
+    {
+      "path": "/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/spec.json",
+      "sha256": "bb65395a80424c1bd45c5e5dc056f611ac42ebde8222e72623a5112cb89a7bc9"
+    },
+    {
+      "path": "/tmp/snail-strict-mbrot-z-preparation-20261013/mbrotZ/strict.wasm",
+      "sha256": "29c01c02814ae4684a680087de04d8d8d0ddd996cf95a3b39a2f665d2987d888"
+    },
+    {
+      "path": "/tmp/snail-strict-string-measurement-20261014/build/freeze-current-llvm.py",
+      "sha256": "81bc68b6135c28151c75ee7d4eaf65958868d57ef92d5d3269da740439010079"
+    },
+    {
+      "path": "/tmp/snail-strict-string-measurement-20261014/build/measure-current-llvm.py",
+      "sha256": "c6a8a20fad925d97fd170b6e6b5644cc99770889e5a4c7a51260fcc80cf04dce"
+    },
+    {
+      "path": "/tmp/snail-strict-string-preparation-20261014-r3/string/spec.json",
+      "sha256": "54b8f800de32d348bdcf5a877b2e80f8f3005b8d8667b21bd10d2793704d5e31"
+    },
+    {
+      "path": "/tmp/snail-strict-string-preparation-20261014-r3/string/strict.wasm",
+      "sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669"
+    },
+    {
+      "path": "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/spec.json",
+      "sha256": "34da7abf9b99cc867b912992d62dbd4e78a905880af1d81608032ff135194f9a"
+    }
+  ],
+  "handoff": {
+    "worktree": "/tmp/snail-current-wasm-llvm-20261014",
+    "branch": "experiment/current-wasm-llvm-20261014",
+    "archive_revision": "5c277ab",
+    "cpu": 5,
+    "fresh_process": true,
+    "scope": "identical already optimized current Wasm binary per pair, no frontend rerun",
+    "timer": "after runtime input loading, heap prefault, native_module_init and exported main; bench(count) and final host expected-result assertion included; output/counter checks excluded",
+    "root_protocol": "exact explicit reference frames, not LLVM stack maps; synchronous nonmoving Immix",
+    "layout": "eight-byte native slots including i32 Unicode array elements",
+    "clean_unset": [
+      "NODE_OPTIONS",
+      "SNAIL_NATIVE_GC_INTERVAL",
+      "SNAIL_GC_STATS",
+      "SNAIL_GC_SCAN_ALL",
+      "SNAIL_GC_MIN_BYTES",
+      "SNAIL_GC_HEAP_BYTES"
+    ],
+    "node_host_sha256": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9",
+    "node": "24.19.0",
+    "v8": "13.6.233.17-node.51",
+    "cases": [
+      {
+        "benchmark": "string",
+        "count": 100,
+        "expected_result": "1",
+        "input_wasm_sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669",
+        "manifest": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/manifest.json",
+        "specification": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/spec.json",
+        "native_inputs": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/inputs.txt",
+        "variants": {
+          "v8": {
+            "command": [
+              "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+              "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/input.wasm",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/spec.json"
+            ],
+            "environment": {}
+          },
+          "native_immix_300mib": {
+            "command": [
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/inputs.txt"
+            ],
+            "environment": {
+              "SNAIL_GC_HEAP_BYTES": "314572800"
+            }
+          }
+        }
+      },
+      {
+        "benchmark": "mbrotZ",
+        "count": 1000,
+        "expected_result": "5",
+        "input_wasm_sha256": "29c01c02814ae4684a680087de04d8d8d0ddd996cf95a3b39a2f665d2987d888",
+        "manifest": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/manifest.json",
+        "specification": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/spec.json",
+        "native_inputs": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/inputs.txt",
+        "variants": {
+          "v8": {
+            "command": [
+              "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+              "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/input.wasm",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/spec.json"
+            ],
+            "environment": {}
+          },
+          "native_immix_300mib": {
+            "command": [
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/native",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mbrotZ/inputs.txt"
+            ],
+            "environment": {
+              "SNAIL_GC_HEAP_BYTES": "314572800"
+            }
+          }
+        }
+      },
+      {
+        "benchmark": "quicksort",
+        "count": 2500,
+        "expected_result": "1",
+        "input_wasm_sha256": "2e6915cad5b86abdaa4e08f9152e23af4d2de3781e1a6a0cb5a0ac1f6649a21d",
+        "manifest": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/manifest.json",
+        "specification": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/spec.json",
+        "native_inputs": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/inputs.txt",
+        "variants": {
+          "v8": {
+            "command": [
+              "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+              "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/input.wasm",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/spec.json"
+            ],
+            "environment": {}
+          },
+          "native_immix_300mib": {
+            "command": [
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/native",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/quicksort/inputs.txt"
+            ],
+            "environment": {
+              "SNAIL_GC_HEAP_BYTES": "314572800"
+            }
+          }
+        }
+      },
+      {
+        "benchmark": "mperm",
+        "count": 20,
+        "expected_result": "1",
+        "input_wasm_sha256": "d0ae034b61a5387b2c51d22311555aeb523cc5f7c2b500517f322757be10ddf3",
+        "manifest": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/manifest.json",
+        "specification": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/spec.json",
+        "native_inputs": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/inputs.txt",
+        "variants": {
+          "v8": {
+            "command": [
+              "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+              "/tmp/snail-current-wasm-llvm-20261014/experiments/current-wasm-llvm/node-host.mjs",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/input.wasm",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/spec.json"
+            ],
+            "environment": {}
+          },
+          "native_immix_1gib": {
+            "command": [
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/native",
+              "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/inputs.txt"
+            ],
+            "environment": {
+              "SNAIL_GC_HEAP_BYTES": "1073741824"
+            }
+          }
+        }
+      }
+    ],
+    "excluded": [
+      {
+        "benchmark": "deriv",
+        "reason": "unsupported nonfinal struct subtyping",
+        "build_log": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/deriv/build.json"
+      },
+      {
+        "benchmark": "mperm",
+        "variant": "native_immix_300mib",
+        "reason": "arena exhausted during original n10,k2,ell1 setup",
+        "evidence": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/full-validation.json"
+      }
+    ],
+    "validation": {
+      "archive_native_regressions": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/native-regressions.log",
+      "scheme_tests": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/scheme-tests.log",
+      "format_check": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/format-check.log",
+      "full_instrumented_before_harness_review": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/full-validation.json",
+      "mperm_1gib_instrumented_before_harness_review": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/mperm/full-validation-1gib.json",
+      "bounded_final_native": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/final-harness-validation.json",
+      "bounded_v8": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/node-smoke-validation.json"
+    },
+    "review": "Fresh no-history behavioral explainer and debate; host phases named directly; additional source split rejected because separate non-LTO object already establishes opacity; manifest is cohesive declarative schema exceeding ten lines."
+  },
+  "experiment_revision": "b419cc607e6cc13e854671fb9796f894a9d1faa6"
+}

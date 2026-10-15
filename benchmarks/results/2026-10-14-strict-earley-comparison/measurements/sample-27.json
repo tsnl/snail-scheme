@@ -1,0 +1,51 @@
+{
+  "round": 4,
+  "retained": true,
+  "system": "v8-common",
+  "position": 2,
+  "command": [
+    "/run/current-system/sw/bin/taskset",
+    "-c",
+    "5",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/host.mjs",
+    "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/earley/native.native-ssphxaow/optimized.wasm",
+    "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/earley/spec.json"
+  ],
+  "cwd": "/tmp/snail-strict-earley-20261014/build/earley-prepare-04/earley",
+  "status": "valid",
+  "started": "2026-10-14T16:18:16.316574+00:00",
+  "environment": {
+    "BINARYEN_CORES": "1"
+  },
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "EARLEY_SIZE": null,
+    "EARLEY_EXPECTED_KIND": null,
+    "EARLEY_EXPECTED": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "pid": 97,
+  "process_group": 97,
+  "stdout": "{\"seconds\":2.622338983,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+  "stderr": "",
+  "returncode": 0,
+  "cleanup": {
+    "process_group": 97,
+    "live_members": [],
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 2.6763670449727215,
+  "workload_seconds": 2.622338983
+}

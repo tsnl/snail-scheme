@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Check single-file trace serving, UI startup, and the shell dependency."""
+
+import os
+import runpy
+import subprocess
+import tempfile
+import threading
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import urlopen
+
+ROOT = Path(__file__).resolve().parent.parent
+VIEWER = ROOT / "scripts/view-traces"
+MODULE = runpy.run_path(str(VIEWER))
+
+
+# ---- Shell dependency ----
+
+
+def check_dependency(trace):
+    result = subprocess.run([VIEWER, trace], capture_output=True, timeout=5,
+                            env={key: value for key, value in os.environ.items()
+                                 if key != "PERFETTO_UI"})
+    assert result.returncode == 1 and b"enter nix-shell first" in result.stderr
+
+
+# ---- Trace and UI requests ----
+
+
+def request(base, path):
+    with urlopen(base + path, timeout=5) as response:
+        return response.headers, response.read()
+
+
+def require_missing(base, path):
+    try:
+        request(base, path)
+        raise AssertionError(f"unexpectedly served {path}")
+    except HTTPError as error:
+        assert error.code == 404
+
+
+def check_startup(base, trace):
+    headers, page = request(base, "/")
+    assert headers["Cache-Control"] == "no-store"
+    assert b"theme: 'dark'" in page and b"location.origin" in page
+    assert quote(trace.name).encode() in page and trace.name.encode() not in page
+    assert page.index(b"location.replace") < page.index(b"loader.js")
+    assert request(base, "/index.html")[1] == page
+
+
+def check_files(base, trace):
+    path = "/trace/" + quote(trace.name)
+    headers, content = request(base, path)
+    assert content == trace.read_bytes()
+    assert headers["Cache-Control"] == "no-store"
+    trace.write_bytes(b"new trace contents")
+    assert request(base, path)[1] == b"new trace contents"
+    headers, content = request(base, "/version/engine.wasm")
+    assert headers["Content-Type"] == "application/wasm" and content == b"\x00asm"
+
+
+def check_boundaries(base, directory, ui):
+    secret = directory / "outside.json"
+    secret.write_text("an unselected file")
+    (ui / "escape.json").symlink_to(secret)
+    for path in ("/trace/outside.json", "/trace/%2e%2e/outside.json",
+                 "/%2e%2e/outside.json", "/escape.json", "/trace/%00.json"):
+        require_missing(base, path)
+
+
+def check_cli(directory, trace):
+    for arguments in ([directory / "absent"], [directory], [trace, "--port", "-1"]):
+        result = subprocess.run([VIEWER, *map(str, arguments)], capture_output=True, timeout=5)
+        assert result.returncode == 2 and b"usage:" in result.stderr
+
+
+# ---- Tests ----
+
+
+def check_server(directory):
+    trace, ui = directory / "<compiler> 'λ' %?#.trace.json", directory / "ui"
+    trace.write_bytes(b'[{"ph":"M"}]')
+    (ui / "version").mkdir(parents=True)
+    (ui / "index.html").write_text('<!doctype html><head></head><body><script src="loader.js"></script></body>')
+    (ui / "version/engine.wasm").write_bytes(b"\x00asm")
+    check_dependency(trace)
+    with MODULE["TraceServer"](0, trace, ui) as server:
+        assert server.server_address[0] == "127.0.0.1"
+        worker = threading.Thread(target=server.serve_forever)
+        worker.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            check_startup(base, trace)
+            check_files(base, trace)
+            check_boundaries(base, directory, ui)
+            check_cli(directory, trace)
+        finally:
+            server.shutdown()
+            worker.join()
+
+
+with tempfile.TemporaryDirectory(prefix="snail-view-traces-") as temporary:
+    directory = Path(temporary).resolve()
+    check_server(directory)
+print("Trace viewer checks passed.")

@@ -1,0 +1,110 @@
+{
+  "compiler": {
+    "seconds": 19.840609433,
+    "wall_seconds": 19.847851507001906,
+    "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+    "stdout": "+!CSVLINE!+counts,compiler-self,19.840609433\n",
+    "stderr": "allocations=556599605 requested_bytes=16341522904 array_new=378944575 heap_bytes=97660928 collections=2222\n",
+    "command": [
+      "taskset",
+      "-c",
+      "2",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler-counts",
+      "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source",
+      "/tmp/snail-compiler-cull-20261010/build/cull-kept-prepared/source/benchmarks/compile-self.scm",
+      "/tmp/snail-native-ablation-20261011/build/ablation/output.wat",
+      "counts"
+    ],
+    "diagnostic_only": true,
+    "build_command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler.ll",
+      "/tmp/snail-native-ablation-20261011/build/ablation/allocation-counts.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler-counts"
+    ]
+  },
+  "fibonacci": {
+    "seconds": 0.112608,
+    "wall_seconds": 0.11422761600988451,
+    "checksum": 1076472576,
+    "stdout": "CPU: recursive Fibonacci\nchecksum: 1076472576\nelapsed: 0.112608 s; repetitions: 256\n",
+    "stderr": "allocations=5008 requested_bytes=140256 array_new=2533 heap_bytes=131072 collections=2\n",
+    "command": [
+      "taskset",
+      "-c",
+      "2",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-counts",
+      "256"
+    ],
+    "diagnostic_only": true,
+    "build_command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.ll",
+      "/tmp/snail-native-ablation-20261011/build/ablation/allocation-counts.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-counts"
+    ]
+  },
+  "tail": {
+    "seconds": 0.303994,
+    "wall_seconds": 0.6093994959956035,
+    "checksum": 4409231671296,
+    "stdout": "CPU: tail Fibonacci\nchecksum: 4409231671296\nelapsed: 0.303994 s; repetitions: 1048576\n",
+    "stderr": "allocations=35651995 requested_bytes=1006646488 array_new=16777705 heap_bytes=196608 collections=7732\n",
+    "command": [
+      "taskset",
+      "-c",
+      "2",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail-counts",
+      "1048576"
+    ],
+    "diagnostic_only": true,
+    "build_command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail.ll",
+      "/tmp/snail-native-ablation-20261011/build/ablation/allocation-counts.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail-counts"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+(import (snail strict))
+(: keep (All (T) (-> T (-> T))))
+(define (keep value) (lambda () value))
+(define left (keep 17))
+(define right (keep 25))
+(define truth (keep #t))
+(if (truth) (+ (left) (right)) (unreachable))

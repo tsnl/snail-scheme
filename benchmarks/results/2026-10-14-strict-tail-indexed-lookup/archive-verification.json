@@ -1,0 +1,18 @@
+{
+  "valid": true,
+  "regular_files": 926,
+  "archive_sha256": "d9bb0c0889be2124483b25a971c62fb846d734e57f5287077e8ed55bcea0ae64",
+  "archive_bytes": 15474764,
+  "restored_root": "/tmp/snail-tail-indexed-lookup-restored-20261014",
+  "all_regular_files_verified": true,
+  "relocated_full_count_replays": 2,
+  "replay_companion_verified": true,
+  "companion_archive_sha256": "f7995782127252c5461a8cc8cc1f3e9e74aa008ae07508a76e00b434c480ddd5",
+  "performance_samples": false,
+  "syntax": true,
+  "git_whitespace_check": {
+    "source_and_report_pass": true,
+    "excluded_verbatim_patch": "provider-change.patch",
+    "reason": "Eight ordinary unified-diff context lines contain the required single-space context prefix."
+  }
+}

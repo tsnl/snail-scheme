@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-13T21:14:54.227018+00:00",
+  "specification": {
+    "name": "array1",
+    "count": 1,
+    "inputs": [
+      500,
+      1000000
+    ],
+    "expected": 1000000,
+    "barriers_per_iteration": 2
+  },
+  "baseline_prepared_sha256": "1e81244a47f2458591b67cde6402773b3478b2374a52c30d9c477b59e117c3ff",
+  "driver_sha256": "c2f2e4d7d47839a8855baf8b884a0d18fb995c364ebf1a018e4d7fc9908c5e3d",
+  "kernel_exact_match": true,
+  "complete_source_only_three_authorized_edits": true,
+  "kernel_sha256": "a3c469d6d28198634f3069f8d4bffb6ba552e02aee9ee0675a4365073c756d14",
+  "hashes": {
+    "compile.scm": "1a3d7bf83a99c5012eab248146f23b2c7bf4a8fe4cd0d74e191f066e07ff9544",
+    "driver.py": "c2f2e4d7d47839a8855baf8b884a0d18fb995c364ebf1a018e4d7fc9908c5e3d",
+    "validation.json": "6be2bfe0fc5c6dbb1c2c61ec86b6c2ecb9b54389779f77769cd1c6a22b1e8558",
+    "build.json": "3f177db6bc8c1238cd4e337dadabca57a1b2f0c62e601d557c7a977590201067",
+    "program.scm": "cd836279e48e7d0e0a6b33858d551b55a407d26f194d73ed41ae0f580bd999fe",
+    "program.so": "034ade52265457e924ebc010eb75a4b0c1a769b23a10e1df28ad081abc26137f"
+  }
+}

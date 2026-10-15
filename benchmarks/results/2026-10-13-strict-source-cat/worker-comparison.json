@@ -1,0 +1,6 @@
+{
+  "same_optimized_copy_worker": true,
+  "initial_worker_sha256": "bf55a94a32e5ff5ef5cac26f44000f0524e8e733bf8f14968c50d94df19d6add",
+  "final_worker_sha256": "bf55a94a32e5ff5ef5cac26f44000f0524e8e733bf8f14968c50d94df19d6add",
+  "note": "Compares standalone Binaryen-optimized copy worker text; does not establish equality of every linked instruction."
+}

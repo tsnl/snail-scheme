@@ -1,0 +1,106 @@
+              )
+              (local.set $6
+               (i64.load offset=88
+                (local.get $1)
+               )
+              )
+              (i64.store offset=8
+               (local.get $1)
+               (i64.const 0)
+              )
+              (block $block38
+               (br_if $block38
+                (local.get $3)
+               )
+               (local.set $14
+                (f64.const 0)
+               )
+               (br $block39)
+              )
+              (local.set $5
+               (i32.const 0)
+              )
+              (loop $label3
+               (f64.store offset=88
+                (local.get $1)
+                (local.get $12)
+               )
+               (local.set $2
+                (i32.add
+                 (local.get $1)
+                 (i32.const 88)
+                )
+               )
+               (local.set $15
+                (f64.const 0)
+               )
+               (block $block40
+                (br_if $block40
+                 (i32.eqz
+                  (f64.ge
+                   (local.tee $14
+                    (f64.load offset=88
+                     (local.get $1)
+                    )
+                   )
+                   (f64.const 0)
+                  )
+                 )
+                )
+                (local.set $15
+                 (f64.const 0)
+                )
+                (loop $label2
+                 (local.set $15
+                  (f64.add
+                   (local.get $14)
+                   (local.get $15)
+                  )
+                 )
+                 (br_if $label2
+                  (f64.ge
+                   (local.tee $14
+                    (f64.add
+                     (local.get $14)
+                     (f64.const -1)
+                    )
+                   )
+                   (f64.const 0)
+                  )
+                 )
+                )
+               )
+               (f64.store offset=88
+                (local.get $1)
+                (local.get $15)
+               )
+               (f64.store offset=8
+                (local.get $1)
+                (local.tee $14
+                 (f64.load offset=88
+                  (local.get $1)
+                 )
+                )
+               )
+               (br_if $block39
+                (i32.eq
+                 (local.tee $5
+                  (i32.add
+                   (local.get $5)
+                   (i32.const 1)
+                  )
+                 )
+                 (local.get $3)
+                )
+               )
+               (br $label3)
+              )
+             )
+             (call $_RNvNtCsdHhIpgkcIfN_4core9panicking18panic_bounds_check
+              (i32.const 0)
+              (i32.const 0)
+              (i32.const 1051820)
+             )
+             (unreachable)
+            )
+            (call $_RNvNtCsdHhIpgkcIfN_4core9panicking9panic_fmt

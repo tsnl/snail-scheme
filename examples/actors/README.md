@@ -16,7 +16,7 @@ codec in [actor-wire.sld](../../src/snail-scheme/actor-wire.sld).
 Use the development tools described in the repository README, then:
 
 ```sh
-./snail-scheme --actor examples/actors/counter.sld -o build/actors/counter.wasm
+scripts/build-actor examples/actors/counter.sld build/actors/counter.wasm
 node --no-warnings examples/actors/run.mjs build/actors/counter.wasm
 ```
 
@@ -60,10 +60,11 @@ the payload, and the host looks up the exact exported method name. Renamed expor
 work; private definitions and macro exports are unavailable. Exported values must
 be procedures to be invoked. Each handler returns one portable datum.
 
-Inside the worker, AWI roots keep decoded arguments and results alive across
+Inside the worker, ABI roots keep decoded arguments and results alive across
 allocations and Rust callbacks. These handles never leave that instance. The
-codec reads with the existing `reader.sld` / `syntax-parser.sld` and prints a
-readable result, quoting symbols explicitly.
+codec uses the runtime's `(scheme read)` datum reader and prints a readable
+result, quoting symbols explicitly. Message handling does not enter the compiler
+or require a compiler trace scope.
 
 ## What this establishes
 

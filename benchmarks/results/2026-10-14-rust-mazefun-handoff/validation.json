@@ -1,0 +1,145 @@
+{
+  "kind": "Closed corrected Mazefun canonical and targeted correctness",
+  "performance_samples": false,
+  "source_commit": "cbbe0cc7e13d82315f46d01fa90e61ab489a31e6",
+  "source_sha256": "4418df981dfc3a25c0b303e095c799f04abb50b0f7d35483b55fe1f7e0cd8a19",
+  "artifact_sha256": "4e1f45f9c925dde00788408ab97b262c77c7201967c7b49768970bcd50efd885",
+  "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+  "full_canonical_pass": true,
+  "all_targeted_checks_pass": true,
+  "canonical_counts": [
+    1,
+    2,
+    10000
+  ],
+  "canonical_checks": [
+    {
+      "name": "canonical-1",
+      "count": 1,
+      "n": 11,
+      "m": 11,
+      "expected": "((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))",
+      "accepts": true,
+      "input": "1\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "result": "((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))",
+      "runs": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-1/rust-wasm",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-1/rust-wasm/input.txt",
+          "input_sha256": "fd4b4ad4ea2452ac37fd99626d48c5969263d49e94eafdfc9f408f1b81f00e11",
+          "returncode": 0,
+          "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:1,0.000883815\n",
+          "stderr": ""
+        },
+        "original-chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.so"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-1/original-chez",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-1/original-chez/input.txt",
+          "input_sha256": "fd4b4ad4ea2452ac37fd99626d48c5969263d49e94eafdfc9f408f1b81f00e11",
+          "returncode": 0,
+          "stdout": "Running mazefun:11:11:1\nElapsed time: 1.40045e-4 seconds (0.0) for mazefun:11:11:1\n+!CSVLINE!+chez,mazefun:11:11:1,1.40045e-4\n",
+          "stderr": ""
+        }
+      },
+      "errors": [],
+      "complete": true
+    },
+    {
+      "name": "canonical-2",
+      "count": 2,
+      "n": 11,
+      "m": 11,
+      "expected": "((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))",
+      "accepts": true,
+      "input": "2\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "result": "((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))",
+      "runs": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-2/rust-wasm",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-2/rust-wasm/input.txt",
+          "input_sha256": "52418a2085b2ff511fc8e0fa16cd73933c975589b70abfb6792f48a243a1880a",
+          "returncode": 0,
+          "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:2,0.001559980\n",
+          "stderr": ""
+        },
+        "original-chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.so"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-2/original-chez",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-2/original-chez/input.txt",
+          "input_sha256": "52418a2085b2ff511fc8e0fa16cd73933c975589b70abfb6792f48a243a1880a",
+          "returncode": 0,
+          "stdout": "Running mazefun:11:11:2\nElapsed time: 2.77257e-4 seconds (0.0) for mazefun:11:11:2\n+!CSVLINE!+chez,mazefun:11:11:2,2.77257e-4\n",
+          "stderr": ""
+        }
+      },
+      "errors": [],
+      "complete": true
+    },
+    {
+      "name": "canonical-10000",
+      "count": 10000,
+      "n": 11,
+      "m": 11,
+      "expected": "((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))",
+      "accepts": true,
+      "input": "10000\n11\n11\n((_ * _ _ _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ _ _ * _ _ _ * _ _ _)\n (_ * _ * _ * _ * _ * _)\n (_ * _ _ _ * _ * _ * _)\n (* * _ * * * * * _ * _)\n (_ * _ _ _ _ _ _ _ * _)\n (_ * _ * _ * * * * * *)\n (_ _ _ * _ _ _ _ _ _ _)\n (_ * * * * * * * _ * *)\n (_ * _ _ _ _ _ _ _ _ _))\n\n",
+      "result": "((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))",
+      "runs": {
+        "rust-wasm": {
+          "command": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--no-warnings",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/reference-source/run-wasi.mjs",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.wasm"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-10000/rust-wasm",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-10000/rust-wasm/input.txt",
+          "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+          "returncode": 0,
+          "stdout": "Result: ((_ * _ _ _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ _ _ * _ _ _ * _ _ _) (_ * _ * _ * _ * _ * _) (_ * _ _ _ * _ * _ * _) (* * _ * * * * * _ * _) (_ * _ _ _ _ _ _ _ * _) (_ * _ * _ * * * * * *) (_ _ _ * _ _ _ _ _ _ _) (_ * * * * * * * _ * *) (_ * _ _ _ _ _ _ _ _ _))\n+!CSVLINE!+rust-wasm,mazefun:10000,2.306717211\n",
+          "stderr": ""
+        },
+        "original-chez": {
+          "command": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/case/program.so"
+          ],
+          "cwd": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-10000/original-chez",
+          "stdin": "/tmp/snail-rust-mazefun-handoff-20261014/build/rust-mazefun-timing-handoff/correctness/canonical-10000/original-chez/input.txt",
+          "input_sha256": "38c693aaa745e91ed261ff5c4e4999126ab70c6d4c4b55c61510ba0eef3b3644",
+          "returncode": 0,
+          "stdout": "Running mazefun:11:11:10000\nElapsed time: 1.02178059 seconds (1.022) for mazefun:11:11:10000\n+!CSVLINE!+chez,mazefun:11:11:10000,1.02178059\n",
+          "stderr": ""
+        }
+      },
+      "errors": [],
+      "complete": true
+    }
+  ],
+  "supplemental_report": "supplemental-correctness.json",
+  "committed_fixture_report": "fixture-correctness.json",
+  "parent_full_count_report": "parent-canonical-check.json",
+  "retained_work_report": "retained-work.json",
+  "expected_complete_grid_sha256": "542def81e0d8c5e0b1e9006b0a5d1edff63abd25e77649088893b7b586c14a76"
+}

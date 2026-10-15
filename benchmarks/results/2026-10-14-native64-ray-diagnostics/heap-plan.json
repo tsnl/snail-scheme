@@ -1,0 +1,41 @@
+{
+  "executable": {
+    "path": "/tmp/snail-native64-ray-comparison-20261014/build/native-ray/ray-native",
+    "sha256": "baa70c23e9f133ebc85510b709f1aeb8a03120f26a5601262c2b96094d8a890c"
+  },
+  "spec": {
+    "name": "ray",
+    "count": 50,
+    "inputs": [
+      1,
+      1
+    ],
+    "pathname": "outputs/ray.output",
+    "expected": 1,
+    "barriers_per_iteration": 2,
+    "setup_barriers": 0,
+    "runtime": "scalar-io",
+    "image_sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+  },
+  "cpu": 5,
+  "phase": "bench(50)",
+  "design": "one excluded cycle, four retained rotated cycles",
+  "variants": [
+    {
+      "name": "default",
+      "overrides": {}
+    },
+    {
+      "name": "min-1m",
+      "overrides": {
+        "SNAIL_GC_MIN_BYTES": "1048576"
+      }
+    },
+    {
+      "name": "min-64m",
+      "overrides": {
+        "SNAIL_GC_MIN_BYTES": "67108864"
+      }
+    }
+  ]
+}

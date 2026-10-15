@@ -1,0 +1,84 @@
+{
+  "base": "5be3958d38cb6115703bdb9508517bbb92fd08c9",
+  "validation": {
+    "systems": [
+      "raw linked Wasm",
+      "optimized linked Wasm",
+      "native64"
+    ],
+    "scalar_cases": 3390,
+    "comparison_cases": 148,
+    "malformed_cases_per_system": 16,
+    "python_unicode": "16.0.0",
+    "oracle": "Unicode16 full lowercase plus explicit simple U+0130; decimal category Nd; fixed Alphabetic/White_Space cases",
+    "mutation_checks": 4,
+    "complete_scalar_fields_equal_across_targets": true
+  },
+  "native_rust_unicode_version": "(17, 0, 0)",
+  "commands": [
+    {
+      "command": [
+        "scripts/test-strict-text"
+      ],
+      "exit": 0,
+      "record": "build/strict-text-1792033209248703460/validation.json",
+      "stdout": "build/text-contract/test-strict-text-final.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline"
+      ],
+      "exit": 0,
+      "tests": 46,
+      "stdout": "build/text-contract/cargo-test.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "stdout": "build/text-contract/cargo-fmt.log"
+    },
+    {
+      "command": [
+        "make",
+        "test"
+      ],
+      "exit": 0,
+      "stdout": "build/text-contract/make-test.log"
+    },
+    {
+      "command": [
+        "make",
+        "check"
+      ],
+      "exit": 0,
+      "stdout": "build/text-contract/make-check.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0
+    }
+  ],
+  "source_sha256": {
+    "src/snail/text.sld": "e027be03a2dd33c1f3c52c283225761cab2ab51f51ddf46c6785b4fac1523e5c",
+    "src/strict_text.rs": "2f5b7bf41789750519ca7d554f364247f3d30ab9d929fac9169fec94369e2199",
+    "src/lib.rs": "067e561478d1da55a84fce2c3221c802db9a1f37cc327f8228658dcf1432131a",
+    "src/unicode.rs": "864dd94c0e75131720033cd9079bd1257425255f96e95a7b9f845f014b16e895",
+    "scripts/test-strict-text": "b8d57056fb26a92b9f98c7057fb026f9b4b748f9dca2ff0d0e1ec3e3eda205f4",
+    "tests/strict-text/text.scm": "91bb8a9ea34edd85674aa6794bcc0526c508c06508340a1d92abd97b20e22427",
+    "tests/strict-text/run.mjs": "7c885ec52866d9f47a4e44bd840810e0baa7bd6d413da419a3170b5c882886b9",
+    "tests/strict-text/entry.c": "667c6e9fddaa80efef1e5d7c8a50e494e80baa73d7e30f36cd8644762a6b013f"
+  },
+  "implementation_commit": "2035bc2"
+}

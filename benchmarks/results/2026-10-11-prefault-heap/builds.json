@@ -1,0 +1,52 @@
+[
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail.ll",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/bdw-prefault.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/tail-bdw"
+    ],
+    "stderr": "",
+    "llvm_sha256": "df0c01cd028bc94cdc8c0091da181d9a101173f1d1537da201cb088493ede813",
+    "binary_sha256": "20abe99b7775769293427e57be5b157082b043e3d6ab9ec9552110b51513f3d8"
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler.ll",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/bdw-prefault.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-lgc",
+      "-o",
+      "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bdw"
+    ],
+    "stderr": "",
+    "llvm_sha256": "fcfd7625c205163ce5549127adb5dcae9e68dfcc8104ec88031ba562cea91251",
+    "binary_sha256": "f48543915ea5b8f32dfce0d25ae00b63bf2c4043ec6a2e6ed31c49de40d39278"
+  }
+]

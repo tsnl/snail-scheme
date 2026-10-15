@@ -1,0 +1,587 @@
+{
+  "edits": [
+    {
+      "before": "(define make-internal-node vector)",
+      "after": "(define (make-internal-node name green red blue)\n  (node-record (ref name) (ref green) (ref red) (ref blue)))",
+      "count": 1,
+      "offsets": [
+        1266
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-ref node 0)",
+      "after": "(ref-get (node-name-cell node))",
+      "count": 1,
+      "offsets": [
+        1410
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-set! node 0 name)",
+      "after": "(ref-set! (node-name-cell node) name)",
+      "count": 1,
+      "offsets": [
+        1670
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-ref node 1)",
+      "after": "(ref-get (node-green-cell node))",
+      "count": 1,
+      "offsets": [
+        1484
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-set! node 1 edges)",
+      "after": "(ref-set! (node-green-cell node) edges)",
+      "count": 1,
+      "offsets": [
+        1774
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-ref node 2)",
+      "after": "(ref-get (node-red-cell node))",
+      "count": 1,
+      "offsets": [
+        1557
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-set! node 2 edges)",
+      "after": "(ref-set! (node-red-cell node) edges)",
+      "count": 1,
+      "offsets": [
+        1876
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-ref node 3)",
+      "after": "(ref-get (node-blue-cell node))",
+      "count": 1,
+      "offsets": [
+        1629
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(vector-set! node 3 edges)",
+      "after": "(ref-set! (node-blue-cell node) edges)",
+      "count": 1,
+      "offsets": [
+        1978
+      ],
+      "reason": "Heterogeneous vector slots become concrete fields with one Ref per mutable slot."
+    },
+    {
+      "before": "(if (symbol? name) (symbol->string name) name)",
+      "after": "(name-string name)",
+      "count": 1,
+      "offsets": [
+        2092
+      ],
+      "reason": "Only names cross the symbol/string input boundary; every original symbol->string call remains."
+    },
+    {
+      "before": "'NOT-A-NODE-YET",
+      "after": "(blue-unresolved)",
+      "count": 1,
+      "offsets": [
+        2155
+      ],
+      "reason": "Unfinished blue edges are distinct from NONE and empty lists."
+    },
+    {
+      "before": "(make-internal-node (internal-node-name node) '() '() (blue-edges node))",
+      "after": "(make-internal-node (internal-node-name node) '() '() (blue-ready (blue-edges node)))",
+      "count": 1,
+      "offsets": [
+        2272
+      ],
+      "reason": "A copied node shares the blue list and its edge objects, with fresh red/green fields."
+    },
+    {
+      "before": "(make-edge-getter internal-node-blue-edges)",
+      "after": "(make-edge-getter (lambda (node) (blue-state-edges (internal-node-blue-edges node))))",
+      "count": 1,
+      "offsets": [
+        2748
+      ],
+      "reason": "Only a completed ordinary node exposes a blue-edge list."
+    },
+    {
+      "before": "(make-edge-setter set-internal-node-blue-edges!)",
+      "after": "(make-edge-setter (lambda (node edges) (set-internal-node-blue-edges! node (blue-ready edges))))",
+      "count": 1,
+      "offsets": [
+        3232
+      ],
+      "reason": "The ordinary blue setter resolves the unfinished node."
+    },
+    {
+      "before": "(define make-blue-edge vector)",
+      "after": "(define (make-blue-edge operation argument result)\n  (edge-record (ref operation) (ref argument) (ref result)))",
+      "count": 1,
+      "offsets": [
+        3346
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref edge 0)",
+      "after": "(ref-get (edge-operation-cell edge))",
+      "count": 1,
+      "offsets": [
+        3493
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-set! edge 0 value)",
+      "after": "(ref-set! (edge-operation-cell edge) value)",
+      "count": 1,
+      "offsets": [
+        3687
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref edge 1)",
+      "after": "(ref-get (edge-argument-cell edge))",
+      "count": 1,
+      "offsets": [
+        3565
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-set! edge 1 value)",
+      "after": "(ref-set! (edge-argument-cell edge) value)",
+      "count": 1,
+      "offsets": [
+        3793
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref edge 2)",
+      "after": "(ref-get (edge-result-cell edge))",
+      "count": 1,
+      "offsets": [
+        3636
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-set! edge 2 value)",
+      "after": "(ref-set! (edge-result-cell edge) value)",
+      "count": 1,
+      "offsets": [
+        3896
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(define make-internal-graph vector)",
+      "after": "(define (make-internal-graph nodes met joined) (graph-record (ref nodes) met joined))",
+      "count": 1,
+      "offsets": [
+        4485
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref graph 0)",
+      "after": "(ref-get (graph-node-cell graph))",
+      "count": 1,
+      "offsets": [
+        4608
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref graph 1)",
+      "after": "(graph-met graph)",
+      "count": 1,
+      "offsets": [
+        4686
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-ref graph 2)",
+      "after": "(graph-joined graph)",
+      "count": 1,
+      "offsets": [
+        4751
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(vector-set! graph 0 nodes)",
+      "after": "(ref-set! (graph-node-cell graph) nodes)",
+      "count": 1,
+      "offsets": [
+        4821
+      ],
+      "reason": "Concrete records preserve every mutable vector slot and shared table identity."
+    },
+    {
+      "before": "(make-node 'none #t)",
+      "after": "(make-node (symbol-name (conform-string->symbol \"none\")) (blue-none))",
+      "count": 1,
+      "offsets": [
+        7483
+      ],
+      "reason": "NONE retains its special blue marker; ANY retains a completed empty blue list."
+    },
+    {
+      "before": "(make-node 'any '())",
+      "after": "(make-node (symbol-name (conform-string->symbol \"any\")) (blue-ready '()))",
+      "count": 1,
+      "offsets": [
+        7620
+      ],
+      "reason": "NONE retains its special blue marker; ANY retains a completed empty blue list."
+    },
+    {
+      "before": "(define (lookup-op op node)\n  (let loop ((edges (blue-edges node)))\n    (cond ((null? edges) '())\n          ((eq? op (operation (car edges))) (car edges))\n          (else (loop (cdr edges))))))",
+      "after": "(define (lookup-op op node)\n  (let loop ((edges (blue-edges node)))\n    (cond ((null? edges) (absent))\n          ((eq? op (operation (car edges))) (present (car edges)))\n          (else (loop (cdr edges))))))",
+      "count": 1,
+      "offsets": [
+        4215
+      ],
+      "reason": "Operation lookup returns Optional BlueEdge instead of edge-or-empty-list."
+    },
+    {
+      "before": "(not (null? (lookup-op op node)))",
+      "after": "(present? (lookup-op op node))",
+      "count": 1,
+      "offsets": [
+        4453
+      ],
+      "reason": "Test lookup presence explicitly."
+    },
+    {
+      "before": "(not (null? the-edge))",
+      "after": "(present? the-edge)",
+      "count": 1,
+      "offsets": [
+        8387
+      ],
+      "reason": "Test lookup presence explicitly."
+    },
+    {
+      "before": "(cons (arg-node the-edge) (res-node the-edge))",
+      "after": "(signature (arg-node (optional-value the-edge)) (res-node (optional-value the-edge)))",
+      "count": 1,
+      "offsets": [
+        8419
+      ],
+      "reason": "Typed signatures preserve the source pair fields."
+    },
+    {
+      "before": "(cons none-node any-node)",
+      "after": "(signature none-node any-node)",
+      "count": 1,
+      "offsets": [
+        8260
+      ],
+      "reason": "The missing-operation signature remains shared."
+    },
+    {
+      "before": "(define (arg pair) (car pair))",
+      "after": "(define (arg pair) (signature-argument pair))",
+      "count": 1,
+      "offsets": [
+        8572
+      ],
+      "reason": "Typed signature accessor."
+    },
+    {
+      "before": "(define (res pair) (cdr pair))",
+      "after": "(define (res pair) (signature-result pair))",
+      "count": 1,
+      "offsets": [
+        8618
+      ],
+      "reason": "Typed signature accessor."
+    },
+    {
+      "before": "(define (make-empty-table) (list 'TABLE))",
+      "after": "(define (make-empty-table) (table-record (ref '())))",
+      "count": 1,
+      "offsets": [
+        11825
+      ],
+      "reason": "The table record is the source header pair; its rows Ref is the mutable header cdr."
+    },
+    {
+      "before": "(define (lookup table x y)\n  (let ((one (assq x (cdr table))))\n    (if one\n        (let ((two (assq y (cdr one))))\n          (if two (cdr two) #f))\n        #f)))",
+      "after": "(define (lookup table x y)\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (let ((two (find-entry y (row-entries (optional-value one)))))\n          (if (present? two) (present (entry-value (optional-value two))) (absent)))\n        (absent))))",
+      "count": 1,
+      "offsets": [
+        11878
+      ],
+      "reason": "Two linear identity searches preserve first matching row/entry and false becomes Optional."
+    },
+    {
+      "before": "(define (insert! table x y value)\n  (define (make-singleton-table x y)\n    (list (cons x y)))\n  (let ((one (assq x (cdr table))))\n    (if one\n        (set-cdr! one (cons (cons y value) (cdr one)))\n        (set-cdr! table (cons (cons x (make-singleton-table y value))\n                              (cdr table))))))",
+      "after": "(define (insert! table x y value)\n  (define (make-singleton-table x y)\n    (list (table-entry x y)))\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (set-row-entries! (optional-value one)\n          (cons (table-entry y value) (row-entries (optional-value one))))\n        (set-table-rows! table\n          (cons (row-record x (ref (make-singleton-table y value))) (table-rows table))))))",
+      "count": 1,
+      "offsets": [
+        12151
+      ],
+      "reason": "Row entries Ref is the source association cdr; insertion prepends and keeps existing aliases."
+    },
+    {
+      "before": "(define (fix-table table)\n    (define (canonical? node) (eq? node (find-canonical-representative node classes)))\n    (define (filter-and-fix predicate-fn update-fn list)\n      (let loop ((list list))\n        (cond ((null? list) '())\n              ((predicate-fn (car list))\n               (cons (update-fn (car list)) (loop (cdr list))))\n              (else (loop (cdr list))))))\n    (define (fix-line line)\n      (filter-and-fix\n       (lambda (entry) (canonical? (car entry)))\n       (lambda (entry) (cons (car entry)\n                             (find-canonical-representative (cdr entry) classes)))\n       line))\n    (if (null? table)\n        '()\n        (cons (car table)\n              (filter-and-fix\n               (lambda (entry) (canonical? (car entry)))\n               (lambda (entry) (cons (car entry) (fix-line (cdr entry))))\n               (cdr table)))))",
+      "after": "(define (fix-table table)\n    (define (canonical? node) (eq? node (find-canonical-representative node classes)))\n    (: filter-and-fix (All (A B) (-> (-> A Bool) (-> A B) (List A) (List B))))\n    (define (filter-and-fix predicate-fn update-fn list)\n      (let loop ((list list))\n        (cond ((null? list) '())\n              ((predicate-fn (car list))\n               (cons (update-fn (car list)) (loop (cdr list))))\n              (else (loop (cdr list))))))\n    (define (fix-line line)\n      (filter-and-fix\n       (lambda (entry) (canonical? (entry-key entry)))\n       (lambda (entry) (table-entry (entry-key entry)\n                             (find-canonical-representative (entry-value entry) classes)))\n       line))\n    (table-record (ref\n              (filter-and-fix\n               (lambda (entry) (canonical? (row-key entry)))\n               (lambda (entry) (row-record (row-key entry) (ref (fix-line (row-entries entry)))))\n               (table-rows table)))))",
+      "count": 1,
+      "offsets": [
+        6440
+      ],
+      "reason": "Canonicalization copies headers/rows/entries in order. Every source table has a TABLE header, so its null-table arm is unreachable."
+    },
+    {
+      "before": "(define nodes-with-red-edges-out '())",
+      "after": "(define nodes-with-red-edges-out (ref (ann '() (List Node))))",
+      "count": 1,
+      "offsets": [
+        8810
+      ],
+      "reason": "Local mutation becomes an explicit Ref."
+    },
+    {
+      "before": "(set! nodes-with-red-edges-out\n          (adjoin from-node nodes-with-red-edges-out))",
+      "after": "(ref-set! nodes-with-red-edges-out\n          (adjoin from-node (ref-get nodes-with-red-edges-out)))",
+      "count": 1,
+      "offsets": [
+        8990
+      ],
+      "reason": "Track precisely the nodes with temporary red assumptions."
+    },
+    {
+      "before": "              nodes-with-red-edges-out)",
+      "after": "              (ref-get nodes-with-red-edges-out))",
+      "count": 1,
+      "offsets": [
+        10258
+      ],
+      "reason": "Success greenifies and failure clears every touched node, preserving iteration order."
+    },
+    {
+      "before": "(define a '())",
+      "after": "(define node-a (ref (ann (absent) (Optional Node))))",
+      "count": 1,
+      "offsets": [
+        16172
+      ],
+      "reason": "Globals are absent until setup assigns fresh nodes."
+    },
+    {
+      "before": "(define b '())",
+      "after": "(define node-b (ref (ann (absent) (Optional Node))))",
+      "count": 1,
+      "offsets": [
+        16225
+      ],
+      "reason": "Globals are absent until setup assigns fresh nodes."
+    },
+    {
+      "before": "(define c '())",
+      "after": "(define node-c (ref (ann (absent) (Optional Node))))",
+      "count": 1,
+      "offsets": [
+        16278
+      ],
+      "reason": "Globals are absent until setup assigns fresh nodes."
+    },
+    {
+      "before": "(define d '())",
+      "after": "(define node-d (ref (ann (absent) (Optional Node))))",
+      "count": 1,
+      "offsets": [
+        16331
+      ],
+      "reason": "Globals are absent until setup assigns fresh nodes."
+    },
+    {
+      "before": "(define (setup a0 b0 c0 d0)\n  (set! a (make-node a0))\n  (set! b (make-node b0))\n  (set-blue-edges! a (list (make-blue-edge 'phi any-node b)))\n  (set-blue-edges! b (list (make-blue-edge 'phi any-node a)\n                           (make-blue-edge 'theta any-node b)))\n  (set! c (make-node c0))\n  (set! d (make-node d0))\n  (set-blue-edges! c (list (make-blue-edge 'theta any-node b)))\n  (set-blue-edges! d (list (make-blue-edge 'phi any-node c)\n                           (make-blue-edge 'theta any-node d)))\n  '(made a b c d))",
+      "after": "(define (setup a0 b0 c0 d0)\n  (ref-set! node-a (present (make-node a0)))\n  (ref-set! node-b (present (make-node b0)))\n  (set-blue-edges! (optional-value (ref-get node-a)) (list (make-blue-edge 'phi any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-b)) (list (make-blue-edge 'phi any-node (optional-value (ref-get node-a)))\n                           (make-blue-edge 'theta any-node (optional-value (ref-get node-b)))))\n  (ref-set! node-c (present (make-node c0)))\n  (ref-set! node-d (present (make-node d0)))\n  (set-blue-edges! (optional-value (ref-get node-c)) (list (make-blue-edge 'theta any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-d)) (list (make-blue-edge 'phi any-node (optional-value (ref-get node-c)))\n                           (make-blue-edge 'theta any-node (optional-value (ref-get node-d)))))\n  (unit))",
+      "count": 1,
+      "offsets": [
+        16385
+      ],
+      "reason": "Setup preserves assignment/edge order; its ignored status list becomes Unit."
+    },
+    {
+      "before": "(define (test a0 b0 c0 d0)\n  (setup a0 b0 c0 d0)\n  (map internal-node-name\n       (graph-nodes (make-lattice (make-graph a b c d any-node none-node) #f))))",
+      "after": "(define (test a0 b0 c0 d0)\n  (setup a0 b0 c0 d0)\n  (map internal-node-name\n       (graph-nodes (make-lattice (make-graph (optional-value (ref-get node-a)) (optional-value (ref-get node-b)) (optional-value (ref-get node-c)) (optional-value (ref-get node-d)) any-node none-node) #f))))",
+      "count": 1,
+      "offsets": [
+        17298
+      ],
+      "reason": "Read the four initialized global nodes."
+    },
+    {
+      "before": "(make-node (string-append \"(\" (internal-node-name node1) \" ^ \" (internal-node-name node2) \")\"))",
+      "after": "(make-node (text-name (string-append \"(\" (internal-node-name node1) \" ^ \" (internal-node-name node2) \")\")))",
+      "count": 1,
+      "offsets": [
+        13412
+      ],
+      "reason": "Generated names enter the text arm without symbol conversion."
+    },
+    {
+      "before": "(make-node (string-append \"(\" (internal-node-name node1) \" v \" (internal-node-name node2) \")\"))",
+      "after": "(make-node (text-name (string-append \"(\" (internal-node-name node1) \" v \" (internal-node-name node2) \")\")))",
+      "count": 1,
+      "offsets": [
+        14433
+      ],
+      "reason": "Generated names enter the text arm without symbol conversion."
+    },
+    {
+      "before": "((lookup (already-met graph) node1 node2))",
+      "after": "((lookup (already-met graph) node1 node2) => optional-value)",
+      "count": 1,
+      "offsets": [
+        13215
+      ],
+      "reason": "A cache hit unwraps Optional before recursive construction."
+    },
+    {
+      "before": "((lookup (already-joined graph) node1 node2))",
+      "after": "((lookup (already-joined graph) node1 node2) => optional-value)",
+      "count": 1,
+      "offsets": [
+        14251
+      ],
+      "reason": "A cache hit unwraps Optional before recursive construction."
+    },
+    {
+      "before": "(apply make-graph",
+      "after": "(make-graph-list",
+      "count": 1,
+      "offsets": [
+        16060
+      ],
+      "reason": "Build the rest-argument spine explicitly and preserve element order for the dynamic apply."
+    },
+    {
+      "before": "'phi",
+      "after": "phi-operation",
+      "count": 3,
+      "offsets": [
+        16637,
+        16772,
+        17219
+      ],
+      "reason": "Operation literals use ordinary interned Symbol values created before timing."
+    },
+    {
+      "before": "'theta",
+      "after": "theta-operation",
+      "count": 3,
+      "offsets": [
+        16873,
+        17100,
+        17338
+      ],
+      "reason": "Operation literals use ordinary interned Symbol values created before timing."
+    },
+    {
+      "before": "'OK",
+      "after": "(unit)",
+      "count": 1,
+      "offsets": [
+        3013
+      ],
+      "reason": "The ignored NONE-setter status becomes Unit."
+    },
+    {
+      "before": "(error #f \"Can't classify\" element)",
+      "after": "(datum-fail \"Can't classify\")",
+      "count": 1,
+      "offsets": [
+        11582
+      ],
+      "reason": "The impossible missing-class path remains fatal; no generic node printer is added."
+    },
+    {
+      "before": "(error #f ",
+      "after": "(datum-fail ",
+      "count": 2,
+      "offsets": [
+        2518,
+        2938
+      ],
+      "reason": "Keep the special-node accessor and setter failures."
+    },
+    {
+      "before": "(display count)",
+      "after": "(display-number count)",
+      "count": 1,
+      "offsets": [
+        15492
+      ],
+      "reason": "Diagnostic numbers use the existing scalar formatter."
+    },
+    {
+      "before": "(display (length (graph-nodes lattice)))",
+      "after": "(display-number (length (graph-nodes lattice)))",
+      "count": 1,
+      "offsets": [
+        15598
+      ],
+      "reason": "Diagnostic numbers use the existing scalar formatter."
+    },
+    {
+      "before": "(display new-count)",
+      "after": "(display-number new-count)",
+      "count": 1,
+      "offsets": [
+        15962
+      ],
+      "reason": "Diagnostic numbers use the existing scalar formatter."
+    },
+    {
+      "before": "(display \" -> \")",
+      "after": "(display-text \" -> \")",
+      "count": 2,
+      "offsets": [
+        15573,
+        15934
+      ],
+      "reason": "Diagnostic strings use scalar character output."
+    },
+    {
+      "before": ";;; CONFORM -- Type checker, written by Jim Miller.\n\n\n;;; Functional and unstable\n\n(define (sort-list obj pred)\n\n  (define (loop l)\n    (if (and (pair? l) (pair? (cdr l)))\n        (split-list l '() '())\n        l))\n\n  (define (split-list l one two)\n    (if (pair? l)\n        (split-list (cdr l) two (cons (car l) one))\n        (merge (loop one) (loop two))))\n\n  (define (merge one two)\n    (cond ((null? one) two)\n          ((pred (car two) (car one))\n           (cons (car two)\n                 (merge (cdr two) one)))\n          (else\n           (cons (car one)\n                 (merge (cdr one) two)))))\n\n  (loop obj))\n\n;; SET OPERATIONS\n;; (representation as lists with distinct elements)\n\n(define (adjoin element set)\n  (if (memq element set) set (cons element set)))\n\n(define (eliminate element set)\n  (cond ((null? set) set)\n        ((eq? element (car set)) (cdr set))\n        (else (cons (car set) (eliminate element (cdr set))))))\n\n(define (intersect list1 list2)\n  (let loop ((l list1))\n    (cond ((null? l) '())\n          ((memq (car l) list2) (cons (car l) (loop (cdr l))))\n          (else (loop (cdr l))))))\n\n(define (union list1 list2)\n  (if (null? list1)\n      list2\n      (union (cdr list1)\n             (adjoin (car list1) list2))))\n\n;; GRAPH NODES\n\n(define (make-internal-node name green red blue)\n  (node-record (ref name) (ref green) (ref red) (ref blue)))\n(define (internal-node-name node) (ref-get (node-name-cell node)))\n(define (internal-node-green-edges node) (ref-get (node-green-cell node)))\n(define (internal-node-red-edges node) (ref-get (node-red-cell node)))\n(define (internal-node-blue-edges node) (ref-get (node-blue-cell node)))\n(define (set-internal-node-name! node name) (ref-set! (node-name-cell node) name))\n(define (set-internal-node-green-edges! node edges) (ref-set! (node-green-cell node) edges))\n(define (set-internal-node-red-edges! node edges) (ref-set! (node-red-cell node) edges))\n(define (set-internal-node-blue-edges! node edges) (ref-set! (node-blue-cell node) edges))\n\n(define (make-node name . blue-edges);; User's constructor\n  (let ((name (name-string name))\n        (blue-edges (if (null? blue-edges) (blue-unresolved) (car blue-edges))))\n    (make-internal-node name '() '() blue-edges)))\n\n(define (copy-node node)\n  (make-internal-node (internal-node-name node) '() '() (blue-ready (blue-edges node))))\n\n;; Selectors\n\n;;(define name internal-node-name)\n(define (make-edge-getter selector)\n  (lambda (node)\n    (if (or (none-node? node) (any-node? node))\n        (datum-fail \"Can't get edges from the ANY or NONE nodes\")\n        (selector node))))\n(define red-edges (make-edge-getter internal-node-red-edges))\n(define green-edges (make-edge-getter internal-node-green-edges))\n(define blue-edges (make-edge-getter (lambda (node) (blue-state-edges (internal-node-blue-edges node)))))\n\n;; Mutators\n\n(define (make-edge-setter mutator!)\n  (lambda (node value)\n    (cond ((any-node? node) (datum-fail \"Can't set edges from the ANY node\"))\n          ((none-node? node) (unit))\n          (else (mutator! node value)))))\n(define set-red-edges! (make-edge-setter set-internal-node-red-edges!))\n(define set-green-edges! (make-edge-setter set-internal-node-green-edges!))\n(define set-blue-edges! (make-edge-setter (lambda (node edges) (set-internal-node-blue-edges! node (blue-ready edges)))))\n\n;; BLUE EDGES\n\n(define (make-blue-edge operation argument result)\n  (edge-record (ref operation) (ref argument) (ref result)))\n(define (blue-edge-operation edge) (ref-get (edge-operation-cell edge)))\n(define (blue-edge-arg-node edge) (ref-get (edge-argument-cell edge)))\n(define (blue-edge-res-node edge) (ref-get (edge-result-cell edge)))\n(define (set-blue-edge-operation! edge value) (ref-set! (edge-operation-cell edge) value))\n(define (set-blue-edge-arg-node! edge value) (ref-set! (edge-argument-cell edge) value))\n(define (set-blue-edge-res-node! edge value) (ref-set! (edge-result-cell edge) value))\n\n;; Selectors\n(define operation blue-edge-operation)\n(define arg-node blue-edge-arg-node)\n(define res-node blue-edge-res-node)\n\n;; Mutators\n(define set-arg-node! set-blue-edge-arg-node!)\n(define set-res-node! set-blue-edge-res-node!)\n\n;; Higher level operations on blue edges\n\n(define (lookup-op op node)\n  (let loop ((edges (blue-edges node)))\n    (cond ((null? edges) (absent))\n          ((eq? op (operation (car edges))) (present (car edges)))\n          (else (loop (cdr edges))))))\n\n(define (has-op? op node)\n  (present? (lookup-op op node)))\n\n;; GRAPHS\n\n(define (make-internal-graph nodes met joined) (graph-record (ref nodes) met joined))\n(define (internal-graph-nodes graph) (ref-get (graph-node-cell graph)))\n(define (internal-graph-already-met graph) (graph-met graph))\n(define (internal-graph-already-joined graph) (graph-joined graph))\n(define (set-internal-graph-nodes! graph nodes) (ref-set! (graph-node-cell graph) nodes))\n\n;; Constructor\n\n(define (make-graph . nodes)\n  (make-internal-graph nodes (make-empty-table) (make-empty-table)))\n\n;; Selectors\n\n(define graph-nodes internal-graph-nodes)\n(define already-met internal-graph-already-met)\n(define already-joined internal-graph-already-joined)\n\n;; Higher level functions on graphs\n\n(define (add-graph-nodes! graph nodes)\n  (set-internal-graph-nodes! graph (cons nodes (graph-nodes graph))))\n\n(define (copy-graph g)\n  (define (copy-list l) (vector->list (list->vector l)))\n  (make-internal-graph\n   (copy-list (graph-nodes g))\n   (already-met g)\n   (already-joined g)))\n\n(define (clean-graph g)\n  (define (clean-node node)\n    (unless (or (any-node? node) (none-node? node))\n      (set-green-edges! node '())\n      (set-red-edges! node '())))\n  (for-each clean-node (graph-nodes g))\n  g)\n\n(define (canonicalize-graph graph classes)\n  (define (fix node)\n    (define (fix-set object selector mutator)\n      (mutator object\n               (map (lambda (node)\n                      (find-canonical-representative node classes))\n                    (selector object))))\n    (unless (or (none-node? node) (any-node? node))\n      (fix-set node green-edges set-green-edges!)\n      (fix-set node red-edges set-red-edges!)\n      (for-each\n       (lambda (blue-edge)\n         (set-arg-node! blue-edge\n                        (find-canonical-representative (arg-node blue-edge) classes))\n         (set-res-node! blue-edge\n                        (find-canonical-representative (res-node blue-edge) classes)))\n       (blue-edges node)))\n    node)\n  (define (fix-table table)\n    (define (canonical? node) (eq? node (find-canonical-representative node classes)))\n    (: filter-and-fix (All (A B) (-> (-> A Bool) (-> A B) (List A) (List B))))\n    (define (filter-and-fix predicate-fn update-fn list)\n      (let loop ((list list))\n        (cond ((null? list) '())\n              ((predicate-fn (car list))\n               (cons (update-fn (car list)) (loop (cdr list))))\n              (else (loop (cdr list))))))\n    (define (fix-line line)\n      (filter-and-fix\n       (lambda (entry) (canonical? (entry-key entry)))\n       (lambda (entry) (table-entry (entry-key entry)\n                             (find-canonical-representative (entry-value entry) classes)))\n       line))\n    (table-record (ref\n              (filter-and-fix\n               (lambda (entry) (canonical? (row-key entry)))\n               (lambda (entry) (row-record (row-key entry) (ref (fix-line (row-entries entry)))))\n               (table-rows table)))))\n  (make-internal-graph\n   (map (lambda (class) (fix (car class))) classes)\n   (fix-table (already-met graph))\n   (fix-table (already-joined graph))))\n\n;; USEFUL NODES\n\n(define none-node (make-node (symbol-name (conform-string->symbol \"none\")) (blue-none)))\n(define (none-node? node) (eq? node none-node))\n\n(define any-node (make-node (symbol-name (conform-string->symbol \"any\")) (blue-ready '())))\n(define (any-node? node) (eq? node any-node))\n\n;; COLORED EDGE TESTS\n\n(define (green-edge? from-node to-node)\n  (cond ((any-node? from-node) #f)\n        ((none-node? from-node) #t)\n        ((memq to-node (green-edges from-node)) #t)\n        (else #f)))\n\n(define (red-edge? from-node to-node)\n  (cond ((any-node? from-node) #f)\n        ((none-node? from-node) #t)\n        ((memq to-node (red-edges from-node)) #t)\n        (else #f)))\n\n;; SIGNATURE\n\n;; Return signature (i.e. <arg, res>) given an operation and a node\n\n(define sig\n  (let ((none-comma-any (signature none-node any-node)))\n    (lambda (op node);; Returns (arg, res)\n      (let ((the-edge (lookup-op op node)))\n        (if (present? the-edge)\n            (signature (arg-node (optional-value the-edge)) (res-node (optional-value the-edge)))\n            none-comma-any)))))\n\n;; Selectors from signature\n\n(define (arg pair) (signature-argument pair))\n(define (res pair) (signature-result pair))\n\n;; CONFORMITY\n\n(define (conforms? t1 t2)\n  (define nodes-with-red-edges-out (ref (ann '() (List Node))))\n  (define (add-red-edge! from-node to-node)\n    (set-red-edges! from-node (adjoin to-node (red-edges from-node)))\n    (ref-set! nodes-with-red-edges-out\n          (adjoin from-node (ref-get nodes-with-red-edges-out))))\n  (define (greenify-red-edges! from-node)\n    (set-green-edges! from-node\n                      (append (red-edges from-node) (green-edges from-node)))\n    (set-red-edges! from-node '()))\n  (define (delete-red-edges! from-node)\n    (set-red-edges! from-node '()))\n  (define (does-conform t1 t2)\n    (cond ((or (none-node? t1) (any-node? t2)) #t)\n          ((or (any-node? t1) (none-node? t2)) #f)\n          ((green-edge? t1 t2) #t)\n          ((red-edge? t1 t2) #t)\n          (else\n           (add-red-edge! t1 t2)\n           (let loop ((blues (blue-edges t2)))\n             (if (null? blues)\n                 #t\n                 (let* ((current-edge (car blues))\n                        (phi (operation current-edge)))\n                   (and (has-op? phi t1)\n                        (does-conform\n                         (res (sig phi t1))\n                         (res (sig phi t2)))\n                        (does-conform\n                         (arg (sig phi t2))\n                         (arg (sig phi t1)))\n                        (loop (cdr blues)))))))))\n  (let ((result (does-conform t1 t2)))\n    (for-each (if result greenify-red-edges! delete-red-edges!)\n              (ref-get nodes-with-red-edges-out))\n    result))\n\n(define (equivalent? a b)\n  (and (conforms? a b) (conforms? b a)))\n\n;; EQUIVALENCE CLASSIFICATION\n;; Given a list of nodes, return a list of equivalence classes\n\n(define (classify nodes)\n  (let node-loop ((classes '())\n                  (nodes nodes))\n    (if (null? nodes)\n        (map (lambda (class)\n               (sort-list class\n                          (lambda (node1 node2)\n                            (< (string-length (internal-node-name node1))\n                               (string-length (internal-node-name node2))))))\n             classes)\n        (let ((this-node (car nodes)))\n          (define (add-node classes)\n            (cond ((null? classes) (list (list this-node)))\n                  ((equivalent? this-node (caar classes))\n                   (cons (cons this-node (car classes))\n                         (cdr classes)))\n                  (else (cons (car classes)\n                              (add-node (cdr classes))))))\n          (node-loop (add-node classes)\n                     (cdr nodes))))))\n\n;; Given a node N and a classified set of nodes,\n;; find the canonical member corresponding to N\n\n(define (find-canonical-representative element classification)\n  (let loop ((classes classification))\n    (cond ((null? classes) (datum-fail \"Can't classify\"))\n          ((memq element (car classes)) (car (car classes)))\n          (else (loop (cdr classes))))))\n\n;; Reduce a graph by taking only one member of each equivalence\n;; class and canonicalizing all outbound pointers\n\n(define (xreduce graph)\n  (let ((classes (classify (graph-nodes graph))))\n    (canonicalize-graph graph classes)))\n\n;; TWO DIMENSIONAL TABLES\n\n(define (make-empty-table) (table-record (ref '())))\n(define (lookup table x y)\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (let ((two (find-entry y (row-entries (optional-value one)))))\n          (if (present? two) (present (entry-value (optional-value two))) (absent)))\n        (absent))))\n(define (insert! table x y value)\n  (define (make-singleton-table x y)\n    (list (table-entry x y)))\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (set-row-entries! (optional-value one)\n          (cons (table-entry y value) (row-entries (optional-value one))))\n        (set-table-rows! table\n          (cons (row-record x (ref (make-singleton-table y value))) (table-rows table))))))\n\n;; MEET/JOIN\n;; These update the graph when computing the node for node1*node2\n\n(define (blue-edge-operate arg-fn res-fn graph op sig1 sig2)\n  (make-blue-edge op\n                  (arg-fn graph (arg sig1) (arg sig2))\n                  (res-fn graph (res sig1) (res sig2))))\n\n(define (meet graph node1 node2)\n  (cond ((eq? node1 node2) node1)\n        ((or (any-node? node1) (any-node? node2)) any-node);; canonicalize\n        ((none-node? node1) node2)\n        ((none-node? node2) node1)\n        ((lookup (already-met graph) node1 node2) => optional-value);; return it if found\n        ((conforms? node1 node2) node2)\n        ((conforms? node2 node1) node1)\n        (else\n         (let ((result\n                (make-node (text-name (string-append \"(\" (internal-node-name node1) \" ^ \" (internal-node-name node2) \")\")))))\n           (add-graph-nodes! graph result)\n           (insert! (already-met graph) node1 node2 result)\n           (set-blue-edges! result\n                            (map\n                             (lambda (op)\n                               (blue-edge-operate join meet graph op (sig op node1) (sig op node2)))\n                             (intersect (map operation (blue-edges node1))\n                                        (map operation (blue-edges node2)))))\n           result))))\n\n(define (join graph node1 node2)\n  (cond ((eq? node1 node2) node1)\n        ((any-node? node1) node2)\n        ((any-node? node2) node1)\n        ((or (none-node? node1) (none-node? node2)) none-node);; canonicalize\n        ((lookup (already-joined graph) node1 node2) => optional-value);; return it if found\n        ((conforms? node1 node2) node1)\n        ((conforms? node2 node1) node2)\n        (else\n         (let ((result\n                (make-node (text-name (string-append \"(\" (internal-node-name node1) \" v \" (internal-node-name node2) \")\")))))\n           (add-graph-nodes! graph result)\n           (insert! (already-joined graph) node1 node2 result)\n           (set-blue-edges! result\n                            (map\n                             (lambda (op)\n                               (blue-edge-operate meet join graph op (sig op node1) (sig op node2)))\n                             (union (map operation (blue-edges node1))\n                                    (map operation (blue-edges node2)))))\n           result))))\n\n;; MAKE A LATTICE FROM A GRAPH\n\n(define (make-lattice g print?)\n  (define (step g)\n    (let* ((copy (copy-graph g))\n           (nodes (graph-nodes copy)))\n      (for-each (lambda (first)\n                  (for-each (lambda (second)\n                              (meet copy first second) (join copy first second))\n                            nodes))\n                nodes)\n      copy))\n  (define (loop g count)\n    (when print? (display-number count))\n    (let ((lattice (step g)))\n      (when print?\n        (display-text \" -> \")\n        (display-number (length (graph-nodes lattice))))\n      (let* ((new-g (xreduce lattice))\n             (new-count (length (graph-nodes new-g))))\n        (if (= new-count count)\n            (begin\n              (when print?\n                (newline))\n              new-g)\n            (begin\n              (when print?\n                (display-text \" -> \")\n                (display-number new-count)\n                (newline))\n              (loop new-g new-count))))))\n  (let ((graph\n         (make-graph-list\n                (adjoin any-node (adjoin none-node (graph-nodes (clean-graph g)))))))\n    (loop graph (length (graph-nodes graph)))))\n\n;; DEBUG and TEST\n\n(define node-a (ref (ann (absent) (Optional Node))))\n(define node-b (ref (ann (absent) (Optional Node))))\n(define node-c (ref (ann (absent) (Optional Node))))\n(define node-d (ref (ann (absent) (Optional Node))))\n\n(define (setup a0 b0 c0 d0)\n  (ref-set! node-a (present (make-node a0)))\n  (ref-set! node-b (present (make-node b0)))\n  (set-blue-edges! (optional-value (ref-get node-a)) (list (make-blue-edge phi-operation any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-b)) (list (make-blue-edge phi-operation any-node (optional-value (ref-get node-a)))\n                           (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))\n  (ref-set! node-c (present (make-node c0)))\n  (ref-set! node-d (present (make-node d0)))\n  (set-blue-edges! (optional-value (ref-get node-c)) (list (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-d)) (list (make-blue-edge phi-operation any-node (optional-value (ref-get node-c)))\n                           (make-blue-edge theta-operation any-node (optional-value (ref-get node-d)))))\n  (unit))\n\n(define (test a0 b0 c0 d0)\n  (setup a0 b0 c0 d0)\n  (map internal-node-name\n       (graph-nodes (make-lattice (make-graph (optional-value (ref-get node-a)) (optional-value (ref-get node-b)) (optional-value (ref-get node-c)) (optional-value (ref-get node-d)) any-node none-node) #f))))\n\n",
+      "after": ";;; CONFORM -- Type checker, written by Jim Miller.\n\n\n;;; Functional and unstable\n\n(define (sort-list obj pred)\n\n  (define (loop l)\n    (if (and (conform-pair? l) (conform-pair? (cdr l)))\n        (split-list l '() '())\n        l))\n\n  (define (split-list l one two)\n    (if (conform-pair? l)\n        (split-list (cdr l) two (cons (car l) one))\n        (merge (loop one) (loop two))))\n\n  (define (merge one two)\n    (conform-cond ((null? one) two)\n          ((pred (car two) (car one))\n           (cons (car two)\n                 (merge (cdr two) one)))\n          (else\n           (cons (car one)\n                 (merge (cdr one) two)))))\n\n  (loop obj))\n\n;; SET OPERATIONS\n;; (representation as lists with distinct elements)\n\n(define (adjoin element set)\n  (if (conform-member? element set) set (cons element set)))\n\n(define (eliminate element set)\n  (conform-cond ((null? set) set)\n        ((conform-eq? element (car set)) (cdr set))\n        (else (cons (car set) (eliminate element (cdr set))))))\n\n(define (intersect list1 list2)\n  (let loop ((l list1))\n    (conform-cond ((null? l) '())\n          ((conform-member? (car l) list2) (cons (car l) (loop (cdr l))))\n          (else (loop (cdr l))))))\n\n(define (union list1 list2)\n  (if (null? list1)\n      list2\n      (union (cdr list1)\n             (adjoin (car list1) list2))))\n\n;; GRAPH NODES\n\n(define (make-internal-node name green red blue)\n  (node-record (ref name) (ref green) (ref red) (ref blue)))\n(define (internal-node-name node) (ref-get (node-name-cell node)))\n(define (internal-node-green-edges node) (ref-get (node-green-cell node)))\n(define (internal-node-red-edges node) (ref-get (node-red-cell node)))\n(define (internal-node-blue-edges node) (ref-get (node-blue-cell node)))\n(define (set-internal-node-name! node name) (ref-set! (node-name-cell node) name))\n(define (set-internal-node-green-edges! node edges) (ref-set! (node-green-cell node) edges))\n(define (set-internal-node-red-edges! node edges) (ref-set! (node-red-cell node) edges))\n(define (set-internal-node-blue-edges! node edges) (ref-set! (node-blue-cell node) edges))\n\n(define (make-node name . blue-edges);; User's constructor\n  (let ((name (name-string name))\n        (blue-edges (if (null? blue-edges) (blue-unresolved) (car blue-edges))))\n    (make-internal-node name '() '() blue-edges)))\n\n(define (copy-node node)\n  (make-internal-node (internal-node-name node) '() '() (blue-ready (blue-edges node))))\n\n;; Selectors\n\n;;(define name internal-node-name)\n(define (make-edge-getter selector)\n  (lambda (node)\n    (if (or (none-node? node) (any-node? node))\n        (datum-fail \"Can't get edges from the ANY or NONE nodes\")\n        (selector node))))\n(define red-edges (make-edge-getter internal-node-red-edges))\n(define green-edges (make-edge-getter internal-node-green-edges))\n(define blue-edges (make-edge-getter (lambda (node) (blue-state-edges (internal-node-blue-edges node)))))\n\n;; Mutators\n\n(define (make-edge-setter mutator!)\n  (lambda (node value)\n    (conform-cond ((any-node? node) (datum-fail \"Can't set edges from the ANY node\"))\n          ((none-node? node) (unit))\n          (else (mutator! node value)))))\n(define set-red-edges! (make-edge-setter set-internal-node-red-edges!))\n(define set-green-edges! (make-edge-setter set-internal-node-green-edges!))\n(define set-blue-edges! (make-edge-setter (lambda (node edges) (set-internal-node-blue-edges! node (blue-ready edges)))))\n\n;; BLUE EDGES\n\n(define (make-blue-edge operation argument result)\n  (edge-record (ref operation) (ref argument) (ref result)))\n(define (blue-edge-operation edge) (ref-get (edge-operation-cell edge)))\n(define (blue-edge-arg-node edge) (ref-get (edge-argument-cell edge)))\n(define (blue-edge-res-node edge) (ref-get (edge-result-cell edge)))\n(define (set-blue-edge-operation! edge value) (ref-set! (edge-operation-cell edge) value))\n(define (set-blue-edge-arg-node! edge value) (ref-set! (edge-argument-cell edge) value))\n(define (set-blue-edge-res-node! edge value) (ref-set! (edge-result-cell edge) value))\n\n;; Selectors\n(define operation blue-edge-operation)\n(define arg-node blue-edge-arg-node)\n(define res-node blue-edge-res-node)\n\n;; Mutators\n(define set-arg-node! set-blue-edge-arg-node!)\n(define set-res-node! set-blue-edge-res-node!)\n\n;; Higher level operations on blue edges\n\n(define (lookup-op op node)\n  (let loop ((edges (blue-edges node)))\n    (conform-cond ((null? edges) (absent))\n          ((conform-eq? op (operation (car edges))) (present (car edges)))\n          (else (loop (cdr edges))))))\n\n(define (has-op? op node)\n  (present? (lookup-op op node)))\n\n;; GRAPHS\n\n(define (make-internal-graph nodes met joined) (graph-record (ref nodes) met joined))\n(define (internal-graph-nodes graph) (ref-get (graph-node-cell graph)))\n(define (internal-graph-already-met graph) (graph-met graph))\n(define (internal-graph-already-joined graph) (graph-joined graph))\n(define (set-internal-graph-nodes! graph nodes) (ref-set! (graph-node-cell graph) nodes))\n\n;; Constructor\n\n(define (make-graph . nodes)\n  (make-internal-graph nodes (make-empty-table) (make-empty-table)))\n\n;; Selectors\n\n(define graph-nodes internal-graph-nodes)\n(define already-met internal-graph-already-met)\n(define already-joined internal-graph-already-joined)\n\n;; Higher level functions on graphs\n\n(define (add-graph-nodes! graph nodes)\n  (set-internal-graph-nodes! graph (cons nodes (graph-nodes graph))))\n\n(define (copy-graph g)\n  (define (copy-list l) (vector->list (list->vector l)))\n  (make-internal-graph\n   (copy-list (graph-nodes g))\n   (already-met g)\n   (already-joined g)))\n\n(define (clean-graph g)\n  (define (clean-node node)\n    (unless (or (any-node? node) (none-node? node))\n      (set-green-edges! node '())\n      (set-red-edges! node '())))\n  (conform-for-each clean-node (graph-nodes g))\n  g)\n\n(define (canonicalize-graph graph classes)\n  (define (fix node)\n    (define (fix-set object selector mutator)\n      (mutator object\n               (conform-map (lambda (node)\n                      (find-canonical-representative node classes))\n                    (selector object))))\n    (unless (or (none-node? node) (any-node? node))\n      (fix-set node green-edges set-green-edges!)\n      (fix-set node red-edges set-red-edges!)\n      (conform-for-each\n       (lambda (blue-edge)\n         (set-arg-node! blue-edge\n                        (find-canonical-representative (arg-node blue-edge) classes))\n         (set-res-node! blue-edge\n                        (find-canonical-representative (res-node blue-edge) classes)))\n       (blue-edges node)))\n    node)\n  (define (fix-table table)\n    (define (canonical? node) (conform-eq? node (find-canonical-representative node classes)))\n    (: filter-and-fix (All (A B) (-> (-> A Bool) (-> A B) (List A) (List B))))\n    (define (filter-and-fix predicate-fn update-fn conform-list)\n      (let loop ((conform-list conform-list))\n        (conform-cond ((null? conform-list) '())\n              ((predicate-fn (car conform-list))\n               (cons (update-fn (car conform-list)) (loop (cdr conform-list))))\n              (else (loop (cdr conform-list))))))\n    (define (fix-line line)\n      (filter-and-fix\n       (lambda (entry) (canonical? (entry-key entry)))\n       (lambda (entry) (table-entry (entry-key entry)\n                             (find-canonical-representative (entry-value entry) classes)))\n       line))\n    (table-record (ref\n              (filter-and-fix\n               (lambda (entry) (canonical? (row-key entry)))\n               (lambda (entry) (row-record (row-key entry) (ref (fix-line (row-entries entry)))))\n               (table-rows table)))))\n  (make-internal-graph\n   (conform-map (lambda (class) (fix (car class))) classes)\n   (fix-table (already-met graph))\n   (fix-table (already-joined graph))))\n\n;; USEFUL NODES\n\n(define none-node (make-node (symbol-name (conform-string->symbol \"none\")) (blue-none)))\n(define (none-node? node) (conform-eq? node none-node))\n\n(define any-node (make-node (symbol-name (conform-string->symbol \"any\")) (blue-ready '())))\n(define (any-node? node) (conform-eq? node any-node))\n\n;; COLORED EDGE TESTS\n\n(define (green-edge? from-node to-node)\n  (conform-cond ((any-node? from-node) #f)\n        ((none-node? from-node) #t)\n        ((conform-member? to-node (green-edges from-node)) #t)\n        (else #f)))\n\n(define (red-edge? from-node to-node)\n  (conform-cond ((any-node? from-node) #f)\n        ((none-node? from-node) #t)\n        ((conform-member? to-node (red-edges from-node)) #t)\n        (else #f)))\n\n;; SIGNATURE\n\n;; Return signature (i.e. <arg, res>) given an operation and a node\n\n(define sig\n  (let ((none-comma-any (signature none-node any-node)))\n    (lambda (op node);; Returns (arg, res)\n      (let ((the-edge (lookup-op op node)))\n        (if (present? the-edge)\n            (signature (arg-node (optional-value the-edge)) (res-node (optional-value the-edge)))\n            none-comma-any)))))\n\n;; Selectors from signature\n\n(define (arg pair) (signature-argument pair))\n(define (res pair) (signature-result pair))\n\n;; CONFORMITY\n\n(define (conforms? t1 t2)\n  (define nodes-with-red-edges-out (ref (ann '() (List Node))))\n  (define (add-red-edge! from-node to-node)\n    (set-red-edges! from-node (adjoin to-node (red-edges from-node)))\n    (ref-set! nodes-with-red-edges-out\n          (adjoin from-node (ref-get nodes-with-red-edges-out))))\n  (define (greenify-red-edges! from-node)\n    (set-green-edges! from-node\n                      (conform-append (red-edges from-node) (green-edges from-node)))\n    (set-red-edges! from-node '()))\n  (define (delete-red-edges! from-node)\n    (set-red-edges! from-node '()))\n  (define (does-conform t1 t2)\n    (conform-cond ((or (none-node? t1) (any-node? t2)) #t)\n          ((or (any-node? t1) (none-node? t2)) #f)\n          ((green-edge? t1 t2) #t)\n          ((red-edge? t1 t2) #t)\n          (else\n           (add-red-edge! t1 t2)\n           (let loop ((blues (blue-edges t2)))\n             (if (null? blues)\n                 #t\n                 (let* ((current-edge (car blues))\n                        (phi (operation current-edge)))\n                   (and (has-op? phi t1)\n                        (does-conform\n                         (res (sig phi t1))\n                         (res (sig phi t2)))\n                        (does-conform\n                         (arg (sig phi t2))\n                         (arg (sig phi t1)))\n                        (loop (cdr blues)))))))))\n  (let ((result (does-conform t1 t2)))\n    (conform-for-each (if result greenify-red-edges! delete-red-edges!)\n              (ref-get nodes-with-red-edges-out))\n    result))\n\n(define (equivalent? a b)\n  (and (conforms? a b) (conforms? b a)))\n\n;; EQUIVALENCE CLASSIFICATION\n;; Given a list of nodes, return a list of equivalence classes\n\n(define (classify nodes)\n  (let node-loop ((classes '())\n                  (nodes nodes))\n    (if (null? nodes)\n        (conform-map (lambda (class)\n               (sort-list class\n                          (lambda (node1 node2)\n                            (< (string-length (internal-node-name node1))\n                               (string-length (internal-node-name node2))))))\n             classes)\n        (let ((this-node (car nodes)))\n          (define (add-node classes)\n            (conform-cond ((null? classes) (conform-list (conform-list this-node)))\n                  ((equivalent? this-node (conform-caar classes))\n                   (cons (cons this-node (car classes))\n                         (cdr classes)))\n                  (else (cons (car classes)\n                              (add-node (cdr classes))))))\n          (node-loop (add-node classes)\n                     (cdr nodes))))))\n\n;; Given a node N and a classified set of nodes,\n;; find the canonical member corresponding to N\n\n(define (find-canonical-representative element classification)\n  (let loop ((classes classification))\n    (conform-cond ((null? classes) (datum-fail \"Can't classify\"))\n          ((conform-member? element (car classes)) (car (car classes)))\n          (else (loop (cdr classes))))))\n\n;; Reduce a graph by taking only one member of each equivalence\n;; class and canonicalizing all outbound pointers\n\n(define (xreduce graph)\n  (let ((classes (classify (graph-nodes graph))))\n    (canonicalize-graph graph classes)))\n\n;; TWO DIMENSIONAL TABLES\n\n(define (make-empty-table) (table-record (ref '())))\n(define (lookup table x y)\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (let ((two (find-entry y (row-entries (optional-value one)))))\n          (if (present? two) (present (entry-value (optional-value two))) (absent)))\n        (absent))))\n(define (insert! table x y value)\n  (define (make-singleton-table x y)\n    (conform-list (table-entry x y)))\n  (let ((one (find-row x (table-rows table))))\n    (if (present? one)\n        (set-row-entries! (optional-value one)\n          (cons (table-entry y value) (row-entries (optional-value one))))\n        (set-table-rows! table\n          (cons (row-record x (ref (make-singleton-table y value))) (table-rows table))))))\n\n;; MEET/JOIN\n;; These update the graph when computing the node for node1*node2\n\n(define (blue-edge-operate arg-fn res-fn graph op sig1 sig2)\n  (make-blue-edge op\n                  (arg-fn graph (arg sig1) (arg sig2))\n                  (res-fn graph (res sig1) (res sig2))))\n\n(define (meet graph node1 node2)\n  (conform-cond ((conform-eq? node1 node2) node1)\n        ((or (any-node? node1) (any-node? node2)) any-node);; canonicalize\n        ((none-node? node1) node2)\n        ((none-node? node2) node1)\n        ((lookup (already-met graph) node1 node2) => optional-value);; return it if found\n        ((conforms? node1 node2) node2)\n        ((conforms? node2 node1) node1)\n        (else\n         (let ((result\n                (make-node (text-name (string-append \"(\" (internal-node-name node1) \" ^ \" (internal-node-name node2) \")\")))))\n           (add-graph-nodes! graph result)\n           (insert! (already-met graph) node1 node2 result)\n           (set-blue-edges! result\n                            (conform-map\n                             (lambda (op)\n                               (blue-edge-operate join meet graph op (sig op node1) (sig op node2)))\n                             (intersect (conform-map operation (blue-edges node1))\n                                        (conform-map operation (blue-edges node2)))))\n           result))))\n\n(define (join graph node1 node2)\n  (conform-cond ((conform-eq? node1 node2) node1)\n        ((any-node? node1) node2)\n        ((any-node? node2) node1)\n        ((or (none-node? node1) (none-node? node2)) none-node);; canonicalize\n        ((lookup (already-joined graph) node1 node2) => optional-value);; return it if found\n        ((conforms? node1 node2) node1)\n        ((conforms? node2 node1) node2)\n        (else\n         (let ((result\n                (make-node (text-name (string-append \"(\" (internal-node-name node1) \" v \" (internal-node-name node2) \")\")))))\n           (add-graph-nodes! graph result)\n           (insert! (already-joined graph) node1 node2 result)\n           (set-blue-edges! result\n                            (conform-map\n                             (lambda (op)\n                               (blue-edge-operate meet join graph op (sig op node1) (sig op node2)))\n                             (union (conform-map operation (blue-edges node1))\n                                    (conform-map operation (blue-edges node2)))))\n           result))))\n\n;; MAKE A LATTICE FROM A GRAPH\n\n(define (make-lattice g print?)\n  (define (step g)\n    (let* ((copy (copy-graph g))\n           (nodes (graph-nodes copy)))\n      (conform-for-each (lambda (first)\n                  (conform-for-each (lambda (second)\n                              (meet copy first second) (join copy first second))\n                            nodes))\n                nodes)\n      copy))\n  (define (loop g count)\n    (when print? (display-number count))\n    (let ((lattice (step g)))\n      (when print?\n        (display-text \" -> \")\n        (display-number (conform-length (graph-nodes lattice))))\n      (let* ((new-g (xreduce lattice))\n             (new-count (conform-length (graph-nodes new-g))))\n        (if (= new-count count)\n            (begin\n              (when print?\n                (conform-newline))\n              new-g)\n            (begin\n              (when print?\n                (display-text \" -> \")\n                (display-number new-count)\n                (conform-newline))\n              (loop new-g new-count))))))\n  (let ((graph\n         (make-graph-list\n                (adjoin any-node (adjoin none-node (graph-nodes (clean-graph g)))))))\n    (loop graph (conform-length (graph-nodes graph)))))\n\n;; DEBUG and TEST\n\n(define node-a (ref (ann (absent) (Optional Node))))\n(define node-b (ref (ann (absent) (Optional Node))))\n(define node-c (ref (ann (absent) (Optional Node))))\n(define node-d (ref (ann (absent) (Optional Node))))\n\n(define (setup a0 b0 c0 d0)\n  (ref-set! node-a (present (make-node a0)))\n  (ref-set! node-b (present (make-node b0)))\n  (set-blue-edges! (optional-value (ref-get node-a)) (conform-list (make-blue-edge phi-operation any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-b)) (conform-list (make-blue-edge phi-operation any-node (optional-value (ref-get node-a)))\n                           (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))\n  (ref-set! node-c (present (make-node c0)))\n  (ref-set! node-d (present (make-node d0)))\n  (set-blue-edges! (optional-value (ref-get node-c)) (conform-list (make-blue-edge theta-operation any-node (optional-value (ref-get node-b)))))\n  (set-blue-edges! (optional-value (ref-get node-d)) (conform-list (make-blue-edge phi-operation any-node (optional-value (ref-get node-c)))\n                           (make-blue-edge theta-operation any-node (optional-value (ref-get node-d)))))\n  (unit))\n\n(define (test a0 b0 c0 d0)\n  (setup a0 b0 c0 d0)\n  (conform-map internal-node-name\n       (graph-nodes (make-lattice (make-graph (optional-value (ref-get node-a)) (optional-value (ref-get node-b)) (optional-value (ref-get node-c)) (optional-value (ref-get node-d)) any-node none-node) #f))))\n\n",
+      "count": 1,
+      "offsets": [
+        0
+      ],
+      "reason": "Typed list/control/identity bindings retain the original recursive list algorithms."
+    },
+    {
+      "before": "",
+      "after": "(: sort-list (All (T) (-> (List T) (-> T T Bool) (List T))))\n(: adjoin (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T)))))\n(: eliminate (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T)))))\n(: intersect (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T)))))\n(: union (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T)))))\n(: make-node (-> Name (Rest BlueState) Node))\n(: make-internal-node (-> String (List Node) (List Node) BlueState Node))\n(: make-edge-getter (All (T) (-> (-> Node T) (-> Node T))))\n(: make-edge-setter (All (T) (-> (-> Node T Unit) (-> Node T Unit))))\n(: lookup-op (-> Symbol Node (Optional BlueEdge)))\n(: make-graph (-> (Rest Node) Graph))\n(: make-graph-list (-> (List Node) Graph))\n(: add-graph-nodes! (-> Graph Node Unit))\n(: copy-node (-> Node Node))\n(: copy-graph (-> Graph Graph))\n(: canonicalize-graph (-> Graph (List (List Node)) Graph))\n(: lookup (-> Table Node Node (Optional Node)))\n(: insert! (-> Table Node Node Node Unit))\n(: conforms? (-> Node Node Bool))\n(: classify (-> (List Node) (List (List Node))))\n(: find-canonical-representative (-> Node (List (List Node)) Node))\n(: blue-edge-operate (-> (-> Graph Node Node Node) (-> Graph Node Node Node)\n                        Graph Symbol Signature Signature BlueEdge))\n(: meet (-> Graph Node Node Node))\n(: join (-> Graph Node Node Node))\n(: setup (-> Name Name Name Name Unit))\n(: test (-> Name Name Name Name (List String)))\n",
+      "count": 1,
+      "offsets": [
+        0
+      ],
+      "reason": "Prepend explicit type contracts without changing the source definitions."
+    }
+  ],
+  "complete_reverse_verified": true
+}

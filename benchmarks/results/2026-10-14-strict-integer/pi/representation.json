@@ -1,0 +1,33 @@
+{
+  "imports": [
+    [
+      "benchmark",
+      "expected_length"
+    ],
+    [
+      "benchmark",
+      "expected_character"
+    ],
+    [
+      "benchmark",
+      "emit_character"
+    ],
+    [
+      "benchmark",
+      "expected_count"
+    ],
+    [
+      "benchmark",
+      "hide_i64"
+    ],
+    [
+      "benchmark",
+      "input_i64"
+    ]
+  ],
+  "packed_i32_arrays": 2,
+  "legacy_value_abi_imports": false,
+  "i31_value_operations": false,
+  "wasm_bytes": 19458,
+  "raw_wasm_bytes": 61871
+}

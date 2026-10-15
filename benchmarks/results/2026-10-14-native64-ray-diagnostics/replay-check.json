@@ -1,0 +1,61 @@
+{
+  "finished_utc": "2026-10-14T12:27:40.382196+00:00",
+  "archive_integrity_files": 343,
+  "frozen_hashes_verified": true,
+  "results": {
+    "native": {
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "6",
+        "/tmp/native64-ray-diagnostics-replay-20261014/files/tmp/snail-native64-ray-comparison-20261014/build/native-ray/ray-native"
+      ],
+      "cwd": "/tmp/native64-ray-diagnostics-replay-checks-20261014/native",
+      "overrides": {},
+      "scope": "whole process",
+      "timing_claim": false,
+      "complete": true,
+      "returncode": 0,
+      "process_seconds": 0.21458525798516348,
+      "workload_seconds": 0.194869184,
+      "image": {
+        "path": "/tmp/native64-ray-diagnostics-replay-checks-20261014/native/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+      },
+      "image_bytes": 29517,
+      "valid": true,
+      "stdout": "{\"seconds\":0.194869184,\"result\":\"1\"}\n",
+      "stderr": "",
+      "purpose": "Relocated correctness replay, excluded from timing"
+    },
+    "v8": {
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "6",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/native64-ray-diagnostics-replay-20261014/files/tmp/snail-native64-ray-comparison-20261014/build/native-ray/input/ray-host.mjs",
+        "/tmp/native64-ray-diagnostics-replay-20261014/files/tmp/snail-native64-ray-comparison-20261014/build/native-ray/current-v8.wasm",
+        "/tmp/native64-ray-diagnostics-replay-20261014/files/tmp/snail-native64-ray-comparison-20261014/build/native-ray/input/spec.json"
+      ],
+      "cwd": "/tmp/native64-ray-diagnostics-replay-checks-20261014/v8",
+      "overrides": {},
+      "scope": "whole process",
+      "timing_claim": false,
+      "complete": true,
+      "returncode": 0,
+      "process_seconds": 0.16541482700267807,
+      "workload_seconds": 0.129309629,
+      "image": {
+        "path": "/tmp/native64-ray-diagnostics-replay-checks-20261014/v8/outputs/ray.output",
+        "sha256": "38babccc4583f44c18d17488314bffe9723a0fd2bdeff7227ec0d7ed1ea1463d"
+      },
+      "image_bytes": 29517,
+      "valid": true,
+      "stdout": "{\"seconds\":0.129309629,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": "",
+      "purpose": "Relocated correctness replay, excluded from timing"
+    }
+  }
+}

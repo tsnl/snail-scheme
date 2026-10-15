@@ -10,8 +10,7 @@ ARTIFACT = ROOT / "build/actor-tests/actor.wasm"
 
 
 def main():
-    subprocess.run([ROOT / "snail-scheme", "--actor", ROOT / "tests/programs/actor.sld",
-                    "-o", ARTIFACT], cwd=ROOT, check=True, timeout=240)
+    subprocess.run([ROOT / "scripts/build-actor", ROOT / "tests/programs/actor.sld", ARTIFACT], cwd=ROOT, check=True, timeout=240)
     result = subprocess.run([os.environ.get("NODE", "node"), "--no-warnings",
                              ROOT / "tests/check-actors.mjs", ARTIFACT],
                             cwd=ROOT, capture_output=True, text=True, timeout=120)

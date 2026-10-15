@@ -1,0 +1,292 @@
+{
+  "measurement_started": false,
+  "commands": [
+    {
+      "name": "pi",
+      "system": "production-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/production.wasm",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/production.wasm": "1bf1d61500abd5fef7ac4723008b92d09dddb7ca2d5a428e5db5c646539e5e97",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json": "45e2e52bef4aea0a5631c5ce913760a9bd13e86197befcddc9ec1f1831769698"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "native-final-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native-final.wasm",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native-final.wasm": "d8f3aaf2746e71255cc607fdcd50030cbe78a0754c57e99b97b6735c0ff237b8",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.spec.json": "45e2e52bef4aea0a5631c5ce913760a9bd13e86197befcddc9ec1f1831769698"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "native64",
+      "command": [
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.native-input",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/native": "3dc439a94b7850e76c744e52a6009164bcaadb2b62b9a68e6de314ef6e15204d",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/full.native-input": "9fdbb0a60c0389fe4afcb36083b6708a7c527a4a319c1223b118dd4f41da938c"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "chez-original",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-original.so": "34a49eab5cffb5d6431428f2a98d5f7ac372ac6b8c2a3e5bbf7b7ff8a1c08c6a",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "chez-adapted",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-adapted.so": "dc5ee2e7a7a2431536e4e19728bc073db7c80792565d1487fe10f30f7145dcfc",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "chez-limbs",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/chez-limbs.so": "c619cf0b8cfbb765acfa943a82c3fde955956d2a9691d491bf2c36ac0666e5a3",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "rust-native",
+      "command": [
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-native"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+      "environment": {
+        "SNAIL_INTEGER_TIME": "1"
+      },
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi-native": "ac7969fc932c979e4d2aaa9b82f8cf3d2ab077ea8f05f57130289f565998fd24",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+      }
+    },
+    {
+      "name": "pi",
+      "system": "rust-wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.wasm"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input",
+      "environment": {
+        "SNAIL_INTEGER_TIME": "1"
+      },
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/pi.wasm": "de328f8929186ec9d5f1315999159952a95bdb1cbdd6bb521a27bb7c7fb2bca7",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/pi/input": "6ac6abdc7578c5c6beef61e2b5ad91c9ee70dca8c6ee56f5c5d5596f435ea197"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "production-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/production.wasm",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/production.wasm": "76a3fe38f8680f8d7c5872b0280bf7aee7aa7cf168fde371ac4e6d1d06faabb5",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json": "4decc62794fc7d00741b63ecacd81010e2f0f78345be56114fab2d8f71cb8bf0"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "native-final-v8",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native-final.wasm",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/frozen/benchmarks/strict-suite/integer-control-host.mjs": "c9cfe8f1d64e66a65af101a08e9473a662eb3fe5cb86dcf1b00e6fab29194930",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native-final.wasm": "e04e70a093026ba9833847228ad95481f65408181d9dc260fb76e12833f344fa",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.spec.json": "4decc62794fc7d00741b63ecacd81010e2f0f78345be56114fab2d8f71cb8bf0"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "native64",
+      "command": [
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.native-input",
+        "--time"
+      ],
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/native": "61afd69ebe6dddf470bf42f054dd7f47e6d9b58deef5bd347913f882ace7e195",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/full.native-input": "07460cf392aede615c0fe01409da0db1596288f4a1b9f292847853d88568130d"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "chez-original",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-original.so": "1ea181d447a7a6e8d7885dddd360d6f5f474b2b63a529d119422b21aca86f31f",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "chez-adapted",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-adapted.so": "2d9163c330a591f5303f364bad42af3c6ab009fa80e0c690df8ddc0e46e14e87",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "chez-limbs",
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.so",
+        "--time"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/chez-limbs.so": "318fe59693fe09df788d1061e5076e53c197fa9f861ab1fbb1a6e05d903e0b19",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "rust-native",
+      "command": [
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-native"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+      "environment": {
+        "SNAIL_INTEGER_TIME": "1"
+      },
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky-native": "5e7f657259b4ef86ba6cd5c326ebbee8201eee9c7a858080b0ad999786deb5c6",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+      }
+    },
+    {
+      "name": "chudnovsky",
+      "system": "rust-wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--disable-warning=ExperimentalWarning",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.wasm"
+      ],
+      "stdin": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input",
+      "environment": {
+        "SNAIL_INTEGER_TIME": "1"
+      },
+      "cwd": "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls",
+      "artifact_sha256": {
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/rust-reference/chudnovsky.wasm": "4f805995996a6d663de145ee02d598741bf872648b31f50c034563a583964853",
+        "/tmp/snail-strict-big-integer-20261014/build/strict-integer-controls/chudnovsky/input": "e93f0c35fef881778a92ab4ba1dd35fa482b8368493e4102744b8a618cc11d0c"
+      }
+    }
+  ],
+  "environment_guard": {
+    "NODE_OPTIONS": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "SNAIL_GC_STATS": null,
+    "CHEZSCHEMELIBDIRS": null,
+    "SCHEMEHEAPDIRS": null
+  },
+  "clock_boundary": "Input/expected parsing and module initialization precede the clock; computation and final complete numeric predicate are inside; serialization follows.",
+  "invocation_policy": "Verify hashes and environment; coordinate a quiet window; run fresh processes serially. This plan does not launch timing."
+}

@@ -1,0 +1,212 @@
+{
+  "purpose": "Independent negative quicksort checks; not performance measurements",
+  "compiler_commit": "35d5baa52c2a0e25d0c86c02adefd661a6457a3b",
+  "node_sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+  "host_sha256": "ea2fd98ef42744fa3ff9a0d186e8683ae7368da10591f1f102c1e2f561b9a8c2",
+  "checks": [
+    {
+      "case": "wrong-value",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "93d1ef57a3022041c45f76d03349c9fa66933f5953393a01d1dd9699351cee93",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "wrong-value",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "93d1ef57a3022041c45f76d03349c9fa66933f5953393a01d1dd9699351cee93",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "short",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-short.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "eafbabc6e54e2fdb27f05debff0e65590e14dc4fa9c42d4468ef645cd7d5e0dd",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "short",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-short.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "eafbabc6e54e2fdb27f05debff0e65590e14dc4fa9c42d4468ef645cd7d5e0dd",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "long",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-long.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "d418fdd16a101e2945cef6ca19f21c7f4019633ad9c7835ec7eefdc2faabe124",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "long",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-long.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "d418fdd16a101e2945cef6ca19f21c7f4019633ad9c7835ec7eefdc2faabe124",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-wrong-value",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-wrong-value.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "2e9a7819afd8a3e3935fbfcab3132675c785835e13c8811ccae30de2d8a4a6f7",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-wrong-value",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-wrong-value.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "2e9a7819afd8a3e3935fbfcab3132675c785835e13c8811ccae30de2d8a4a6f7",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-short",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-short.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "0407f74bf095cb24e0f716b550af31f9ffad12c848072304af4613b023bc07fe",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-short",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-short.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "0407f74bf095cb24e0f716b550af31f9ffad12c848072304af4613b023bc07fe",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-long",
+      "artifact": "strict.wasm.raw.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm.raw.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-long.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cf233002d3c5fc1d775ad27dd04f8fd153bb902551f79a2ed370663674c669a4",
+      "spec_sha256": "883e62a165e576c0e8f967606d099038506f3940558870b8edbeed5292e82cf4",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    },
+    {
+      "case": "rng-long",
+      "artifact": "strict.wasm",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/strict-quicksort-frozen-final-5894df7/host.mjs",
+        "/tmp/snail-strict-direct-captures-20261013/build/direct-quicksort/strict.wasm",
+        "/tmp/strict-quicksort-frozen-final-5894df7/quicksort/validation-spec-rng-long.json",
+        "--validate"
+      ],
+      "artifact_sha256": "cddf1a56b3f87ff9e3bc2b5ba1af0525d898a5df1b97572553aa81bb075a88bd",
+      "spec_sha256": "883e62a165e576c0e8f967606d099038506f3940558870b8edbeed5292e82cf4",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/strict-quicksort-frozen-final-5894df7/host.mjs:41:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "expected_rejection": true
+    }
+  ]
+}

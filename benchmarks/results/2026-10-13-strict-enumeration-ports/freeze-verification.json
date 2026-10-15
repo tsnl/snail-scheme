@@ -1,0 +1,18 @@
+{
+  "compiler_commit": "a4030ce190058db3e9d64f6942401b5fa38dbd58",
+  "driver_commit": "37e11e67a0fbc7b3c9bd336d4f1f4f7f03d2833b",
+  "compiler_files_verified": 52,
+  "case_payload_hashes_verified": {
+    "graphs": 80,
+    "mperm": 152
+  },
+  "driver_hashes": {
+    "benchmarks/strict-suite/measure.py": "2626070ed5cb15ec0b037bc45f498fa00694be82b2277a841ce193570014f6b4",
+    "benchmarks/strict-suite/enumeration_ports.py": "dc1d2d169cbc173b750c6b6652d9d11a012cb125994a80528e997ab03d82c307",
+    "benchmarks/strict-suite/data_ports.py": "7f2967f1c5b310588e60953b386cdb101ce5f624435af2bda3ed553c75325773",
+    "benchmarks/strict-suite/host.mjs": "fb152168e63766b018b9177352fe71a7b22c6dfce4b6e510cad0a6f963d9333b",
+    "benchmarks/r7rs.py": "7d8aea265a966a650f0d0a6c5d023d36598c1a8f35b1992d9248f2998f317b09"
+  },
+  "canonical_payloads_unchanged": true,
+  "performance_samples": 0
+}

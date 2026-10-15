@@ -1,0 +1,25 @@
+{
+  "release_utc": "2026-10-14T19:12:00.210049+00:00",
+  "authorization": "Parent /root renewed the quiet-window release after independently running corrected default verification and confirming exact plan/runner hashes. All other agents remain quiet. No replacements, builds, profiling, compression or Git publication during timing.",
+  "preparation_commit": "3c47998",
+  "correction_commit": "2aee881",
+  "identities": {
+    "timing-plan.json": "f23d33d0620bc56698f4519aa4b2e03e9e11e5440d1c9fd4e1417e6a5eaf90f3",
+    "measure-seven.py": "e2ddab6bec989227cf9b639fd98f16ad75dfced6e11b414395a2ca3d0645ccfd"
+  },
+  "command": [
+    "python3",
+    "benchmarks/results/2026-10-14-strict-reader-timing-correction/measure-seven.py",
+    "--run",
+    "--output",
+    "/tmp/snail-strict-reader-20261014/build/strict-reader-seven-campaign-attempt2-20261014"
+  ],
+  "session_id": 81378,
+  "returncode": 0,
+  "complete_processes": 112,
+  "retained_processes": 98,
+  "replacements": 0,
+  "all_owned_groups_stopped": true,
+  "packaging_after_all_clean_clocks": true,
+  "quiet_release_after_completion": "Parent /root released the hold after session81378 terminated successfully and all112 records validated."
+}

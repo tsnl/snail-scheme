@@ -2,10 +2,18 @@
 
 IR is fully expanded Scheme with resolved lexical references and source
 locations. `expand.sld` consumes the reader's syntax objects and constructs the
-immutable expression records in `ir.sld`, organized in the independent library
+expression records in `ir.sld`, organized in the independent library
 containers from `library.sld`. `wasm.sld` analyzes bindings and captures, then emits
 each library body as structured WebAssembly. Expansion does not choose machine
 representations, infer types, or build closure environments.
+
+The strict compiler refines an owned copy of these same records. Expressions
+carry a type, initially a fresh `Hole`; resolved definitions own their scheme,
+declared syntax and initializer. Checking solves holes and generalizes eligible
+bindings. Each overload row owns a separate member identity and its declared
+signature or hole; omitting the signature leaves inference to checking, without
+changing expansion. Specialization makes concrete copies without changing those
+templates.
 
 The implementation currently covers a Scheme core, library declarations, and
 `syntax-rules` transformers. Derived syntax can be supplied by libraries. This is
@@ -101,7 +109,16 @@ Export-Spec    ::= Name | (rename Name Name)
 Library-Name   ::= (Library-Part+)
 Library-Part   ::= Name | Nonnegative-Integer
 
-Item           ::= Definition | Expr | (begin Item*)
+Item           ::= Definition | Static-Decl | Expr | (begin Item*)
+Static-Decl    ::= (: Name Type)
+                 | (define-class (Name Name+) (: Name Type)+)
+                 | (define-instance (Name Type+) (Name Expr)+)
+                 | (define-overload Name Type? Expr)
+                 | (define-extern Name String String Type)
+                 | (define-data Data-Head Data-Case+)
+Data-Head      ::= Name | (Name Name*)
+Data-Case      ::= (Name Data-Field*)
+Data-Field     ::= (Name Type) | (Name Type Name)
 Definition     ::= (define Name Expr)
                  | (define (Name . Formals) Body)
                  | (define-syntax Name Rules-Spec)
@@ -115,6 +132,9 @@ Expr           ::= Name
                  | (if Expr Expr)
                  | (if Expr Expr Expr)
                  | (set! Name Expr)
+                 | (ann Expr Type)
+                 | (inst Name Type+)
+                 | (match Expr ((Name Name*) Body)+)
                  | (begin Expr+)
                  | (Expr Expr*)
                  | (let-syntax (Syntax-Binding*) Body)
@@ -125,6 +145,17 @@ Rules-Spec     ::= (syntax-rules (Name*) Rule*)
                  | (syntax-rules Name (Name*) Rule*)
 Rule           ::= (Macro-Pattern Template)
 ```
+
+Static declarations retain resolved binding identities and located type syntax;
+expansion does not check row compatibility or choose overloads. Every overload
+record owns its signature and implementation expression. The family identity is
+shared across rows and imported extensions; individual implementation bindings
+retain their own initializer sites. The strict compiler's elaborator currently
+refines this same representation. Each row has a distinct private member
+definition owning its declared signature or fresh hole, in addition to the shared
+family identity. A named implementation still refers to its original runtime
+binding. The checker completes omitted signatures from their implementation
+schemes before they become selectable rows; expansion performs no inference.
 
 Library-level `cond-expand` selects the first matching clause and recursively
 splices its declarations before imports, exports, or bodies are expanded. Only
@@ -158,22 +189,73 @@ ordinary application requires a proper list of operator and operand expressions.
 
 ## IR records
 
-Executable records are defined in [`ir.sld`](../src/snail-scheme/ir.sld). Every
+Executable nodes are defined in [`ir.sld`](../src/snail-scheme/ir.sld). One node
+record carries `kind`, `type`, `loc`, variant data and proof obligations.
+Named constructors, predicates and accessors establish the variant layouts
+below; they do not construct a second tree. Every
 located node carries its own `loc`; compiler-provided definitions use `#f`. A
 definition and a reference to it have separate locations. Locations and spellings
 do not establish lexical identity.
 
-| Record | Contents |
+| Definition or source variant | Contents |
 | --- | --- |
-| `value-definition` | One binding identity, its source name, and definition location |
-| `value-binding` | A value definition, its initializer, and the definition form's location |
-| `name` | A reference to a value definition and the reference location |
+| `value-definition` | One binding identity, name, location, scheme, optional located declaration, initializer and checking metadata |
+| `bind` (`value-binding`) | A value definition and its initializer |
+| `name` | A reference to a value definition and its use's substitution map, initially empty |
 | `literal` | A quoted or self-evaluating datum and location |
-| `application` | Operator, operands, location |
+| `call` (`application`) | Operator and ordered operands |
 | `lambda` | Required parameters, optional rest parameter, body block, location |
-| `conditional` | Test, consequent, optional alternate, location |
+| `if` (`conditional`) | Test, consequent and optional alternate |
 | `assignment` | Target name, value expression, location |
-| `block` | Nonempty ordered items ending in a result expression, location |
+| `block` | Definition list, initially empty, and nonempty ordered items ending in a result expression |
+| `type-declaration` | Resolved value definition, type, location |
+| `annotation` | Expression, expected type, location |
+| `instantiation` | Expression, explicit shallow type arguments, location |
+| `record-schema` | Descriptor, constructor and predicate identities, field metadata, location |
+| `data-schema` | Nominal descriptor, type parameters and closed constructor/field rows; implemented by the strict compiler |
+| `match` | Subject and constructor-identity/arm-lambda pairs; strict checking lowers these to typed lets and conditionals |
+| `class-declaration` | Class identity, type-variable identities and method declarations |
+| `instance-declaration` | Class identity, instance types and method implementations |
+| `overload-declaration` | Shared family identity, distinct member definition and implementation |
+| `extern-declaration` | Value identity, import module/name and declared signature |
+
+Type expressions resolve scalar syntax, nominal descriptor identities, and
+fresh source `All` binder identities during expansion. Strict checking creates
+rigid variables for those binders. Ordinary colon declarations attach to their
+local definition after body construction; their nodes remain available to the
+gradual checker. Checking verifies that each colon is the exact declaration owned
+by that local definition. Duplicate declarations and declarations aimed at imported,
+outer or primitive bindings are located errors. Overload rows
+own their signature directly and cannot receive detached colon declarations.
+`instantiation` preserves the underlying procedure
+value; its callable view and required call-boundary checks live in analysis
+evidence. See [the implemented type language](typing-prototype.md).
+
+`Hole` is a flexible compile-time variable, with a fresh identity and a mutable
+solution link. It is neither a runtime value nor the `Top` type. `All` checks use
+immutable rigid variables; each generalized use gets fresh instantiated holes.
+Only monomorphic uses, including unannotated recursive references, constrain
+their definition's existing cells.
+
+Strict inference first clones the complete graph of ordered items and primitive
+bindings using one temporary identity hash table. Lookup does not scan previously
+copied objects, and table iteration never determines traversal order. It reserves
+each copy before visiting its fields, preserving cycles and aliases. Nodes,
+definitions, schemes, holes,
+substitution lists and mutable literal data belong to that compilation; immutable
+source locations and source binder tokens may be shared. Unused initializers are
+roots too. Cached libraries therefore retain unsolved source holes when another
+compilation checks the same source.
+
+Checking refines the owned nodes and definitions. It records schemes and proof
+obligations, removes static declarations from executable bodies, lowers a direct
+fixed-arity lambda application to `let`, and adds explicit `convert` operations
+at permitted boundaries. Missing conditional branches become `unit`. Specialization
+uses the same node record for concrete calls, gets, closures, binds and control
+flow. Its separate site, value and function records keep runtime initialization
+identity distinct from storage and code copies. A generic template's obligations
+remain in that template; selected implementations and concrete storage belong to
+the requested instance. No representation holes may reach emission.
 
 Compilation containers belong to [`library.sld`](../src/snail-scheme/library.sld),
 which imports neither IR nor MIR. Its body payload belongs to the current pass;
@@ -186,9 +268,10 @@ its interface bindings retain opaque identities, including macro identities.
 | `named-binding` | Visible name and original definition identity |
 
 A script is an unnamed library (`name = #f`), selected as the executable's root.
-There is no separate program record. Expansion supplies an ordered IR item list
-as the body; lowering replaces it with a MIR body while retaining the library's
-organization. `library-dependency-order` visits each resolved library once by
+Expansion supplies an ordered IR item list as each body. The gradual compiler
+emits that library graph directly. The strict compiler collects ordered bodies
+into a program container alongside static class evidence, and refines its owned
+IR. `library-dependency-order` visits each resolved library once by
 identity, placing dependencies before their importer and the root last.
 
 A `lambda` contains one `value-definition` per parameter. Its optional rest
@@ -219,8 +302,11 @@ For example, the initializer and final reference in this body share one object:
     #f))
 ```
 
-The executable core has eight forms: names, literals, applications, lambdas,
-blocks, conditionals, assignments, and value bindings. Initialization remains
+The executable core has names, literals, applications, lambdas,
+blocks, conditionals, assignments, value bindings, and type annotations.
+Type declarations and record schemas are body metadata. An annotation retains
+its expression and expected type; the checker records its guard separately.
+Initialization remains
 distinct from assignment: a definition introduces a binding and its initializer,
 whereas `set!` makes an existing location mutable. Encoding both with an extra
 mode flag would move that distinction into every analysis. Blocks likewise
@@ -559,11 +645,15 @@ are not implemented yet.
 
 ## Later passes
 
-[`wasm.sld`](../src/snail-scheme/wasm.sld) consumes this untyped IR, analyzes
+[`wasm.sld`](../src/snail-scheme/wasm.sld) consumes resolved IR, analyzes
 captures, mutation, and initialization, then emits structured WasmGC directly.
 Binding identities survive import renaming and source shadowing. Representation
-choices belong beyond expansion; type inference and check elimination remain
-future IR-to-IR work.
+choices belong beyond expansion. The implemented
+[`type-analysis.sld`](../src/snail-scheme/type-analysis.sld) records per-expression
+facts, required guards, function signatures, and verified summaries before
+emission. [`wasm-i32.sld`](../src/snail-scheme/wasm-i32.sld) attempts bounded
+monomorphic representation specialization. See [the implementation report](typing-prototype.md)
+and [the broader proposal](occurrence-typing.md).
 
 The executable backend preserves proper tail calls, assignment, quoted data,
 recursive initialization, and multiple values. `values` and `call-with-values`

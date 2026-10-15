@@ -2,8 +2,7 @@
 ;; Record/variant codecs derived from types remain a separate planned layer.
 (define-library (snail-scheme actor-wire)
   (export decode-call encode-result)
-  (import (scheme base) (scheme write)
-          (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme syntax))
+  (import (scheme base) (scheme read) (scheme write))
   (begin
 
     ;; ---- Bounded portable data ----
@@ -36,19 +35,19 @@
     (define (check-datum value)
       (if (< (check-value value 0 16384) 0) (error "actor datum exceeds its budget")))
 
-    ;; ---- Calls from the existing reader ----
+    ;; ---- Calls from the runtime datum reader ----
 
-    ;; The vector is an internal AWI adapter result, not the wire representation.
+    ;; The vector is an internal ABI adapter result, not the wire representation.
     ;; Quoted forms in arguments remain ordinary list data; nothing calls eval.
     (define (decode-call text)
       (if (> (string-length text) 65536) (error "actor message is too large"))
-      (let ((forms (reader->syntax-list (string->reader "<actor message>" text))))
-        (if (not (= (length forms) 1)) (error "expected one actor call"))
-        (let ((call (syntax->datum (car forms))))
-          (check-datum call)
-          (if (not (and (pair? call) (list? call) (symbol? (car call))))
-              (error "expected (method argument ...)"))
-          (vector (symbol->string (car call)) (list->vector (cdr call))))))
+      (let* ((port (open-input-string text)) (call (read port)) (tail (read port)))
+        (close-port port)
+        (if (or (eof-object? call) (not (eof-object? tail))) (error "expected one actor call"))
+        (check-datum call)
+        (if (not (and (pair? call) (list? call) (symbol? (car call))))
+            (error "expected (method argument ...)"))
+        (vector (symbol->string (car call)) (list->vector (cdr call)))))
 
     ;; ---- Readable results ----
 

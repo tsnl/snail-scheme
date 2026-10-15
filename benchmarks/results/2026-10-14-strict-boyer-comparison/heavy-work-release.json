@@ -1,0 +1,9 @@
+{
+  "clean_run_session": 57880,
+  "clean_run_exit_code": 0,
+  "terminal_chunk": "2a9fa4",
+  "raw_campaign_terminal": true,
+  "quiet_window_released": true,
+  "coordinator": "/root",
+  "authorization": "Parent: Quiet window is now explicitly ended following actual terminal57880 exit0 /2a9fa4. Proceed with audit packaging/compression; preserve raw terminal evidence and all attempts. No merge by child."
+}

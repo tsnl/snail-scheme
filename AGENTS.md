@@ -1,9 +1,17 @@
 # Working on Snail-Scheme
 
 Make the implementation educational to read. Follow the program from located
-syntax through resolved IR, WasmGC, and the Rust AWI runtime.
+syntax through resolved IR, WasmGC, and the Rust ABI library.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
+- Use type checking to prove invariants that enable optimization. Preserve
+  evidence about representations, ownership, effects and foreign boundaries
+  through lowering, so later passes can act on established facts. Keep runtime
+  checks where those facts cannot be proved statically.
+- Parse, don't validate: turn syntax and external data into structured values
+  whose construction establishes the required invariants. Carry that evidence
+  forward instead of returning a Boolean and repeatedly checking the same raw
+  data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Write section headers as `;; ---- Title ----` in Scheme,
@@ -31,7 +39,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
   The Wasm engine owns Scheme collection; Rust keeps Scheme values in owned
-  AWI roots across allocations and callbacks. Resource cleanup must not retain
+  ABI roots across allocations and callbacks. Resource cleanup must not retain
   the wrapper it watches.
 - Keep the compiler hosted by Chibi until a separate self-hosting milestone.
   Type inference follows the working, measured backend baseline.
@@ -40,7 +48,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-cli`.
-Backend changes should execute linked Wasm. Native executor changes also need
-actual native execution; compilation alone does not test target behavior. See [doc/backend.md](doc/backend.md) for tools
+`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
+Backend changes should execute linked Wasm. Host adapter changes also need actual Node execution; compilation alone does
+not test target behavior. See [doc/backend.md](doc/backend.md) for tools
 and [benchmarks/README.md](benchmarks/README.md) for reproducible measurements.

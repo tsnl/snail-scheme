@@ -5,15 +5,17 @@
 ;; Environments are alists from identifier keys to value or macro definitions.
 ;; They are passed through recursive descent and never stored in IR.
 ;; Definition identities are reserved before expanding bodies, then shared by
-;; references, value bindings, and parameters without mutation.
+;; references, value bindings, and parameters. Expansion attaches declarations
+;; and initializer syntax, leaving every type Hole unsolved.
 
 (define-library (snail-scheme expand)
   (export syntax-list->ir-library syntax->ir-library macroexpand-1 make-core-library)
-  (import (snail-scheme trace) (scheme base)
+  (import (snail-scheme chromium-trace) (scheme base)
           (scheme cxr)
           (snail-scheme common)
           (snail-scheme syntax)
           (snail-scheme pattern)
+          (snail-scheme types)
           (snail-scheme ir) (snail-scheme library))
   (begin
 
@@ -23,20 +25,26 @@
     ;; or #f. Without initial libraries, (scheme base) is supplied internally.
     ;; Each call starts a fresh library cache. A list of script forms produces an
     ;; unnamed library; a define-library form produces its named counterpart.
-    (define-traced (syntax-list->ir-library forms library-loader . initial-libraries)
-      (assert (list? forms))
-      (assert (procedure? library-loader))
-      (let-values (((imports body) (split-script-imports forms)))
-        (expand-script-body imports body library-loader
-                            (and (pair? forms) (syntax-loc (car forms)))
-                            (expansion-library-cache initial-libraries))))
+    (define syntax-list->ir-library
+      (chromium-trace
+       "syntax-list->ir-library"
+       (lambda (forms library-loader . initial-libraries)
+         (assert (list? forms))
+         (assert (procedure? library-loader))
+         (let-values (((imports body) (split-script-imports forms)))
+           (expand-script-body imports body library-loader
+                               (and (pair? forms) (syntax-loc (car forms)))
+                               (expansion-library-cache initial-libraries))))))
 
-    (define-traced (syntax->ir-library form library-loader . initial-libraries)
-      (assert (procedure? library-loader))
-      (let-values (((library cache transformers)
-                    (expand-library-form form (library-parts form) library-loader
-                                         (expansion-library-cache initial-libraries) '() '())))
-        library))
+    (define syntax->ir-library
+      (chromium-trace
+       "syntax->ir-library"
+       (lambda (form library-loader . initial-libraries)
+         (assert (procedure? library-loader))
+         (let-values (((library cache transformers)
+                       (expand-library-form form (library-parts form) library-loader
+                                            (expansion-library-cache initial-libraries) '() '())))
+           library))))
 
     ;; Perform one head transformation using the transient environment and
     ;; transformer alist. Builtin forms and ordinary calls return unchanged.
@@ -314,8 +322,9 @@
                      (reserve-direct-definitions (apply append chunks) outer initial))
                     ((builders local transformers)
                      (prepare-body-chunks chunks outer local reservations transformers fuel)))
-        (values (build-body-chunks builders (value-bindings local) transformers)
-                (append local outer) transformers)))
+        (let ((chunks (build-body-chunks builders (value-bindings local) transformers)))
+          (attach-declarations! (apply append chunks))
+          (values chunks (append local outer) transformers))))
 
     (define (build-body-chunks builders value-environment transformers)
       (map (lambda (chunk)
@@ -348,7 +357,27 @@
          (prepare-body-items (car (fields form '(_ item ...))) outer local reservations
                              transformers fuel))
         ((define) (prepare-value-binding form outer local reservations transformers fuel))
+        ((define-extern) (prepare-extern-declaration form outer local reservations transformers))
         ((define-syntax) (prepare-macro-definition form outer local transformers))
+        ((define-class) (prepare-class-declaration form outer local reservations transformers))
+        ((define-data) (prepare-data-declaration form outer local reservations transformers))
+        ((define-overload)
+         (prepare-overload-declaration form outer local reservations transformers fuel))
+        ((define-instance)
+         (values (list (lambda (values transformers)
+                         (expand-instance-declaration
+                          form (append values (macro-bindings local) outer)
+                          transformers fuel))) local transformers))
+        ((:) (values
+              (list (lambda (values transformers)
+                      (expand-type-declaration form
+                                               (append values (macro-bindings local) outer)
+                                               transformers fuel)))
+              local transformers))
+        ((%record-schema)
+         (values (list (lambda (values transformers)
+                         (expand-record-schema form (append values (macro-bindings local) outer))))
+                 local transformers))
         (else (prepare-expression form outer local transformers fuel))))
 
     (define (prepare-expression form outer local transformers fuel)
@@ -422,6 +451,11 @@
         ((begin) (values (append (car (fields form '(_ item ...))) remaining)
                          local reserved macros))
         ((define) (reserve-value-definition form remaining local reserved macros))
+        ((define-extern) (reserve-extern-declaration form remaining local reserved macros))
+        ((define-class) (reserve-class-declaration form remaining local reserved macros))
+        ((define-data) (reserve-data-declaration form remaining local reserved macros))
+        ((define-overload)
+         (reserve-overload-declaration form remaining outer local reserved macros))
         ((define-syntax) (reserve-syntax-definition form remaining local reserved macros))
         (else (values remaining local reserved macros))))
 
@@ -430,6 +464,21 @@
              (binding (pending-definition-binding pending)))
         (values remaining (add-local-bindings local (list binding) form)
                 (cons (cons form pending) reserved) macros)))
+    (define (reserve-extern-declaration form remaining local reserved macros)
+      (let ((binding (reserve-value-identifier
+                      (car (fields form '(_ name module symbol type))))))
+        (values remaining (add-local-bindings local (list binding) form)
+                (cons (cons form binding) reserved) macros)))
+    (define (prepare-extern-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (binding (if reserved (cdr reserved)
+                          (reserve-value-identifier
+                           (car (fields form '(_ name module symbol type))))))
+             (next (if reserved local (add-local-bindings local (list binding) form))))
+        (values (list (lambda (values transformers)
+                        (expand-extern-declaration form
+                                                   (append values (macro-bindings next) outer))))
+                next transformers)))
 
     ;; Later source forms see this keyword rather than an outer builtin.
     (define (reserve-syntax-definition form remaining local reserved macros)
@@ -471,7 +520,9 @@
     (define (expand-list-expression form environment transformers fuel)
       (let ((tag (builtin-tag form environment)))
         (case tag
-          ((define define-syntax) (fail form "definition in expression position"))
+          ((define define-syntax : %record-schema define-data define-class define-instance
+             define-overload define-extern)
+           (fail form "definition in expression position"))
           ((syntax-rules) (fail form "transformer specification in expression position")))
         ((expression-handler tag) form environment transformers fuel)))
 
@@ -482,11 +533,286 @@
         ((if) expand-conditional)
         ((set!) expand-assignment)
         ((begin) expand-sequence)
+        ((ann) expand-annotation)
+        ((inst) expand-instantiation)
+        ((match) expand-match)
         ((let-syntax letrec-syntax) expand-local-macros)
         (else expand-application)))
 
     (define (expand-quotation form environment transformers fuel)
       (make-literal (syntax-datum (car (fields form '(_ datum)))) (syntax-loc form)))
+
+    ;; ---- Type syntax ----
+
+    ;; Type names use the same resolved macro identities as every other keyword.
+    ;; Renaming imports works; a local value named String is not the String type.
+    (define (type-keyword syntax environment)
+      (let ((definition (lookup syntax environment)))
+        (and (macro-definition? definition) (macro-definition-builtin definition))))
+
+    (define (expand-type syntax environment)
+      (if (identifier-of syntax)
+          (let ((tag (type-keyword syntax environment)) (definition (lookup syntax environment)))
+            (cond ((type-variable? definition) definition)
+                  ((memq tag (append scalar-type-names strict-type-names)) tag)
+                  ((value-definition? definition) (list 'record definition))
+                  (else (fail syntax "unknown type"))))
+          (expand-compound-type syntax environment)))
+
+    (define (expand-compound-type syntax environment)
+      (let* ((parts (syntax-list syntax))
+             (tag (and (pair? parts) (type-keyword (car parts) environment))))
+        (cond ((eq? tag 'All) (expand-all-type syntax environment))
+              ((eq? tag '=>) (expand-qualified-type syntax environment))
+              ((memq tag '(Ref List Vector Rest))
+               (if (not (= (length parts) 2))
+                   (fail syntax "type constructor requires one element type")
+                   (list tag (expand-type (cadr parts) environment))))
+              ((memq tag '(-> U))
+               (let ((types (map (lambda (part) (expand-type part environment)) (cdr parts))))
+                 (if (eq? tag 'U) (apply type-union types)
+                     (if (null? types) (fail syntax "function type requires a result")
+                         (cons '-> types)))))
+              ((and (pair? parts) (value-definition? (lookup (car parts) environment)))
+               (cons 'record
+                     (cons (lookup (car parts) environment)
+                           (map (lambda (part) (expand-type part environment)) (cdr parts)))))
+              (else (fail syntax "unsupported type constructor")))))
+
+    (define (expand-all-type syntax environment)
+      (let* ((parts (fields syntax '(_ variables body)))
+             (bindings (map reserve-type-variable (syntax-list (car parts)))))
+        (check-distinct (map car bindings) syntax)
+        (if (null? bindings) (fail syntax "All requires at least one type variable"))
+        (let ((body (expand-type (cadr parts) (append bindings environment))))
+          (if (not (arrow-type? (all-body body))) (fail syntax "All requires a function signature"))
+          (list 'All (map cdr bindings) body))))
+
+    (define (reserve-type-variable syntax)
+      (let ((id (require-identifier syntax)))
+        (cons (identifier-key id) (make-type-variable (identifier-name id)))))
+
+    ;; ---- Static class and instance declarations ----
+
+    (define (class-parts form)
+      (let* ((parts (fields form '(_ head method ...))) (head (syntax-list (car parts))))
+        (if (< (length head) 2) (fail form "class requires at least one type parameter"))
+        (list (car head) (cdr head) (cadr parts))))
+
+    (define (class-bindings form)
+      (let ((parts (class-parts form)))
+        (reserve-identifiers
+         (cons (car parts) (map (lambda (method) (car (fields method '(_ name type))))
+                                (caddr parts))) form)))
+
+    (define (reserve-class-declaration form remaining local reserved macros)
+      (let ((bindings (class-bindings form)))
+        (values remaining (add-local-bindings local bindings form)
+                (cons (cons form bindings) reserved) macros)))
+
+    (define (prepare-class-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (bindings (if reserved (cdr reserved) (class-bindings form)))
+             (next (if reserved local (add-local-bindings local bindings form))))
+        (values (list (lambda (values transformers)
+                        (expand-class-declaration
+                         form (append values (macro-bindings next) outer))))
+                next transformers)))
+
+    (define (expand-class-declaration form environment)
+      (let* ((parts (class-parts form)) (variables (map reserve-type-variable (cadr parts)))
+             (scope (append variables environment)))
+        (check-distinct (map car variables) form)
+        (make-class-declaration (name-definition (resolve-name (car parts) environment))
+                                (map cdr variables)
+                                (map (lambda (method)
+                                       (expand-class-method method scope environment))
+                                     (caddr parts)) (syntax-loc form))))
+
+    (define (expand-class-method form scope environment)
+      (if (not (eq? (builtin-tag form scope) ':)) (fail form "class methods require : signatures"))
+      (let* ((parts (fields form '(_ name type))) (type (expand-type (cadr parts) scope)))
+        (if (not (arrow-type? type)) (fail form "class method requires a fixed function signature"))
+        (list (name-definition (resolve-name (car parts) environment)) type)))
+
+    (define (expand-constraint form environment)
+      (let ((parts (syntax-list form)))
+        (if (< (length parts) 2) (fail form "constraint requires a class and type arguments"))
+        (cons (name-definition (resolve-name (car parts) environment))
+              (map (lambda (type) (expand-type type environment)) (cdr parts)))))
+
+    (define (expand-qualified-type syntax environment)
+      (let* ((parts (fields syntax '(_ constraints body)))
+             (constraints (map (lambda (constraint) (expand-constraint constraint environment))
+                               (syntax-list (car parts))))
+             (body (expand-type (cadr parts) environment)))
+        (if (or (null? constraints) (not (arrow-type? body)))
+            (fail syntax "=> requires constraints and a fixed function signature"))
+        (list '=> constraints body)))
+
+    (define (expand-instance-declaration form environment transformers fuel)
+      (let* ((parts (fields form '(_ head method ...)))
+             (head (expand-constraint (car parts) environment)))
+        (make-instance-declaration
+         (car head) (cdr head)
+         (map (lambda (method)
+                (let ((pair (fields method '(name implementation))))
+                  (cons (name-definition (resolve-name (car pair) environment))
+                        (expand-expression (cadr pair) environment transformers fuel))))
+              (cadr parts))
+         (syntax-loc form))))
+
+    ;; An imported family may gain another signature. Repeated local
+    ;; declarations reserve the same identity, including forward references.
+    (define (overload-binding form environment)
+      (let* ((name (car (overload-parts form)))
+             (existing (lookup name environment)))
+        (if existing
+            (cons (identifier-of name) existing)
+            (reserve-value-identifier name))))
+
+    (define (reserve-overload-declaration form remaining outer local reserved macros)
+      (let* ((binding (overload-binding form (append local outer)))
+             (next (if (lookup (car (overload-parts form))
+                               (append local outer)) local
+                               (add-local-bindings local (list binding) form))))
+        (values remaining next (cons (cons form binding) reserved) macros)))
+
+    (define (prepare-overload-declaration form outer local reservations transformers fuel)
+      (let* ((reserved (assq form reservations))
+             (name (car (overload-parts form)))
+             (next (if (or reserved (lookup name (append local outer))) local
+                       (add-local-bindings local (list (reserve-value-identifier name)) form))))
+        (values (list (lambda (values transformers)
+                        (expand-overload-declaration
+                         form (append values (macro-bindings next) outer) transformers fuel)))
+                next transformers)))
+
+    ;; Expansion attaches syntax, including the absence of a signature. The
+    ;; member's fresh Hole is solved later, independently of family use sites.
+    (define (overload-parts form)
+      (let ((parts (cdr (syntax-list form))))
+        (case (length parts)
+          ((2) (list (car parts) #f (cadr parts)))
+          ((3) parts)
+          (else (fail form
+                      "define-overload requires a name, optional signature, and implementation")))))
+    (define (expand-overload-declaration form environment transformers fuel)
+      (let* ((parts (overload-parts form))
+             (type (and (cadr parts) (expand-type (cadr parts) environment))))
+        (when (and type (not (function-type? type)))
+          (fail form "overload requires a function signature"))
+        (make-overload-declaration
+         (name-definition (resolve-name (car parts) environment)) type
+         (expand-expression (caddr parts) environment transformers fuel) (syntax-loc form))))
+
+    (define (expand-instantiation form environment transformers fuel)
+      (let ((parts (fields form '(_ expression type ...))))
+        (make-instantiation (expand-expression (car parts) environment transformers fuel)
+                            (map (lambda (type) (expand-type type environment)) (cadr parts))
+                            (syntax-loc form))))
+
+    (define (expand-annotation form environment transformers fuel)
+      (let ((parts (fields form '(_ expression type))))
+        (make-annotation (expand-expression (car parts) environment transformers fuel)
+                         (expand-type (cadr parts) environment) (syntax-loc form))))
+
+    (define (expand-type-declaration form environment transformers fuel)
+      (let ((parts (fields form '(_ name type))))
+        (make-type-declaration (name-definition (resolve-name (car parts) environment))
+                               (expand-type (cadr parts) environment) (syntax-loc form))))
+    (define (expand-extern-declaration form environment)
+      (let* ((parts (fields form '(_ name module symbol type)))
+             (module (syntax-datum (cadr parts))) (symbol (syntax-datum (caddr parts))))
+        (unless (and (string? module) (string? symbol))
+          (fail form "extern module and symbol must be literal strings"))
+        (make-extern-declaration (name-definition (resolve-name (car parts) environment))
+                                 module symbol (expand-type (cadddr parts) environment)
+                                 (syntax-loc form))))
+
+    ;; ---- Closed nominal data declarations and shallow matching ----
+
+    (define (data-parts form)
+      (let* ((parts (fields form '(_ head case ...)))
+             (head (if (identifier-of (car parts)) (list (car parts))
+                       (syntax-list (car parts)))))
+        (when (or (null? head) (null? (cadr parts)))
+          (fail form "data declaration requires a name and at least one constructor"))
+        (list (car head) (cdr head) (cadr parts))))
+    (define (data-field-parts field)
+      (let ((parts (syntax-list field)))
+        (unless (or (= (length parts) 2) (= (length parts) 3))
+          (fail field "data field requires a name, type and optional accessor"))
+        (require-symbol (car parts)) parts))
+    (define (data-case-identifiers form)
+      (let ((parts (fields form '(constructor field ...))))
+        (cons (car parts)
+              (apply append
+                     (map (lambda (field) (cddr (data-field-parts field))) (cadr parts))))))
+    (define (data-bindings form)
+      (let ((parts (data-parts form)))
+        (reserve-identifiers
+         (cons (car parts) (apply append (map data-case-identifiers (caddr parts)))) form)))
+    (define (reserve-data-declaration form remaining local reserved macros)
+      (let ((bindings (data-bindings form)))
+        (values remaining (add-local-bindings local bindings form)
+                (cons (cons form bindings) reserved) macros)))
+    (define (prepare-data-declaration form outer local reservations transformers)
+      (let* ((reserved (assq form reservations))
+             (bindings (if reserved (cdr reserved) (data-bindings form)))
+             (next (if reserved local (add-local-bindings local bindings form))))
+        (values (list (lambda (values transformers)
+                        (expand-data-declaration form (append values (macro-bindings next) outer))))
+                next transformers)))
+    (define (expand-data-declaration form environment)
+      (let* ((parts (data-parts form)) (variables (map reserve-type-variable (cadr parts)))
+             (scope (append variables environment)))
+        (check-distinct (map car variables) form)
+        (make-data-schema
+         (name-definition (resolve-name (car parts) environment)) (map cdr variables)
+         (map (lambda (row) (expand-data-case row scope environment)) (caddr parts))
+         (syntax-loc form))))
+    (define (expand-data-case form scope environment)
+      (let* ((parts (fields form '(constructor field ...)))
+             (fields (map (lambda (field) (expand-data-field field scope environment))
+                          (cadr parts))))
+        (check-distinct (map car fields) form)
+        (list (name-definition (resolve-name (car parts) environment)) fields)))
+    (define (expand-data-field form scope environment)
+      (let ((parts (data-field-parts form)))
+        (list (require-symbol (car parts)) (expand-type (cadr parts) scope)
+              (and (pair? (cddr parts))
+                   (name-definition (resolve-name (caddr parts) environment))))))
+    (define (expand-match form environment transformers fuel)
+      (let ((parts (fields form '(_ subject arm ...))))
+        (when (null? (cadr parts)) (fail form "match requires constructor arms"))
+        (make-match (expand-expression (car parts) environment transformers fuel)
+                    (map (lambda (arm) (expand-match-arm arm environment transformers fuel))
+                         (cadr parts)) (syntax-loc form))))
+    (define (expand-match-arm form environment transformers fuel)
+      (let* ((parts (fields form '(pattern body ...)))
+             (pattern (fields (car parts) '(constructor name ...)))
+             (bindings (reserve-identifiers (cadr pattern) (car parts))))
+        (list (name-definition (resolve-name (car pattern) environment))
+              (make-lambda (map cdr bindings) #f
+                           (expand-block (cadr parts) (append bindings environment) '()
+                                         transformers fuel form) (syntax-loc form)))))
+
+    (define (expand-record-schema form environment)
+      (let ((parts (fields form '(_ type constructor predicate arguments record-fields))))
+        (make-record-schema (name-definition (resolve-name (car parts) environment))
+                            (name-definition (resolve-name (cadr parts) environment))
+                            (name-definition (resolve-name (caddr parts) environment))
+                            (map require-symbol (syntax-list (cadddr parts)))
+                            (map (lambda (field) (expand-record-field field environment))
+                                 (syntax-list (car (cddddr parts)))) (syntax-loc form))))
+
+    (define (expand-record-field field environment)
+      (let ((parts (syntax-list field)))
+        (list (require-symbol (car parts)) (expand-type (cadr parts) environment)
+              (name-definition (resolve-name (caddr parts) environment))
+              (and (pair? (cdddr parts))
+                   (name-definition (resolve-name (cadddr parts) environment))))))
 
     (define (expand-literal form)
       (let ((value (atom-syntax-value form)))
@@ -1167,7 +1493,11 @@
     ;; ---- Environment and diagnostics ----
 
     (define (runtime-expression? item)
-      (not (or (value-binding? item) (eliminated-definition? item))))
+      (not (or (value-binding? item) (type-declaration? item) (record-schema? item)
+               (data-schema? item)
+               (class-declaration? item) (instance-declaration? item) (extern-declaration? item)
+               (overload-declaration? item)
+               (eliminated-definition? item))))
 
     (define (runtime-items items)
       (filter (lambda (item) (not (eliminated-definition? item))) items))
@@ -1263,8 +1593,14 @@
                           primitives))
                     '() '() #f))
 
+    (define strict-type-names '(I32 I64 F32 F64 Bool Unit Top))
     (define core-syntax-names
-      '(define define-syntax syntax-rules let-syntax letrec-syntax lambda quote if set! begin))
+      (append '(define define-syntax syntax-rules let-syntax letrec-syntax
+                 lambda quote if set! begin
+                 : ann inst All -> U => define-data match
+                 define-class define-instance define-overload define-extern
+                 %record-schema Ref List Rest)
+              scalar-type-names strict-type-names))
 
     (define core-primitive-names
       '(+ - * / = < <= > >= cons car cdr list append null? pair? list?

@@ -1,0 +1,13 @@
+{
+  "returncode": 0,
+  "status": "exited",
+  "command": [
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "--script",
+    "/tmp/snail-strict-tail-20261014/build/strict-tail-final/tail/input-decoder.scm"
+  ],
+  "stdin": "50\n\"inputs/bib\"\n\"outputs/tail.output\"\nignored\n",
+  "stdout": "50\n105 110 112 117 116 115 47 98 105 98 \n111 117 116 112 117 116 115 47 116 97 105 108 46 111 117 116 112 117 116 \n",
+  "stderr": "",
+  "performance_samples": false
+}

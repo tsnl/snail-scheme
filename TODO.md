@@ -1,83 +1,57 @@
 # TODO
 
-- [x] CLI args parser
-- [x] Parser and parser combinator
-- [ ] Syntax
-  - [x] Syntax
-  - [ ] Syntax parser
-    - [x] Parse most of Scheme
-    - [x] Parse `#%-*` identifiers
-  - [x] Datum pattern matcher
-- [ ] IR
-  - [x] Untyped, fully expanded Scheme records in `ir.sld`
-  - [x] Transient scope environments passed through `expand.sld` recursive descent
-  - [ ] Phase-aware resolution to shared definition identities
-  - [x] IR construction using the datum pattern matcher
-  - [x] Basic imports, exports, and lexical scoping
-  - [x] Connect expansion to the command-line launcher
-- [ ] Macro expansion
-  - [x] Initial `syntax-rules` pattern/template engine
-  - [x] Connect datum matching to source locations and literal binding lookup
-  - [ ] Retain repetition-site extents in transformer plans, including empty
-    and variable-free repetitions
-  - [ ] Design default errors for unbound `syntax-rules` literals and macros
-    imported without their bound auxiliary keywords; relax these checks in
-    strict R7RS mode
-  - [x] Single-step macro expansion, `macroexpand-1`
-  - [x] Expand supported core forms in context
-    - [x] Handle `define-syntax`, `let-syntax`, and `letrec-syntax`
-    - [x] Reserve direct definitions and discover body bindings before expression construction
-  - [ ] Broader R7RS conformance, including interacting macro-generated binders
-- [x] WebAssembly backend baseline
-  - [x] Rename simplified HIR to IR and retain independent library containers
-  - [x] Emit WasmGC directly; retire MIR, LLVM emission, and managed Scheme stack
-  - [x] Use real tail calls, direct fixed workers, closure adapters, and GC references
-  - [x] Build and link Rust as Wasm through an application Wasm interface (AWI)
-  - [x] Invoke Cargo automatically; source runs, `-o` builds, `--emit-wat` inspects
-  - [x] Rust extension example with retained roots and reentrant Scheme callbacks
-  - [x] Explicit resource close plus browser/Node finalizer host shim
-  - [x] Compile compiler sources while keeping Chibi as the build host
-  - [x] Run the newly compiled compiler to generate and execute a second program
-  - [x] Rebaseline complete CPU program against Chez and Chibi, excluding compilation
-  - [ ] Rebaseline memory and string workloads on the new backend
-  - [ ] Browser runner with a WASI adapter; finalizer shim itself uses standard JS
-- [ ] Independent Wasm-to-native executor
-  - [x] Bounded two-pass Wasm-to-LLVM experiment with BDWGC and numeric measurements
-  - [x] Compare Wastrel; record its register-clearing/toolchain overhead separately
-  - [ ] Extend binary translation to full linked programs: arrays, tables, memory,
-    indirect calls, structured branches, host imports, and remaining numeric ops
-  - [ ] Implement the host finalizer import with BDWGC and deferred resource cleanup
-  - [x] Experimental `cont.new`, `resume`, and `suspend` decoding/lowering for i64 entries
-  - [ ] Complete standard stack-switching operations and signatures
-  - [ ] Single-shot delimited continuations and coroutine language API
-  - [x] Experimental suspend/resume GC tests, consumed tokens, and nested delimiters
-  - [x] Experimental foreign-call barriers; actual Rust suspension remains unsupported
-  - [ ] Explicit suspension-safe Rust APIs
-  - [ ] Cancellation and compatible Rust unwinding before abandoning Rust frames
-- [ ] Continuation semantics
-  - [x] Diagnose absent `call/cc` / `call-with-current-continuation` in Wasm backend
-  - [ ] Document single-shot API and cancellation once implemented
-  - Reusable multi-shot continuations are not a goal. The
-    [stack-switching proposal](https://github.com/WebAssembly/stack-switching/blob/main/proposals/stack-switching/Explainer.md)
-    supplies single-shot, delimited continuations, not reusable snapshots.
-  - Wastrel revision `ad0b577df0773a1fc825b2a2455e23bf03ea9dcc`, tested
-    October 10, 2026, lists stack switching as an aim and lacks these instructions.
-- [ ] Rust interop and embedding ([AWI](doc/rust-interop.md))
-  - [ ] Version/instance checks for externally stored raw handles
-  - [ ] Generic extension resource-kind registration and release callbacks
-  - [ ] Native host finalization equivalent to the JS shim
-  - [ ] Recoverable error/trap boundaries and explicit instance shutdown
-  - [ ] Rust host embedding example distinct from the Rust-in-Wasm extension example
-  - [ ] Test cleanup cycles; a resource rooting its own wrapper needs explicit release
-- [ ] Type inference and optimization after the measured executable baseline
-  - [ ] Closed-world lattice analysis, occurrence typing, strict annotations
-  - [ ] IR-to-IR elaboration/specialization and redundant check elimination
-  - [ ] Measure complete optimized programs against the baseline
-- [ ] Hosted compiler throughput
-  - [x] Cache-free parser rule construction and direct parser combinator execution
-  - [x] Simplify expansion matching and preserve frontend behavior
-  - [ ] Reprofile current parse/expand/WAT emission with Chromium traces
-- [ ] Switch the compiler build to self-hosting after capability validation
+The compiler stays Chibi-hosted. Current behavior is described in [TOUR.md](TOUR.md);
+this list contains work that has not landed.
 
-The previous Dybvig-stack/MIR/LLVM baseline and its measurements remain in Git
-history and historical documents; it is not the current production backend.
+- [ ] Complete the strict native compiler and measure the entire benchmark suite
+  - Preserve the language contracts in [the strict core guide](doc/strict-core.md)
+  - Extend the [arithmetic/list measurements](benchmarks/results/2026-10-13-strict-kernels/README.md)
+    and [vector measurements](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
+    without shortening inputs, hiding failures, or claiming unmeasured gains
+  - Hold the entire project to an educational standard: each module explains
+    its data, inputs, outputs, decisions, and required invariants
+  - Simplify extensively, including complete module rewrites when warranted;
+    repeat independent explanation, critique, rewriting, and execution checks
+    until the remaining complexity has a concrete behavioral purpose
+  - Keep source initialization, concrete specialization, representation,
+    and execution visibly distinct; avoid hidden fallback representations
+  - Update the tour and contracts as responsibilities change, preserve measured
+    artifacts, and keep the implementation in a reviewable draft PR stack
+- [ ] Follow up the [57-workload comparison](benchmarks/results/2026-10-12-native-v8/README.md)
+  - Reduce measured compiler allocation churn and repeated single-value handling
+  - Investigate V8 `ack` stack exhaustion and `equal` timeout separately from GC
+  - Retain original inputs and all failures when measuring improvements
+- [ ] Browser loader and browser implementations of selected effect interfaces
+- [ ] Node spawn/connect, serialization, supervision, and asynchronous host effects
+  - Follow the recovered [runtime contracts](doc/book/runtime-contracts.md)
+  - Keep terminal CLI faults distinct from recoverable connection failures
+- [ ] Independently packaged Wasm providers and explicit shared-resource domains
+- [ ] Source mappings for generated Wasm
+- [ ] Frontend conformance
+  - Complete the syntax parser's remaining R7RS forms
+  - Phase-aware resolution to shared definition identities
+  - Retain `syntax-rules` repetition extents, including empty and variable-free repetitions
+  - Diagnose unbound literal identifiers and missing imported auxiliary keywords
+  - Handle interacting macro-generated binders
+- [ ] Rust interop and embedding ([ABI](doc/rust-interop.md))
+  - Version/instance checks for externally stored raw handles
+  - Resource-kind registration and release callbacks
+  - Recoverable errors/traps and explicit instance shutdown
+  - Rust host embedding example
+  - Test cleanup cycles; a resource rooting its wrapper needs explicit release
+  - Revisit independent extension packaging when needed
+- [ ] Single-shot delimited continuations and coroutines
+  - Wasm stack switching and a Scheme API
+  - Explicit suspension-safe Rust APIs and cancellation/unwinding
+  - Reusable multi-shot continuations are not a goal; `call/cc` is unsupported today
+- [ ] Extend [type checking](doc/typing-prototype.md)
+  - Complete an operational soundness proof and optimization simulation
+  - Higher-order interfaces, variadic signatures, and multiple-value result types
+  - Typed local generative records and parameterized records
+  - Broaden primitive signature coverage and runtime blame diagnostics
+  - Broaden recursive generic groups beyond matching positional type parameters
+  - General representation specialization and measured monomorphization
+  - Investigate boxed i32 guard costs and broader workload performance
+  - Keep [the full proposal](doc/occurrence-typing.md) distinct from implemented behavior
+- [ ] Reprofile hosted parsing, expansion, and Wasm emission with Chromium traces
+- [ ] Switch the compiler build to self-hosting after capability validation

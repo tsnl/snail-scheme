@@ -1,0 +1,62 @@
+{
+  "archive_sha256": "dc3b9a4e6afeb82bb8adf73f882473d4d814cc22de6c89b90b2d019ec3a41f60",
+  "verified_members": 716,
+  "original_archive_members_unchanged": true,
+  "original_modes_preserved": true,
+  "repetitions": 1,
+  "scope": "Relocated correctness probes only; not performance samples.",
+  "probes": [
+    {
+      "variant": "v8-flat",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/host.mjs",
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string/strict.wasm",
+        "/tmp/snail-string-block-native-replay-20261014/probe-0.json"
+      ],
+      "cwd": "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/baseline/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.071779291,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "v8-blocks",
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/host.mjs",
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string/strict.wasm",
+        "/tmp/snail-string-block-native-replay-20261014/probe-1.json"
+      ],
+      "cwd": "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-gc-string-block-preparation-20261014/candidate/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.021993245,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "native-flat",
+      "command": [
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/native",
+        "/tmp/snail-string-block-native-replay-20261014/probe-2.txt"
+      ],
+      "cwd": "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.024070040,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null,\"setup_seconds\":0.502151312,\"setup_collections\":0,\"collections\":21}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "native-blocks",
+      "command": [
+        "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-native-string-blocks-20261014/build/string-blocks/native",
+        "/tmp/snail-string-block-native-replay-20261014/probe-3.txt"
+      ],
+      "cwd": "/tmp/snail-string-block-native-replay-20261014/files/tmp/snail-native-string-blocks-20261014/build/string-blocks",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.023748970,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null,\"setup_seconds\":0.086772357,\"setup_collections\":0,\"collections\":20}\n",
+      "stderr": ""
+    }
+  ]
+}

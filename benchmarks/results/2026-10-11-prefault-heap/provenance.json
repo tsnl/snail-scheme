@@ -1,0 +1,83 @@
+{
+  "parent_base": "008db970eafd36b6b9caaeec88766395e6cd179b",
+  "frozen_base": "37219d5322fe1fd0217efa37b86ad861dc8f9e5f",
+  "nursery_commit": "f92dde9d0f4a68cc1bb7e6eb4c3d5c711a9ef9af",
+  "immix_baseline_commit": "ac6eab67",
+  "artifacts": {
+    "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bdw": {
+      "bytes": 7345776,
+      "sha256": "f48543915ea5b8f32dfce0d25ae00b63bf2c4043ec6a2e6ed31c49de40d39278"
+    },
+    "/tmp/snail-prefault-heap-20261011/build/prefault-heap/tail-bdw": {
+      "bytes": 2951208,
+      "sha256": "20abe99b7775769293427e57be5b157082b043e3d6ab9ec9552110b51513f3d8"
+    },
+    "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump": {
+      "bytes": 7102408,
+      "sha256": "f2db38ba3e3ae94959c5da9dda5b489818de44bef80c2e2fd9ac618cf5e7a302"
+    },
+    "/tmp/snail-prefault-heap-20261011/build/prefault-heap/tail-bump": {
+      "bytes": 2913960,
+      "sha256": "8311be9701f3799719922cefcfb3a3e4c9c6537ea81dfec7671ab0c0bada5de8"
+    },
+    "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm": {
+      "bytes": 1455450,
+      "sha256": "4070bc4524b571858034a0ccbcba0729ba9ca563149c54ab550a19a3abb4b920"
+    },
+    "/tmp/snail-native-ablation-20261011/build/ablation/tail.wasm": {
+      "bytes": 307281,
+      "sha256": "40b464779f99a13ee1b3c2f9bb8bff6c89d2c3c41ab5ac76f813df211c052331"
+    },
+    "/tmp/snail-native-ablation-20261011/build/ablation/compiler.ll": {
+      "bytes": 21397248,
+      "sha256": "fcfd7625c205163ce5549127adb5dcae9e68dfcc8104ec88031ba562cea91251"
+    },
+    "/tmp/snail-native-ablation-20261011/build/ablation/tail.ll": {
+      "bytes": 1254039,
+      "sha256": "df0c01cd028bc94cdc8c0091da181d9a101173f1d1537da201cb088493ede813"
+    },
+    "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a": {
+      "bytes": 9134754,
+      "sha256": "b3ca9f7c5e18140c0d03fc29a6b6c7b73d15d242e4c94ff28b65fa8debc64c7a"
+    }
+  },
+  "files": {
+    "results.json": "ad560578f58ca846398667c07137e84d956eda427a8c1e48efd0a77cf6258670",
+    "measurement.log": "61bef87c58c0e2b3788e933c4eb8c449d4be90d87c8f340418cf6fa1ddecf7be",
+    "bump-confirmation.json": "d0834b132f86b523091848091389d3334c4450143bf35f652dd79f8f1c317963",
+    "bump-confirmation.log": "1a731f593e33248f2ce023cd63f0fb06d9794bc9350a6a97569ab9caa93fb2f9",
+    "diagnostics.json": "7713274a33ffadba1f8583180f7f083780511c6bcbcdf5d46258b8a11d07761e",
+    "diagnostics.log": "4d3fc24383f1ad346ff048a3b9af75ba057c9ba5c4e61d7a80c68158efe627f5",
+    "measurement.h": "263513b49548f5e32b1f081de41d4826665809ba5c9f5ba3d92adffc11ed793a",
+    "native-bump.c": "8d978ac3fe345ebd84f5baea128c777d302a0f25ec3fc94ac2d3bc9d50c5f880",
+    "bdw-prefault.c": "9c5e33a7037a61d8ed0770643ffd20c9e0056731f440d8470653ca1ac0fa582d",
+    "build.py": "534b04e0fc467806e94cfbd4b9a391d26261011f4c92e7a82341e051f4a9804a",
+    "builds.json": "c7ccc00a54d6c2c7726f48a65ec346b8f2919d67ba3a61613248e1c5b53b3721",
+    "initial-cpu2-rejected-results.json": "e85b78a651b4d092b03ebe542a239d32260e3c57e61a158d0f8a33a55e92f4b7",
+    "initial-cpu2-rejected.log": "ecd60f1acbaebef67d868ede88d8b6a9ec572080648f2643bedb16ec1f2e9cfc",
+    "memory-pressure-screen-results.json": "dd38c0354a5598291e884bc0336c9e7aeb6024976c9b08d79ab9f8e911c6d817",
+    "memory-pressure-screen-measurement.log": "affd918d8761b3ae8827185486ff7539fd587fab059269d623dc2080c4f5f0de",
+    "incremental.stderr": "3ac708c205a98a22a656a87ef3cc0e4315daf3584297519bc07bf5d3aec9f988",
+    "debug-stats.stderr": "7c39876de27c2775a1c6167d8074f73c33afb333ca36c2bfbaf95f4f7d82b45b",
+    "fixed-check.stderr": "889201e417b63ee23d85a26c1783f85162746b7aed19a289b5eadbd20a9b1cf1",
+    "tuned-screen.json": "5ca8b75bae13bdf728bb2409083d4c93ad22c374b769ed325d27cb3e5ea7b126",
+    "measure.py": "dfe30a908e0082e598d38dec5088eecce536dc887ed01e8f6ced137487e9dc2c",
+    "diagnose.py": "a1a3d00784258a66af0023617b23c725331e15bd391de9a076f80d91e400f388",
+    "README.md": "48a2ed1d4fe803ba047dc9c8914f152d6a3b9b8ab42650314ed75418484440f3",
+    "nursery-profile.txt": "414062ebea67249e61e84188e499ed2b89ab8c47d2b208697a2cbf591180f6e9",
+    "nursery-prototype.patch": "ca9982de20de6b12703bf62ff8fb362d0f928e47dd05ba94e42ad8ba416d7701",
+    "nursery-profile.stdout": "bc4009003e40eff27198c851c99761a2e82c83a9cba1669510084ffdbd6b4fa0",
+    "precise-prototype.patch": "b70cf27a22279f51a916dace4f798166e252a49c791909d441be34aeac510741",
+    "nursery-profile.stderr": "0a7ec92681c0deee8906ad39ad251757f02a8bd479ffff52e11f32ce52e23fcc",
+    "immix-prototype.patch": "c2d9a69d3ee4db6ffaaa7901df863491cb6da92af5381d0159538487db1997ae"
+  },
+  "immix_tuned_commit": "7f698687b9e7c6af4272a6a19c35ca9e1a9f9d11",
+  "profile": {
+    "source_commit": "f92dde9d0f4a68cc1bb7e6eb4c3d5c711a9ef9af",
+    "binary_sha256": "a73d8a609d0c58e2d23ee661fb0fb4e09e56437476723a6e73e493766ee22d68",
+    "cpu": 3,
+    "event": "cycles:u",
+    "frequency": 999,
+    "output_sha256": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a"
+  }
+}

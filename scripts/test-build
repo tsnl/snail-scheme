@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""Exercise ordinary Scheme build scripts, publication, runtime reuse and Rust ABI."""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/build-tests"
+CHIBI = os.environ.get("CHIBI", "chibi-scheme")
+NODE = os.environ.get("NODE", "node")
+ARGUMENTS = ["space in argument", "", "--help", "$(literal)`text`"]
+EXPECTED = '("space in argument" "" "--help" "$(literal)`text`")\n'
+SOURCE = '(import (scheme base) (scheme write) (scheme process-context))\n(write (cdr (command-line))) (newline)\n'
+
+
+# ---- Scheme scripts and subprocesses ----
+
+
+def quote(value):
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def invoke(command, directory, **environment):
+    return subprocess.run([str(arg) for arg in command], cwd=directory, text=True,
+                          capture_output=True, timeout=240,
+                          env={**os.environ, **environment})
+
+
+def require(result, stdout=None, failure=False):
+    if (bool(result.returncode) != failure or
+            (stdout is not None and result.stdout != stdout)):
+        raise RuntimeError(f"exit={result.returncode}\nstdout={result.stdout!r}\nstderr={result.stderr!r}")
+    return result
+
+
+def script(directory, body, **environment):
+    path = directory / "build.scm"
+    with tempfile.NamedTemporaryFile(prefix="build-", suffix=".trace.json",
+                                     dir=directory, delete=False) as trace:
+        trace_file = trace.name
+    path.write_text('(import (scheme base) (scheme file) (scheme write) (scheme process-context)\n'
+                    '        (snail-scheme compiler) (snail-scheme build)\n'
+                    '        (snail-scheme chromium-trace))\n'
+                    f'(define result (with-chromium-trace-to {quote(trace_file)}\n'
+                    f'  (lambda ()\n{body})))\n'
+                    '(if (integer? result) (exit result))\n')
+    return invoke([CHIBI, "-I", ROOT / "src", path], directory, **environment)
+
+
+def compile_source(source, output):
+    return f'(build-wasm {quote(ROOT)} {quote(source)} {quote(output)})'
+
+
+def run_module(output):
+    arguments = " ".join(map(quote, ARGUMENTS))
+    return f'(run-wasm {quote(ROOT)} {quote(output)} (list {arguments}))'
+
+
+# ---- Library use and artifact ownership ----
+
+
+def check_import(directory):
+    command = [CHIBI, "-I", ROOT / "src", "-e",
+               '(import (scheme base) (scheme write) (snail-scheme build))',
+               "-e", '(display "imported\\n")']
+    require(invoke(command, directory, CARGO="/nonexistent/cargo"), "imported\n")
+    command[-1] = compile_source(directory / "absent.scm", directory / "unbound.wasm")
+    failure = require(invoke(command, directory), "", failure=True)
+    assert "chromium-trace: no active with-chromium-trace-to scope" in failure.stderr
+    if list(directory.glob("*.trace.json")) or (directory / "build").exists():
+        raise RuntimeError("importing build library performed traced work")
+
+
+def check_preflight(directory):
+    source, output = directory / "absent.scm", directory / "preflight.wasm"
+    output.write_text("previous successful build")
+    for variable in ("WASM_AS", "WASM_OPT", "WASM_DIS", "WASM_MERGE"):
+        result = require(script(directory, compile_source(source, output),
+                                **{variable: "/nonexistent/binaryen-tool"}), failure=True)
+        if ("Binaryen tool is missing or unusable" not in result.stderr or
+                variable not in result.stderr or "absent.scm" in result.stderr or
+                list(directory.glob(".snail-build-*")) or output.read_text() != "previous successful build"):
+            raise RuntimeError(f"dependency check did not precede compilation: {result.stderr}")
+
+
+def check_build_and_run(directory, source):
+    output = directory / "portable 'program.wasm"
+    tools = {}
+    for variable, name in (("WASM_AS", "wasm-as"), ("WASM_OPT", "wasm-opt"),
+                           ("WASM_DIS", "wasm-dis"), ("WASM_MERGE", "wasm-merge")):
+        path = directory / ("tool '$(literal)`text` " + name)
+        path.symlink_to(shutil.which(os.environ.get(variable, name)))
+        tools[variable] = str(path)
+    require(script(directory, compile_source(source, output), **tools), "")
+    runtime = ROOT / "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"
+    stamp = runtime.stat().st_mtime_ns
+    source.write_text(SOURCE + '; Changed Scheme source, unchanged Rust.\n')
+    require(script(directory, compile_source(source, output) + '\n' + run_module(output)), EXPECTED)
+    if list(directory.glob(".snail-build-*")):
+        raise RuntimeError("successful build retained temporary files")
+    if runtime.stat().st_mtime_ns != stamp:
+        raise RuntimeError("Scheme edit rebuilt the Rust runtime")
+    require(invoke([NODE, "--no-warnings", ROOT / "scripts/run-wasi.mjs", output, *ARGUMENTS], directory), EXPECTED)
+
+
+def check_explicit_stages(directory, source):
+    wat, wasm = directory / "explicit.wat", directory / "explicit.wasm"
+    body = (f'(define runtime (build-runtime {quote(ROOT)}))\n'
+            f'(source-file->wat-file {quote(ROOT)} {quote(source)} {quote(wat)})\n'
+            f'(link-wasm {quote(wat)} runtime {quote(wasm)})\n' + run_module(wasm))
+    require(script(directory, body), EXPECTED)
+
+
+def check_failures(directory, source):
+    output = directory / "existing.wasm"
+    output.write_text("previous successful build")
+    optimizer = directory / "failed-final-optimization"
+    optimizer.write_text('#!/bin/sh\nfor arg do\n'
+                         '  if [ "$arg" = "--remove-exports" ]; then exit 99; fi\n'
+                         'done\nexec "$SNAIL_REAL_WASM_OPT" "$@"\n')
+    optimizer.chmod(0o755)
+    result = require(script(directory, compile_source(source, output), WASM_OPT=str(optimizer),
+                            SNAIL_REAL_WASM_OPT=shutil.which(os.environ.get("WASM_OPT", "wasm-opt"))), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if len(retained) != 1:
+        raise RuntimeError(f"missing unique failed-build location: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or not workspace.name.startswith('.snail-build-'):
+        raise RuntimeError(f"invalid retained workspace: {workspace}")
+    for filename in ('program.wat', 'scheme.wasm', 'entry.wat', 'entry.wasm', 'linked.wasm'):
+        if not (workspace / filename).is_file():
+            raise RuntimeError(f"missing failure intermediate: {filename}")
+    shutil.rmtree(workspace)
+    blocked = directory / "output-is-a-directory"
+    blocked.mkdir()
+    (blocked / "keep").write_text("existing directory")
+    result = require(script(directory, compile_source(source, blocked)), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if len(retained) != 1 or (blocked / "keep").read_text() != "existing directory":
+        raise RuntimeError(f"publication failure lost output or diagnostics: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or not (workspace / "artifact").is_file():
+        raise RuntimeError("publication failure did not retain the completed candidate")
+    shutil.rmtree(workspace)
+    if output.read_text() != "previous successful build":
+        raise RuntimeError("failed build replaced existing output")
+    require(script(directory, compile_source(source, source)), failure=True)
+    alias = directory / "source-alias.scm"
+    alias.symlink_to(source)
+    require(script(directory, compile_source(source, alias)), failure=True)
+    if list(directory.glob('.snail-build-*')):
+        raise RuntimeError("an input/output alias failure created a workspace")
+
+
+def check_exit(directory):
+    source, wasm = directory / "exit.scm", directory / "exit.wasm"
+    source.write_text('(import (scheme process-context)) (exit 7)\n')
+    before = set(directory.glob("*.trace.json"))
+    result = script(directory, compile_source(source, wasm) + '\n' + run_module(wasm))
+    if result.returncode != 7:
+        raise RuntimeError(f"exit status lost: {result}")
+    trace_file, = set(directory.glob("*.trace.json")) - before
+    assert "build.run" in [event['name'] for event in json.loads(trace_file.read_text())[1:]]
+
+
+def check_trace_ownership(directory, source):
+    output = directory / "trace-ownership.wasm"
+    trace_file = Path(str(output) + ".trace.json")
+    command = [CHIBI, "-I", ROOT / "src", ROOT / "tests/build-program.scm",
+               ROOT, source, output]
+    before = source.read_bytes()
+    trace_file.symlink_to(source)
+    result = require(invoke(command, directory), failure=True)
+    assert "trace file must not replace build input or output" in result.stderr
+    assert source.read_bytes() == before and not output.exists()
+    trace_file.unlink()
+    trace_file.mkdir()
+    require(invoke(command, directory), failure=True)
+    assert source.read_bytes() == before and not output.exists()
+    trace_file.rmdir()
+
+
+def check_generated_input(directory):
+    runtime = directory / "generated-runtime"
+    body = f'''(call-with-build-output {quote(runtime)} (list {quote(runtime)})
+      (lambda (workspace artifact)
+        (call-with-output-file {quote(runtime)} (lambda (port) (display "runtime" port)))
+        (call-with-output-file artifact (lambda (port) (display "executable" port)))))'''
+    result = require(script(directory, body), failure=True)
+    retained = re.findall(r"build failed; intermediates retained: (.+)", result.stderr)
+    if runtime.read_text() != "runtime" or len(retained) != 1:
+        raise RuntimeError(f"publication replaced a generated input: {result.stderr}")
+    workspace = Path(retained[0])
+    if workspace.parent != directory or (workspace / "artifact").read_text() != "executable":
+        raise RuntimeError("late alias rejection did not retain the candidate")
+    shutil.rmtree(workspace)
+
+
+# ---- Ordered project-library lookup ----
+
+
+def check_project_libraries(directory):
+    first, second = directory / "first libraries", directory / "second libraries"
+    for path in (first / 'project', first / 'scheme', second / 'project'):
+        path.mkdir(parents=True)
+    chosen = first / 'project/answer.sld'
+    chosen.write_text('(define-library (project answer) (export answer) '
+                      '(import (scheme base) (project helper)) (begin (define answer (+ base 2))))')
+    (second / 'project/answer.sld').write_text('(define-library (project answer) '
+        '(export answer) (import (scheme base)) (begin (define answer 99)))')
+    (second / 'project/helper.sld').write_text('(define-library (project helper) '
+        '(export base) (import (scheme base)) (begin (define base 40)))')
+    (first / 'scheme/base.sld').write_text('invalid project shadow of standard library')
+    source, output = directory / 'project.scm', directory / 'project.wasm'
+    source.write_text('(import (scheme base) (scheme write) (scheme file) (project answer)) '
+                      '(display answer) (newline) '
+                      f'(write (file-exists? {quote(source)})) (newline) '
+                      '(write (file-exists? "absent-file")) (newline)')
+    body = (f"(build-wasm {quote(ROOT)} {quote(source)} {quote(output)} '() "
+            f"(list {quote(first)} {quote(second)}))")
+    require(script(directory, body), "")
+    require(invoke([NODE, '--no-warnings', ROOT / 'scripts/run-wasi.mjs', output], directory),
+            '42\n#t\n#f\n')
+    for text, diagnostic in [('(', str(chosen)),
+                             ('(define-library (wrong name) (import (scheme base)))',
+                              'library name does not match import')]:
+        chosen.write_text(text)
+        result = require(script(directory, body), failure=True)
+        if diagnostic not in result.stderr:
+            raise RuntimeError(f"chosen library error was hidden: {result.stderr}")
+    source.write_text('(import (scheme base) (project absent))')
+    result = require(script(directory, body), failure=True)
+    for diagnostic in ('library not found', str(first), str(second), 'project/absent.sld'):
+        if diagnostic not in result.stderr:
+            raise RuntimeError(f"missing library search diagnostic: {result.stderr}")
+
+
+# ---- Built-in Rust calls, roots and tracing ----
+
+
+def check_interop(directory):
+    output = directory / "interop.wasm"
+    names = '(rust-triple rust-remember rust-recalled rust-call rust-forget rust-root-stress)'
+    foreign = f'(map (lambda (name) (cons name "snail.library")) \'{names})'
+    body = f'(build-wasm {quote(ROOT)} {quote(ROOT / "examples/rust-interop/main.scm")} {quote(output)} {foreign})'
+    require(script(directory, body), "")
+    expected = '42\n("a Scheme pair retained by Rust" . 42)\n(14 . 42)\n42\n'
+    require(invoke([NODE, "--no-warnings", ROOT / "tests/check-abi-roots.mjs", output, "3"], directory), expected)
+
+
+def check_emission_traces(events):
+    # Procedure bodies are checked and emitted during their lexical visit.
+    expected = ['prepare-module', 'generate-library-functions']
+    stages = []
+    for event in events:
+        name = event['name']
+        if name in expected:
+            stages.append(event)
+        elif name == 'ir-library->wasm':
+            names = [stage['name'] for stage in stages]
+            assert names == expected, names
+            assert all(event['ts'] <= stage['ts'] <= stage['ts'] + stage['dur']
+                       <= event['ts'] + event['dur'] for stage in stages)
+            stages = []
+    assert not stages
+
+
+def check_traces(directory):
+    names = set()
+    for path in directory.glob('*.trace.json'):
+        text = path.read_text()
+        if not text.rstrip().endswith(']'):
+            continue  # Failed workflows bypass ordinary-return finalization.
+        events = json.loads(text)
+        assert events[0]['ph'] == 'M'
+        assert all(event['ph'] == 'X' and event['dur'] >= 0 for event in events[1:])
+        check_emission_traces(events)
+        names.update(event['name'] for event in events[1:])
+    expected = {'build-wasm', 'build-runtime', 'build.cargo', 'build.link', 'build.run',
+                'source-file->wat-file', 'syntax-list->ir-library', 'ir-library->wasm', 'write-wasm'}
+    if not expected <= names:
+        raise RuntimeError(f"missing build traces: {expected - names}")
+
+
+# ---- Test entry point ----
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="paths with spaces ", dir=BUILD) as name:
+        directory = Path(name)
+        source = directory / "quoted 'source.scm"
+        source.write_text(SOURCE)
+        check_import(directory)
+        check_preflight(directory)
+        check_build_and_run(directory, source)
+        check_explicit_stages(directory, source)
+        check_failures(directory, source)
+        check_generated_input(directory)
+        check_exit(directory)
+        check_trace_ownership(directory, source)
+        check_interop(directory)
+        check_project_libraries(directory)
+        check_traces(directory)
+    print("Scheme build library and Rust ABI checks passed")
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+        print(f"build test failed: {error}", file=sys.stderr)
+        sys.exit(1)

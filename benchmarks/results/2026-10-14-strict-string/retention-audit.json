@@ -1,0 +1,654 @@
+{
+  "optimized_wasm_sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669",
+  "optimized_wat_sha256": "ed01584dbd9d03acc6ceeb5c300cd5ae7d2699148ad45db44f646263d69d6a71",
+  "optimized_bytes": 2871,
+  "canonical_exports": [
+    "bench",
+    "main"
+  ],
+  "string_layout": "$type14: mutable I32 array; private flag at zero.",
+  "global_ref_layout": "$type26: one mutable reference to $type14.",
+  "function_roles": {
+    "$function33": "substring allocate/copy",
+    "$function35": "append size and allocation",
+    "$function38": "append copy spans",
+    "$function43": "outer repeat/predicate",
+    "$function46": "ten resets/trials",
+    "$function48": "growth trial and both replacements"
+  },
+  "wat_lines": {
+    "substring_copy": 222,
+    "append_copy": 989,
+    "returned_identity": 1062,
+    "reset": 1199,
+    "first_growth_store": 1316,
+    "final_growth_store": 1388
+  },
+  "diagnostic_counts": [
+    {
+      "count": 1,
+      "totals": {
+        "array constructor completed": 600,
+        "string copy completed": 1350,
+        "string scalars copied": 31451670,
+        "function entered": 2124,
+        "reference store completed": 310
+      },
+      "sites": [
+        {
+          "id": 0,
+          "function": "$function33",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 159,
+          "completed": 300
+        },
+        {
+          "id": 1,
+          "function": "$function33",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 300
+        },
+        {
+          "id": 2,
+          "function": "$function33",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 10483940
+        },
+        {
+          "id": 3,
+          "function": "$function33",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function33",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 84,
+          "completed": 300
+        },
+        {
+          "id": 4,
+          "function": "$function35",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 823,
+          "completed": 300
+        },
+        {
+          "id": 5,
+          "function": "$function35",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function35",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 243,
+          "completed": 300
+        },
+        {
+          "id": 6,
+          "function": "$function37",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function37",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 857,
+          "completed": 0
+        },
+        {
+          "id": 7,
+          "function": "$function38",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 1050
+        },
+        {
+          "id": 8,
+          "function": "$function38",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 20967730
+        },
+        {
+          "id": 9,
+          "function": "$function38",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function38",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 916,
+          "completed": 1350
+        },
+        {
+          "id": 10,
+          "function": "$function43",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function43",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1032,
+          "completed": 2
+        },
+        {
+          "id": 11,
+          "function": "$function46",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1199,
+          "completed": 10
+        },
+        {
+          "id": 12,
+          "function": "$function46",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function46",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1164,
+          "completed": 11
+        },
+        {
+          "id": 13,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1316,
+          "completed": 150
+        },
+        {
+          "id": 14,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1388,
+          "completed": 150
+        },
+        {
+          "id": 15,
+          "function": "$function48",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function48",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1244,
+          "completed": 160
+        },
+        {
+          "id": 16,
+          "function": "$export0",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$export0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1580,
+          "completed": 1
+        },
+        {
+          "id": 17,
+          "function": "$main",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$main",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1611,
+          "completed": 0
+        }
+      ],
+      "setup_subtracted": true,
+      "physical_allocator_events": false
+    },
+    {
+      "count": 2,
+      "totals": {
+        "array constructor completed": 1200,
+        "string copy completed": 2700,
+        "string scalars copied": 62903340,
+        "function entered": 4246,
+        "reference store completed": 620
+      },
+      "sites": [
+        {
+          "id": 0,
+          "function": "$function33",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 159,
+          "completed": 600
+        },
+        {
+          "id": 1,
+          "function": "$function33",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 600
+        },
+        {
+          "id": 2,
+          "function": "$function33",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 20967880
+        },
+        {
+          "id": 3,
+          "function": "$function33",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function33",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 84,
+          "completed": 600
+        },
+        {
+          "id": 4,
+          "function": "$function35",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 823,
+          "completed": 600
+        },
+        {
+          "id": 5,
+          "function": "$function35",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function35",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 243,
+          "completed": 600
+        },
+        {
+          "id": 6,
+          "function": "$function37",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function37",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 857,
+          "completed": 0
+        },
+        {
+          "id": 7,
+          "function": "$function38",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 2100
+        },
+        {
+          "id": 8,
+          "function": "$function38",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 41935460
+        },
+        {
+          "id": 9,
+          "function": "$function38",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function38",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 916,
+          "completed": 2700
+        },
+        {
+          "id": 10,
+          "function": "$function43",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function43",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1032,
+          "completed": 3
+        },
+        {
+          "id": 11,
+          "function": "$function46",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1199,
+          "completed": 20
+        },
+        {
+          "id": 12,
+          "function": "$function46",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function46",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1164,
+          "completed": 22
+        },
+        {
+          "id": 13,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1316,
+          "completed": 300
+        },
+        {
+          "id": 14,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1388,
+          "completed": 300
+        },
+        {
+          "id": 15,
+          "function": "$function48",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function48",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1244,
+          "completed": 320
+        },
+        {
+          "id": 16,
+          "function": "$export0",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$export0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1580,
+          "completed": 1
+        },
+        {
+          "id": 17,
+          "function": "$main",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$main",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1611,
+          "completed": 0
+        }
+      ],
+      "setup_subtracted": true,
+      "physical_allocator_events": false
+    },
+    {
+      "count": 100,
+      "totals": {
+        "array constructor completed": 60000,
+        "string copy completed": 135000,
+        "string scalars copied": 3145167000,
+        "function entered": 212202,
+        "reference store completed": 31000
+      },
+      "sites": [
+        {
+          "id": 0,
+          "function": "$function33",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 159,
+          "completed": 30000
+        },
+        {
+          "id": 1,
+          "function": "$function33",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 30000
+        },
+        {
+          "id": 2,
+          "function": "$function33",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 222,
+          "completed": 1048394000
+        },
+        {
+          "id": 3,
+          "function": "$function33",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function33",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 84,
+          "completed": 30000
+        },
+        {
+          "id": 4,
+          "function": "$function35",
+          "category": "array constructor completed",
+          "opcode": "array.new_default",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 823,
+          "completed": 30000
+        },
+        {
+          "id": 5,
+          "function": "$function35",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function35",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 243,
+          "completed": 30000
+        },
+        {
+          "id": 6,
+          "function": "$function37",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function37",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 857,
+          "completed": 0
+        },
+        {
+          "id": 7,
+          "function": "$function38",
+          "category": "string copy completed",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 105000
+        },
+        {
+          "id": 8,
+          "function": "$function38",
+          "category": "string scalars copied",
+          "opcode": "array.copy",
+          "target": "$type14",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 989,
+          "completed": 2096773000
+        },
+        {
+          "id": 9,
+          "function": "$function38",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function38",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 916,
+          "completed": 135000
+        },
+        {
+          "id": 10,
+          "function": "$function43",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function43",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1032,
+          "completed": 101
+        },
+        {
+          "id": 11,
+          "function": "$function46",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1199,
+          "completed": 1000
+        },
+        {
+          "id": 12,
+          "function": "$function46",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function46",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1164,
+          "completed": 1100
+        },
+        {
+          "id": 13,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1316,
+          "completed": 15000
+        },
+        {
+          "id": 14,
+          "function": "$function48",
+          "category": "reference store completed",
+          "opcode": "struct.set",
+          "target": "$type26:0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1388,
+          "completed": 15000
+        },
+        {
+          "id": 15,
+          "function": "$function48",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$function48",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1244,
+          "completed": 16000
+        },
+        {
+          "id": 16,
+          "function": "$export0",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$export0",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1580,
+          "completed": 1
+        },
+        {
+          "id": 17,
+          "function": "$main",
+          "category": "function entered",
+          "opcode": "func",
+          "target": "$main",
+          "wat_path": "/tmp/snail-strict-string-evidence-20261014/diagnostics/original.wat",
+          "wat_line": 1611,
+          "completed": 0
+        }
+      ],
+      "setup_subtracted": true,
+      "physical_allocator_events": false
+    }
+  ],
+  "observer_source": "build/inspect-string.py and diagnostics/observe-wat.py in the archive.",
+  "observer_semantics": "Original copy operands are evaluated once as helper arguments. The helper performs array.copy before incrementing completion/scalar counters. Constructor identity helpers and store blocks increment after success.",
+  "observer_erasure": "Erasing helpers, counters and generated store blocks recovers all nine original function forms exactly.",
+  "native_code": {
+    "unchanged_artifact": true,
+    "default_tiering": true,
+    "canonical_count": 100,
+    "files": [
+      "diagnostics/function33-turbofan.txt",
+      "diagnostics/function35-turbofan.txt",
+      "diagnostics/function38-turbofan.txt",
+      "diagnostics/function48-turbofan.txt"
+    ],
+    "substring_offsets": {
+      "0xd7": "size from four-byte elements",
+      "0x114": "bump pointer advance",
+      "0x187": "bulk zero fill",
+      "0x353": "scalar payload store",
+      "0x4b9": "bulk array copy"
+    },
+    "append_offsets": {
+      "0x37e": "size from four-byte elements",
+      "0x3be": "bump pointer advance",
+      "0x424": "bulk zero fill"
+    },
+    "append_span_offsets": {
+      "0x153": "scalar payload copy",
+      "0x2cc": "bulk array copy"
+    },
+    "growth_store_offsets": [
+      "0x260",
+      "0x921"
+    ],
+    "bulk_symbols": "native-helper-symbols.json maps runtime references to array_copy_wrapper/array_fill_wrapper using one consistent ELF load base."
+  },
+  "limits": [
+    "Completed diagnostic instructions are not physical allocator events.",
+    "Character-array constructor counts exclude List String argument spines and other support objects.",
+    "Canonical length correctness alone cannot establish payload retention.",
+    "Full-content probes observe extra payload and cannot replace canonical retention inspection.",
+    "Physical storage differs among engines and source representations.",
+    "No clean timing observation included."
+  ]
+}

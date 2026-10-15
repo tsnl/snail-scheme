@@ -1,58 +1,57 @@
-# Application Wasm interface (AWI)
+# Application Wasm interface (ABI)
 
 Wasm is the substrate. Rust extensions compile to Wasm and link with the Scheme
 module. Native execution is a subsequent translation step, not a different
-extension ABI. AWI v0 consists of named Wasm functions using scalar parameters
+extension ABI. ABI v0 consists of named Wasm functions using scalar parameters
 and opaque root handles; it is not a standardized Component Model interface.
 
 ## Calling Scheme and Rust
 
 Each exported Scheme-callable Rust function accepts one `u32` borrowed
 argument-vector handle and returns one `u32` owned result handle. Functions have
-separate import/export names, `snail:<Scheme-name>` in module `snail.rust`.
+separate import/export names, `snail:<Scheme-name>` in module `snail.library`.
 There is no builtin-number dispatcher. The prefix avoids collisions with libc
 symbols such as `exit` and `write`.
 
-The `snail-abi` proc macro generates a stable exported scalar wrapper. It does
-not infer Scheme types or perform implicit argument conversion. The
-`snail-awi` SDK supplies explicit checked conversion and root ownership:
+The single Rust runtime crate exposes ordinary scalar C-ABI functions with
+explicit Wasm export names. There is no procedural macro or implicit conversion:
 
 ```rust
-#[snail_abi::export("snail:example")]
-fn example(raw: u32) -> u32 {
-    // The generated Scheme wrapper keeps this vector rooted for this call.
-    let args = unsafe { snail_awi::Arguments::borrow(raw) };
+#[cfg_attr(target_arch = "wasm32", unsafe(export_name = "snail:example"))]
+pub extern "C" fn example(raw: u32) -> u32 {
+    let args = unsafe { crate::abi::Arguments::borrow(raw) };
     args.check("example", 1, 1).expect("wrong argument count");
-    let value = args.get(0).expect("missing argument");
-    value.into_handle()
+    args.get(0).expect("missing argument").into_handle()
 }
 ```
 
-Use `Root::call(&[Root])` for a synchronous Scheme callback. The callback may
-allocate and reenter Rust; do not hold a `RefCell` borrow or a lock that it could
-reacquire. Existing Rust roots remain in the GC table across the call. Scheme
-`apply` and `call-with-values` themselves remain in Wasm so they can tail-call
-without retaining Rust frames.
+`src/abi.rs` supplies checked conversion and root ownership. `Root::call` makes
+a synchronous Scheme callback, which may allocate and reenter Rust. Do not hold
+a `RefCell` borrow or a lock that the callback could reacquire. Existing roots
+remain in the GC table across callbacks. Scheme `apply` and `call-with-values`
+remain in Wasm so tail calls do not retain Rust frames.
 
-The [example](../examples/extension/README.md) exercises retained Scheme
-values and Rust-to-Scheme callbacks. `--extension PATH` reads a library package's
-`[package.metadata.snail] exports` list, adds that crate to the generated Cargo
-manifest, and exposes its functions through `(snail-scheme extensions)`.
-Runtime and extension dependencies become one Rust cdylib, sharing a single
-linear memory. Cargo builds it for `wasm32-wasip1`; Binaryen links it with the
-Scheme Wasm module and a command entry point.
+A callback's `Root` can hold a multiple-value result envelope. `Root::pair`,
+`Root::vector`, and `Root::call` preserve it; they do not normalize it to one
+ordinary value. The type analyzer therefore retains count checks for unknown
+callback parameters and heap reads. An ignored untyped parameter is not checked
+early, and returning the envelope preserves multiple values. The
+`rust-call-with-result` example export exercises these boundaries in
+`scripts/test-typing` without changing the root ownership contract.
 
-The [actor prototype](../examples/actors/README.md) uses `--actor` to select a
-library entry instead. `scheme:method:<export-name>` wrappers accept a borrowed
-argument-vector root and return an owned result root in that same instance.
-`scheme:wire:decode-call` and `scheme:wire:encode-result` expose its Scheme codec.
-The host initializes WASI and calls `actor_initialize` once before dispatch;
-initialization a second time traps. These embedding exports are trusted, local
-AWI operations. Connections transport S-expression text and never send handles.
+The [example](../examples/rust-interop/README.md) lives in `src/interop_example.rs`
+and is built into the standard runtime. Its Scheme build script supplies an
+alist mapping callable Scheme names to the `"snail.library"` Wasm import module.
+Those names are exposed through `(snail-scheme extensions)`. This naming scope
+does not imply dynamic loading or a separate Rust crate. Independent extension
+packaging is deferred; all current Rust services share one runtime linear memory.
+
+Cargo builds/reuses the root runtime crate as Wasm. The runtime exports
+`_initialize`; the linked entry invokes it once before Scheme executes.
 
 ## Root contract
 
-`runtime/awi.wat` owns a table of GC references and a free list of reusable slots.
+`src/snail-scheme/wasm-abi.sld` owns a table of GC references and a free list of reusable slots.
 An integer handle does not itself retain a value: the corresponding live table
 slot does. The SDK's `Root` owns exactly one slot in the current instance.
 
@@ -65,7 +64,7 @@ slot does. The SDK's `Root` owns exactly one slot in the current instance.
 - Roots cannot cross threads or instances. A fatal trap can bypass Rust cleanup;
   discard the failed instance instead of promising recoverable trap cleanup.
 
-Scalar helpers are imported from `snail.awi`. They construct and inspect Scheme
+Scalar helpers are imported from `snail.abi`. They construct and inspect Scheme
 values while keeping the references in engine-visible locals or table slots.
 Rust strings, files, vectors, and other ordinary Rust allocations use Rust's own
 allocator. Copying into a Scheme string constructs WasmGC data and leaves the
@@ -75,14 +74,19 @@ the search pattern and accesses the Scheme haystack by Unicode scalar index.
 ## External resources and finalization
 
 An extension wrapper contains a resource kind and ID, not a native address or
-Rust trait object. The initial runtime reserves kind 1 for ports; IDs are never
-reused. Current ports have durable roots. Explicit `close-port` closes promptly;
+Rust trait object. Kind 1 identifies ports and kind 2 identifies numeric tensors;
+IDs are never reused within a kind. Current ports have durable roots.
+Explicit `close-port` closes promptly;
 an output-string port remains readable after close until its wrapper dies.
 
-AWI imports `snail.host/register-finalizer(object, kind, id)`. The browser/Node
-implementation in `runtime/host.mjs` uses `FinalizationRegistry`, holding only
-resource IDs. Cleanup invokes `snail:drop-resource`; the Rust implementation
-drops the port payload and marks its slot closed. Repeated cleanup is harmless.
+ABI imports `snail.host/register-finalizer(object, kind, id)`. The browser/Node
+implementation in `src/runtime/host.mjs` uses `FinalizationRegistry`, holding only
+resource IDs. Kind-1 cleanup invokes the selected `ports/drop-resource` provider;
+the default Rust implementation drops the port payload and marks its slot closed.
+Kind-2 cleanup invokes the common library's `snail:drop-array` export, which
+releases that wrapper's ownership of its numeric buffer. Reshapes can share
+`Rc` storage, so collecting one wrapper leaves another live view intact.
+Repeated cleanup is harmless.
 `Root::from_raw_extension` is unsafe: create exactly one owning wrapper per
 resource and clone its roots to share it. Constructing a second wrapper for
 one ID could finalize the resource while the first wrapper is still live.
@@ -94,8 +98,8 @@ The registry and its held values must not strongly retain the watched object.
 A Rust resource that retains its own Scheme wrapper through `Root` creates such
 a cycle and requires explicit release. Finalization is nondeterministic and is
 not guaranteed at shutdown. Explicit close/cancel remains the prompt path.
-A native Wasm executor can implement the same import with BDWGC finalization;
-the translator need not know about Scheme.
+The Node loader routes scalar notices by resource kind. Replacing the ports
+handler does not change ownership or cleanup of common-library numeric buffers.
 
 ## Continuations: planned, not implemented
 
@@ -123,3 +127,8 @@ watched wrapper, even transitively through mutable Scheme data. A registry
 holding only an integer stack ID does not avoid this cycle if a global table
 still retains the stack and its roots. Automatic cancellation of arbitrary
 cyclic suspended computations therefore needs more than this finalizer shim.
+
+The [actor prototype](../examples/actors/README.md) uses these same instance-local
+ABI roots around exported Scheme calls. Each Node subprocess owns its linked
+Wasm instance; only serialized S-expression data crosses connections. Traps
+retire the process rather than reentering a failed instance for root cleanup.

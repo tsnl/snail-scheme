@@ -1,60 +1,71 @@
 # A tour of Snail-Scheme
 
-The compiler is Scheme, hosted by Chibi. WebAssembly is its portable output;
-Rust provides host services and extensions through a named application Wasm
-interface (AWI). Compiling the compiler sources does not switch the build host.
+Chibi hosts the bootstrap compiler. It emits WasmGC for Node.js and native LLVM
+lowering. Binaryen optimizes the program Wasm on both paths. Wasm engines own
+Scheme memory in Wasm; the native path uses the in-house precise collector.
+Both paths use the same Rust value and platform implementations.
 
 ```text
-snail-scheme driver
-  -> Chibi: reader -> syntax parser -> expander -> library-grouped IR -> WAT
-  -> Binaryen: assemble Scheme WasmGC
-  -> Cargo: runtime + extension crates -> one Rust Wasm module
-  -> Binaryen: link and optimize -> portable .wasm
-  -> Node/WASI + host shim, or an optional separate native translator
+located Scheme -> resolved library IR -> WasmGC
+  -> Binaryen optimization -> link common library + selected handlers + entry
+  -> final Binaryen optimization -> application.wasm
+  -> Node.js loader: WASI + JS host imports -> one running node
+
+optimized program Wasm -> mechanical LLVM lowering
+  -> Clang/LLD + native Rust archive + C providers -> native executable
 ```
 
 ## Entering the compiler
 
-[`driver/src/main.rs`](driver/src/main.rs) owns modes, temporary artifacts,
-subprocesses, and publication. A source path runs; `-o` builds without running;
-`--emit-wat` stops before assembly. Arguments after `--` pass literally through
-`Command`. Each invocation owns its temporary project. Completed artifacts are
-staged and renamed into place so a failed build does not truncate prior output.
+[build.scm](build.scm) builds `build/snail-scheme.wasm`; [main.scm](main.scm)
+parses options, compiles an ordinary script, runs it through Node, and returns
+its status. [`options.sld`](src/snail-scheme/options.sld) supplies the shared
+option parser, including literal script arguments and `-I` library paths.
+See [option parsing](doc/options.md).
 
-[`snail-compile`](snail-compile) invokes Chibi on
-[`compile.scm`](src/snail-scheme/compile.scm), whose top-level call enters
-[`compiler.sld`](src/snail-scheme/compiler.sld). `source-file->wasm-file` parses,
-expands, and emits WAT. The loader maps `(scheme ...)` to `bootstrap/scheme/` and
-project libraries to `src/`. Library and binding semantics stay in the expander.
+[`compiler.sld`](src/snail-scheme/compiler.sld) owns source loading, expansion,
+and emission without launching processes. [`build.sld`](src/snail-scheme/build.sld)
+composes source compilation, dependencies, publication, and script execution.
+[`wasm-link.sld`](src/snail-scheme/wasm-link.sld) owns runtime construction,
+Wasm linking, explicit entry adapters, and atomic artifact publication.
+[`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) checks Binaryen and
+optimizes Scheme modules. Help runs before the dependency preflight.
 
-[`trace.sld`](src/snail-scheme/trace.sld) and
-[`trace/src/lib.rs`](trace/src/lib.rs) centralize coarse Chromium trace spans.
-They are always enabled; `build/traces/` is the default directory and
-`SNAIL_TRACE_DIR` overrides it. [Tracing](doc/tracing.md) describes decorators.
+[`scripts/build-native`](scripts/build-native) checks tools and exact C provider
+signatures, invokes the existing frontend through
+[`build-native.scm`](scripts/build-native.scm), and links/publishes a native
+executable. [`native.sld`](src/snail-scheme/native.sld) always optimizes program
+Wasm before native lowering, including supplied binary inputs.
+[`wasm-read.sld`](src/snail-scheme/wasm-read.sld) reads Binaryen's text spelling;
+[`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld) resolves names, canonical
+recursive type groups and instruction order. [`llvm.sld`](src/snail-scheme/llvm.sld)
+lowers those typed operations with explicit roots and tail transfers;
+[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) writes LLVM text fragments.
+These modules add no source-language optimization pass. See [native contracts](doc/native.md).
 
-The older parser inspection entry [`main.scm`](src/snail-scheme/main.scm) defines
-`main` without invoking it. Chibi's `-r` invokes that procedure. Compiling a
-file containing only definitions correctly produces no printed output.
+[`effects.sld`](src/snail-scheme/effects.sld) declares versioned interfaces,
+complete handler maps, and platform collections. The compiler imports qualified
+operations; the linker resolves a Wasm alias module to selected providers and
+removes private default exports. [`build-host.sld`](src/snail-scheme/build-host.sld)
+uses Chibi for bootstrap operations and selected build effects in compiled code.
+[`build.mjs`](src/runtime/build.mjs) implements those effects in Node: literal
+subprocess argv, paths, owned workspaces, and atomic publication. Failed builds
+retain intermediates and preserve the previous output.
 
-## Functional tree composition and UI experiment
+[`compile-build.sld`](src/snail-scheme/compile-build.sld) resolves generated
+libraries by compiling and executing a Wasm generator in a private workspace.
+[`generation.sld`](src/snail-scheme/generation.sld) transports located syntax and
+explicit dependency artifacts. [`artifacts.sld`](src/snail-scheme/artifacts.sld)
+validates and snapshots the dependency graph. Publishing switches one relative
+symlink to a complete generation. The Node loader pins the physical payload once;
+[`(snail artifacts)`](src/snail/artifacts.sld) finds companions in that generation.
+[`runtime-artifact.sld`](src/snail-scheme/runtime-artifact.sld) packages the Rust
+WAT library for the installed compiler. See [build artifacts](doc/build-artifacts.md).
 
-[`react.sld`](src/snail-scheme/react.sld) is an independent Chibi-hosted prototype.
-`element` records a type, arbitrary data, and unexpanded children; `resolve`
-expands procedure-valued types and explicit fragments into a forest of element
-records and opaque leaves. HTML conventions do not participate in this core.
-
-[`ui.sld`](src/snail-scheme/ui.sld) stores model/update/view application values.
-`dispatch` produces a new application through its reducer. [`html.sld`](src/snail-scheme/html.sld)
-interprets trees as HTML and builds a matching action table. [`ui-server.sld`](src/snail-scheme/ui-server.sld)
-owns the current application in a local Chibi server, preparing a complete page
-before publishing a transition. These modules are separate from the compiler.
-
-[`examples/react.scm`](examples/react.scm) prints generic document and GUI trees.
-[`examples/ui.scm`](examples/ui.scm) renders one view as a static workbook or an
-interactive HTML page. [Tree semantics](doc/react.md) and the [UI guide](doc/ui.md)
-separate implemented behavior from the proposed browser/WASM host. Their Scheme
-tests join the existing Chibi suite; [`scripts/test-ui`](scripts/test-ui) exercises
-the real HTTP host, including stale actions and failed transitions.
+[`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld) records spans in an
+explicit `with-chromium-trace-to` file scope. Build scripts own trace paths.
+[`scripts/view-traces`](scripts/view-traces) serves a chosen trace and Perfetto
+on loopback. See [tracing](doc/tracing.md).
 
 ## Reading source
 
@@ -186,112 +197,741 @@ preserve multiple values on normal returns; nonlocal exits and `dynamic-wind`
 are outside this bootstrap subset.
 
 [`runtime.sld`](src/snail-scheme/runtime.sld) exposes the explicitly nonstandard
-`string-contains`, `collect-garbage`, and `gc-statistics` operations. This keeps
-benchmark-specific runtime measurements separate from the standard libraries.
+`string-contains` operation, implemented by Rust's substring search.
+
+[`hash-table.sld`](src/snail-scheme/hash-table.sld) implements collector-owned
+R7RS-large hash tables behind `(scheme hash-table)`. Scheme owns buckets, cached
+hashes, and callback mutation checks; [`hash.rs`](src/hash.rs) supplies structural
+hashing through owned ABI roots. Wasm's weak identity map avoids a registry that would retain keys. See [hash tables](doc/hash-tables.md)
+for the supported API and comparator limits.
+
+[`iverson-ghost.sld`](src/snail-scheme/iverson-ghost.sld) supplies concrete
+`object`, `f64`, `f32`, and `i32` tensors, vector compatibility, and a Chibi
+reference. [`iverson.rs`](src/iverson.rs) owns unboxed numeric buffers and kernels.
+[`iverson-typed.sld`](src/snail-scheme/iverson-typed.sld) defines static eager and
+symbolic instances of one tensor interface. See [Iverson Ghost](doc/iverson-ghost.md)
+and [static typeclasses](doc/typeclasses.md).
+
+## Checking types and recording evidence
+
+The strict compiler is a separate, native path, selected with
+[`scripts/build-strict`](scripts/build-strict). It reuses the located reader,
+hygienic expander and resolved binding identities above. It checks all source
+bodies, then instantiates concrete code and emits standalone WasmGC with a
+native `main` export. Its current surface and limits are in
+[the strict core guide](doc/strict-core.md); this is implemented behavior, not
+a replacement of the existing command-line compiler yet.
+
+[`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
+rigid quantified variables, schemes and the bounded Never/concrete/Top lattice.
+[`ir.sld`](src/snail-scheme/ir.sld) supplies the same located expression and
+definition records to expansion, checking and specialization. Expansion gives
+each expression and binding a fresh `Hole` and attaches declared syntax directly
+to its definition. It performs no inference. The checker copies all compilation
+roots together, preserving shared identities and cycles while isolating cached
+libraries, then refines that owned graph. `Hole` is unresolved static information;
+`Top` is a concrete universal value representation. Rigid `All` variables are a
+separate type variant and cannot be solved by unification.
+[`strict-core.sld`](src/snail-scheme/strict-core.sld) holds the checked program's
+class and instance evidence; it defines no second expression or binding tree.
+[`strict-overloads.sld`](src/snail-scheme/strict-overloads.sld) matches complete
+function signatures with isolated candidate trials, commits unique generic row
+views, and repeats improvement as argument and result information settles.
+Unfinished rows remain possible candidates; only known arity can exclude them.
+[`strict-infer.sld`](src/snail-scheme/strict-infer.sld) lowers free overload
+declarations to classes and instances, checks source groups, generalizes eligible
+values and retains class obligations. Omitted row signatures wait for relevant
+family signatures and ordinary helper dependencies before their schemes become
+available. Declared schemes can break signature cycles; all bodies still check.
+Each dependency reachability query shares its visited identities across branches,
+so repeated paths through shared dependencies are explored once. Testing the
+target on an edge preserves the distinction between an isolated binding and a
+cycle that returns to it.
+Runtime initializer order stays in the original block sequence. Abstract obligations bound by a generalized
+initializer stay in its template; concrete uses instantiate them. Call operands
+are inferred in source order without using overload candidates to choose widths.
+The checker also reserves closed `define-data` schemas before checking fields,
+then assigns ordinary binding schemes to constructors and optional accessors.
+Exhaustive shallow `match` lowers to the existing typed lets and conditionals,
+with one subject binding. [`strict-data.sld`](src/snail-scheme/strict-data.sld)
+defines nominal applications of resolved declaration identities and substitutes
+their field types; recursive fields retain identities instead of expanding a tree.
+[`strict-primitives.sld`](src/snail-scheme/strict-primitives.sld)
+supplies complete concrete primitive signatures and opcodes, including unary
+conversions, fixed-width bitwise intersection/exclusive-or, and logical right shifts.
+[`(snail strict)`](src/snail/strict.sld) provides numeric overload
+families with explicit I64/F64 promotion bodies, hygienic binding and control forms
+and ordinary vector and Unicode string functions. Append, substring, copying,
+content comparison and list conversions use the same pipeline as user functions; only
+allocation, indexing, identity, length, and bulk copying are native primitives.
+
+[`(snail text)`](src/snail/text.sld) adds Unicode character classification and
+simple lowercase through explicit scalar services, plus ordinary Scheme
+lexicographic String ordering. [`strict_text.rs`](src/strict_text.rs) validates
+raw scalars and reuses the existing casing/decimal data and Alphabetic property;
+whitespace calls the strict reader's existing provider directly. No String or
+Scheme root crosses this boundary. [`scripts/test-strict-text`](scripts/test-strict-text)
+checks exact scalar fields, mutable String ordering and terminal cleanup on
+linked raw/optimized Wasm and native64. See [the text contract](doc/strict-text.md).
+
+[`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
+lexical initializer site from its required concrete instances, resolves class
+methods, selects local procedures used only as call operators, and computes
+their transitive capture dependencies. A `let` or block used as an operator
+passes that invocation context only to its result; initializers and prefix
+expressions keep their ordinary value uses. It makes concrete copies of the
+shared IR, preserving checked templates and their external binding identities.
+Site, value and function records describe initialization, storage and code;
+they are not another expression representation. The same initializer policy serves
+recursive definitions and typed lets, with their source scopes explicit. This
+module also owns the enumeration of concrete site storage used by the emitter;
+readiness tokens and payload copies therefore have one definition.
+After concrete demand settles, it records global sites initialized before each
+function's creation can execute. Nested functions inherit this conservative
+proof; no function assumes later globals ready merely because it can be exported.
+[`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
+assigns native signatures and GC layouts, preserves initialization readiness,
+and emits explicit universal-value conversions. Immutable scalar literal reads
+expose the constant payload while retaining the source binding's readiness check.
+Function bodies omit global readiness checks only for the completed sites proved
+by specialization. Ordinary closure reads, direct binding tokens and the export
+initialization guard preserve the callable-entry guarantee behind that proof.
+Direct local procedures receive
+lexical state as native parameters. Parameters and nonrecursive let values are
+initialized before capture and travel as concrete values. Recursive local
+captures carry nullable payloads and readiness flags until the original read;
+surviving closures retain shared cells wherever later initialization must remain
+observable. A direct
+procedure's binding still publishes readiness at its original source event.
+Calls save operands before entering structured operators, then invoke the final
+procedure inside its lexical scope. This also keeps named-let recursion direct
+without changing the expanded or checked frontend forms.
+Invariant vectors use native
+array element storage; I64 index checks precede narrowing, while native array
+instructions own bounds and overlapping-copy behavior. Each String has an
+immutable owner containing writability, unsigned scalar length, a direct first
+character block and an optional directory of remaining blocks. Its private i32
+arrays each hold at most 8,192 Unicode scalars; short and empty strings omit the
+directory. Constructors publish only fully initialized, independently owned
+blocks. Copies validate both complete I64 ranges before traversing bounded native
+array-copy spans in the overlap-safe direction. Readonly literal globals and
+fresh mutable strings share the same layout.
+Bytevectors use immutable owners with permission and private packed i8 arrays.
+Their native operations check bytes and I64 indices before narrowing, and bulk
+copy checks both complete ranges before mutation. Readonly literals are rooted
+globals; mutable constructors and copies retain fresh identity. The ordinary
+Scheme library [`(snail bytes)`](src/snail/bytes.sld) implements constructors,
+copy/append helpers and strict UTF-8 conversions with scalar loops. It translates
+between bytes and Unicode scalars without passing managed references to Rust or
+allocating a product for each character. The native executor uses the declared
+Wasm array storage widths, including packed bytes and four-byte character scalars.
+Unicode scalar conversions reject surrogate and out-of-range values. Nominal records use immutable native fields;
+closed sums add a constructor tag and typed case subtypes. The layout registry
+reserves applications before following recursive fields, and accessors explicitly
+check tags because Wasm can canonicalize cases with identical shapes.
+Zero-field cases use private rooted globals named by those same concrete layout
+identities. Their source calls still evaluate operators and enforce readiness;
+payload-bearing constructors and explicit mutable identities remain runtime work.
+Native foreign declarations retain their resolved identity in IR.
+[`wasm-extern.sld`](src/snail-scheme/wasm-extern.sld)
+validates the concrete scalar boundary shared by imports and selected worker
+exports; the emitter adapts Unit results without introducing an object carrier.
+[`strict-compiler.sld`](src/snail-scheme/strict-compiler.sld) composes these
+passes without process effects. Its `strict.infer`, `strict.specialize`, and
+`strict.emit-wasm` trace spans expose each completed phase separately from source
+expansion, serialization, and optimization. The build wrapper reuses the shared
+Binaryen assembly and optimization path. [`scripts/test-strict`](scripts/test-strict)
+executes native exports and checks located source rejections.
+[`scripts/test-strict-extern`](scripts/test-strict-extern) links real Wasm
+providers, checks mismatched signatures and exercises reusable worker captures
+and one-shot initialization through raw and optimized modules.
+
+[`(snail io)`](src/snail/io.sld) provides strict text files with concrete
+`InputPort` and `OutputPort` wrappers, explicit close, stable borrowed stdout,
+Scheme character loops and I64 decimal formatting. Default output overloads call
+the same explicit-port implementations; stdout never enters the owned-file
+registry. Its `LineResult` distinguishes EOF from empty lines;
+Scheme constructs lines using a geometrically growing String buffer while Rust's
+existing text reader owns UTF-8 decoding and one-character lookahead.
+[`strict_io.rs`](src/strict_io.rs) receives scalar characters and resource IDs,
+owns a temporary UTF-8 pathname and live files, and releases resources before
+reporting fatal I/O errors. It reuses [`host.rs`](src/host.rs) buffered ports and
+holds no Scheme roots. [`scripts/link-strict-runtime`](scripts/link-strict-runtime)
+links these services from the ordinary Rust runtime, prunes private exports, and
+rejects any remaining legacy value-ABI import. The host initializes WASI before
+Scheme and invokes the retained cleanup export after traps. See
+[strict file I/O](doc/strict-io.md) and the actual Node/WASI checks in
+[`scripts/test-strict-io`](scripts/test-strict-io).
+
+[`(snail write)`](src/snail/write.sld) formats every concrete Datum variant using
+those scalar output operations and the existing Number formatter. A query-local
+storage-identity scan separates sharing from cycles; explicit render continuations
+emit proper/dotted lists and vectors without consuming the machine stack.
+Acyclic sharing expands normally, while cyclic graphs use first-output-order
+`#n=`/`#n#` labels, including repeated strings and bytevectors. `display` recursively
+emits direct strings, characters and symbol names. This graph output extension
+does not add graph input to the strict reader. See [typed datum output](doc/strict-write.md)
+and [`scripts/test-strict-write`](scripts/test-strict-write) for exact linked
+Wasm/native output and observed port lifetime checks.
+
+[`(snail datum)`](src/snail/datum.sld) gives strict programs concrete recursive
+datums, interned symbols, the shared Number domain, structural equality and
+proper-list operations. Mutable datum identity names
+backing storage; pair identity compares both explicit Ref fields. Equality
+follows finite cyclic graphs with explicit continuations and a query-local
+table of private recursive-view IDs. Those IDs do not replace storage identity
+or add fields to Ref/vector storage; the scalar counter retains no objects.
+The public constructors and read-only projections keep the private IDs
+unforgeable. The module owns the shared `ReadResult` data and interprets each
+ordinary atom through one staged text handle, closing it or consuming it into
+a symbol before returning. Exact lexical fields become normalized Scheme-owned
+Integers/Rationals before that handle closes.
+[`(snail read)`](src/snail/read.sld) re-exports the unchanged result API and consumes Unicode input
+incrementally, owns token buffers and parsing in Scheme, and distinguishes a
+datum, EOF and syntax failure. [`strict_datum.rs`](src/strict_datum.rs) supplies
+owned scalar token handles and a root-free strict symbol identity domain.
+[`strict_number.rs`](src/strict_number.rs) validates complete numeric tokens and
+retains exact digits, radix and decimal scale without introducing a Rust bigint.
+The strict interner shares the existing symbol storage implementation without
+importing legacy Scheme roots. Terminal file cleanup
+also releases unfinished token handles. [The reader contract](doc/strict-reader.md)
+states exactness, signed-zero/NaN equality, resource lifetimes and unsupported
+syntax; [`scripts/test-strict-reader`](scripts/test-strict-reader) compares complete
+datum streams with Chez on linked raw/optimized Wasm and native.
+
+[`(snail integer)`](src/snail/integer.sld) implements immutable arbitrary-precision
+exact integers in ordinary strict Scheme. Private I32 WasmGC arrays hold 30-bit
+limbs; I64 intermediates bound carries, products and quotient estimates. Static
+numeric methods add exact arithmetic without changing existing I64 semantics.
+The same module owns checked radix and machine conversions, normalized long
+division, exponentiation and floor square root. Binary64 conversion distinguishes
+exact integral input from explicit truncation; exact ratios choose the final
+binary64 spacing and round once using their integer remainder. No managed number
+crosses the Rust ABI. [`scripts/test-strict-integer`](scripts/test-strict-integer) checks
+independent arithmetic and ownership oracles on raw/optimized Wasm and native64,
+including an exhaustive small-radix copy of its module-local tests. See
+[the integer contracts](doc/strict-integer.md).
+
+[`(snail rational)`](src/snail/rational.sld) builds immutable reduced fractions
+from Integers. Its private constructor guarantees a positive denominator and
+canonical zero; named arithmetic and existing static overloads share that
+normalization rule. Exact conversion from binary64 exposes the finite dyadic
+value, while conversion back rounds the exact ratio once. The independent
+Fraction oracle in [`scripts/test-strict-numbers`](scripts/test-strict-numbers)
+checks complete values on raw/optimized Wasm and native64. See
+[the rational contracts](doc/strict-rational.md).
+
+[`(snail number)`](src/snail/number.sld) owns the explicit numeric boundary:
+small I64 exact values, arbitrary Rational values, F64 values and rectangular
+complex components. Exact arithmetic promotes beyond I64 through the same
+Integer/Rational operations; finite mixed comparisons preserve the exact dyadic
+float value. Static overloads, named conversions, projections and decimal
+formatting share these concrete representations. Rust formats only scalar F64
+text through an owned temporary handle. The `--domain` mode of
+[`scripts/test-strict-numbers`](scripts/test-strict-numbers) checks full values,
+round trips, signed zeros and rejected conversions on linked raw/optimized Wasm
+and native64. See [the Number contracts](doc/strict-number.md).
+
+[`(snail math)`](src/snail/math.sld) declares binary64 `sin`, `cos` and
+one-argument `atan` as ordinary typed externs. Their scalar C signatures call
+[`strict_math.rs`](src/strict_math.rs) in both the native and Wasm runtime;
+neither side creates Scheme roots or delegates arithmetic to the JavaScript host.
+[`scripts/test-strict-math`](scripts/test-strict-math) executes both linked Wasm
+forms and the native worker, checking finite values, signed zeros and nonfinite
+inputs. Mathematical accuracy follows the target's Rust standard library.
+
+[`(snail typing)`](src/snail/typing.sld) reexports the compiler's opt-in type
+syntax. Expansion preserves `:` declarations, `ann` expressions, `inst` views, and record
+schemas in IR, with resolved binding identities and source locations. The
+existing `define-record-type` macro also accepts typed fields; standard field
+forms keep their meaning.
+
+[`types.sld`](src/snail-scheme/types.sld) defines shallow categories, structural
+unions, nominal records, rigid type variables, internal occurrence intersections,
+and conservative type operations. [`type-inference.sld`](src/snail-scheme/type-inference.sld)
+solves rank-one `All` instantiations from arguments and expected results. Its
+lower-bound joins preserve the named `Boolean` and `Number` heads across calls
+and function views; explicit instantiation retains its supplied types.
+[`type-analysis.sld`](src/snail-scheme/type-analysis.sld) defines pure checking
+rules that take child facts as arguments. One declaration scan collects assignments,
+initializers, and nominal identities before narrowing. Typing, closure analysis,
+and constant evaluation share its binding stability decisions; immutable scopes
+retain declared types and verified contracts under binding identities. The visitor in `wasm.sld` passes
+transient facts directly to these rules and to emission. There are no expression
+type caches or separate signature and guard lookup tables. Checked callable views
+retain implementation origins for recursive-instantiation checks.
+
+[`typeclasses.sld`](src/snail-scheme/typeclasses.sld) elaborates class metadata
+and constrained `All` functions before emission. Its traversal reuses the pure
+checking rules, retaining overloaded uses and lambda signatures for specialization.
+It checks one coherent instance universe, verifies generic bodies under abstract
+method contracts, and clones concrete functions with fresh local identities.
+Implementations retain their source initialization sites. The output is ordinary
+resolved IR with class selection erased; the emitter checks it using transient facts.
+
+A guard's postcondition can justify a later optimization, never removal of that guard.
+The emitter checks local returns inline. The first guarded tail transfer owns
+one checking frame; the private closure ABI shares its pending-check context
+with subsequent tail calls. `wasm-runtime.sld` deduplicates recurring check sites in
+inner-to-outer order and executes them when the logical invocation returns.
+Ordinary calls and ABI callbacks start fresh; neither closures nor Rust roots
+capture this state.
+See [the implementation report](doc/typing-prototype.md) for syntax, soundness
+obligations, measurements, and the boundary between implemented and proposed rules.
+
+[`wasm-i32.sld`](src/snail-scheme/wasm-i32.sld) optionally specializes closed
+monomorphic i32 functions. Code and interval bounds travel together; unsupported
+expressions or possible i64 overflow cause whole-function fallback. Public
+closures keep the ordinary Scheme ABI, while eligible recursive workers use i32
+parameters/results and checked, widened arithmetic. Self tail calls save every
+operand before replacing parameters and branching to a local Wasm loop.
 
 ## Emitting WebAssembly
 
 [`wasm.sld`](src/snail-scheme/wasm.sld) takes a library graph of resolved IR and
-writes folded WAT. Its analysis records binding identity, assignment, lambda
-captures, and initialization. It does not build MIR, bytecode, a managed operand
+constructs folded Wasm datums in memory. It uses the shared declaration summary
+and separately analyzes lambda captures and initialization order. It does not build MIR, bytecode, a managed operand
 stack, or LLVM objects. Traversing the IR directly keeps conditionals and calls
-visible in the generated code.
+visible in the generated code. Runtime helpers are quoted datums too.
+`write-wasm` prints each definition with standard `write-simple`; only import
+string leaves need WAT-specific byte escaping. The portable backend passes
+that WAT to Binaryen. The Scheme-only module is optimized before linking.
+
+[`partial-eval.sld`](src/snail-scheme/partial-eval.sld) attempts bounded evaluation
+of closed scalar computations as the visitor checks and lowers each expression.
+The visitor checks every source child before consuming a scalar fold; even a
+discarded branch must typecheck. No fold index survives. Unknown values, effects,
+typed boundaries, overflow, or exhausted fuel abandon an attempt. Private
+temporary pairs and vectors may participate, but only scalar results become
+replacements. The bounded interpreter retains private activation slots and fuel;
+these are separate from the immutable typing scopes.
+Each visitor result also says whether interpreting the original syntax could
+bypass an inferred check. Children propagate that information directly; a guard
+inside an immediate lambda blocks folding the whole call and publishing its raw
+value. The interpreter still proves purity, successful execution, and bounded work.
+
+Tail expressions delay code assembly until their enclosing result checks are
+known. These small builders capture selected WAT fragments and explicit check
+recipes, never inferred facts or type scopes. They are consumed once before the
+enclosing procedure's code is published. Ordinary children already contain WAT.
+
+[`wasm-literals.sld`](src/snail-scheme/wasm-literals.sld) turns compound literals
+into a dependency-ordered object graph. Identity preserves shared objects without
+merging equal mutable containers; an explicit work list handles long lists.
+Wasm constant initializers consume this graph, including shared and cyclic
+datums supported by the reader.
 
 Each lambda has a fixed worker and a generic closure adapter. Known immutable
-fixed callees pass arguments directly; unknown calls use a GC argument array.
+fixed callees pass arguments directly. Immutable core names call their existing
+checked primitive adapters directly; those and unknown calls keep a GC argument
+array. Adapter selection preserves the actual closure environment and result-check
+context. Unknown calls retain runtime dispatch.
 Wasm tail-call instructions implement proper tail calls. Captures known to be
 initialized and immutable travel by value; mutable or early captures use cells.
 Recursive initialization preserves unreadable cells until each initializer
 finishes. Single/multiple-value contexts are checked explicitly.
 
-[`runtime/wasmgc.wat`](runtime/wasmgc.wat) defines the value representations and
+Annotated functions also have a checked entry. A direct call bypasses it only
+when every argument has sufficient evidence; generic adapters retain it.
+Per-expression facts remove redundant single-value and category checks, while
+initialization, field-content, arithmetic-overflow, and bounds checks require
+their own evidence. The runtime provides integer-only and known-category
+helpers without changing ordinary Scheme storage representations.
+
+[`src/snail-scheme/wasm-runtime.sld`](src/snail-scheme/wasm-runtime.sld) defines the value representations and
 checked primitives. Small integers are immediate `i31ref`; larger integers and
 floats are boxes. Other values use structs and arrays. Type equivalence is
 structural, so atom and text categories carry explicit tags. The engine owns
 GC and stack roots. `apply` and `call-with-values` stay in Wasm for tail calls.
 
-[`runtime/awi.wat`](runtime/awi.wat) exposes separately named scalar functions
+[`src/symbols.rs`](src/symbols.rs) owns one Rust `HashMap` from exact names to
+31-bit symbol IDs, with a reverse name vector. It is global to the linked Wasm instance. Symbol atoms carry the sign bit plus the ID; equality
+and identity hashing use that ID. `wasm-literals.sld` assigns the literal prefix
+and emits its names as constant data. The registry copies that prefix on first
+use, before assigning dynamic IDs. It never retains Scheme roots or reuses IDs;
+its mutex is released before allocating Scheme values.
+The Rust datum reader and `string->symbol` share this interning boundary.
+
+[`src/snail-scheme/wasm-abi.sld`](src/snail-scheme/wasm-abi.sld) exposes separately named scalar functions
 for Rust: owned root handles, construction, extraction, and synchronous Scheme
 callbacks. A reference table retains values; a free list reuses released slots.
-The [`snail-awi` SDK](awi/src/lib.rs) expresses that ownership through `Root`:
+The [Rust ABI module](src/abi.rs) expresses that ownership through `Root`:
 clone retains, drop releases, return transfers. Raw handles are unsafe and bound
-to their instance. The [`snail-abi` macro](abi/src/lib.rs) emits scalar export
-wrappers; it does not infer Scheme types or hide conversions.
+to their instance. Imports bind to the linked Scheme module's ABI exports.
+Rust uses ordinary `extern "C"` functions and the same explicit export names;
+there is no procedural-macro crate or implicit argument conversion.
 
-[`runtime/src/lib.rs`](runtime/src/lib.rs) implements Rust services: ports,
-printing, numeric text conversion, substring search, Unicode classification,
-process arguments, clocks, traces, and diagnostics.
-[`host.rs`](runtime/src/host.rs) owns port data and UTF-8 stream handling.
+[`src/lib.rs`](src/lib.rs) implements common Rust-to-Wasm services:
+printing, numeric text conversion, mathematics, substring search, Unicode classification,
+and binary value/UTF-8 conversion.
+Complex numbers have immutable real and imaginary GC references. Basic Wasm
+arithmetic preserves exact integer components; Rust implements complex
+transcendentals and polar operations with binary64 components. Exact integers
+remain limited to signed 64 bits, and exact noninteger rationals are unsupported.
+
+[`datum.rs`](src/datum.rs) implements `(scheme read)` in Rust compiled to Wasm. An iterative
+parser builds a flat Rust graph, then allocates rooted Scheme objects and installs
+their edges. This permits shared and cyclic datum labels without using the Rust
+call stack or exposing unrooted Scheme references. Comments, abbreviations,
+escaped strings/symbols, vectors, bytevectors, and numeric prefixes share one
+streaming reader. [`host.rs`](src/host.rs) owns buffered ports and their UTF-8
+cursor; `read`, `peek-char`, `read-char`, and `read-line` share its lookahead.
+The port retains fold-case state between datums and never retains its GC wrapper.
+
+[`text.rs`](src/text.rs) implements native Unicode casing and ordered comparisons.
+[`unicode.rs`](src/unicode.rs) supplies generated Unicode 16 casing exceptions
+and decimal digit ranges. Character operations use simple scalar mappings;
+string operations can expand characters. [`scripts/generate-unicode`](scripts/generate-unicode)
+rebuilds the exceptions from UnicodeData and CaseFolding against Rust's native
+casing operations, preserving the module's final tests.
+[`hash.rs`](src/hash.rs) uses those same full folds for case-insensitive text
+keys, and hashes complex numeric components according to `eqv?`.
 Rust-owned external resources need explicit close. The additional JS
-[`host.mjs`](runtime/host.mjs) registers WasmGC wrappers with
+[`host.mjs`](src/runtime/host.mjs) registers WasmGC wrappers with
 `FinalizationRegistry` for eventual resource cleanup. It is browser-compatible;
 [`run-wasi.mjs`](scripts/run-wasi.mjs) supplies the Node WASIp1 runner.
+Its kind-2 cleanup goes to the common numeric library's `snail:drop-array`
+export; kind-1 cleanup goes to the selected platform's port provider.
 
-[`examples/extension`](examples/extension/README.md) demonstrates Rust retaining
-Scheme values, calling Scheme callbacks, and returning rooted values. The driver
-puts runtime and extension dependencies in one generated Cargo cdylib, sharing
-one linear memory, then links it with the Scheme module. This avoids merging
-WASI imports whose pointers address different memories.
+[`src/interop_example.rs`](src/interop_example.rs) demonstrates Rust retaining
+Scheme values, invoking callbacks, and returning rooted values. It is compiled
+into the standard runtime; [its build script](examples/rust-interop/build.scm)
+provides the Scheme name-to-Wasm-module declarations. All Rust code in a portable Wasm program
+shares the runtime's one linear memory.
 
-## Continuations and native translation
+## Platform implementation and ownership
 
-The production Wasm backend currently rejects `call/cc`. Single-shot, delimited
-continuations are future work; multi-shot continuations are not a goal. Rust
-callbacks work, but suspension and cancellation across Rust frames need an
-explicit lifetime and unwinding contract. [AWI](doc/rust-interop.md) separates
-implemented ownership from this planned support.
+[`platform.rs`](src/platform.rs) implements default WASI ports, command context,
+clocks, and diagnostics. [`host.rs`](src/host.rs) owns buffered port resources;
+[`artifacts.rs`](src/artifacts.rs) resolves pinned companions. They share the
+link-time Rust artifact and memory with the common library. Provider selection
+happens at link time; independently instantiated extension reactors are future work.
+The [effect interface chapter](doc/book/effects.md) states the contracts and limits.
 
-The [bounded Wasm-to-LLVM experiment](experiments/wasm-llvm/README.md) is a
-separate executor, independent of Scheme IR. It lowers references to native
-pointers and uses BDWGC. It does not yet translate full linked Rust programs.
-Wastrel is a useful performance reference; its tested revision lacks stack
-switching. `--native` invokes an explicitly configured external translator.
-Both native and JavaScript hosts can implement the same finalization import.
+[`scripts/run-wasi.mjs`](scripts/run-wasi.mjs) loads one node, supplies WASI and
+host imports, and executes its entry. The environment handler sets guest cwd
+before Scheme runs. [`host.mjs`](src/runtime/host.mjs) supplies identity hashing
+and finalizers. Cleanup holds only scalar resource IDs; explicit close remains
+necessary for timely release. Fatal traps discard the node. `call/cc` and
+suspension across Rust frames are unsupported.
 
-## Tests and measurements
+## Tests, measurements, and the application model
 
-Scheme unit tests live in each module's final `Tests` section with one
-conditional `test-<module>` export. `make test` enables the Chibi `snail-tests`
-feature and invokes [`tests/snail-scheme/test.scm`](tests/snail-scheme/test.scm).
-The compiler advertises `snail-scheme`, not its host's test features, so its own
-sources compile without importing host-only test modules.
+[`doc/book/`](doc/book/index.md) contains the recovered node/runtime model,
+connection diagrams, concrete build APIs, installed Node host, and GUI stubs.
+The runtime runs a node using its selected platform. Spawn/connect/message
+contracts are documented model behavior, not installed command capabilities.
+[`scripts/book`](scripts/book) builds or serves the book.
 
-Rust unit tests remain in implementation modules. `scripts/test-backend`
-executes linked Wasm semantic and diagnostic fixtures; `scripts/test-cli`
-checks modes, traces, publication, arguments, extension linking, callbacks, and
-root ownership. Native adapter checks require `SNAIL_WASM_NATIVE` and fail
-clearly if none is configured; they are not counted as native passes.
+Scheme unit tests live in module-local final `Tests` sections. `make test` enables
+`snail-tests`; Rust helper tests run through `cargo test --offline`. Backend checks
+execute linked Wasm. Build and generator checks cover publication, relocation,
+callbacks, and root ownership. `scripts/test-effects` executes alternate providers
+and rejects invalid bindings. `scripts/test-self-host` runs and rebuilds the Wasm
+command while Chibi remains the bootstrap recipe. See [all checks](doc/backend.md).
 
-[`benchmarks/`](benchmarks/README.md) contains frozen CPU, memory, IO, and GC
-workloads plus historical measurement tools. CPU uses redundant recursive
-Fibonacci with an independent oracle; memory uses a sieve; IO searches a frozen
-corpus; GC builds cyclic trees. Historical stack/LLVM ablation tools and
-reports describe their original backend. The GC workload's forced-collection
-counters need engine instrumentation on WasmGC, which does not expose them.
-Record execution time separately from compilation and startup, verify answers,
-and retain raw samples and Chez/Chibi ratios when comparing backends.
+`make benchmark` runs the pinned 57-workload [R7RS suite](benchmarks/r7rs.py).
+[`compile-self.py`](benchmarks/compile-self.py) freezes sources and measures the
+compiler separately. Preparation finishes before timing; reports retain every
+failure. [The migration report](benchmarks/results/2026-10-12-native-v8/README.md)
+compares the archived native path with V8 on identical optimized Scheme modules.
+The restored native path is validated by [`scripts/test-native`](scripts/test-native).
+[`native.c`](src/native.c) implements checked Wasm operations, root frames and
+terminal cleanup. Array operations receive their constant element stride from
+[`llvm.sld`](src/snail-scheme/llvm.sld); references retain eight-byte storage,
+while numeric arrays use their declared widths, including static initializers.
+[`precise-gc.c`](src/precise-gc.c) traces only declared references,
+reuses Immix line holes and grows through additional nonmoving regions when
+collection cannot satisfy an allocation or leaves little headroom. Each region
+owns its exact-start, block and line maps; an explicit heap-size setting remains
+a hard total cap.
+[`native.rs`](src/native.rs) closes the shared Rust
+resources exactly once. [`abi.rs`](src/abi.rs) binds owned Rust roots directly to
+generated native C adapters; it uses test stubs only in standalone Rust tests.
 
-## The actor platform
+[`benchmarks/wasm-reference/`](benchmarks/wasm-reference/README.md) contains
+standalone Rust/WASIp1 reference algorithms and their Node runner. Its suite
+validator covers all 57 canonical source implementations, freezing source/tool/binary
+hashes and preserving target failures separately from successful full-count
+checks. The historical five-case measurement driver freezes original inputs and
+compiled controls and records separate workload and process times. The [five-case report](benchmarks/results/2026-10-13-wasm-five-reference/README.md)
+compares those references with Chez and a separately measured historical Snail
+batch; it does not change the compiler or runtime.
 
-[`compiler.sld`](src/snail-scheme/compiler.sld) builds an actor facade from the
-entry library's resolved exports and the codec. This preserves renamed binding
-identity and dependency initialization. [`wasm.sld`](src/snail-scheme/wasm.sld)
-emits scalar AWI wrappers; the driver's `--actor` entry initializes the library
-once without invoking a Scheme main loop.
+The reference library's `boyer` module shares the full directional-unification,
+rewrite and tautology machinery of the two prover executables. Their distinct
+allocation rules remain visible: `sboyer` reuses unchanged argument and call
+cells, while `nboyer` reconstructs them. Constructor identities refer into an
+owned symbol-record table; quoted lemma data is preserved separately.
+The `peval` executable retains mutable residual-program cells and lexical
+specialization frames; its untimed `audit_alpha.py` comparator checks complete
+programs modulo bound-variable renaming. The `parsing` executable independently
+ports the generated scanner and LL(1) grammar, including temporary list-tail
+copying and original action/error behavior.
+The `scheme` executable recompiles each supplied expression before executing its
+lexical closures; global binding mutation and escaped environment lifetimes
+remain observable. The `dynamic` executable runs the original self-applied type
+inference passes and materializes the complete tagged program, keeping its
+primitive type graphs persistent across calls.
 
-[`actor-wire.sld`](src/snail-scheme/actor-wire.sld) reads calls with the existing
-reader and validates a limited portable datum subset. It never evaluates input.
-[`actor-instance.mjs`](runtime/actor-instance.mjs) owns WASI initialization and
-the AWI roots used during invocation. [`actor-worker.mjs`](runtime/actor-worker.mjs)
-keeps that instance in one subprocess. [`actors.mjs`](runtime/actors.mjs)
-separates worker lifetime from connection-owned pending calls. A fatal call
-discards its worker; siblings remain usable. `scripts/test-actors` executes the
-compiled artifact and checks isolation, root lifetimes, and shutdown behavior.
-The [counter example](examples/actors/README.md) is runnable now; browser hosting,
-typed record codecs, Scheme suspension, and GC policy controls remain future work.
+The benchmark's independent `compiler` executable compiles its supplied Scheme
+program to the original 68000 assembly format on each iteration.
+[`compiler.rs`](benchmarks/wasm-reference/src/compiler.rs) owns located syntax,
+lexical identities and normalization;
+[`compiler_gvm.rs`](benchmarks/wasm-reference/src/compiler_gvm.rs) builds register/
+stack/closure graphs, and
+[`compiler_blocks.rs`](benchmarks/wasm-reference/src/compiler_blocks.rs) purifies
+those graphs and records backward slot requirements.
+[`compiler_68000.rs`](benchmarks/wasm-reference/src/compiler_68000.rs) emits machine
+instructions with explicit operand/frame lifetimes;
+[`compiler_asm.rs`](benchmarks/wasm-reference/src/compiler_asm.rs) owns object words,
+symbol/reference records, shared labels, relocation and branch tensioning.
+Complete linked diagnostics accompany the unchanged 2,000-repeat, 497-line
+predicate. These reference modules are separate from Snail's Chibi-hosted
+WasmGC compiler.
 
-[Why Snail-Scheme?](doc/why-snail-scheme.md) defines the actor, connection, and
-artifact model. The [three tutorial projects](doc/tutorials/README.md) specify
-game frame isolates, distributed chat, and GPU tensor training as integration
-goals. [Reader generation](doc/generate-library.md) and
-[staged programs](doc/staged-programs.md) remain planned features.
+[`benchmarks/string-reference-controls/`](benchmarks/string-reference-controls/README.md)
+holds separate byte/u32 String diagnostics with four fresh buffers per growth
+and explicit allocation-initialization controls. Complete untimed payload
+oracles and a separate allocation/zero-fill probe check their work; these
+controls do not change the canonical 57 references or claim measured speedups.
+
+[`benchmarks/strict-cat/`](benchmarks/strict-cat/README.md) compiles a scalar copy
+worker from strict Scheme and links it into the frozen cat harness. Preparation,
+linked Unicode/error/ownership checks, and clean timing are separate operations.
+Its [report](benchmarks/results/2026-10-13-strict-source-cat/README.md) preserves
+both source-compiled and hand-written scalar controls with the same provider.
+
+[`benchmarks/strict-suite/`](benchmarks/strict-suite/README.md) adapts arithmetic,
+closure, typed-list, mutable-vector and nominal-data kernels to the strict compiler, keeping original inputs
+and counts. It separates preparation/behavior checks, clean timing, explicit
+Chez flonum controls, and artifact replay.
+[`data_ports.py`](benchmarks/strict-suite/data_ports.py) owns the exact paraffins
+and gcbench source edits, concrete representations and separate structural
+oracles. Their canonical optimized artifacts are inspected independently:
+paraffins can discard unobserved payloads; gcbench currently loses its intended
+long-lived tree root and is excluded from timing.
+[`enumeration_ports.py`](benchmarks/strict-suite/enumeration_ports.py) owns the
+graphs/mperm source adaptations, complete-value encoders and independent finite
+graph/permutation oracles. Their observer modules remain separate from canonical
+workloads; mperm keeps initial queue construction before the timer. The
+[`simplex_port.py`](benchmarks/strict-suite/simplex_port.py) module makes simplex's
+mutable scalar bindings explicit and gives its three result forms a closed
+nominal type. Separate probes compare the complete result, tableau and ordered
+matrix stores. A small rational LP oracle distinguishes source equivalence from
+mathematical correctness, including a preserved upstream equality-case failure.
+[`deriv_port.py`](benchmarks/strict-suite/deriv_port.py) gives deriv's finite
+atoms and recursive pairs a closed datum type while preserving its list spines,
+input sharing and original quotient rule. It owns exact source edits and
+separate complete-expression/failure probes; the runner also checks Chez
+identity and the original current-result loop. Its scalar-only hiding boundary
+requires separate optimized-work inspection before timing.
+[`mbrotz_port.py`](benchmarks/strict-suite/mbrotz_port.py) expresses the original
+complex Mandelbrot operations as a closed pair of F64 components while keeping
+the complex escape and matrix loops intact. Separate probes expose every pixel
+and ordered store, exact component bits and escape boundaries. Its scalar size
+uses the value-returning hiding import; its source allocation structure and
+optimized retained objects are documented separately.
+[`string_port.py`](benchmarks/strict-suite/string_port.py) keeps the original
+append/substring workload over the compiler's native Unicode String, changing
+only its mutable global to Ref. It preserves the initial false result and
+Boolean-or-I64 predicate through scalar inputs. Separate modules check complete
+characters, replacement order and copy independence; canonical retained payload
+work remains a separate evidence question from the original length predicate.
+[`puzzle_port.py`](benchmarks/strict-suite/puzzle_port.py) keeps puzzle's complete
+board search and both untimed setup regions. Its local escape becomes explicit
+Boolean search control; mutable scalars use Ref and false-or-count results use a
+closed variant. Separate probes compare every board/mask cell, retained row
+identities, ordered effects and bounds-failure prefixes against original Chez
+and an independent board model. This does not add continuation support.
+[`lattice_port.py`](benchmarks/strict-suite/lattice_port.py) preserves lattice's
+polymorphic enumeration with typed lattice/binding products and mutable list
+tails. It keeps destructive reversal, branch-result lists and append sharing.
+Separate complete-poset oracles, comparison traces and node-identity probes
+check the source adaptation against both Chez forms.
+[`destruc_port.py`](benchmarks/strict-suite/destruc_port.py) retains destructive
+row splices with two concrete mutable-list instances, explicit head/tail Ref
+cells and empty/integer items. Its separate graph oracle and node registries
+check ordered effects, sharing and abandoned nodes; the canonical predicate
+compares the complete nested result. The source explicitly selects the operand
+order observed in the original Chez diagnostic control.
+
+[`ray_port.py`](benchmarks/strict-suite/ray_port.py) preserves Ray's complete
+sphere traversal, negative-root behavior, geometry and PGM formatting with
+concrete products and optional results. It reuses scalar text output, retains
+untouched and adapted Chez controls, and checks complete images, floating bit
+patterns, tie order and file lifecycle. Its dedicated
+[`ray-host.mjs`](benchmarks/strict-suite/ray-host.mjs) brackets initialization and
+the timed worker with resource cleanup; runtime input decoding precedes timing.
+
+[`mazefun_port.py`](benchmarks/strict-suite/mazefun_port.py) retains the functional
+maze's persistent nested lists, deterministic shuffle and ordered cavity floods.
+Coordinates are cavity labels in one closed variant; dimension products and
+finite result variants keep the remaining pair/symbol roles concrete. A Chez
+reader preserves complete expected mark lists before timing, and the timed
+predicate checks their full shape and contents. Separate output and cavity-trace
+probes cover both Chez forms and raw/optimized Wasm; persistent spine identity
+is additionally checked in Chez.
+[`nucleic_port.py`](benchmarks/strict-suite/nucleic_port.py) preserves the complete
+nucleotide database and ordered geometry search. Counted reversible edits map
+heterogeneous nucleotide vectors to concrete products and mutable assignment
+identity to Ref; all coordinate vectors, constants and source setters remain.
+Its original and adapted Chez controls share complete-value, ordered-solution
+and mutation probes with linked Wasm and native execution. The dedicated
+[`nucleic-host.mjs`](benchmarks/strict-suite/nucleic-host.mjs) supplies scalar
+inputs and observations, checks the worker, and closes resources on every exit.
+
+[`bv2string_port.py`](benchmarks/strict-suite/bv2string_port.py) preserves the
+bytevector benchmark's RNG, three conversions, string comparisons and failure
+diagnostics. Reversible ref edits and exact integer ties-to-even rounding keep
+the original and adapted kernels reviewable. Separate preparation probes compare
+the complete RNG and byte/character streams across Chez, Wasm, native and Rust;
+the canonical timed source retains its original repetition count and work.
+
+[`earley_port.py`](benchmarks/strict-suite/earley_port.py) prepares the complete
+Earley parser, including forward closure, backward filtering, ordered tree
+materialization and the separate counting API. Concrete grammar/token/parser
+records retain callable fields, optional slots retain false-versus-index
+semantics, and typed recursive tree elements retain the original list work.
+The finite atom vocabulary covers the canonical grammar and explicit probes;
+it does not implement general Scheme symbols. Preparation includes untouched
+and adapted Chez controls, complete small-tree observations, mutable-state
+identity probes and native execution. Its preparation does not add measured
+coverage.
+
+[`matrix_port.py`](benchmarks/strict-suite/matrix_port.py) preserves the complete
+modular matrix search and ordered answers. Counted edits make lazy permutation
+messages, GCD result alternatives, mutable prime tails and collector state
+concrete. Original/adapted Chez, raw/optimized Wasm and native probes compare
+full results, callback order and mutable aliases; independent small models
+check finite-field spans and signed-permutation maximality. The existing Rust
+reference is validated as a separate algorithm and layout control.
+
+[`integer_ports.py`](benchmarks/strict-suite/integer_ports.py) preserves the
+three complete pi algorithms and Chudnovsky binary splitting using `(snail
+integer)`. Reversible source edits lift bounded constants explicitly and keep
+scalar digit/count controls separate from arbitrary-precision arithmetic. The
+preparation compares complete original-sized outputs on raw/optimized Wasm,
+native64, original/adapted Chez and the identical limb Scheme body on Chez with
+checked I64/I32 intermediates. Its scalar providers transport expected decimal
+text and observed characters; all numerical work remains in Scheme.
+
+[`integer_controls.py`](benchmarks/strict-suite/integer_controls.py) prepares the
+eight comparison controls, including the exact native-final module on V8 and
+separate native-bigint and same-limb Chez programs. It places input preparation
+before the optional clock, the complete numerical predicate inside it, and
+serialization afterward. Count and wrong-result controls exercise the production
+artifacts; separate probes observe every complete repetition without changing
+the measured kernels. Preparation never starts a measurement.
+
+[`reader_ports.py`](benchmarks/strict-suite/reader_ports.py) preserves the complete
+Sum1 and Read1 file-reading kernels. Reversible edits expose typed read results,
+numeric conversion and the initial false datum. The Chez control uses the exact
+Scheme parser body with explicit scalar/datatype compatibility. Separate hosts
+observe full per-worker file lifecycles and time the unchanged count loops;
+complete stream/result probes and the distinct Rust reader controls remain
+separate from clean measurement.
+[`chez-number.scm`](benchmarks/strict-suite/chez-number.scm) supplies that control's
+scalar numeric-token boundary: owned handles retain one lexical classification,
+while the unchanged Integer, Rational, Number, Datum and reader library bodies
+run in private scopes. Exact arithmetic stays in those Scheme libraries;
+binary64 text compatibility is checked against the Rust target's exact bytes.
+The separate output-program scope adds
+[`chez-io.scm`](benchmarks/strict-suite/chez-io.scm): binary scalar reads, borrowed
+stdout, owned file IDs and invocation cleanup. It runs the unchanged typed I/O
+and Datum writer bodies, preserving the earlier reader controls' generated text.
+
+[`browse_port.py`](benchmarks/strict-suite/browse_port.py) adapts the complete
+Browse database and backtracking matcher through counted reversible source edits.
+It keeps the association lists, copied cyclic pattern ring, destructive shuffle,
+and all three matcher return classes. The empty-list result remains truthy.
+Separate probes compare every recursive operand and return with original Chez;
+the clean builds retain the original 2,000-invocation loop and complete predicate.
+The datum library owns reusable list/identity operations, while the adapter owns
+the workload's typed boundaries and its original-source compatibility controls.
+
+[`boyer_port.py`](benchmarks/strict-suite/boyer_port.py) preserves the complete
+NBoyer and SBoyer provers, including their post-harness definitions and numeric
+rewrite-count predicates. Reversible edits expose existing `Datum` and `Ref`
+types while retaining constructor-record cycles, association lists and SBoyer's
+pair reuse rule. It prepares original/adapted Chez, linked raw/optimized Wasm,
+native64 and the independent Rust controls. Separate structural and work-count
+programs keep counter instrumentation out of constructor-order observations.
+Native heap reservations and capacity failures remain explicit evidence, and
+preparation starts no clean measurement.
+
+[`conform_port.py`](benchmarks/strict-suite/conform_port.py) preserves Conform's
+functional sort and sets, cyclic type graph, shared mutable memo tables, and
+temporary red conformity assumptions through concrete records and Ref fields.
+Its reversible ledger produces the same adapted kernel for strict and Chez.
+The [probe fixture](tests/strict-conform/probe.scm) observes graph/table structure,
+alias mutations, ordering, and every invocation's algorithmic work separately
+from the original 500-invocation benchmark. Preparation freezes optimized Wasm,
+its mechanical native translation, both Chez sources, and distinct Rust controls.
+
+[`maze_port.py`](benchmarks/strict-suite/maze_port.py) retains Shivers's complete
+hexagonal Maze workload, its recursive integer helpers, union-find compression,
+wall order, DFS/rerooting, and full character-list output. Concrete records and
+Refs replace mutable pairs and heterogeneous vectors. Its sole lexical escape
+becomes a callback completion test that stops the reverse wall traversal at the
+same point; it adds no general continuation support. Counted edits reverse to
+the pinned source, and a separate observation program compares ordered walls,
+mutations, identities, every output character, and full-count source operations.
+The module prepares original/adapted Chez, raw/optimized linked Wasm, native64,
+the exact native-final Wasm on V8, and the unchanged indexed Rust reference.
+
+[`parsing_port.py`](benchmarks/strict-suite/parsing_port.py) keeps Parsing's
+complete generated scanner and LL(1) parser. Counted reversible edits expose
+the existing `Datum`, Symbol and eight `Ref` bindings without replacing the
+grammar or character-list file loader. The full 2,500-parse worker retains its
+actual timed file load, simultaneous updates, EOF quirks and complete result
+predicate. Preparation compares original/adapted Chez, raw/optimized Wasm,
+native and the independent Rust control. Separate token/datum streams, named
+procedure counters and alias/reset checks remain outside clean timing. The
+[observation fixture](tests/strict-parsing/probe.scm) and its native entry live
+under `tests/`; preparation records them as driver inputs separately from the
+historical compiler-source basis.
+
+[`compiler_port.py`](benchmarks/strict-suite/compiler_port.py) inventories every
+top-level form of the complete compiler workload and removes only its import
+and harness. [`compiler-data.scm`](benchmarks/strict-suite/compiler-data.scm)
+establishes mutable list, located syntax, lexical and parse-tree representations;
+[`compiler-result.scm`](benchmarks/strict-suite/compiler-result.scm) makes the
+source's error-only escape explicit through typed results and scoped handler
+state. The [foundation checker](tests/strict-compiler/check.py) runs identity,
+mutation, ordering and abort probes on Chez, linked Wasm and actual native64.
+[`compiler-collections.scm`](benchmarks/strict-suite/compiler-collections.scm)
+supplies concrete signatures and storage operations for the original sort,
+ordered occurrence sets, dependency graphs and queues. The adapter retains each
+complete source algorithm in a reversible ledger, including its sharing and
+mutation order. Separate complete-source Chez controls isolate the chosen map
+order without treating those controls as typed compiler coverage.
+The [port contract](benchmarks/strict-suite/compiler-port.md) distinguishes these
+checked foundations from the still-pending complete compiler adaptation.
+
+The
+[vector report](benchmarks/results/2026-10-13-strict-vector-array1/README.md)
+checks whether the allocation and element loops survive compilation; its
+coverage table retains failed and unported workloads.
+[`benchmarks/strict-wc/`](benchmarks/strict-wc/README.md)
+extends the scalar-I/O experiment to Unicode character/word/line counting inside
+the frozen legacy harness, with native counts and an owned input-port wrapper.
+
+## Actor and HTML prototypes
+
+`source-library->wasm` in `compiler.sld` loads an actor library and its
+`actor-wire.sld` codec into one expansion cache. The facade retains resolved
+value exports while excluding macros. `wasm.sld` emits same-instance ABI wrappers
+and a guarded initializer; `scripts/build-actor` links the current Rust runtime
+and platform through the existing Binaryen pipeline.
+
+`runtime/actor-instance.mjs` owns the instance-local roots. `runtime/actors.mjs`
+and `actor-worker.mjs` send only bounded S-expression text between separate Node
+subprocesses; connection-owned promises fail when a worker or connection closes.
+Traps discard the instance rather than reentering it for cleanup.
+
+`react.sld` resolves reusable tree components, `html.sld` renders those trees,
+and `ui.sld` pairs immutable application models with reducers and views.
+`ui-server.sld` is the local Chibi HTTP host: it prepares the next complete page
+before publication and rejects stale actions. These prototypes do not implement
+the planned browser GUI or general Node platform spawn/connect interfaces.

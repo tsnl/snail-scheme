@@ -1,0 +1,15 @@
+;; The command wrapper owns paths and assembly; compilation stays Chibi hosted.
+(import (scheme base) (scheme cxr) (scheme process-context)
+        (snail-scheme strict-compiler) (snail-scheme chromium-trace)
+        (snail-scheme wasm-optimize))
+(check-binaryen-tools)
+(define arguments (cdr (command-line)))
+(define output (caddr arguments))
+(define wat (string-append output ".wat"))
+(define raw (string-append output ".raw.wasm"))
+(with-chromium-trace-to (string-append output ".trace.json")
+                        (lambda ()
+                          (apply strict-source-file->wat-file (car arguments) (cadr arguments) wat
+                                 (map string->symbol (cdddr arguments)))
+                          (assemble-wasm wat raw)
+                          (optimize-scheme-wasm raw output)))

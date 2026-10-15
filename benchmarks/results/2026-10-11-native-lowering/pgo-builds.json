@@ -1,0 +1,200 @@
+[
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-generate=/tmp/snail-native-ablation-20261011/build/ablation/compiler-profile",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler-pgo-train"
+    ],
+    "stderr": ""
+  },
+  {
+    "training": {
+      "seconds": 30.634745152,
+      "wall_seconds": 30.641582552998443,
+      "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+      "stderr": ""
+    },
+    "workload": "compiler"
+  },
+  {
+    "command": [
+      "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/llvm-profdata",
+      "merge",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler.profdata",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler-profile/default_12305075749545275386_0.profraw"
+    ]
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-use=/tmp/snail-native-ablation-20261011/build/ablation/compiler.profdata",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/compiler-pgo"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-generate=/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-profile",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-pgo-train"
+    ],
+    "stderr": ""
+  },
+  {
+    "training": {
+      "seconds": 0.111657,
+      "wall_seconds": 0.11333122299402021,
+      "checksum": 1076472576,
+      "stderr": ""
+    },
+    "workload": "fibonacci"
+  },
+  {
+    "command": [
+      "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/llvm-profdata",
+      "merge",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.profdata",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-profile/default_459965307486808424_0.profraw"
+    ]
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-use=/tmp/snail-native-ablation-20261011/build/ablation/fibonacci.profdata",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/fibonacci-pgo"
+    ],
+    "stderr": ""
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-generate=/tmp/snail-native-ablation-20261011/build/ablation/tail-profile",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail-pgo-train"
+    ],
+    "stderr": ""
+  },
+  {
+    "training": {
+      "seconds": 0.391076,
+      "wall_seconds": 0.7857190099894069,
+      "checksum": 4409231671296,
+      "stderr": ""
+    },
+    "workload": "tail"
+  },
+  {
+    "command": [
+      "/nix/store/m64szdzwmazkdagvsr9c124dypixsjxn-llvm-21.1.8/bin/llvm-profdata",
+      "merge",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail.profdata",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail-profile/default_3139305106044808745_0.profraw"
+    ]
+  },
+  {
+    "command": [
+      "clang",
+      "-O3",
+      "-flto",
+      "-fuse-ld=lld",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail.ll",
+      "/tmp/snail-native-ablation-20261011/src/native.c",
+      "/tmp/snail-native-ablation-20261011/build/ablation/runtime.a",
+      "-lgc",
+      "-lm",
+      "-ldl",
+      "-lpthread",
+      "-I",
+      "/nix/store/nw0fc624zk4fjqwaws8kyv23d7q5dr2i-boehm-gc-8.2.12-dev/include",
+      "-L",
+      "/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-Wl,-rpath,/nix/store/fhmdw5g0b3d1ahcdi0vl5wxcf5f6ylf8-boehm-gc-8.2.12/lib",
+      "-fprofile-use=/tmp/snail-native-ablation-20261011/build/ablation/tail.profdata",
+      "-o",
+      "/tmp/snail-native-ablation-20261011/build/ablation/tail-pgo"
+    ],
+    "stderr": ""
+  }
+]

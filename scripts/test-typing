@@ -1,0 +1,610 @@
+#!/usr/bin/env python3
+"""Check typing diagnostics and compare guarded/optimized linked Wasm behavior."""
+
+import os
+import random
+import re
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BUILD = ROOT / "build/typing-tests"
+IMPORTS = "(import (scheme base) (scheme write) (scheme process-context) (snail typing))\n"
+ABI_IMPORT = "(import (only (snail-scheme extensions) rust-call-with-result))\n"
+ABI_CALL = "(rust-call-with-result (lambda () (values 1 2)) "
+
+# ---- Counterexamples and observable behavior ----
+
+# Expected stdout includes effects that must occur before the failing check.
+CASES = {
+    "poly-renamed": ('(import (prefix (snail typing) t:)) '
+                     '(t:: id (t:All (A) (t:-> A A))) (define (id x) x) '
+                     '(write ((t:inst id t:String) "renamed"))', '"renamed"', ""),
+    "poly-call-order": ('(: first (All (A B) (-> A B A))) (define (first x y) x) '
+                        '((begin (display "o") (inst first String String)) '
+                        '(begin (display "a") 7) (begin (display "b") "good"))',
+                        "abo", "incorrect value type"),
+    "poly-inferred-guard": ('(: id (All (A) (-> A A))) (define (id x) (display "g") x) '
+                            '(: f (-> ? String)) (define (f x) (display "f") (id x)) '
+                            '(f 7)', "f", "incorrect value type"),
+    "poly-i32-guard": ('(: id (All (A) (-> A A))) (define (id x) x) '
+                       '(: f (-> ? i32)) (define (f x) (id x)) (f 2147483648)',
+                       "", "incorrect value type"),
+    "poly-concrete-entry": ('(: f (All (A) (-> A String A))) (define (f x y) x) '
+                            '(apply f (list 7 8))', "", "incorrect value type"),
+    "poly-count-entry": (ABI_IMPORT + '(: id (All (A) (-> A A))) (define (id x) x) ' +
+                         ABI_CALL + '(lambda (value pair vector) '
+                         '(display "a") ((inst id String) value)))',
+                         "a", "expected a single value"),
+    "poly-count-result": ('(: f (All (A) (-> A Any))) (define (f x) (values 1 2)) '
+                          '(call-with-values (lambda () (apply (inst f String) (list "x"))) list)',
+                          "", "expected a single value"),
+    "poly-predicate-mutation": ('(: test (All (A B) (-> A B Boolean))) '
+                                '(define (test x ignored) (string? x)) '
+                                '(define x "old") (if ((inst test Any Any) x (set! x (quote changed))) (string-length x) 0)',
+                                "", "incorrect value type"),
+    "poly-predicate-effect": ('(define x "old") (: test (All (A) (-> A Boolean))) '
+                              '(define (test value) (set! x (quote changed)) (string? value)) '
+                              '(if ((inst test Any) x) (string-length x) 0)',
+                              "", "incorrect value type"),
+    "poly-erased-apply": ('(: id (All (A) (-> A A))) (define (id x) x) '
+                          '(write (apply (inst id String) (list 42)))', "42", ""),
+    "poly-apply-result": ('(: id (All (A) (-> A A))) (define (id x) x) '
+                          '(: f (-> String)) (define (f) (apply (inst id String) (list 42))) '
+                          '(f)', "", "incorrect value type"),
+    "poly-instance-arity": ('(: id (All (A) (-> A A))) (define (id x) x) '
+                            '((inst id String) "one" "two")', "", "wrong number of arguments"),
+    "tail-host-isolation": (ABI_IMPORT +
+                            '(: f (-> ExactInteger)) (define (f) ' + ABI_CALL +
+                            '(lambda (value pair vector) 42))) (write (f))', "42", ""),
+    "tail-count-any": ('(: f (-> ExactInteger Procedure Any)) '
+                       '(define (f n next) (next n)) '
+                       '(define (step n) (if (= n 0) (begin (display "done") (values 1 2)) '
+                       '(f (- n 1) step))) (f 100000 step)', "done", "expected a single value"),
+    "tail-range": ('(: f (-> ExactInteger Procedure i32)) (define (f n next) (next n)) '
+                   '(define (step n) (if (= n 0) (begin (display "done") 2147483648) '
+                   '(f (- n 1) step))) (f 100000 step)', "done", "incorrect value type"),
+    "tail-check-order": ('(define-record-type <existing> (existing) existing?) '
+                         '(: a (-> ExactInteger Procedure ExactInteger)) (define (a n next) (next n)) '
+                         '(: b (-> ExactInteger Procedure <later>)) (define (b n next) (next n)) '
+                         '(define (route-one n) (b n route-two)) '
+                         '(define (route-two n) (a n finish)) '
+                         '(define (finish n) (display "done") (existing)) '
+                         '(a 0 route-one) (define-record-type <later> (later) later?)',
+                         "done", "incorrect value type"),
+    "tail-delayed-check": ('(define-record-type <existing> (existing) existing?) '
+                           '(: f (-> Procedure <later>)) (define (f next) (next)) '
+                           '(f (lambda () (display "done") (existing))) '
+                           '(define-record-type <later> (later) later?)',
+                           "done", "read of an uninitialized binding"),
+    "tail-local-check-order": ('(define-record-type <existing> (existing) existing?) '
+                               '(define container (cons (existing) #f)) '
+                               '(: f (-> Procedure ExactInteger)) (define (f next) (next)) '
+                               '(f (lambda () (display "done") (ann (car container) <later>))) '
+                               '(define-record-type <later> (later) later?)',
+                               "done", "read of an uninitialized binding"),
+    "tail-body-error": ('(: a (-> Procedure ExactInteger)) (define (a next) (next)) '
+                        '(: b (-> Procedure String)) (define (b next) (next)) '
+                        '(a (lambda () (b (lambda () (display "done") '
+                        '(+ 9223372036854775807 1)))))', "done", "integer overflow"),
+    "abi-argument-count": (ABI_IMPORT + ABI_CALL +
+                           '(lambda (value pair vector) (display "a") (+ value 1)))',
+                           "a", "expected a single value"),
+    "abi-car-count": (ABI_IMPORT + ABI_CALL +
+                      '(lambda (value pair vector) (display "a") (+ (car pair) 1)))',
+                      "a", "expected a single value"),
+    "abi-cdr-count": (ABI_IMPORT + ABI_CALL +
+                      '(lambda (value pair vector) (display "a") (+ (cdr pair) 1)))',
+                      "a", "expected a single value"),
+    "abi-vector-count": (ABI_IMPORT + ABI_CALL +
+                         '(lambda (value pair vector) (display "a") (+ (vector-ref vector 0) 1)))',
+                         "a", "expected a single value"),
+    "abi-order": (ABI_IMPORT + ABI_CALL +
+                  '(lambda (value pair vector) (display "a") '
+                  '((begin (display "o") +) value (begin (display "b") 1))))',
+                  "a", "expected a single value"),
+    "abi-heap-order": (ABI_IMPORT + ABI_CALL +
+                       '(lambda (value pair vector) (display "a") '
+                       '((begin (display "o") +) (car pair) (begin (display "b") 1))))',
+                       "a", "expected a single value"),
+    "abi-alias-count": (ABI_IMPORT + ABI_CALL +
+                        '(lambda (value pair vector) (display "a") '
+                        '(let ((saved value)) (display "b") saved)))',
+                        "a", "expected a single value"),
+    "abi-unused-count": (ABI_IMPORT + '(write ' + ABI_CALL +
+                         '(lambda (value pair vector) 42)))', "42", ""),
+    "abi-return-count": (ABI_IMPORT + '(write (call-with-values (lambda () ' + ABI_CALL +
+                         '(lambda (value pair vector) value))) list))', "(1 2)", ""),
+    "abi-assigned-count": (ABI_IMPORT + '(write ' + ABI_CALL +
+                           '(lambda (value pair vector) (set! value 3) (+ value 1))))', "4", ""),
+    "abi-typed-count": (ABI_IMPORT + ABI_CALL +
+                        '(ann (lambda (value pair vector) 42) (-> Any Any Any ExactInteger)))',
+                        "", "expected a single value"),
+    "entry": ('(: f (-> ExactInteger ExactInteger)) (define (f x) (+ x 1)) '
+              '(apply f (list "bad"))', "", "incorrect value type"),
+    "order": ('(: f (-> ExactInteger ExactInteger ExactInteger)) (define (f x y) (+ x y)) '
+              '(f (begin (display "a") "bad") (begin (display "b") 1))', "ab", "incorrect value type"),
+    "values": ('(: f (-> ExactInteger)) (define (f) (values 1 2)) (f)', "", "expected a single value"),
+    "uninitialized": ('(: x ExactInteger) (define x x) x', "", "read of an uninitialized binding"),
+    "mutation": ('(define x 1) (define (change!) (set! x "bad")) '
+                 '(if (exact-integer? x) (begin (change!) (+ x 1)) 0)', "", "expected a number"),
+    "mutable-predicate": ('(define test exact-integer?) (set! test (lambda (x) #t)) '
+                          '(define x "bad") (if (test x) (+ x 1) 0)', "", "expected a number"),
+    "field-mutation": ('(define x (cons 1 2)) (if (exact-integer? (car x)) '
+                       '(begin (set-car! x "bad") (+ (car x) 1)) 0)', "", "expected a number"),
+    "result": ('(: f (-> ? ExactInteger)) (define (f thunk) (thunk)) '
+               '(f (lambda () "bad"))', "", "incorrect value type"),
+    "overflow": ('(: f (-> ExactInteger ExactInteger)) (define (f x) (+ x 1)) '
+                 '(f 9223372036854775807)', "", "integer overflow"),
+    "shadow": ('(let ((exact-integer? (lambda (x) #t))) '
+               '(if (exact-integer? "bad") (+ "bad" 1) 0))', "", "expected a number"),
+    "one-sided": ('(define (positive-integer? x) (and (exact-integer? x) (> x 0))) '
+                  '(if (positive-integer? -1) 0 (write -1))', "-1", ""),
+    "record-bypass": ('(import (only (snail-scheme core) %record-set!)) '
+                      '(define-record-type <box> (box x) box? (x : ExactInteger unbox)) '
+                      '(define b (box 1)) (%record-set! <box> (quote x) b "bad") (unbox b)',
+                      "", "incorrect value type"),
+    "i32-entry": ('(: f (-> i32 i32)) (define (f n) n) (f 2147483648)', "", "incorrect value type"),
+    "i32-entry-low": ('(: f (-> i32 i32)) (define (f n) n) (f -2147483649)', "", "incorrect value type"),
+    "i32-result": ('(: f (-> i32 i32)) (define (f n) (+ n 1)) (f 2147483647)',
+                   "", "incorrect value type"),
+    "i32-result-low": ('(: f (-> i32 i32)) (define (f n) (- n 1)) (f -2147483648)',
+                       "", "incorrect value type"),
+    "i32-tail-fibonacci-overflow": ('(: f (-> i32 i32 i32 i32)) '
+                                    '(define (f n a b) (if (<= n 0) a '
+                                    '(if (= n 1) b (f (- n 1) b (+ a b))))) (f 47 0 1)',
+                                    "", "incorrect value type"),
+    "i32-wide": ('(: f (-> i32 i32 i32)) (define (f a b) (- (+ a b) b)) '
+                 '(write (f 2147483647 2147483647))', "2147483647", ""),
+    "i32-dead-branch": ('(: f (-> i32 i32)) (define (f x) '
+                        '(if (< x -2147483648) (* (* x x) x) x)) '
+                        '(write (f -2147483648))', "-2147483648", ""),
+    "i32-multiply-overflow": ('(: f (-> i32 i32)) (define (f x) (* x x)) '
+                              '(f 46341)', "", "incorrect value type"),
+    "i32-fallback-overflow": ('(: f (-> i32 i32)) (define (f x) (* (* x x) x)) '
+                              '(f 2147483647)', "", "integer overflow"),
+    "any-assertion": ('(: f (-> Any ExactInteger)) (define (f x) '
+                      '(+ (ann x ExactInteger) 1)) (write (f 2))', "3", ""),
+    "any-assertion-fail": ('(: f (-> Any ExactInteger)) (define (f x) '
+                           '(+ (ann x ExactInteger) 1)) (f "bad")', "", "incorrect value type"),
+    "nested-write": ('(: f (-> ExactInteger ? ExactInteger)) (define (f x g) '
+                     '(define (change!) (set! x (g))) (change!) x) '
+                     '(f 1 (lambda () "bad"))', "", "incorrect value type"),
+    "predicate-effects": ('(define (is-int? x) (display "p") (exact-integer? x)) '
+                          '(: f (-> (U String ExactInteger) ExactInteger)) '
+                          '(define (f x) (if (is-int? x) (+ x 1) (string-length x))) '
+                          '(write (f 1))', "p2", ""),
+    "initializer-count": ('(: f (-> ExactInteger)) (define (f) '
+                           '(define x (values 1 2)) x) (f)', "", "expected a single value"),
+    "record-standard": ('(import (scheme base) (scheme write)) '
+                        '(define-record-type <r> (r x) r? (x : set-x!) (y get-y)) '
+                        '(define value (r 7)) (set-x! value 9) (write (: value))', "9", ""),
+    "record-generative": ('(define (factory) (define-record-type <r> (r) r?) '
+                          '(cons (r) r?)) (define a (factory)) (define b (factory)) '
+                          '(write ((cdr a) (car b)))', "#f", ""),
+    "record-nominal": ('(define-record-type <a> (a x) a? (x : ExactInteger ax)) '
+                       '(define-record-type <b> (b x) b? (x : ExactInteger bx)) '
+                       '(ax (b 1))', "", "incorrect value type"),
+    "record-hygiene": ('(define-syntax make-type (syntax-rules () '
+                       '((_ ctor pred getter) (define-record-type <hidden> '
+                       '(ctor field) pred (field : ExactInteger getter))))) '
+                       '(make-type a a? ax) (make-type b b? bx) (ax (b 1))',
+                       "", "incorrect value type"),
+    "snapshot": ('(define x 1) (let ((saved x)) (set! x "bad") '
+                 '(if (exact-integer? saved) (write (+ saved 1)) 0))', "2", ""),
+    "rename": ('(import (rename (snail typing) (: signature) (-> arrow) '
+               '(ExactInteger Int)) (scheme base) (scheme write)) '
+               '(signature add (arrow Int Int)) (define (add x) (+ x 1)) (write (add 9))', "10", ""),
+}
+
+REJECTED = {
+    "inexact-complex-domain": ('(: f (-> Number InexactReal)) '
+                               '(define (f x) (if (inexact? x) (ann x InexactReal) 0.0))',
+                               "type mismatch"),
+    "result-mismatch": ('(: f (-> ExactInteger String)) (define (f x) x)', "type mismatch"),
+    "argument-mismatch": ('(: f (-> String ExactInteger)) (define (f x) (+ x 1))', "type mismatch"),
+    "nominal-any": ('(: f (-> Any ExactInteger)) (define (f x) (+ x 1))', "type mismatch"),
+    "false-summary": ('(define (positive-int? x) (and (exact-integer? x) (> x 0))) '
+                      '(: f (-> (U String ExactInteger) ExactInteger)) '
+                      '(define (f x) (if (positive-int? x) x (+ x 1)))', "type mismatch"),
+    "integer-float": ('(: f (-> Number ExactInteger)) '
+                      '(define (f x) (if (integer? x) x 0))', "type mismatch"),
+    "opaque": ('(ann (car (list (lambda (x) x))) (-> Any Any))',
+               "opaque function annotation"),
+    "function-union": ('(ann (lambda (x) x) (U String (-> Any Any)))',
+                       "annotations require a shallow type"),
+    "any-call": ('(: f (-> Any ?)) (define (f x) (x))', "type mismatch"),
+    "record-static-nominal": ('(define-record-type <a> (a x) a? (x : ExactInteger ax)) '
+                              '(define-record-type <b> (b x) b? (x : ExactInteger bx)) '
+                              '(: f (-> <b> ExactInteger)) (define (f x) (ax x))', "type mismatch"),
+    "record-omitted": ('(define-record-type <r> (r) r? (x : ExactInteger x))',
+                       "typed record field must be initialized"),
+    "record-local": ('(define (factory) (define-record-type <r> (r x) r? '
+                     '(x : ExactInteger x)) (r 1))', "typed records require a stable top-level descriptor"),
+    "record-schema-alias": ('(import (only (snail-scheme core) %record-schema)) '
+                            '(define-record-type <a> (a) a?) (define <b> <a>) '
+                            '(%record-schema <b> a a? () ()) '
+                            '(: f (-> <b> <a>)) (define (f x) x)',
+                            "nominal type requires a stable top-level record declaration"),
+    "poly-constant": ('(: f (All (A) (-> A A))) (define (f x) "bad")', "type mismatch"),
+    "poly-forged-All": ('(ann (car (list (lambda (x) x))) (All (A) (-> A A)))',
+                        "opaque function annotation"),
+    "poly-abstract-boundary": ('(: f (All (A) (-> ? A))) (define (f x) x)',
+                               "cannot check an erased type variable"),
+    "poly-abstract-write": ('(: f (All (A) (-> A Procedure))) '
+                            '(define (f x) (lambda (y) (set! x y)))',
+                            "cannot check an erased type variable"),
+    "poly-mutable-local": ('(: f (All (A) (-> A A))) '
+                           '(define (f x) (define y x) '
+                           '(define (change! z) (set! y z)) y)',
+                           "cannot check an erased type variable"),
+    "poly-narrowing-origin": ('(: f (All (A) (-> A A))) '
+                              '(define (f x) (if (string? x) (symbol->string (string->symbol x)) x))',
+                              "type mismatch"),
+    "poly-union-origin": ('(: f (All (A) (-> (U A String) A))) '
+                          '(define (f x) (if (string? x) x x))', "type mismatch"),
+    "poly-summary-position": ('(: test (All (A) (-> A A Boolean))) '
+                              '(define (test x y) (string? x)) '
+                              '(: f (-> (U String Boolean) (U String Boolean) ExactInteger)) '
+                              '(define (f x y) (if (test x y) (string-length y) 0))', "type mismatch"),
+    "poly-unresolved": ('(: id (All (A) (-> A A))) (define (id x) x) (id (car (list 1)))',
+                        "cannot infer type argument; use inst"),
+    "poly-unused-variable": ('(: f (All (A) (-> ExactInteger))) (define (f) 1) (f)',
+                             "cannot infer type argument; use inst"),
+    "poly-contradiction": ('(: choose (All (A) (-> Boolean A A A))) '
+                           '(define (choose p x y) (if p x y)) '
+                           '(: f (-> String)) (define (f) (choose #t "text" #f))', "type mismatch"),
+    "poly-inst-arity": ('(: id (All (A) (-> A A))) (define (id x) x) (inst id String Boolean)',
+                        "wrong number of type arguments"),
+    "poly-inst-monomorphic": ('(: id (-> String String)) (define (id x) x) (inst id String)',
+                              "inst requires an All signature"),
+    "poly-inst-arrow": ('(: id (All (A) (-> A A))) (define (id x) x) (inst id (-> String String))',
+                        "type arguments must be shallow types"),
+    "poly-infer-arrow": ('(: id (All (A) (-> A A))) (define (id x) x) '
+                         '(id (ann (lambda (x) x) (-> String String)))',
+                         "type arguments must be shallow types"),
+    "poly-nested-All": ('(: f (-> (All (A) (-> A A)) Any)) (define (f x) x)',
+                        "function domains and results must be shallow types"),
+    "poly-assigned": ('(: id (All (A) (-> A A))) (define (id x) x) (set! id (lambda (x) 1))',
+                      "cannot assign a function signature"),
+    "poly-recursive-inst": ('(: f (All (A) (-> A Any))) '
+                            '(define (f x) (if (string? x) ((inst f String) x) x))',
+                            "polymorphic recursion"),
+    "poly-recursive-alias": ('(: f (All (A) (-> A Any))) '
+                             '(: text-f (-> String Any)) '
+                             '(define (f x) (if (string? x) (text-f x) x)) '
+                             '(define text-f (inst f String))', "polymorphic recursion"),
+    "poly-recursive-join": ('(: f (All (A) (-> A Any))) '
+                            '(: other (-> String Any)) (define (other x) x) '
+                            '(define (f x) (if (string? x) ((if #t (inst f String) other) x) x))',
+                            "polymorphic recursion"),
+    "poly-recursive-context": ('(: f (All (A) (-> A Any))) (: text-f (-> String Any)) '
+                               '(define (f x) (if (string? x) (text-f x) x)) (define text-f f)',
+                               "polymorphic recursion"),
+    "poly-recursive-helper": ('(: f (All (A) (-> A Any))) '
+                              '(define (f x) (helper)) (define (helper) (f "changed"))',
+                              "polymorphic recursion"),
+    "poly-mutual-change": ('(: f (All (A) (-> A Any))) (: g (All (B) (-> B Any))) '
+                           '(define (f x) (g "changed")) (define (g x) (f x))',
+                           "polymorphic recursion"),
+}
+
+
+# ---- Static instance selection ----
+
+COMBINE = '(define-class (Combine T) (: combine (-> T T T))) '
+INT_COMBINE = COMBINE + '(define-instance (Combine i32) (combine (lambda (x y) (+ x y)))) '
+TWICE = '(: twice (All (T) (=> ((Combine T)) (-> T T)))) (define (twice x) (combine x x)) '
+CHOOSE = '(define-class (Choose T) (: choose (-> T T T))) '
+MARKER = '(define-class (Marker T) (: mark (-> i32))) '
+SHOW = '(define-class (Show T) (: show (-> T String))) '
+
+CASES.update({
+    "class-exact-explicit": (COMBINE + '(define-instance (Combine ExactInteger) '
+                             '(combine (lambda (x y) (+ x y)))) '
+                             '(write ((inst combine ExactInteger) 20 22))', "42", ""),
+    "class-any-explicit": ('(define-class (Show T) (: show (-> T String))) '
+                           '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                           '(write ((inst show Any) (car (list 42))))', '"any"', ""),
+    "class-order": (INT_COMBINE + '((begin (display "o") (inst combine i32)) '
+                    '(begin (display "a") 20) (begin (display "b") 22))', "abo", ""),
+    "class-view-effects": (INT_COMBINE + '(ann (begin (display "e") (inst combine i32)) '
+                           '(-> i32 i32 i32)) (write (combine 20 22))', "e42", ""),
+    "class-dynamic-check": (INT_COMBINE + '(: f (-> ? i32)) '
+                            '(define (f x) ((inst combine i32) x 1)) '
+                            '(f (begin (display "a") "bad"))', "a", "incorrect value type"),
+    "class-member-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                  '(combine (begin (display "a") 20) 22) '
+                                  '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-generic-uninitialized": (COMBINE + '(define-instance (Combine i32) (combine plus)) '
+                                   + TWICE + '(twice (begin (display "a") 21)) '
+                                   '(define (plus x y) (+ x y))', "a", "read of an uninitialized binding"),
+    "class-view-uninitialized": (INT_COMBINE + '(: view (-> i32 i32 i32)) '
+                                '(view 20 22) (define view (inst combine i32))', "", "read of an uninitialized binding"),
+    "class-auxiliary-arrow": ('(write (cond (42 => (lambda (x) (+ x 1))) (else 0)))', "43", ""),
+    "class-joined-refinements": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                 '(: f (All (T) (=> ((Choose T)) (-> T T T)))) '
+                                 '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x)) '
+                                 '(write ((inst f Any) "a" 42))', "42", ""),
+    "class-phantom-nominal": (MARKER + '(define-instance (Marker <token>) (mark (lambda () 7))) '
+                             '(define-record-type <token> (token) token?) '
+                             '(: f (All (T) (=> ((Marker <token>)) (-> T T)))) '
+                             '(define (f x) x) (write (f 42))', "42", ""),
+    "class-boolean-head": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: flag Boolean) (define flag #t) (write (show flag))', '"boolean"', ""),
+    "class-number-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: num Number) (define num 42) (write (show num))', '"number"', ""),
+    "class-boolean-view": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                           '(: selected (-> Boolean String)) (define selected show) '
+                           '(write (selected #t))', '"boolean"', ""),
+    "class-number-view": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                          '(: selected (-> Number String)) (define selected show) '
+                          '(write (selected 42))', '"number"', ""),
+    "class-polymorphic-scalar-member": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                         '(define-class (Keep T) (: keep (-> T T))) '
+                                         '(define-instance (Keep Boolean) (keep identity)) '
+                                         '(write ((inst keep Boolean) #t))', "#t", ""),
+    "poly-scalar-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                         '(: selected (-> Boolean Boolean)) (define selected identity) '
+                         '(write (selected #t))', "#t", ""),
+    "poly-boolean-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                                '(: selected (-> (U False True) (U False True))) (define selected identity) '
+                                '(write (selected #t))', "#t", ""),
+    "poly-number-union-view": ('(: identity (All (A) (-> A A))) (define (identity x) x) '
+                               '(: selected (-> (U ExactInteger InexactReal Complex) '
+                               '(U ExactInteger InexactReal Complex))) (define selected identity) '
+                               '(write (selected 42))', "42", ""),
+})
+
+REJECTED.update({
+    "class-missing": (COMBINE + '(combine 1 2)', "no typeclass instance"),
+    "class-exact-no-fallback": (COMBINE + '(define-instance (Combine ExactInteger) '
+                                '(combine (lambda (x y) (+ x y)))) (combine 1 2)', "no typeclass instance"),
+    "class-duplicate": (INT_COMBINE + '(define-instance (Combine i32) '
+                        '(combine (lambda (x y) (+ x y))))', "duplicate typeclass instance"),
+    "class-incomplete": (COMBINE + '(define-instance (Combine i32))', "every class method exactly once"),
+    "class-head-variable": (COMBINE + '(define-instance (Combine ?) '
+                            '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-head-union": (COMBINE + '(define-instance (Combine (U String i32)) '
+                         '(combine (lambda (x y) x)))', "concrete scalar or nominal types"),
+    "class-method-body": (COMBINE + '(define-instance (Combine i32) '
+                          '(combine (lambda (x y) "bad")))', "type mismatch"),
+    "class-method-arity": (COMBINE + '(define-instance (Combine i32) '
+                           '(combine (lambda (x) x)))', "fixed-arity lambda of matching arity"),
+    "class-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                            '(define (twice x) (combine x x))', "concrete static type or a declared constraint"),
+    "class-let-no-constraint": (INT_COMBINE + '(: twice (All (T) (-> T T))) '
+                                '(define (twice x) (let ((y x)) (combine y y)))', "concrete static type or a declared constraint"),
+    "class-inst-no-constraint": (INT_COMBINE +
+                                 '(define-class (Pick T) (: pick (-> T T))) '
+                                 '(define-instance (Pick i32) (pick (lambda (x) x))) '
+                                 '(: id (All (A) (-> A A))) (define (id x) x) '
+                                 '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                 '(define (hidden x) (inst (begin (pick x) id) i32) x)',
+                                 "concrete static type or a declared constraint"),
+    "class-unknown-selection": ('(define-class (Show T) (: show (-> T String))) '
+                                 '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                                 '(: f (-> ? String)) (define (f x) (show x))', "cannot infer type argument"),
+    "class-explicit-unknown": (INT_COMBINE + '(inst combine ?)', "concrete static type or a declared constraint"),
+    "class-unresolved-value": (INT_COMBINE + '(write combine)', "overloaded callable requires inst"),
+    "class-unused-unresolved-value": (INT_COMBINE + TWICE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (write combine) x)', "overloaded callable requires inst"),
+    "class-unused-class-value": (INT_COMBINE + TWICE +
+                                '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                '(define (hidden x) (write Combine) x)', "typeclasses have no runtime value"),
+    "class-unused-class-assignment": (INT_COMBINE +
+                                     '(: hidden (All (T) (=> ((Combine T)) (-> T T)))) '
+                                     '(define (hidden x) (set! Combine 42) x)', "typeclasses have no runtime value"),
+    "class-refined-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                             '(define-instance (Keep Any) (keep (lambda (x) 42))) '
+                             '(: measure (All (T) (=> ((Keep T)) (-> T ExactInteger)))) '
+                             '(define (measure x) (if (string? x) (string-length (keep x)) 0))', "type mismatch"),
+    "class-joined-refined-result": (CHOOSE + '(define-instance (Choose Any) (choose (lambda (x y) y))) '
+                                    '(: f (All (T) (=> ((Choose T)) (-> T T ExactInteger)))) '
+                                    '(define (f x y) (if (string? x) '
+                                    '(if (exact-integer? y) (string-length (choose x y)) 0) 0))', "type mismatch"),
+    "class-joined-distinct-variables": (CHOOSE +
+                                       '(: f (All (A B) (=> ((Choose A) (Choose B)) (-> A B Any)))) '
+                                       '(define (f x y) (if (string? x) (if (exact-integer? y) (choose x y) x) x))',
+                                       "concrete static type or a declared constraint"),
+    "class-annotation-no-class": ('(define Fake 7) '
+                                  '(define f (ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T))))) '
+                                  '(f 42)', "unknown typeclass"),
+    "class-unused-annotation-no-class": ('(define Fake 7) (define (unused) '
+                                         '(ann (lambda (x) x) (All (T) (=> ((Fake T)) (-> T T)))))',
+                                         "unknown typeclass"),
+    "class-phantom-nominal-instance": ('(define bogus 7) ' + MARKER +
+                                      '(define-instance (Marker bogus) (mark (lambda () 1)))',
+                                      "nominal type requires a stable top-level record declaration"),
+    "class-phantom-nominal-constraint": ('(define bogus 7) ' + MARKER +
+                                        '(: f (All (T) (=> ((Marker bogus)) (-> T T)))) (define (f x) x)',
+                                        "nominal type requires a stable top-level record declaration"),
+    "class-phantom-unstable": (MARKER + '(define-record-type <r> (make-r) r?) (set! <r> 7) '
+                               '(define-instance (Marker <r>) (mark (lambda () 1)))',
+                               "nominal type requires a stable top-level record declaration"),
+    "class-boolean-no-fallback": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                  '(show #t)', "no typeclass instance"),
+    "class-number-no-fallback": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                 '(show 42)', "no typeclass instance"),
+    "class-number-narrow-result": ('(define-class (Keep T) (: keep (-> T T))) '
+                                    '(define-instance (Keep Number) (keep (lambda (x) 3.5))) '
+                                    '(: f (-> Number ExactInteger)) (define (f x) (keep x))', "type mismatch"),
+    "class-partial-numeric-head": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(: f (-> (U ExactInteger InexactReal) String)) (define (f x) (show x))',
+                                   "concrete static type or a declared constraint"),
+    "class-mixed-union-head": (SHOW + '(define-instance (Show Any) (show (lambda (x) "any"))) '
+                               '(: f (-> (U String i32) String)) (define (f x) (show x))',
+                               "concrete static type or a declared constraint"),
+    "class-explicit-boolean-union": (SHOW + '(define-instance (Show Boolean) (show (lambda (x) "boolean"))) '
+                                    '(inst show (U False True))', "concrete static type or a declared constraint"),
+    "class-explicit-number-union": (SHOW + '(define-instance (Show Number) (show (lambda (x) "number"))) '
+                                   '(inst show (U ExactInteger InexactReal Complex))',
+                                   "concrete static type or a declared constraint"),
+    "class-inline-alias-assignment": (COMBINE + '(define alias combine) '
+                                      '(define-instance (Combine i32) '
+                                      '(combine (lambda (x y) (set! alias (lambda (a b) a)) x)))',
+                                      "immutable identifier reference"),
+    "class-effectful-alias": (INT_COMBINE + '(define alias (begin (display "e") combine))', "immutable identifier reference"),
+    "class-effectful-inst": (INT_COMBINE + '(inst (begin (display "e") combine) i32)', "requires an identifier or static view"),
+    "class-mutable-member": (COMBINE + '(define (plus x y) (+ x y)) '
+                            '(define-instance (Combine i32) (combine plus)) '
+                            '(set! plus (lambda (x y) x))', "immutable function bindings"),
+    "class-local-generic": (INT_COMBINE + '(define (outer) ' + TWICE + '(twice 1))', "stable module-level lambdas"),
+    "class-local-instance": (COMBINE + '(define (outer) (define-instance (Combine i32) '
+                             '(combine (lambda (x y) (+ x y)))) 1)', "require module scope"),
+    "class-poly-recursion": (INT_COMBINE + '(: loop (All (T) (=> ((Combine T)) (-> T T)))) '
+                             '(define (loop x) ((inst loop i32) 1))', "type mismatch"),
+    "class-class-value": (INT_COMBINE + '(write Combine)', "typeclasses have no runtime value"),
+})
+
+
+# ---- Build and execute ----
+
+
+def arithmetic_examples():
+    """Exact Python arithmetic supplies an independent bounded-input oracle."""
+    edges = [-2147483648, -1073741825, -1073741824, -46341, -1, 0, 1,
+             46341, 1073741823, 1073741824, 2147483647]
+    generator = random.Random(20261010)
+    pairs = [(a, b) for a in edges for b in edges]
+    pairs += [(generator.randint(-2147483648, 2147483647),
+               generator.randint(-2147483648, 2147483647)) for _ in range(40)]
+    program = [IMPORTS, '(define (check expected actual) '
+               '(unless (= expected actual) (error "arithmetic disagreement")))']
+    for name, expression in (("plus", "(+ a b)"), ("minus", "(- a b)"),
+                             ("times", "(* a b)"), ("cancel", "(- (+ a b) b)")):
+        program.append(f'(: {name} (-> i32 i32 i32)) (define ({name} a b) {expression})')
+    for name, condition in (("eq", "(= a b)"), ("lt", "(< a b)"), ("le", "(<= a b)"),
+                            ("gt", "(> a b)"), ("ge", "(>= a b)"), ("wide-lt", "(< (+ a b) b)")):
+        program.append(f'(: {name} (-> i32 i32 i32)) (define ({name} a b) (if {condition} 1 0))')
+    comparisons = ("eq", "lt", "le", "gt", "ge", "wide-lt")
+    program.append('(define (check-comparisons a b answers) ' + ' '.join(
+        f'(check (vector-ref answers {index}) ({name} a b))'
+        for index, name in enumerate(comparisons)) + ')')
+    for a, b in pairs:
+        for name, answer in (("plus", a + b), ("minus", a - b),
+                             ("times", a * b), ("cancel", a)):
+            if -2147483648 <= answer <= 2147483647:
+                program.append(f'(check {answer} ({name} {a} {b}))')
+        answers = ' '.join(str(int(value)) for value in (a == b, a < b, a <= b, a > b, a >= b, a + b < b))
+        program.append(f'(check-comparisons {a} {b} #({answers}))')
+    program.append('(display "arithmetic checks passed\\n")')
+    return "\n".join(program) + "\n"
+
+
+def command(arguments):
+    return subprocess.run([str(arg) for arg in arguments], cwd=ROOT, text=True,
+                          capture_output=True, timeout=180, check=False)
+
+
+def compile_program(source, output, mode):
+    return command([os.environ.get("CHIBI", "chibi-scheme"), "-I", "src",
+                    "tests/build-typed-program.scm", ROOT, source, output, mode])
+
+
+def require(condition, description, result):
+    if not condition:
+        raise RuntimeError(f"{description}: exit={result.returncode}\n"
+                           f"stdout={result.stdout}\nstderr={result.stderr}")
+
+
+def run_case(name, source, stdout, diagnostic, modes=("guarded", "optimized")):
+    observations = []
+    for mode in modes:
+        output = BUILD / f"{name}-{mode}.wasm"
+        built = compile_program(source, output, mode)
+        require(built.returncode == 0, f"compile {name}/{mode}", built)
+        result = command([os.environ.get("NODE", "node"), "--no-warnings",
+                          ROOT / "scripts/run-wasi.mjs", output])
+        require(result.stdout == stdout, f"output {name}/{mode}", result)
+        require((result.returncode != 0) == bool(diagnostic), f"status {name}/{mode}", result)
+        require(diagnostic in result.stderr, f"diagnostic {name}/{mode}", result)
+        observations.append((result.returncode, result.stdout))
+    assert observations[0] == observations[1], name
+    print(f"passed typing: {name}", flush=True)
+
+
+def check_streaming_folds():
+    cases = {
+        "checked-alias": ('(: f (-> i32 i32)) (define (f x) x) '
+                          '(define alias f) (alias 2147483648)', "", "incorrect value type"),
+        "untyped-result-guard": ('(define (f x) (ann x String)) (f 42)',
+                                 "", "incorrect value type"),
+        "count-through-iife": ('(write (call-with-values '
+                               '(lambda () ((lambda () (values 1 2)))) list))', "(1 2)", ""),
+        "guard-after-fold": ('(write (ann ((lambda () (+ 20 22))) ExactInteger))', "42", ""),
+        "folded-false": ('(write (if ((lambda () #f)) 1 2))', "2", ""),
+        "folded-null": ('(write ((lambda () (quote ()))))', "()", ""),
+        "forward-alias": ('(define alias f) (define (f x) x) (alias 42)',
+                          "", "read of an uninitialized binding"),
+        "ignored-effect": ('(write ((lambda (ignored) 42) (begin (display "e") 7)))',
+                            "e42", ""),
+        "operator-effect": ('(write ((begin (display "o") (lambda (x) 42)) '
+                             '(begin (display "a") 7)))', "ao42", ""),
+        "ignored-count": ('((lambda (ignored) 42) (values 1 2))',
+                           "", "expected a single value"),
+        "private-candidate": ('(write (car (cons 42 #f)))', "42", ""),
+    }
+    # An expected result can introduce a guard inside an unannotated IIFE.
+    # Raw interpretation of its syntax must not erase that generated guard.
+    initializers = {
+        "inherited-guard": '((lambda (v) v) (car (cons VALUE #f)))',
+        "higher-order-guard": '((lambda (f) (f (car (cons VALUE #f)))) (lambda (v) v))',
+        "factory-guard": '(((lambda () (lambda (v) v))) (car (cons VALUE #f)))',
+        "let-guard": '(let ((v (car (cons VALUE #f)))) v)',
+        "branch-guard": '(if #f  "unused" ((lambda (v) v) (car (cons VALUE #f))))',
+    }
+    for name, initializer in initializers.items():
+        for suffix, value, stdout, diagnostic in [
+            ("bad", "42", "", "incorrect value type"),
+            ("good", '"ok"', '"ok"', ""),
+        ]:
+            program = f'(: x String) (define x {initializer.replace("VALUE", value)}) (write x)'
+            cases[f"{name}-{suffix}"] = (program, stdout, diagnostic)
+    for name, (program, stdout, diagnostic) in cases.items():
+        source = BUILD / f"stream-{name}.scm"
+        source.write_text(IMPORTS + program + "\n")
+        run_case(f"stream-{name}", source, stdout, diagnostic, ("optimized", "folded"))
+    for name, program in {
+        "dead-branch": '(if #t 42 (ann "bad" ExactInteger))',
+        "unused-body": '(ann (lambda () "bad") (-> ExactInteger)) 42',
+    }.items():
+        source = BUILD / f"stream-{name}.scm"
+        source.write_text(IMPORTS + program + "\n")
+        for mode in ("optimized", "folded"):
+            result = compile_program(source, BUILD / f"stream-{name}-{mode}.wasm", mode)
+            require(result.returncode != 0 and "type mismatch" in result.stderr,
+                    f"reject stream-{name}/{mode}", result)
+        print(f"rejected before folding: {name}", flush=True)
+
+
+def main():
+    BUILD.mkdir(parents=True, exist_ok=True)
+    run_case("success", ROOT / "tests/programs/backend-typing.scm", "typing checks passed\n", "")
+    run_case("typed-tail", ROOT / "tests/programs/backend-typed-tail.scm", "typed tail checks passed\n", "")
+    run_case("polymorphism", ROOT / "tests/programs/backend-polymorphism.scm", "polymorphism checks passed\n", "")
+    run_case("typeclasses", ROOT / "tests/programs/backend-typeclasses.scm", "typeclass checks passed\n", "")
+    run_case("typeclass-tensors", ROOT / "tests/programs/backend-typeclass-tensors.scm", "typeclass tensor checks passed\n", "")
+    run_case("typeclass-imports", ROOT / "tests/programs/backend-typeclass-imports.scm", "typeclass import checks passed\n", "")
+    arithmetic = BUILD / "arithmetic.scm"
+    arithmetic.write_text(arithmetic_examples())
+    run_case("arithmetic", arithmetic, "arithmetic checks passed\n", "")
+    for name, (program, stdout, diagnostic) in CASES.items():
+        source = BUILD / f"{name}.scm"
+        source.write_text(("" if name in ("rename", "record-standard") else IMPORTS) + program + "\n")
+        run_case(name, source, stdout, diagnostic)
+    for name, (program, diagnostic) in REJECTED.items():
+        source = BUILD / f"{name}.scm"
+        source.write_text(IMPORTS + program + "\n")
+        result = compile_program(source, BUILD / f"{name}.wasm", "optimized")
+        require(result.returncode != 0 and diagnostic in result.stderr, f"reject {name}", result)
+        if name in ("poly-constant", "poly-unresolved"):
+            require(re.search(re.escape(str(source)) + r":\d+:\d+:", result.stderr),
+                    f"located diagnostic {name}", result)
+        print(f"rejected as expected: {name}", flush=True)
+    check_streaming_folds()
+
+
+if __name__ == "__main__":
+    main()

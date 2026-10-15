@@ -1,0 +1,32 @@
+{
+  "source_revision": "c15f7902dc2c2edd71833c69817bf2d1a53e60ba",
+  "integration_revision": "cf378d3df4f68be0010ed837e1afa8212c61802e",
+  "archive_files_verified": 688,
+  "source_hashes": {
+    "TOUR.md": "9e918bc2d0b14606b3b3b89ffda41c768ad6e3a4a342983449cb7afa7fc099ed",
+    "benchmarks/results/2026-10-14-strict-puzzle/README.md": "c957bc07e0873ba9db34ca2c171ff5e3e7e700ab55ec9123a307486b2a950328",
+    "benchmarks/results/2026-10-14-strict-puzzle/artifacts.tar.xz": "4d998d4452de69f9f31c7e079dc1b2a11fd7e8f35587792957b349fdfda64109",
+    "benchmarks/results/2026-10-14-strict-puzzle/compiler-identity.json": "60c92ffb0d10db3dc17522ea68b32620e1bb30e9e66b6208e83b0c0ac42dd194",
+    "benchmarks/results/2026-10-14-strict-puzzle/correctness-summary.json": "ced456a803aca057bd57b5425b757dbbdc6f29563e9df8fb9b2fcb94e2ad594c",
+    "benchmarks/results/2026-10-14-strict-puzzle/manifest.json": "8d94cd8cd555fc1e779fa8961e74b963e0f7a7e05cb6a88d9088330c663d4b41",
+    "benchmarks/results/2026-10-14-strict-puzzle/preparation-history.json": "c82378d421278b5b2cfcc48b25a562f9281f30319329d787e1eef55dba13e5bc",
+    "benchmarks/results/2026-10-14-strict-puzzle/prepared.json": "cc22f4b2578e1f39208277c09817b9d341d78d40f712b1ad2f6c1e0dbc30057b",
+    "benchmarks/results/2026-10-14-strict-puzzle/prior-port-regression.json": "12d9f9bfd5aa071e52f3bb07ce5bfaadecc19011c191cf89078deadc5b509f5b",
+    "benchmarks/results/2026-10-14-strict-puzzle/replay-check.json": "b5cafe4c255546c6d21b57413e024b16bbc72349d8baf61499527ab5388c8001",
+    "benchmarks/results/2026-10-14-strict-puzzle/retention-audit.json": "01928965ea5913dc17bcbf14ee4f36be2e3b6d8bfa73d5e4d0c38135a703486a",
+    "benchmarks/results/2026-10-14-strict-puzzle/simplify-review.md": "ec2e56e142ebdcc4343566c6080acb651c9e38f8e4f27e05593c848fc6e14ef3",
+    "benchmarks/results/2026-10-14-strict-puzzle/source-representation.json": "3a7edafe1cd5c8a065e0e3d92853b1089f3b28457fb80e3e6635de8651bc829a",
+    "benchmarks/results/2026-10-14-strict-puzzle/verification.json": "e475812de332082997a1dcc78c34b5fd67a5742512ea529ff9231fc03fd2799a",
+    "benchmarks/strict-suite/README.md": "3d5146a4bbeb9071d7999395eea98feeaaf437d77580bf984bcc50dfb1d11cf3",
+    "benchmarks/strict-suite/capabilities.md": "aa426c1562214bbd74f1badc0ddde80f58e6f377885fbb8be2614d1dc3b8ea7c",
+    "benchmarks/strict-suite/measure.py": "fd3a6631a3aa9cf7371ffaec51d8b1633a90052260efc5a54b288a073ba84b1d",
+    "benchmarks/strict-suite/puzzle_port.py": "ca2fc54c60e378d62b6bb06db95d0e48f3a3e0d076bd8795c0ba861ac776d034"
+  },
+  "integrated_paths_with_identical_edits": [
+    "TOUR.md",
+    "benchmarks/strict-suite/capabilities.md"
+  ],
+  "integration": "Prior Rust documentation and String measurement catalogue updates are retained; all Puzzle edits match the source commit.",
+  "make_check": "passed; source-only integration, existing executed correctness checks reused",
+  "performance": "No clean Puzzle timings published in this preparation layer."
+}

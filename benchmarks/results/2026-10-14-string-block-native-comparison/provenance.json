@@ -1,0 +1,144 @@
+{
+  "native_commit": "b419cc607e6cc13e854671fb9796f894a9d1faa6",
+  "strict_block_commit": "d4116215645af699ae0e41008759d92db812de60",
+  "matched_wasm": [
+    {
+      "layout": "flat",
+      "wasm_sha256": "c45ff252b8a9137e5e3fc1624b2301d6087e66ac01decd5e8d89db73070de669",
+      "native_sha256": "188a3ae4306f7a1691535b677aded0ebf86942a3f6408b1afd1ee37d515fe639",
+      "native_directory": "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string"
+    },
+    {
+      "layout": "blocks",
+      "wasm_sha256": "c3389ca3e8f07901f37969cb7e40cf66b47f2fcc8be6d1ce488f87fc2f4de6e0",
+      "native_sha256": "aa8a368125aa72788c895660e965b3ffeef645a8745b074eed9d9c53eef64ee6",
+      "native_directory": "/tmp/snail-native-string-blocks-20261014/build/string-blocks"
+    }
+  ],
+  "unchanged_native_sources": {
+    "src/native.c": "135343a288152bc27406e6ef2ae18082a445da86926b46a30cd70eab75eb0d08",
+    "src/precise-gc.c": "88942bfab0d520dd51c732626c67c9a230aed7202508454efca3d972c3788601",
+    "src/precise-gc.h": "b35383048c322c9c2a67bd399575070cba331ef63a0526052fdea479731f20b3",
+    "src/snail-scheme/llvm.sld": "c48c93d6ec9c4fb4d55b04b2833a3bad6c97bd271e95205c76ae033d4440fe77",
+    "src/snail-scheme/wasm-read.sld": "c720199f51470dc20a9ada96b6a45143fe1dc1f74a6f1ad86f5b054fc01cfbef",
+    "src/snail-scheme/wasm-resolve.sld": "7404ba55f0a74f332e1ca10243f3081d7f40e7e72a9e478009bb1573926e87e7",
+    "src/snail-scheme/llvmlite.sld": "368a3ad5633ae5369fc1d85df34e38963010bd2d21e4b5e9e61478dc6ac5c2d4",
+    "experiments/current-wasm-llvm/prepare.py": "5b25038f39ac01766d25f8c565aaf0f2905af8a1a2241b5ebc85ecef6658c977",
+    "experiments/current-wasm-llvm/host.c": "44e6fe9c2312221bbdb9947054ac89d8609b00ba6d905d7532f6bd039d400b77",
+    "experiments/current-wasm-llvm/translate.scm": "1a787026ba7b885c0b00b70b1926d2a4266639ca109eceff33e146cb730b1533",
+    "experiments/current-wasm-llvm/node-host.mjs": "6b89dfec26bc821fed4ac408dc477bd4ec4d6ae0bdc50b3fa004aee9eee547a9"
+  },
+  "native_build_manifests": [
+    "/tmp/snail-current-wasm-llvm-20261014/build/current-wasm-llvm/string/manifest.json",
+    "/tmp/snail-native-string-blocks-20261014/build/string-blocks/manifest.json"
+  ],
+  "external_tools": {
+    "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+    "/nix/store/mw4gasdvwgscgpxpzihjgchfhs3hhqhn-clang-wrapper-21.1.8/bin/clang": "faf53eadd7625e8cfdd8c158a9af059d6d65ad31cc9475a59096468cb52a736b",
+    "/nix/store/5rhnyy8qnwnasmadd83bbrp1agylvwjs-lld-21.1.8/bin/ld.lld": "5f3a4b7f7d6fba5972c164e4bd27188ff453fe8a8566a3f8d027fb4c4548bc14",
+    "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+    "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090"
+  },
+  "node_versions": {
+    "node": "24.19.0",
+    "acorn": "8.17.0",
+    "ada": "4.0.0",
+    "amaro": "1.1.10",
+    "ares": "1.34.8",
+    "brotli": "1.2.0",
+    "cldr": "48.0",
+    "icu": "78.3",
+    "llhttp": "9.4.3",
+    "merve": "1.2.2",
+    "modules": "137",
+    "napi": "10",
+    "nbytes": "0.1.4",
+    "ncrypto": "0.0.1",
+    "nghttp2": "1.70.0",
+    "nghttp3": "",
+    "ngtcp2": "",
+    "openssl": "3.6.3",
+    "simdjson": "4.6.5",
+    "simdutf": "6.5.0",
+    "sqlite": "3.53.3",
+    "tz": "2026a",
+    "undici": "7.29.0",
+    "unicode": "17.0",
+    "uv": "1.52.1",
+    "uvwasi": "0.0.23",
+    "v8": "13.6.233.17-node.51",
+    "zlib": "1.3.2",
+    "zstd": "1.5.7"
+  },
+  "workload_summary": {
+    "v8-flat": {
+      "samples": [
+        4.756740963,
+        4.80355344,
+        4.806596822,
+        4.801832944
+      ],
+      "median": 4.8026931919999996,
+      "min": 4.756740963,
+      "max": 4.806596822
+    },
+    "v8-blocks": {
+      "samples": [
+        0.984541032,
+        0.993273947,
+        0.984686737,
+        0.984538425
+      ],
+      "median": 0.9846138845,
+      "min": 0.984538425,
+      "max": 0.993273947
+    },
+    "native-flat": {
+      "samples": [
+        2.305200431,
+        2.32331688,
+        2.304340072,
+        2.29035975
+      ],
+      "median": 2.3047702515,
+      "min": 2.29035975,
+      "max": 2.32331688
+    },
+    "native-blocks": {
+      "samples": [
+        2.238247734,
+        2.24217938,
+        2.232430922,
+        2.234459092
+      ],
+      "median": 2.236353413,
+      "min": 2.232430922,
+      "max": 2.24217938
+    }
+  },
+  "process_summary": {
+    "v8-flat": {
+      "process_median": 4.832313401479041,
+      "setup_median": null
+    },
+    "v8-blocks": {
+      "process_median": 1.015893997013336,
+      "setup_median": null
+    },
+    "native-flat": {
+      "process_median": 2.4023486229998525,
+      "setup_median": 0.088927121
+    },
+    "native-blocks": {
+      "process_median": 2.333997868496226,
+      "setup_median": 0.08924696
+    }
+  },
+  "native_environment": {
+    "SNAIL_GC_HEAP_BYTES": "314572800"
+  },
+  "timing": "Initialization and prefaulting precede bench(count); final acceptance assertion is timed; formatting and diagnostics follow.",
+  "archive_scope": "Every frozen identity except external Nix/run binaries, plus bounded relevant native String build/validation evidence."
+}

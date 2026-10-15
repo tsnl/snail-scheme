@@ -1,0 +1,386 @@
+{
+  "complete": true,
+  "verified_files": 298,
+  "restored_at": "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413",
+  "checked_at": "2026-10-14T00:07:05.490233+00:00",
+  "validation_only": true,
+  "records": [
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.005485224,\"result\":\"0\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.03225146298063919,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-1.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.004778506,\"result\":\"0\",\"barriers\":1}\n",
+      "stderr": "",
+      "process_seconds": 0.028006241016555578,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-2.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.007456667,\"result\":\"0\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.03610885399393737,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-2.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.006726412,\"result\":\"0\",\"barriers\":2}\n",
+      "stderr": "",
+      "process_seconds": 0.030820417043287307,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-nonzero.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.00039935,\"result\":\"1\",\"barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.024662119976710528,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-nonzero.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000286684,\"result\":\"1\",\"barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.023477951996028423,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-impulse.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000394344,\"result\":\"1\",\"barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.023354034987278283,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-impulse.json",
+        "--validate"
+      ],
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.000281847,\"result\":\"1\",\"barriers\":0}\n",
+      "stderr": "",
+      "process_seconds": 0.024119487032294273,
+      "group": "strict-positive",
+      "valid": true,
+      "stdin": null,
+      "label": null
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.02377555496059358,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "wrong-value"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-wrong-value.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.02482995903119445,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "wrong-value"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-short.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.02511286601657048,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "short"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-short.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.021815261046867818,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "short"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm.raw.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-long.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.02445197495399043,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "long"
+    },
+    {
+      "command": [
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/strict.wasm",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/validation-spec-long.json",
+        "--validate"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'0' !== '1'\n\n    at file:///tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/host.mjs:35:8 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: '0',\n  expected: '1',\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v24.19.0\n",
+      "process_seconds": 0.02508963696891442,
+      "group": "strict-negative",
+      "valid": true,
+      "stdin": null,
+      "label": "long"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fft:65536:1\nElapsed time: 0.009762398 seconds (0.01) for fft:65536:1\n+!CSVLINE!+chez,fft:65536:1,0.009762398\n",
+      "stderr": "",
+      "process_seconds": 0.043522566033061594,
+      "group": "chez-original-matched",
+      "valid": true,
+      "stdin": "1\n65536\n0.0\n0.0\n",
+      "label": "1"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fft:65536:2\nElapsed time: 0.018848359 seconds (0.019) for fft:65536:2\n+!CSVLINE!+chez,fft:65536:2,0.018848359\n",
+      "stderr": "",
+      "process_seconds": 0.05412533599883318,
+      "group": "chez-original-matched",
+      "valid": true,
+      "stdin": "2\n65536\n0.0\n0.0\n",
+      "label": "2"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fft:65536:1\nElapsed time: 0.009884524 seconds (0.01) for fft:65536:1\n+!CSVLINE!+chez,fft:65536:1,0.009884524\n",
+      "stderr": "",
+      "process_seconds": 0.04447497095679864,
+      "group": "chez-original-matched",
+      "valid": true,
+      "stdin": "1\n65536\n0.0\n0.0\n",
+      "label": "1"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/same-source-chez/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "Running fft:65536:2\nElapsed time: 0.018719296 seconds (0.019) for fft:65536:2\n+!CSVLINE!+chez,fft:65536:2,0.018719296\n",
+      "stderr": "",
+      "process_seconds": 0.05340083298506215,
+      "group": "chez-original-matched",
+      "valid": true,
+      "stdin": "2\n65536\n0.0\n0.0\n",
+      "label": "2"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/chez-dft-probe/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "#t\n",
+      "stderr": "",
+      "process_seconds": 0.03331306902691722,
+      "group": "chez-dft",
+      "valid": true,
+      "stdin": "#(1.0 0.0 2.0 0.5 -1.0 1.0 0.0 -2.0 0.75 -0.25 -0.5 0.5 1.5 -1.0 -2.0 0.75)\n#(1.75 -0.5 0.54809703885628 2.87652416360247 -0.9999999999999989 3.2500000000000004 3.8409902576697337 3.987436867076458 2.749999999999999 -3.219646771412954e-15 -4.048097038856289 -7.376524163602465 3.5000000000000018 -3.7500000000000018 0.6590097423302623 1.5125631329235496)\n1e-12\n",
+      "label": "nonzero"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/chez-dft-probe/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "#t\n",
+      "stderr": "",
+      "process_seconds": 0.03592597396345809,
+      "group": "chez-dft",
+      "valid": true,
+      "stdin": "#(1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0)\n#(1.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0)\n1e-12\n",
+      "label": "impulse"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/chez-dft-probe/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "#f\n",
+      "stderr": "",
+      "process_seconds": 0.034091135021299124,
+      "group": "chez-dft",
+      "valid": true,
+      "stdin": "#(1.0 0.0 2.0 0.5 -1.0 1.0 0.0 -2.0 0.75 -0.25 -0.5 0.5 1.5 -1.0 -2.0 0.75)\n#(1.75 -0.5 0.54809703885628 2.87652416360247 -0.9999999999999989 3.2500000000000004 3.8409902576697337 3.987436867076458 3.749999999999999 -3.219646771412954e-15 -4.048097038856289 -7.376524163602465 3.5000000000000018 -3.7500000000000018 0.6590097423302623 1.5125631329235496)\n1e-12\n",
+      "label": "wrong-value"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/chez-dft-probe/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "#f\n",
+      "stderr": "",
+      "process_seconds": 0.03353819699259475,
+      "group": "chez-dft",
+      "valid": true,
+      "stdin": "#(1.0 0.0 2.0 0.5 -1.0 1.0 0.0 -2.0 0.75 -0.25 -0.5 0.5 1.5 -1.0 -2.0 0.75)\n#(1.75 -0.5 0.54809703885628 2.87652416360247 -0.9999999999999989 3.2500000000000004 3.8409902576697337 3.987436867076458 2.749999999999999 -3.219646771412954e-15 -4.048097038856289 -7.376524163602465 3.5000000000000018 -3.7500000000000018 0.6590097423302623)\n1e-12\n",
+      "label": "short"
+    },
+    {
+      "command": [
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-fft-replay-20261013/strict-fft-final-cf22413/fft/chez-dft-probe/program.so"
+      ],
+      "returncode": 0,
+      "stdout": "#f\n",
+      "stderr": "",
+      "process_seconds": 0.035035614972002804,
+      "group": "chez-dft",
+      "valid": true,
+      "stdin": "#(1.0 0.0 2.0 0.5 -1.0 1.0 0.0 -2.0 0.75 -0.25 -0.5 0.5 1.5 -1.0 -2.0 0.75)\n#(1.75 -0.5 0.54809703885628 2.87652416360247 -0.9999999999999989 3.2500000000000004 3.8409902576697337 3.987436867076458 2.749999999999999 -3.219646771412954e-15 -4.048097038856289 -7.376524163602465 3.5000000000000018 -3.7500000000000018 0.6590097423302623 1.5125631329235496 0.0)\n1e-12\n",
+      "label": "long"
+    }
+  ],
+  "source_and_binary_identity": true,
+  "medians_recomputed": true,
+  "results_sha256": "2f50b4afca887298d1e240e12c410b2ea617c24d1d613924fe705b7b284bc1cf",
+  "archive_sha256": "06d39752c01db69c6ae657a73b37e2f5857e3cadabbe604bf02b1caf9c358cc2"
+}

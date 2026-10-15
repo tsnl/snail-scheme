@@ -1,0 +1,11 @@
+{
+  "started_utc": "2026-10-14T12:10:47.891107+00:00",
+  "agents_holding_builds": true,
+  "cpu": 5,
+  "acknowledgments": [
+    "parent holds builds/tests/compression",
+    "Rust agent holds compression/replay/tests",
+    "native diagnostic profiling and counter handles terminal"
+  ],
+  "limitation": "Other system and desktop activity is uncontrolled"
+}

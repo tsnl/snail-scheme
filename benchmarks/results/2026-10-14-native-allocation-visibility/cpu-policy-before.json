@@ -1,0 +1,23 @@
+{
+  "/sys/devices/system/cpu/cpu5/cpufreq/energy_performance_available_preferences": "default performance balance_performance balance_power power",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_min_freq": "800000",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_available_governors": "performance powersave",
+  "/sys/devices/system/cpu/cpu5/cpufreq/base_frequency": "3700000",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_governor": "powersave",
+  "/sys/devices/system/cpu/cpu5/cpufreq/cpuinfo_max_freq": "5500000",
+  "/sys/devices/system/cpu/cpu5/cpufreq/related_cpus": "5",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_cur_freq": "800356",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_setspeed": "<unsupported>",
+  "/sys/devices/system/cpu/cpu5/cpufreq/affected_cpus": "5",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_max_freq": "5500000",
+  "/sys/devices/system/cpu/cpu5/cpufreq/cpuinfo_transition_latency": "0",
+  "/sys/devices/system/cpu/cpu5/cpufreq/energy_performance_preference": "performance",
+  "/sys/devices/system/cpu/cpu5/cpufreq/scaling_driver": "intel_pstate",
+  "/sys/devices/system/cpu/cpu5/cpufreq/cpuinfo_min_freq": "800000",
+  "/sys/devices/system/cpu/cpu5/cpufreq/cpuinfo_avg_freq": "800356",
+  "/sys/devices/system/cpu/intel_pstate/no_turbo": "0",
+  "/sys/devices/system/cpu/intel_pstate/status": "active",
+  "/sys/devices/system/cpu/intel_pstate/max_perf_pct": "100",
+  "/sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost": "0",
+  "/sys/devices/system/cpu/intel_pstate/min_perf_pct": "15"
+}

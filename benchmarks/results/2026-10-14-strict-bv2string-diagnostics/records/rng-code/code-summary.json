@@ -1,0 +1,19 @@
+{
+  "binary_function_index": 21,
+  "source_function": "function89",
+  "tiers": [
+    "Liftoff",
+    "TurboFan"
+  ],
+  "canonical_branch_offsets": [
+    "0x777",
+    "0x806"
+  ],
+  "canonical_idivq_offsets": [
+    "0x7cb",
+    "0x7fc"
+  ],
+  "constant_quotient8": "signed shift/bias at0x7d5-0x7e0",
+  "hardware_counters": false,
+  "raw_bytes": 123832
+}

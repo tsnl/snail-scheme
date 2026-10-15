@@ -1,0 +1,301 @@
+{
+  "complete": true,
+  "cpu": 3,
+  "variants": {
+    "compiler": {
+      "bump-prefault": {
+        "samples": [
+          {
+            "seconds": 3.50583362,
+            "wall_seconds": 7.2553045960085,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-prefault,compiler-self,3.50583362\n",
+            "stderr": "HEAP_SETUP seconds=3.386023 minor_faults=4194605 rss_kib=16780652\nHEAP_RUN user_s=3.489602 system_s=0.012240 minor_faults=1601 major_faults=0 rss_kib=16788180\nBUMP used=16341875560 capacity=17179869184 rss_kib=16788180 wall_s=6.892073\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-prefault"
+            ]
+          },
+          {
+            "seconds": 3.508869085,
+            "wall_seconds": 7.2546815579989925,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-prefault,compiler-self,3.508869085\n",
+            "stderr": "HEAP_SETUP seconds=3.371217 minor_faults=4194607 rss_kib=16780800\nHEAP_RUN user_s=3.499010 system_s=0.006065 minor_faults=1600 major_faults=0 rss_kib=16788116\nBUMP used=16343017640 capacity=17179869184 rss_kib=16788116 wall_s=6.880309\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-prefault"
+            ]
+          },
+          {
+            "seconds": 3.503114286,
+            "wall_seconds": 7.263446689990815,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-prefault,compiler-self,3.503114286\n",
+            "stderr": "HEAP_SETUP seconds=3.385089 minor_faults=4194609 rss_kib=16780644\nHEAP_RUN user_s=3.487032 system_s=0.012522 minor_faults=1600 major_faults=0 rss_kib=16788188\nBUMP used=16342973952 capacity=17179869184 rss_kib=16788188 wall_s=6.888427\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-prefault"
+            ]
+          }
+        ],
+        "discarded": {
+          "seconds": 4.381834122,
+          "wall_seconds": 8.53243394200399,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stdout": "+!CSVLINE!+bump-prefault,compiler-self,4.381834122\n",
+          "stderr": "HEAP_SETUP seconds=3.778424 minor_faults=4194608 rss_kib=16780616\nHEAP_RUN user_s=4.361531 system_s=0.015764 minor_faults=1601 major_faults=0 rss_kib=16788176\nBUMP used=16343075720 capacity=17179869184 rss_kib=16788176 wall_s=8.160489\n",
+          "command": [
+            "taskset",
+            "-c",
+            "3",
+            "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+            "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+            "bump-prefault"
+          ]
+        },
+        "median_seconds": 3.50583362
+      },
+      "bump-lazy": {
+        "samples": [
+          {
+            "seconds": 6.680386445,
+            "wall_seconds": 7.041302062993054,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-lazy,compiler-self,6.680386445\n",
+            "stderr": "HEAP_SETUP seconds=0.000009 minor_faults=303 rss_kib=30548\nHEAP_RUN user_s=3.768022 system_s=2.903675 minor_faults=3991335 major_faults=0 rss_kib=15969816\nBUMP used=16341956632 capacity=17179869184 rss_kib=15969816 wall_s=6.680647\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-lazy"
+            ]
+          },
+          {
+            "seconds": 6.67997008,
+            "wall_seconds": 7.039387548997183,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-lazy,compiler-self,6.67997008\n",
+            "stderr": "HEAP_SETUP seconds=0.000010 minor_faults=303 rss_kib=30548\nHEAP_RUN user_s=3.760484 system_s=2.910584 minor_faults=3991553 major_faults=0 rss_kib=15970808\nBUMP used=16342845872 capacity=17179869184 rss_kib=15970808 wall_s=6.680224\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-lazy"
+            ]
+          },
+          {
+            "seconds": 6.70186111,
+            "wall_seconds": 7.053071468006237,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+bump-lazy,compiler-self,6.70186111\n",
+            "stderr": "HEAP_SETUP seconds=0.000011 minor_faults=304 rss_kib=30548\nHEAP_RUN user_s=3.802299 system_s=2.889697 minor_faults=3991426 major_faults=0 rss_kib=15970232\nBUMP used=16342325056 capacity=17179869184 rss_kib=15970232 wall_s=6.702117\n",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "bump-lazy"
+            ]
+          }
+        ],
+        "discarded": {
+          "seconds": 6.67951305,
+          "wall_seconds": 7.028920525001013,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stdout": "+!CSVLINE!+bump-lazy,compiler-self,6.67951305\n",
+          "stderr": "HEAP_SETUP seconds=0.000010 minor_faults=304 rss_kib=30548\nHEAP_RUN user_s=3.683115 system_s=2.987932 minor_faults=3991658 major_faults=0 rss_kib=15970908\nBUMP used=16343280344 capacity=17179869184 rss_kib=15970908 wall_s=6.679770\n",
+          "command": [
+            "taskset",
+            "-c",
+            "3",
+            "/tmp/snail-prefault-heap-20261011/build/prefault-heap/compiler-bump",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+            "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+            "bump-lazy"
+          ]
+        },
+        "median_seconds": 6.680386445
+      },
+      "v8": {
+        "samples": [
+          {
+            "seconds": 3.716822598,
+            "wall_seconds": 3.760122951003723,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+v8,compiler-self,3.716822598\n",
+            "stderr": "",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "node",
+              "--no-warnings",
+              "/tmp/snail-prefault-heap-20261011/scripts/run-wasi.mjs",
+              "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "v8"
+            ]
+          },
+          {
+            "seconds": 3.725471823,
+            "wall_seconds": 3.7761012080009095,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+v8,compiler-self,3.725471823\n",
+            "stderr": "",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "node",
+              "--no-warnings",
+              "/tmp/snail-prefault-heap-20261011/scripts/run-wasi.mjs",
+              "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "v8"
+            ]
+          },
+          {
+            "seconds": 3.710472135,
+            "wall_seconds": 3.7535281390009914,
+            "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+            "stdout": "+!CSVLINE!+v8,compiler-self,3.710472135\n",
+            "stderr": "",
+            "command": [
+              "taskset",
+              "-c",
+              "3",
+              "node",
+              "--no-warnings",
+              "/tmp/snail-prefault-heap-20261011/scripts/run-wasi.mjs",
+              "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+              "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+              "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+              "v8"
+            ]
+          }
+        ],
+        "discarded": {
+          "seconds": 3.711379838,
+          "wall_seconds": 3.757294203998754,
+          "checksum": "658af1403c7313bef3efde25c7383e8bcf68fec34d758c0fdbed6911a27bdb0a",
+          "stdout": "+!CSVLINE!+v8,compiler-self,3.711379838\n",
+          "stderr": "",
+          "command": [
+            "taskset",
+            "-c",
+            "3",
+            "node",
+            "--no-warnings",
+            "/tmp/snail-prefault-heap-20261011/scripts/run-wasi.mjs",
+            "/tmp/snail-native-ablation-20261011/build/ablation/compiler.wasm",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source",
+            "/tmp/snail-precise-gc-20261011/build/precise-gc/reproduction-smoke/source/benchmarks/compile-self.scm",
+            "/tmp/snail-prefault-heap-20261011/build/prefault-heap/output.wat",
+            "v8"
+          ]
+        },
+        "median_seconds": 3.716822598
+      }
+    }
+  },
+  "order": [
+    [
+      "compiler",
+      0,
+      "bump-prefault"
+    ],
+    [
+      "compiler",
+      0,
+      "bump-lazy"
+    ],
+    [
+      "compiler",
+      0,
+      "v8"
+    ],
+    [
+      "compiler",
+      1,
+      "bump-lazy"
+    ],
+    [
+      "compiler",
+      1,
+      "v8"
+    ],
+    [
+      "compiler",
+      1,
+      "bump-prefault"
+    ],
+    [
+      "compiler",
+      2,
+      "v8"
+    ],
+    [
+      "compiler",
+      2,
+      "bump-prefault"
+    ],
+    [
+      "compiler",
+      2,
+      "bump-lazy"
+    ],
+    [
+      "compiler",
+      3,
+      "bump-prefault"
+    ],
+    [
+      "compiler",
+      3,
+      "bump-lazy"
+    ],
+    [
+      "compiler",
+      3,
+      "v8"
+    ]
+  ]
+}

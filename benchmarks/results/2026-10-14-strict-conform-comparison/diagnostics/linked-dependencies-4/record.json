@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/nix/store/axmdd5wlxg1c9dbblvj09pjhkawqxmqx-glibc-2.42-84-bin/bin/ldd",
+    "/tmp/snail-conform-measurement-20261014/build/conform-evidence-2b47be4/build/strict-conform-preparation-attempt1/conform/controls/native/native"
+  ],
+  "cwd": "/tmp/snail-conform-measurement-20261014",
+  "phase": "setup-diagnostic",
+  "clean_sample": false,
+  "retained": false,
+  "status": "completed",
+  "pid": 54,
+  "process_group": 54,
+  "returncode": 0,
+  "stdout": "\tlinux-vdso.so.1 (0x0000775d7d47c000)\n\tlibdl.so.2 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libdl.so.2 (0x0000775d7d352000)\n\tlibpthread.so.0 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libpthread.so.0 (0x0000775d7d34d000)\n\tlibm.so.6 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libm.so.6 (0x0000775d7d255000)\n\tlibgcc_s.so.1 => /nix/store/ssvq1r0xd8f7paf6zqgpfql1a4drwhy2-xgcc-15.3.0-libgcc/lib/libgcc_s.so.1 (0x0000775d7d228000)\n\tlibc.so.6 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/libc.so.6 (0x0000775d7d000000)\n\t/nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib/ld-linux-x86-64.so.2 => /nix/store/n51dhmdbik1kfrsm62j5knavmigwrl1a-glibc-2.42-84/lib64/ld-linux-x86-64.so.2 (0x0000775d7d47e000)\n",
+  "stderr": "",
+  "timeout": false,
+  "cleanup": {
+    "process_group": 54,
+    "live_members": [],
+    "leader_reaped": true,
+    "capture_handles_closed": true,
+    "zombies_count_as_stopped": true
+  },
+  "process_seconds": 0.0038584830472245812
+}

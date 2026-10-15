@@ -1,0 +1,170 @@
+Grow heap to 4194304 KiB after 0 bytes allocated
+Grew heap sections array to 32 elements
+Number of processors: 24
+Will retry suspend and restart signals if necessary
+Initiating full world-stop collection!
+
+--> Marking for collection #1 after 0 allocated bytes
+GC #1 freed 0 bytes, heap 4194304 KiB (+ 0 KiB unmapped + 192 KiB internal)
+World-stopped marking took 0 ms 57831 ns (0 ms in average)
+In-use heap: 0% (0 KiB pointers + 0 KiB other)
+0 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 314 ns + 0 ms 2331 ns
+Complete collection took 0 ms 491702 ns
+Adding block map for size of 9 granules (144 bytes)
+Adding block map for size of 10 granules (160 bytes)
+Adding block map for size of 2 granules (32 bytes)
+Adding block map for size of 0 granules (0 bytes)
+Adding block map for size of 3 granules (48 bytes)
+Adding block map for size of 4 granules (64 bytes)
+Adding block map for size of 6 granules (96 bytes)
+Adding block map for size of 5 granules (80 bytes)
+Adding block map for size of 7 granules (112 bytes)
+Adding block map for size of 14 granules (224 bytes)
+Adding block map for size of 50 granules (800 bytes)
+Adding block map for size of 36 granules (576 bytes)
+Adding block map for size of 64 granules (1024 bytes)
+Grew fo table to 2 entries
+Grew fo table to 4 entries
+Adding block map for size of 8 granules (128 bytes)
+Adding block map for size of 12 granules (192 bytes)
+Adding block map for size of 13 granules (208 bytes)
+Adding block map for size of 11 granules (176 bytes)
+Grew fo table to 8 entries
+Adding block map for size of 16 granules (256 bytes)
+Adding block map for size of 17 granules (272 bytes)
+Adding block map for size of 23 granules (368 bytes)
+Adding block map for size of 24 granules (384 bytes)
+Adding block map for size of 20 granules (320 bytes)
+Adding block map for size of 15 granules (240 bytes)
+Adding block map for size of 128 granules (2048 bytes)
+Grew fo table to 16 entries
+Adding block map for size of 22 granules (352 bytes)
+Adding block map for size of 19 granules (304 bytes)
+Adding block map for size of 18 granules (288 bytes)
+Adding block map for size of 21 granules (336 bytes)
+Grew fo table to 32 entries
+Adding block map for size of 28 granules (448 bytes)
+Initiating full world-stop collection!
+
+--> Marking for collection #2 after 4285466608 allocated bytes
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Mark stack overflow; current size: 4096 entries
+Recycle 65536/65536 scratch-allocated bytes at 0x733c38e16000
+Grew mark stack to 8192 frames
+GC #2 freed 0 bytes, heap 4194368 KiB (+ 0 KiB unmapped + 353664 KiB internal)
+World-stopped marking took 50 ms 646275 ns (25 ms in average)
+In-use heap: 0% (7034 KiB pointers + 0 KiB other)
+4 finalization entries; 0/0 short/long disappearing links alive
+19 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 5361 ns + 21 ms 672712 ns
+Complete collection took 90 ms 150725 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #3 after 4276928160 allocated bytes
+GC #3 freed 4286826624 bytes, heap 4194368 KiB (+ 0 KiB unmapped + 353856 KiB internal)
+World-stopped marking took 40 ms 728253 ns (30 ms in average)
+In-use heap: 0% (7425 KiB pointers + 0 KiB other)
+4 finalization entries; 0/0 short/long disappearing links alive
+6 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3732 ns + 32 ms 942837 ns
+Complete collection took 96 ms 340862 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #4 after 4276788128 allocated bytes
+GC #4 freed 4285958688 bytes, heap 4194368 KiB (+ 0 KiB unmapped + 353856 KiB internal)
+World-stopped marking took 56 ms 993880 ns (36 ms in average)
+In-use heap: 0% (9673 KiB pointers + 0 KiB other)
+4 finalization entries; 0/0 short/long disappearing links alive
+8 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 3965 ns + 41 ms 316391 ns
+Complete collection took 125 ms 562275 ns
+Adding block map for size of 84 granules (1344 bytes)
+Initiating full world-stop collection!
+
+--> Marking for collection #5 after 4272274096 allocated bytes
+GC #5 freed 4282835552 bytes, heap 4194368 KiB (+ 0 KiB unmapped + 354112 KiB internal)
+World-stopped marking took 65 ms 421963 ns (42 ms in average)
+In-use heap: 0% (12374 KiB pointers + 0 KiB other)
+4 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1882 ns + 44 ms 726086 ns
+Complete collection took 139 ms 367153 ns
+Initiating full world-stop collection!
+
+--> Marking for collection #6 after 4268789456 allocated bytes
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Mark stack overflow; current size: 8192 entries
+Recycle 131072/131072 scratch-allocated bytes at 0x733b232bc000
+Grew mark stack to 16384 frames
+GC #6 freed 4280356640 bytes, heap 4194496 KiB (+ 0 KiB unmapped + 354240 KiB internal)
+World-stopped marking took 208 ms 192743 ns (69 ms in average)
+In-use heap: 1% (44732 KiB pointers + 0 KiB other)
+4 finalization entries; 0/0 short/long disappearing links alive
+0 finalization-ready objects; 0/0 short/long links cleared
+Finalize and initiate sweep took 0 ms 1602 ns + 51 ms 369033 ns
+Complete collection took 290 ms 355126 ns
+[ perf record: Woken up 171 times to write data ]
+[ perf record: Captured and wrote 42.657 MB /tmp/snail-symbol-fingerprints-20261011/build/symbol-profile/snail-native-before-4gib.data (5233 samples) ]

@@ -1,0 +1,11 @@
+{
+  "archive_sha256": "61f495a71b5a8a6aed43d9f58d4d73b3dbaffab79c468c9998c6a22029030d54",
+  "archive_bytes": 4001220,
+  "verified_blobs": 479,
+  "mapped_files": 1675,
+  "source_implementations": 57,
+  "default_canonical_successes": 56,
+  "default_canonical_failure": "ack",
+  "optional_variant_status": "separate canonical pass",
+  "new_performance_observations": false
+}

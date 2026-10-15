@@ -1,0 +1,16 @@
+{
+  "make_test": {
+    "returncode": 0,
+    "result": "All tests ok",
+    "evidence": "Tool transcript"
+  },
+  "make_check": {
+    "returncode": 0,
+    "evidence": "Tool transcript"
+  },
+  "preparation_driver_unchanged": true,
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "prior_ports_unchanged": 24,
+  "production_compiler_unchanged": true,
+  "full_compiler_suite": "Not repeated for this source-only port; compiler basis is unchanged."
+}

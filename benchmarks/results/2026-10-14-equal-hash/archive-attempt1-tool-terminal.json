@@ -1,0 +1,14 @@
+{
+  "attempt": 1,
+  "actual_tool_terminal": true,
+  "guest_started": false,
+  "compression_started": false,
+  "terminal": {
+    "chunk_id": "eb4152",
+    "wall_time_seconds": 0.774123971,
+    "exit_code": 1,
+    "original_token_count": 345,
+    "output": "Traceback (most recent call last):\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 280, in <module>\n    main()\n    ~~~~^^\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 237, in main\n    prepare()\n    ~~~~~~~^^\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 211, in prepare\n    check_snapshot(files)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 102, in check_snapshot\n    require(digest(copied_original(original, files)) == expected, 'copied audited bytes changed: ' + original)\n                   ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 85, in copied_original\n    require(name in files, 'missing audited evidence: ' + name)\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/package.py\", line 27, in require\n    raise ValueError(message)\nValueError: missing audited evidence: snail-equal-hash-measurement-20261014/benchmarks/results/2026-10-14-equal-hash/__pycache__/measure.cpython-314.pyc\n"
+  },
+  "reason": "A frozen local Python bytecode dependency was omitted by the generic cache exclusion; explicitly audited local dependencies must be retained."
+}

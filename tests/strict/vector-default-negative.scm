@@ -1,0 +1,11 @@
+(import (snail strict))
+(define count (ref 0))
+(: calls (-> I64))
+(define (calls) (ref-get count))
+(define-instance (Default (Ref I64))
+  (default (lambda () (ref-set! count (+ (ref-get count) 1)) (ref 0))))
+(: allocate (-> I64))
+(define (allocate)
+  (ann (make-vector -1) (Vector (Ref I64)))
+  0)
+42

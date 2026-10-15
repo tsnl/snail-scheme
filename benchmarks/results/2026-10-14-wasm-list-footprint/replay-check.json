@@ -1,0 +1,540 @@
+{
+  "archive_files_verified": 37,
+  "runs": [
+    {
+      "engine": "node",
+      "observations": 12,
+      "source_sha256": {
+        "list-layout-probe.wat": "9d09b74433d2cb7f4c84e411977b18e49078d2fb0414d0d94368079653fbae67",
+        "list-layout-probe.wasm": "445f57f70f1380f04a3bb71a80424d6782991e76488fe314815215ec1acfa3ec",
+        "heap-layout-common.mjs": "e31fa37fb5d3bec4beb4ae50915b2564955b10954724eee370899ce924ea2e15",
+        "run-layout-node.mjs": "4e274259e57162f1a8b56d31827ed189af38ed574a844aef90aef2bfef478387",
+        "run-layout-chromium.mjs": "3d91710279e19ec5fe8d28b08c6cd210446f11d9d785befd47fb88e39dc61ca3",
+        "browser-probe/heap.html": "b9703bb60397e2eb7cb9243c238f20ede4bba48daa4eb5164f768511edddc260"
+      },
+      "bytes_per_node_medians": {
+        "inner": 32.00184,
+        "outer": 32.00184
+      },
+      "process": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "--expose-gc",
+          "/tmp/snail-list-footprint-node-replay-20261014/run-layout-node.mjs"
+        ],
+        "returncode": 0,
+        "stdout": "Node heap probe complete\n",
+        "stderr": ""
+      },
+      "observations_record": {
+        "engine": {
+          "node": "v24.19.0",
+          "v8": "13.6.233.17-node.51",
+          "pointerCompression": 0
+        },
+        "initial": [
+          4352488,
+          4352400,
+          4363672
+        ],
+        "observations": [
+          {
+            "kind": "inner",
+            "count": 25000,
+            "empty": [
+              4579496,
+              4579504,
+              4581096
+            ],
+            "populated": [
+              5381088,
+              5381256,
+              5381360
+            ],
+            "released": [
+              4381648,
+              4381816,
+              4381784
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 100000,
+            "empty": [
+              5182632,
+              5182800,
+              5182800
+            ],
+            "populated": [
+              8383072,
+              8382984,
+              8382984
+            ],
+            "released": [
+              4383032,
+              4383168,
+              4383168
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 200000,
+            "empty": [
+              5983248,
+              5983416,
+              5983416
+            ],
+            "populated": [
+              12383800,
+              12383632,
+              12383600
+            ],
+            "released": [
+              4383648,
+              4383784,
+              4383784
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 200000,
+            "empty": [
+              5983864,
+              5984032,
+              5984032
+            ],
+            "populated": [
+              12384048,
+              12384248,
+              12384216
+            ],
+            "released": [
+              4384264,
+              4384400,
+              4384400
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 100000,
+            "empty": [
+              5184480,
+              5184648,
+              5184648
+            ],
+            "populated": [
+              8384664,
+              8384832,
+              8384864
+            ],
+            "released": [
+              4384880,
+              4385016,
+              4385016
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 25000,
+            "empty": [
+              4585096,
+              4585264,
+              4585264
+            ],
+            "populated": [
+              5385280,
+              5385448,
+              5385448
+            ],
+            "released": [
+              4385496,
+              4385632,
+              4385632
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 25000,
+            "empty": [
+              4585712,
+              4585880,
+              4585880
+            ],
+            "populated": [
+              5385896,
+              5386064,
+              5386064
+            ],
+            "released": [
+              4386112,
+              4386248,
+              4386248
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 100000,
+            "empty": [
+              5186328,
+              5186496,
+              5186496
+            ],
+            "populated": [
+              8386768,
+              8386680,
+              8386680
+            ],
+            "released": [
+              4386728,
+              4386864,
+              4386864
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 200000,
+            "empty": [
+              5986944,
+              5987112,
+              5987112
+            ],
+            "populated": [
+              12387384,
+              12387328,
+              12387296
+            ],
+            "released": [
+              4387344,
+              4387480,
+              4387480
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 200000,
+            "empty": [
+              5987560,
+              5987728,
+              5987728
+            ],
+            "populated": [
+              12387744,
+              12387944,
+              12387912
+            ],
+            "released": [
+              4387960,
+              4388688,
+              4388688
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 100000,
+            "empty": [
+              5188768,
+              5189104,
+              5188936
+            ],
+            "populated": [
+              8388952,
+              8389152,
+              8389120
+            ],
+            "released": [
+              4389168,
+              4389304,
+              4389304
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 25000,
+            "empty": [
+              4589384,
+              4589552,
+              4589552
+            ],
+            "populated": [
+              5389568,
+              5389736,
+              5389736
+            ],
+            "released": [
+              4389784,
+              4389920,
+              4389920
+            ]
+          }
+        ],
+        "scope": "Retained heap counter deltas after explicit GC; no physical-residency or exact-header claim. Same-length empty-root arrays control root storage; all immutable links and payloads checked in Wasm."
+      }
+    },
+    {
+      "engine": "chromium",
+      "observations": 12,
+      "source_sha256": {
+        "list-layout-probe.wat": "9d09b74433d2cb7f4c84e411977b18e49078d2fb0414d0d94368079653fbae67",
+        "list-layout-probe.wasm": "445f57f70f1380f04a3bb71a80424d6782991e76488fe314815215ec1acfa3ec",
+        "heap-layout-common.mjs": "6d0c23ff05b6b47cbadf2ff137146de235aac014dd156cd018dff9231ef17fcf",
+        "run-layout-node.mjs": "4e274259e57162f1a8b56d31827ed189af38ed574a844aef90aef2bfef478387",
+        "run-layout-chromium.mjs": "3d91710279e19ec5fe8d28b08c6cd210446f11d9d785befd47fb88e39dc61ca3",
+        "browser-probe/heap.html": "617bb2b05f55746c4d75c580bae7a1c6a6b0316957b5e325fdf11ac77e3cb2bb"
+      },
+      "bytes_per_node_medians": {
+        "inner": 20.00092,
+        "outer": 16.001
+      },
+      "process": {
+        "command": [
+          "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+          "/tmp/snail-list-footprint-chromium-replay-20261014/run-layout-chromium.mjs"
+        ],
+        "returncode": 0,
+        "stdout": "Chromium heap probe complete\n",
+        "stderr": ""
+      },
+      "observations_record": {
+        "engine": {
+          "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36"
+        },
+        "initial": [
+          489075,
+          489151,
+          489291
+        ],
+        "observations": [
+          {
+            "kind": "outer",
+            "count": 200000,
+            "empty": [
+              1290143,
+              1289751,
+              1289767
+            ],
+            "populated": [
+              4489807,
+              4489899,
+              4489899
+            ],
+            "released": [
+              489915,
+              489991,
+              489991
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 100000,
+            "empty": [
+              890431,
+              890507,
+              890523
+            ],
+            "populated": [
+              2490523,
+              2490615,
+              2490615
+            ],
+            "released": [
+              490631,
+              490707,
+              490707
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 25000,
+            "empty": [
+              590799,
+              590891,
+              590891
+            ],
+            "populated": [
+              990891,
+              990983,
+              990983
+            ],
+            "released": [
+              490999,
+              491075,
+              491075
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 25000,
+            "empty": [
+              591123,
+              591199,
+              591199
+            ],
+            "populated": [
+              991199,
+              991291,
+              991291
+            ],
+            "released": [
+              491307,
+              491383,
+              491383
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 100000,
+            "empty": [
+              891415,
+              891507,
+              891507
+            ],
+            "populated": [
+              2491507,
+              2491599,
+              2491599
+            ],
+            "released": [
+              491615,
+              491691,
+              491691
+            ]
+          },
+          {
+            "kind": "outer",
+            "count": 200000,
+            "empty": [
+              1291723,
+              1291815,
+              1291815
+            ],
+            "populated": [
+              4491815,
+              4491907,
+              4491907
+            ],
+            "released": [
+              491923,
+              491999,
+              491999
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 200000,
+            "empty": [
+              1292031,
+              1292123,
+              1292123
+            ],
+            "populated": [
+              5292123,
+              5292215,
+              5292215
+            ],
+            "released": [
+              492231,
+              492307,
+              492307
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 100000,
+            "empty": [
+              892339,
+              892431,
+              892431
+            ],
+            "populated": [
+              2892431,
+              2892523,
+              2892523
+            ],
+            "released": [
+              492539,
+              492615,
+              492615
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 25000,
+            "empty": [
+              592663,
+              592739,
+              592739
+            ],
+            "populated": [
+              1092739,
+              1092831,
+              1092831
+            ],
+            "released": [
+              492847,
+              492923,
+              492923
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 25000,
+            "empty": [
+              592971,
+              593047,
+              593047
+            ],
+            "populated": [
+              1093047,
+              1093139,
+              1093139
+            ],
+            "released": [
+              493155,
+              493231,
+              493231
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 100000,
+            "empty": [
+              893263,
+              893355,
+              893355
+            ],
+            "populated": [
+              2893355,
+              2893447,
+              2893447
+            ],
+            "released": [
+              493463,
+              493539,
+              493539
+            ]
+          },
+          {
+            "kind": "inner",
+            "count": 200000,
+            "empty": [
+              1293571,
+              1293663,
+              1293663
+            ],
+            "populated": [
+              5293663,
+              5293755,
+              5293755
+            ],
+            "released": [
+              493771,
+              493847,
+              493847
+            ]
+          }
+        ],
+        "scope": "Retained heap counter deltas after explicit GC; no physical-residency or exact-header claim. Same-length empty-root arrays control root storage; all immutable links and payloads checked in Wasm."
+      }
+    }
+  ]
+}

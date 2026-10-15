@@ -1,0 +1,76 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "total": 57,
+  "measured_separately": [
+    "cat",
+    "wc"
+  ],
+  "failed_default_configuration": {
+    "ack": "Optimized Wasm exceeds default V8 stack. Larger-stack diagnostic succeeds; excluded from passing timings."
+  },
+  "not_yet_ported": [
+    "browse",
+    "deriv",
+    "destruc",
+    "puzzle",
+    "ctak",
+    "fibc",
+    "fft",
+    "mbrotZ",
+    "nucleic",
+    "pi",
+    "ray",
+    "simplex",
+    "string",
+    "sum1",
+    "tail",
+    "read1",
+    "compiler",
+    "conform",
+    "dynamic",
+    "earley",
+    "graphs",
+    "lattice",
+    "matrix",
+    "maze",
+    "mazefun",
+    "paraffins",
+    "parsing",
+    "peval",
+    "quicksort",
+    "scheme",
+    "slatex",
+    "chudnovsky",
+    "nboyer",
+    "sboyer",
+    "gcbench",
+    "mperm",
+    "equal",
+    "bv2string"
+  ],
+  "scope": "Cumulative typed workload ports and scalar IO slices; next-five uses the unmerged interim numeric320987e compiler, not a complete strict R7RS implementation.",
+  "measured_previous_kernel_report": [
+    "tak",
+    "cpstak",
+    "fib",
+    "fibfp",
+    "sum",
+    "sumfp",
+    "takl",
+    "ntakl",
+    "diviter",
+    "divrec"
+  ],
+  "measured_here": [
+    "primes",
+    "nqueens",
+    "triangl",
+    "mbrot",
+    "pnpoly"
+  ],
+  "cumulative_measured": 18,
+  "unported_count": 38,
+  "measured_array1": [
+    "array1"
+  ]
+}

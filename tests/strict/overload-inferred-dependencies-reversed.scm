@@ -1,0 +1,8 @@
+(import (snail strict))
+(define-overload f (lambda (value) value))
+(define (forward value) (f value))
+(define helper forward)
+(define (bridge value) (helper value))
+(define-overload g (-> I64 Bool) (lambda (value) #t))
+(define-overload g (lambda (value) (bridge value)))
+(if (and (ann (g 42) Bool) (= (ann (g 42) I64) 42)) 42 (unreachable))

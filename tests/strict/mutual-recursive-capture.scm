@@ -1,0 +1,6 @@
+(import (snail strict))
+(define (exercise seed)
+  (define (even n) (if (= n 0) seed (odd (- n 1))))
+  (define (odd n) (if (= n 0) 0 (even (- n 1))))
+  (even 100000))
+(exercise 42)

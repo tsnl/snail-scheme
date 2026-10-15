@@ -2,7 +2,8 @@
 import { readFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { WASI } from 'node:wasi';
-import { createFinalizers } from './host.mjs';
+import { createFinalizers, createIdentityHasher, dropResource } from '../src/runtime/host.mjs';
+import { createBuildEffects } from '../src/runtime/build.mjs';
 
 // ---- Instance startup ----
 
@@ -12,14 +13,18 @@ export async function loadInstance(filename) {
   const wasi = new WASI({ version: 'preview1', args: [filename],
     env: { SNAIL_TRACE_DIR: '/traces' }, preopens: { '/traces': directory } });
   let instance;
-  const finalizers = createFinalizers((kind, id) => instance.exports['snail:drop-resource'](kind, id));
+  const node = { cwd: process.cwd(), exports: null };
+  const build = createBuildEffects(node);
+  const finalizers = createFinalizers((kind, id) => dropResource(instance.exports, kind, id));
   const module = await WebAssembly.compile(await readFile(filename));
   instance = await WebAssembly.instantiate(module, {
     wasi_snapshot_preview1: wasi.wasiImport,
-    'snail.host': { 'register-finalizer': finalizers.register, 'unregister-finalizer': finalizers.unregister },
+    'snail.node': build.imports,
+    'snail.host': { 'register-finalizer': finalizers.register, 'unregister-finalizer': finalizers.unregister,
+      'hash-identity': createIdentityHasher() },
   });
-  wasi.initialize(instance);
-  instance.exports.actor_initialize();
+  node.exports = instance.exports;
+  wasi.start(instance);
   return instance;
 }
 
@@ -65,4 +70,4 @@ export function invoke(instance, text) {
 }
 
 // A trap can bypass Rust cleanup. The caller must destroy the failed instance;
-// do not reenter it even to release AWI roots after an exception from invoke.
+// do not reenter it even to release ABI roots after an exception from invoke.

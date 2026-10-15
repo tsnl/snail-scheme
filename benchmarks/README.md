@@ -1,13 +1,476 @@
-# Baseline workloads
+# Benchmark suite
 
-See [BENCHMARKS.md](../BENCHMARKS.md) for the current native LLVM comparison
-against Chez, Guile, and Chibi. **Runtime comparisons exclude compilation time
-and process startup**; the report explains Guile's runtime JIT timing separately.
+Run the complete pinned R7RS suite by default:
 
-For compiler latency, parser ablations, and the distinction between Chibi and
-the generated compiler, see [compilation measurements](../doc/compilation-performance.md).
+```sh
+git submodule update --init benchmarks/r7rs-benchmarks
+nix-shell benchmarks/shell.nix
+BENCH_CPU=2 make benchmark
+```
 
-## Native LLVM CPU experiment
+`make benchmark` and `python3 benchmarks/r7rs.py` run the same 57 workloads
+across Snail Wasm/V8, Chez, Guile, and Chibi. Original upstream inputs and three
+rotating measured rounds are the defaults. Each successful case first receives
+one discarded preliminary run. Compilation and process startup are excluded
+from workload times.
+
+The runner saves raw JSON, a CSV table, a Markdown index, and one SVG/PNG plot
+per workload under `build/r7rs-report/`. Unsupported cases, failed builds,
+incorrect answers, and timeouts remain in the matrix and cause a nonzero exit.
+Regenerate reports from saved data without running workloads:
+
+```sh
+python3 benchmarks/r7rs.py --plot build/r7rs-report/results.json
+```
+
+`--count 1 --rounds 1` is an explicitly labelled smoke check, still covering
+all workloads. `--systems` and `--benchmarks` select an explicit diagnostic
+subset; ordinary benchmark commands never select a small showcase by default.
+See [BENCHMARKS.md](../BENCHMARKS.md) for timing boundaries and coverage.
+
+The explicit [five Rust/WASI references](wasm-reference/README.md) preserve the
+algorithms and original inputs of `cat`, `lattice`, `wc`, `graphs`, and `deriv`.
+Their [checked report](results/2026-10-13-wasm-five-reference/README.md) supplies
+same-window Chez controls and separates the prior Snail measurement batch.
+
+The [strict-source cat experiment](strict-cat/README.md) compiles a typed scalar
+copy loop and compares it with the old generated loop and a hand-written Wasm
+control using the same runtime. Its [checked report](results/2026-10-13-strict-source-cat/README.md)
+retains complete source/artifact identities and separate functional validation.
+
+The [strict kernel subset](strict-suite/README.md) measures eleven attempted
+ports against original Chez programs and adds explicit Chez flonum controls.
+Its [report](results/2026-10-13-strict-kernels/README.md) records ten passing
+workloads, the default-stack Ackermann failure, and the remaining suite coverage.
+The [strict-source wc report](results/2026-10-13-strict-source-wc/README.md)
+separately measures character counting inside the original benchmark harness.
+
+Later strict ports and their measurement checkpoints are tracked in the
+[coverage inventory](strict-suite/capabilities.md): 49 measured workloads,
+48 with paired Chez controls. These accumulate individual compiler revisions, not a complete
+rerun on the current compiler. The
+[complete Boyer comparison](results/2026-10-14-strict-boyer-comparison/README.md)
+passes all 112 fixed processes at both original count 1/size 5/51,507,739-rewrite
+predicates. Production V8 medians are NBoyer 11.950027 s and SBoyer 3.504130 s,
+versus original Chez 0.887105 s and 0.372582 s. Native takes 13.52% less time
+than identical-Wasm V8 for NBoyer and 33.26% more for SBoyer, with the current
+`a707974` default growing collector. Seven controls and separate historical
+source/work/alias/reset evidence retain their scope; no isolated GC cause is
+established. The
+[complete Parsing comparison](results/2026-10-14-strict-parsing-comparison/README.md)
+passes all 56 processes with the full 28,300-byte timed file load, 2,500 parses
+and original final-list predicate. V8 takes 2.361375 s, native64 1.481803 s and
+original Chez 1.195848 s. Native takes 38.07% less time than V8 on its exact
+native-final Wasm. The frozen `8930aaa` growing-GC basis, adapted Chez and
+independent Rust representations remain explicit. The
+[complete Equal comparison](results/2026-10-14-strict-equal-comparison/README.md)
+records 2.395007 s on V8, 2.133533 s natively and 0.258255 s on original Chez.
+Native takes 11.434% less time than V8 on identical final Scheme Wasm. The
+adapted Scheme body takes 4.687177 s on Chez, exposing combined representation,
+helper and equality-algorithm costs without isolating any one cause. The
+[typed reader correctness report](results/2026-10-14-strict-reader-library/README.md)
+checks the complete `sum1` and `read1` input streams against Chez on linked raw
+Wasm, optimized Wasm and native. Their
+[complete reader comparison](results/2026-10-14-strict-reader-comparison/README.md)
+measures Sum1 at 2.621× original Chez time and Read1 at 8.450×, or 1.074× and
+1.850× when Chez runs the same Scheme parser body. Subsequent
+[reader ablations](results/2026-10-14-strict-reader-ablations/README.md) isolate
+delimiter scanning and repeated atom staging. Their separately measured
+[combined change](results/2026-10-14-strict-reader-combined/README.md) reduces
+Read1 time by 22.6%; Sum1's median falls 9.2% with a variable baseline. These
+comparisons use a current Snail baseline, without a fresh Chez run. The
+[exact-integer comparison](results/2026-10-14-strict-integer-comparison/README.md)
+passes all 144 planned processes at complete pi and Chudnovsky counts and
+outputs. Snail/V8 takes 10.497× and 8.264× original Chez time; native takes
+19.88% and 8.28% less time than V8 on the identical native-final Scheme Wasm.
+The I32-limb Scheme library, original/adapted native-bigint Chez, checked limb
+library on Chez, and Rust num-bigint controls retain their documented differences.
+The later [bounded limb-product comparison](results/2026-10-14-strict-limb-bits/README.md)
+replaces division/remainder by a power of two with a proved mask/shift in the
+Integer library. Fresh production builds reduce Pi time by 20.5% on V8 and
+29.5% natively; Chudnovsky takes 13.1% and 16.6% less time. All 156 scheduled
+processes pass with complete outputs. This comparison does not rerun Chez or
+Rust, and the preceding integer ratios remain the earlier checkpoint.
+The [complete Ackermann comparison](results/2026-10-14-strict-ack-comparison/README.md)
+passes all 56 processes at the original `ack(3,12)` input and two repetitions.
+V8 takes 1.109322 s, native64 0.757917 s and original Chez 0.821724 s. Native
+uses 32.04% less time than V8 on the identical native-final Scheme Wasm and
+7.76% less than Chez. Recursive Rust/Wasm still fails the default stack;
+its successful explicit heap-frame controls remain separately labeled.
+The [complete Browse comparison](results/2026-10-14-strict-browse-comparison/README.md)
+passes all 56 processes at the original 2,000 invocations and complete predicate.
+Production V8 takes 4.037493 s, original Chez 0.526165 s, adapted Chez 6.360476 s
+and Rust/Wasm 1.964427 s. V8 takes 7.673× original Chez time and 0.635× adapted
+Chez time; native takes 1.724× V8 time on the identical native-final Scheme Wasm.
+Adapted Chez's 12.088× original Chez ratio exposes the joint source-helper and
+representation changes. Bounded internal traces, clean matcher retention and
+Rust's separate Rc/Vec/Boolean representation remain explicit.
+The [complete Conform comparison](results/2026-10-14-strict-conform-comparison/README.md)
+passes all 56 planned processes at the original 500-invocation count and ordered
+31-string predicate. Production V8 takes 1.599663 s, native64 1.825969 s and
+original Chez 0.891038 s. Native takes 13.73% more time than V8 on identical
+native-final Scheme Wasm. Typed mutable records, functional lists, distinct Rust
+layouts/reclamation and source-adaptation caveats remain explicit; work counters
+and forced-GC runs are separate from clean clocks. The preceding full Equal
+comparison and Conform use different compiler/library revisions.
+The [Tail report](results/2026-10-14-strict-tail-comparison/README.md) records
+4.900 s for all 50 complete 4,460,056-byte file reversals: 5.173× original Chez
+time, 2.712× adapted Chez and 22.658× Rust/Wasm. Every output byte and separate
+retained-file work checks pass; line I/O, storage and reclamation differences
+remain explicit. The preceding
+[Mazefun report](results/2026-10-14-strict-mazefun-comparison/README.md) records
+0.629 s for all 10,000 complete 11 × 11 mazes: 1.619× faster than original
+Chez, 1.425× faster than adapted Chez, and 3.691× faster than this Rust/Wasm
+reference. Complete predicates pass; persistent Rc/GC and layout differences
+remain explicit. The preceding
+[Ray report](results/2026-10-14-strict-ray-comparison/README.md) records 0.129 s
+for all 50 complete renders: 6.584× faster than original Chez and 6.181× faster
+than the adapted source on Chez; Rust/Wasm is 2.387× faster than Snail.
+Complete images and separate retained-work diagnostics pass. The
+[Destruc report](results/2026-10-14-strict-destruc-comparison/README.md) records
+3.382× original Chez time, 1.344× adapted Chez and 1.167× Rust/Wasm for all
+4,000 original invocations and the complete ten-row predicate. Adapted Chez
+itself takes 2.517× original Chez time; source/ownership changes remain explicit.
+The
+[Lattice report](results/2026-10-14-strict-lattice-comparison/README.md) records
+1.647× original Chez time and 1.815× Rust/Wasm time for the original count ten,
+problem 44 and result 120549, with source/storage differences documented. The
+[Puzzle report](results/2026-10-14-strict-puzzle-comparison/README.md) records
+1.157× original Chez time and 2.434× Rust/Wasm time. The
+[String block comparison](results/2026-10-14-string-block-comparison/README.md)
+improves the original Unicode workload 5.04×. Separate
+[size controls](results/2026-10-14-string-size-controls/README.md) expose 2–22%
+overhead on smaller growth/copy inputs; the representation remains under review.
+The preceding
+[runtime comparison report](results/2026-10-14-strict-runtime-comparisons/README.md)
+adds full symbolic differentiation and complex Mandelbrot, plus callback and
+collector-policy ablations.
+
+The [restored LLVM/Immix comparison](results/2026-10-14-current-wasm-llvm/README.md)
+runs four current optimized Wasm artifacts on both V8 and native LLVM. It records
+three native wins, one V8 win, and the archived emitter/capacity failures at that
+checkpoint. A later [String layout comparison](results/2026-10-14-string-block-native-comparison/README.md)
+changes that workload's winner: V8 runs the improved Wasm 2.27× faster. The
+earlier reports used an isolated emitter. The first production
+[native64 Ray comparison](results/2026-10-14-native64-ray-comparison/README.md)
+uses the restored production build command, mandatory Binaryen optimization,
+checked C linkage and the shared Rust runtime. For all 50 original renders,
+native takes 0.193 s versus 0.128 s on V8 (1.512× the time); complete images and
+separate file/iteration diagnostics pass on both targets.
+The matched [empty-constructor comparison](results/2026-10-14-empty-variant-ray/README.md)
+then shares immutable zero-field cases: V8 improves from 0.127 s to 0.095 s,
+and native from 0.194 s to 0.093 s, with all 36 complete images verified.
+Native allocation requests fall from 35.0 million to 2.30 million in separate
+diagnostic runs. This reaches approximate parity on Ray; the independent
+[Mazefun comparison](results/2026-10-14-native64-mazefun-comparison/README.md)
+still records native at 1.869× V8's time on its frozen common program.
+
+The [Nucleic comparison](results/2026-10-14-strict-nucleic-comparison/README.md)
+records 0.220574 s on V8 for all 50 original searches, 3.359× faster than original
+Chez. Native takes 0.297789 s, 1.350× V8 time. All 20 full-count observations and
+329 source/artifact identities pass; this is a workload result, not a suite-wide
+speed claim.
+
+The [complete Nucleic preparation](results/2026-10-14-strict-nucleic/README.md)
+preserves all 50 searches, the full coordinate database and original ratio
+predicate. Complete ordered-solution and mutation probes pass in both Chez
+controls, raw/optimized linked Wasm and actual native execution. Its archive
+separates diagnostic compiler work from performance measurements.
+
+The [bytevector conversion comparison](results/2026-10-14-strict-bv2string-comparison/README.md)
+records 0.939191 s on V8, 1.992× original Chez time and 20.569× Rust/Wasm
+time. Unicode-scalar versus UTF-8 storage, native slot widths and ownership
+differences remain explicit. All 42 full-count processes passed.
+
+The [bytevector attribution](results/2026-10-14-strict-bv2string-diagnostics/README.md)
+finds retained divisions, capture loads and repeated initialization checks; separate
+collection observations account for only small recorded brackets. A subsequent
+[native array storage comparison](results/2026-10-14-native-array-storage/README.md)
+uses identical final Wasm: storing elements at their declared widths reduces
+native time from 1.031044 s to 0.978197 s, 5.13%. V8 takes 0.938474 s on that
+module, leaving native 1.042× slower. Separate diagnostic requested bytes fall
+67.99%, with the same allocation count. This is one workload, not a suite rerun.
+
+The later [constant-visibility comparison](results/2026-10-14-strict-constant-visibility-comparison/README.md)
+holds that complete source and input fixed while changing only general strict
+compiler rules. V8 medians are 0.938281 s at baseline, 0.722995 s with scalar
+literal forwarding, and 0.654830 s with completed-global readiness facts too:
+30.21% less time overall. All 21 processes passed; the separate mechanisms,
+unchanged initialization semantics and instruction evidence remain explicit.
+
+The [Earley comparison](results/2026-10-14-strict-earley-comparison/README.md)
+records 2.644450 s on production V8, 1.484× original Chez time and 0.754×
+adapted Chez time. Native takes 3.882573 s, 1.458× V8 on the identical final
+Wasm, with an explicit 1 GiB arena after default-capacity exhaustion. All 30
+processes passed. Extra append spines in the adaptation and optimized removal
+of unused tree payloads prevent treating this as an isolated GC comparison.
+
+The [Matrix comparison](results/2026-10-14-strict-matrix-comparison/README.md)
+records 0.705711 s on production V8, 0.476001 s on original Chez and 1.622901 s
+on Rust/Wasm. Native takes 1.901276 s, or 2.713× V8 time on the identical final
+Wasm. All 56 complete runs pass. The full ordered results, original repetition
+count and separate Rust algorithm/layout differences are recorded.
+
+The [native Matrix attribution](results/2026-10-14-strict-matrix-native-diagnostics/README.md)
+finds that 99.88% of allocation requests use an existing bump range, while native
+code still calls a large reservation helper for each object. Two sampling
+methods place about 51–57% of native samples in allocator/header/memset paths;
+collection phase clocks account for about 12% in a separate diagnostic run.
+
+The [allocation-path comparison](results/2026-10-14-native-allocation-path/README.md)
+separates those searches so LLVM can inline the bump operation. Matrix improves
+from 1.899358 s to 1.685207 s, 11.27%, while V8 takes 0.704987 s on the same
+Wasm. The bytevector control, including the later scalar/readiness improvements,
+changes from 0.901071 s to 0.904118 s, 0.34% slower; V8 takes 0.647106 s.
+A separate `cold`-attribute variant regressed bytevectors more and was omitted.
+All 114 planned processes passed, with source, counts, negative results and
+machine code retained. These are two-workload measurements, not a suite rerun.
+
+The [allocation-visibility comparison](results/2026-10-14-native-allocation-visibility/README.md)
+then forces both allocator layers inline so LLVM can see constructor stores.
+Matrix improves another 16.02%, from 1.686211 s to 1.416101 s, versus 0.702953 s
+for the identical Wasm on V8. The bytevector control changes by +0.03% with
+overlapping ranges. All 72 processes pass. Matrix's machine-code `.text` grows
+28.67%; this is a measured workload improvement with a code-size tradeoff.
+The native suite and integrated reader checks pass; suite coverage is unchanged.
+
+## Compiler throughput
+
+[`compile-self.py`](compile-self.py) separately measures the compiler compiling
+its own frozen Scheme sources, checking every output byte against Chibi. Its
+implementation preparation, process startup, assembly, and linking are outside
+the timer. See [the compiler benchmark](../BENCHMARKS.md#compile-the-compiler).
+
+The [global interner report](results/2026-10-11-symbol-interner/README.md)
+separates the interner improvement from the native heap policy and compares
+Fibonacci execution with Chez and Chibi. It preserves frozen compiler inputs,
+validated outputs, profiles, and heap controls.
+The [native lowering audit](results/2026-10-11-native-lowering/README.md) uses
+restored default heap growth and separates LLVM lowering, allocation policy,
+Binaryen preprocessing and GC costs. Its small constructor prototype remains
+experimental because its measured effects are mixed.
+The [compiler simplification report](results/2026-10-10-compiler-simplification/README.md)
+records the preceding shared binding analysis and typing workloads.
+The earlier [visitor comparison](results/2026-10-10-visitor-typing/README.md)
+records the cost of passing type facts directly through the visitor. [`compare-compilers.py`](compare-compilers.py)
+requires identical output between implementations; the historical
+[indexing report](results/2026-10-10-compiler-indexes/README.md) uses that stricter check.
+The [call experiment](calls/README.md) keeps the throwaway flow/inlining pass in a
+patch with measurements and reproduction instructions. [`render-studio.py`](render-studio.py) renders the
+[studio scene](../BENCHMARKS.md#studio-scene) and reports its elapsed time.
+
+## Historical workloads and visual showcase
+
+The standalone Fibonacci and prime-sieve runners are retired. The CPU fixture
+and Chez program builder remain inputs to the explicit typing diagnostics below.
+Their measurements remain in [`results/`](results/) and
+[the historical native benchmark notes](../doc/native-benchmarks.md).
+[`reproduce.py`](reproduce.py) reproduces an older experiment in its pinned
+historical checkout; it is not the default benchmark command.
+
+[`render-studio.py`](render-studio.py) renders the separate deterministic
+[studio scene](../BENCHMARKS.md#studio-scene). It is a visual showcase, not a
+replacement for running the full suite.
+
+## Typing and i32 specialization
+
+The [historical complete-program comparison](results/2026-10-11-symbol-interner/README.md#running-fibonacci-on-snail-chez-and-chibi)
+uses the same emitted WAT for native and Wasm and includes Chez and Chibi on
+both Fibonacci workloads. Run `python3 benchmarks/typing/compare-schemes.py`
+inside the benchmark Nix shell for the current Wasm-only comparison. The native
+comparison is reproducible on the LLVM archive branch.
+
+The [previous runtime refresh](results/2026-10-10-compiler-simplification/README.md#runtime-measurements)
+measures recursive i32 Fibonacci at 0.173772 s (2.26× faster than
+untyped Scheme), three-parameter tail Fibonacci at 0.114204 s (2.53×),
+and boxed occurrence typing at 0.029675 s (1.64× faster than guarded).
+The isolated tail worker remains 32.5% slower than checked C-to-Wasm.
+The following tables retain the earlier production baseline for comparison.
+
+The [implemented checker and optimizations](../doc/typing-prototype.md) were
+measured at commit `e3d916657357e8fb0a64a075fdb3161d3e24e5d3` with no tracked
+source changes. These October 10 measurements use an Intel Core Ultra 7 270K
+Plus, Node 24.19.0, Clang 22.1.8, and Binaryen 132. Eight rotating rounds run on
+logical CPU 2 after one discarded full run per variant. Every sample starts a
+fresh process, runs untimed correctness checks, and verifies its checksum.
+Compilation and process startup are excluded; V8's default tiering remains
+enabled. The tail workload also performs a full in-process warmup, described below.
+
+### Recursive Fibonacci with two parameters
+
+The Fibonacci workload uses two uncurried arguments, `n` and `offset`. The base
+case returns `(+ n offset)` and both recursive calls retain `offset`; it is not
+an unused argument. Timed calls use offset zero, inputs 22–25, and 256 repetitions,
+with checksum `1076472576`. The integration suite also tests a nonzero offset.
+This differs from the older one-argument, 64-repetition measurements below.
+
+| Fibonacci variant | Median seconds |
+| --- | ---: |
+| Untyped, guarded | 0.392100 |
+| Untyped, check elimination | 0.392312 |
+| ExactInteger signature, guarded | 0.499025 |
+| ExactInteger signature, check elimination | 0.392319 |
+| i32 signature, guarded | 0.472806 |
+| i32 signature, check elimination, boxed | 0.472713 |
+| **i32 signature, specialized** | **0.173662** |
+| Native C, `-O3` | 0.068725 |
+| Native C, checked result range | 0.107269 |
+| Native C, `-fno-optimize-sibling-calls` | 0.104731 |
+| C-to-Wasm, `-O3` | 0.095643 |
+| C-to-Wasm, checked result range | 0.171902 |
+
+The specialized workload is **2.26× faster than untyped Scheme**, **2.72× faster
+than boxed i32**, and within about 1% of checked C-to-Wasm. The
+annotation is `(-> i32 i32 i32)`; it means checked signed 32-bit arguments and
+result, with widened intermediates, not wrapping arithmetic. Check elimination
+alone is neutral for untyped and boxed i32 Fibonacci. For ExactInteger it removes
+21% of elapsed time relative to the guarded variant, restoring roughly the
+untyped baseline. Fewer emitted checks do not necessarily mean faster execution.
+
+Snail executes the complete Scheme workload through the production WasmGC
+pipeline. Native C uses the same weighted outer loop and a separately compiled
+kernel, without LTO. C-to-Wasm uses the same kernel on the same Node engine,
+with a JavaScript outer loop; that driver differs from the Scheme workload.
+Every timed input is in range, including for unchecked C. The checked C kernel
+widens addition and tests the i32 result range, but uses abort/trap on failure;
+it is a performance control, not a replacement for Scheme error behavior.
+
+Specialized Snail still takes **2.53× native C's time**, or **1.62× checked native
+C's time**. Inspection of Clang's assembly shows that unchecked C turns one
+recursive branch into a loop with an accumulator. Checked C retains two calls
+and the result-range test; disabling sibling-call optimization on unchecked C
+also brings its time close to checked C. An i32 signature alone cannot prove
+that all Fibonacci inputs avoid overflow. Removing these tests or reassociating
+the recursion requires preserving failure behavior or proving tighter input
+bounds. The current pass does neither for this non-tail recursion. The checked C-to-Wasm comparison
+also shows a remaining target/backend difference from native C; individual
+costs have not been profiled. No native Snail executor is measured here.
+
+### Tail Fibonacci with three parameters
+
+The efficient version carries both accumulators through an uncurried tail call:
+
+```scheme
+(: fibonacci (-> i32 i32 i32 i32))
+(define (fibonacci n a b)
+  (if (< n 2)
+      (if (<= n 0) a b)
+      (fibonacci (- n 1) b (+ a b))))
+```
+
+All three parameters are used. Returning `b` at one avoids computing an unused
+next accumulator, allowing F46 to succeed without first overflowing on F47.
+The tests also check nonstandard seeds, F47 failure, and a million iterations
+with zero accumulators. Self tail calls lower to a Wasm loop: all operands are
+saved before any parameter is replaced, then checked narrowing establishes the
+next iteration's i32 domains. Proper tail recursion bounds stack use; it does
+not establish that an accumulator fits the declared numeric range.
+
+Each timed sample repeats the weighted inputs 22–25 **1,048,576 times**: 4,194,304
+top-level Fibonacci calls and 94,371,840 self tail updates, with checksum
+`4409231671296`. Every implementation first executes the same number of
+repetitions untimed in that process and validates the warmup checksum. This is
+in addition to the discarded fresh-process run. The recursive Fibonacci and
+occurrence workloads retain their small in-process correctness checks instead
+of this full warmup; reports record `warmup_repetitions` explicitly.
+
+| Tail Fibonacci variant | Median seconds |
+| --- | ---: |
+| Untyped, guarded | 0.287597 |
+| Untyped, check elimination | 0.289357 |
+| ExactInteger signature, guarded | 0.348353 |
+| ExactInteger signature, check elimination | 0.294258 |
+| i32 signature, guarded | 0.310597 |
+| i32 signature, check elimination, boxed | 0.311953 |
+| **i32 signature, specialized, complete Scheme workload** | **0.117819** |
+| **Specialized i32 worker, JavaScript driver** | **0.058404** |
+| Native C, `-O3` | 0.009597 |
+| Native C, checked argument ranges | 0.033144 |
+| Native C, `-fno-optimize-sibling-calls` | 0.063777 |
+| C-to-Wasm, `-O3` | 0.013884 |
+| C-to-Wasm, checked argument ranges | 0.043914 |
+
+The complete specialized workload is **2.46× faster than untyped Scheme** and
+**2.65× faster than boxed i32**. Its time is still **2.68× checked C-to-Wasm** and
+**3.55× checked native C**. The isolated worker takes **1.33× checked C-to-Wasm's
+time**. This worker measurement exports the existing pure i32 function from a
+benchmark-only module and uses exactly the same JavaScript driver as C-to-Wasm.
+It bypasses the boxed Scheme entry and outer driver; runtime initialization
+finishes before timing. It does not add a compiler API or measure the full
+Scheme program. Both C versions use matching three-argument source kernels;
+native compilation keeps driver and kernel in separate translation units,
+without LTO. Checked C widens arithmetic and checks entry ranges, with different
+failure behavior from Scheme; the timed inputs all succeed.
+
+The isolated worker and complete program have different performance histories.
+The [earlier `return_call` implementation](results/2026-10-10-typing-tail-calls-fibonacci.json)
+measured 0.096455 seconds for the worker and 0.101298 for the complete program.
+The current worker is faster, but **the complete Scheme workload regressed**.
+The base-case layout and warmup policy also changed, so these historical reports
+do not isolate the loop transformation's effect. With the current compiler but
+[without full in-process warmup](results/2026-10-10-typing-tail-tiering.json), the
+times were 0.060522 and 0.121440. Full warmup does not remove the gap. Diagnostic
+runs with V8's baseline compiler disabled reduced complete-program time to about
+0.099 seconds, indicating sensitivity to tiering. Those two-run diagnostics are
+not a full profile. The boxed driver, calls across representation boundaries,
+and engine code generation remain further work; their individual costs have
+not been established.
+
+### Occurrence check elimination
+
+The occurrence workload alternates the arms of `(U String <box>)`, reading a
+preallocated eight-character string and a record containing 13. At 512
+repetitions it performs 5,120,000 loop iterations, 10,240,000 union-dispatch calls,
+and checks checksum `107520000`:
+
+| Occurrence variant | Median seconds |
+| --- | ---: |
+| Guarded | 0.129638 |
+| **Check elimination, boxed** | **0.064886** |
+
+This is **2.00× faster**, with no representation specialization. The optimized
+module uses known-string and known-record access helpers. It retains required
+field-result, bounds, and overflow checks. The reports also count helper call
+sites in emitted user/library workers before Binaryen: single-value calls fall
+from 729 to 281 here. Those are static sites, exclude checked entry wrappers,
+and are not counts of checks executed or surviving optimization.
+
+The optimized time is essentially the prototype's 0.065398 seconds. The larger
+speedup ratio comes from the guarded path's higher cost after correcting typed
+tail-result enforcement, rather than another improvement to the optimized path.
+
+### Reports and reproduction
+
+Raw samples, source hashes, artifact hashes/sizes, commands, and tool versions
+are in the earlier [recursive Fibonacci report](results/2026-10-10-typing-production-fibonacci.json),
+[tail Fibonacci report](results/2026-10-10-typing-production-tail-fibonacci.json),
+and [occurrence report](results/2026-10-10-typing-production-occurrence.json).
+The historical prototype [Fibonacci](results/2026-10-10-typing-fibonacci.json) and
+[occurrence](results/2026-10-10-typing-occurrence.json) reports remain available.
+An intermediate design that ran a result-check helper on every return regressed
+boxed Fibonacci to 0.770757 seconds; its
+[Fibonacci](results/2026-10-10-typing-return-checks-fibonacci.json) and
+[occurrence](results/2026-10-10-typing-return-checks-occurrence.json) reports record
+why it was replaced. The final emitter checks local returns inline and creates
+one shared checking context only when a guarded tail transfer requires it. The
+[measurement script](typing/measure.py) contains the build commands. With the
+tools in [doc/backend.md](../doc/backend.md), Clang, Python 3, and `taskset`:
+
+```sh
+python3 benchmarks/typing/measure.py --output /tmp/typing-fibonacci.json
+python3 benchmarks/typing/measure.py --workload tail-fibonacci --output /tmp/typing-tail-fibonacci.json
+python3 benchmarks/typing/measure.py --workload occurrence --repetitions 512 --output /tmp/typing-occurrence.json
+scripts/test-typing
+```
+
+Use `--cpu` for an available logical CPU and `--output` to save a new report.
+`TYPING_CC` selects native Clang; `TYPING_WASM_CC` selects Wasm Clang. The script
+unwraps Nix's native Clang wrapper for Wasm so native linker/hardening flags do
+not leak into that target. The guarded mode disables optional type optimizations,
+the boxed mode enables check elimination, and the optimized mode also enables
+i32 specialization. All modes enforce the same declared type contracts.
+
+## Historical native LLVM CPU experiment
 
 The [LLVM code-generation ablation](results/2026-10-10-llvm-codegen.json)
 measures the bounded Wasm-to-LLVM Fibonacci fixture with x86-64 and BDWGC:
@@ -15,10 +478,9 @@ unchanged output **0.046632s**, static boolean objects **0.035495s**, cold
 out-of-line numeric fallbacks **0.029078s**, and both changes **0.026140s**.
 Eight rotating CPU2 rounds check the same work and exclude compilation/startup.
 All 43 numeric and tail-call checks pass with the combined changes.
-See the [experiment](../experiments/wasm-llvm/README.md#llvm-code-generation-ablation)
-for reproduction and scope. The transformations are explicit LLVM-level
-prototypes; the general translator and full production pipeline do not yet
-implement them.
+[`reproduce.py`](reproduce.py) rebuilds this historical comparison in a worktree
+at its recorded revision and generates plots from checked samples. The transformations were LLVM-level prototypes; they are not
+measurements of the current full production pipeline.
 
 ## Production WasmGC CPU baseline
 
@@ -58,428 +520,15 @@ starts a fresh Node process; its default V8 tiering remains enabled. The canonic
 untimed checks exercise Fibonacci through input 12, but any subsequent tier-up
 during the workload is included. One full fresh-process warmup per variant is
 discarded before measurement. Chez and Chibi execute the same source through the
-existing adapters, with unchanged timing boundaries; Chibi's clock has millisecond
+reference hosts, with unchanged timing boundaries; Chibi's clock has millisecond
 resolution. The report retains raw samples, commands, tool versions, frozen
 artifact hashes, the compiler/runtime source snapshot, and optimizer controls.
 This measures CPU Fibonacci, not allocation-heavy workloads or native output
 from the new backend.
 
-With the tools described in `doc/backend.md` available:
-
-```sh
-./snail-scheme benchmarks/cpu.scm -o build/cpu.wasm
-scheme --script benchmarks/chez.scm benchmarks/cpu.scm build/cpu-chez.so
-chibi-scheme benchmarks/chibi.scm benchmarks/cpu.scm build/cpu-chibi.scm
-taskset -c 2 node scripts/run-wasi.mjs build/cpu.wasm 64
-taskset -c 2 scheme --program build/cpu-chez.so 64
-taskset -c 2 chibi-scheme build/cpu-chibi.scm 64
-```
-
-The scripts and native-target instructions below describe historical LLVM/MIR
-measurements; they are not the current WasmGC build interface.
-
-The historical [MIR memory comparison](results/2026-10-10-mir-memory.json) records
-eight rotating CPU2 rounds with compilation/startup excluded: immediate literals
-and alias scopes reduce Fibonacci runtime from 0.336965 s to 0.318272 s (5.5%).
-The final implementation takes 0.6874× Chibi's time and 10.58× Chez's time.
-The report retains scratch ablations, artifact/source hashes, samples, and validation
-scope; [MIR measurements](../doc/mir.md#acceptance) explain the remaining overhead.
-
-The [WasmGC experiment](../experiments/wasmgc/README.md) compares a bounded
-HIR-to-WASM numeric lowering against those native controls, native SSA, Chibi,
-and Chez. Its JS/C outer harnesses and dynamic GC-reference representation are
-documented separately from the production backend baseline.
-
-These four standalone Scheme programs provide fixed work and checked answers
-before type inference or other compiler optimizations are added. Each prints
-exactly three lines: its title, a deterministic checksum, and elapsed seconds.
-The GC program also reports collection count and cumulative pause time on its
-third line. Timing uses the runtime's monotonic nanosecond clock and excludes
-the compiler, process startup, initial checks, and final console output. The
-timed loop includes repetition control and the fixed-size result comparisons.
-
-From the repository root, with the usual compiler toolchain available:
-
-```sh
-nix-shell --run 'benchmarks/run --target native --samples 3 --json build/baseline-native.json'
-nix-shell --run 'benchmarks/run --target wasm --json build/baseline-wasm.json'
-nix-shell --run 'benchmarks/run cpu memory --repeat 2'
-```
-
-Native means `i686-unknown-linux-musl`: a static 32-bit Linux executable. Install
-that Rust target and `wasm32-wasip1`; `rust-lld` links native output. The host must
-permit executing i386 programs. Chez remains the host-native reference. Earlier
-reports below used x86-64 native Snail, so compare matching targets when assessing
-the representation change.
-
-The runner compiles with Chibi, builds release executables through Cargo, verifies
-the frozen corpus, and checks every program's output. It also compiles the same
-benchmark with native Chez Scheme and reports the Snail/Chez elapsed-time ratio.
-Release builds use shared Scheme/Rust LTO, matching the optimized CLI default.
-Set `SNAIL_SHARED_LTO=0` for the ordinary-link control; custom Rust flags require
-that opt-out so they cannot silently replace the shared-LTO settings.
-Set `CHEZ` or `--chez PATH` if Chez's `scheme` executable is not on `PATH`, and
-`NODE` for the WASI launcher if needed. Chez is required by default; use
-`--snail-only` to deliberately omit the comparison. Snail executables are copied to
-`build/benchmarks/native/` and `build/benchmarks/wasm/`, so later Cargo builds do
-not overwrite an earlier benchmark. Chez objects go to `build/benchmarks/chez/`.
-Input hashes are captured before compilation and checked again before recording
-a successful build, catching ordinary source edits during a long build.
-`--no-build` runs saved artifacts only when their sidecars match the canonical
-source, executable bytes, and, for Chez, adapter and compiler version. Older
-artifacts without sidecars need one normal rebuild.
-
-Every program accepts one optional positive repetition count. Counts are fixed,
-not automatically adjusted to a time budget: comparisons must perform identical
-work. The defaults aim for tens to hundreds of milliseconds on a release native
-build; different hardware, WASI hosts, GC stress mode, and later compilers will
-change the durations. Increase repetitions for more stable samples. JSON reports
-record executable hashes, target, count, checked answer, and separate timing
-samples. Repository revision and dirty state describe the checkout at measurement
-time; they do not claim that a `--no-build` artifact came from that checkout. Host
-platform and the external Node version are recorded separately from the WASM hash.
-Run on an otherwise idle machine and compare several samples; one timing is not
-a performance claim. The runner checks and discards one warmup execution for each
-program and target before recording samples. Three samples are recorded by default.
-Each invocation is a fresh process: warmup affects host caches, not a retained
-Scheme heap or a JIT compiler.
-
-## Reproduce the MIR migration comparison
-
-`benchmarks/mir` compares six frozen native CPU executables: the preceding
-LLVM-handler backend with ordinary/shared linking, MIR with the same two link
-pipelines, Chibi, and Chez. Its preparation mode verifies baseline source and
-executable hashes and records the current reference runtimes. Use the same
-Rust/LLVM tools for both source revisions, with `CHIBI` and `CHEZ` set as needed.
-The old harness remains available in Git history:
-
-```sh
-git worktree add --detach /tmp/snail-mir-baseline f251627
-(cd /tmp/snail-mir-baseline && taskset -c 3 benchmarks/rust-instructions --build-only)
-benchmarks/mir --prepare-controls /tmp/snail-mir-baseline
-taskset -c 3 benchmarks/mir --build-only
-benchmarks/mir --measure-only --samples 8
-```
-
-Preparation copies the two old LLVM-handler executables from that clean
-checkout, compiles the canonical workload with Chez at safe optimization level 2,
-and copies the canonical source verbatim for Chibi. The old harness also builds
-its historical Rust-handler variants; this comparison does not use those.
-`--build-only` then freezes the two MIR executables and verifies that shared LTO
-removed every tiny representation-helper call from the linked LLVM artifact.
-
-Run the final command on an otherwise idle host. It pins execution to CPU 2,
-warms every executable once, and rotates all six through eight rounds of the
-same 64 repetitions. Every run must report checksum `269118144`. Program-internal
-timing excludes compilation and process startup; emission and Cargo durations
-are recorded separately. Chibi's clock has millisecond resolution here.
-
-Artifacts, commands, tool versions, source/runtime hashes, raw samples, and the
-report remain under `build/mir-benchmark/`; the report is `results.json`.
-Measurement rejects changed sources, harnesses, executable bytes, or reference
-runtimes. Rebuild after editing compiler/runtime sources. The preparatory old
-checkout must remain clean at `f251627`; preparation never rewrites it.
-
-The [October 10 final report](results/2026-10-10-mir.json) records eight rotating
-rounds after the library-preserving HIR/MIR migration:
-
-| Native implementation | Median seconds, 64 repetitions |
-| --- | ---: |
-| Previous backend, ordinary linking | 0.448189 |
-| Previous backend, shared LTO | 0.392260 |
-| MIR, ordinary linking | 5.503267 |
-| MIR, shared LTO | 0.334274 |
-| Chibi 0.12 | 0.461500 |
-| Chez 10.4.1, safe level 2 | 0.029874 |
-
-MIR with shared LTO takes 14.8% less time than the matched previous shared-LTO
-backend. Snail/Chibi is **0.7243×** and Snail/Chez is **11.1896×**. The shared
-artifact contains no calls to the tiny representation helpers. Ordinary MIR
-retains those calls and is much slower; it remains a correctness/control build,
-while optimized CLI and normal benchmark builds default to shared LTO. These
-numbers describe this CPU workload, not allocation-heavy programs or WASI.
-The later streaming-serialization change reproduced byte-identical CPU LLVM and
-all six artifacts. The report retains those samples with explicit source-hash
-and artifact-hash revalidation, rather than claiming another timing run.
-
-## Chez comparisons
-
-`chez.scm` reads each canonical benchmark with Chez's Scheme reader, validates
-its imports, prepends a small compatibility layer, and uses `compile-program`
-at safe optimization level 2. Benchmark definitions and their final `(main)`
-call are copied as Scheme forms; there is no second implementation of the
-workload. All compilation completes before execution and the existing clocks
-retain exactly the same timing boundaries. Chez's native record definitions
-implement the immutable R7RS records these programs use. See the official
-[compilation controls](https://cisco.github.io/ChezScheme/csug/system.html)
-for the distinction between safe levels and level 3's unchecked operations.
-
-Each sample pair runs equal repetition counts in separate processes. Pair order
-alternates between Chez-first and Snail-first. The reported ratio is
-`median(Snail elapsed seconds) / median(Chez elapsed seconds)`;
-values above one mean Snail took longer. Both Snail native and Snail WASI compare
-against **native Chez on this host**. This is not a comparison of two WASM engines.
-The runner writes ratio summaries to stderr while preserving each Snail program's
-three-line stdout report. Chez output is checked with the same title/checksum/time
-parser and its raw measurements are saved in JSON. Human-readable reports use
-seconds with six decimal places. JSON retains its explicitly named `_ms` fields
-for compatibility with saved reports; older executables reporting milliseconds
-are also accepted.
-
-Chez's CPU, memory, and GC loops may finish in less than a millisecond at the
-defaults. The clock uses monotonic nanoseconds, but reports round down to
-microseconds; short samples remain sensitive to scheduling and timer overhead.
-Use more matched repetitions and several samples when judging an optimization:
-
-```sh
-nix-shell --run 'benchmarks/run cpu --repeat 32 --samples 5 --json build/cpu-ratios.json'
-```
-
-The runner never silently adjusts work independently for one implementation.
-A Chez duration rounded to zero rejects the comparison and requests a larger
-repetition count. No universal ratio or cross-workload average is reported.
-
-These ratios compare complete implementations, including their runtime services:
-
-- Chez uses `get-string-n` on buffered text ports. Snail currently loads and
-  decodes an entire file when opening it.
-- The tested Chez 10.4.1 has no built-in substring search. The adapter supplies
-  a straightforward checked character loop, compiled to native code; Snail uses
-  Rust's `str::find`.
-  Search semantics and inputs match, but the host algorithms differ.
-- Both receive the same explicit full-collection requests. Chez has a moving,
-  generational collector, unlike Snail's precise nonmoving mark-and-sweep
-  collector. The adapter uses actual Chez collection counts and wall-clock
-  collection time. Its reclaimed counter measures bytes; Snail's counter measures
-  objects. Unavailable adapter fields are `#f`. The canonical GC check requires
-  positive reclamation, without assuming either unit. GC pause-time ratios and
-  cross-runtime object-count comparisons are deliberately absent. Chez documents
-  its [statistics](https://cisco.github.io/ChezScheme/csug/system.html)
-  and [collection policy](https://cisco.github.io/ChezScheme/csug/smgmt.html).
-
-JSON schema version 2 retains every checked sample in `measurements`, identified
-by implementation, actual target, repetition count, source and executable hashes.
-Compared samples also record pair number, execution position, and paired Snail
-target. Chez samples include the adapter hash and compilation settings.
-`comparisons` contains the two medians, their ratio, and each paired ratio. Host
-metadata records Chez's executable, version, and safe optimization level,
-alongside the Node version for WASI runs and whether Snail's GC stress mode is
-enabled. The artifact sidecars establish source identity; checkout metadata still describes the
-measurement context rather than claiming a saved binary's build revision.
-
-## Recorded Chez baseline
-
-The 2026-10-09 measurements used clean commit `f0c4e91`, LLVM O2, Cargo release,
-and Chez 10.4.1 at safe optimization level 2. Compilation and process startup are
-excluded. The [default report](results/2026-10-09-final-default.json) preserves
-all four workloads; the [longer report](results/2026-10-09-final-repeated.json)
-uses 16 matched repetitions for CPU, memory, and GC to lengthen Chez's samples.
-Both contain three measured pairs per program and target.
-
-Times below are median milliseconds **per repetition**. Each ratio uses the
-native Chez samples paired with that Snail target, on this host.
-
-| Program | Repetitions | Snail native ms | Snail WASI ms | Native / Chez | WASI / Chez |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| CPU | 16 | 126.748 | 194.325 | 276.9 | 424.5 |
-| Memory | 16 | 135.815 | 222.152 | 260.9 | 435.5 |
-| I/O | 4 | 13.876 | 19.791 | 1.90 | 2.73 |
-| GC | 16 | 18.560 | 29.868 | 125.8 | 201.7 |
-
-The I/O comparison retains the documented difference between Rust substring
-search and Chez's Scheme scan. CPU, memory, and GC still show large runtime
-overheads; see the [profile analysis](../doc/performance-baseline.md).
-
-## Runtime optimization ablations
-
-`ablate` saves compiled runtime variants before measuring them. Build both
-snapshots first, changing one runtime feature between them, then stop competing
-builds and tests before comparing:
-
-```sh
-benchmarks/ablate snapshot before
-# Apply one runtime change.
-benchmarks/ablate snapshot after --reuse-ir before
-benchmarks/ablate compare before after --json build/benchmarks/runtime-change.json
-```
-
-Snapshots live under `build/benchmarks/ablations/NAME/`. Existing names are
-refused. Each successful snapshot contains native and WASI executables, source
-and binary hash sidecars, reusable LLVM, compiler/runtime file hashes, and the
-source patch against the recorded Git revision. LLVM reuse verifies compiler
-source identity, benchmark source identity, and LLVM bytes before linking the
-changed Rust runtime. Failed snapshots may be incomplete and must be discarded.
-
-The comparison uses only saved executables. It checks all answers, warms both
-variants, then alternates their execution order for three sample pairs. CPU,
-memory, and GC perform 16 repetitions per sample; I/O performs four. JSON retains
-every elapsed time, checksum, repetition count, executable hash, source identity,
-and position in its pair. Speedup is the before median divided by the after
-median. These runs isolate successive runtime changes; the regular runner still
-provides the native Chez reference. Preserve the source patches alongside any
-checked-in ablation reports so each variant can be reconstructed.
-
-The [2026-10-09 local-storage comparison](results/2026-10-09-local-storage.json)
-starts from clean commit `10e9296`. The next comparisons add
-[borrowed strings](results/2026-10-09-string-borrow.json), then
-[singleton result reuse](results/2026-10-09-single-result.json). Each compares
-saved binaries in the same idle measurement window. Three-pair median speedups
-are shown as **native / WASI**; these are before/after improvements, not Chez ratios.
-
-| Added change | CPU | Memory | I/O | GC |
-| --- | ---: | ---: | ---: | ---: |
-| Direct uncaptured locals | 1.20 / 1.33 | 2.65 / 2.23 | 1.09 / 1.04 | 1.24 / 1.23 |
-| Borrow strings during inspection | 1.01 / 1.02 | 0.99 / 1.00 | 1.01 / 1.03 | 1.00 / 1.01 |
-| Reuse storage for singleton results | 1.03 / 1.07 | 1.05 / 1.07 | 0.99 / 1.06 | 1.02 / 1.06 |
-
-String borrowing removes needless copies but establishes no material speedup in
-these samples. Singleton reuse improves CPU and memory in every sample pair;
-its native I/O and GC differences remain inconclusive. Three samples describe
-this host and workload, not a universal performance guarantee. The cumulative
-patches against `10e9296` reconstruct [local-only](results/2026-10-09-local-only.patch),
-[local-borrow](results/2026-10-09-local-borrow.patch), and
-[local-borrow-single](results/2026-10-09-local-borrow-single.patch).
-
-## Workloads
-
-| Program | Fixed work per repetition | Checksum per repetition |
-| --- | --- | ---: |
-| `cpu.scm` | Naive recursive Fibonacci at 22, 23, 24, and 25 | 4204971 |
-| `memory.scm` | Sieve through 100000, retain prime list, summarize gaps | 454934628 |
-| `io.scm` | Search 64 documents separately for five literal phrases | 207395 |
-| `gc.scm` | Build 128 cyclic binary trees; retain the last eight | 5460492 |
-
-The CPU case checks its result with an independent iterative Fibonacci oracle,
-known values, and recurrence identities. The timed computation remains recursive
-and deliberately inefficient, exposing arithmetic and procedure-call costs.
-Its inputs are fixed. A future compiler may legitimately precompute them: checking
-a checksum detects wrong answers but does not prohibit valid constant folding.
-
-The memory case allocates a boolean vector, mutates composite flags, then builds
-an ascending list of all primes. Its summary includes count, sum, last prime,
-twin-prime count, and largest gap. Small inputs are checked against independent
-trial division; the full result is checked against fixed values on every pass.
-This is allocation and traversal work, not a claim to saturate memory bandwidth.
-Immutable summary records also produce garbage while the prime list stays live;
-a subsequent length check keeps the whole list reachable during summarization.
-
-The I/O case processes documents in filename order, reopening each document for
-each of the five queries in order and closing it before the next open. It reads
-every file to EOF in 4096-character chunks. A retained suffix
-handles matches crossing chunk boundaries; advancing one character after a
-match counts overlaps. Small checks cover absent, whole-string, overlapping,
-and split matches, including one-character reads. `read-string` and
-`string-contains` perform the bulk work in Rust. That deliberately leaves less
-Scheme work for a future optimizer to improve and makes this a useful comparison
-with the CPU case. The runtime currently loads a text input file when opening
-it; results therefore include its eager decoding and allocation costs.
-
-Files are read through the normal operating-system page cache. Repeated runs
-typically use cached data. This measures sequential file management, buffered
-text input, and native search; it does **not** measure cold storage throughput.
-Do not flush system caches or substitute a different corpus during a comparison.
-Ports close after each successful search. Runtime errors terminate the standalone
-program; the current Scheme subset does not provide exception unwinding.
-
-The GC case keeps parent pointers in its binary trees, so discarded trees contain
-cycles. A ring preserves eight roots while newer trees displace old ones. Explicit
-collections occur every 32 trees and before checking the retained trees. The
-check walks child links, verifies parent identity, depth, leaves, and node labels,
-and compares sums against an arithmetic-series oracle. GC time covers root
-gathering, marking, and sweeping. The cumulative maximum is not treated as an interval
-maximum. The clock encloses both statistics snapshots, keeping the reported GC
-interval inside the elapsed interval. Allocation thresholds influence collection
-counts, so report the runtime revision alongside these measurements.
-
-## Frozen corpus
-
-`corpus/` contains 64 fictional field notebooks plus one short boundary-test file,
-about 322 kB of text. All text was written for this repository; no external data
-or license is needed. `SHA256SUMS` fixes the exact bytes. The generator is retained
-only to explain and audit the fixture:
-
-```sh
-python3 benchmarks/generate-corpus.py
-```
-
-The generator is never invoked by the runner. A corpus revision changes the
-benchmark and must update its manifest, expected answers, and recorded baseline
-together. One search pass reads 1,609,295 ASCII characters, finds 2,534 matches,
-and computes a weighted checksum of 207,395. The weights include both document
-and query indices, helping detect order changes that an unweighted count would miss.
-
-The benchmark modules intentionally repeat a few short argument and reporting
-helpers. Each remains independently readable and executable; a shared benchmark
-framework would add imports and hide the small measured operation. More elaborate
-statistics, concurrency, adaptive workloads, and production search algorithms
-would obscure this initial baseline.
-
-## Cross-language LTO
-
-`benchmarks/lto` compares ordinary release, Rust-only fat LTO, and shared
-Scheme/Rust linker LTO on native and WASI targets. It builds all variants before
-rotating execution samples and retains linked LLVM bitcode for inspection.
-See the [experiment and allocation-design boundaries](../doc/lto-experiment.md)
-for tool requirements, flags, timing scope, and the distinction from a future
-static builtin representation.
-
-## Fixed-layout runtime
-
-See the [v3 runtime report](../doc/runtime-v3.md) for the matched 32-bit
-before/after comparison and its raw samples. Historical native tables above
-use 64-bit GNU/Linux and must not be treated as the same target.
-
-The later [chapter-4 stack report](../doc/stack-vm.md) compares the reusable
-Scheme stack with the frozen ABI 2 runtime at `03d02cf`, keeping the same
-32-bit native and WASI targets. Its
-[raw measurements](results/2026-10-09-ch4-stack.json) retain six rotated samples
-per implementation, exact source/artifact hashes, and Chez and Chibi ratios.
-These measure ordinary release builds without LTO. Scheme/LLVM/Cargo compilation
-and process startup are excluded; Node may still optimize Wasm during a fresh
-process's timed execution.
-
-## Chibi comparisons
-
-`benchmarks/chibi` compares saved native/WASI Snail executables with Chibi and
-Chez on the same CPU, memory, and I/O program bodies. First build the ordinary
-benchmark artifacts, then run the comparison:
-
-```sh
-benchmarks/run cpu memory io --target native --snail-only --samples 1
-benchmarks/run cpu memory io --target wasm --snail-only --samples 1
-benchmarks/chibi --snail-directory build/benchmarks --json build/chibi.json
-```
-
-Set `CHIBI`, `CHEZ`, and `NODE` if their executables are not on `PATH`. Optional
-`--lto-directory build/lto/bin` adds saved shared-LTO CPU/memory executables
-from `benchmarks/lto`. All builds finish before the comparison rotates execution
-order. Each implementation gets one warmup and four measured samples, with
-16 repetitions for CPU/memory and four for I/O. Timers exclude parsing,
-compilation, startup, and output. Every answer uses the existing checksum checks.
-
-The [recorded comparison](results/2026-10-09-chibi.json) uses Chibi 0.12's default
-execution settings and Chez 10.4.1 at safe optimization level 2. Chibi's R7RS
-clock measures wall time in milliseconds; the other clocks are monotonic.
-Chibi and Chez are host-native 64-bit builds, while Snail is 32-bit. The I/O
-adapter converts Chibi's substring-search cursors to character indices; its
-port/search implementation differs from Rust's. GC is omitted because Chibi
-does not supply the reclamation counter required by the canonical check.
-
-These initial fixed-layout results put ordinary native32 Snail 20.1× behind
-Chibi on CPU and 14.0× on memory, but 7.0× ahead on I/O. Shared LTO reduces the
-CPU/memory gaps to 15.2× and 10.7×. See the runtime report for the full table and
-any subsequent isolated fixes; these saved artifacts retain their original data.
-The subsequent [lazy-error fix](results/2026-10-09-lazy-errors.json) reduces
-ordinary native32's gaps to 14.8× Chibi on CPU and 11.1× on memory. Its report
-holds LLVM fixed and changes only three eager error constructions in Rust.
-
-## Numeric VM instructions
-
-The [numeric instruction ablation](../doc/numeric-instructions.md) compares
-unchanged `e570708` with Rust dispatch cleanup and the new binary numeric VM
-instructions on Fibonacci. Five rotating rounds of 64 repetitions, pinned to
-one core, give 1.488415 s before and 0.449323 s after: 3.31× faster, 0.975×
-Chibi's time and 15.75× Chez's. These are native execution times, excluding
-compilation and startup. [Raw samples and artifact/source hashes](results/2026-10-09-numeric-instructions.json)
-retain the runtime-only ablation too. This experiment does not include IIFE
-inlining, allocator changes, type inference, or shared LTO.
+The builders for this historical report and the retired standalone allocation
+workload belong to their recorded revisions. Reproduce those snapshots using
+[the historical native benchmark notes](../doc/native-benchmarks.md).
+The default R7RS suite includes allocation and IO workloads. WasmGC does not
+expose portable collection counters; compiler throughput can also be inspected
+with the always-on [Chromium traces](../doc/tracing.md).

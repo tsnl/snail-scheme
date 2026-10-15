@@ -1,0 +1,16 @@
+{
+  "archive_directory": "supplementary/managed-reference-boundary",
+  "files_added": 25,
+  "kind": "Parent-produced hand-written Wasm experiment; not Scheme extern support, gcbench retention proof, or timing.",
+  "findings": [
+    "Typed GC struct/array JS calls pass raw/optimized checks and reject invalid returns.",
+    "A separate Wasm provider links for the tested typed layouts with and without closed-world optimization.",
+    "Pure allocations move after collection if only consumed afterward; before/after opaque calls pin the tested references across collection."
+  ],
+  "limitations": [
+    "No general GC-reference ABI or compiler feature is implemented.",
+    "Closed-world optimizer contracts and reachable-layout preservation require separate review.",
+    "No proof of intended gcbench lifetime on strict or Chez."
+  ],
+  "retained_failed_attempt": "Initial --all-features assembly output fails Node validation; successful runs use project feature flags."
+}

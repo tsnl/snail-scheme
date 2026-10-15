@@ -1,0 +1,6 @@
+(import (snail strict))
+(define cell (ref 42))
+(define filled (make-vector 2 cell))
+(if (and (ref-eq? (vector-ref filled 0) (vector-ref filled 1))
+         (= (ref-get (vector-ref filled 1)) 42))
+    42 (unreachable))

@@ -1,0 +1,165 @@
+{
+  "kind": "Four relocated count-one complete-result checks; not clean timings or performance samples",
+  "performance_samples": false,
+  "repetitions": 1,
+  "n": 600,
+  "m": 50,
+  "expected_complete_rows": [
+    [
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      3
+    ]
+  ],
+  "restore_root": "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored",
+  "archive_sha256": "f367a16b46e89adafb6d7e5fc506e1cfc00af24363f108d835715a2983df001b",
+  "verified_members": 290,
+  "all_members_and_external_tool_hashes_verified_before_after": true,
+  "original_spec_and_input_remain_count4000": true,
+  "changed_input": "Separate archived replay/spec-count1.json and per-process stdin change repetition count only; canonical source and programs are untouched.",
+  "strict_result_semantics": "Result1 accepts the full ten-row/60-item/list-end predicate; Rust stdout exactly equals the full expected row result. Both Chez controls preserve their original/full structural predicates.",
+  "probes": [
+    {
+      "variant": "strict",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/host.mjs",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc/strict.wasm",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/replay/spec-count1.json"
+      ],
+      "cwd": "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc",
+      "stdin": null,
+      "returncode": 0,
+      "stdout": "{\"seconds\":0.003375763,\"result\":\"1\",\"barriers\":null,\"setup_barriers\":null}\n",
+      "stderr": ""
+    },
+    {
+      "variant": "original-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc",
+      "stdin": "1\n600\n50\n\n((1 1 2)\n (1 1 1)\n (1 1 1 2)\n (1 1 1 1)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n\n\n",
+      "returncode": 0,
+      "stdout": "Running destruc:600:50:1\nElapsed time: 2.99014e-4 seconds (0.0) for destruc:600:50:1\n+!CSVLINE!+chez,destruc:600:50:1,2.99014e-4\n",
+      "stderr": ""
+    },
+    {
+      "variant": "adapted-chez",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+        "--program",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc/same-source-chez/program.so"
+      ],
+      "cwd": "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-strict-destruc-preparation-20261014-r3/destruc",
+      "stdin": "1\n600\n50\n\n((1 1 2)\n (1 1 1)\n (1 1 1 2)\n (1 1 1 1)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n\n\n",
+      "returncode": 0,
+      "stdout": "Running destruc:600:50:1\nElapsed time: 0.001329173 seconds (0.001) for destruc:600:50:1\n+!CSVLINE!+chez,destruc:600:50:1,0.001329173\n",
+      "stderr": ""
+    },
+    {
+      "variant": "rust-wasm",
+      "command": [
+        "/run/current-system/sw/bin/taskset",
+        "-c",
+        "5",
+        "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+        "--no-warnings",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-rust-destruc-handoff-20261014/build/rust-destruc-timing-handoff/reference-source/run-wasi.mjs",
+        "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-rust-destruc-handoff-20261014/build/rust-destruc-timing-handoff/case/program.wasm"
+      ],
+      "cwd": "/tmp/snail-strict-destruc-comparison-evidence-20261014/build/destruc-comparison-restored/files/tmp/snail-rust-destruc-handoff-20261014/build/rust-destruc-timing-handoff/case",
+      "stdin": "1\n600\n50\n\n((1 1 2)\n (1 1 1)\n (1 1 1 2)\n (1 1 1 1)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 2)\n (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n\n\n",
+      "returncode": 0,
+      "stdout": "Result: ((1 1 2) (1 1 1) (1 1 1 2) (1 1 1 1) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 2) (1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 3))\n+!CSVLINE!+rust-wasm,destruc:1,0.003283050\n",
+      "stderr": ""
+    }
+  ],
+  "complete": true
+}

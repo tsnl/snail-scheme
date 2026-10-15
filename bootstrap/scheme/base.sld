@@ -3,29 +3,35 @@
 (define-library (scheme base)
   (export
    define define-syntax syntax-rules let-syntax letrec-syntax lambda quote if set! begin
-   let let* letrec letrec* and or cond case else => when unless
+   let let* letrec letrec* and or cond case else => when unless do
    let-values let*-values quasiquote unquote unquote-splicing define-record-type parameterize
    + - * / = < <= > >= quotient remainder modulo zero? positive? negative? abs
-   eq? eqv? equal? not boolean? number? real? inexact? integer? exact-integer? pair? null? list?
+   exact inexact exact? floor ceiling truncate round expt min max odd? even? gcd lcm exact-integer-sqrt
+   floor/ floor-quotient floor-remainder truncate/ truncate-quotient truncate-remainder
+   square numerator denominator
+   eq? eqv? equal? not boolean? number? complex? rational? real? inexact? integer? exact-integer? pair? null? list?
    symbol? string? char? vector? bytevector? procedure?
    cons car cdr set-car! set-cdr! caar cadr cdar cddr
    list append reverse length list-ref list-tail make-list
    member memq memv assoc assq assv map for-each
-   vector vector-ref vector-set! vector-length make-vector vector->list list->vector
-   string string-ref string-length string-append substring string=?
+   vector vector-ref vector-set! vector-length make-vector vector->list list->vector vector-map vector-for-each
+   string make-string string-set! string-ref string-length string-append substring string=? string<? string<=? string>? string>=?
    string->list list->string string->symbol symbol->string string->number number->string
    char->integer integer->char char=? char<? char<=? char>? char>=?
-   bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
+   bytevector make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
+   bytevector-copy bytevector-append utf8->string string->utf8 read-bytevector
    values call-with-values call-with-current-continuation call/cc apply error
-   close-port close-input-port close-output-port call-with-port read-char read-string eof-object?
-   open-output-string get-output-string newline
+   close-port close-input-port close-output-port call-with-port read-char peek-char read-line read-string eof-object? eof-object
+   port? input-port? output-port? input-port-open? output-port-open? textual-port? binary-port?
+   open-input-string open-output-string get-output-string write-char write-string flush-output-port newline
    current-input-port current-output-port current-error-port make-parameter)
   (import (snail-scheme core))
   (begin
     ;; Introduced identifiers retain their definition-site bindings. Auxiliary
     ;; keywords have bindings too, so a locally shadowed `else` is not special.
     (define-syntax else (syntax-rules ()))
-    (define-syntax => (syntax-rules ()))
+    ;; => also names the typing constraint form; its core identity is shared
+    ;; with (snail typing), while cond/case still match it as an auxiliary word.
     (define-syntax unquote (syntax-rules ()))
     (define-syntax unquote-splicing (syntax-rules ()))
 
@@ -71,6 +77,15 @@
 
     (define-syntax unless
       (syntax-rules () ((_ test body ...) (if test (if #f #f) (begin body ...)))))
+
+    (define-syntax do
+      (syntax-rules ()
+        ((_ ((variable initial step ...) ...) (test result ...) command ...)
+         (let loop ((variable initial) ...)
+           (if test (begin (if #f #f) result ...)
+               (begin command ... (loop (do "step" variable step ...) ...)))))
+        ((_ "step" variable) variable)
+        ((_ "step" variable step) step)))
 
     (define-syntax cond
       (syntax-rules (else =>)
@@ -154,15 +169,35 @@
            (define (accessor object) (%record-ref type 'field object))
            (define (modifier object value) (%record-set! type 'field object value))))))
 
-    (define-syntax define-record-type
+    ;; Standard two/three-element fields keep their original meaning, including
+    ;; an accessor named `:`. Only the longer four/five-element forms are typed.
+    (define-syntax finish-record-type
       (syntax-rules ()
-        ((_ type (constructor argument ...) predicate (field accessor modifier ...) ...)
+        ((_ type (constructor argument ...) predicate (field field-type accessor modifier ...) ...)
          (begin
            (define type (%make-record-type 'type '(field ...)))
+           (%record-schema type constructor predicate (argument ...)
+                           ((field field-type accessor modifier ...) ...))
            (define (constructor argument ...)
              (%make-record type '(argument ...) (list argument ...)))
            (define (predicate object) (%record? type object))
            (define-record-accessors type field accessor modifier ...) ...))))
+
+    (define-syntax normalize-record-fields
+      (syntax-rules (:)
+        ((_ type constructor predicate (done ...))
+         (finish-record-type type constructor predicate done ...))
+        ((_ type constructor predicate (done ...) (field : field-type getter setter ...) rest ...)
+         (normalize-record-fields type constructor predicate
+                                  (done ... (field field-type getter setter ...)) rest ...))
+        ((_ type constructor predicate (done ...) (field getter setter ...) rest ...)
+         (normalize-record-fields type constructor predicate
+                                  (done ... (field ? getter setter ...)) rest ...))))
+
+    (define-syntax define-record-type
+      (syntax-rules ()
+        ((_ type constructor predicate field ...)
+         (normalize-record-fields type constructor predicate () field ...))))
 
     ;; Collections stay in Scheme. Native handlers own allocation and individual
     ;; object accesses; they never need to call back into Scheme for map/equality.
@@ -187,12 +222,19 @@
         (if (null? elements) result (loop (cdr elements) (cons (car elements) result)))))
 
     (define (append . lists)
-      (define (copy-prefix elements tail)
-        (if (null? elements) tail (cons (car elements) (copy-prefix (cdr elements) tail))))
-      (let loop ((lists lists))
-        (cond ((null? lists) '())
-              ((null? (cdr lists)) (car lists))
-              (else (copy-prefix (car lists) (loop (cdr lists)))))))
+      ;; Only fresh spine cells are mutated. The final argument remains shared,
+      ;; including an improper tail; long prefixes consume constant stack space.
+      (let ((head (cons #f '())))
+        (let loop ((lists lists) (end head))
+          (cond ((null? lists) (cdr head))
+                ((null? (cdr lists)) (set-cdr! end (car lists)) (cdr head))
+                (else (loop (cdr lists) (append-prefix! (car lists) end)))))))
+
+    (define (append-prefix! elements end)
+      (if (null? elements) end
+          (let ((next (cons (car elements) '())))
+            (set-cdr! end next)
+            (append-prefix! (cdr elements) next))))
 
     (define (length elements)
       (let loop ((elements elements) (size 0))
@@ -255,6 +297,10 @@
 
     (define (vector->list object) (indexed->list (vector-length object) vector-ref object))
     (define (list->vector elements) (apply vector elements))
+    (define (vector-map procedure first . rest)
+      (list->vector (apply map procedure (vector->list first) (map vector->list rest))))
+    (define (vector-for-each procedure first . rest)
+      (apply for-each procedure (vector->list first) (map vector->list rest)))
     (define (string->list object) (indexed->list (string-length object) string-ref object))
     (define (list->string elements) (apply string elements))
 
@@ -289,6 +335,47 @@
     (define (positive? value) (> value 0))
     (define (negative? value) (< value 0))
     (define (abs value) (if (< value 0) (- value) value))
+    (define (square value) (* value value))
+    (define complex? number?)
+    (define (rational? value) (and (real? value) (= (- value value) 0)))
+    (define (integer-value value)
+      (if (integer? value) (exact value) (error "expected an integer" value)))
+    (define (odd? value) (not (= (remainder (integer-value value) 2) 0)))
+    (define (even? value) (= (remainder (integer-value value) 2) 0))
+
+    (define (extreme compare first rest)
+      (let loop ((best first) (rest rest) (approximate (inexact? first)))
+        (if (null? rest) (if approximate (inexact best) best)
+            (loop (if (compare (car rest) best) (car rest) best) (cdr rest)
+                  (or approximate (inexact? (car rest)))))))
+    (define (min first . rest) (extreme < first rest))
+    (define (max first . rest) (extreme > first rest))
+
+    (define (gcd . integers)
+      (define (combine a b) (if (= b 0) a (combine b (remainder a b))))
+      (let loop ((integers integers) (result 0) (approximate #f))
+        (if (null? integers) (if approximate (inexact result) result)
+            (loop (cdr integers) (combine result (abs (integer-value (car integers))))
+                  (or approximate (inexact? (car integers)))))))
+    (define (lcm . integers)
+      (let loop ((integers integers) (result 1) (approximate #f))
+        (if (null? integers) (if approximate (inexact result) result)
+            (let ((next (integer-value (car integers))))
+              (loop (cdr integers)
+                    (if (or (= result 0) (= next 0)) 0
+                        (abs (* (quotient result (gcd result next)) next)))
+                    (or approximate (inexact? (car integers))))))))
+
+    (define (truncate-quotient n d)
+      (let ((q (quotient (integer-value n) (integer-value d))))
+        (if (or (inexact? n) (inexact? d)) (inexact q) q)))
+    (define (truncate-remainder n d) (- n (* d (truncate-quotient n d))))
+    (define (truncate/ n d) (values (truncate-quotient n d) (truncate-remainder n d)))
+    (define (floor-quotient n d)
+      (let ((q (truncate-quotient n d)) (r (truncate-remainder n d)))
+        (if (and (not (= r 0)) (not (eqv? (< n 0) (< d 0)))) (- q 1) q)))
+    (define (floor-remainder n d) (- n (* d (floor-quotient n d))))
+    (define (floor/ n d) (values (floor-quotient n d) (floor-remainder n d)))
 
     ;; Parameterization supports normal returns, including multiple values.
     ;; Nonlocal exits require dynamic-wind and are outside this bootstrap subset.

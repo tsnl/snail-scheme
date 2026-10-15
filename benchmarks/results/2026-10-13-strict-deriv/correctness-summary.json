@@ -1,0 +1,26 @@
+{
+  "canonical_count": 10000000,
+  "canonical_counts_checked": [
+    1,
+    2,
+    10000000
+  ],
+  "systems": [
+    "raw Wasm / Node",
+    "optimized Wasm / Node",
+    "original Chez",
+    "adapted Chez"
+  ],
+  "canonical_checks": 12,
+  "complete_literal_cases": 19,
+  "changed_expression_cases": 7,
+  "original_failure_cases": 10,
+  "harness_boundary_cases": 5,
+  "supplemental_four_system_checks": 164,
+  "full_expression_extractions": 38,
+  "chez_sharing_programs": 2,
+  "identity_assertions_per_program": 9,
+  "original_quotient_rule_preserved": true,
+  "scalar_only_output_checksum": false,
+  "clean_timing_observations": 0
+}

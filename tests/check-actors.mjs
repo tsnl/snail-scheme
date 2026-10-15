@@ -11,11 +11,11 @@ const artifact = process.argv[2];
 async function checkRoots() {
   const instance = await loadInstance(artifact);
   assert.equal(invoke(instance, '(value)'), '0'); // Initialize lazy runtime services.
-  const baseline = instance.exports.awi_live_roots.value;
+  const baseline = instance.exports.abi_live_roots.value;
   assert.equal(instance.exports['scheme:method:macro'], undefined);
   for (let index = 0; index < 100; index++) {
     assert.equal(invoke(instance, '(echo #(1 "λ🐌\n" |a b|))'), '#(1 "λ🐌\\n" |a b|)');
-    assert.equal(instance.exports.awi_live_roots.value, baseline);
+    assert.equal(instance.exports.abi_live_roots.value, baseline);
   }
   assert.equal(invoke(instance, '(echo -9223372036854775808)'), '-9223372036854775808');
   assert.equal(invoke(instance, '(echo 9223372036854775807)'), '9223372036854775807');

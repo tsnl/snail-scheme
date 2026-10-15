@@ -1,0 +1,967 @@
+{
+  "plan": {
+    "compiler_commit": "4176e304a0d329af62787f2cfaabb1f72816c3e8",
+    "upstream_commit": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+    "cpu": 5,
+    "timeout_seconds": 120,
+    "preparation": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2",
+    "taskset": "/run/current-system/sw/bin/taskset",
+    "environment": {
+      "BINARYEN_CORES": "1"
+    },
+    "inherited_environment": {
+      "NODE_OPTIONS": null,
+      "NODE_V8_COVERAGE": null,
+      "NODE_DEBUG": null,
+      "NODE_DEBUG_NATIVE": null,
+      "LD_PRELOAD": null,
+      "SNAIL_NATIVE_GC_INTERVAL": null,
+      "SNAIL_GC_STATS": null,
+      "SNAIL_GC_HEAP_BYTES": null,
+      "SNAIL_GC_MIN_BYTES": null,
+      "LD_LIBRARY_PATH": null,
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "TZ": null
+    },
+    "workloads": {
+      "sum1": {
+        "count": 25,
+        "rust_result_line": "Result: 15794.97500000012"
+      },
+      "read1": {
+        "count": 2500,
+        "rust_result_line": "Result: (should return this list)"
+      }
+    },
+    "systems": {
+      "sum1": {
+        "strict-v8": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-timing.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/optimized.wasm",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/spec.json"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1",
+          "stdin": null
+        },
+        "strict-v8-native-module": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-timing.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native-final.wasm",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/spec.json",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/provider.wasm"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing",
+          "stdin": null
+        },
+        "strict-native": {
+          "argv": [
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing",
+          "stdin": null
+        },
+        "chez-original": {
+          "argv": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez/program.so"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/input.txt"
+        },
+        "chez-adapted": {
+          "argv": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez-adapted/program.so"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez-adapted",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/input.txt"
+        },
+        "rust-wasm": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/run-wasi.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1.wasm"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/input.txt"
+        },
+        "rust-native": {
+          "argv": [
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1.native"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/input.txt"
+        }
+      },
+      "read1": {
+        "strict-v8": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-timing.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/optimized.wasm",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/spec.json"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1",
+          "stdin": null
+        },
+        "strict-v8-native-module": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-timing.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native-final.wasm",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/spec.json",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/provider.wasm"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing",
+          "stdin": null
+        },
+        "strict-native": {
+          "argv": [
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing",
+          "stdin": null
+        },
+        "chez-original": {
+          "argv": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez/program.so"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/input.txt"
+        },
+        "chez-adapted": {
+          "argv": [
+            "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+            "--program",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted/program.so"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/input.txt"
+        },
+        "rust-wasm": {
+          "argv": [
+            "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+            "--disable-warning=ExperimentalWarning",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/run-wasi.mjs",
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.wasm"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/input.txt"
+        },
+        "rust-native": {
+          "argv": [
+            "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.native"
+          ],
+          "cwd": "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference",
+          "stdin": "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/input.txt"
+        }
+      }
+    },
+    "schedule": [
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-native",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-v8-native-module",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "strict-native",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-original",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "chez-adapted",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "sum1",
+        "system": "rust-wasm",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": -1,
+        "retained": false
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 0,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 1,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 2,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 3,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 4,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 5,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-native",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-v8-native-module",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "strict-native",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-original",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "chez-adapted",
+        "round": 6,
+        "retained": true
+      },
+      {
+        "benchmark": "read1",
+        "system": "rust-wasm",
+        "round": 6,
+        "retained": true
+      }
+    ],
+    "identities": {
+      "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+      "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+      "/run/current-system/sw/bin/python3": "4b2d8a9f7fc956e7afacf31235bbc99f81a59f77932d8511dd6fb18e8b734a3d",
+      "/run/current-system/sw/bin/taskset": "e4309d43ef6489ce4fc493d2cc6b07145fab77b838b1016fa6a84f1845e45f3b",
+      "/tmp/snail-strict-reader-20261014/benchmarks/results/2026-10-14-strict-reader-preparation/freeze-plan.py": "73794f39e67ba59a7413265d0abb9fb76cf19a263a8c6ce13a3bf1fd3631a246",
+      "/tmp/snail-strict-reader-20261014/benchmarks/results/2026-10-14-strict-reader-preparation/measure-seven.py": "862bcb4d8f151c895d421442f69bf34711302dfd92546d950311c0f3ad7450f7",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/libsnail_runtime.a": "02d0fbd983c6429357e2289aa3f6cc6682c575f94fec41ca61a96cce54c30d32",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/matrix_port.py": "747396d37335bbbc6a54a2a3a28ac3f32a70e2e4c106403a17e84b882ff0f3cb",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/prepared.json": "ca145f869b77a6818680aacae4b01ea4e7532e5cf397c83ddf1681afa3766a73",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/final-module.json": "673bdf5e074e5f00957ed1a74ed8f60ede67924d45624855493876ba42098638",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/input.txt": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native": "6bde68bf9a003405ef9a1c48de18883c8c3c754a107f3b736690b6dd84ee40c6",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native-entry.c": "0e334e05d81dcee0cc72878aec14fcf5757c1420f76c6424443a8f7f6f9010b9",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native-final.wasm": "e7ead840c0be14fa89ce28a10f4e9a313e40256e6ece630f27e72b45b5b9da8d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native-provider.c": "51aa23cbee8c312df9e38db68c57084dc5399103477049337f534cc69a9e4b7f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native-provider.h": "bd552613c49ea459edee484b27eae55607edcf2a39179d118532117d1d36ff80",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native.native-7j52vj_2/build.json": "1a49760657db79264163559a33b21debae787d3d8d855b0215b0ee77a6188a61",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native.native-7j52vj_2/module.ll": "f25b2b86dd50d75bf018d3eeb6525f93326ba3d0a388512c74cdb403e66a719b",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native.native-7j52vj_2/optimized.wasm": "e7ead840c0be14fa89ce28a10f4e9a313e40256e6ece630f27e72b45b5b9da8d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/native.native-7j52vj_2/provider-0.o": "c1fd3b3ac51224373bc39b1593e28888587802e9600149deb058936b68baddc1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/provider-interface.json": "688d83f72424a0ff8fa44d29b677ff8ed59c4583185a374e554db852af859e5f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/provider.wasm": "07345a4be09e09ae56b5774a6e786f786ed8b5a568d22672c5adfffa8fc4bacc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/read1/native-timing/spec.json": "b76914e0e041f6dee0ddc638c9600fa42c2050c7172930d3e1247ff9f7f750d4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-host.mjs": "bf73e26783478d154a41c6d9e997c22cc70c3de51053f59f37304d6c671fb681",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader-timing.mjs": "31cb5347838fba7d27982be8dbeabc799baf01efc944d7e56018b28b0977b987",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/reader_ports.py": "8d14dc2ef3fcede60dd35bd9a980817a960399308348d766b512308293f8702b",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/Cargo.lock": "cdf83fbaecd275b18c71e7596165fe12e33d1c51a8fac75bcc405b088db1bdf1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/Cargo.toml": "7f667bb5860c58966d54ec0f510d3677a2c71bd4bea4575ab57742383f820fb1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1-validation.json": "65d85e64842a0fbdbaee111fd22496b1b07d33401e8511da51287982db68e520",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.native": "b82ac818af149a842957f7d00d335af8f36721d71d03a1b5c3ce9c436b68dfb1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.raw.wasm": "9d299c57d388434e440bcb24ec46dabd42d8dc6a51d5ea60458d361f0247c801",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/read1.wasm": "059d906fe42e242e5170820e5a392a00266b0323b80e9e09228e54033f83e4a8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/run-wasi.mjs": "276a755075b5620e30b2c39f726b44dfcb41de4d25c7c45a623a4a67fff07128",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/src/bin/read1.rs": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/src/bin/sum1.rs": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/src/lib.rs": "00943ff3e411b2ed2aa32d1b969067aa23bafe0d67ca4a8a380e2f53bddfb617",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1-validation.json": "7f8eb7b64b06282b5ebcfc187b2e0edf141c6c2f87435e42f186f23c27f5ff14",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1.native": "7ede1463512c583146234a00293d231d0b8bb5954aac278ebb969fe5abf20f7d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1.raw.wasm": "c46aaae2143d60d8f35f87001dcf91e64c1681369e4f66e8f9c1ce6131677c77",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/rust-reference/sum1.wasm": "1bdc1003f6d98c6eb15c437a89dd154947f38263a0638c62a2b83e370ca29b00",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/final-module.json": "a5ed6909ae3e93f8c368a29f7d0834553e3eaae6cc1c396b2165c7d1e5cfe234",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/input.txt": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native": "3b794e334ce58eb90b8a61561da841db5d72961c8d560290296ef892a003f2f4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native-entry.c": "0e334e05d81dcee0cc72878aec14fcf5757c1420f76c6424443a8f7f6f9010b9",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native-final.wasm": "2fc8bd4337237ee9af6c3af7a4b16d32a615309cfe8133acaf5897196328ff3b",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native-provider.c": "51aa23cbee8c312df9e38db68c57084dc5399103477049337f534cc69a9e4b7f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native-provider.h": "bd552613c49ea459edee484b27eae55607edcf2a39179d118532117d1d36ff80",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native.native-6_mv8z5u/build.json": "c0eba7e639286d23f0a2ee8c08c445ec6de8354d56fc9b567405ec240af23f4d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native.native-6_mv8z5u/module.ll": "28c7d2b6f88dd76a4b3a1107683493153199c97f81b1eb0616ac4b4b25dc0e33",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native.native-6_mv8z5u/optimized.wasm": "2fc8bd4337237ee9af6c3af7a4b16d32a615309cfe8133acaf5897196328ff3b",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/native.native-6_mv8z5u/provider-0.o": "c1fd3b3ac51224373bc39b1593e28888587802e9600149deb058936b68baddc1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/provider-interface.json": "e4481ac602d3fc6572f7c98220e9cbd946c434f8dd1a5250611093d1e0921631",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/provider.wasm": "9f2e13721856fb1a0c76a96ab6f2f6d8fd4eebae50b7152954e2e0d19251e33a",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/sum1/native-timing/spec.json": "7904528b8ceb1d03dd9ed3bd0007a28a20db146c7e9d3a29225d4313b096c40f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-attempt2/toolchain.json": "f0658ff70dde2db0f1e27709fc8317108d87411c6281d43fe22b8ab56db15a42",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-controls-validation-attempt1/validation.json": "1df86e1f1c8b0bce733626036ec5972732ce0705f5ae08ea9ed7963c90ee023d",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/measure.py": "daac1f31f2464183d99a0820e1ffe571d93f086246fb7561416f41ad7b6b401c",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/prepared.json": "0ef35452ad91c4ffc2f0384a146eb8e53dc17ebf8a6428c9001f2f5ae122a300",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/adapted-kernel.scm": "67c783fad9e66da0137cdf2efb0079dde8f309d7601c5b912b1c230d24527f6c",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez/inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez/program.scm": "032093a277a60b03c2f8a48e0f84ecfebdd1082fbb51f6a13bf6a79d3c371039",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez/program.so": "ed255aa02b42192e159eb5cc455540bb257ccd4f4cb02f1fc75c7e72b7cbf09c",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted/inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted/program.scm": "311847ff42d0a9243598946f1f4858d267c4858bfb3d4b92d20098dfec302eda",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/chez-adapted/program.so": "fb9792373b3212e7d481f876c67ba34b13c946eb990b22baa1f3d41f1e17ceb4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/input.txt": "99070561e0c5f244302e0316ab790d4cf08de2f87c0ee86acfc853db4dfa94c1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/inputs/parsing.data": "839b948cd52f26d0873a60087dfe99038d2f6ef985a044ad32d431c45c40fdd8",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/optimized.wasm": "2f80eb5611d557a4364aa1d911176dfeb943d539cfd36a24bc3fd32cef188639",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/runtime.wasm": "cf8b3b6956c2d57ff404b0c7e146bb63ca9d68d86565c25e43fef4dddd416ed4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/spec.json": "b76914e0e041f6dee0ddc638c9600fa42c2050c7172930d3e1247ff9f7f750d4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/strict-native.wasm": "9cc517166f3731618e8c50408974b3b224b04ce9d732517079b62c5554c415db",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/strict.scm": "8659210d466c45a6f350de71549b54b5438745cb61421cd4ef615837573a3259",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/read1/upstream.scm": "ae4c686aabd19f8598271b0d452001c869d80d790a09b1338919fb4ea6b1e318",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/reader-host.mjs": "05ed32bff62f139bac1e0abebb202be8f8e5f82d63dffafb3eea0205031c1c06",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/reader_ports.py": "6262afa1c8a5c0a619a1e598b886aef8500df5f0eb0949dc7eef54fadf354018",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/adapted-kernel.scm": "7b136e514b0adfbb4f73fc08156a0d6a291cfab8833b73b48984545b51524227",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez/inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez/program.scm": "4b347b1a9650ff75b335376b15b6a2df66b66a368aedcc4634e016534c68f7de",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez/program.so": "e41d03c88365bbff8fe79dd942bcdb7342d54c46b98b70607150ffe3e3f8672a",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez-adapted/inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez-adapted/program.scm": "60cbf71f8d68e66a094831ca39ac86e577aa697571584262f2a2f43d0d31defc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/chez-adapted/program.so": "c5d0f35b0a7272845eb5c7af740e348dec2b6d105a641782861464a25fc22f41",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/input.txt": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/inputs/sum1.data": "afb59ec8d9246f5fb806e5375bb2743321003c4ccf588b59e5f93e5701e7c0dc",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/optimized.wasm": "9a57746e747678c1ff85b8b8d63f8ddf8e832ccd9f8e761edf526a46303b1b5f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/runtime.wasm": "cf8b3b6956c2d57ff404b0c7e146bb63ca9d68d86565c25e43fef4dddd416ed4",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/spec.json": "7904528b8ceb1d03dd9ed3bd0007a28a20db146c7e9d3a29225d4313b096c40f",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/strict-native.wasm": "6646666550e69912460c1641a4da594bc556e376a4f020c8ca815ed45db75aa1",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/strict.scm": "99e7eb9cd14b68bda227bb2a68490a80867428156a45917ac3727ef9fb56f725",
+      "/tmp/snail-strict-reader-20261014/build/strict-reader-ports-attempt6/sum1/upstream.scm": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5"
+    },
+    "scope": "Both complete original workloads; actual per-invocation file I/O remains inside all clocks.",
+    "module_control": "Only the final Scheme module is identical between native and its V8 control; Rust provider targets/linkage differ.",
+    "exclusions": "Exactly the first seven processes per workload are discarded in advance; no replacement samples.",
+    "process_clock": "Popen through capture, leader reap and bounded process-group cleanup, including post-exit checks.",
+    "storage": "OS file cache is uncontrolled and warmed by preparation/discard rounds; each retained sample is a fresh process."
+  },
+  "complete": false,
+  "samples": [],
+  "inherited_environment": {
+    "NODE_OPTIONS": null,
+    "NODE_V8_COVERAGE": null,
+    "NODE_DEBUG": null,
+    "NODE_DEBUG_NATIVE": null,
+    "LD_PRELOAD": null,
+    "SNAIL_NATIVE_GC_INTERVAL": null,
+    "SNAIL_GC_STATS": null,
+    "SNAIL_GC_HEAP_BYTES": null,
+    "SNAIL_GC_MIN_BYTES": null,
+    "LD_LIBRARY_PATH": null,
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "TZ": null
+  },
+  "error": "ModuleNotFoundError(\"No module named 'data_ports'\")"
+}

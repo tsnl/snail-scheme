@@ -1,0 +1,17 @@
+{
+  "agents_holding_builds": true,
+  "started_utc": "2026-10-14T13:14:44.354634+00:00",
+  "cpu": 5,
+  "platform": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "cpu_model": "Intel(R) Core(TM) Ultra 7 270K Plus",
+  "acknowledgement": "Parent: no active processes; native Mazefun and Astra Nucleic acknowledge all handles terminal and hold; Astra defers worktree checkout. Run only frozen20-process Tail campaign, then remain held for native Mazefun.",
+  "residual_activity": "Source reading/editing, conversation/tool metadata and uncontrolled desktop/system activity may remain.",
+  "instrumentation_environment_present": [],
+  "finished_utc": "2026-10-14T13:15:24.523510+00:00",
+  "driver_exit_code": 0,
+  "all_execution_handles_terminal": true,
+  "held_for_subsequent_native_campaign": true,
+  "setup_clarification": "Parent clarified after launch: Astra worktree checkout completed before it processed the defer message; all handles were reconfirmed terminal before the Tail launch acknowledgment. No Nucleic builds/tests ran.",
+  "subsequent_native_campaign_hold_released": true,
+  "release_acknowledgement": "Parent: native Mazefun10 processes all passed and terminal; coordinated timing hold released; Tail archive/replays may proceed, no further timing campaign."
+}

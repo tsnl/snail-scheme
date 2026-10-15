@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/run/current-system/sw/bin/python3",
+    "benchmarks/strict-suite/replay.py",
+    "/tmp/snail-bv2string-preparation-replay-20261014",
+    "--report",
+    "/tmp/snail-strict-bv2string-20261014/benchmarks/results/2026-10-14-strict-bv2string-preparation"
+  ],
+  "returncode": 0,
+  "stdout": "Verified 1871 files in /tmp/snail-bv2string-preparation-replay-20261014\n",
+  "stderr": "",
+  "timeout": false,
+  "process_seconds": 2.224563287978526
+}

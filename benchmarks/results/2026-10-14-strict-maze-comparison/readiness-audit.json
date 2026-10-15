@@ -1,0 +1,13 @@
+{
+  "ready": true,
+  "clean_measurement_started": false,
+  "compiler_commit": "da8519f83f54dabb9cbfef1297bb46a29d7683b7",
+  "fresh_complete_frames": 7,
+  "fresh_predicate_controls": 32,
+  "processes_planned": 56,
+  "source_kernel_unchanged": true,
+  "native_gc_current": true,
+  "native_provider_counter_free": true,
+  "plan_sha256": "09f16e4cded8ee975a7426dfca357d102bb45bea4beaecff5550f052501da7e9",
+  "frozen_identities": 718
+}

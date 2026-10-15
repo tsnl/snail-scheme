@@ -1,0 +1,21 @@
+{
+  "plan_sha256": "09f16e4cded8ee975a7426dfca357d102bb45bea4beaecff5550f052501da7e9",
+  "identities_verified": 718,
+  "full_protocols_verified": 7,
+  "retained_samples": 49,
+  "warmups": 7,
+  "positions_balanced": true,
+  "adjacency_balance_claimed": false,
+  "actual_native_lowering_input_equals_v8_control": true,
+  "code_review": [
+    "measure-seven.py",
+    "freeze-plan.py",
+    "prepare.py",
+    "native entry and counter-free provider"
+  ],
+  "quiet_release": false,
+  "waiting_for_actual_handles": [
+    "root:65131",
+    "compiler representation linked-runtime retry"
+  ]
+}

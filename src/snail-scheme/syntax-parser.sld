@@ -11,7 +11,7 @@
   (export reader->syntax-list s-file s-expr s-atom number-literal? char-literal? symbol-literal?)
 
   (import
-   (snail-scheme trace)
+   (snail-scheme chromium-trace)
    (scheme base)
    (snail-scheme common)
    (snail-scheme reader)
@@ -410,6 +410,16 @@
         (lambda (fields) (atom-syntax-value (cdr (assq 'number fields)))))
        (lambda (value) (and (exact-integer? value) (<= 0 value 255)))))
 
+    ;; A source literal can contain many bytes. Keep its size out of the host
+    ;; procedure argument count; Chibi can crash growing a large apply stack.
+    (define (byte-list->bytevector bytes)
+      (let ((result (make-bytevector (length bytes))))
+        (let loop ((remaining bytes) (index 0))
+          (if (null? remaining) result
+              (begin
+                (bytevector-u8-set! result index (car remaining))
+                (loop (cdr remaining) (+ index 1)))))))
+
     (define s-bytevector
       (pmap
        (named-tuple
@@ -420,7 +430,7 @@
                     (fenced-elements #\[ #\] byte-element)
                     (fenced-elements #\{ #\} byte-element))))
        (lambda (fields)
-         (make-atom-syntax (apply bytevector (cdr (assq 'bytes fields)))
+         (make-atom-syntax (byte-list->bytevector (cdr (assq 'bytes fields)))
                            (cdr (assq 'loc fields))))))
 
     (define s-atom
@@ -525,12 +535,15 @@
        (lambda (fields) (cdr (assq 'forms fields)))))
 
     ;; A complete source reader becomes located syntax, or raises a located error.
-    (define-traced (reader->syntax-list reader)
-      (let ((result (s-file reader)))
-        (if (parse-result-err? result)
-            (error "cannot parse Scheme source" (reader-filename reader)
-                   (reader-loc (parse-result-input result))))
-        (parse-result-value result)))
+    (define reader->syntax-list
+      (chromium-trace
+       "reader->syntax-list"
+       (lambda (reader)
+         (let ((result (s-file reader)))
+           (if (parse-result-err? result)
+               (error "cannot parse Scheme source" (reader-filename reader)
+                      (reader-loc (parse-result-input result))))
+           (parse-result-value result)))))
     )
 
   ;; ---- Tests ----
@@ -824,6 +837,15 @@
            "#u8((1))" "#u8(#u8(1))" "#u8(1 . 2)" "#u8(1 . ())" "#u8(. 1)"
            "#u8(1" "#u8 (1)" "#u8[1)")))
 
+      (define (test-large-bytevector)
+        (let ((elements (make-string 20000 #\space)))
+          (let loop ((index 0))
+            (when (< index 20000)
+              (string-set! elements index #\1)
+              (loop (+ index 2))))
+          (check-ok s-expr (string-append "\n #u8(" elements ")")
+                    (atom (make-bytevector 10000 1) 2 2))))
+
       (define (test-s-vector)
         (check-fail s-vector "(a b)")
         (check-ok s-vector "#()" (make-vector-syntax '() (at 1 1)))
@@ -965,6 +987,7 @@
         (run-test test-s-string)
         (run-test test-s-pipe-symbol)
         (run-test test-s-bytevector)
+        (run-test test-large-bytevector)
         (run-test test-s-vector)
         (run-test test-s-list)
         (run-test test-syntax->datum)

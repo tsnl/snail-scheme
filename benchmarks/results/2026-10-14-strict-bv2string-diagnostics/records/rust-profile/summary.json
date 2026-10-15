@@ -1,0 +1,100 @@
+{
+  "samples": 261,
+  "weighted_interval_us": 54481,
+  "profile_span_us": 54581,
+  "first_delta_us": 6926,
+  "last_delta_us": 153,
+  "policy": "exclusive leaf intervals merged by complete frame; boundary intervals retained whole; not continuous CPU execution",
+  "frames": [
+    {
+      "function": "_ZN9bv2string4main17h24347d6fb59ae58dE",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 3937,
+      "samples": 118,
+      "weighted_interval_us": 17563
+    },
+    {
+      "function": "_RNvNtNtCsdHhIpgkcIfN_4core3str8converts9from_utf8",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 7729,
+      "samples": 45,
+      "weighted_interval_us": 11602
+    },
+    {
+      "function": "_ZN9bv2string9roundtrip17hdc9d3af325a8c619E",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 12396,
+      "samples": 73,
+      "weighted_interval_us": 11267
+    },
+    {
+      "function": "post",
+      "url": "node:inspector",
+      "script": "88",
+      "line": 114,
+      "column": 6,
+      "samples": 1,
+      "weighted_interval_us": 6926
+    },
+    {
+      "function": "dlmalloc",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 63476,
+      "samples": 4,
+      "weighted_interval_us": 4132
+    },
+    {
+      "function": "memcmp",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 63139,
+      "samples": 8,
+      "weighted_interval_us": 1170
+    },
+    {
+      "function": "dlfree",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 69397,
+      "samples": 7,
+      "weighted_interval_us": 1060
+    },
+    {
+      "function": "_RNvNtCsdHhIpgkcIfN_4core3fmt5write",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 30973,
+      "samples": 3,
+      "weighted_interval_us": 455
+    },
+    {
+      "function": "_RNvXNvNtCset5xJoy1xWQ_3std2io17default_write_fmtINtB2_7AdapterNtNtB4_5stdio10StdoutLockENtNtCsdHhIpgkcIfN_4core3fmt5Write9write_strB6_",
+      "url": "wasm://wasm/bv2string-e8290285a25de903.wasm-000626c6",
+      "script": "129",
+      "line": 0,
+      "column": 62335,
+      "samples": 1,
+      "weighted_interval_us": 153
+    },
+    {
+      "function": "",
+      "url": "file:///tmp/snail-bv2string-diagnostics-20261014/build/bv2string-diagnostics/rust-profile-host.mjs",
+      "script": "87",
+      "line": -1,
+      "column": -1,
+      "samples": 1,
+      "weighted_interval_us": 153
+    }
+  ]
+}

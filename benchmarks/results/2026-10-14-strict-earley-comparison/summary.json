@@ -1,0 +1,95 @@
+{
+  "complete": true,
+  "count": 1,
+  "size": 15,
+  "expected": 2674440,
+  "processes": 30,
+  "discarded": 5,
+  "retained": 25,
+  "samples_per_system": 5,
+  "systems": {
+    "v8-production": {
+      "samples": 5,
+      "workload_median": 2.644450282,
+      "workload_range": [
+        2.616986218,
+        2.649599874
+      ],
+      "process_median": 2.6978595689870417,
+      "process_range": [
+        2.6731948780361563,
+        2.701890218013432
+      ]
+    },
+    "v8-common": {
+      "samples": 5,
+      "workload_median": 2.663771953,
+      "workload_range": [
+        2.622338983,
+        2.672358239
+      ],
+      "process_median": 2.719198586011771,
+      "process_range": [
+        2.6763670449727215,
+        2.7284547860035673
+      ]
+    },
+    "native-common": {
+      "samples": 5,
+      "workload_median": 3.882573458,
+      "workload_range": [
+        3.874936461,
+        3.892978102
+      ],
+      "process_median": 3.905057466996368,
+      "process_range": [
+        3.8980826509650797,
+        3.915551858022809
+      ]
+    },
+    "chez-original": {
+      "samples": 5,
+      "workload_median": 1.781514848,
+      "workload_range": [
+        1.778597917,
+        1.787982118
+      ],
+      "process_median": 1.8368373650009744,
+      "process_range": [
+        1.8331715209642425,
+        1.8426092879963107
+      ]
+    },
+    "chez-adapted": {
+      "samples": 5,
+      "workload_median": 3.505472192,
+      "workload_range": [
+        3.493376189,
+        3.506325984
+      ],
+      "process_median": 3.5702752739889547,
+      "process_range": [
+        3.558391197002493,
+        3.5743508110172115
+      ]
+    }
+  },
+  "time_ratios": {
+    "v8-production/chez-original": 1.4843829592376208,
+    "v8-production/chez-adapted": 0.7543777662920911,
+    "v8-common/v8-production": 1.0073064981147564,
+    "native-common/v8-common": 1.4575472399682556,
+    "native-common/chez-original": 2.1793663198253626,
+    "native-common/chez-adapted": 1.1075750270849674,
+    "chez-adapted/chez-original": 1.9676918190917037
+  },
+  "native_heap_reservation_bytes": 1073741824,
+  "rust_reference": false,
+  "compiler_commit": "011833645d88aae50c3c47a4eb6fa008136034c0",
+  "implementation_commit": "14a84bd1f64ef4faac23b9b3aa54062d9c55c010",
+  "preparation_commit": "fed3f033dda359d25fcefe04f9a281ef51d63f67",
+  "final_common_wasm_sha256": "2f2d788d5851dd964550b26054d5cf034dc598015a163b79378aa7a214029ea5",
+  "plan_sha256": "063472786ad5ea7d0d20c6b50ee025a7d9719f3b2dc13f241cab71ef9ad06168",
+  "runner_sha256": "83943c281cebe9493afe4bab48a059ef4f6e79a837f51528e56e0cc7c3ce30b6",
+  "limitation": "Five retained observations, overlapping V8 ranges; no isolated collector or identical-allocation claim."
+}

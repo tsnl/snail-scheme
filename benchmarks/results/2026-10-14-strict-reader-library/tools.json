@@ -1,0 +1,59 @@
+{
+  "CHIBI": {
+    "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+    "sha256": "fc029cc239454aa30d98bf62ce3e001c759a4784b2b73bd967b54ac96bf79090",
+    "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)\n"
+  },
+  "NODE": {
+    "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+    "sha256": "a4c7d261ae62215e73edd637711f09a545535226ae9932c3148342f0b027d56b",
+    "version": "v24.19.0\n"
+  },
+  "CHEZ": {
+    "path": "/nix/store/bzqpmy5kmvf0xn4xh5ixzkw00w9srh07-chez-scheme-10.4.1/bin/scheme",
+    "sha256": "e3f5dcb235865f65437a824e26f15c3ffad3ec9f53d5cb282c3fc07e11e2dfce",
+    "version": "10.4.1\n"
+  },
+  "WASM_AS": {
+    "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-as",
+    "sha256": "8271656783c2f2e585c68caa333c0601264e9d1baf04851abb6f3e35887d6448",
+    "version": "wasm-as version 132\n"
+  },
+  "WASM_OPT": {
+    "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+    "sha256": "ebd62a2235e0ba41460c97a5fc8e23dd203184c7e28ff010af090e2fa7e2a2a0",
+    "version": "wasm-opt version 132\n"
+  },
+  "WASM_DIS": {
+    "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-dis",
+    "sha256": "1d859923b1fcc3a95af3a9e60b929b9ac1d2d0ecbdb5b595a99331a8cab9d045",
+    "version": "wasm-dis version 132\n"
+  },
+  "WASM_MERGE": {
+    "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-merge",
+    "sha256": "f53d124bec0758cf1782fd56926522d28583edc3a72188376d00189fd9a41b47",
+    "version": "wasm-merge version 132\n"
+  },
+  "RUSTC": {
+    "path": "/run/current-system/sw/bin/rustc",
+    "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+    "version": "rustc 1.95.0 (59807616e 2026-04-14)\n"
+  },
+  "CARGO": {
+    "path": "/run/current-system/sw/bin/cargo",
+    "sha256": "59d80a4e9b1d886dfd410e3a1a3d3bb2cb2815a5221104900df5c6fc6e2a1c3b",
+    "version": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n"
+  },
+  "CLANG": {
+    "path": "/run/current-system/sw/bin/clang",
+    "sha256": "616b159417d7bbed6ba5b04b83ccc7509f58d3c7527164d1c04fbd117beda3b4",
+    "version": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/a0h9ym1ai9yawkmymx2wp0vnh64hsv0r-clang-22.1.8/bin\n"
+  },
+  "LLD": {
+    "path": "/run/current-system/sw/bin/ld.lld",
+    "sha256": "4ab39ef2b42f9f8dee336e250fe5efb42dd7c38168ad6768ffc7927e8f763466",
+    "version": "LLD 22.1.8 (compatible with GNU linkers)\n"
+  },
+  "git_head": "87d22a4675eb6b79c466a67e04632e1b95b04c5d",
+  "git_status": " M TOUR.md\n M src/lib.rs\n M src/snail/io.sld\n M src/strict_io.rs\n M src/symbols.rs\n?? doc/strict-reader.md\n?? scripts/test-strict-reader\n?? src/snail/datum.sld\n?? src/snail/read.sld\n?? src/strict_datum.rs\n?? tests/strict-reader/\n"
+}

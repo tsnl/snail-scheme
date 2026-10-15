@@ -1,0 +1,7 @@
+{
+  "complete": true,
+  "archive_sha256": "d8eb8ca9c9673a572e09c412f3ab1d2dc4a88a5908b06afbbec71d745437040c",
+  "regular_files": 2846,
+  "manifest_sha256": "8a7da354c9ebc2dc1f65bf4d0070e9c4718d443a142f2ac1ea04017bb0392267",
+  "scope": "Compressed identity, complete single-stream decompression, safe exact regular-file inventory and member byte/mode integrity. No semantic replay or guest execution."
+}
