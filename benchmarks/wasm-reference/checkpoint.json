@@ -1,0 +1,729 @@
+{
+  "scope": "all57 source implementations and canonical execution checkpoints; source coverage/correctness/performance remain separate",
+  "performance_samples": false,
+  "source_count": 57,
+  "canonical_passed_source_snapshots": 56,
+  "default_stack_failure": "ack",
+  "full_rerun_after_review_pending": [],
+  "new_canonical_pending": [],
+  "fresh_independent_reviews_pending": [
+    "linked-list allocation/sharing",
+    "later structural cohorts",
+    "slatex source and focused simplify review"
+  ],
+  "cases": [
+    {
+      "name": "browse",
+      "source_present": true,
+      "source_sha256": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "1fca3b0d1a09daade838bfbaee0f7935d3cad165249939dcbc2a4fd9ef51acf0",
+        "source_sha256": "43d46b0b2484633ae84e2a0f6468c34f175bd3ccc346f27324480852060aaa97",
+        "evidence": "build/rust-maze-paraffins-browse-full/validation.json"
+      }
+    },
+    {
+      "name": "deriv",
+      "source_present": true,
+      "source_sha256": "11defe33249cea0b7d4050c65ef5061e36c39a34e7b9824e78584965867adc10",
+      "canonical_status": "passed frozen historical five-case canonical validation",
+      "canonical_evidence": null
+    },
+    {
+      "name": "destruc",
+      "source_present": true,
+      "source_sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "864395a09bda5cf03515c065585d7b77eb9cc3aa7d9961dd5ca4c94ce60ed074",
+        "source_sha256": "d96cd84dfa8c2ba66a3fabcb2519112dd2d143ea8e0c0c21a6ae48d8d329d666",
+        "evidence": "build/rust-destruc-full/validation.json"
+      }
+    },
+    {
+      "name": "diviter",
+      "source_present": true,
+      "source_sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "c965e5ed0cb41e7454782fed863bd424856cf78aa37e809ab1cba561a96be743",
+        "source_sha256": "042178bc68f5b94ed34f08a5ec20594a68e38ea55c18e66d22800f00752fbab8",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "divrec",
+      "source_present": true,
+      "source_sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "7a1e7336b7c079c9166c61066cb895f3ccedff6033784cf38b8727abfdf444f6",
+        "source_sha256": "8caf1ce150ca8543dcd3395edf2ba2fd896ca81954f6a3c82eb6215d62f066c4",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "puzzle",
+      "source_present": true,
+      "source_sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "6922c6bc58940ee87ea46e9f6b886ae88a94709e23316b19b0e89aaeb10228bd",
+        "source_sha256": "862c4071f370542dac9769c4ff61142d5147c0c90755c933a7254d7803d3740a",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "triangl",
+      "source_present": true,
+      "source_sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "cee24a1d0597a2c4d998141600cacf42388784ad7987bd0977830121da62ebdf",
+        "source_sha256": "aac57a9f2860a3401eabddb7a1f8e830b2f1b5d9220d11523f47e855cc442ae1",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "tak",
+      "source_present": true,
+      "source_sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "d00444871be17876a7588f0eadd7ff0d59f2e129b814306d8d521b10803d260c",
+        "source_sha256": "25ed9ccb95600c241f632d18c5a3b1c08a3c88807f6c50fee8138152d9734162",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "takl",
+      "source_present": true,
+      "source_sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "c6f6438e0202a7d7ec692fb4ce8d6a5db156160c01dea9160092c6773f181fe6",
+        "source_sha256": "dcb0b426a7fcbe2d7474e455587a2f1cef8dd6fd5da27460614012218afb665c",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "ntakl",
+      "source_present": true,
+      "source_sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "b39f0ed593c2d8237fb5a90900c6b4b3f2cd185f6c23067d40111bda98f6900d",
+        "source_sha256": "fe4bb8c6a934e617b2a29ba3999990bdc7c2ea939289ddcc748d841d1f7a8c93",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "cpstak",
+      "source_present": true,
+      "source_sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "992ee88ead041c056e599ed61f2391e6d64feacea65a53552ddb49ea5f7c3116",
+        "source_sha256": "d9520047ffb8e4c07234e92ac220083ca7390986bcb202203228481a76520ceb",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "ctak",
+      "source_present": true,
+      "source_sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "98ac96325eb0304536145e142601aa69ea2c9347d3f0f96bae96e3149ba591a2",
+        "source_sha256": "ea5d821e906850cd09ca24061133403b476bce0d912bbf99644ed092a769d46b",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "fib",
+      "source_present": true,
+      "source_sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "26d9f5b07a0bf88f6519cc8ad7d9339a67fed743915dd4ed823c503d0a271c0a",
+        "source_sha256": "80074be7bbc8f6962e4eb8f7735404a24f9fbe0e9ea3ee804319aae397dea4fc",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "fibc",
+      "source_present": true,
+      "source_sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "57537d9451575e63354b93c3a1caac813e4d56eb79b9ea99dff4369a670aade2",
+        "source_sha256": "c2d80f965bcac181d98a1a5c17da3dc66596cb0253b1bbd558f8053d6110be39",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "fibfp",
+      "source_present": true,
+      "source_sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "1accd34ea85269443b9dd429d6bcbc7403f2b5a44b1d69762a003167a2c32a6a",
+        "source_sha256": "70470109902e53ad5099e6342f2dd7d86f25cb8191c2fd208d5344045a56e29e",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "sum",
+      "source_present": true,
+      "source_sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "f271266a7df720cb9c741807733066b1a6a0f39e51f8cdafd8360f0b5382b83b",
+        "source_sha256": "f031ab6ed16f8a24905d7758bc9dc5c2c85b92aa4df02f6012973d8d3246b632",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "sumfp",
+      "source_present": true,
+      "source_sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "293cba05c17e4ff7a64db89d3e3d11cb7326aeef99559d41367b825098009e21",
+        "source_sha256": "489293e8c8ce1a6b4c27ce83e19c2dd8f63547c5207691d93c4ecc7336fc2fc8",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "fft",
+      "source_present": true,
+      "source_sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "ff7bf5f226d1dd6e100f7bf8aab2c0c67622d0e065abba96b8feb20e6f2f1dcf",
+        "source_sha256": "388dccec2661b3ef9aa43f115a5427c847544373a441e6d95a7dfd71361e2422",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "mbrot",
+      "source_present": true,
+      "source_sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "fc61bb3355288639ef0d7048b60a6c17668c9a60712a21e9da68fada155b71f2",
+        "source_sha256": "34291f3294842e8e02edb73f95b0d28ba8c8c86a7d39b6e66bc9d9a5fb2e61e8",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "mbrotZ",
+      "source_present": true,
+      "source_sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "0c9bf3a92754d8ef29c44e78aceb49f59ceeb34a14afb054b61a5f4115d338a4",
+        "source_sha256": "8b7d6918cc713f9903aefb6f3929bcdb40bb973657bbba5afcc797eeb1f4e48f",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "nucleic",
+      "source_present": true,
+      "source_sha256": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "7ed9a9d71b33a75c0e1df8d7185c7e18df998a26217c7896c5d05e6b51f1ff5a",
+        "source_sha256": "5530b846245090d408d0c2cc89b52f34ae9ec22f5c5d06308e5c73b21ce18ba8",
+        "data_sha256": "a972dde98d84fb618a356ab55b71155ce632de83b66d2882c09fccb466831214",
+        "complete_oracle_sha256": "3e0c3dabb22c83ff6ba3bbe366bd214da3d5c17a85a2202f4238c122a008d646",
+        "audit_helper_sha256": "1b665f2e7fd5ec622c39ff0e39c6cb4a8a10d4d7db3dc8cbbdc81a3da9f2f83e",
+        "evidence": "build/rust-nucleic-current-full/validation.json"
+      }
+    },
+    {
+      "name": "pi",
+      "source_present": true,
+      "source_sha256": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "b8139b153164a7b995c6903f497e4f35db48530384d19a9861e0a872c793b70d",
+        "source_sha256": "76f0b41881033c7cae83df161072b09e0615ff625e20a62d25a74de81c8b38ca",
+        "evidence": "benchmarks/results/2026-10-13-rust-exact-arithmetic/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-exact-arithmetic/artifacts.tar.xz",
+        "review": "benchmarks/results/2026-10-13-rust-exact-arithmetic/review.json"
+      }
+    },
+    {
+      "name": "pnpoly",
+      "source_present": true,
+      "source_sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "e23c54a8789988fa667d8dc683b3863a295f527a6a2a83e8ee8df948cb20f2a2",
+        "source_sha256": "f8f0b43390411732aecb43eb276ea2c0ca5740a6eb276ee2f0bba5c83fc8321c",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "ray",
+      "source_present": true,
+      "source_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "cc4855cd2bb13b58a38bbcf9eea542b632304d43fc411632b875a430c067950c",
+        "source_sha256": "ba09b355a073311c7f57f31014b255ff44fda1fb842cda44f7da21be6c053b02",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "simplex",
+      "source_present": true,
+      "source_sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "142607520483f006a03ee8f096f5fb40e575c18bd474157a527da135ace1f6f7",
+        "source_sha256": "65ee05b5a353200c4f4f85061f68df4c4435bfaf782774dedceaa51c4c1ee04a",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "ack",
+      "source_present": true,
+      "source_sha256": "2f1d62eba5b08afe65519735ef34fd2309c721711cb8b0c3550095097999f3f3",
+      "canonical_status": "default canonical native-stack failure; separately labeled heap-frame canonical variant passed",
+      "canonical_evidence": {
+        "evidence": "build/rust-ack-variants/validation.json",
+        "default_failure": "full-canonical",
+        "optional_pass": "canonical-explicit-heap-frames",
+        "default_failure_snapshot": "build/ack-default-failure/validation.json"
+      }
+    },
+    {
+      "name": "array1",
+      "source_present": true,
+      "source_sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "fff2623956fb5d9a970aec102e11e0c89f2b88505d454b4aef7b5b59deb78c23",
+        "source_sha256": "d10f64401b82204939534bcb7733b9be5907844de399a26433077cb372b19eca",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "string",
+      "source_present": true,
+      "source_sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "0a5c8c92e512cede84b0cb10ad6aad9d16a01f1570776bbd860858eed8f6a61a",
+        "source_sha256": "5b85e11bcabc43dc3dec50a82bd560d8f5a40363ba3d70d5be2195d6a4d1c9fd",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "sum1",
+      "source_present": true,
+      "source_sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "63a6ee093f8f56b26d57ac599862337f1516e872d878adcffac1c9be7ef05fe8",
+        "source_sha256": "28b34d6f03504ea171ff391d304dd0526757da6ddc27bd93042e10730f7d1b7d",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "cat",
+      "source_present": true,
+      "source_sha256": "6a83376b61e8b1d4cc5b2038c120cf9557d6e275588d2fb6191a62a4d5be6f2f",
+      "canonical_status": "passed frozen historical five-case canonical validation",
+      "canonical_evidence": null
+    },
+    {
+      "name": "tail",
+      "source_present": true,
+      "source_sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "5b690fa3dd93e50d260cdbafbad39a6a98c2e260930f5fd3fd405a8494f4af97",
+        "source_sha256": "3a9fc5b621bce175145a635ab869d0b757579af8d1da7ca8a583b231d58d9b30",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "wc",
+      "source_present": true,
+      "source_sha256": "e670bc86c0eb9153e050044432d11309903381418fffc41ac445db2ad4f8c8f7",
+      "canonical_status": "passed frozen historical five-case canonical validation",
+      "canonical_evidence": null
+    },
+    {
+      "name": "read1",
+      "source_present": true,
+      "source_sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "46067f97d2c8ae72b9651202315dd7c3a8b1bf7918275e83764d88f43b5788b2",
+        "source_sha256": "f59837a6d9a5750dde9e9a36fb2c7534a82e552d5a74e86bd36cd5dc9138400d",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "compiler",
+      "source_present": true,
+      "source_sha256": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d",
+      "canonical_status": "passed original full2000/complete497-line predicate and separate complete word/graph diagnostics",
+      "canonical_evidence": {
+        "artifact_sha256": "429ef6969b077d5b6c9c57fe8bb9a8d269fa6d007878cc75a21ac0418ada673e",
+        "source_sha256": "611b7b2feb802c07d17dfdea06d9dda8896bde7f8083ff475ecd8af6c765eb1d",
+        "module_source_sha256": {
+          "compiler-common-procedures.scm": "1494235fd2963a1ec5b921c37f65250646aa20fc1f966254bca9d6768a2adfe9",
+          "compiler-multilisp-specific-procedures.scm": "6eb382b3a1d6d411e7b2c85292ff2482463d33775d36c741ae0f80cf5cf5b638",
+          "compiler-prim-procs.scm": "6fa100258f21f0fff9215e4b0bbc60968a76a0caef9d47aa0ea05fdcbe3ebbac",
+          "compiler-primitive-recipes.scm": "d0b1d5bf06013dd1d334654328a3905dafd68fdb28df158ea0bae39d9c1bcc79",
+          "compiler-r4rs-scheme-specific-procedures.scm": "b9e272beb904c4270c8d335c2ba53b7be55d1f05da33538b56c67f42d8d3a6d9",
+          "compiler.rs": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101",
+          "compiler_68000.rs": "09497abec1b184a1c0613eb7c86efb6a174285382da425ad8614455de1faf222",
+          "compiler_asm.rs": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c",
+          "compiler_blocks.rs": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2",
+          "compiler_gvm.rs": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee"
+        },
+        "evidence": "benchmarks/results/2026-10-13-rust-compiler/validation.json",
+        "local_validation": "build/rust-compiler-current-full/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-compiler/artifacts.tar.xz",
+        "complete_assembly_and_word_oracle": "benchmarks/results/2026-10-13-rust-compiler/assembly-validation.json",
+        "review": "benchmarks/results/2026-10-13-rust-compiler/simplify-review.json",
+        "canonical_iterations": 2000,
+        "complete_assembly_lines": 497
+      },
+      "development_stage": {
+        "implemented": "located syntax, lexical environments, parsing, partial evaluation, assignment conversion, lambda lifting, GVM generation/register and stack contexts/closure and procedure work queues, fixed-point block purification/order and backward slot analysis, original symbol/object-word and code-part assembly, label relocation/tensioning and 68000 operand representation",
+        "source": "benchmarks/wasm-reference/src/compiler.rs",
+        "source_sha256": "cd6d86173aa05edcde26f03605e8c3379a19701d5e472f1a55cf7a89b09f3101",
+        "one_pass_intermediate_evidence": "benchmarks/results/2026-10-13-rust-compiler-frontend/validation.json",
+        "intermediate_checks": 15,
+        "full_canonical_pending": false,
+        "remaining": "none within the checked reference input domain",
+        "local_evidence": "build/rust-compiler-frontend-final/validation.json",
+        "wasm_sha256": "429ef6969b077d5b6c9c57fe8bb9a8d269fa6d007878cc75a21ac0418ada673e",
+        "gvm_source": "benchmarks/wasm-reference/src/compiler_gvm.rs",
+        "gvm_source_sha256": "f96a30731a3eea26ec9bef150a8c51f62d1fcaf6789d5ba4f7025210ef8136ee",
+        "raw_gvm_evidence": "benchmarks/results/2026-10-13-rust-compiler-gvm-raw/validation.json",
+        "raw_gvm_checks": 9,
+        "local_raw_gvm_evidence": "build/compiler-gvm-raw-final/validation.json",
+        "block_source": "benchmarks/wasm-reference/src/compiler_blocks.rs",
+        "block_source_sha256": "bde5bc093139f7bb7ae386a142e4fd9a6a182bf4ecf648120710cfa01d391fc2",
+        "gvm_and_slot_evidence": "benchmarks/results/2026-10-13-rust-compiler-blocks/validation.json",
+        "gvm_and_slot_checks": 26,
+        "local_gvm_and_slot_evidence": "build/compiler-blocks-final/validation.json",
+        "focused_gvm_block_review": "benchmarks/results/2026-10-13-rust-compiler-blocks/simplify-review.json",
+        "reviewed_block_source_sha256": "dd36ad69bfdf66dd38eb605a27f84d934e46d0acba14497a3070bb0273c69cae",
+        "assembler_source_sha256": "b955cf41c07d1ba96d44a7e73429c962bde3e861cc612e473133ab9e8252609c",
+        "assembler_source": "benchmarks/wasm-reference/src/compiler_asm.rs",
+        "assembler_evidence": "benchmarks/results/2026-10-13-rust-compiler-assembler/validation.json",
+        "assembler_checks": 5,
+        "local_assembler_evidence": "build/compiler-asm-linked-draft/validation.json",
+        "current_gvm_and_slot_regression": "benchmarks/results/2026-10-13-rust-compiler-assembler/gvm-regression.json",
+        "current_complete_evidence": "benchmarks/results/2026-10-13-rust-compiler/validation.json"
+      },
+      "semantic_adaptation": "typed arenas and persistent Rc lists, per-compilation reclamation; Vec assembly lines, explicit per-word/descriptor opacity; synthetic helper immediates emitted directly; extended targets/tasks/primitive families/compound literal dumping outside checked domain"
+    },
+    {
+      "name": "conform",
+      "source_present": true,
+      "source_sha256": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "ff103e8848ab059697c5ad47f3fbdda4cd2e6e5c37568961576ad31a0638e52b",
+        "source_sha256": "421900f366aa394f4fd2137526d7fa478906a61589e97740c2c9dcdfded4fd84",
+        "evidence": "build/rust-conform-full/validation.json"
+      }
+    },
+    {
+      "name": "dynamic",
+      "source_present": true,
+      "source_sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad",
+      "canonical_status": "passed canonical frozen artifact; test-only reviewed source emits byte-identical runtime",
+      "canonical_evidence": {
+        "artifact_sha256": "927bcde3ca4dad0763fb27bf605ba9541fa79cfaca27f6e01c6b0254b1ece432",
+        "source_sha256": "95a733092f52f1404b88ce0275d1f16ed31c72b859a6b6073012dcc27198bde9",
+        "primitive_recipes_sha256": "1a3dbffb8ca8d5b213fbd0e089868dddb84077d67c4ccc3f73e6b212dbbbd43b",
+        "complete_oracle_sha256": "492e5ca2fe0841b126c2a3bfefe25fcc98932fea13d3f63117de2a0e18550170",
+        "evidence": "build/rust-dynamic-current-full/validation.json",
+        "independent_oracle_metadata": "build/dynamic-oracles/canonical-meta.json",
+        "reviewed_source_sha256": "5885797f58eb2eb8ce5c9992ea5771bfd36e3323e76125409aa579e5c12bccad",
+        "review": "benchmarks/wasm-reference/reviews/scheme-dynamic.json",
+        "runtime_equivalence": "benchmarks/wasm-reference/reviews/scheme-dynamic-runtime-hashes.json"
+      },
+      "semantic_adaptation": "owned cyclic type graph with per-call root sweep; persistent primitive type graphs; original type recipes represented as constructor data; complete tagged-program opacity before discarded result"
+    },
+    {
+      "name": "earley",
+      "source_present": true,
+      "source_sha256": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "e519cab9c8bd3c03809c8e3893b3d0fa04092dfbeb2647e1267460418242db0f",
+        "source_sha256": "c99654def83739c4145f504dd059ca0cc0b132ef400d00ca62d9d4141eb8bacd",
+        "evidence": "build/rust-earley-full/validation.json"
+      }
+    },
+    {
+      "name": "graphs",
+      "source_present": true,
+      "source_sha256": "725bb916b81a57af3c89d2e0436054882613ab144caf2cfd928895fe04a702eb",
+      "canonical_status": "passed frozen historical five-case canonical validation",
+      "canonical_evidence": null
+    },
+    {
+      "name": "lattice",
+      "source_present": true,
+      "source_sha256": "2e0cb4c00460675e53924ef1bde4263a5bb35981d1843a56544a479a36e37f03",
+      "canonical_status": "passed frozen historical five-case canonical validation",
+      "canonical_evidence": null
+    },
+    {
+      "name": "matrix",
+      "source_present": true,
+      "source_sha256": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "de36124e682df860f2f9c031786555ce8caf93f584953c8e3aeeda466755cc33",
+        "source_sha256": "560dc0d0d3b06a16341c2e60cca78917de8e75b77798515b439ba0ef7f7324fc",
+        "evidence": "build/rust-matrix-current-full/validation.json"
+      }
+    },
+    {
+      "name": "maze",
+      "source_present": true,
+      "source_sha256": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "a430eccf9a003832f70517258f5e35b3676629d8483365d09cb5dbd39d5684e2",
+        "source_sha256": "ff621af563076385ed3a7d639cd01f0c0b6bab9cec1777e2c6a3bb5482fd54aa",
+        "evidence": "build/rust-maze-paraffins-browse-full/validation.json"
+      }
+    },
+    {
+      "name": "mazefun",
+      "source_present": true,
+      "source_sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "3135aee9c875779a11061aa679e5734d4d8e1fb90e529c48b2bba06ac6679cd8",
+        "source_sha256": "d9a435290138050a9ab9eb0236b8934c7c095da7cf92ea548006919b274f9481",
+        "evidence": "build/rust-mazefun-full/validation.json"
+      }
+    },
+    {
+      "name": "nqueens",
+      "source_present": true,
+      "source_sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "f08d0eb7fc30af638bfedbb28e213d1b6a66a4159679115ba4dd9582eac8587c",
+        "source_sha256": "52082aa5fbe67a4a0fe33cb477dc230483bed404ef9b925dd4133daca59aebd0",
+        "evidence": "build/rust-group2-full/validation.json"
+      }
+    },
+    {
+      "name": "paraffins",
+      "source_present": true,
+      "source_sha256": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "63854d6639f7fb4c280343417b1249cdf0b5f9c43fef17d227d9f36f58640c89",
+        "source_sha256": "4d03c29d81caa21c37594f3224df56f2bae6c6e27142aba7c39fb661f1c1d4b1",
+        "evidence": "build/rust-paraffins-current-full/validation.json"
+      }
+    },
+    {
+      "name": "parsing",
+      "source_present": true,
+      "source_sha256": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "793f51fc05bf82098ca06461b5397a617801f403132751daa930192636eb130b",
+        "source_sha256": "cf962064ee6b2c5e7716cf38c5f57023268269746f2450e267531c43ae65ace9",
+        "evidence": "benchmarks/results/2026-10-13-rust-peval-parsing/parsing-validation.json",
+        "local_validation": "build/rust-parsing-full/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-peval-parsing/artifacts.tar.xz"
+      }
+    },
+    {
+      "name": "peval",
+      "source_present": true,
+      "source_sha256": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "e47f2591183a2aa5e025e3606421434c5abfea486c707202329f2bc825a7d3b9",
+        "source_sha256": "f625a0bc759f44e4f2cf135eddd46d8e6260692f488e69a4cd65c684cfd30d0b",
+        "constant_data_sha256": "9b53a4a39663de902f44222def90efc7334f0dd9b725139b37608fc690d745c2",
+        "audit_helper_sha256": "89bfc6eb73aa452d565e051c732754cd8d3a08e42c86470fd5d7a8b36811a43a",
+        "evidence": "benchmarks/results/2026-10-13-rust-peval-parsing/peval-validation.json",
+        "local_validation": "build/rust-peval-current-full/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-peval-parsing/artifacts.tar.xz"
+      },
+      "semantic_adaptation": "left-to-right map renaming; complete untimed residual-program audit uses lexical alpha equivalence"
+    },
+    {
+      "name": "primes",
+      "source_present": true,
+      "source_sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "611d747ee3fc2b5371bf19845fcb58d3dcc8ea91a25077067cdc4573e2590725",
+        "source_sha256": "02151acf83228706509e5dcf9a2e85366f5b5cc14e76ba66809f45588e10d4b3",
+        "evidence": "build/rust-group1-full/validation.json"
+      }
+    },
+    {
+      "name": "quicksort",
+      "source_present": true,
+      "source_sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "cbfcd8d515226823bf9e75138493b87af777de3123a4f636097845e3308780c7",
+        "source_sha256": "1aad3f4c7fb3034746692877657f59b1fe7c73b9c414ae1e681a5ecf3f045323",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "scheme",
+      "source_present": true,
+      "source_sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed",
+      "canonical_status": "passed canonical frozen artifact; test-only reviewed source emits byte-identical runtime",
+      "canonical_evidence": {
+        "artifact_sha256": "cf91aee5f6c5c564f72f608e88fd0b7f208cbfb2eb1f267bd32bdf5e192c5bb8",
+        "source_sha256": "e6b9eaea4624693b89586196ca74a5760f32e5c139f987b15afd3e2f854f3c9d",
+        "primitive_catalog_sha256": "6ec54a2961b7534bbe846d8f72735e3b7ad12cdc78b653735a0004e3ab6fa955",
+        "evidence": "build/rust-scheme-current-full/validation.json",
+        "reviewed_source_sha256": "2902b728e80eb8b3c27c6f3a0a14dc504dc96452bc5b3279ee89e85f18dfc4ed",
+        "review": "benchmarks/wasm-reference/reviews/scheme-dynamic.json",
+        "runtime_equivalence": "benchmarks/wasm-reference/reviews/scheme-dynamic-runtime-hashes.json"
+      },
+      "semantic_adaptation": "concrete captured-operation graph instead of native generator closures; owned lexical frames traced and swept at iteration boundaries"
+    },
+    {
+      "name": "slatex",
+      "source_present": true,
+      "source_sha256": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a",
+      "canonical_status": "passed canonical frozen artifact and separate complete generated-file comparison",
+      "canonical_evidence": {
+        "artifact_sha256": "9796ffad9d8020de28bc28f3c852faa5628c4b04938065b268da3f3810ecd0f4",
+        "source_sha256": "33d77cf4d434098324b5b9deb392a71c2d36a09b13a93d04c6ff5b6d7ebb0d1a",
+        "keywords_sha256": "9ee3026b6a3525257836d90ef4de183bf1908cf34a527aaa25c1dfe038298f98",
+        "evidence": "benchmarks/results/2026-10-13-rust-slatex/validation-summary.json",
+        "local_validation": "build/rust-slatex-current-full/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-slatex/artifacts.tar.xz",
+        "complete_generated_files": 28500,
+        "complete_generated_bytes": 2865500,
+        "complete_report": "benchmarks/results/2026-10-13-rust-slatex/validation.json.xz"
+      },
+      "semantic_adaptation": "persistent two-line scanner buffers and token/counter state; owned destructive character chains, boxed quote frames, vector databases; original unconditional predicate plus separate untimed complete file oracle"
+    },
+    {
+      "name": "chudnovsky",
+      "source_present": true,
+      "source_sha256": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "e7ddbc3d6b6d2215c637f468c9c430e6e3a99c7159dda13934864b0dde21fbf4",
+        "source_sha256": "9071f4a66ef75e76bf0c3d82d0ce779b0c2792f3ff826974a3648987224c9555",
+        "evidence": "benchmarks/results/2026-10-13-rust-exact-arithmetic/validation.json",
+        "artifact_archive": "benchmarks/results/2026-10-13-rust-exact-arithmetic/artifacts.tar.xz",
+        "review": "benchmarks/results/2026-10-13-rust-exact-arithmetic/review.json"
+      }
+    },
+    {
+      "name": "nboyer",
+      "source_present": true,
+      "source_sha256": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "aef3d3248d47a2169b11cc13cd540c261264a8b48e6aeeec0fe9964cc127cfd1",
+        "source_sha256": "c77869391292738aa43a319728068aa1bc08904dfde9a92700afcf1774aa5347",
+        "shared_algorithm_sha256": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8",
+        "constant_data_sha256": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879",
+        "evidence": "build/rust-boyer-current-full/validation.json"
+      }
+    },
+    {
+      "name": "sboyer",
+      "source_present": true,
+      "source_sha256": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "04cafb41507d90d046d428a85f7ab009e1e33d06f01c6046c331f66c1c18b4dd",
+        "source_sha256": "60765d6b324e2dfb465e1165ca60bd1399b7449d3a2c19a30c79351a206c608e",
+        "shared_algorithm_sha256": "f1b38aa2fcf3acbfbd194e48c578b7acc46fd8f66a311613918e9da137508ce8",
+        "constant_data_sha256": "4e1765e2f9222bca654831223beab5e5a76332040bc1ac47f5518dbe6dcf4879",
+        "evidence": "build/rust-boyer-current-full/validation.json"
+      }
+    },
+    {
+      "name": "gcbench",
+      "source_present": true,
+      "source_sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "d1f5d60c7c24d65b0718c331afdb9e5f11e16140f3d0d9e70ae29a2e8c76976b",
+        "source_sha256": "35891c734e195a3af6834d485648457754ce935c474d3762353752b070fd12a1",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    },
+    {
+      "name": "mperm",
+      "source_present": true,
+      "source_sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "a8142854105c244d45c1a859764e4c5364181c5d8002af3ea832792e2265bdf5",
+        "source_sha256": "109c0f53ae4c547f658b5507f13e02fccfdc23bb92238bbd26fe651d3350beca",
+        "evidence": "build/rust-mperm-full/validation.json"
+      }
+    },
+    {
+      "name": "equal",
+      "source_present": true,
+      "source_sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "5290a0ac12f8edba817cbd7cc57228be30a07c56611c3e49bef627c6aab50041",
+        "source_sha256": "bce1dccb4180be51738cab0825f65914988f1ef4273a7c5515c7c6473320a33e",
+        "evidence": "build/rust-resumed-canonical/validation.json"
+      }
+    },
+    {
+      "name": "bv2string",
+      "source_present": true,
+      "source_sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+      "canonical_status": "passed canonical frozen artifact",
+      "canonical_evidence": {
+        "artifact_sha256": "0607b96c9bae415a2d3129c51a9e28fb61e25fc283dbf692be6c6befac0d94a4",
+        "source_sha256": "166787d4c9a7f6413e10951582ddb36202a778eaff988745a7ef3ace33606f9a",
+        "evidence": "build/rust-group4-full/validation.json"
+      }
+    }
+  ],
+  "compiled_source_count": 57,
+  "current_default_canonical_passes": 56,
+  "optional_canonical_variant_passes": {
+    "ack --heap-frames": "build/rust-ack-variants/validation.json"
+  },
+  "draft_sources": [],
+  "remaining_workloads": [],
+  "new_small_result_evidence": "build/rust-cohort6-small-current/validation.json",
+  "retained_work_inspection_pending": [],
+  "retained_work_evidence": "build/retained-work-audit/manifest.json",
+  "completed_independent_reviews": [
+    "continuation workloads",
+    "peval/parsing source and simplify debate",
+    "pi/chudnovsky exact arithmetic and simplify debate",
+    "scheme/dynamic source and simplify ownership debate",
+    "Compiler GVM/block behavioral simplify explanation/debate and source comparison",
+    "Compiler frontend/assembly/emitter behavioral simplify explanation, informed source critique and complete linked checks"
+  ],
+  "frozen_full_suite_evidence": "benchmarks/results/2026-10-13-rust-full-suite/manifest.json"
+}

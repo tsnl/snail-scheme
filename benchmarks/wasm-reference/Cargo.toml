@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
+[dependencies]
+num-bigint = "=0.4.8"
+
 [workspace]
 
 [profile.release]
