@@ -246,7 +246,8 @@ allocation, indexing, identity, length, and bulk copying are native primitives.
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
 lexical initializer site from its required concrete instances, resolves class
-methods, and computes capture dependencies. It makes concrete copies of the
+methods, selects local procedures used only as call operators, and computes
+their transitive capture dependencies. It makes concrete copies of the
 shared IR, preserving checked templates and their external binding identities.
 Site, value and function records describe initialization, storage and code;
 they are not another expression representation. The same initializer policy serves
@@ -255,7 +256,12 @@ module also owns the enumeration of concrete site storage used by the emitter;
 readiness tokens and payload copies therefore have one definition.
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld)
 assigns native signatures and GC layouts, preserves initialization readiness,
-and emits explicit universal-value conversions. Invariant vectors use native
+and emits explicit universal-value conversions. Direct local procedures receive
+lexical state as native parameters. Their immutable local captures carry nullable
+payloads and readiness flags until the original read; surviving closures retain
+shared cells wherever later initialization must remain observable. A direct
+procedure's binding still publishes readiness at its original source event.
+Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array
 instructions own bounds and overlapping-copy behavior. Nominal records use immutable native fields;
 closed sums add a constructor tag and typed case subtypes. The layout registry

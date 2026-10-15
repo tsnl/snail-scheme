@@ -7,7 +7,7 @@
           value-binding? value-type value-site value-initializer value-index
           value-parameter? value-source
           function-index function-type* function-parameters function-rest-binding
-          function-body function-captures function-source)
+          function-body function-captures function-source function-direct? direct-value-function)
   (import (scheme base) (scheme cxr) (snail-scheme strict-types) (snail-scheme strict-core)
           (only (snail-scheme ir)
                 make-node node? node-kind node-type node-loc node-data node-constraints
@@ -45,14 +45,15 @@
       (index value-index)
       (parameter? value-parameter?))
     (define-record-type <function>
-      (make-function index source type parameters rest body captures) function?
+      (make-function index source type parameters rest body captures direct?) function?
       (index function-index)
       (source function-source)
       (type function-type*)
       (parameters function-parameters set-function-parameters!)
       (rest function-rest-binding set-function-rest-binding!)
       (body function-body set-function-body!)
-      (captures function-captures set-function-captures!))
+      (captures function-captures set-function-captures!)
+      (direct? function-direct? set-function-direct!))
     (define-record-type <program>
       (make-mono-program body functions globals exports) mono-program?
       (body mono-program-body)
@@ -247,7 +248,7 @@
     ;; A function is reserved before cloning its body. References to a recursive
     ;; binding therefore reuse its pending value rather than expanding forever.
     (define (clone-lambda node type parent state)
-      (let* ((function (make-function (length (state-functions state)) node type '() #f #f '()))
+      (let* ((function (make-function (length (state-functions state)) node type '() #f #f '() #f))
              (fixed (car (node-data node))) (rest (cadr (node-data node)))
              (bindings (append fixed (if rest (list rest) '())))
              (types (append (function-domains type) (if rest (list (list 'List (function-rest type))) '())))
@@ -260,7 +261,7 @@
         (set-function-body! function (clone (caddr (node-data node)) context state))
         (make-node 'closure type (node-loc node) (list function) '())))
 
-    ;; ---- Capture dependencies ----
+    ;; ---- Direct local procedures and capture dependencies ----
 
     ;; Demand is complete before traversal: later uses may have added payloads
     ;; or readiness tokens to earlier sites. Backend storage uses this same list.
@@ -287,20 +288,66 @@
     (define (local-values node)
       (identity-union (if (memq (node-kind node) '(block let)) (site-values (car (node-data node))) '())
                       (apply append (map local-values (execution-children node)))))
+    (define (value-function value)
+      (let ((initializer (value-initializer value)))
+        (and initializer (eq? (node-kind initializer) 'closure) (car (node-data initializer)))))
+    (define (direct-value-function value)
+      (let ((function (value-function value)))
+        (and function (function-direct? function) function)))
+    ;; clone-lambda creates one code record and one creation node per concrete
+    ;; initializer. A direct flag therefore belongs to one creation site, not a
+    ;; shared generic template; binding readiness remains per activation. Aliases
+    ;; and every other value use keep the closure; globals remain ordinary too.
+    (define (mark-local-procedures! node)
+      (for-each (lambda (value)
+                  (let ((function (value-function value)))
+                    (when (and function (not (site-global? (value-site value))))
+                      (set-function-direct! function #t)))) (local-values node)))
+    (define (retain-procedure-values! node)
+      (case (node-kind node)
+        ((get) (let ((function (value-function (car (node-data node)))))
+                 (when function (set-function-direct! function #f))))
+        ((call) (let ((operator (car (node-data node))))
+                  (unless (eq? (node-kind operator) 'get) (retain-procedure-values! operator))
+                  (for-each retain-procedure-values! (cadr (node-data node)))))
+        (else (for-each retain-procedure-values! (execution-children node)))))
+    (define (select-direct-procedures! body functions)
+      (let ((bodies (cons body (map function-body functions))))
+        (for-each mark-local-procedures! bodies)
+        (for-each retain-procedure-values! bodies)))
+    ;; A direct call needs the callee's lexical state and its binding readiness.
+    ;; Removing closure construction removes only that event's capture demand;
+    ;; every function body still contributes its calls and nested closures.
+    (define (call-used-values node)
+      (let* ((operator (car (node-data node)))
+             (function (and (eq? (node-kind operator) 'get)
+                            (direct-value-function (car (node-data operator))))))
+        (append (used-values operator) (if function (function-captures function) '())
+                (apply append (map used-values (cadr (node-data node)))))))
     (define (used-values node)
       (case (node-kind node)
-        ((get) (node-data node)) ((closure) (function-captures (car (node-data node))))
+        ((get) (node-data node)) ((call) (call-used-values node))
+        ((closure) (let ((function (car (node-data node))))
+                     (if (function-direct? function) '() (function-captures function))))
         (else (apply append (map used-values (execution-children node))))))
+    ;; Canonical order makes cyclic direct-call requirements converge by set
+    ;; growth rather than allowing equivalent capture lists to change order.
+    (define (insert-value value values)
+      (cond ((null? values) (list value))
+            ((eq? value (car values)) values)
+            ((< (value-index value) (value-index (car values))) (cons value values))
+            (else (cons (car values) (insert-value value (cdr values))))))
     (define (function-free-values function)
       (let ((bound (append (function-parameters function) (if (function-rest-binding function) (list (function-rest-binding function)) '())
                            (local-values (function-body function)))))
         (let collect ((values (used-values (function-body function))) (result '()))
-          (cond ((null? values) (reverse result))
+          (cond ((null? values) result)
                 ((or (memq (car values) bound) (site-global? (value-site (car values))) (memq (car values) result))
                  (collect (cdr values) result))
-                (else (collect (cdr values) (cons (car values) result)))))))
-    ;; Nested closures can pass a captured value through several environments.
-    ;; Iterate until every function carries those transitive requirements.
+                (else (collect (cdr values) (insert-value (car values) result)))))))
+    ;; Nested closures and direct calls both pass lexical state transitively.
+    ;; Exclude each callee's own locals: recursive activations allocate their own
+    ;; storage. Finish this fixed point before deciding which values need cells.
     (define (settle-captures! functions)
       (let ((changed? #f))
         (for-each (lambda (function)
@@ -350,6 +397,7 @@
       (let* ((state (make-state '() 0 '() 0 (program-instances program) (program-classes program))) (context (make-context '() #f '()))
              (body (clone-block (program-body program) context #t state)))
         (check-export-names export-names (node-loc body))
+        (select-direct-procedures! body (state-functions state))
         (settle-captures! (state-functions state))
         (make-mono-program body (state-functions state) (state-globals state)
                            (map (lambda (name) (selected-export name (state-globals state) (node-loc body))) export-names))))))

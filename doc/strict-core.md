@@ -328,6 +328,13 @@ right before the operator. A closure contains a typed code reference and a
 GC-visible environment. Known code can be called directly; unknown code uses a
 typed indirect call. Tail calls use Wasm tail-call instructions.
 
+A local binding initialized by a lambda can omit its closure and environment
+when every concrete use is a call operator. Its code receives captured lexical
+state as additional native parameters. Aliases, returned function values,
+global bindings, and exported workers retain ordinary closures. Named `let`
+currently returns its procedure through a wrapper, so that expansion also keeps
+the closure representation.
+
 Specialization keys retain concrete body, capture and class-obligation types,
 including phantom class parameters. Instances are reserved before their bodies
 are expanded, so ordinary recursion reuses one instance. Changing polymorphic
@@ -390,12 +397,23 @@ required source read even when no concrete payload is needed. Consequently,
 `(define alias later)` before `later` is initialized still fails if `alias` is
 unused. A payload-free readiness token preserves this behavior.
 
-After cloning discovers all demands, capture analysis follows value references
-and propagates the requirements of nested closures. It excludes a function's
-own parameters and local bindings. The emitter uses the specializer's same
+After cloning discovers all demands, specialization identifies direct local
+procedures. Capture analysis follows value references and propagates the
+requirements of both direct calls and nested closures to a fixed point. It
+excludes a function's own parameters and local bindings, so recursive activations
+retain separate storage. The emitter uses the specializer's same
 site-value enumeration to assign storage, then emits source initialization in
 order. Code reservation, runtime storage allocation, and successful binding
 initialization are distinct events; only the last makes a source read legal.
+
+Bindings captured by a surviving closure keep shared initialization cells,
+including dependencies carried through direct calls. Other local captures can
+travel as raw payloads and readiness flags while their synchronous owner is
+suspended. Passing that state performs no source read: an unready reference
+stays nullable until the original use checks readiness. A direct procedure's
+binding also keeps its readiness flag, checked after operand effects and at the
+original invocation. Explicit Ref objects remain shared when their references
+are passed as parameters.
 
 ## Explicit universal values
 
