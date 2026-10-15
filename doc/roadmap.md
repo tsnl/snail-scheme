@@ -48,8 +48,10 @@ or library APIs are implemented. Work proceeds through these contracts:
 - [x] Execute compiled SFIR producers that construct a limited library syntax
   subset through typed builders and transfer owned structured data into Chibi.
   Preserve explicit receiving-context identities and separate output imports.
-- [ ] Complete library constructors/accessors and source-level `generate-library`
-  recipes with preparation-cycle diagnostics. Add native loading with independent
+- [x] Execute source-level `generate-library` recipes with separate producer and
+  application dependency maps, preparation-cycle diagnostics and explicit source
+  context for caller-supplied foreign providers. See [source recipes](sfir-generation.md).
+- [ ] Complete library constructors/accessors. Add native loading with independent
   state and general compiler/execution APIs callable from SFIR; Scheme elaboration
   and macro staging remain deferred.
 - [ ] Revalidate the full corpus and compare clean timings after migration.

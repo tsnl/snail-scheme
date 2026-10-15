@@ -3,8 +3,9 @@
 The compiler remains Scheme hosted by Chibi. An SFIR producer can now construct
 a limited set of structured library declarations, execute as Wasm, and transfer
 its result to that compiler. This uses neither a Scheme product frontend nor
-source text as a substitute for declarations. Source-level `generate-library`
-recipes and general compiler calls from SFIR remain future work.
+source text as a substitute for declarations. The
+[source driver](sfir-generation.md) can execute `generate-library` recipes using
+this boundary. General compiler calls from SFIR remain future work.
 
 ## Constructive SFIR interface
 
@@ -136,6 +137,7 @@ The [four small driver files](../tests/sfir-builder/) show the exact compilation
 transfer, reception and execution calls. Source reads and artifact writes occur
 in these drivers, outside resolution and compilation.
 
-Remaining work includes the complete declaration/accessor API, source-level
-`generate-library` recipe collection and preparation-cycle diagnostics, general
-compiler services callable from SFIR, and native loading with independent state.
+Remaining work includes the complete declaration/accessor API, general compiler
+services callable from SFIR, and native loading with independent state. The
+[source driver](sfir-generation.md) now supplies recipe collection and
+preparation-cycle diagnostics around the checked builder boundary.

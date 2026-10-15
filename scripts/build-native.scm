@@ -1,6 +1,6 @@
 ;; SFIR emits Wasm; the native backend consumes only optimized Wasm operations.
 (import (scheme base) (scheme file) (scheme read) (scheme process-context)
-        (snail-scheme native) (snail-scheme llvm) (snail-sfir compiler)
+        (snail-scheme native) (snail-scheme llvm) (snail-sfir source-driver)
         (snail-scheme chromium-trace))
 (define options (call-with-input-file (cadr (command-line)) read))
 (define (option name) (cadr (assq name options)))
@@ -8,6 +8,7 @@
                         (lambda ()
                           (parameterize ((current-native-imports (option 'bindings))
                                          (library-directories (option 'libraries))
+                                         (generation-provider-module (option 'generation-provider))
                                          (command-program? (option 'command)))
                             (if (eq? (option 'mode) 'wasm)
                                 (native-binary->llvm (option 'source) (option 'directory) (option 'llvm))

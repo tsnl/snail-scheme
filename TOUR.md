@@ -126,9 +126,12 @@ monomorphic functions with fixed scalar parameters and a scalar or Unit result.
 Inferred function signatures are accepted; an `All` entry needs type arguments
 that this interface does not supply.
 
-The source driver reads files and calls `collect-library-map` before resolution;
-the older frontend convenience APIs are adapters over these stages. Its
-`sfir.parse`, `sfir.resolve`, `sfir.infer`, `sfir.specialize` and `sfir.emit-wasm`
+[`source-driver.sld`](src/snail-sfir/source-driver.sld) owns file selection,
+independent library preparation and dependency collection, including compiled
+`generate-library` recipes. Producer and application maps are separate; a shared
+preparation chain diagnoses cycles and preserves each selected value's identity.
+The older frontend convenience APIs remain adapters for already parsed source.
+The source driver's `sfir.parse`, `sfir.check`, `sfir.specialize` and `sfir.emit-wasm`
 trace spans expose the boundaries. [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld)
 requires an explicit trace scope. [`scripts/view-traces`](scripts/view-traces)
 opens retained evidence in Perfetto.
@@ -136,10 +139,16 @@ opens retained evidence in Perfetto.
 The source CLI keeps its existing script behavior and `--export` selector for
 unique flattened binding names. The library API uses public Entry selection.
 SFIR producers can construct and transfer the library subset described below.
-General compiler functions callable from SFIR and source-level `generate-library`
-recipes remain unimplemented. The Wasm execution adapter
+General compiler functions callable from SFIR remain unimplemented. The Wasm execution adapter
 below provides loading, independent instances and checked scalar invocation to
 JavaScript hosts; these operations are not yet Chibi or SFIR library functions.
+
+[`run-sfir-generator.mjs`](scripts/run-sfir-generator.mjs) executes compiled
+recipes through the checked builder boundary. An explicit provider factory
+receives the selected descriptor's directory and owns its foreign services until
+cleanup. The driver registers the returned syntax and separately obtains its
+imports. See [source recipes](doc/sfir-generation.md) for the API, command example,
+source context, preparation errors and current constructor limitations.
 
 ## Constructed library values
 
