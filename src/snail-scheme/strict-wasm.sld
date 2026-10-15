@@ -16,10 +16,11 @@
     ;; ---- Concrete layout registry ----
 
     (define-record-type <state>
-      (make-state layouts workers cells imports) state?
+      (make-state layouts workers cells imports strings) state?
       (layouts state-layouts set-state-layouts!)
       (workers state-workers set-state-workers!) (cells state-cells)
-      (imports state-imports set-state-imports!))
+      (imports state-imports set-state-imports!)
+      (strings state-strings set-state-strings!))
     (define-record-type <context>
       (make-context state slots locals) context?
       (state context-state) (slots context-slots set-context-slots!)
@@ -52,7 +53,8 @@
     (define (data-case-layout type index)
       (if (data-tagged? type) (list 'Data-case type index) type))
     (define (layout-dependencies type)
-      (case (car type)
+      (case (if (pair? type) (car type) type)
+        ((String) '())
         ((Function) (append (function-arguments type) (list (function-result type))))
         ((Data) (if (data-tagged? type)
                     (let visit ((cases (data-schema-cases (data-type-schema type))) (index 0))
@@ -69,6 +71,7 @@
       (case type
         ((I32 Bool Char Unit) 'i32) ((I64) 'i64) ((F32) 'f32) ((F64) 'f64)
         ((Top) 'eqref) ((Never) '(ref none))
+        ((String) `(ref ,(layout-name type state)))
         (else (if (eq? (car type) 'List) `(ref null ,(layout-name type state)) `(ref ,(layout-name type state))))))
     (define (storage-type type state)
       (let ((physical (wasm-type type state)))
@@ -86,7 +89,7 @@
         (if (and (pair? physical) (= (length physical) 2)) `(ref.as_non_null ,value) value)))
     (define (layout-definitions entry state)
       (let* ((type (car entry)) (name (layout-name type state)))
-        (case (car type)
+        (case (if (pair? type) (car type) type)
           ((Function)
            (list `(type ,(call-name type state) (func (param eqref)
                                                       ,@(map (lambda (type) `(param ,(wasm-type type state))) (function-arguments type))
@@ -95,6 +98,7 @@
           ((Ref) (list `(type ,name (struct (field (mut ,(wasm-type (cadr type) state)))))))
           ((List) (list `(type ,name (struct (field ,(wasm-type (cadr type) state)) (field (ref null ,name))))))
           ((Vector) (list `(type ,name (array (mut ,(wasm-type (cadr type) state))))))
+          ((String) (list `(type ,name (array (mut i32)))))
           ((Binding) (list `(type ,name (struct (field (mut i32)) (field (mut ,(storage-type (cadr type) state)))))))
           ((Data) (list `(type ,name ,(if (data-tagged? type)
                                           '(sub (struct (field i32)))
@@ -268,6 +272,74 @@
                ,@(result-declaration (function-result (function-type* function)) state)
                ,@(context-locals context) ,body)))
 
+    ;; ---- Unicode strings ----
+
+    ;; One private i32 array owns both writability (cell 0) and Unicode scalars
+    ;; (cells 1 onward). A logical offset must fit U32_MAX - 1 before adding the
+    ;; header: narrowing U32_MAX first would wrap onto the permission cell.
+    ;; String and Vector Char may share a canonical Wasm layout; Top's semantic
+    ;; witness keeps their source types distinct. No operation exposes the array.
+    (define (string-offset expression)
+      `(block (result i32)
+              (if (i64.gt_u ,expression (i64.const 4294967294)) (then (unreachable)))
+              (i32.add (i32.wrap_i64 ,expression) (i32.const 1))))
+    (define (string-write-check layout target)
+      `(if (i32.ne (array.get ,layout ,target (i32.const 0)) (i32.const 1))
+           (then (unreachable))))
+    (define (emit-new-string arguments context)
+      (let* ((state (context-state context)) (layout (layout-name 'String state))
+             (local (new-local 'String context)))
+        ;; The private array stays in a GC-rooted local until its flag is ready.
+        `(block (result (ref ,layout))
+                (local.set ,local (array.new ,layout ,(cadr arguments) ,(string-offset (car arguments))))
+                (array.set ,layout (local.get ,local) (i32.const 0) (i32.const 1))
+                (ref.as_non_null (local.get ,local)))))
+    (define (emit-string-copy layout arguments)
+      (let ((target (car arguments)) (at (cadr arguments)) (source (caddr arguments))
+            (start (cadddr arguments)) (end (car (cddddr arguments))))
+        ;; Permission applies even to empty copies. Checked I64 endpoints make
+        ;; the span exact; array.copy checks both complete ranges before writing
+        ;; and handles overlap. Adding one maps only payload, never the flag.
+        `(block (result i32)
+                ,(string-write-check layout target)
+                (if (i64.gt_u ,end (i64.const 4294967294)) (then (unreachable)))
+                (if (i64.lt_s ,end ,start) (then (unreachable)))
+                (array.copy ,layout ,layout ,target ,(string-offset at) ,source
+                            ,(string-offset start) ,(array-index `(i64.sub ,end ,start)))
+                (i32.const 0))))
+    (define (emit-string-primitive name arguments context)
+      (let ((layout (layout-name 'String (context-state context))))
+        (case name
+          ((make-string) (emit-new-string arguments context))
+          ((string-length) `(i64.sub (i64.extend_i32_u (array.len ,(car arguments))) (i64.const 1)))
+          ((string-ref) `(array.get ,layout ,(car arguments) ,(string-offset (cadr arguments))))
+          ((string-set!) `(block (result i32)
+                                 ,(string-write-check layout (car arguments))
+                                 (array.set ,layout ,(car arguments) ,(string-offset (cadr arguments)) ,(caddr arguments))
+                                 (i32.const 0)))
+          ((string-copy!) (emit-string-copy layout arguments)))))
+    (define (emit-integer-character expression)
+      `(block (result i32)
+              (if (i64.gt_u ,expression (i64.const 1114111)) (then (unreachable)))
+              (if (i32.and (i64.ge_u ,expression (i64.const 55296))
+                           (i64.le_u ,expression (i64.const 57343))) (then (unreachable)))
+              (i32.wrap_i64 ,expression)))
+
+    ;; Literals are rooted module constants. Repeated occurrences may share an
+    ;; equal readonly array; evaluation never allocates a fresh mutable string.
+    (define (string-literal value state)
+      (let ((entry (assoc value (state-strings state))))
+        (if entry `(global.get ,(cdr entry))
+            (let ((name (identifier "string" (length (state-strings state)))))
+              (set-state-strings! state (append (state-strings state) (list (cons value name))))
+              `(global.get ,name)))))
+    (define (string-definition entry state)
+      `(global ,(cdr entry) ,(wasm-type 'String state)
+               (array.new_fixed ,(layout-name 'String state) ,(+ 1 (string-length (car entry)))
+                                (i32.const 0)
+                                ,@(map (lambda (character) `(i32.const ,(char->integer character)))
+                                       (string->list (car entry))))))
+
     ;; ---- Concrete primitives ----
 
     ;; I64 source indices must fit unsigned i32 before conversion. The unsigned
@@ -306,11 +378,11 @@
           ((vector-eq?) `(ref.eq ,@arguments))
           ((vector-copy!) (emit-array-copy layout arguments)))))
 
-    (define (emit-primitive name signature arguments state)
-      (let ((expression (primitive-expression name signature arguments state)))
+    (define (emit-primitive name signature arguments context)
+      (let ((expression (primitive-expression name signature arguments context)))
         (if (eq? (function-result signature) 'Never) `(block (drop ,expression) (unreachable)) expression)))
-    (define (primitive-expression name signature arguments state)
-      (let ((opcode (primitive-opcode name)) (domains (function-domains signature)))
+    (define (primitive-expression name signature arguments context)
+      (let ((opcode (primitive-opcode name)) (domains (function-domains signature)) (state (context-state context)))
         (case name
           ((not) `(i32.eqz ,@arguments)) ((unit) '(i32.const 0)) ((unreachable) '(unreachable))
           ((ref) `(struct.new ,(layout-name (function-result signature) state) ,@arguments))
@@ -322,6 +394,9 @@
           ((null?) `(ref.is_null ,@arguments))
           ((empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)
            (emit-vector-primitive name signature arguments state))
+          ((integer->char) (emit-integer-character (car arguments)))
+          ((make-string string-length string-ref string-set! string-copy!)
+           (emit-string-primitive name arguments context))
           (else `(,opcode ,@arguments)))))
     (define (native-wrapper! name type state)
       (let* ((key (list name type)) (prior (find-type key (state-workers state))))
@@ -338,12 +413,14 @@
              (parameters (let loop ((types (function-domains type)) (index 0))
                            (if (null? types) '() (cons `(param ,(identifier "argument" index) ,(wasm-type (car types) state))
                                                        (loop (cdr types) (+ index 1))))))
-             (arguments (map (lambda (parameter) `(local.get ,(cadr parameter))) parameters)))
+             (arguments (map (lambda (parameter) `(local.get ,(cadr parameter))) parameters))
+             (context (make-context state '() '()))
+             (body (cond ((extern? name) (emit-extern-call name arguments state))
+                         ((pair? name) (emit-data-operation name type arguments state))
+                         (else (emit-primitive name type arguments context)))))
         `(func ,(cdr entry) (type ,(call-name type state)) (param $environment eqref)
                ,@parameters ,@(result-declaration (function-result type) state)
-               ,(cond ((extern? name) (emit-extern-call name arguments state))
-                      ((pair? name) (emit-data-operation name type arguments state))
-                      (else (emit-primitive name type arguments state))))))
+               ,@(context-locals context) ,body)))
 
     ;; ---- Native scalar imports ----
 
@@ -452,7 +529,7 @@
                (case (node-kind operator)
                  ((extern) (emit-extern-call (car (node-data operator)) arguments state))
                  ((data) (emit-data-operation (car (node-data operator)) type arguments state))
-                 (else (emit-primitive (car (node-data operator)) type arguments state))))
+                 (else (emit-primitive (car (node-data operator)) type arguments context))))
               ((and (eq? (node-kind operator) 'get) (direct-value-function (car (node-data operator))))
                (emit-direct-invocation (car (node-data operator)) arguments context tail?))
               (else (let ((closure (hold-node operator context)))
@@ -479,6 +556,7 @@
       (let ((value (car (node-data node))))
         (case (node-type node)
           ((Bool) `(i32.const ,(if value 1 0))) ((Char) `(i32.const ,(char->integer value)))
+          ((String) (string-literal value state))
           ((I32) `(i32.const ,value)) ((I64) `(i64.const ,value))
           ((F32) `(f32.const ,(float-token value))) ((F64) `(f64.const ,(float-token value)))
           (else `(ref.null ,(layout-name (node-type node) state))))))
@@ -583,7 +661,7 @@
                ,(car closure) ,(if (eq? result 'Unit) `(drop ,call) call))))
     (define (strict-core->wasm program)
       (let* ((functions (mono-program-functions program)) (closures (closure-functions functions))
-             (state (make-state '() '() (captured-locals closures) '()))
+             (state (make-state '() '() (captured-locals closures) '() '()))
              (globals (apply append (map (lambda (value) (global-definitions value state)) (site-values (mono-program-globals program)))))
              (bodies (map (lambda (function) (emit-function function state)) functions))
              (context (make-context state '() '())) (main (emit-entry (mono-program-body program) context))
@@ -591,11 +669,12 @@
                         (if (null? entries) '() (cons (emit-export (car entries) index state) (visit (cdr entries) (+ index 1))))))
              (workers (map (lambda (entry) (emit-primitive-worker entry state)) (state-workers state)))
              (environments (map (lambda (function) (environment-definition function state)) closures))
+             (strings (map (lambda (entry) (string-definition entry state)) (state-strings state)))
              (layouts (apply append (map (lambda (entry) (layout-definitions entry state)) (state-layouts state)))))
         `(module (rec (type $top-scalar (struct (field i32) (field i64)))
                       (type $top-reference (struct (field i32) (field eqref))) ,@layouts ,@environments)
                  ,@(map (lambda (entry) (extern-wasm-import (car entry) (cdr entry))) (state-imports state))
-                 (global $execution (mut i32) (i32.const 0)) ,@globals ,@bodies ,@workers ,@exports
+                 (global $execution (mut i32) (i32.const 0)) ,@strings ,@globals ,@bodies ,@workers ,@exports
                  (func $main (export "main") ,@(if (eq? (node-type (mono-program-body program)) 'Unit) '()
                                                    (result-declaration (node-type (mono-program-body program)) state))
                        ,@(context-locals context) ,main))))))
