@@ -79,6 +79,20 @@ balanced batch and default-stack failure. `replay.py DESTINATION` verifies and
 restores its archive without executing workloads. `flonum.py` provides a separate
 paired control using the unchanged strict artifacts and explicit Chez flonum
 operations; its `prepare` and `measure` commands take the same `--output` path.
+The supported controls are `fibfp`, `sumfp`, `mbrot`, and `pnpoly`; select cases
+during preparation with `--benchmarks`. The latter two start from their prepared
+same-source Chez programs. Only floating operations in `count` or `pt-in-poly2`
+change; the escape counter and polygon indices keep their integer operations.
+Preparation freezes the exact patch, source proof, inputs, drivers, and binaries,
+then checks the original result predicates at counts 1 and 2. For example:
+
+```sh
+python3 benchmarks/strict-suite/flonum.py prepare --output build/strict-next-float-controls --benchmarks mbrot pnpoly
+python3 benchmarks/strict-suite/flonum.py measure --output build/strict-next-float-controls --cpu 5
+```
+
+Measurement uses every prepared control, with one discarded and three retained
+fresh-process pairs, and verifies the frozen files before each sample.
 The [array1 vector report](../results/2026-10-13-strict-vector-array1/README.md)
 adds one original-size workload. Restore its archive with
 `replay.py DESTINATION --report benchmarks/results/2026-10-13-strict-vector-array1`.

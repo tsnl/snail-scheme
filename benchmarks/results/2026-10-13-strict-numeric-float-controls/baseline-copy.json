@@ -1,0 +1,11 @@
+{
+  "source": "/tmp/snail-strict-next-suite-ports-20261013/build/strict-next-five-interim-320987e",
+  "target": "/tmp/snail-strict-next-float-controls-20261013/build/strict-next-float-controls",
+  "files": {
+    "prepared.json": "8669bcd349f0b9c102a162d3dab77cd1b083b6834ec51ed48867f6d69b5de774",
+    "results.json": "c297bee8976e5b10b225bbc66e27f75549d799512507afec3609f252b1f7b6c2",
+    "host.mjs": "38b16279c4c82ba16cca385d5f6cdee4aa9ada448144a6ad8189487aa884a9bf",
+    "mbrot/strict.wasm": "1f9239c72d4b821622c48502b991800229502bc98d1579cc6b8a4c9c429d2303",
+    "pnpoly/strict.wasm": "c05f0bd60291e47dd35d72846c2119449b7198e42dcd2267cfcd2b6cb0a75b27"
+  }
+}
