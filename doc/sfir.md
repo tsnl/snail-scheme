@@ -31,5 +31,9 @@ scripts/book serve --hostname 127.0.0.1 --port 8000
 Open <http://127.0.0.1:8000/sfir/>. The book reloads as its sources change.
 `scripts/book build` writes the rendered book to `build/book/`.
 
-These chapters describe the proposed language and library contracts. For the
-current compiler implementation, see [the compiler tour](../TOUR.md).
+These chapters specify the language and library contracts. The current compiler
+has Chibi-hosted APIs that parse dependency-independent library values and resolve
+explicit library maps. These APIs are not yet exposed as SFIR library functions.
+The full `Entry`/`Target` compilation interface, loading/instantiation APIs and
+generation recipes remain implementation work; see [the compiler tour](../TOUR.md)
+for the supported stages and their limits.

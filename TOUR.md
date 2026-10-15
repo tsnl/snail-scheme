@@ -4,7 +4,7 @@ Chibi hosts the compiler implementation. The supported input is located SFIR,
 with no Scheme expander or interpreter in the compilation pipeline.
 
 ```text
-SFIR text → located syntax → resolved IR → inferred/checkable IR
+SFIR text → located syntax → parsed library values → resolved IR → inferred/checkable IR
           → concrete specializations → WasmGC → Binaryen
           → linked Wasm reactor → Binaryen → V8/WASI
           → mechanical LLVM lowering → native linker → 64-bit executable
@@ -23,20 +23,36 @@ filenames are being migrated and do not select a second source language.
 s-expressions and rejects quote abbreviations. These are implementation modules
 written in Scheme; Chibi reads their own source.
 
-[`frontend.sld`](src/snail-sfir/frontend.sld) resolves the small SFIR grammar.
-It reserves each block's bindings before resolving initializers. Every reference
-names a binding identity; imports and aliases retain that identity. Library
-cycles and conflicting imports are errors. `def` reserves a block-wide identity;
-each sequential `let` introduces its identity after resolving its initializer.
+[`frontend.sld`](src/snail-sfir/frontend.sld) parses the small SFIR grammar into
+`SfirLibrary` values without loading dependencies. `parse-library` accepts one
+located `define-library`; `syntax-list->sfir-library` also accepts a script body.
+It reserves each block's bindings before parsing initializers. Local references
+carry binding identities; unresolved imports carry a name, the library's import
+scope, a syntactic category and a location. `def` reserves a block-wide identity;
+each sequential `let` introduces its identity after parsing its initializer.
 Both become ordinary binding nodes in source order. Value and type scopes are
 separate, so an argument name cannot hide an enclosing quantified type variable.
-Library `begin` clauses concatenate before resolution; expression `begin` keeps
+Library `begin` clauses concatenate before parsing; expression `begin` keeps
 its own lexical scope. No step performs inference or executes user source.
 
-[`library.sld`](src/snail-scheme/library.sld) records resolved imports and
-exports. Dependency traversal initializes each imported library once before its
-users. [`ir.sld`](src/snail-scheme/ir.sld) holds the shared expression and binding
-records, initially with type holes and attached declared signatures.
+[`snail-sfir/library.sld`](src/snail-sfir/library.sld) records parsed library
+identities, descriptive imports, exports and located declarations. Its
+`resolve-library-map` accepts an association list of library keys to parsed
+values and returns an association list of keys to resolved libraries. This
+Chibi-hosted API resolves every supplied map entry, including entries outside a
+chosen root's dependency closure. It never loads dependencies. Aliases of one
+value resolve once; reexports and overload
+extensions retain the provider's binding identity. Missing providers, conflicting
+names and dependency cycles are errors. Empty `only` selections retain their
+provider's initialization and instances. Each resolution owns new IR, so the
+same parsed consumer can be resolved against different provider maps.
+
+[`snail-scheme/library.sld`](src/snail-scheme/library.sld) records the resulting
+resolved imports and exports. Dependency traversal initializes each library
+identity once before its users. [`ir.sld`](src/snail-scheme/ir.sld) holds the shared
+expression and binding records, initially with type holes and attached declared
+signatures. Immutable `LibraryId` and `BindingId` origins survive resolution and
+checking copies; mutable definition objects are canonical within their own graph.
 [`signatures.sld`](src/snail-sfir/signatures.sld) retains quantified source type
 identities. A hole is missing compile-time information, never an implicit Any.
 The internal solver and Wasm emitter still spell the universal type `Top`;
@@ -81,11 +97,23 @@ checks directly, using typed storage for container elements. The shared
 [`wasm.sld`](src/snail-scheme/wasm.sld) only serializes Wasm data; the old Scheme
 emitter has been removed.
 
-[`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes and library
-lookup. Its `sfir.resolve`, `sfir.infer`, `sfir.specialize` and `sfir.emit-wasm`
+[`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes.
+The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks
+the chosen root's dependency closure. It requires no tracing or source context.
+The source driver reads files and calls `collect-library-map` before resolution;
+the older frontend convenience APIs are adapters over these stages. Its
+`sfir.parse`, `sfir.resolve`, `sfir.infer`, `sfir.specialize` and `sfir.emit-wasm`
 trace spans expose the boundaries. [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld)
 requires an explicit trace scope. [`scripts/view-traces`](scripts/view-traces)
 opens retained evidence in Perfetto.
+
+The book's complete `compile(libraries, Entry, Target) → Artifact` API remains
+unimplemented. The current map entry selects a root library for checking; CLI
+`--export` still selects a unique flattened binding name rather than a library's
+public export. There are no SFIR-accessible compiler functions or cross-context
+library transport, nor public `load`, `instantiate`, typed invocation or
+`generate-library` execution APIs yet. The runtime adapters still provide their
+existing one-shot initialization and scalar export operations.
 
 ## Targets and runtime
 
