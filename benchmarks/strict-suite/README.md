@@ -7,8 +7,8 @@ This diagnostic adapts selected original R7RS kernels to the strict compiler:
 It records failures alongside successful cases. It is
 an explicit subset, separate from the complete default R7RS benchmark command.
 
-Historical strict measurements cover **43 of 57 workloads**, **42 with paired
-Chez controls**, including the complete Browse comparison below. The explicit
+Historical strict measurements cover **44 of 57 workloads**, **43 with paired
+Chez controls**, including the complete Equal comparison below. The explicit
 name sets are in [`capabilities.json`](capabilities.json). These are separate
 compiler checkpoints, not a complete-suite rerun on the current revision.
 
@@ -49,6 +49,12 @@ unchanged Rust control uses immutable `Rc` pairs/vectors and a pointer-pair
 implementations, without an equal-allocation or isolated-collector claim.
 Use `--benchmarks equal` for correctness/control preparation; clean timing
 requires a separately coordinated frozen plan, as for the reader and Browse.
+The [completed seven-system comparison](../results/2026-10-14-strict-equal-comparison/README.md)
+passes all 56 planned processes. Production V8 takes 2.395007 s, 9.274 times
+original Chez time and 0.511 times adapted Chez time; Rust/Wasm takes 0.933199 s.
+Native takes 2.133533 s, 11.434% less than V8 on the identical final Scheme Wasm.
+The adapted control changes representation, helpers and equality together;
+these measurements do not identify one isolated source of overhead.
 
 `nboyer` and `sboyer` retain the complete prover definitions, including the
 definitions after the original harness. Both canonical inputs request one
