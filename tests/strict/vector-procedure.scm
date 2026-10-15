@@ -1,0 +1,5 @@
+(import (snail strict))
+(define state (ref 40))
+(define values (make-vector 2 (lambda (x) (+ (ref-get state) x))))
+(define (invoke getter source) ((getter source 1) 2))
+(invoke vector-ref values)

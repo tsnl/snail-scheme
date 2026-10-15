@@ -1,0 +1,4 @@
+(import (snail strict))
+(define values (vector 1.25 2.5))
+(define copy (vector-append (empty-vector) values (vector-copy values)))
+(f64-add (vector-ref copy 0) (vector-ref copy 3))

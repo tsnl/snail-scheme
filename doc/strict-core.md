@@ -58,8 +58,50 @@ Bindings cannot be assigned with `set!`. `(ref value)`, `ref-get`, `ref-set!`,
 and `ref-eq?` provide explicit invariant cells. Each concrete `Ref T` has a
 mutable native T field. Aliases retain one cell, including aliases captured by
 different concrete copies of a generic function. Immutable `List T` supports
-`cons`, `car`, `cdr`, `null?`, and typed empty lists. Mutable arrays are not part
-of this first surface.
+`cons`, `car`, `cdr`, `null?`, and typed empty lists.
+
+## Concrete mutable vectors
+
+`Vector T` has fixed length, mutable identity, and native T element storage.
+For example, `Vector I64` stores i64 elements, `Vector F64` stores f64 elements,
+and `Vector (Ref I64)` stores managed cell references. Element types are
+invariant: aliases see one vector, and a write cannot change its element type.
+Heterogeneous storage requires an explicit `Vector Top` with explicit injections.
+
+```scheme
+(define values (make-vector 3 0))
+(vector-set! values 1 42)
+(vector-ref (vector-append values (vector 7 8)) 1)
+```
+
+The native storage operations are:
+
+| Operation | Contract |
+| --- | --- |
+| `(empty-vector)` | Fresh empty vector; context must determine T. |
+| `(make-vector length fill)` | Fresh vector with every element set to fill. |
+| `(vector-length source)` | Length as I64. |
+| `(vector-ref source index)` | Element at an I64 index. |
+| `(vector-set! target index value)` | Replace one T element; return Unit. |
+| `(vector-eq? left right)` | Identity comparison for vectors of the same type. |
+| `(vector-copy! target at source start end)` | Copy `[start, end)` to target at `at`; return Unit. |
+
+Indices and lengths reject negative I64 values and values above `2^32 - 1`
+before narrowing to native array indices. Native array operations check the
+actual bounds. Allocation also remains subject to the engine's resource limits.
+Bulk copy supports overlapping ranges and validates both complete ranges before
+any write, including zero-length ranges. Operands execute once, left to right,
+then the operator, before these checks.
+
+`vector`, `vector-copy`, `vector-append`, `vector->list`, and `list->vector`
+are ordinary polymorphic functions in `(snail strict)`. Their concrete copies
+use those storage operations without a dynamic element boundary. `vector-copy`
+currently copies a whole vector; `vector-copy!` takes exactly five arguments.
+`make-vector` requires an explicit fill, even for zero length. The constructors
+create fresh outer storage and preserve the identities of referenced elements.
+Allocations obey the value restriction: one empty vector cannot be reused at
+different element types. For an otherwise unconstrained empty vector, write
+`(ann (empty-vector) (Vector I64))`.
 
 ## Concrete calls and static classes
 
@@ -96,8 +138,9 @@ bindings likewise check readiness, preserving failure before an early read.
 An unused polymorphic name initializer still performs its source read. A lazily
 created Unit readiness token preserves that check when no payload copy is needed;
 erasing a concrete payload never erases a required early-binding failure.
-Only Ref allocation identity is exposed by the language. Pure specialized
-closures may have separate wrappers while sharing their captured Ref values.
+Ref and Vector allocation identities are exposed by the language. Pure
+specialized closures may have separate wrappers while sharing their captured
+cells and vectors.
 
 ## Reading the specialization pass
 
@@ -154,8 +197,9 @@ into Top and projects them back with a checked tag:
 Top is an engine-managed `eqref`. Small I64 values use signed i31 immediates;
 other scalars use tagged boxes. Managed values use a wrapper containing the
 original reference and a complete semantic type witness. Thus Bool and I32,
-Ref Bool and Ref I32, and function signatures differing only in those types
-remain distinct even when their physical Wasm layouts coincide. Projection
+Ref Bool and Ref I32, Vector Bool and Vector I32, and function signatures
+differing only in those types remain distinct even when their physical Wasm
+layouts coincide. Projection
 returns the original referenced value and preserves identity. Mismatches trap.
 Compound witness IDs belong to the module's layout registry. They do not yet
 define a shared cross-module Top ABI.
@@ -214,10 +258,11 @@ belong to their provider's resource interface and never represent GC addresses.
 ## Current boundary
 
 This slice supports scalar arithmetic, concrete higher-order closures, recursive
-functions, explicit cells, immutable lists, static classes and explicit Top.
+functions, explicit cells, immutable lists, concrete mutable vectors, static
+classes and explicit Top.
 It also provides native scalar foreign declarations and reusable exported
 workers. It does not yet provide strings, arbitrary integers, rationals,
-records, arrays, dynamic `apply`, or universal-value operation dispatch. The
+records, dynamic `apply`, or universal-value operation dispatch. The
 existing parser may recognize forms outside this surface; the strict checker
 rejects unsupported expressions. No benchmark speedup is claimed from
 correctness tests alone.
