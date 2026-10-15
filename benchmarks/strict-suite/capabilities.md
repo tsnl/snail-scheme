@@ -67,6 +67,12 @@ optimized payload removal remain disclosed. Matrix adds a
 production V8 takes 0.705711 s, 1.483× original Chez time and 0.435× Rust/Wasm
 time. Native takes 2.713× V8 time on the identical final Wasm. All 56 full-count
 runs pass; Rust's different algorithms and layouts remain explicit.
+The later [allocation-visibility comparison](../results/2026-10-14-native-allocation-visibility/README.md)
+reduces Matrix native time to 1.416101 s versus 0.702953 s for the identical Wasm
+on V8 (2.015×). Exposing both allocator layers to LLVM improves native 16.02%
+over the preceding bump-path split, with 28.67% more machine-code `.text`.
+The bytevector control is 0.901567 s versus V8's 0.649597 s (1.388×), with no
+established improvement from this change. These add no Chez or Rust timings.
 Historical coverage is now **37 of 57 measured workloads**, **36 with paired
 Chez controls**. The explicit name sets are in `capabilities.json`. Ackermann's
 default-stack failure and gcbench's unmeasured retention case are excluded;

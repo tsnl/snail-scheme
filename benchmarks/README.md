@@ -166,6 +166,14 @@ A separate `cold`-attribute variant regressed bytevectors more and was omitted.
 All 114 planned processes passed, with source, counts, negative results and
 machine code retained. These are two-workload measurements, not a suite rerun.
 
+The [allocation-visibility comparison](results/2026-10-14-native-allocation-visibility/README.md)
+then forces both allocator layers inline so LLVM can see constructor stores.
+Matrix improves another 16.02%, from 1.686211 s to 1.416101 s, versus 0.702953 s
+for the identical Wasm on V8. The bytevector control changes by +0.03% with
+overlapping ranges. All 72 processes pass. Matrix's machine-code `.text` grows
+28.67%; this is a measured workload improvement with a code-size tradeoff.
+The native suite and integrated reader checks pass; suite coverage is unchanged.
+
 ## Compiler throughput
 
 [`compile-self.py`](compile-self.py) separately measures the compiler compiling
