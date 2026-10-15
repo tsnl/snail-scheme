@@ -1,8 +1,9 @@
-;; Decode bounded JSON messages without changing control-character meanings.
+;; Preserve control-character meanings at bounded JSON message boundaries.
 (define-library (snail-tools json)
   (export json-read json-write string->json json->string)
   (import (scheme base) (scheme write)
-          (rename (only (chibi json) json-read json-write json->string) (json-read host-json-read))
+          (rename (only (chibi json) json-read json->string)
+                  (json-read host-json-read) (json->string host-json->string))
           (only (chibi io) port->string))
   (begin
 
@@ -35,7 +36,31 @@
             (unless (json-message-ended? input) (error "JSON message has trailing input")) value))))
     (define (json-read . ports)
       ;; Callers supply finite file, metadata or already-framed message ports.
-      (string->json (port->string (if (null? ports) (current-input-port) (car ports))))))
+      (string->json (port->string (if (null? ports) (current-input-port) (car ports)))))
+
+    ;; ---- Emit control characters as legal JSON escapes ----
+
+    (define (write-control-escape character output)
+      (let ((code (char->integer character)) (digits "0123456789abcdef"))
+        (display "\\u00" output)
+        (write-char (string-ref digits (quotient code 16)) output)
+        (write-char (string-ref digits (remainder code 16)) output)))
+    (define (json-write value . ports)
+      ;; Chibi's structured writer leaves some U+0000..001F characters raw.
+      (let ((input (open-input-string (host-json->string value)))
+            (output (if (null? ports) (current-output-port) (car ports))))
+        (let loop ((quoted? #f))
+          (let ((character (read-char input)))
+            (cond ((eof-object? character) (close-input-port input))
+                  ((and quoted? (char=? character #\\))
+                   (write-char character output) (write-char (read-char input) output) (loop #t))
+                  ((and quoted? (< (char->integer character) 32))
+                   (write-control-escape character output) (loop #t))
+                  (else (write-char character output)
+                        (loop (if (char=? character #\") (not quoted?) quoted?))))))))
+    (define (json->string value)
+      (let ((output (open-output-string)))
+        (json-write value output) (get-output-string output))))
 
   ;; ---- Tests ----
 
@@ -53,8 +78,11 @@
       (define (test-control-roundtrip)
         (let* ((controls (let loop ((code 31) (characters (list #\" #\\ #\🙂)))
                            (if (< code 0) (list->string characters) (loop (- code 1) (cons (integer->char code) characters)))))
-               (value (list (cons 'text controls))))
-          (expect (string->json (json->string value)) value)
+               (value (list (cons 'text controls) (cons (string->symbol controls) controls)))
+               (encoded (json->string value)))
+          (expect (string->json encoded) value)
+          (expect (let loop ((characters (string->list encoded)))
+                    (or (null? characters) (and (>= (char->integer (car characters)) 32) (loop (cdr characters))))) #t)
           (expect (json-read (open-input-string (json->string value))) value))
         (expect (normalized-json "\\r \"\\r\"") "\\r \"\\u000d\""))
       (define (test-complete-message)
