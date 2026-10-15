@@ -154,7 +154,7 @@ instance; a trapped call retains its instance and preceding effects. A lost
 compiler process invalidates map operations while copied artifacts and existing
 runtime instances remain owned by the service scope. See the
 [service API](doc/sfir-compiler-service.md) for lifecycle rules, supported targets
-and first-class parsed `SfirLibrary` values. The Python native
+and first-class parsed `SfirLibrary` values. The Scheme native
 loading adapter is described below; native target support in this SFIR service
 remains pending.
 
@@ -217,7 +217,7 @@ Entry description and semantic scalar signature. The section is appended after
 Binaryen optimization; loading verifies its schema and execution verifies the
 actual exported signatures. `(native64-target imports)` returns an unlinked
 x86-64 Linux relocatable object, using the existing Wasm-to-LLVM route followed
-by Clang. Its explicit
+by LLVM’s `opt` and `llc`. Its explicit
 provider declarations are `(make-native-import module name c-symbol parameters
 result)`: string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a
 scalar or `void` result. Missing declarations and signature mismatches fail.
@@ -277,11 +277,11 @@ and their external resources remain owned by the caller, including cleanup. The
 adapter discovers no files, constructs no WASI or Rust providers, and does not
 load native64 objects.
 
-[`execute_native.py`](src/snail-sfir/execute_native.py) provides `load_native`,
-explicit `link_native`, `instantiate`, `invoke_entry` and `close_instance` for
-compiler-produced x86-64 Linux objects. It checks declared C/Rust provider ABIs,
+[`execute-native.sld`](src/snail-sfir/execute-native.sld) provides `load-native`,
+explicit `link-native`, `instantiate`, `invoke-entry` and `close-instance` for
+compiler-produced x86-64 Linux objects. It checks declared Rust provider ABIs,
 uses exact binary scalar transport, and gives each instance fresh native globals,
-GC and provider state. [`native-worker.c`](src/snail-sfir/native-worker.c) supplies
+GC and provider state. [`native_worker.rs`](src/native_worker.rs) supplies
 a separate supervisor and guest worker; ownership precedes provider constructors.
 Failed initialization publishes no instance. Native traps and interrupted calls
 invalidate their instance; the supervisor reaps its owned descendants, including
@@ -323,9 +323,20 @@ Unicode data and Rust's recorded casing baseline.
 [`llvm.sld`](src/snail-scheme/llvm.sld) mechanically lowers those operations;
 [`llvmlite.sld`](src/snail-scheme/llvmlite.sld) writes LLVM text. Native uses the
 same Rust extern implementations and resolves imports directly against
-authoritative C provider declarations. [`precise-gc.c`](src/precise-gc.c) owns
+literal Rust `extern "C"` provider declarations. [`native_gc.rs`](src/native_gc.rs) owns
 native managed collection. Root and slot lifetime invariants live beside
 the lowering and collector that rely on them.
+
+[`snail-tools/process.sld`](src/snail-tools/process.sld) owns concrete command
+capture, files and evidence. [`json.sld`](src/snail-tools/json.sld) reads one
+complete JSON packet, preserves standard control escapes across the Chibi host
+boundary, and emits escaped control characters in metadata and command evidence.
+Trailing input is rejected. [`native-build.sld`](src/snail-tools/native-build.sld)
+checks scalar provider declarations, runs LLVM, and assembles a Cargo package
+with one runtime dependency and ordinary provider crates. Rust target `cfg`s
+select Wasm or native host behavior inside that shared runtime library. The
+native guest is an object before Cargo links it, so Rust LTO does not inline
+provider bodies into generated guest code.
 
 ## Checks and measurements
 
@@ -358,15 +369,23 @@ Chez controls and Rust comparisons. Source availability, execution correctness
 and clean measurement are distinct statuses. Compiler traces and instrumented
 runs explain work; they are not substituted for clean timing runs.
 
-`benchmarks/sfir/runner.py` freezes the compiler, corpus inputs, selected Rust
+`benchmarks/sfir/runner.scm` freezes the compiler, corpus inputs, selected Rust
 installation and locked crate sources, then validates each target route.
 Dynamic, Scheme and SLaTeX keep their complete workload and resource
 contracts in local verifiers and native entries; the runner owns fixture copies,
 tool invocation and artifact parity. Scheme's interpreter is benchmark code.
-`benchmarks/sfir/timing.py` prepares clean artifacts for all 57 registered
+`benchmarks/sfir/timing.scm` prepares clean artifacts for all 57 registered
 workloads, fixes the comparison schedule, supervises fresh execution processes
 and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
+
+`benchmarks/wasm-reference/suite.sld` runs the independent Rust/WASI and original
+Chez correctness checks, retaining pinned inputs, complete file results and
+negative checks. `audit.sld` reads serialized output without losing numeric
+spellings and compares lexical alpha equivalence, complete graphs and nucleic
+transformations. `compiler.sld` executes the four independent compiler-stage
+probe groups against the original Chez algorithm. Their `.scm` entry points
+and unit tests run in Chibi.
 
 ## Language specification
 

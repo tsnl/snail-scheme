@@ -1,43 +1,4 @@
-#!/usr/bin/env python3
-"""Compare optimized recursion groups, eager select and float bits with V8."""
-
-import argparse
-import os
-from pathlib import Path
-import subprocess
-
-ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build/binaryen-tests"
-FEATURES = ["--mvp-features", "--enable-gc", "--enable-reference-types", "--enable-tail-call",
-            "--enable-mutable-globals", "--enable-sign-ext", "--enable-bulk-memory",
-            "--enable-nontrapping-float-to-int"]
-
-
-# ---- Shared input and actual execution ----
-
-
-def checked(command, **environment):
-    subprocess.run([str(value) for value in command], cwd=ROOT, check=True,
-                   env={**os.environ, "BINARYEN_CORES": "1", **environment}, timeout=300)
-
-
-def check_variant(variant):
-    checked([os.environ.get("NODE", "node"), ROOT / "tests/binaryen-groups.mjs", BUILD / (variant + ".wasm")])
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    options = parser.parse_args()
-    BUILD.mkdir(parents=True, exist_ok=True)
-    original, optimized = BUILD / "original.wasm", BUILD / "optimized.wasm"
-    checked([os.environ.get("WASM_AS", "wasm-as"), ROOT / "tests/binaryen-groups.wat",
-             *FEATURES, "-g", "-o", original])
-    checked([os.environ.get("WASM_OPT", "wasm-opt"), original, *FEATURES, "-g", "-O3",
-             "--closed-world", "--always-inline-max-function-size=40", "--converge", "-o", optimized])
-    for variant in ("original", "optimized"):
-        check_variant(variant)
-    print("Binaryen original/optimized V8 checks passed")
-
-
-if __name__ == "__main__":
-    main()
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/tests" "$root/tests/run.scm" "$root" "binaryen" "$@"

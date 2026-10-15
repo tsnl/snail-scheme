@@ -6,9 +6,9 @@ and [the manifest](benchmarks/sfir/corpus.json) for each workload's source,
 correctness and measurement status.
 
 ```sh
-python3 benchmarks/sfir/runner.py inventory
-python3 benchmarks/sfir/runner.py prepare --output /tmp/sfir-suite
-python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-suite
+chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm inventory
+chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm prepare --output /tmp/sfir-suite
+chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-suite
 ```
 
 The default selection is the complete suite. A selected subset is a diagnostic,

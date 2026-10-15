@@ -1,36 +1,4 @@
-#!/usr/bin/env python3
-"""Execute compiled artifact loading, instance ownership and checked scalar calls."""
-
-import json
-import os
-from pathlib import Path
-import subprocess
-
-ROOT = Path(__file__).resolve().parent.parent
-OUTPUT = ROOT / 'build/sfir-execution'
-FIXTURES = ROOT / 'tests/sfir-execution'
-RECORDS = []
-
-
-def run(command):
-    result = subprocess.run(list(map(str, command)), cwd=ROOT, capture_output=True, text=True, timeout=240,
-                            env={**os.environ, 'BINARYEN_CORES': '1'})
-    RECORDS.append(dict(command=list(map(str, command)), status=result.returncode,
-                        stdout=result.stdout, stderr=result.stderr))
-    (OUTPUT / 'commands.json').write_text(json.dumps(RECORDS, indent=2) + '\n')
-    assert result.returncode == 0, RECORDS[-1]
-    if result.stdout:
-        print(result.stdout, end='', flush=True)
-
-
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    run([os.environ.get('CHIBI', 'chibi-scheme'), '-I', ROOT / 'src', FIXTURES / 'build.scm', OUTPUT])
-    for name in ('provider', 'wrong-provider', 'callback-provider', 'start', 'mutable-import'):
-        run([os.environ.get('WASM_AS', 'wasm-as'), '--enable-mutable-globals',
-             FIXTURES / (name + '.wat'), '-o', OUTPUT / (name + '.wasm')])
-    run([os.environ.get('NODE', 'node'), '--expose-gc', FIXTURES / 'run.mjs', OUTPUT])
-
-
-if __name__ == '__main__':
-    main()
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/tests" "$root/tests/run.scm" "$root" "sfir-execution" "$@"

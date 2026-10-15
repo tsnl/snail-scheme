@@ -19,7 +19,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Write section headers as `;; ---- Title ----` in Scheme,
-  `// ---- Title ----` in Rust, and `# ---- Title ----` in Python, with sentence
+  `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested Scheme module exports one `test-<module>` entry point under the

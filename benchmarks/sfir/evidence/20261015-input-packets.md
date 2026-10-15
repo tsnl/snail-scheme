@@ -16,7 +16,7 @@ Median guest workload seconds; ratio is scalar median divided by packet median:
 
 The [JSON summary](20261015-input-packets.json) retains every sample, exact ratios,
 source/tool identities and verification scope. The
-[indexed archive](20261015-input-packets-records.tar.gz) retains all 48 original
+[indexed archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/sfir/evidence/20261015-input-packets-records.tar.gz) retains all 48 original
 process records, raw stdout/stderr and per-attempt result records, plus the sealed
 driver, plan, preparation manifest, machine context and native build metadata.
 These results cover SFIR Cat/WC input buffering. They establish no Chez/Rust

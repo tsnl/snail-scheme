@@ -63,13 +63,15 @@ panics. Preparation and validation are separate from clean measurements.
 cargo build --offline --release --target wasm32-wasip1 \
   --manifest-path benchmarks/string-reference-controls/Cargo.toml
 cargo test --offline --manifest-path benchmarks/string-reference-controls/Cargo.toml
-python3 benchmarks/string-reference-controls/tests/check_controls.py \
+chibi-scheme -I src -I benchmarks benchmarks/string-reference-controls/tests/check-controls.scm \
   --artifact benchmarks/string-reference-controls/target/wasm32-wasip1/release/string-reference-controls.wasm \
   --output build/string-controls-check
 ```
 
-`check_controls.py` restores the frozen original Chez source/binary/input from
-the verified full-suite content store. Actual Node/Wasm and original Chez pass
+`checks.sld` copies the retained original Chez source and input from the SFIR
+corpus, compiles that source with the selected Chez, and records their identities.
+Historical binary bundles remain in [Git history](../history.md).
+Actual Node/Wasm and original Chez pass
 the full input, threshold boundaries and wrong-result rejection. Each Rust mode
 also passes complete-payload checks. An independent untimed oracle checks every
 element; negative checks corrupt interior elements without changing length and
@@ -85,7 +87,7 @@ all ten trials and the full outer count. Both zeroed modes call `calloc`; its
 conditional `memory.fill` remains in the emitted module. Source-level zero
 initialization alone would not establish this.
 
-`tests/allocation_probe.py` creates a separate diagnostic by redirecting only
+`tests/allocation-probe.scm` creates a separate diagnostic by redirecting only
 the four specialized trial functions' allocation calls to counting wrappers.
 An active marker attributes the original `calloc` zero fill to those selected
 calls. Internal allocator calls and startup allocations are not double counted.

@@ -3,7 +3,7 @@
 (define-library (snail-sfir native-entry)
   (export write-native-entry)
   (import (scheme base) (scheme cxr)
-          (only (chibi json) json->string)
+          (only (snail-tools json) json->string)
           (snail-scheme wasm-resolve) (snail-scheme llvmlite))
   (begin
 

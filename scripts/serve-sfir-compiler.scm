@@ -1,7 +1,7 @@
 ;; One explicitly owned compiler session. Requests supply source or owned syntax;
 ;; compilation sees only the resulting map and never discovers dependencies.
 (import (scheme base) (scheme file) (scheme read) (scheme write) (scheme process-context)
-        (chibi json) (snail-sfir frontend) (snail-sfir compiler)
+        (snail-tools json) (snail-sfir frontend) (snail-sfir compiler)
         (snail-sfir library-transfer) (snail-scheme reader) (snail-scheme syntax-parser)
         (snail-scheme source) (snail-scheme strict-primitives) (snail-scheme chromium-trace))
 
