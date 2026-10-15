@@ -5,11 +5,11 @@
   (import (scheme base) (scheme cxr) (snail-scheme strict-types))
   (begin
 
-    ;; ---- Concrete numeric operations ----
+    ;; ---- Concrete native operations ----
 
-    ;; Each row gives its complete domains, result and native instruction.
+    ;; Each row gives its complete domains, result and native lowering name.
     ;; Unary conversions and binary arithmetic use the same signature rule.
-    (define numeric-primitives
+    (define concrete-primitives
       '((i32-add (I32 I32) I32 i32.add)
         (i32-sub (I32 I32) I32 i32.sub)
         (i32-mul (I32 I32) I32 i32.mul)
@@ -57,15 +57,28 @@
         (i64->i32 (I64) I32 i32.wrap_i64)
         (f32->f64 (F32) F64 f64.promote_f32)
         (f64->f32 (F64) F32 f32.demote_f64)
-        (f64->i64 (F64) I64 i64.trunc_f64_s)))
+        (f64->i64 (F64) I64 i64.trunc_f64_s)
+        (char=? (Char Char) Bool i32.eq)
+        (char<? (Char Char) Bool i32.lt_u)
+        (char<=? (Char Char) Bool i32.le_u)
+        (char>? (Char Char) Bool i32.gt_u)
+        (char>=? (Char Char) Bool i32.ge_u)
+        (char->integer (Char) I64 i64.extend_i32_u)
+        (integer->char (I64) Char integer->char)
+        (make-string (I64 Char) String make-string)
+        (string-length (String) I64 string-length)
+        (string-ref (String I64) Char string-ref)
+        (string-set! (String I64 Char) Unit string-set!)
+        (string-eq? (String String) Bool ref.eq)
+        (string-copy! (String I64 String I64 I64) Unit string-copy!)))
     (define primitive-names
-      (append (map car numeric-primitives)
+      (append (map car concrete-primitives)
               '(not unit ref ref-get ref-set! ref-eq? cons car cdr null? unreachable
                     empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!)))
     (define (primitive-opcode name)
-      (let ((entry (assq name numeric-primitives))) (if entry (cadddr entry) name)))
+      (let ((entry (assq name concrete-primitives))) (if entry (cadddr entry) name)))
     (define (primitive-scheme name)
-      (let ((entry (assq name numeric-primitives)))
+      (let ((entry (assq name concrete-primitives)))
         (cond (entry (make-scheme '() (function-type (cadr entry) #f (caddr entry)) '()))
               ((eq? name 'not) (make-scheme '() (function-type '(Bool) #f 'Bool) '()))
               ((eq? name 'unit) (make-scheme '() (function-type '() #f 'Unit) '()))

@@ -6,7 +6,7 @@
           let let* letrec letrec* and or when unless
           : ann inst All -> Rest => define-data match
           define-class define-instance define-overload define-extern
-          I32 I64 F32 F64 Bool Char Unit Top Never Ref List Vector
+          I32 I64 F32 F64 Bool Char String Unit Top Never Ref List Vector
           Default default
           + - * / sqrt truncate quotient remainder = < <= > >= not unit unreachable
           i32-add i32-sub i32-mul i32-eq i32-lt i32-le i32-gt i32-ge i32-quotient i32-remainder
@@ -17,8 +17,12 @@
           i64->f64 i32->i64 i64->i32 f32->f64 f64->f32 f64->i64
           ref ref-get ref-set! ref-eq? cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
-          vector vector-copy vector-append vector->list list->vector)
-  (import (rename (snail-scheme core) (make-vector make-filled-vector)))
+          vector vector-copy vector-append vector->list list->vector
+          char=? char<? char<=? char>? char>=? char->integer integer->char
+          make-string string-length string-ref string-set! string-eq? string-copy!
+          string string-copy substring string-append string=? string->list list->string)
+  (import (rename (snail-scheme core)
+                  (make-vector make-filled-vector) (make-string make-filled-string)))
   (begin
 
     ;; ---- Immutable binding forms ----
@@ -216,4 +220,54 @@
       (if (null? sources) (unit)
           (let ((count (vector-length (car sources))))
             (vector-copy! result offset (car sources) 0 count)
-            (append-into! result (cdr sources) (+ offset count)))))))
+            (append-into! result (cdr sources) (+ offset count)))))
+
+    ;; ---- Mutable Unicode strings and readonly literals ----
+
+    ;; Storage primitives hide the permission word. Each constructor here makes
+    ;; fresh mutable storage, including empty results and one-source append.
+    (define-overload make-string (-> I64 Char String) make-filled-string)
+    (define-overload make-string (-> I64 String)
+      (lambda (count) (make-filled-string count #\null)))
+    (define (string . characters) (list->string characters))
+    (define (list->string characters)
+      (let ((result (make-string (element-count characters))))
+        (let loop ((tail characters) (index 0))
+          (if (null? tail) result
+              (begin
+                (string-set! result index (car tail))
+                (loop (cdr tail) (+ index 1)))))))
+    (define (string->list source)
+      (let loop ((index (string-length source)) (result '()))
+        (if (= index 0) result
+            (loop (- index 1) (cons (string-ref source (- index 1)) result)))))
+    (define (substring source start end)
+      ;; Validate before allocation; the difference is then nonnegative and
+      ;; bounded by the source length, so I64 subtraction cannot wrap.
+      (if (or (< start 0) (< end start) (> end (string-length source))) (unreachable)
+          (let ((result (make-string (- end start))))
+            (string-copy! result 0 source start end)
+            result)))
+    (define (string-copy source) (substring source 0 (string-length source)))
+    (define (string-append . sources)
+      (let ((result (make-string (appended-string-length sources))))
+        (append-strings-into! result sources 0)
+        result))
+    (define (appended-string-length sources)
+      ;; Every prefix is bounded before the next addition, which is at most
+      ;; twice the maximum string length and cannot overflow I64.
+      (let loop ((tail sources) (count 0))
+        (if (> count 4294967294) (unreachable)
+            (if (null? tail) count
+                (loop (cdr tail) (+ count (string-length (car tail))))))))
+    (define (append-strings-into! result sources offset)
+      (if (null? sources) (unit)
+          (let ((count (string-length (car sources))))
+            (string-copy! result offset (car sources) 0 count)
+            (append-strings-into! result (cdr sources) (+ offset count)))))
+    (define (string=? left right)
+      (and (= (string-length left) (string-length right))
+           (let loop ((index 0))
+             (or (= index (string-length left))
+                 (and (char=? (string-ref left index) (string-ref right index))
+                      (loop (+ index 1)))))))))

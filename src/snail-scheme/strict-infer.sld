@@ -47,7 +47,7 @@
 
     (define (source-type type variables loc)
       (cond ((lookup type variables) => (lambda (type) type))
-            ((memq type scalar-types) type)
+            ((or (memq type scalar-types) (eq? type 'String)) type)
             ((and (pair? type) (memq (car type) '(Ref List Vector)) (= (length type) 2))
              (list (car type) (source-type (cadr type) variables loc)))
             ((and (pair? type) (eq? (car type) '->)) (source-function type variables loc))
@@ -573,7 +573,7 @@
             ((ir:assignment? node) (strict-error (node-loc node) "immutable binding: use explicit ref-set! instead of set!"))
             (else (strict-error (node-loc node) "unsupported strict expression")) ))
     (define (literal-type value expected loc)
-      (cond ((boolean? value) 'Bool) ((char? value) 'Char)
+      (cond ((boolean? value) 'Bool) ((char? value) 'Char) ((string? value) 'String)
             ((null? value) (list 'List (fresh-variable)))
             ((exact-integer? value)
              (let ((type (if (memq expected '(I32 I64)) expected 'I64)))

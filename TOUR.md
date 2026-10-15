@@ -240,8 +240,8 @@ their field types; recursive fields retain identities instead of expanding a tre
 supplies complete concrete primitive signatures and opcodes, including unary
 conversions. [`(snail strict)`](src/snail/strict.sld) provides numeric overload
 families with explicit I64/F64 promotion bodies, hygienic binding and control forms
-and ordinary polymorphic vector functions. `vector-append`, copying, and
-list conversions specialize through the same pipeline as user functions; only
+and ordinary vector and Unicode string functions. Append, substring, copying,
+content comparison and list conversions use the same pipeline as user functions; only
 allocation, indexing, identity, length, and bulk copying are native primitives.
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) separates each
@@ -270,7 +270,10 @@ procedure inside its lexical scope. This also keeps named-let recursion direct
 without changing the expanded or checked frontend forms.
 Invariant vectors use native
 array element storage; I64 index checks precede narrowing, while native array
-instructions own bounds and overlapping-copy behavior. Nominal records use immutable native fields;
+instructions own bounds and overlapping-copy behavior. Each String is one native
+character array with a private writability word. Checked offsets exclude that
+word; readonly literal globals and fresh mutable strings share the same layout.
+Unicode scalar conversions reject surrogate and out-of-range values. Nominal records use immutable native fields;
 closed sums add a constructor tag and typed case subtypes. The layout registry
 reserves applications before following recursive fields, and accessors explicitly
 check tags because Wasm can canonicalize cases with identical shapes.
