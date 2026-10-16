@@ -9,8 +9,9 @@
 
     ;; Each row gives its complete domains, result and native lowering name.
     ;; Unary conversions and binary arithmetic use the same signature rule.
-    ;; Emission adds range checks to ordinary arithmetic and narrowing. Explicit
-    ;; wrapping/IEEE operations retain the bare opcode for documented callers.
+    ;; Arithmetic uses Wasm's wrapping integer and IEEE floating-point opcodes.
+    ;; Emission adds checks only for narrowing; division keeps Wasm's own traps.
+    ;; The named wrapping/IEEE aliases retain the same ordinary arithmetic contract.
     (define concrete-primitives
       '((i32-add (I32 I32) I32 i32.add)
         (i32-sub (I32 I32) I32 i32.sub)
