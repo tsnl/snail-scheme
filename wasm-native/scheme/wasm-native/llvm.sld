@@ -556,9 +556,24 @@
              (initial (if default? (constant type (zero type)) (pop-value!))))
         (new-array name length initial)))
 
+    ;; Array headers contain kind and u64 length, then tightly packed elements.
+    ;; Validated Wasm establishes the array kind and storage width. These checks
+    ;; and accesses do not collect; every operand has already been evaluated.
+    (define (array-length reference)
+      (nonnull reference)
+      (let ((tag (instruction "i64" "and " (typed reference) ", 1")))
+        (trap-unless (instruction "i1" "icmp eq " (typed tag) ", 0")))
+      (let* ((pointer (cast "inttoptr" reference "ptr"))
+             (length (instruction "ptr" "getelementptr i64, " (typed pointer) ", i64 1")))
+        (load (constant "i64" (cdr length)))))
+
     (define (array-slot reference index type)
-      (constant type (cdr (call-native "native_array_slot" "ptr"
-                                       (list reference index (constant "i32" (storage-size type)))))))
+      (let* ((length (array-length reference)) (index (cast "zext" index "i64")))
+        (trap-unless (instruction "i1" "icmp ult " (typed index) ", " (cdr length)))
+        (let* ((pointer (cast "inttoptr" reference "ptr"))
+               (payload (instruction "ptr" "getelementptr i8, " (typed pointer) ", i64 16"))
+               (address (instruction "ptr" "getelementptr " (llvm-type type) ", " (typed payload) ", " (typed index))))
+          (constant type (cdr address)))))
 
     (define (emit-array-fixed name length)
       (let* ((type (storage-type (array-type name))) (values (pop-values! length))
@@ -755,7 +770,7 @@
           ((array.get array.get_s array.get_u)
            (emit-array-get (car args) (eq? op 'array.get_s)))
           ((array.set) (emit-array-set (car args)))
-          ((array.len) (call-native "native_array_length" "i32" (pop-values! 1)))
+          ((array.len) (cast "trunc" (array-length (pop-value!)) "i32"))
           ((array.copy) (emit-array-copy (car args)))
           ((table.get table.set table.size table.grow)
            (emit-table op (car args)))
@@ -1072,8 +1087,6 @@
         "declare i64 @native_alloc(i64)"
         "declare i32 @native_ref_test(i64, i64, i32, i32)"
         "declare i64 @native_array_new(i64, i32, i64, i32)"
-        "declare ptr @native_array_slot(i64, i32, i32)"
-        "declare i32 @native_array_length(i64)"
         "declare void @native_array_copy(i64, i32, i64, i32, i32, i32)"
         "declare void @native_table_init(ptr, i32, i32)"
         "declare void @native_table_check(ptr, i32, i32)"
