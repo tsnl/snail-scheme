@@ -23,6 +23,12 @@
             (array.new_fixed $storage-f64 3 (f64.const -0.0) (f64.const 1.5)
                              (f64.const nan:0x8000000001234)))
     (global $static-refs (ref $refs) (array.new_default $refs (i32.const 3)))
+    ;; Default integer payloads must stay numeric during static packing.
+    (type $default-fields (struct (field i8) (field i16) (field i32)))
+    (global $default-fields (ref $default-fields) (struct.new_default $default-fields))
+    (global $default-u8 (ref $storage-u8) (array.new_default $storage-u8 (i32.const 3)))
+    (global $default-u16 (ref $storage-u16) (array.new_default $storage-u16 (i32.const 3)))
+    (global $default-i32 (ref $storage-i32) (array.new_default $storage-i32 (i32.const 3)))
 
     ;; ---- Dynamic fills and physical layout observations ----
 
@@ -85,6 +91,12 @@
           (local $a (ref $storage-u8)) (local $b (ref $storage-u16))
           (local $c (ref $storage-i32)) (local $d (ref $storage-f32))
           (local $e (ref $storage-f64))
+          (if (struct.get_u $default-fields 0 (global.get $default-fields)) (then unreachable))
+          (if (struct.get_u $default-fields 1 (global.get $default-fields)) (then unreachable))
+          (if (struct.get $default-fields 2 (global.get $default-fields)) (then unreachable))
+          (if (array.get_u $storage-u8 (global.get $default-u8) (i32.const 2)) (then unreachable))
+          (if (array.get_u $storage-u16 (global.get $default-u16) (i32.const 2)) (then unreachable))
+          (if (array.get $storage-i32 (global.get $default-i32) (i32.const 2)) (then unreachable))
           (local.set $a (array.new $storage-u8 (local.get $seed) (i32.const 4)))
           (array.set $storage-u8 (local.get $a) (i32.const 0) (i32.const 128))
           (array.set $storage-u8 (local.get $a) (i32.const 1) (i32.const 4660))
