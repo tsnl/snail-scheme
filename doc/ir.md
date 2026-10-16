@@ -58,8 +58,8 @@ Inference owns a copy of the resolved binding graph, preserving immutable bindin
 origins. Expressions contain only kind, location and source data. Frontend import
 resolution and graph copying have a construction-only data setter; checking and
 emission never use it. The completed program retains source, binding schemes,
-lexical scopes, its result type, and class evidence. There is no expression-type
-map and no lowered or monomorphized expression tree.
+lexical scopes, lambda signatures, its result type, and class evidence. There is
+no expression-type map and no lowered or monomorphized expression tree.
 
 The Scheme record `pass` names callable operations for each source arm. Its shared
 visitor dispatches the arm; structural visitors arrange child dependencies and
@@ -79,6 +79,16 @@ Binding summaries retain only initializer type, obligations, nonexpansiveness an
 the lexical proof scope; they do not retain arm details. Those obligations are
 saturated after enclosing monotypes settle and discharged before generation.
 The private solver still mutates unification holes and owned binding schemes.
+Lambda scopes retain their checked function signature so requesting a closure
+does not recheck its body. Scopes created for the private recursive relation are
+discarded when that check finishes.
+
+The concrete visitor returns three values: this arm's typing judgment, its target
+fragment, and the updated request context. It supplies completed immediate child
+judgments to the typing arm, then supplies generated children to the emission arm.
+There is no unconditional subtree typing step at expression entry. Concrete call
+signatures and inherited result types provide child demands directly. Literal
+width is still intrinsic except at a direct annotation or binding declaration.
 
 ## Concrete demand and storage
 
@@ -86,9 +96,12 @@ A persistent SRFI 146 hash map reserves stable IDs before appending implementati
 requests to a pending list. A binding request is keyed by lexical site, concrete
 type and indexed concrete quantifier substitutions. Function requests include the
 source identity and concrete lexical instance identity. No cache key contains a
-unification variable. Requests reuse reserved IDs, including during recursion;
-there is no mutable pending/emitted status object. The visitor threads each
-returned context through subsequent siblings.
+unification variable. Composite key lists and type structure use structural
+equality; source, binding and nominal records use identity equality and hashing.
+Hashing a key therefore never traverses a source body or a binding graph.
+Requests reuse reserved IDs, including during recursion; there is no mutable
+pending/emitted status object. The visitor threads each returned context through
+subsequent siblings.
 
 Generation first drains source-based implementation requests to discover storage,
 reads and nested closures. Only binding/function summaries survive this stage.
@@ -104,19 +117,23 @@ Forward reads use readiness guards. A readiness token preserves an erased alias'
 source read even when no payload specialization is demanded. Captured recursive
 bindings use shared cells; parameter and pattern values are captured directly.
 
-Runtime operands evaluate from left to right before the operator. Type replay can
-inspect the operator earlier to determine operand expectations. Explicit Any
+Runtime operands evaluate from left to right before the operator. Type constraints
+can inspect the operator earlier to determine operand expectations. Explicit Any
 conversions retain precise semantic type witnesses, including nominal identities.
 Proper tail calls remain target tail calls, including a Unit-valued call followed
 only by an inert Unit constructor.
 
 ## Current tradeoffs
 
-Concrete generation conservatively replays typing for a subtree before emitting
-its arm. This settles representations without retaining expression annotations,
-but repeated replay can be quadratic for deeply nested expressions. It is an
-explicit scheduling limitation, not a claim that functional passes require that
-cost. Restricting replay to unresolved constraint boundaries is future work.
+Summary discovery and target emission are still separate concrete traversals:
+capture and storage layouts must settle before closures are emitted. Within each
+traversal, concrete demands use the fused visitor. Calls whose generic signature
+cannot yet select argument representations probe the unresolved arguments with
+shared constraints. Unknown branch or pattern result demands likewise use a
+type-only probe when checked root facts cannot determine their representation.
+These probes retain only the boundary's result; they do not cache descendant
+judgments. They can revisit source, so this is not a promise of one visit for every
+possible nesting or every concrete implementation.
 
 Local functions currently use ordinary closures. Primitive, foreign and data
 operations still emit directly, and known closure workers use direct calls, but

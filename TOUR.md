@@ -79,7 +79,8 @@ the source surface uses `Any`.
 [`strict-types.sld`](src/snail-scheme/strict-types.sld) owns inference holes,
 rigid quantified variables, unification, substitution, schemes and subtyping.
 [`strict-core.sld`](src/snail-scheme/strict-core.sld) records immutable source,
-binding schemes, lexical scopes, the program result type and class evidence.
+binding schemes, lexical scopes, lambda signatures, the program result type and
+class evidence.
 [`strict-pass.sld`](src/snail-scheme/strict-pass.sld) defines the small `pass` record
 and shared source-arm dispatch. Typing rules receive returned child judgments;
 the visitor owns scope and expected-type dependencies.
@@ -125,15 +126,20 @@ a concrete expression tree. Source-order initialization and erased alias readine
 checks remain separate from code demand.
 
 [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld) supplies emission operations
-to the explicit interleaved source visitor. Concrete typing replay and generated
-children feed those operations; target code is emitted after capture/storage
-summaries settle. Scalars, structs, arrays, precise Any witnesses and tail calls
-retain their existing Wasm contracts. Emission checks that demand is already
-complete. The shared [`wasm.sld`](wasm-native/scheme/wasm-native/wasm.sld) serializes Wasm data.
+to the explicit source visitor. Each visit returns a transient typing judgment,
+generated code and the next request context. Typing rules consume immediate child
+judgments; separate emission rules consume generated children. Target code is
+emitted after capture and storage summaries settle. Scalars, structs, arrays,
+precise Any witnesses and tail calls retain their existing Wasm contracts.
+Emission checks that demand is already complete. The shared
+[`wasm.sld`](wasm-native/scheme/wasm-native/wasm.sld) serializes Wasm data.
 
-Current replay can repeat subtree typing and become quadratic on deeply nested
-source. Local procedures use ordinary closures; direct primitive/foreign/data
-operations and known worker calls remain. Closure elimination and proven-global
+Concrete signatures take the fused path without subtree typing. Unresolved call
+arguments and branch results may require an explicit type-only constraint probe
+before choosing their layouts. Source and nominal identities in request keys are
+opaque; hashing a request never walks an expression body. Local procedures use
+ordinary closures; direct primitive/foreign/data operations and known worker
+calls remain. Closure elimination and proven-global
 readiness-check elimination are deferred. Private target local/layout registries
 remain mutable. These [implementation tradeoffs](doc/ir.md#current-tradeoffs) are
 separate from language semantics and measured runtime performance.

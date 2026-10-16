@@ -249,7 +249,7 @@
                 (apply append (map (lambda (value) (initialize-value value (emit-initializer value context) context)) values))
                 (if (site-token site) (initialize-value (lookup-value (site-token site) (context-state context)) '(i32.const 0) context) '()))))
     (define (emit-initializer value context)
-      (let-values (((result plan) (generate-initializer (emission-pass context) value (state-compilation (context-state context)))))
+      (let-values (((judgment result plan) (generate-initializer (emission-pass context) value (state-compilation (context-state context)))))
         (unless (= (compilation-next plan) (compilation-next (state-compilation (context-state context))))
           (strict-error (node-loc (value-initializer value)) "initializer emission discovered an unplanned implementation"))
         (emitted-code result context)))
@@ -823,8 +823,8 @@
                  (arm emit-annotation-rule) (arm emit-name-rule) (arm emit-pattern-rule)
                  (arm emit-binding-rule) conversion))
     (define (emit-source source environment expected context tail?)
-      (let-values (((value plan) (generate-expression (emission-pass context) source environment expected
-                                                      (state-compilation (context-state context)) tail?)))
+      (let-values (((judgment value plan) (generate-expression (emission-pass context) source environment expected
+                                                               (state-compilation (context-state context)) tail?)))
         (unless (= (compilation-next plan) (compilation-next (state-compilation (context-state context))))
           (strict-error (node-loc source) "emission discovered an unplanned implementation"))
         value))

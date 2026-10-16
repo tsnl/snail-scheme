@@ -35,6 +35,7 @@
   {"name": "top-integer", "result": "4294967296"},
   {"name": "top-float", "result": "3.75"},
   {"name": "top-character", "result": "955"},
+  {"name": "top-context-branches", "result": "42"},
   {"name": "top-reference", "result": "42"},
   {"name": "top-wrong-tag", "result": "trap"},
   {"name": "top-reference-wrong-tag", "result": "trap"},
