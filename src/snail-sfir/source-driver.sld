@@ -6,9 +6,9 @@
           library-directories generation-provider-module command-program?
           source-file->core source-file->wasm source-file->wat-file)
   (import (scheme base) (scheme cxr) (scheme file) (scheme write)
-          (only (chibi json) json->string) (only (chibi temp-file) call-with-temp-dir)
+          (only (wasm-native json) json->string) (only (chibi temp-file) call-with-temp-dir)
           (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme syntax)
-          (snail-scheme source) (snail-scheme chromium-trace) (snail-scheme build-host)
+          (snail-scheme source) (wasm-native chromium-trace) (wasm-native build-host)
           (snail-sfir frontend) (snail-sfir library) (snail-sfir library-transfer)
           (snail-sfir compiler) (snail-scheme strict-specialize) (snail-scheme strict-wasm)
           (only (snail-scheme strict-primitives) primitive-names)
@@ -16,7 +16,7 @@
           (only (snail-scheme strict-core) program-body program-type)
           (only (snail-scheme ir) make-value-definition make-value-binding node-loc)
           (only (snail-scheme library) make-named-binding)
-          (only (snail-scheme wasm) write-wasm))
+          (only (wasm-native wasm) write-wasm))
   (begin
 
     ;; ---- Located file descriptions ----
@@ -186,7 +186,7 @@
              (with-producer (cons (cons (choice-key choice) producer) libraries))
              (adapter-key (fresh-library-key '(sfir generation-adapter) with-producer))
              (adapter (generator-adapter adapter-key (choice-key choice) (choice-loc choice))))
-        (compile (cons (cons adapter-key adapter) with-producer) (make-entry adapter-key 'run) wasm-target)))
+        (compile (cons (cons adapter-key adapter) with-producer) (make-entry adapter-key 'run))))
     (define (produce-choice choice state pending)
       (or (choice-value choice)
           (let ((context (preparation-context state)))
@@ -256,7 +256,7 @@
   (cond-expand
    (snail-tests
     (export test-source-driver)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-generation text)
         (parse-generation (car (reader->syntax-list (string->reader "recipe.sfir" text)))))

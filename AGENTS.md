@@ -19,7 +19,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Write section headers as `;; ---- Title ----` in Scheme,
-  `// ---- Title ----` in Rust, and `# ---- Title ----` in Python, with sentence
+  `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested Scheme module exports one `test-<module>` entry point under the
@@ -50,8 +50,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   APIs distinct from implemented behavior in documentation and TODOs.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend`, and `scripts/test-build`.
+`cargo test --manifest-path wasm-native/Cargo.toml --offline`,
+`cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check`,
+`scripts/test-backend`, and `scripts/test-build`.
 Backend changes should execute linked Wasm. Native executor changes need actual
 native execution; compilation alone does not test target behavior. Keep the
 57-workload comparison complete and distinguish source presence, correctness,

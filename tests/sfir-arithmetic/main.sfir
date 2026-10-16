@@ -158,7 +158,7 @@
        (begin (if selected (begin (calculate-f64 route operation left right) (unit)) (unit))
               (record (ann 9 I64)))))
 
-;; Valid literals in constant arithmetic compile; executing the operation traps.
+;; Overflowing constant arithmetic succeeds even when the result is discarded.
 (def constant-arithmetic (-> I32 Unit)
      (lambda (mode)
        (begin (record (ann 1 I64))

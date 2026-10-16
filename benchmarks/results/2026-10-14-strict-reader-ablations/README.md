@@ -152,7 +152,7 @@ PID numbers are not evidence of unrelated host-process absence.
 ## Retained evidence and reproduction
 
 [manifest.json](manifest.json) identifies every member of
-[artifacts.tar.xz](artifacts.tar.xz); [archive-verification.json](archive-verification.json)
+[artifacts.tar.xz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-ablations/artifacts.tar.xz); [archive-verification.json](archive-verification.json)
 records a complete decompression and member-hash check. The archive retains all
 three full workload preparations, source snapshots/build commands, raw and
 optimized linked Wasm, native artifacts, full disassemblies, native LLVM,

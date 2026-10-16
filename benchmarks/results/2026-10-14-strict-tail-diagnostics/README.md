@@ -116,7 +116,7 @@ authorized production representation.
 
 ## Reproduction and closed evidence
 
-[diagnose.py](diagnose.py) records actual commands and raw attempts before
+[diagnose.py](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-tail-diagnostics/diagnose.py) records actual commands and raw attempts before
 validation. `profile` and `counters` create fresh real file trees, clear Node
 injection variables, reject `LD_PRELOAD`, and pin execution to CPU 5. `summarize`
 recomputes weighted shares and independently checks the growth/copy predictions.

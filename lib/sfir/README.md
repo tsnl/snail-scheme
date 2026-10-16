@@ -34,17 +34,20 @@ at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 `core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations were retained by the initial extraction. It preserved foreign
-module/provider strings and scalar signatures. Rust scalar services continue to
-serve both Wasm and native execution; the input packet extension is described below.
+module/provider strings and scalar signatures. The single Rust runtime crate in
+[`wasm-native/`](../../wasm-native/README.md) serves both Wasm and native execution;
+the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
 numeric exactness and binary64 signed-zero rules remain visible in the numeric
 modules. Datums retain distinct mutable storage identity and recursive view IDs.
-Fixed-width arithmetic is checked. Datum hashing explicitly imports wrapping
-word operations; nominal `Number` inexact arithmetic and the named exact-to-F64
-conversions explicitly retain IEEE overflow results. `(sfir math)` scalar
-services also retain IEEE overflow and domain behavior.
+Fixed-width integer arithmetic wraps at its declared width, while floats retain
+IEEE overflow and domain results. Literal construction and narrowing remain
+checked. Datum hashing's named word operations have the same wrapping contract.
+Nominal `Number` inexact arithmetic, the named exact-to-F64 conversions and
+`(sfir math)` scalar services also retain IEEE results; unbounded `Integer`
+arithmetic remains exact.
 Graph equality and output keep their existing work lists and cycle handling.
 No generic evaluator, boxed replacement algorithm or reduced numeric domain is
 introduced by the migration.
@@ -102,7 +105,7 @@ observable before a later UTF-8 error, and batching does not wait for additional
 input. A positive I64 holds up to seven nonzero byte lanes, each `ASCII code + 1`;
 zero marks exhausted lanes and leaves NUL distinct. `-1` represents EOF, and
 `-code - 2` represents one validated non-ASCII scalar. The bounded encoding fits
-in I64; SFIR uses checked arithmetic and conversions while consuming it.
+in I64; the decoding arithmetic stays in range and conversions remain checked.
 
 Peek retains the pending character or EOF. Read consumes one character and
 clears an EOF packet, preserving the previous behavior if a file later grows.
@@ -190,6 +193,6 @@ Compiled producers transfer owned values into Chibi through the checked
 recipes. `compiler.sfir` provides first-class parsing, explicit library maps,
 compilation, loading, independent instances and checked scalar invocation through
 the Chibi-hosted [compiler service](../../doc/sfir-compiler-service.md). That service
-currently targets Wasm; [native loading](../../doc/sfir-native-loading.md) uses its
-separate host adapter. Source discovery and provider installation remain explicit
-driver operations.
+always compiles to Wasm; [native loading](../../doc/sfir-native-loading.md) uses a
+separate adapter that passes the Wasm artifact to the native package. Source
+discovery and provider installation remain explicit driver operations.

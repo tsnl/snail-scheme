@@ -116,9 +116,9 @@
            (begin
              (let body (nested-scope scope))
              (let x (named body "value"))
-             (inferred-overload-definition family
-                                           (lambda-expression body (items x)
-                                                              (conditional-expression (use x) (literal-bool #f span) (literal-bool #t span) span) span) span))))
+             (overload-definition family (binding-signature (function-type (items (type-bool)) (type-bool)))
+                                  (lambda-expression body (items x)
+                                                     (conditional-expression (use x) (literal-bool #f span) (literal-bool #t span) span) span) span))))
 
     ;; Local definitions are recursive; lets introduce identities sequentially.
     (def run-definition (-> ScopeId BindingId BindingId BindingId BindingId BindingId BindingId BindingId BindingId BindingId BindingId Declaration)

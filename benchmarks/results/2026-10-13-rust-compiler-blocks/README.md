@@ -18,7 +18,7 @@ original compiler algorithms unchanged through complete slot analysis. Both
 add private complete graph serialization in place of the final benchmark call.
 
 [Validation](validation.json) retains complete outputs, actual commands and
-source/tool/binary hashes. [The archive](artifacts.tar.xz) freezes both compiler
+source/tool/binary hashes. [The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-rust-compiler-blocks/artifacts.tar.xz) freezes both compiler
 stages, all source catalogs, Wasm, original Chez programs/binaries, complete
 inputs/outputs, oracle support and check logs. [Manifest replay](archive.json)
 verifies every retained regular file. Historical frontend/raw archives remain

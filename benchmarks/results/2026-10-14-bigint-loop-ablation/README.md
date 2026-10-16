@@ -130,7 +130,7 @@ are excluded. The [manifest](manifest.json) lists exact safe regular-member
 hashes and references the existing Pi, Chudnovsky and preparation control
 archives; those larger archives are not duplicated.
 
-[`review.py`](review.py) recomputes the planned population, complete frames,
+[`review.py`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-bigint-loop-ablation/review.py) recomputes the planned population, complete frames,
 commands, context, ownership cleanup, balanced medians and ratios from raw
 records. It separately validates correctness records, profile weights and
 captured code tiers/sizes, and checks frozen artifact hashes and probe scope.

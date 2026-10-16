@@ -123,7 +123,7 @@ Scheme/compiler or production optimization is included here.
 
 ## Closed archive and reproduction
 
-[prepare.py](prepare.py), [probe.mjs](probe.mjs) and [measure-matched.py](measure-matched.py)
+[prepare.py](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-tail-indexed-lookup/prepare.py), [probe.mjs](probe.mjs) and [measure-matched.py](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-tail-indexed-lookup/measure-matched.py)
 retain actual commands, started attempts, raw streams and complete files before
 interpretation. New subprocess groups are killed on timeout and checked for
 executing descendants; a synthetic owned parent/child timeout passed. The first

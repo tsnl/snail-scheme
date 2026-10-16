@@ -37,7 +37,7 @@ explicit library maps, and compile a public `Entry` to a Wasm or native64
 artifact. Entries currently use the existing monomorphic scalar function ABI;
 provider linking is separate. A JavaScript Wasm adapter loads those artifact
 bytes, creates independent instances with typed providers and checks scalar
-entry calls. The [Python native adapter](sfir-native-loading.md) separately links
+entry calls. The [Scheme native adapter](sfir-native-loading.md) separately links
 providers and creates independent native instances with checked scalar transport.
 The [SFIR builder](sfir-builder.md) constructs and inspects the full
 library syntax and transfers owned data into Chibi; the source driver executes

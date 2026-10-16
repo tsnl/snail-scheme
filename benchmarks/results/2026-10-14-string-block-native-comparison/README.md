@@ -57,14 +57,14 @@ also includes launch, input loading, formatting and teardown. These medians are
 computed from recorded process/setup values, not by subtracting unrelated runs.
 
 [clean.json](clean.json), [plan.json](plan.json), [quiet-window.json](quiet-window.json)
-and the unchanged [measurement driver](measure.py) preserve the observations and
+and the unchanged [measurement driver](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-string-block-native-comparison/measure.py) preserve the observations and
 protocol. [provenance.json](provenance.json) records source/artifact/tool identity,
 the identical-Wasm checks, derived medians and unchanged native sources.
 Full-count native block validation and a separate forced-GC count-one check are
 archived alongside both layouts' exact Wasm, disassembly, LLVM, host objects,
 native executables, inputs, build logs and manifests.
 
-The bounded [archive](artifacts.tar.xz), [manifest](manifest.json) and
+The bounded [archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-string-block-native-comparison/artifacts.tar.xz), [manifest](manifest.json) and
 [path map](path-map.json) retain every frozen identity except external Nix/run
 binaries, whose paths and hashes remain recorded. Inherited Rust reference
 source bundles are included for identity completeness; no Rust cell is measured

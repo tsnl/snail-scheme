@@ -129,7 +129,7 @@ Unrelated ambient/session values stay in memory only. Explicit environment is
 BINARYEN_CORES=1. The canonical map SHA256 is
 `77feaf5e652eeb70e08915f1627b9b24b6140bf91cf6f42ad5bb4c7a6b38c17a`.
 
-The [independent reviewer](review-raw.py) imports no runner. It derives both full
+The [independent reviewer](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-boyer-comparison/review-raw.py) imports no runner. It derives both full
 predicates from retained original inputs and independently checks schedule,
 complete raw frames and statistics. Before timing it replayed all fourteen
 canonical preparation frames and rejected 86 corruptions, actual exit 0/bf3f68.
@@ -138,7 +138,7 @@ all 1,014 frozen identities and every retained clock, reproducing both workload
 summaries; actual e02db3 exited0. The [complete audit](independent-review.json)
 retains every interpreted row and read-byte identity. The parent also independently replayed all 112 raw records, statistics and
 1,014 identities without importing these scripts or executing guests; actual
-`bab7a4` exited 0. Its [script](parent-raw-review.py),
+`bab7a4` exited 0. Its [script](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-boyer-comparison/parent-raw-review.py),
 [review](parent-raw-review.json) and [provenance](parent-raw-review-provenance.json)
 are separate sidecars added after archive publication. The archive retains the
 earlier report snapshot before those sidecars; raw captures are unchanged.
@@ -147,7 +147,7 @@ in [the focused review](simplify-review.md).
 
 ## Retained evidence and read-only replay
 
-[The archive](artifacts.tar.xz), [manifest](manifest.json) and
+[The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-boyer-comparison/artifacts.tar.xz), [manifest](manifest.json) and
 [full archive verification](archive-verification.json) retain every clean raw
 capture/record, current source/artifact snapshot, diagnostic frame, synthetic
 failure fixture and historical preparation/ordering/capacity attempt. The

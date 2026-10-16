@@ -4,15 +4,20 @@ Chibi hosts the compiler implementation. The supported input is located SFIR,
 with no Scheme expander or interpreter in the compilation pipeline.
 
 ```text
-SFIR text → located syntax → parsed library values → resolved source + binding/scope checking
-          → concrete demand summaries → source-based WasmGC generation → Binaryen
-          → linked Wasm reactor → Binaryen → V8/WASI
-          → mechanical LLVM lowering → native linker → 64-bit executable
+Compiler: SFIR text → located syntax → parsed library values → resolved source
+          → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
+Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
+          optimized Wasm → wasm-native → LLVM opt/llc → native object
+                         → Cargo + Rust runtime/providers → x86-64 Linux executable
 ```
 
 The [language contract](doc/sfir.md) describes intended language behavior. This
 tour describes the current modules; the `snail-scheme` and `strict-*` internal
 filenames are being migrated and do not select a second source language.
+The compiler emits Wasm only. Ordinary Chibi scripts independently import the
+compiler and [`wasm-native`](wasm-native/README.md) when composing a native build.
+The standalone package contains the native lowering, shared Rust runtime and
+neutral host utilities; it has no compiler dependency.
 
 ## Source and binding identity
 
@@ -84,9 +89,10 @@ unused functions, on an owned binding graph without mutating source expressions.
 Transient judgments contain no child judgments; only binding and scope summaries
 survive checking. Each lexical block
 builds direct dependencies once and groups mutually recursive bindings. Group
-members retain source order. Overload-row readiness is checked separately as
-signatures become known; this never reorders runtime initializers. Mutable
-allocations obey the value restriction. Concrete calls have positional arguments
+members retain source order. Every overload row supplies an explicit signature,
+so checking can use the complete family before checking implementation bodies.
+Ordinary groups are checked once in dependency order. Mutable allocations obey
+the value restriction. Concrete calls have positional arguments
 and an optional typed rest parameter. Declared initializer proofs retain their
 lexical scope until enclosing monotypes settle. Their own quantified requirements
 must then hold; obligations on captured monotypes remain with enclosing inference.
@@ -123,7 +129,7 @@ to the explicit interleaved source visitor. Concrete typing replay and generated
 children feed those operations; target code is emitted after capture/storage
 summaries settle. Scalars, structs, arrays, precise Any witnesses and tail calls
 retain their existing Wasm contracts. Emission checks that demand is already
-complete. The shared [`wasm.sld`](src/snail-scheme/wasm.sld) serializes Wasm data.
+complete. The shared [`wasm.sld`](wasm-native/scheme/wasm-native/wasm.sld) serializes Wasm data.
 
 Current replay can repeat subtree typing and become quadratic on deeply nested
 source. Local procedures use ordinary closures; direct primitive/foreign/data
@@ -135,8 +141,9 @@ separate from language semantics and measured runtime performance.
 [`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes.
 The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks
 the chosen root's dependency closure. It requires no tracing or source context.
-`compile` takes that same map, `(make-entry library-key public-name)`, and a
-target value. Selection follows the chosen library's public interface through
+`compile` takes that same map and `(make-entry library-key public-name)`, and
+returns an optimized Wasm artifact. Selection follows the chosen library's public
+interface through
 renames and reexports. A private ABI binding references the selected identity
 after the library initializers; checking and specialization retain that identity
 even when unrelated private bindings have the same spelling. Entries require
@@ -150,12 +157,12 @@ independent library preparation and dependency collection, including compiled
 preparation chain diagnoses cycles and preserves each selected value's identity.
 The older frontend convenience APIs remain adapters for already parsed source.
 The source driver's `sfir.parse`, `sfir.check`, `sfir.specialize` and `sfir.emit-wasm`
-trace spans expose the boundaries. [`chromium-trace.sld`](src/snail-scheme/chromium-trace.sld)
+trace spans expose the boundaries. [`chromium-trace.sld`](wasm-native/scheme/wasm-native/chromium-trace.sld)
 requires an explicit trace scope. [`scripts/view-traces`](scripts/view-traces)
 opens retained evidence in Perfetto.
 
-The source CLI keeps its existing script behavior and `--export` selector for
-unique flattened binding names. The library API uses public Entry selection.
+`scripts/build-sfir` keeps its script behavior and `--export` selector for unique
+flattened binding names. The library API uses public Entry selection.
 SFIR producers can construct, inspect and transfer the complete library syntax
 described below. [`(sfir compiler)`](lib/sfir/compiler.sfir) also exposes explicit
 map assembly, compilation, Wasm loading, independent instantiation and checked
@@ -171,10 +178,9 @@ remains a separate execution operation. Failed initialization publishes no
 instance; a trapped call retains its instance and preceding effects. A lost
 compiler process invalidates map operations while copied artifacts and existing
 runtime instances remain owned by the service scope. See the
-[service API](doc/sfir-compiler-service.md) for lifecycle rules, supported targets
-and first-class parsed `SfirLibrary` values. The Python native
-loading adapter is described below; native target support in this SFIR service
-remains pending.
+[service API](doc/sfir-compiler-service.md) for lifecycle rules, Wasm execution
+and first-class parsed `SfirLibrary` values. The separate Scheme native
+loading adapter is described below.
 
 [`run-sfir-generator.mjs`](scripts/run-sfir-generator.mjs) executes compiled
 recipes through the checked builder boundary. An explicit provider factory
@@ -220,36 +226,47 @@ dependencies nor accepts inferred IR as evidence. See the [builder API and
 executable example](doc/sfir-builder.md) for ownership, supported constructors,
 and typed inspection.
 
-## Targets and runtime
+## Wasm artifacts, native composition and runtime
 
 [`snail-sfir`](snail-sfir) owns command parsing, private build directories,
-publication and host invocation. [`build-sfir`](scripts/build-sfir) and
+publication and Wasm host invocation. [`build-sfir`](scripts/build-sfir) and
 [`build-native`](scripts/build-native) preserve intermediates for module-level
-work. [`wasm-optimize.sld`](src/snail-scheme/wasm-optimize.sld) requires Binaryen
-and optimizes program Wasm on every target.
+work. The latter is an ordinary composition script that passes emitted Wasm to
+the native package, then links its object with Cargo. [`build.scm`](build.scm)
+shows these library calls directly for an explicit public export and Rust entry
+point. [`wasm-optimize.sld`](wasm-native/scheme/wasm-native/wasm-optimize.sld)
+requires Binaryen on both execution routes.
 
 [`snail-sfir/artifact.sld`](src/snail-sfir/artifact.sld) implements the Chibi
-Entry, Target and Artifact boundary. `wasm-target` returns optimized, unlinked
-Wasm bytes with a versioned `sfir.entry` custom section containing the public
+Entry and Artifact boundary. Compilation returns optimized, unlinked Wasm bytes
+with a versioned `sfir.entry` custom section containing the public
 Entry description and semantic scalar signature. The section is appended after
 Binaryen optimization; loading verifies its schema and execution verifies the
-actual exported signatures. `(native64-target imports)` returns an unlinked
-x86-64 Linux relocatable object, using the existing Wasm-to-LLVM route followed
-by Clang. Its explicit
-provider declarations are `(make-native-import module name c-symbol parameters
-result)`: string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a
-scalar or `void` result. Missing declarations and signature mismatches fail.
-Both targets require Binaryen. Tool temporaries live in a private directory;
+actual exported signatures. Tool temporaries live in a private directory;
 compilation reads no source files and returns artifact bytes for the caller to
-write. Provider and runtime linking remain separate target operations.
+write. Provider and runtime linking remain explicit build operations.
 
-[`native-entry.sld`](src/snail-sfir/native-entry.sld) checks the actual optimized
-Wasm `main`/`entry` signatures and emits a fixed scalar-bits bridge into the
-native LLVM module. An ELF `.sfir.entry` section and signature-encoded bridge
-alias preserve the selected semantic entry and required foreign declarations.
-The native loader checks their consistency; arbitrary native code remains trusted.
+[`(wasm-native)`](wasm-native/scheme/wasm-native.sld) exposes
+`wasm-binary->llvm`, `llvm-object` and `link-native-object`. Its explicit provider
+declarations are `(make-native-import module name c-symbol parameters result)`:
+string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a scalar or
+`void` result. Missing declarations and signature mismatches fail. Lowering
+consumes the Wasm representation, physical imports and runtime ABI; it receives
+no source bindings, inference state or compiler IR.
 
-Artifact accessors expose the target, original Entry, semantic scalar parameter
+[`snail-sfir/native.sld`](src/snail-sfir/native.sld) is the optional source-aware
+adapter. `(artifact->native-object artifact imports directory output)` supplies
+the saved scalar signature and source entry description to
+[`scalar-entry.sld`](wasm-native/scheme/wasm-native/scalar-entry.sld). That optional
+protocol layer checks the actual optimized Wasm `main`/`entry` signatures and
+emits a fixed scalar-bits bridge into the native LLVM module. An ELF `.sfir.entry`
+section and signature-encoded bridge alias preserve the scalar tags, origin
+description and required foreign declarations. Bool and Char remain distinct
+protocol tags despite sharing physical `i32`. The native loader checks their
+consistency; arbitrary native code remains trusted. Ordinary native builds with
+a supplied Rust entry point need no scalar-entry metadata.
+
+Artifact accessors expose the original Entry, semantic scalar parameter
 and result types, and bytes. The fixed ABI exports `entry` for the selected
 function and `main` for one-shot library initialization; native symbols are
 `wasm.entry` and `wasm.main`, after `native_module_init`. Calling `entry` before
@@ -295,27 +312,33 @@ and their external resources remain owned by the caller, including cleanup. The
 adapter discovers no files, constructs no WASI or Rust providers, and does not
 load native64 objects.
 
-[`execute_native.py`](src/snail-sfir/execute_native.py) provides `load_native`,
-explicit `link_native`, `instantiate`, `invoke_entry` and `close_instance` for
-compiler-produced x86-64 Linux objects. It checks declared C/Rust provider ABIs,
+[`execute.sld`](wasm-native/scheme/wasm-native/execute.sld) provides `load-native`,
+explicit `link-native`, `instantiate`, `invoke-entry` and `close-instance` for
+x86-64 Linux objects carrying the optional scalar protocol. Its fourth
+`link-native` argument explicitly supplies the runtime root. It checks declared
+Rust provider ABIs,
 uses exact binary scalar transport, and gives each instance fresh native globals,
-GC and provider state. [`native-worker.c`](src/snail-sfir/native-worker.c) supplies
+GC and provider state. [`native_worker.rs`](wasm-native/src/native_worker.rs) supplies
 a separate supervisor and guest worker; ownership precedes provider constructors.
 Failed initialization publishes no instance. Native traps and interrupted calls
 invalidate their instance; the supervisor reaps its owned descendants, including
 after host death. The [native loading contract](doc/sfir-native-loading.md)
 describes the API, retained logs, unsafe native boundary and target limitations.
 
-[`link-sfir-runtime`](scripts/link-sfir-runtime) links the Rust scalar externs
-into a WASI reactor, drops unused runtime exports and optimizes the result.
+[`link-sfir-runtime`](scripts/link-sfir-runtime) calls
+[`runtime-wasm.sld`](wasm-native/scheme/wasm-native/runtime-wasm.sld), which builds
+the Rust runtime's Wasm form, links its scalar externs into a WASI reactor,
+drops unused runtime exports and optimizes the result. This utility imports no
+native lowering or execution code.
 [`run-sfir.mjs`](scripts/run-sfir.mjs) initializes once, invokes `main`, and drains
 resource cleanup. The [SFIR libraries](lib/sfir/README.md) implement numeric,
 container, datum and I/O behavior in SFIR; Rust externs supply concrete host
 operations. Wasm owns managed collection.
 
-[`lib.rs`](src/lib.rs) contains runtime initialization, diagnostics and shared
-floating-point text. [`strict_io.rs`](src/strict_io.rs) owns file IDs and terminal
-cleanup; [`host.rs`](src/host.rs) implements buffered Unicode streams. The datum
+[`wasm-native/Cargo.toml`](wasm-native/Cargo.toml) defines the one runtime crate.
+[`lib.rs`](wasm-native/src/lib.rs) contains runtime initialization, diagnostics and shared
+floating-point text. [`strict_io.rs`](wasm-native/src/strict_io.rs) owns file IDs and terminal
+cleanup; [`host.rs`](wasm-native/src/host.rs) implements buffered Unicode streams. The datum
 services retain temporary token text and stable symbol IDs, while SFIR owns the
 reader and managed datum graph. These services accept scalars and never retain
 guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
@@ -329,27 +352,46 @@ foreign reads interoperate. The [input contract](lib/sfir/README.md#text-input-c
 describes the representation, EOF behavior and execution checks.
 
 [`text.sfir`](lib/sfir/text.sfir) owns string ordering and full case-fold output
-storage. [`strict_text.rs`](src/strict_text.rs) exposes Unicode operations as
-scalar C/Wasm functions. [`unicode.rs`](src/unicode.rs) keeps one generated
+storage. [`strict_text.rs`](wasm-native/src/strict_text.rs) exposes Unicode operations as
+scalar C/Wasm functions. [`unicode.rs`](wasm-native/src/unicode.rs) keeps one generated
 folding implementation with at most three stack-resident output scalars;
 [`generate-unicode`](scripts/generate-unicode) checks that bound against pinned
 Unicode data and Rust's recorded casing baseline.
 
-[`native.sld`](src/snail-scheme/native.sld) optimizes Wasm before lowering.
-[`wasm-read.sld`](src/snail-scheme/wasm-read.sld) reads Binaryen's spelling;
-[`wasm-resolve.sld`](src/snail-scheme/wasm-resolve.sld) resolves Wasm identities.
-[`llvm.sld`](src/snail-scheme/llvm.sld) mechanically lowers those operations;
-[`llvmlite.sld`](src/snail-scheme/llvmlite.sld) writes LLVM text. Native uses the
+[`native.sld`](wasm-native/scheme/wasm-native/native.sld) optimizes Wasm before lowering.
+[`wasm-read.sld`](wasm-native/scheme/wasm-native/wasm-read.sld) reads Binaryen's spelling;
+[`wasm-resolve.sld`](wasm-native/scheme/wasm-native/wasm-resolve.sld) resolves Wasm identities.
+[`llvm.sld`](wasm-native/scheme/wasm-native/llvm.sld) mechanically lowers those operations,
+including checked array header loads and addressing with known storage widths;
+[`llvmlite.sld`](wasm-native/scheme/wasm-native/llvmlite.sld) writes LLVM text. Native uses the
 same Rust extern implementations and resolves imports directly against
-authoritative C provider declarations. [`precise-gc.c`](src/precise-gc.c) owns
+literal Rust `extern "C"` provider declarations. [`native_gc.rs`](wasm-native/src/native_gc.rs) owns
 native managed collection. Root and slot lifetime invariants live beside
 the lowering and collector that rely on them.
+
+[`process.sld`](wasm-native/scheme/wasm-native/process.sld) owns concrete command
+capture, files and evidence. [`json.sld`](wasm-native/scheme/wasm-native/json.sld) reads one
+complete JSON packet, preserves standard control escapes across the Chibi host
+boundary, and emits escaped control characters in metadata and command evidence.
+Trailing input is rejected. [`native-build.sld`](wasm-native/scheme/wasm-native/native-build.sld)
+checks scalar provider declarations, runs LLVM, and assembles a Cargo package
+with one runtime dependency and ordinary provider crates. Rust target `cfg`s
+select Wasm or native host behavior inside that shared runtime library. The
+native guest is an object before Cargo links it, so Rust LTO does not inline
+provider bodies into generated guest code.
+
+Repository Scheme entry points explicitly add `src/` and `wasm-native/scheme/`
+to Chibi's search path. Standalone package consumers add only its `scheme/`
+directory; package tests also add `tests/`. The Wasm writer, Binaryen driver,
+process, JSON and trace utilities are neutral modules with no native-lowering
+imports, so Wasm builds can use them without loading the native backend.
 
 ## Checks and measurements
 
 `make test` executes compiler host tests. `scripts/test-sfir` checks explicit
 syntax, typing, module identity and actual V8 execution. `scripts/test-build`
-checks the public command, cleanup and publication on Wasm and native.
+checks the Wasm public command and the native composition script, including
+cleanup and publication.
 `scripts/test-sfir-entry` compiles supplied library maps, links public Entry
 artifacts to foreign providers, and executes both Wasm and native64 aliases.
 `scripts/test-sfir-native-loading` checks independent native instances, exact
@@ -366,7 +408,7 @@ checking evidence.
 execution lifecycle from an SFIR build program. It checks recoverable diagnostics,
 source and constructed dependencies, provider signatures, instance ownership and
 continued artifact execution after the owned Chibi process is lost.
-`scripts/test-sfir-integration` executes 315 authored SFIR fixtures retaining the
+`scripts/test-sfir-integration` executes 320 authored SFIR fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises
 mechanical lowering, collection, C signatures and resource cleanup.
@@ -376,15 +418,23 @@ Chez controls and Rust comparisons. Source availability, execution correctness
 and clean measurement are distinct statuses. Compiler traces and instrumented
 runs explain work; they are not substituted for clean timing runs.
 
-`benchmarks/sfir/runner.py` freezes the compiler, corpus inputs, selected Rust
+`benchmarks/sfir/runner.scm` freezes the compiler, corpus inputs, selected Rust
 installation and locked crate sources, then validates each target route.
 Dynamic, Scheme and SLaTeX keep their complete workload and resource
 contracts in local verifiers and native entries; the runner owns fixture copies,
 tool invocation and artifact parity. Scheme's interpreter is benchmark code.
-`benchmarks/sfir/timing.py` prepares clean artifacts for all 57 registered
+`benchmarks/sfir/timing.scm` prepares clean artifacts for all 57 registered
 workloads, fixes the comparison schedule, supervises fresh execution processes
 and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
+
+`benchmarks/wasm-reference/suite.sld` runs the independent Rust/WASI and original
+Chez correctness checks, retaining pinned inputs, complete file results and
+negative checks. `audit.sld` reads serialized output without losing numeric
+spellings and compares lexical alpha equivalence, complete graphs and nucleic
+transformations. `compiler.sld` executes the four independent compiler-stage
+probe groups against the original Chez algorithm. Their `.scm` entry points
+and unit tests run in Chibi.
 
 ## Language specification
 

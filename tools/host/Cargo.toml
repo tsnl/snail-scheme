@@ -1,0 +1,21 @@
+[package]
+name = "snail-host-tools"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+# Unicode regeneration must build even when the runtime's pinned Unicode
+# baseline assertion no longer matches the installed Rust compiler.
+[[bin]]
+name = "snail-unicode-baseline"
+path = "unicode-baseline.rs"
+
+[[bin]]
+name = "snail-loopback-listener"
+path = "loopback-listener.rs"
+
+[dependencies]
+libc = "0.2.189"
+
+[profile.release]
+panic = "abort"

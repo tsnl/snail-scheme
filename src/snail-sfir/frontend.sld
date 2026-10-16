@@ -533,12 +533,13 @@
                   (cons (resolve (car row) environment) (parse-expression (cadr row) environment)))) (cdr items))
          (syntax-loc form))))
     (define (parse-overload form environment)
-      (let* ((items (definition-parts form)) (annotated? (= (length items) 3))
-             (signature (and annotated? (parse-signature (cadr items) environment))))
-        (when (and signature (not (arrow-type? (all-body signature)))) (fail form "overload requires a function signature"))
-        (make-overload-declaration (resolve (car items) environment) signature
-                                   (parse-expression (binding-body items) (signature-scope signature environment)) (syntax-loc form)
-                                   (and annotated? (syntax-loc (cadr items))))))
+      (let ((items (definition-parts form)))
+        (unless (= (length items) 3) (fail form "overload requires an explicit signature"))
+        (let ((signature (parse-signature (cadr items) environment)))
+          (unless (arrow-type? (all-body signature)) (fail form "overload requires a function signature"))
+          (make-overload-declaration (resolve (car items) environment) signature
+                                     (parse-expression (binding-body items) (signature-scope signature environment)) (syntax-loc form)
+                                     (syntax-loc (cadr items))))))
     (define (parse-extern form environment)
       (let* ((items (arguments form 4)) (module (syntax->datum (cadr items)))
              (symbol (syntax->datum (caddr items))))
@@ -551,7 +552,7 @@
   (cond-expand
    (snail-tests
     (export test-frontend)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list))
     (begin
@@ -776,6 +777,16 @@
                     "(define-library (test bad) (begin (import (sfir base))))"
                     "(import (prefix (sfir base) p:))" "(inst missing)"
                     "(def bad (-> (All (T) (-> T T))) (lambda () 0))")))
+      (define (test-explicit-overload-signatures)
+        (for-each
+         (lambda (text)
+           (expect (guard (failure (else (error-object-message failure))) (test-parsed text) #f)
+                   "overload requires an explicit signature"))
+         '("(define-overload identity (lambda (value) value))"
+           "(def identity (All (T) (-> T T)) (lambda (value) value)) (define-overload choose identity)"
+           "(define-overload choose (-> Bool Bool) (lambda (value) value))
+             (define-overload choose (lambda (value) (ann value I64)))"
+           "(define-library (unused) (export) (begin (define-overload unused (lambda (value) value))))")))
       (define (test-frontend)
         (run-test test-independent-library-parse)
         (run-test test-map-aliases-and-reexports)
@@ -793,5 +804,6 @@
         (run-test test-library-body-scope)
         (run-test test-static-kinds)
         (run-test test-cached-overload-identity)
+        (run-test test-explicit-overload-signatures)
         (run-test test-invalid-forms))))
    (else)))

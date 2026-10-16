@@ -111,7 +111,7 @@ is not evidence of equal allocation.
 ## Reviewed clocks and quiet window
 
 The [plan](../2026-10-14-strict-matrix-preparation/timing-plan.md) and
-[runner](../2026-10-14-strict-matrix-preparation/measure-seven.py) were reviewed
+[runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-matrix-preparation/measure-seven.py) were reviewed
 before release. Runner SHA-256 is
 `b69b2e7806684d73a8760c50a54e4e3fbeb3a770f6bb58d0190849cea7bb3da5`;
 plan SHA-256 is

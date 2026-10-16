@@ -6,10 +6,15 @@ inputs and explicit source/target-validation/measurement status. SFIR is the
 only compiler input language. Chibi hosts the compiler; Chez is an independent
 comparison system.
 
+The current harness is Scheme and all comparison implementations and native
+entries are Rust built with Cargo. The shared runtime is built through
+`wasm-native/Cargo.toml`. [Historical sources](history.md) preserve
+the earlier C/Python experiment drivers at their exact Git revision.
+
 ```sh
-python3 benchmarks/sfir/runner.py inventory
-python3 benchmarks/sfir/runner.py prepare --output /tmp/sfir-check --benchmarks ack
-python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-check
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm inventory
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm prepare --output /tmp/sfir-check --benchmarks ack
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-check
 ```
 
 Preparation copies checked-in target sources; it does not elaborate Scheme or
@@ -25,6 +30,12 @@ controls and two primary Mperm Chez timer-name rejections remain visible.
 Corrected Mperm's six-way campaign is reported separately. SFIR trails Chez and
 Rust on all six geometric-mean comparisons; matching-case counts, observed
 ranges and representation differences accompany every comparison.
+
+The [arithmetic, array-access and inlining ablation](results/2026-10-15-arithmetic-array-ablation/README.md)
+repeats six unchanged workloads with Chez and Rust controls. It separates
+wrapping/IEEE arithmetic, direct native array addressing and Binaryen's guest
+inlining policy, retaining every sample and the remaining representation costs.
+Those selected workloads do not establish a new whole-suite ranking.
 
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not

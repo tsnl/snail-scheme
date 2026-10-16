@@ -96,7 +96,7 @@ frozen identity, plus host affinity/frequency policy. Its
 ## Retained evidence and reproduction
 
 [manifest.json](manifest.json) checks every member of
-[artifacts.tar.xz](artifacts.tar.xz). The archive retains the complete combined
+[artifacts.tar.xz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-combined/artifacts.tar.xz). The archive retains the complete combined
 preparation with source snapshots, build commands, raw/optimized linked Wasm,
 native artifacts, full disassemblies, native LLVM, input files, canonical streams
 and all correctness/negative/ownership probes. It also retains the 95-case corpus,

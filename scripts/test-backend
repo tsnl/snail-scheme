@@ -1,19 +1,4 @@
-#!/usr/bin/env python3
-"""Execute SFIR contracts, compiler artifacts and shared Binaryen behavior."""
-import subprocess
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-for name in ('test-sfir', 'test-sfir-integration', 'test-sfir-entry', 'test-sfir-execution',
-             'test-sfir-native-loading', 'test-sfir-builder', 'test-sfir-book', 'test-sfir-generation',
-             'test-sfir-compiler-service', 'test-sfir-parsed-library', 'test-sfir-narrowing', 'test-sfir-arithmetic',
-             'test-sfir-extern', 'test-sfir-bytes',
-             'test-sfir-integer', 'test-sfir-io', 'test-sfir-input-packets', 'test-sfir-math', 'test-sfir-numbers',
-             'test-sfir-reader', 'test-sfir-text', 'test-sfir-write', 'test-binaryen'):
-    subprocess.run([ROOT / 'scripts' / name], cwd=ROOT, check=True)
-subprocess.run([ROOT / 'scripts/test-sfir-numbers', '--domain', '--output',
-                ROOT / 'build/sfir-number-domain'], cwd=ROOT, check=True)
-subprocess.run(['python3', ROOT / 'tests/sfir/scalar-services.py'], cwd=ROOT, check=True)
-subprocess.run(['python3', ROOT / 'tests/sfir-recursion/check.py'], cwd=ROOT, check=True)
-subprocess.run(['python3', ROOT / 'tests/sfir-conformance-audit/check.py'], cwd=ROOT, check=True)
-subprocess.run(['python3', ROOT / 'tests/sfir-literal-widths/check.py'], cwd=ROOT, check=True)
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/wasm-native/scheme" -I "$root/tests" -I "$root/wasm-native/tests" "$root/tests/run.scm" "$root" "backend" "$@"

@@ -1,57 +1,63 @@
 # Native loading and independent instances
 
-The Python adapter in [`execute_native.py`](../src/snail-sfir/execute_native.py)
-loads compiler-produced x86-64 Linux objects, links explicit foreign providers,
-and creates independent instances. Chibi still hosts compilation. This adapter
-does not add a Scheme frontend, self-hosting, or an SFIR compiler service.
+The optional Scheme protocol in
+[`(wasm-native execute)`](../wasm-native/scheme/wasm-native/execute.sld) loads
+x86-64 Linux objects carrying the fixed scalar bridge, links explicit foreign
+providers, and creates independent instances. The separate
+[`(snail-sfir native)`](../src/snail-sfir/native.sld) adapter converts a compiler
+Wasm artifact into such an object. Chibi still hosts compilation, and the compiler
+always emits Wasm. The native package imports no compiler modules.
 
-With `src/snail-sfir` on the Python module search path:
+Repository host scripts use
+`chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" SCRIPT`.
+Loading an existing object needs only `-I "$package/scheme"`. Supply the
+package directory explicitly as `runtime-root`:
 
-```python
-from pathlib import Path
-from execute_native import (
-    load_native, link_native, instantiate, invoke_entry, close_instance,
-    CProvider, RustProvider,
-)
+```scheme
+(import (scheme base) (wasm-native process) (wasm-native execute))
 
-code = load_native(Path("counter.o").read_bytes())
-linked = link_native(code, [RustProvider()], Path("build/counter-loading"))
-first = instantiate(linked)
-second = instantiate(linked)
-try:
-    result = invoke_entry(first, [10])
-finally:
-    close_instance(first)
-    close_instance(second)
+(define runtime-root "/absolute/path/to/checkout/wasm-native")
+(define code (load-native (read-bytes "counter.o")))
+(define linked
+  (link-native code (list (runtime-provider)) "build/counter-loading" runtime-root))
+(define first (instantiate linked))
+(dynamic-wind
+  (lambda () #f)
+  (lambda () (invoke-entry first '(10)))
+  (lambda () (close-instance first)))
 ```
 
-Here `counter.o` is the byte sequence returned by `compile` with a
-`native64-target`, for a selected public `(-> I32 I32)` export. The target must
-declare the Rust scalar imports used by that program. Loading snapshots bytes
-and returns immutable `library`, `export`, `parameters`, `result` and `imports`
+Here `counter.o` is the object written by
+`(artifact->native-object artifact imports directory output)` for a selected
+public `(-> I32 I32)` export. Its `artifact` comes from
+`(compile libraries (make-entry library-key public-name))`; `imports` explicitly
+declares the program's physical Rust scalar imports with `make-native-import`
+from `(wasm-native)`. The caller creates the build `directory` and supplies the
+object `output` path. The adapter preserves the Wasm artifact's semantic scalar
+signature and origin description while separately invoking native lowering.
+Loading snapshots bytes and returns immutable `library`, `export`, `parameters`,
+`result` and `imports`
 descriptions. Linking retains commands, object bytes and executables under a
 fresh private subdirectory of the supplied directory. Each instantiation retains
 its own `stdout`, `stderr` and `process.json`. The caller owns these retained
 files. No library initializer runs during loading or linking.
 
-The native linker uses the existing Rust archive for terminal resource cleanup.
-Resolving Rust scalar imports additionally requires the explicit `RustProvider()`
-value. `CProvider(module, header, source)` supplies a small scalar C interface.
-Clang reads its header declarations and compiles the `.c` source with that header
-included. Required module/name pairs, C symbol spellings and physical signatures
-must match the artifact declarations. Pointer, variadic, unprototyped and other
-unsupported declarations fail with diagnostics. Arbitrary C object/archive
-providers are unsupported by this adapter; the lower-level native build driver
-has its separate interface.
+Cargo links the shared Rust runtime for terminal cleanup. Resolving its scalar
+imports additionally requires the explicit `(runtime-provider)` value.
+`(make-rust-provider module source-path)` supplies another Rust crate with
+literal scalar `extern "C"` exports. The source's module/name pairs, exported
+symbols and physical signatures must match the artifact declarations. Pointer,
+variadic and other unsupported declarations fail before linking. Source hashes
+are checked across compilation; output aliases cannot overwrite inputs.
 
-The header is the unsafe foreign boundary. Comparing its declared ABI with the
+The Rust declaration is the unsafe foreign boundary. Comparing its ABI with the
 required signature does not verify an arbitrary native function implementation.
-Native artifacts, C/Rust providers, compiler tools and the host environment are
+Native artifacts, Rust providers, compiler tools and the host environment are
 trusted executable inputs. This adapter is not a native-code verifier or sandbox.
 
 ## Entry evidence and transport
 
-[`native-entry.sld`](../src/snail-sfir/native-entry.sld) resolves the actual
+[`scalar-entry.sld`](../wasm-native/scheme/wasm-native/scalar-entry.sld) resolves the actual
 Binaryen-optimized Wasm module and checks that `main` has `() -> Unit` and
 `entry` has the recorded physical signature. Automatic start functions are
 rejected. It adds a fixed `i64 (ptr)` LLVM bridge to the same module. The bridge
@@ -65,18 +71,23 @@ the bridge arity, and an alias of the bridge whose name encodes the semantic
 signature. Loading checks the ELF target, metadata schema, arity and alias
 identity before publishing code. These checks detect an incompatible object or
 inconsistent saved metadata. They cannot authenticate or prove the behavior of
-arbitrary machine code. The compiler's checked construction establishes the
+arbitrary machine code. The adapter's checked construction establishes the
 bridge contract, just as the trusted native runtime establishes its own ABI.
+The protocol retains the existing section and symbol names, including
+`.sfir.entry`, and the saved Bool/Char tags. It owns their scalar encoding and
+checks; the source adapter supplies the semantic signature and library/export
+description. Generic Wasm-to-native lowering receives only the Wasm
+representation, physical imports and runtime contract.
 
-| SFIR type | Python value and transport |
+| SFIR type | Scheme value and transport |
 | --- | --- |
-| I32 | `int` in signed 32-bit range; `bool` is rejected. |
-| I64 | `int` in signed 64-bit range, without a floating conversion. |
-| F32 | `float`, rounded once to binary32; finite overflow is rejected. |
-| F64 | `float`, with binary64 bits transported directly. |
-| Bool | `bool`, encoded as canonical 0 or 1. |
-| Char | A one-character `str` containing one Unicode scalar, excluding surrogates. |
-| Unit result | `None`; the fixed result word must be zero. |
+| I32 | Exact integer in signed 32-bit range. |
+| I64 | Exact integer in signed 64-bit range, without a floating conversion. |
+| F32 | Inexact real, rounded once to binary32; finite overflow is rejected. |
+| F64 | Inexact real, with binary64 bits transported directly. |
+| Bool | `#f` or `#t`, encoded as canonical 0 or 1. |
+| Char | A Scheme character containing one Unicode scalar, excluding surrogates. |
+| Unit result | Symbol `unit`; the fixed result word must be zero. |
 
 Floating transport preserves signed zero, infinities, NaN and subnormals; it
 does not promise a particular NaN payload. F32 underflow may round to zero.
@@ -96,26 +107,28 @@ can also explicitly share external files or services.
 The existing compiled initialization plan runs dependencies first, in source
 order, once for each library identity. Import aliases and re-exports preserve
 that identity. The adapter publishes an opaque instance only after the worker
-acknowledges successful initialization. Failure raises `InitializationError`,
+acknowledges successful initialization. Failure raises a Scheme error,
 returns no instance, and preserves external effects already performed. Ordinary
 native terminal cleanup still closes Rust-owned resources on a guest trap.
 
-[`native-worker.c`](../src/snail-sfir/native-worker.c) builds as two executables:
+[`native_worker.rs`](../wasm-native/src/native_worker.rs) supports two executables:
 a supervisor with no guest/provider linkage, and a guest worker. Before executing
-the guest image, the supervisor establishes an owned process group. Thus C
+the guest image, the supervisor establishes an owned process group. Thus foreign
 provider constructors execute inside that ownership too. The supervisor becomes
 a Linux subreaper, observes host death through `PR_SET_PDEATHSIG`, and kills and
 reaps surviving descendants. A descendant ignoring SIGTERM receives SIGKILL.
-Providers intentionally escaping the process group are unsupported.
+Adopted children that escape the group are also killed and reaped when observed;
+an unexpected surviving descendant makes a command fail. Arbitrary hostile
+providers remain outside the trusted native boundary.
 
 Commands and replies travel through dedicated inherited pipes; program stdout
 and stderr go to regular log files and cannot fill an undrained output pipe.
-The compiler-created bridge fixes the request arity; there is one outstanding
+The adapter-created bridge fixes the request arity; there is one outstanding
 call at a time. I64 and IEEE values use little-endian binary words, not textual
 numbers. Scalar words are never treated as GC roots. The compiled exported
 function publishes its managed roots across collecting calls as usual.
 
-`instantiate(linked, timeout=30, environment=None)` supports a positive finite
+`(instantiate linked '((timeout . 30) (environment . ())))` supports a positive finite
 startup deadline. The same timeout bounds each later request and response
 together. Timeout, trap, worker exit, interrupted call or invalid response closes
 the instance; a later call cannot consume an old response or restart execution.
@@ -123,7 +136,7 @@ This differs from the Wasm adapter, which can retain a successfully initialized
 instance after an invocation trap. Calls and close reject concurrent use of the
 same instance. Distinct instances can run concurrently.
 
-`close_instance` is idempotent. It requests ordinary resource cleanup, waits up
+`close-instance` is idempotent. It requests ordinary resource cleanup, waits up
 to two seconds, then requests supervisor termination; the supervisor allows a
 short grace period before killing the guest group. Forced termination and host
 loss guarantee process ownership cleanup under ordinary Linux scheduling, but

@@ -29,7 +29,7 @@ SFIR lists; their contents are copied into immutable host sequences.
 | `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
 | `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
 | `ClassMethod`, `MethodImplementation`, static `Declaration` | `class-method`, `typeclass-definition`, `method-implementation`, `instance-definition`, `kind-annotated-definition` |
-| Extension `Declaration` | `extern-definition`, `overload-definition`, `inferred-overload-definition` |
+| Extension `Declaration` | `extern-definition`, `overload-definition` |
 | `ImportSelection`, `ImportRename` | `all-imports`, `only-imports`, `import-rename`, `rename-imports` |
 | `Import`, `Export`, `SfirLibrary` | `library-import`, `library-export`, `sfir-library` |
 
@@ -46,8 +46,11 @@ The signatures distinguish syntax categories explicitly. The
 original `definition` accepts a monomorphic `TypeSyntax`; `signature-definition`
 and `local-binding` accept a `Signature`. `binding-signature` wraps a monomorphic
 type, while `all-signature` supplies explicit type parameters, requirements and
-a result type. Inferred constructors omit the signature and let the ordinary
-checker infer it. Numeric scalar constructors select their width.
+a result type. `inferred-definition` and `inferred-local-binding` omit the
+signature and let the ordinary checker infer it. Every `overload-definition`
+requires an explicit `Signature`; there is no inferred overload constructor or
+inspection variant. Transferred overload declarations follow the same rule.
+Numeric scalar constructors select their width.
 `literal-number` instead accepts a copied original source spelling and returns
 unresolved numeric syntax; `view-number-literal` exposes that spelling. Its
 numeric grammar and final representation are checked in Chibi. This preserves
@@ -186,7 +189,9 @@ follow, or authoritative origin strings in the packet.
 ## Receiving and compiling
 
 The Chibi module [`library-transfer.sld`](../src/snail-sfir/library-transfer.sld)
-accepts the packet through an explicit port:
+accepts one complete packet through an explicit, bounded port (a file or an
+already framed message). It preserves all JSON control escapes and rejects
+trailing input:
 
 ```scheme
 (define context (make-library-transfer-context))
@@ -194,7 +199,7 @@ accepts the packet through an explicit port:
 (define generated (receive-library-transfer context transfer))
 (define artifact
   (compile (cons (cons generated-key generated) output-dependencies)
-           (make-entry generated-key 'run) wasm-target))
+           (make-entry generated-key 'run)))
 ```
 
 `read-library-transfer` parses a closed schema, checks reference kinds and
@@ -257,5 +262,5 @@ diagnostics. These checks are correctness evidence, not clean measurements.
 
 The [compiler service](sfir-compiler-service.md) exposes parsing, explicit maps,
 compilation and Wasm execution to SFIR. [Native loading](sfir-native-loading.md)
-is separately available through its host adapter; native targets in the SFIR
-service, Scheme elaboration and macro staging remain pending.
+is separately available through its host adapter, which consumes a Wasm artifact.
+Scheme elaboration and macro staging remain deferred.

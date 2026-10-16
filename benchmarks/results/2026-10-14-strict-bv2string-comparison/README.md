@@ -105,7 +105,7 @@ All supplemental generator/range/negative probes remain outside timing.
 ## Clock and campaign boundaries
 
 The frozen [plan](../2026-10-14-strict-bv2string-preparation/timing-plan.md) and
-[runner](../2026-10-14-strict-bv2string-preparation/measure-six.py) were reviewed
+[runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-bv2string-preparation/measure-six.py) were reviewed
 before an explicit quiet-window release. The runner hash is
 `0983e6dd2e1548cf271a395af5d72238e37626079085ce1f5c3e1808989b1ab1`;
 the JSON plan hash is

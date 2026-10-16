@@ -257,12 +257,12 @@
     ;; Each row has its own member identity. A named implementation still names
     ;; its original runtime binding; this member does not introduce an early alias.
     (define (make-overload-declaration definition type implementation loc . signature-location)
+      (unless type (error "overload requires an explicit signature" loc))
       (let ((member (make-value-definition (value-definition-name definition) loc)))
-        (when type
-          (set-binding-declaration! member
-                                    (make-type-declaration member type
-                                                           (if (pair? signature-location)
-                                                               (car signature-location) loc))))
+        (set-binding-declaration! member
+                                  (make-type-declaration member type
+                                                         (if (pair? signature-location)
+                                                             (car signature-location) loc)))
         (set-binding-initializer! member implementation)
         (source-node 'overload-declaration loc (list definition member implementation))))
     (define (overload-declaration? node) (kind? node 'overload-declaration))
@@ -281,8 +281,7 @@
     (define extern-declaration-loc node-loc)
 
     (define (overload-declaration-type node)
-      (let ((declaration (binding-declaration (overload-declaration-member node))))
-        (and declaration (type-declaration-type declaration))))
+      (type-declaration-type (binding-declaration (overload-declaration-member node))))
 
     ;; ---- Attached ordinary declarations ----
 
@@ -387,7 +386,7 @@
   (cond-expand
    (snail-tests
     (export test-ir)
-    (import (snail-scheme test-utils) (only (snail-scheme source) make-loc))
+    (import (wasm-native test-utils) (only (snail-scheme source) make-loc))
     (begin
       (define (test-source-identities)
         (let* ((definition (make-value-definition 'x #f)) (use (make-name definition #f)))
@@ -505,7 +504,10 @@
                        (overload-declaration-definition second)) #t)
           (expect (eq? (overload-declaration-member first) (overload-declaration-member second)) #f)
           (expect (overload-declaration-type first) '(-> I64 I64))
-          (expect (eq? (binding-initializer (overload-declaration-member first)) body) #t)))
+          (expect (eq? (binding-initializer (overload-declaration-member first)) body) #t)
+          (expect (guard (failure (else (error-object-message failure)))
+                    (make-overload-declaration family #f body #f) #f)
+                  "overload requires an explicit signature")))
       (define (test-ir)
         (run-test test-source-identities)
         (run-test test-definition-cycle)

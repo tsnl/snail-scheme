@@ -8,3 +8,4 @@
 /target/
 *.trace.json
 **/__pycache__/
+/tests/target/

@@ -66,11 +66,11 @@ the formatter also fails on the pre-migration Parsing source.
 ## Preparation and validation
 
 ```sh
-python3 benchmarks/sfir/runner.py inventory
-python3 benchmarks/sfir/runner.py prepare --output /tmp/sfir-check --benchmarks ack \
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm inventory
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm prepare --output /tmp/sfir-check --benchmarks ack \
   --compile-timeout 1800
-python3 benchmarks/sfir/runner.py verify --output /tmp/sfir-check
-python3 benchmarks/sfir/runner.py validate --output /tmp/sfir-check
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm verify --output /tmp/sfir-check
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-check
 ```
 
 Preparation copies static source files, compiler/runtime/build support, Rust
@@ -79,11 +79,16 @@ timing preparation copy the selected Rust sysroot and vendor the exact locked
 crates for the runtime and Rust controls. Builds invoke that copied Cargo and
 Rust compiler with the frozen vendor configuration. Preparation records content
 digests and explicit positive finite build/run timeouts. The default compile
-timeout remains 1200 seconds. Mutable checkout files are never referenced by
+timeout is 1800 seconds. Mutable checkout files are never referenced by
 the frozen driver; immutable Nix tools are identified by invocation path and
 digest. The manifest also retains the original Rustup dispatcher identities and
 selected installation path as provenance; subsequent builds use the copied
 installation and dependency sources.
+
+The frozen compiler wrapper comes from `source/wasm-native/scripts/rustc-native`, so Cargo
+host build scripts also use Rust's linker without consulting the mutable
+checkout. Custom `RUSTC_WRAPPER` or `RUSTC_WORKSPACE_WRAPPER` commands must be
+unset for a campaign; their unrecorded dependencies would defeat the freeze.
 
 Validation invokes the SFIR compiler, whose build contract always runs Binaryen,
 and retains both raw and optimized Wasm. Every process has a terminal record,
@@ -107,7 +112,7 @@ later native or comparison step fails. FFT uses a separate scalar Rust sine prov
 concrete runtime services. Pi and Chudnovsky check their entire decimal output
 after running the unchanged canonical count.
 
-Dynamic and Scheme use local `verify.mjs` and `native-entry.c` files with the
+Dynamic and Scheme use local `verify.mjs` and `native-entry.rs` files with the
 shared frozen build and artifact-parity protocol. Their explicit `execution_files`
 lists copy only declared case fixtures into fresh target working directories;
 escaping paths are rejected. The [current-source checkpoint](evidence/20261015-dynamic-scheme.md)
@@ -118,11 +123,11 @@ added correctness coverage while both workloads were unmeasured at that checkpoi
 ## Clean timing protocol
 
 ```sh
-python3 benchmarks/sfir/timing.py prepare --output /tmp/sfir-full57 \
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.scm prepare --output /tmp/sfir-full57 \
   --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
-python3 benchmarks/sfir/timing.py verify --output /tmp/sfir-full57
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.scm verify --output /tmp/sfir-full57
 # Run only after coordinating a quiet machine with every active worker.
-python3 benchmarks/sfir/timing.py measure --output /tmp/sfir-full57 \
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.scm measure --output /tmp/sfir-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
 
@@ -206,12 +211,14 @@ framework was introduced.
 The full-corpus timing extension used a fresh no-files explainer and informed
 critique to retain one scalar native entry and one decimal entry. Run the
 bounded harness checks with
-`PYTHONPATH=benchmarks/sfir python3 -m unittest runner timing`. Besides frozen
-dependency and scheduling tests, reduced synthetic Wasm/C/Chez probes execute
+`chibi-scheme -D snail-tests -I src -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks tests/sfir-benchmarks.scm`. Besides frozen
+dependency and scheduling tests, reduced synthetic Wasm/Rust/Chez probes execute
 every host category, typed sequence/decimal/math interfaces, failed predicates,
 declared fixture copies and native heap propagation. Their command records and
 artifacts remain in `build/sfir-timing-probes`; these probes establish harness
 behavior and are neither canonical corpus correctness nor timing samples.
+Pass `--execute` to that command to run the actual Wasm, Cargo-native and Chez
+harness probes. The short invocation runs the pure contract and fixture checks.
 The [full-corpus harness checkpoint](evidence/20261015-full57-timing-harness.md)
 records all six canonical and clean-artifact routes passing for FFT, Pi, Tail
 and Equal, plus the exact frozen revision. It adds no measurements.

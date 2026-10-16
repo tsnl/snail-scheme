@@ -97,7 +97,7 @@ state values, successful-EOF-only result transport, root ownership through list
 construction, and immediate fatal error handling. No compiler or older frontend
 module was changed. [review.md](review.md) records the scope and decisions.
 
-The [archive](artifacts.tar.xz) preserves 163 files: the compiler source snapshot
+The [archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-strict-source-wc/artifacts.tar.xz) preserves 163 files: the compiler source snapshot
 at `93f34a9`, Scheme worker and build drivers, frozen provider sources/binary,
 legacy compilation and capture logs, untouched Chez source/binary, all consumed
 inputs, intermediate/optimized/linked Wasm, disassembly, functional fixtures,

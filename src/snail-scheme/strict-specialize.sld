@@ -501,7 +501,7 @@
   (cond-expand
    (snail-tests
     (export test-strict-specialize)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (snail-sfir frontend) syntax-list->ir-library)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list)

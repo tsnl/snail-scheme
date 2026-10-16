@@ -1,39 +1,4 @@
-#!/usr/bin/env python3
-"""Check independently instantiated native objects, scalar ABI and owned processes."""
-
-import os
-import json
-from pathlib import Path
-import runpy
-import shutil
-import tempfile
-
-ROOT = Path(__file__).resolve().parent.parent
-SUPPORT = runpy.run_path(str(ROOT / 'tests/sfir-instances/check.py'))
-parent = ROOT / 'build/sfir-native-loading'
-parent.mkdir(parents=True, exist_ok=True)
-output = Path(tempfile.mkdtemp(prefix='attempt-', dir=parent))
-fixtures = ROOT / 'tests/sfir-native-loading'
-optimizer = shutil.which(os.environ.get('WASM_OPT', 'wasm-opt'))
-assert optimizer, 'Binaryen wasm-opt is required'
-wrapper = output / 'record-optimizer'
-log = output / 'optimizer.jsonl'
-wrapper.write_text('#!/usr/bin/env python3\nimport hashlib, json, subprocess, sys\nfrom pathlib import Path\n'
-                   f'result = subprocess.run([{optimizer!r}, *sys.argv[1:]])\n'
-                   'if result.returncode == 0 and "-o" in sys.argv:\n'
-                   '    destination = Path(sys.argv[sys.argv.index("-o") + 1])\n'
-                   '    record = dict(command=sys.argv[1:], sha256=hashlib.sha256(destination.read_bytes()).hexdigest())\n'
-                   f'    with open({str(log)!r}, "a") as port: port.write(json.dumps(record) + "\\n")\n'
-                   'sys.exit(result.returncode)\n')
-wrapper.chmod(0o755)
-for label, command in [
-        ('build', [os.environ.get('CHIBI', 'chibi-scheme'), '-I', ROOT / 'src', fixtures / 'build.scm', output]),
-        ('execute', [os.environ.get('PYTHON', 'python3'), fixtures / 'run.py', output])]:
-    record = SUPPORT['run'](command, output / f'{label}.json', WASM_OPT=str(wrapper))
-    SUPPORT['succeeded'](record)
-    print(record['stdout'], end='', flush=True)
-optimizations = [json.loads(line) for line in log.read_text().splitlines()]
-assert all('-O3' in record['command'] for record in optimizations)
-assert optimizations[0]['sha256'] == optimizations[1]['sha256'], 'native and Wasm optimized modules must match exactly'
-print('PASS mandatory Binaryen optimization and identical native/Wasm optimized module bytes')
-print(f'PASS native loading; commands and all instance logs: {output}')
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/wasm-native/scheme" -I "$root/tests" -I "$root/wasm-native/tests" "$root/tests/run.scm" "$root" "sfir-native-loading" "$@"

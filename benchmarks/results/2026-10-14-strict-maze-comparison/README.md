@@ -104,14 +104,14 @@ shows session **62668**, terminal chunk **39749a**, exit **0**, and all 56 rows.
 No sample was replaced, trimmed or rerun. The parent released the window only
 after that actual completion; compression followed the release.
 
-[The runner](measure-seven.py) owns each original process group through leader
+[The runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-maze-comparison/measure-seven.py) owns each original process group through leader
 reaping, descendant inspection and bounded cleanup. It captures stdout/stderr
 as bytes in regular files, closes and syncs them, and preserves terminal
 records before parsing. Unexpected executing descendants invalidate a sample
 even if cleanup stops them. The frozen guests do not daemonize; original-group
 inspection does not prove absence of arbitrary escaped descendants.
 
-[The independent auditor](review-raw.py) imports no runner and starts no guests.
+[The independent auditor](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-maze-comparison/review-raw.py) imports no runner and starts no guests.
 It independently scans the canonical character tokens, checks schedule,
 configuration, recorded terminal/cleanup outcomes, capture identities and full
 frames, and recomputes all medians/ranges and ratio directions. Rust's entire
@@ -158,7 +158,7 @@ reviewed plan. Recorded commands preserve their actual absolute locations;
 raw capture paths preserve their actual spelling relative to the recorded
 worktree launch directory.
 
-[The archive](artifacts.tar.xz) retains current frozen compiler/GC sources,
+[The archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-maze-comparison/artifacts.tar.xz) retains current frozen compiler/GC sources,
 current and historical programs/artifacts/LLVM, original full inputs, source
 ledgers, counter-free native provider/entry, Rust controls, all 56 raw samples,
 diagnostics, synthetic captures, failed attempts and audit/coordination records.

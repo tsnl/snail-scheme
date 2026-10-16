@@ -40,10 +40,10 @@ times within each report.
 
 [results.json](results.json) records every sample, execution order, stage time,
 command, tool version, and source/artifact hash. The unchanged
-[measurement harness](../2026-10-10-visitor-typing/measure.py) is identified by its
+[measurement harness](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-10-visitor-typing/measure.py) is identified by its
 hash in the report. [archives.json](archives.json) identifies the exact source
 archives: the before tree reuses the earlier report's `after-source.tar.gz`, and
-the final tree is [after-source.tar.gz](after-source.tar.gz).
+the final tree is [after-source.tar.gz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-10-compiler-simplification/after-source.tar.gz).
 
 ## Runtime measurements
 

@@ -35,7 +35,7 @@ exercise production decimal chunk grouping.
 ## Evidence and reproduction
 
 Run `scripts/test-strict-integer` with the tool paths in [manifest.json](manifest.json).
-The [arithmetic archive](arithmetic.tar.gz) retains every oracle value, complete
+The [arithmetic archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-integer/arithmetic.tar.gz) retains every oracle value, complete
 command stdout/stderr, all expected failures, generated small-radix sources,
 raw/optimized Wasm, native executables, native LLVM lowering, and build metadata.
 The original tests ran against source SHA
@@ -92,7 +92,7 @@ an unintended fixed-width overflow with Chez big integers. Native Chez number
 reading/writing is used for the independent expected data and final serialization,
 after all limb computation finishes.
 
-The frozen [pi archive](pi.tar.gz) and [Chudnovsky archive](chudnovsky.tar.gz)
+The frozen [pi archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-integer/pi.tar.gz) and [Chudnovsky archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-integer/chudnovsky.tar.gz)
 contain all three Chez programs and outputs, strict source, complete inputs and
 expected tables, raw/optimized Wasm, native binaries/LLVM, command records and
 build metadata. The reviewable complete outputs are

@@ -1,12 +1,14 @@
 # Native execution
 
-The native backend mechanically lowers Binaryen-optimized Wasm to LLVM, then
-links the same Rust scalar extern implementations used by Wasm. SFIR inference,
+The standalone [Wasm-to-native package](../wasm-native/README.md) mechanically
+lowers Binaryen-optimized Wasm to LLVM, then links the same Rust scalar extern
+implementations used by Wasm. The compiler emits Wasm only. Ordinary Scheme
+build scripts import the compiler and native package separately; SFIR inference,
 specialization and representation choices happen before Wasm emission.
 
 ```text
 located SFIR -> checked and specialized program -> Wasm -> Binaryen
-  -> canonical Wasm types and operations -> LLVM -> Clang/LLD + C/Rust providers
+  -> canonical Wasm types and operations -> LLVM opt/llc -> Cargo/rust-lld + Rust runtime/providers
 ```
 
 The Wasm pipeline links its provider Wasm and optimizes the linked module too.
@@ -20,25 +22,27 @@ The tested target is **64-bit x86-64 Linux**. Other 64-bit targets need explicit
 ABI, collector and tail-call validation. 32-bit native targets are rejected.
 
 ```sh
-./snail-sfir run --target native examples/fibonacci.sfir
-./snail-sfir compile --target native -o build/fibonacci examples/fibonacci.sfir
+scripts/build-native examples/fibonacci.sfir build/fibonacci
+build/fibonacci
 
 scripts/build-native \
-  --c-provider fixture tests/native-mixed.h tests/native-mixed.c \
+  --rust-provider fixture tests/native-mixed.rs \
   tests/native-mixed.sfir build/mixed
 
-scripts/build-native --wasm --entry-c tests/native-runner.c \
+scripts/build-native --wasm --entry-rust tests/native-runner.rs \
   build/native-tests/semantics.wasm build/semantics
 ```
 
-A command's final result is `Unit`, `I32` or `I64`. Unit produces status zero;
+With its default command host, `scripts/build-native` accepts a final result of
+`Unit`, `I32` or `I64`. Unit produces status zero;
 integers in 0..255 become the process status and other integers produce status
 one. `-I DIRECTORY` selects SFIR libraries. See [command options](options.md).
 
-The lower-level helper accepts `--export NAME` and `--entry-c FILE`. A custom
+The helper also accepts `--llvm` and `--object` inputs, `--export NAME`, and
+`--entry-rust FILE`. Object input requires an explicit Rust entry point. A custom
 host calls `native_host_init(argc, argv)`, `native_module_init()`, `wasm.main`,
 then additional typed exports, and finishes with `native_finish(status)`.
-Its C declarations must match those exports exactly. Ordinary foreign interfaces
+Its Rust `extern "C"` declarations must match those exports exactly. Ordinary foreign interfaces
 carry scalars; a native host that retains managed references across guest calls
 must explicitly publish roots.
 
@@ -47,6 +51,19 @@ atomically. Failed builds retain intermediates without replacing an existing
 executable. Configuration, commands, hashes and compiler traces remain beside
 the output in its uniquely named build directory. Binaryen is mandatory even
 for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
+
+[`build.scm`](../build.scm) shows the ordinary library calls for a selected public
+entry. It accepts `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` and works with
+absolute paths from any working directory; its first comment runs the
+[`answer.sfir`](../examples/native/answer.sfir) and
+[`entry.rs`](../examples/native/entry.rs) example, which prints `42`.
+
+`(wasm-native)` reads a Wasm file through `wasm-binary->llvm`, with explicit
+physical `make-native-import` declarations and build paths. `llvm-object` produces the
+object, and `link-native-object` receives the runtime root, object, Rust entry,
+providers and build directory. These operations do not import compiler syntax,
+bindings or inferred IR. The runtime root is the `wasm-native/` directory,
+containing the single Cargo crate used for both Wasm and native execution.
 
 ## Direct C contracts
 
@@ -58,26 +75,25 @@ export names and explicit scalar types; unsupported syntax or aliases fail.
 Lowering compares the complete provider signature with the Wasm declaration
 before emitting a call. Linker symbol resolution alone cannot check a C signature.
 
-`--c-provider MODULE HEADER SOURCE_OR_ARCHIVE` adds one explicit C provider.
-Clang reads the header's external, nonvariadic prototypes. A C source is compiled
-with that header forcibly included, so contradictory definitions fail. For a
-prebuilt archive, its supplied header is the authoritative C contract; the
-builder cannot reconstruct C types from machine-code symbols. Headers should
-contain only the provider's supported scalar prototypes and required typedefs.
+`--rust-provider MODULE SOURCE.rs` adds a Rust provider crate. The ABI reader
+accepts literal `#[unsafe(export_name = "symbol")]` attributes on public
+`extern "C"` functions with explicit scalar parameters and results. Comments
+and string contents do not declare exports. Type aliases, macro-generated
+exports, pointers, variadics and aggregates are outside this closed interface.
+Cargo compiles the same source as an ordinary dependency, with one shared Rust
+runtime and standard library. There are no C headers or C compilation steps.
 
-| SFIR/Wasm value | C/Rust carrier |
+| SFIR/Wasm value | Rust carrier at the C ABI |
 | --- | --- |
-| I32, Bool, Char / i32 | `int32_t` or `uint32_t`; Rust `i32` or `u32` |
-| I64 / i64 | `int64_t` or `uint64_t`; Rust `i64` or `u64` |
-| F32 / f32 | `float` / `f32` |
-| F64 / f64 | `double` / `f64` |
-| Unit / no result | `void` / no result |
+| I32, Bool, Char / i32 | `i32` or `u32` |
+| I64 / i64 | `i64` or `u64` |
+| F32 / f32 | `f32` |
+| F64 / f64 | `f64` |
+| Unit / no result | No result |
 
-On this LP64 target, the corresponding `int`, `long`, and `long long` spellings
-are accepted. Narrow C `char`, C `_Bool`, variadics, unprototyped declarations,
-alternate calling conventions, aggregate arguments and pointer signatures are
-rejected. Bool and Unicode Char deliberately use full
-32-bit carriers. A scalar i64 is never silently converted to a pointer.
+Bool and Unicode Char use full 32-bit carriers. A scalar i64 is never silently
+converted to a pointer. The source declaration is a trusted foreign contract;
+ABI checks do not establish the safety of arbitrary native code.
 
 Native pointers, Wasm memory32 offsets, managed references and ABI root handles
 are separate representations. The one native diagnostic boundary explicitly
@@ -98,15 +114,14 @@ this constant stride to checked allocation, indexing and overlapping copies.
 Static arrays use the same payload layout. Reference-array layout and permanent
 static reference roots remain unchanged; numeric payloads are never scanned.
 
-Both allocation layers are explicitly inlined during LLVM link-time optimization.
-This exposes the collector's zeroing beside each Wasm constructor's field stores,
-so LLVM can remove zeros that are immediately overwritten. The public allocator
-still returns zeroed storage; default initialization, collection thresholds,
-root publication and allocation counters keep their existing contracts. Hole
-searches remain out of line. Inlining only the inner allocator leaves the outer
-call boundary in place. The
+The collector and native host live in the shared Rust runtime crate, selected
+with native target conditions. LLVM emits the guest object before Cargo links
+it with that crate. Consequently Rust LTO can inline within the runtime, but it
+cannot eliminate allocator zeroing using later guest field stores. The earlier
 [allocation visibility experiment](../benchmarks/results/2026-10-14-native-allocation-visibility/README.md)
-measures the benefit and increased code size on two complete workloads.
+measured a C/LTO build; its result does not describe this Rust link boundary.
+The allocator continues to return zeroed storage, with the same collection,
+root-publication and allocation-counter contracts.
 
 Roots include live reference locals/operands, globals, tables, mutable static
 literal reference slots and Rust-owned ABI table entries. A collection excludes
@@ -143,7 +158,7 @@ reclaimed hole, including when the explicit cap prevents growth. Mappings are
 retained for reuse, and startup does not prefault their pages.
 
 `SNAIL_GC_HEAP_BYTES` remains an explicit hard cap on total managed mapped bytes,
-including headers and unused space, excluding C metadata and roots. Setting
+including headers and unused space, excluding Rust metadata and roots. Setting
 only this variable preserves the earlier fixed initial reservation.
 `SNAIL_GC_INITIAL_BYTES` optionally selects a smaller initial reservation for
 tuning or growth tests. With no explicit cap, it replaces the 256 MiB initial
@@ -167,14 +182,16 @@ high-water mark; these are virtual managed extents, not resident memory.
 `last_occupied` reports the retained line/block capacity at the last collection;
 `last_live` counts only its live payload bytes.
 `SNAIL_NATIVE_GC_INTERVAL=1` forces collection before every allocation for testing.
-There is no moving compaction, multithreaded guest execution, or
-reusable native-instance lifecycle yet.
+There is no moving compaction or multithreaded guest execution. The
+[Scheme native adapter](sfir-native-loading.md) provides independent instances
+through isolated Rust workers.
 
 ## Failure and resource lifetime
 
-Expected Wasm failures check divisors, overflow, conversion ranges, nulls, bounds
-and casts before LLVM operations can produce undefined behavior. Unsupported
-optimized instructions or module shapes fail with a Wasm-specific diagnostic.
+Expected Wasm failures check divisors, signed division overflow, conversion
+ranges, nulls, bounds and casts before LLVM operations can produce undefined
+behavior. Unsupported optimized instructions or module shapes fail with a
+Wasm-specific diagnostic.
 Linear memory, SIMD, atomics, exceptions and multivalue results remain outside
 the native lowering subset. Function and global exports have C adapters;
 exporting a table to a C host is rejected. Active element segments validate the
@@ -184,18 +201,20 @@ SFIR I/O wrappers own scalar Rust resource handles. Alias-visible close detaches
 the handle before flushing, and callbacks do not keep a Rust resource borrow
 across a guest call. Normal return, traps, I/O failures and arena exhaustion
 finish through terminal cleanup. Cleanup does not reenter generated code or
-unwind through Rust. Resumable exceptions and reusable native instances are not
-implemented.
+unwind through Rust. Resumable exceptions are not implemented. A failed worker invocation closes
+that instance; another instance may run the same linked artifact.
 
 ## Validation
 
 `scripts/test-native` executes common Wasm/native scalar semantics, conversions,
 traps, subtype identity, cyclic graphs, exact tracing and tail calls. SFIR cases
-also exercise mixed C signatures, concrete variants/strings/bytevectors and
+also exercise mixed Rust scalar signatures at the C ABI, concrete variants/strings/bytevectors and
 Unicode/I64 I/O, including `/dev/full`, stale aliases and allocation failure.
 Commands and terminal outcomes remain under `build/native-tests`.
 
-The shared checks are `make test`, `make check`, `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend` and `scripts/test-build`.
+The shared checks are `make test`, `make check`,
+`cargo test --manifest-path wasm-native/Cargo.toml --offline`,
+`cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check`,
+`scripts/test-backend` and `scripts/test-build`.
 The public command and linked Wasm must actually execute; compilation alone is
 not target validation. See [build requirements](backend.md).

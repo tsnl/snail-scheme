@@ -25,6 +25,9 @@ fn finite_float_text(number: f64) -> String {
 fn main() {
     let input = std::fs::read_to_string(std::env::args().nth(1).unwrap()).unwrap();
     for line in input.lines() {
-        println!("{}", float_text(f64::from_bits(u64::from_str_radix(line, 16).unwrap())));
+        println!(
+            "{}",
+            float_text(f64::from_bits(u64::from_str_radix(line, 16).unwrap()))
+        );
     }
 }

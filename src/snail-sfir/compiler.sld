@@ -2,8 +2,7 @@
 ;; preparation lives in source-driver; this module never discovers dependencies.
 (define-library (snail-sfir compiler)
   (export make-entry entry? entry-library entry-export compile
-          target? target-name wasm-target native64-target make-native-import native-import?
-          artifact? artifact-target artifact-entry artifact-parameters artifact-result artifact-bytes
+          artifact? artifact-entry artifact-parameters artifact-result artifact-bytes
           library-map->core)
   (import (scheme base) (snail-sfir library)
           (snail-scheme strict-infer) (snail-scheme strict-primitives) (snail-sfir artifact)
@@ -78,13 +77,12 @@
              (checked (checked-binding core (binding-origin abi))))
         (check-entry-function checked)
         (prepare-entry-generation core checked)))
-    (define (compile libraries entry target)
-      (unless (target? target) (error "compile requires a target value" target))
+    (define (compile libraries entry)
       (guard (failure (else (raise-source-diagnostic failure)))
         (let* ((program (entry-program libraries entry))
                (type (value-type (cdar (prepared-exports program)))))
           (emit-artifact (strict-core->wasm program) entry
-                         (map resolve (function-domains type)) (resolve (function-result type)) target))))
+                         (map resolve (function-domains type)) (resolve (function-result type))))))
 
     )
 
@@ -93,8 +91,8 @@
   (cond-expand
    (snail-tests
     (export test-compiler)
-    (import (snail-scheme test-utils) (snail-sfir frontend)
-            (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+    (import (wasm-native test-utils) (snail-sfir frontend)
+            (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
             (only (snail-scheme strict-core) program-body)
             (only (chibi temp-file) call-with-temp-dir)
             (only (srfi 130) string-contains)

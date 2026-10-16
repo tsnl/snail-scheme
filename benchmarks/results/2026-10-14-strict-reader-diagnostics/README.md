@@ -191,7 +191,7 @@ new frozen plan and coordinated quiet release; none has been collected here.
 
 [findings.json](findings.json) contains complete exclusive/inclusive rows,
 counts, GC scopes and boundary summaries. [manifest.json](manifest.json) checks
-every member of [artifacts.tar.xz](artifacts.tar.xz): full raw profiles, raw
+every member of [artifacts.tar.xz](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-diagnostics/artifacts.tar.xz): full raw profiles, raw
 outputs, per-process commands/environment/frozen checks, markers, phase/file
 counters, GC events, exact host-erasure proofs, disassemblies, source snapshots
 and the used frozen guest modules/native binaries/input files. Nix tool binaries

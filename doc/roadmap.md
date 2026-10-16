@@ -29,9 +29,11 @@ contracts, their execution evidence and remaining extensions are recorded below:
   width and reject representation overflow at literal construction.
 - [x] Check primitive numeric conversions, including integer narrowing and
   finite floating-point narrowing overflow, on Wasm and native.
-- [x] Check representation overflow in primitive runtime arithmetic. Preserve
-  intentional hashing and numeric-library semantics through explicit wrapping
-  and IEEE operations; ordinary fixed-width overloads remain checked.
+- [x] Use wrapping I32/I64 and IEEE F32/F64 arithmetic by default on Wasm and
+  native, with identical semantics for direct primitives, overloads and function
+  values. Preserve literal, narrowing and division checks and exact Integer arithmetic.
+- [ ] Add explicit overflow-checking arithmetic operations when needed. A future
+  Scheme-to-SFIR frontend may select them; Scheme frontend work remains deferred.
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.
@@ -43,9 +45,11 @@ contracts, their execution evidence and remaining extensions are recorded below:
 - [x] Separate parsing library data, resolving a supplied library map and
   filesystem discovery. Select an entry through its library's public interface,
   preserving private and re-exported binding identities in the Chibi-hosted API.
-- [x] Compile a supplied map, public Entry and Target into optimized Wasm bytes
-  or an unlinked x86-64 Linux object. Retain the existing scalar entry ABI and
-  keep foreign-provider linking separate.
+- [x] Compile a supplied map and public Entry into optimized Wasm bytes. Retain
+  the existing scalar entry ABI and keep foreign-provider linking separate.
+- [x] Extract a standalone Wasm-to-native package and one shared Rust runtime
+  crate. Ordinary Chibi scripts explicitly compose compiler output, native
+  lowering and Cargo linking; the compiler API remains Wasm-only.
 - [x] Provide explicit Wasm loading, independent instantiation and checked scalar
   Entry invocation through a JavaScript host adapter, with provider checks before
   initialization and no callable instance after failed initialization.
@@ -68,8 +72,6 @@ contracts, their execution evidence and remaining extensions are recorded below:
   the constructive syntax API. Preserve local scopes, attached quantifiers,
   original numeric spellings and source locations through checked transfer;
   compile transformed values with explicit maps.
-- [ ] Add native target support to the SFIR compiler service. Scheme elaboration
-  and macro staging remain deferred.
 - [x] Revalidate the full corpus and compare clean timings after migration at
   frozen compiler `8e547bfb`; retain original failures and historical snapshots.
   The later packet-input campaign is separate from that full-suite freeze.
@@ -90,7 +92,8 @@ distinct from the core language contract.
 - [x] Retain explicit storage, positional calls, typed externs and library
   specialization; reject unresolved representations instead of adding a fallback.
 - [x] Retire obsolete Scheme-only examples, commands and documentation. Keep
-  `build.scm` outside this migration and historical measurements identifiable.
+  historical measurements identifiable. `build.scm` now demonstrates ordinary
+  Chibi library composition from SFIR through Wasm to a linked native executable.
 - [x] Remove the boxed Scheme-value runtime and wrapper-finalizer bridge. Keep
   scalar host services, explicit resource cleanup and native managed roots.
 - [x] Validate the public command, imported libraries, error paths and actual
@@ -104,12 +107,22 @@ distinct from the core language contract.
   Report the Mperm timer correction as a distinct campaign.
 - [x] Complete focused clarity reviews of [recursive inference](../tests/sfir-recursion/README.md),
   [literal construction](../tests/sfir-literal-widths/README.md),
-  [checked arithmetic](../tests/sfir-arithmetic/README.md) and
+  [arithmetic lowering](../tests/sfir-arithmetic/README.md) and
   [shared I/O ownership](../lib/sfir/README.md). Retain independent explanations,
   rejected alternatives and target execution evidence for those concrete changes.
 - [ ] Investigate the measured full57 bottlenecks and continue scoped compiler
   and runtime simplification with type/ownership evidence and execution checks.
   Completed reviews do not establish universal optimization or explain every slowdown.
+- [x] Measure default arithmetic and direct native array access with unchanged
+  inputs and repeated Chez/Rust controls in the
+  [four-arm, six-workload ablation](../benchmarks/results/2026-10-15-arithmetic-array-ablation/README.md).
+  Retain the inlining experiment as evidence: its GCbench recovery trades off
+  against a substantial bytevector/string conversion regression.
+- [ ] Bound recursive code expansion while preserving useful helper inlining.
+  Measure both allocation-heavy and conversion-heavy workloads before changing
+  the global policy; smaller Wasm alone does not establish faster execution.
+- [ ] Ablate empty native root-frame calls, redundant zero fills and repeated
+  UTF-8 validation using the representation and execution contracts in that report.
 
 The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
 with frontend, integration, library, public-command and native execution checks.
@@ -122,7 +135,8 @@ SFIR trails Chez and Rust on all six aggregate comparisons. The later
 [packet-input comparison](../benchmarks/sfir/evidence/20261015-input-packets.md)
 measures one concrete I/O change separately; it is not a new full-suite result.
 The earlier [six-case measurements](../benchmarks/sfir/evidence/20261015-clean-six.md)
-remain historical. Compiler-service native target support stays deferred above.
+remain historical. The compiler service produces and executes Wasm; native
+loading remains a separate host adapter.
 
 The [corpus manifest](../benchmarks/sfir/corpus.json) tracks source presence,
 validation and measurement independently. Pre-migration strict-Scheme results

@@ -112,14 +112,14 @@ occupies each retained position once; no adjacency balance is claimed. Every
 retained observation contributes to its median/range and descriptive ratios.
 There is no trimming, replacement or adaptive stopping.
 
-The [runner](measure-seven.py) owns each original process group through actual
+The [runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-parsing-comparison/measure-seven.py) owns each original process group through actual
 leader wait status, descendant inspection, bounded cleanup and durable regular
 stdout/stderr byte captures. Parsing follows terminal evidence and closed
 handles. Unexpected executing descendants invalidate an attempt even when
 cleanup stops them. The frozen guests do not daemonize; original-group
 inspection does not establish absence of arbitrary escaped descendants.
 
-The [independent reviewer](review-raw.py) imports no runner and starts no guests.
+The [independent reviewer](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-parsing-comparison/review-raw.py) imports no runner and starts no guests.
 It independently derives the proper-list expectation from canonical input,
 checks all scheduled invocation/environment/process/capture fields and exact
 frames, and recomputes all medians/ranges and ratio directions. Rust's full
@@ -173,7 +173,7 @@ Independently replay the completed campaign without guests:
     python3 -B benchmarks/results/2026-10-14-strict-parsing-comparison/review-raw.py \
       --campaign build/parsing-clean-8930aaa --output build/parsing-review-copy.json
 
-[The evidence archive](artifacts.tar.xz) retains current frozen compiler/GC/host
+[The evidence archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-parsing-comparison/artifacts.tar.xz) retains current frozen compiler/GC/host
 sources, exact full inputs, source ledgers, current Wasm/native/LLVM and Chez
 artifacts, scalar providers, Rust controls, all 56 raw samples, diagnostics,
 synthetic captures, historical author evidence and its preserved failures, and

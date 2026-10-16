@@ -104,7 +104,7 @@ The frozen runner verifies identities before each sample and again after the
 last sample. Its actual supervision imports are the two archived modules
 `matrix_port.py` and `data_ports.py`. The broader compiler/build Python snapshot
 remains in the existing preparation archive. The independently written
-[`review.py`](review.py) checks their hashes and archive import origins,
+[`review.py`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-browse-comparison/review.py) checks their hashes and archive import origins,
 every raw record, complete frame, schedule, exact command, recorded environment,
 cleanup, balanced medians and the coordinator's saved independent audit.
 Working directories are explicit in every sample; stdin selection is recorded

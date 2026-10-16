@@ -2,42 +2,9 @@
 ;; trials use copies; only one applicable row may constrain the actual use.
 (define-library (snail-scheme strict-overloads)
   (export overload-class select-overload-view improve-overloads! require-overloads!
-          overload-view-instance overload-view-constraints duplicate-overload?
-          pending-overload-instances overload-instance-arity)
-  (import (scheme base) (snail-scheme strict-types) (snail-scheme strict-core)
-          (prefix (snail-scheme ir) ir:))
+          overload-view-instance overload-view-constraints duplicate-overload?)
+  (import (scheme base) (snail-scheme strict-types) (snail-scheme strict-core))
   (begin
-
-    ;; ---- Unfinished rows remain candidates ----
-
-    ;; Only an established fixed arity can exclude an unfinished row. Lambda
-    ;; syntax and completed schemes establish arity without inspecting a body.
-    (define (fixed-arity type)
-      (and (function-type? type) (not (function-rest type)) (length (function-domains type))))
-    (define (expression-arity node seen)
-      (cond ((ir:lambda? node) (and (not (ir:lambda-opt-rest-parameter node)) (length (ir:lambda-parameters node))))
-            ((ir:name? node) (binding-arity (ir:name-definition node) seen))
-            ((ir:annotation? node) (expression-arity (ir:annotation-expression node) seen))
-            ((ir:instantiation? node) (expression-arity (ir:instantiation-expression node) seen))
-            (else #f)))
-    (define (binding-arity binding seen)
-      (and (not (memq binding seen))
-           (or (fixed-arity (scheme-type (ir:binding-scheme binding)))
-               (let ((source (if (eq? (ir:binding-kind binding) 'value)
-                                 (car (ir:binding-payload binding)) (ir:binding-initializer binding))))
-                 (and source (expression-arity source (cons binding seen)))))))
-    (define (overload-instance-arity instance)
-      (if (instance-scheme instance) (fixed-arity (scheme-type (instance-scheme instance)))
-          (binding-arity (cdar (instance-members instance)) '())))
-    (define (pending-overload-instances class arity instances)
-      (let collect ((remaining instances))
-        (cond ((null? remaining) '())
-              ((and (eq? class (instance-class (car remaining)))
-                    (not (instance-scheme (car remaining)))
-                    (let ((known (overload-instance-arity (car remaining))))
-                      (or (not arity) (not known) (= arity known))))
-               (cons (car remaining) (collect (cdr remaining))))
-              (else (collect (cdr remaining))))))
 
     ;; ---- Fresh row views and isolated compatibility trials ----
 
@@ -66,7 +33,6 @@
     (define (overload-candidates class type instances)
       (cond ((null? instances) '())
             ((and (eq? class (instance-class (car instances)))
-                  (instance-scheme (car instances))
                   (compatible? (scheme-type (instance-scheme (car instances))) type #t))
              (cons (car instances) (overload-candidates class type (cdr instances))))
             (else (overload-candidates class type (cdr instances)))))
@@ -84,7 +50,6 @@
     (define (duplicate-overload? class scheme instances)
       (and (pair? instances)
            (or (and (eq? class (instance-class (car instances)))
-                    (instance-scheme (car instances))
                     (equal? (scheme-key scheme) (scheme-key (instance-scheme (car instances)))))
                (duplicate-overload? class scheme (cdr instances)))))
 
@@ -95,11 +60,8 @@
         (and (compatible? (overload-view-type view) type #f)
              (begin (unify! (overload-view-type view) type loc) view))))
     (define (select-overload-view class type instances loc required?)
-      (let ((pending (pending-overload-instances class (fixed-arity type) instances))
-            (candidates (overload-candidates class type instances)))
-        (cond ((pair? pending)
-               (and required? (strict-error loc "overload signature is not yet inferred; provide an explicit signature")))
-              ((null? candidates) (strict-error loc "no compatible overload signature" type))
+      (let ((candidates (overload-candidates class type instances)))
+        (cond ((null? candidates) (strict-error loc "no compatible overload signature" type))
               ((and (null? (cdr candidates)) (function-type? type))
                (or (apply-overload-view (car candidates) type loc)
                    (and required? (strict-error loc "overload cannot satisfy rigid signature" type))))

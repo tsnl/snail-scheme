@@ -232,7 +232,7 @@ the requested result file.
 
 The compact findings are in [summary.json](summary.json), with exact hashes in
 [evidence-manifest.json](evidence-manifest.json), the
-[probe archive](probe.tar.xz), and its
+[probe archive](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-13-strict-quicksort-profile/probe.tar.xz), and its
 [restoration verification](archive-verification.json). The
 [neutral review brief](review-brief.md) identifies requirements and limits for the
 parent's fresh explanation and critical debate.

@@ -141,7 +141,7 @@ nor these checks imply equal allocation counts or an isolated GC comparison.
 
 ## Frozen plan and failures
 
-[The plan](timing-plan.md) and [standalone runner](measure-seven.py) specify 112
+[The plan](timing-plan.md) and [standalone runner](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/results/2026-10-14-strict-reader-preparation/measure-seven.py) specify 112
 serial fresh processes: one discarded plus seven balanced retained samples for
 each of seven systems, separately for each workload. All original inputs,
 selected artifacts, module/provider glue, runtime archive and tool identities
