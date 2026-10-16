@@ -63,6 +63,22 @@ exports. `check-provider-bindings` verifies required declarations before linking
 `source-hashes`, `check-stable-inputs`, `rust-source-inputs` and `native-evidence`
 support retained input and artifact evidence for a surrounding build command.
 
+## Native array representation
+
+Arrays contain an eight-byte kind word, an eight-byte unsigned length, then
+tightly packed elements at byte offset 16. Validated Wasm establishes the array
+type and element width: one or two bytes for packed integers, four for `i32` and
+`f32`, and eight for `i64`, `f64` and references.
+
+LLVM lowering checks null and immediate tags before loading the length. Element
+access then zero-extends the `i32` index, compares it unsigned against the length,
+and computes the address with the known storage width. The checks occur after
+operand evaluation and before their protected memory access. Packed extension,
+truncation and floating-point bits retain their Wasm semantics. These operations
+do not collect or change root publication; allocation, initialization and bulk
+copy remain in Rust. The exported Rust `native_array_length` and
+`native_array_slot` functions remain for previously emitted native objects.
+
 ## Shared Wasm and host utilities
 
 Libraries such as `(wasm-native wasm)`, `(wasm-native wasm-optimize)`,

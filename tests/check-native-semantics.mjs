@@ -1,4 +1,4 @@
-// Both backends consume the same module datum; native-only host checks live in C.
+// Both backends consume the same module datum; native host checks live in Rust.
 import { readFile, writeFile } from 'node:fs/promises';
 const { instance } = await WebAssembly.instantiate(await readFile(process.argv[2]));
 const wasm = instance.exports;
@@ -6,6 +6,19 @@ if (wasm.check() !== 0 || wasm.tail(2000000) !== 42n || wasm.root(500) !== 99n)
   throw new Error('Wasm reference result differs');
 if (wasm['storage-identity']() !== 1 || wasm['storage-roots']() !== 77n || wasm['storage-check'](0x12345) !== 1)
   throw new Error('Wasm array storage result differs');
+const array = wasm['storage-u8'](3, 0x45), empty = wasm['storage-u8'](0, 0);
+if (wasm['storage-access'](array, 0, 0) !== 3 || wasm['storage-access'](empty, 0, 0) !== 0 ||
+    wasm['storage-access'](array, 2, 1) !== 0x45 || wasm['storage-access'](array, 1, 2) !== 42 ||
+    wasm['storage-access'](array, 1, 1) !== 42)
+  throw new Error('Wasm dynamic array access differs');
+for (const [reference, index, operation] of [[null, 0, 0], [null, 0, 1], [null, 0, 2],
+    [empty, 0, 1], [empty, 0, 2], [array, 0x80000000, 1], [array, 0x80000000, 2]]) {
+  let trapped = false;
+  try { wasm['storage-access'](reference, index, operation); }
+  catch (error) { if (!(error instanceof WebAssembly.RuntimeError)) throw error; trapped = true; }
+  if (!trapped || wasm['storage-order']() !== operation)
+    throw new Error('Wasm array trap or operand order differs');
+}
 if (wasm['i31-s'](-2147483648) !== 0 || wasm['i31-s'](1073741824) !== -1073741824 ||
     wasm['i31-s'](-1) !== -1 || wasm['i31-u'](-1) !== 2147483647)
   throw new Error('Wasm i31 result differs');

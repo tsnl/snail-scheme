@@ -360,6 +360,8 @@ pub unsafe extern "C" fn native_array_new(
     reference
 }
 
+// Kept for previously emitted native objects. Current LLVM lowering performs
+// the same checked header/address operations directly; allocation stays here.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn native_array_length(reference: u64) -> u32 {
     unsafe { *object_words(reference).add(1) as u32 }

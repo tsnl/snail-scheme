@@ -77,9 +77,14 @@ unsafe extern "C" {
     fn storage_identity() -> u32;
     #[link_name = "wasm.storage-roots"]
     fn storage_roots() -> u64;
+    #[link_name = "wasm.storage-access"]
+    fn storage_access(reference: u64, index: u32, operation: u32) -> u32;
+    #[link_name = "wasm.storage-order"]
+    fn storage_order() -> u32;
 }
 
 use snail_runtime::native::{self, NativeRoots};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 // ---- Inspect returned references only across nonallocating host operations ----
 
@@ -123,7 +128,44 @@ unsafe fn check_array_storage() {
             (storage_identity(), storage_roots(), storage_check(0x12345)),
             (1, 77, 1)
         );
+        let array = storage_u8(3, 0x45);
+        assert_eq!(storage_access(array, 0, 0), 3);
+        assert_eq!(storage_access(array, 2, 1), 0x45);
+        assert_eq!(storage_access(array, 1, 2), 42);
+        assert_eq!(storage_access(array, 1, 1), 42);
+        assert_eq!(storage_access(storage_u8(0, 0), 0, 0), 0);
+        // Probe every length result bit through the native ABI without a
+        // multi-gigabyte allocation. This header permits no payload access.
+        let header = [0_u64, u32::MAX as u64];
+        assert_eq!(storage_access(header.as_ptr() as u64, 0, 0), u32::MAX);
     }
+}
+
+// ---- Operand side effects survive the native trap exit ----
+
+static EXPECTED_STORAGE_ORDER: AtomicU32 = AtomicU32::new(0);
+
+extern "C" fn check_storage_order() {
+    assert_eq!(
+        unsafe { storage_order() },
+        EXPECTED_STORAGE_ORDER.load(Ordering::Relaxed)
+    );
+}
+
+unsafe fn trap_array_access(reference: &str, operation: u32) {
+    unsafe extern "C" {
+        fn atexit(callback: extern "C" fn()) -> i32;
+    }
+    EXPECTED_STORAGE_ORDER.store(operation, Ordering::Relaxed);
+    assert_eq!(unsafe { atexit(check_storage_order) }, 0);
+    let (reference, index) = match reference {
+        "null" => (0, 0),
+        "i31" => (3, 0),
+        "empty" => (unsafe { storage_u8(0, 0) }, 0),
+        "upper" => (unsafe { storage_u8(3, 0) }, 0x8000_0000),
+        _ => panic!("unknown array reference probe"),
+    };
+    unsafe { storage_access(reference, index, operation) };
 }
 
 unsafe fn saturation(input: &str) {
@@ -221,6 +263,10 @@ fn main() {
             }
             Some("storage-trap") => {
                 storage_trap(arguments[2].parse().unwrap());
+                support::finish(2);
+            }
+            Some("storage-access-trap") => {
+                trap_array_access(&arguments[2], arguments[3].parse().unwrap());
                 support::finish(2);
             }
             Some("subtype-trap") => {

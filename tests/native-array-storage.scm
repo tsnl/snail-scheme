@@ -46,6 +46,28 @@
           (i32.and (ref.eq (global.get $empty-one) (global.get $empty-one))
                    (i32.eqz (ref.eq (global.get $empty-one) (global.get $empty-two)))))
 
+    ;; Dynamic references keep access checks present through Binaryen. The host
+    ;; also probes tagged native words; operand side effects precede each trap.
+    (global $storage-order (mut i32) (i32.const 0))
+    (func (export "storage-order") (result i32) (global.get $storage-order))
+    (func (export "storage-access")
+          (param $array (ref null $storage-u8)) (param $index i32) (param $operation i32) (result i32)
+          (global.set $storage-order (i32.const 0))
+          (if (result i32) (i32.eqz (local.get $operation))
+              (then (array.len (local.get $array)))
+              (else
+               (if (result i32) (i32.eq (local.get $operation) (i32.const 1))
+                   (then (array.get_u $storage-u8 (local.get $array)
+                                      (block (result i32) (global.set $storage-order (i32.const 1))
+                                             (local.get $index))))
+                   (else
+                    (array.set $storage-u8 (local.get $array)
+                               (block (result i32) (global.set $storage-order (i32.const 1))
+                                      (local.get $index))
+                               (block (result i32) (global.set $storage-order (i32.const 2))
+                                      (i32.const 42)))
+                    (i32.const 42))))))
+
     ;; Earlier references exist only on the operand stack while later operands
     ;; allocate. Forced collection must retain them without a local or global alias.
     (func (export "storage-roots") (result i64)
