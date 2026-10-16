@@ -454,7 +454,9 @@ and clean measurement are distinct statuses. Compiler traces and instrumented
 runs explain work; they are not substituted for clean timing runs.
 
 `benchmarks/sfir/runner.scm` freezes the compiler, corpus inputs, selected Rust
-installation and locked crate sources, then validates each target route.
+installation and locked crate sources, then validates each workload's target
+routes in a fresh process. It retains scheduler output and termination status,
+records incomplete routes, and continues the remaining selected workloads.
 Dynamic, Scheme and SLaTeX keep their complete workload and resource
 contracts in local verifiers and native entries; the runner owns fixture copies,
 tool invocation and artifact parity. Scheme's interpreter is benchmark code.
