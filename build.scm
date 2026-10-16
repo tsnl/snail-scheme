@@ -3,7 +3,7 @@
 ;; From any working directory, using absolute paths:
 ;;   chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
 ;;     "$repo" "$repo/examples/native/answer.sld" answer \
-;;     "$repo/examples/native/entry.rs" /tmp/sphere-answer
+;;     "$repo/examples/native/entry.rs" /tmp/lofi-answer
 (import (scheme base) (scheme process-context) (chibi filesystem)
         (wasm-native) (wasm-native process) (wasm-native chromium-trace)
         (lofi compiler bootstrap) (lofi source-driver)
@@ -23,7 +23,7 @@
 (define runtime-root (path-join root "wasm-native"))
 (when (or (paths-alias? output source) (paths-alias? output rust-entry))
   (error "build output must not replace an input"))
-(define directory (make-build-directory (path-directory output) "sphere-build-"))
+(define directory (make-build-directory (path-directory output) "lofi-build-"))
 (define binary (path-join directory "program.wasm"))
 (define llvm (path-join directory "program.ll"))
 (define bitcode (path-join directory "program.bc"))

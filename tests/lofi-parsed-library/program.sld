@@ -90,14 +90,19 @@
          (lambda (base)
            (begin
              (let provider (require (parse-library "macros.sld"
-                                                   "(define-library (macros) (import (lofi primitive)) (export increment)
+                                                   "(define-library (macros) (import (lofi primitive)) (export define-entry)
                   (begin (def helper (lambda (x) (i32-add x 1)))
                     (def private (syntax-rules () ((_ x) (helper x))))
-                    (def increment (syntax-rules () ((_ x) (private x))))))")))
+                    (def define-entry
+                      (syntax-rules ()
+                        ((_ name value)
+                         (library-begin
+                           (def private-value (lambda () (private value)))
+                           (def name (lambda () (private-value)))))))))")))
              (let providers (require (library-map-insert base (key "macros") provider)))
              (let consumer (require (parse-library "macro-consumer.sld"
-                                                   "(define-library (consumer) (import (rename (macros) (increment inc))) (export run)
-                  (begin (def helper (lambda (x) 999)) (def run (lambda () (inc 41)))))")))
+                                                   "(define-library (consumer) (import (rename (macros) (define-entry define-run))) (export run)
+                  (begin (def helper (lambda (x) 999)) (define-run run 41)))")))
              (let libraries (require (library-map-insert providers (key "consumer") consumer)))
              (expect-i32 (run libraries "consumer" "run") 42)
              (expect-i32 (run libraries "consumer" "run") 42))))
