@@ -1,5 +1,7 @@
 //! Input transport owns decimal bytes; the guest performs all arithmetic.
+//! Black-box returns preserve input and hide opacity across the native LTO link.
 
+use std::hint::black_box;
 use std::io::{self, Write};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -54,22 +56,22 @@ fn input() -> &'static Input {
 
 #[unsafe(export_name = "input_i64")]
 pub extern "C" fn input_i64(index: i32) -> i64 {
-    input().values[index as usize]
+    black_box(input().values[index as usize])
 }
 
 #[unsafe(export_name = "expected_count")]
 pub extern "C" fn expected_count() -> i64 {
-    input().expected.len() as i64
+    black_box(input().expected.len() as i64)
 }
 
 #[unsafe(export_name = "expected_length")]
 pub extern "C" fn expected_length(index: i64) -> i64 {
-    input().expected[index as usize].len() as i64
+    black_box(input().expected[index as usize].len() as i64)
 }
 
 #[unsafe(export_name = "expected_character")]
 pub extern "C" fn expected_character(index: i64, at: i64) -> u32 {
-    input().expected[index as usize].as_bytes()[at as usize] as u32
+    black_box(input().expected[index as usize].as_bytes()[at as usize] as u32)
 }
 
 #[unsafe(export_name = "hide_i64")]
@@ -77,7 +79,7 @@ pub extern "C" fn hide_i64(value: i64) -> i64 {
     if OBSERVE_BARRIERS {
         BARRIERS.fetch_add(1, Ordering::Relaxed);
     }
-    value
+    black_box(value)
 }
 
 #[unsafe(no_mangle)]

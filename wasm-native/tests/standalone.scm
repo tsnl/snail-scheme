@@ -1,5 +1,5 @@
 ;; This script needs only this package's scheme/ and tests/ include paths.
-(import (scheme base) (scheme write) (scheme process-context) (chibi filesystem)
+(import (scheme base) (scheme file) (scheme write) (scheme process-context) (chibi filesystem)
         (only (chibi string) string-contains)
         (wasm-native) (wasm-native process) (wasm-native test-utils)
         (only (wasm-native wasm-optimize) assemble-wasm)
@@ -9,6 +9,7 @@
 (define directory (make-build-directory (path-join root "build") "standalone-"))
 (define binary (path-join directory "authored.wasm"))
 (define llvm (path-join directory "module.ll"))
+(define bitcode (path-join directory "module.bc"))
 (define object (path-join directory "module.o"))
 (define imports (list (make-native-import "example" "example_hide" "example_hide" '(i64) 'i64)))
 (define providers (list (list "example" (path-join root "tests/provider.rs"))))
@@ -36,6 +37,13 @@
     (expect (option-ref trap 'status #f) 1)
     (expect (and (string-contains (option-ref trap 'stderr "") "WebAssembly trap") #t) #t)))
 
+(define (check-linked-artifact artifact name)
+  (let ((linked (path-join (substring directory (+ 1 (string-length root))) name)))
+    (expect (file-exists? linked) #f)
+    (check-execution
+     (link-native-object "." (substring artifact (+ 1 (string-length root))) "tests/entry.rs"
+                         '(("example" "tests/provider.rs")) linked))))
+
 (parameterize ((current-command-records '()) (current-command-log (path-join directory "commands.json")))
   (with-chromium-trace-to
    (path-join directory "assemble.trace.json")
@@ -43,13 +51,15 @@
   (append-custom-section binary)
   (check-provider-bindings (native-imports->bindings imports) (apply rust-bindings (car providers)))
   (wasm-binary->llvm binary imports directory llvm)
+  (llvm-bitcode llvm bitcode)
   (llvm-object llvm object)
+  (expect (bytevector-copy (read-bytes bitcode) 0 4) #u8(66 67 192 222))
+  (expect (bytevector-copy (read-bytes object) 0 4) #u8(127 69 76 70))
+  ;; Saved machine objects must link without their optimization intermediates.
+  (delete-file (string-append object ".bc"))
   (let ((supervisor (ensure-native-supervisor root)))
     (parameterize ((current-process-supervisor supervisor))
-      (expect (file-exists? (path-join directory "linked")) #f)
-      (check-execution
-       (link-native-object "." (substring object (+ 1 (string-length root))) "tests/entry.rs"
-                           '(("example" "tests/provider.rs"))
-                           (path-join (substring directory (+ 1 (string-length root))) "linked"))))))
+      (check-linked-artifact bitcode "linked-bitcode")
+      (check-linked-artifact object "linked-object"))))
 (display directory)
 (newline)
