@@ -44,7 +44,7 @@
     (define (optimize-wasm input output)
       (run-command "build.optimize-wasm"
                    (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
-                           (list "-O3" "--closed-world" "--always-inline-max-function-size=40"
+                           (list "-O3" "--closed-world"
                                  "--converge" input "-o" output))))
 
     ))
