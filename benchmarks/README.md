@@ -82,6 +82,11 @@ call-site candidate reduces GCbench time by 8.85% against its matched control
 but takes 1.95% more time than the earlier inline prototype. The larger GC
 budget remains experimental, with pause and memory limits recorded separately.
 
+The [rejected sweep bitmap experiment](results/2026-10-16-native-sweep-probe/README.md)
+retains all 18 attempts and its pre-run acceptance rule. Publishing each bitmap
+word once gives a 0.97% higher GCbench median with overlapping ranges, so no gain
+is established and the prototype remains unlanded.
+
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not
 replace this full-suite freeze. The earlier
