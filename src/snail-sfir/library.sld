@@ -189,7 +189,7 @@
                   (unless (equal? (car data) (cadr data))
                     (error "static definition kind mismatch" (node-loc node) (cadr data)))
                   (caddr data))
-                (refine-node! node (node-kind node) (node-type node) data (node-constraints node)))))
+                (begin (resolve-node-data! node data) node))))
         (define (walk object)
           (cond ((scoped-reference? object) (resolve-reference object scope imports))
                 ((assq object aliases) => cdr)
