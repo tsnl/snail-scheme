@@ -1,7 +1,7 @@
 ;; Public boundary: Wasm bytes and declared physical imports enter native lowering.
 (define-library (wasm-native)
   (export make-native-import native-import? native-imports->bindings
-          wasm-binary->llvm llvm-object link-native-object
+          wasm-binary->llvm llvm-bitcode llvm-object link-native-object
           rust-bindings runtime-bindings check-provider-bindings
           native-cargo-environment native-system-environment ensure-native-supervisor
           rust-source-inputs source-hashes check-stable-inputs native-evidence)

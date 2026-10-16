@@ -29,8 +29,8 @@ works from outside the repository. A Sphere build additionally passes
 (define imports
   (list (make-native-import "host" "read" "host_read" '(i32) 'i64)))
 (wasm-binary->llvm "program.wasm" imports "build/program" "build/program/module.ll")
-(llvm-object "build/program/module.ll" "build/program/module.o")
-(link-native-object runtime-root "build/program/module.o" "entry.rs"
+(llvm-bitcode "build/program/module.ll" "build/program/module.bc")
+(link-native-object runtime-root "build/program/module.bc" "entry.rs"
                     '(("host" "provider.rs")) "build/program")
 ```
 
@@ -42,20 +42,23 @@ actual Wasm signatures fail before linking.
 
 `wasm-binary->llvm` retains `optimized.wasm`, `optimized.wat`, `reader.scm` and
 `native.trace.json` in the supplied directory. It returns the LLVM output path.
-`llvm-object` runs LLVM optimization and object emission. Keeping these operations
-separate lets a host append a fixed entry bridge before object emission.
+`llvm-bitcode` runs LLVM optimization and retains bitcode for shared optimization
+with Rust at the final link. `llvm-object` additionally emits a real ELF machine
+object for saved artifacts. Keeping these operations separate lets a host append
+a fixed entry bridge before choosing the artifact format.
 
 `link-native-object` takes this project's directory as `runtime-root`,
-an object, an ordinary Rust crate-root entry file, provider declarations, and a
-retained build directory.
+LLVM bitcode or an ELF machine object, an ordinary Rust crate-root entry file,
+provider declarations, and a retained build directory.
 Relative paths are resolved from the caller's working directory before Cargo
 files are generated. The retained build directory is created when absent.
 Providers are `(module-name rust-source-path)` pairs. Each compiles as a separate
-Cargo dependency; the guest is already machine code,
-so Rust LTO cannot optimize through guest calls to those providers. The returned
-executable is `program` in the retained directory. The custom entry explicitly
-initializes the runtime and invokes the desired Wasm exports; no source-language
-command policy is assumed.
+Cargo dependency. Linker-plugin fat LTO optimizes guest bitcode together with the
+Rust entry, runtime and providers. An ELF input links independently; its guest
+bodies are already machine code and cannot participate in that optimization.
+The returned executable is `program` in the retained directory. The custom entry
+explicitly initializes the runtime and invokes the desired Wasm exports; no
+source-language command policy is assumed.
 
 `rust-bindings` reads literal `#[unsafe(export_name = "name")] pub extern "C"`
 scalar declarations. `runtime-bindings` describes the shared runtime's scalar
@@ -105,14 +108,17 @@ Binary input lowering requires Chibi, Binaryen `wasm-opt`/`wasm-dis`, LLVM
 `opt`/`llc`, and coreutils. Structured Wasm assembly adds `wasm-as`; runtime Wasm
 linking adds `wasm-merge`. Native linking requires Cargo, Rust's `rust-lld`, the
 cached `libc` crate, and Linux libc startup/runtime objects plus `libgcc_s`.
+The LLVM tools and Rust's bundled linker must accept compatible bitcode versions.
 It does not invoke a C compiler driver. The current target is x86-64 Linux;
 unsupported Wasm declarations and instructions fail explicitly. In particular,
 native lowering does not implement linear memories, multivalue signatures or
 parameterized blocks.
 
 `SNAIL_NATIVE_LIBC` and `SNAIL_NATIVE_GCC` select the system library directories.
-Native build helpers provide the Rust linker arguments. For direct Cargo commands
-and cross-compilation host build scripts, use the package's compiler wrapper:
+Native executable builds supply the Rust linker arguments and default to this
+package's compiler wrapper, preserving an explicit `RUSTC_WRAPPER` setting.
+Their explicit native target keeps LTO flags off host build scripts; the wrapper
+supplies those scripts' linker. For direct Cargo commands, use the same wrapper:
 
 ```sh
 export RUSTC_WRAPPER="$PWD/scripts/rustc-native"
@@ -123,7 +129,8 @@ chibi-scheme -I scheme -I tests tests/standalone.scm
 ```
 
 Run those commands from this directory. `tests/standalone.scm` builds an
-independently authored Wasm module with a Rust scalar provider, runs it with
+independently authored Wasm module with a Rust scalar provider, links both LLVM
+bitcode and a saved ELF object without its bitcode companion, runs each with
 forced GC, checks a trap, and prints the retained directory. It uses only this
 project's Scheme and test paths. An optional Node/V8 parity check runs the exact
 optimized Wasm:

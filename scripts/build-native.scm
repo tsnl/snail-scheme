@@ -66,16 +66,17 @@
     binary))
 (define (compile-native root options directory bindings)
   (let* ((source (option-ref options 'source #f)) (mode (option-ref options 'mode 'sfir))
-         (llvm (path-join directory "module.ll")) (object (path-join directory "module.o")))
+         (llvm (path-join directory "module.ll"))
+         (guest (path-join directory (if (eq? mode 'object) "module.o" "module.bc"))))
     (with-chromium-trace-to
      (path-join directory "compile.trace.json")
      (lambda ()
-       (cond ((eq? mode 'object) (write-bytes object (read-bytes source)))
-             ((eq? mode 'llvm) (write-text llvm (read-text source)) (llvm-object llvm object))
+       (cond ((eq? mode 'object) (write-bytes guest (read-bytes source)))
+             ((eq? mode 'llvm) (write-text llvm (read-text source)) (llvm-bitcode llvm guest))
              (else (wasm-binary->llvm (if (eq? mode 'wasm) source (source-wasm root options directory))
                                       (map import-record bindings) directory llvm)
-                   (llvm-object llvm object)))))
-    (link-native-object (path-join root "wasm-native") object
+                   (llvm-bitcode llvm guest)))))
+    (link-native-object (path-join root "wasm-native") guest
                         (or (option-ref options 'entry #f) (command-entry llvm directory))
                         (all-options options 'provider) directory)))
 
