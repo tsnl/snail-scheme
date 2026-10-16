@@ -99,3 +99,20 @@ Benchmarks have their own [frozen protocol](../benchmarks/README.md). Record
 compilation and execution separately; preserve failures and compare complete
 matched workloads. Run clean timing samples without concurrent compilation,
 profiling or forced-GC jobs.
+
+For compiler depth diagnostics, run
+[`compile-cost.scm`](../tests/sfir-generation/compile-cost.scm) against the selected
+checkout's module roots:
+
+```sh
+chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" \
+  tests/sfir-generation/compile-cost.scm 64 128 256 512
+```
+
+The same script works with another revision's roots. It reports checking,
+concrete preparation and Wasm emission separately for nested addition, discarded
+conditionals and generic calls with a fixed result type. These are synthetic
+compiler diagnostics; the script does not execute the generated Wasm or assert
+timing thresholds. Instrumented call counts help explain costs, while clean
+comparisons require uninstrumented runs without concurrent jobs. Keep these
+diagnostics separate from the complete 57-workload benchmark comparison.
