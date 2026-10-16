@@ -255,16 +255,6 @@
                   (lambda (index result)
                     (if (= index (ann 0 I64)) result (loop (- index (ann 1 I64)) (cons (string-ref source (- index (ann 1 I64))) result)))))
              (loop (string-length source) (empty-list )))))
-    (def substring
-         (lambda (source start end)
-           ;; Validate before allocation; the difference is then nonnegative and
-           ;; bounded by the source length, so I64 subtraction cannot wrap.
-           (if (if (< start (ann 0 I64)) #t (if (< end start) #t (> end (string-length source))))
-               (unreachable)
-               (begin (let result (make-string (- end start)))
-                      (begin
-                        (string-copy! result (ann 0 I64) source start end)
-                        result)))))
     (def string-copy
          (lambda (source) (substring source (ann 0 I64) (string-length source))))
     (def string-append
@@ -292,14 +282,4 @@
                       (begin
                         (string-copy! result offset (car sources) (ann 0 I64) count)
                         (append-strings-into! result (cdr sources) (+ offset count)))))))
-    (def string=?
-         (lambda (left right)
-           (if (= (string-length left) (string-length right))
-               (begin
-                 (def loop
-                      (lambda (index)
-                        (if (= index (string-length left))
-                            #t
-                            (if (char=? (string-ref left index) (string-ref right index)) (loop (+ index (ann 1 I64))) #f))))
-                 (loop (ann 0 I64)))
-               #f)))))
+    ))

@@ -1,0 +1,21 @@
+{
+  "implementation_revision": "9866b56696ef9128edf38417280aa5d7ddeaaa19",
+  "main_base": "d656799614a17cca9b21f934e18d283d5abec47b",
+  "host_tests": "make test: passed",
+  "benchmark_recompile": {
+    "command": [
+      "scripts/build-sfir",
+      "--export",
+      "bench",
+      "benchmarks/sfir/bv2string/main.sfir",
+      "build/utf8-rebased/bv2string.wasm"
+    ],
+    "environment": {
+      "BINARYEN_CORES": "1"
+    },
+    "raw_sha256": "79aedd08f4d0b3269abc86f62e9f6361e2d20d7712ab792217cfd1d3240f6aa9",
+    "optimized_sha256": "f342f4137b95feeceadfbf5b58306c5a1dda52c0b5bbb462e353576bb49f94ea",
+    "byte_identical_to_measured_candidate": true
+  },
+  "no_retiming": true
+}
