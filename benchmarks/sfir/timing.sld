@@ -22,7 +22,9 @@
     (define (require-clean-environment manifest)
       (for-each (lambda (name)
                   (let ((value (field (field manifest 'execution_environment) name 'null)))
-                    (unless (or (eq? value 'null) (not value) (equal? value ""))
+                    ;; Native GC statistics use presence, even an empty value.
+                    (unless (or (eq? value 'null) (not value)
+                                (and (equal? value "") (not (eq? name 'SNAIL_GC_STATS))))
                       (error "clean timing excludes active observation settings" name value)))) observers)
       (tool manifest 'TASKSET))
 
@@ -438,10 +440,21 @@
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
       (define (test-clean-environment)
-        (let ((manifest '((tools . ((TASKSET . ((path . "/taskset")))))
-                          (execution_environment . ((NODE_OPTIONS . "--cpu-prof"))))))
-          (expect (rejected? (lambda () (require-clean-environment manifest))) #t)
-          (require-clean-environment (fields-with manifest (cons 'execution_environment '((NODE_OPTIONS . "")))))))
+        (let ((manifest '((tools . ((TASKSET . ((path . "/taskset"))))))))
+          (for-each
+           (lambda (environment)
+             (expect (require-clean-environment (fields-with manifest (cons 'execution_environment environment))) "/taskset"))
+           '(() ((SNAIL_GC_STATS . null)) ((SNAIL_GC_STATS . #f))
+             ((NODE_OPTIONS . null) (LD_PRELOAD . null))
+             ((NODE_OPTIONS . "") (LD_PRELOAD . ""))
+             ((NODE_V8_COVERAGE . "") (SNAIL_NATIVE_GC_INTERVAL . ""))))
+          (for-each
+           (lambda (environment)
+             (expect (rejected? (lambda () (require-clean-environment
+                                            (fields-with manifest (cons 'execution_environment environment))))) #t))
+           '(((SNAIL_GC_STATS . "")) ((SNAIL_GC_STATS . "0")) ((SNAIL_GC_STATS . "1"))
+             ((NODE_OPTIONS . "--cpu-prof")) ((LD_PRELOAD . "/observer.so"))
+             ((NODE_V8_COVERAGE . "/coverage")) ((SNAIL_NATIVE_GC_INTERVAL . "1"))))))
 
       (define (test-canonical-timers)
         (let ((spec '((name . "ack") (count . 2) (expected . 32765))))
