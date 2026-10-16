@@ -62,6 +62,9 @@ body_clause ::= "(" "begin" library_statement … ")"
 
 library_statement ::= statement
                     | static_definition
+                    | library_splice
+
+library_splice ::= "(" "library-begin" library_statement … ")"
 
 import_set ::= library_name
              | "(" "only" import_set name … ")"
@@ -79,6 +82,11 @@ rename lists the local name followed by the public name.
 
 Multiple body clauses concatenate their statements in source order. Import
 clauses supply bindings to the whole body; they are not executable statements.
+Within a body, `library-begin` splices several forms into the same library scope;
+it is useful when a [macro](macros.md#producing-several-library-declarations)
+generates a type and several operations together. Ordinary expression `begin`
+still creates a lexical block. Neither body macros nor splices may generate
+import, export or `define-library` directives.
 
 ## Exports and imports
 

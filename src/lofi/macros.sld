@@ -45,7 +45,7 @@
       (make-transformer rules environment) transformer?
       (rules transformer-rules) (environment transformer-environment))
     (define core-syntax-names
-      '(def lambda if let begin ann inst match datatype typeclass instance
+      '(def lambda if let begin library-begin ann inst match datatype typeclass instance
             define-overload define-extern syntax-rules define-syntax
             : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
@@ -341,12 +341,12 @@
             (and (eq? kind 'def) (= (length (parts form)) 3)
                  (if (null? environments) (headed? (caddr (parts form)) 'syntax-rules)
                      (eq? (form-kind (caddr (parts form)) (car environments)) 'syntax-rules))))))
-    (define (contains-transformer? form)
-      (or (macro-definition? form)
+    (define (contains-expansion-form? form)
+      (or (macro-definition? form) (headed? form 'library-begin)
           (and (list-syntax? form) (let scan ((forms (list-syntax-elements form)))
-                                     (and (pair? forms) (or (contains-transformer? (car forms)) (scan (cdr forms))))))))
+                                     (and (pair? forms) (or (contains-expansion-form? (car forms)) (scan (cdr forms))))))))
     (define (expansion-required? forms imports)
-      (or (let scan ((forms forms)) (and (pair? forms) (or (contains-transformer? (car forms)) (scan (cdr forms)))))
+      (or (let scan ((forms forms)) (and (pair? forms) (or (contains-expansion-form? (car forms)) (scan (cdr forms)))))
           (let scan ((bindings (import-environment imports)))
             (and (pair? bindings) (or (lexical-transformer (car bindings))
                                       (and (lexical-definition (car bindings))
@@ -418,8 +418,9 @@
               ((not (list-syntax? form)) form)
               (else (case (form-kind form environment)
                       ((lambda) (expand-lambda form environment))
-                      ((begin) (let-values (((body scope) (expand-body (cdr (parts form)) environment)))
+                      ((begin) (let-values (((body scope) (expand-body (cdr (parts form)) environment #f)))
                                  (rebuild form (cons (emit-identifier (head form) environment) body))))
+                      ((library-begin) (fail form "library-begin is only allowed in a library body"))
                       ((All) (let-values (((signature scope) (expand-all form environment))) signature))
                       ((datatype typeclass) (expand-quantified form environment))
                       ((instance) (expand-instance form environment))
@@ -527,19 +528,39 @@
               ((local-binding (lexical-name (car bindings)) (lexical-context (car bindings)) (expansion-bindings scope))
                (filter (cdr bindings)))
               (else (cons (car bindings) (filter (cdr bindings)))))))
-    (define (discover-definitions forms scope)
+    (define (add-discovered-definitions! forms scope)
+      (let ((additions (new-definitions forms scope)))
+        (unless (null? additions)
+          (set-expansion-bindings! scope (append additions (expansion-bindings scope)))
+          (check-discovery-reads (car (discovery-reads))))))
+    (define (library-splice-contents form scope)
+      (and (eq? (form-kind form scope) 'library-begin)
+           (begin (observe-identifier (head form) scope) (cdr (parts form)))))
+    ;; Expose one layer, preserving the children's syntax identities. The next
+    ;; discovery pass reserves those siblings before interpreting their heads.
+    (define (expose-library-splices forms scope)
+      (if (null? forms) (values '() #f)
+          (let ((children (library-splice-contents (car forms) scope)))
+            (let-values (((rest spliced?) (expose-library-splices (cdr forms) scope)))
+              (values (if children (append children rest) (cons (car forms) rest))
+                      (if children #t spliced?))))))
+    (define (discover-statement-heads forms scope)
+      (let ((before (expansion-budget)))
+        (let ((heads (map (lambda (form) (if (macro-definition? form scope) form (expand-head form scope))) forms)))
+          ;; Actual applications establish progress even if syntax repeats.
+          (values heads (< (expansion-budget) before)))))
+    (define (discover-definitions forms scope library?)
       (let discover ((forms forms))
-        (install-transformers! forms scope)
-        (let* ((heads (map (lambda (form) (if (macro-definition? form scope) form (expand-head form scope))) forms))
-               (additions (new-definitions heads scope)))
-          (if (null? additions) heads
+        (add-discovered-definitions! forms scope)
+        (let-values (((body spliced?) (if library? (expose-library-splices forms scope) (values forms #f))))
+          (if spliced? (discover body)
               (begin
-                (set-expansion-bindings! scope (append additions (expansion-bindings scope)))
-                (check-discovery-reads (car (discovery-reads)))
-                (discover heads))))))
-    (define (expand-body forms environment)
+                (install-transformers! body scope)
+                (let-values (((heads applied?) (discover-statement-heads body scope)))
+                  (if applied? (discover heads) heads)))))))
+    (define (expand-body forms environment library?)
       (let* ((scope (extend-environment (reserve-definitions forms environment) environment))
-             (heads (parameterize ((discovery-reads (list '()))) (discover-definitions forms scope))))
+             (heads (parameterize ((discovery-reads (list '()))) (discover-definitions forms scope library?))))
         (let-values (((statements final) (prepare-statements heads scope (expansion-bindings scope))))
           (values (expand-statements statements) final))))
 
@@ -589,10 +610,15 @@
         (for-each (lambda (binding) (check-import-collision binding (expansion-bindings outer)))
                   (expansion-bindings scope))
         (check-library-conflicts (expansion-parent scope) outer)))
+    (define (check-expanded-library-body forms)
+      (for-each (lambda (form)
+                  (when (or (headed? form 'import) (headed? form 'export) (headed? form 'define-library))
+                    (fail form "library directives are not allowed in expanded library bodies"))) forms))
     (define (expand-library-body forms imports)
       (parameterize ((expansion-budget 10000) (next-name 0))
         (let ((environment (extend-environment (import-environment imports) (extend-environment (core-environment) #f))))
-          (let-values (((expanded scope) (expand-body (library-body forms) environment)))
+          (let-values (((expanded scope) (expand-body (library-body forms) environment #t)))
+            (check-expanded-library-body expanded)
             (check-library-conflicts scope environment)
             (values (append (expand-directives forms scope) expanded)
                     (library-transformers scope environment) scope)))))
@@ -645,7 +671,21 @@
            "(def m (syntax-rules () ((_ x) #(x ...)))) 0"
            "(def m (syntax-rules () ((_ x) x))) (m)"
            "(def m (syntax-rules () ((_ (x ...) (y ...)) #((x y) ...)))) (m (1 2) (3))")))
+      (define (test-library-splices)
+        (let-values (((forms macros scope)
+                      (expand-library-body
+                       (reader->syntax-list (string->reader "splice-unit.sld" "(library-begin 1 (library-begin 2) 3) (library-begin) 4")) '())))
+          (expect (map syntax->datum forms) '(1 2 3 4)))
+        (for-each
+         (lambda (text) (expect (guard (failure (else #t)) (expanded-datum text) #f) #t))
+         '("(begin (library-begin 1))"
+           "(def m (syntax-rules () ((_) (library-begin 1)))) (lambda () (m))"
+           "(def m (syntax-rules () ((_) (import (missing))))) (m)"
+           "(library-begin (export))"
+           "(library-begin (library-begin (define-library (nested))))"
+           "(library-begin (def library-begin (lambda (x) x))) 0")))
       (define (test-macros)
         (run-test test-pattern-shapes)
-        (run-test test-transformer-rejections))))
+        (run-test test-transformer-rejections)
+        (run-test test-library-splices))))
    (else)))

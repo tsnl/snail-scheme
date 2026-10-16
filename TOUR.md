@@ -37,7 +37,9 @@ located library source → imported identities and hygienic expansion
 ```
 
 Macro transformers retain definition-site bindings, including private helpers.
-They disappear before ordinary type checking and code generation. Read the
+They can emit `library-begin` to introduce several declarations in one library
+scope. Transformers and splices disappear before ordinary type checking and code
+generation. Read the
 [macro and Scheme chapter](doc/book/lofi/macros.md) for supported forms and limits.
 Modules keep their decisions together; host unit tests live in final `Tests`
 sections under the `snail-tests` feature.

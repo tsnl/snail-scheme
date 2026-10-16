@@ -354,5 +354,16 @@
   {"name": "macro-dotted-template", "result": "42"},
   {"name": "macro-script-export", "result": "42", "exports": {"answer": "42"}},
   {"name": "reject-macro-import-ambiguity", "error": "conflicting imported bindings"},
-  {"name": "macro-keyword-alias", "result": "42"}
+  {"name": "macro-keyword-alias", "result": "42"},
+  {"name": "macro-library-declarations", "result": "42"},
+  {"name": "library-splice-scope", "result": "42"},
+  {"name": "library-splice-order", "result": "42"},
+  {"name": "macro-splice-shadow", "result": "42"},
+  {"name": "reject-library-splice-position", "error": "library-begin is only allowed in a library body"},
+  {"name": "reject-macro-splice-position", "error": "library-begin is only allowed in a library body", "diagnostic_source": "macro/declarations.sld"},
+  {"name": "reject-macro-import-directive", "error": "library directives are not allowed in expanded library bodies"},
+  {"name": "reject-macro-export-directive", "error": "library directives are not allowed in expanded library bodies"},
+  {"name": "reject-macro-splice-recursion", "error": "macro expansion limit exceeded"},
+  {"name": "reject-application-state", "error": "type mismatch|cannot unify"},
+  {"name": "reject-macro-begin-leak", "error": "unbound"}
 ]

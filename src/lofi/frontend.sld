@@ -14,7 +14,7 @@
     ;; ---- Located syntax and grammar ----
 
     (define keywords
-      '(def lambda if let begin ann inst match import export define-library
+      '(def lambda if let begin library-begin ann inst match import export define-library
             datatype typeclass instance define-overload define-extern
             : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))

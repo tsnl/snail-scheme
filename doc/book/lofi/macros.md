@@ -62,9 +62,49 @@ ordinary forward generated definitions are supported when no earlier decision
 changes. One library expansion has a 10,000-application limit, so runaway macro
 recursion produces a located diagnostic.
 
+## Producing several library declarations
+
+`(library-begin form ...)` splices its forms into the surrounding library body.
+It creates no lexical scope or runtime value. An imported macro can use it to
+define a nominal type, its operations, and an application registry together:
+
+```scheme
+(import (lofi core) (lofi base))
+(def define-counter
+  (syntax-rules ()
+    ((_ State make-state state-value advance)
+     (library-begin
+       (def State (datatype () (make-state (value I32 state-value))))
+       (def advance (-> State State)
+         (lambda (state) (make-state (+ (state-value state) 1))))))))
+
+(define-counter Counter make-counter counter-value advance)
+(counter-value (advance (make-counter 41))) ; 42
+```
+
+The caller supplies the public names. Template-introduced helper names remain
+hygienically private. Nested splices preserve source order, block-wide definition
+visibility, sequential bindings and definition-site macro capture. The expander
+reserves each newly exposed group of sibling definitions before interpreting its
+heads. Rebinding a core splice already consumed is rejected by the same recorded
+decision rule as other retroactive expansion changes.
+
+The form is valid only in a library body, including a script's implicit library.
+Inside `define-library`, write an application macro in a body clause, such as
+`(begin (application ...))`; the macro can return `library-begin`. The structural
+library header parser does not accept arbitrary macro clauses. An ordinary
+expression `begin` keeps its lexical scope, and a `library-begin` produced inside
+a lambda or expression block is an error.
+
+Imports, exports and `define-library` remain explicit source headers. Producing
+one during body expansion, directly or inside a splice, is a located error;
+expansion cannot silently add a dependency after resolution. Errors in an
+imported macro template retain that template's source location.
+
 The current declarative subset uses `...` only. Custom ellipsis identifiers,
 escaped ellipses, `let-syntax`, `letrec-syntax`, procedural transformers and
-arbitrary compile-time evaluation are not implemented. Kernel syntax remains
+arbitrary compile-time evaluation are not implemented. Custom type-operator
+macros remain outside the supported surface. Kernel syntax remains
 intrinsic for existing direct and constructed-library APIs; `(lofi core)` also
 exports named syntax bindings so libraries can explicitly import or rename it.
 

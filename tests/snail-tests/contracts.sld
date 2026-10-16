@@ -51,7 +51,8 @@
                                      (append-map (lambda (name) (list "--export" name)) names)))))
         (if (field case 'error)
             `((name . ,name) (compile . ,record)
-              (passed . ,(diagnostic? record source (field case 'error) (field case 'located #t))))
+              (passed . ,(diagnostic? record (field case 'diagnostic_source source)
+                                      (field case 'error) (field case 'located #t))))
             (begin
               (assert-equal (field record 'status) 0 name record)
               (for-each
