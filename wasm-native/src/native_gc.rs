@@ -607,10 +607,22 @@ impl Collector {
 
     unsafe fn sweep_region(&mut self, region: usize) {
         for index in 0..self.regions[region].used_blocks {
-            unsafe { self.sweep_starts(region, index) };
+            let live_lines = self.regions[region].blocks[index]
+                .lines
+                .iter()
+                .filter(|&&line| line != 0)
+                .count();
+            if live_lines == 0 {
+                // Tracing marks every line of a live allocation, including
+                // large continuations. Finalizers ran before this sweep;
+                // clearing exact membership makes stale headers unreachable.
+                self.regions[region].blocks[index].starts.fill(0);
+            } else {
+                unsafe { self.sweep_starts(region, index) };
+            }
             let block = &mut self.regions[region].blocks[index];
-            block.live_lines = block.lines.iter().filter(|&&line| line != 0).count();
-            if block.live_lines == 0 {
+            block.live_lines = live_lines;
+            if live_lines == 0 {
                 block.span = 0;
             }
             // Live large continuation and tail blocks stay entirely reserved.
@@ -1165,6 +1177,14 @@ mod tests {
         heap.frame.header.count = 2;
         heap.collect();
         assert_eq!(heap.finalized[0], 1);
+        assert_eq!(heap.collector.stats.live_objects, 0);
+        // Republish the reclaimed exact address before any storage is reused.
+        // Its old header cannot authorize a root after start membership clears.
+        heap.frame.header.count = 3;
+        heap.collect();
+        assert_eq!(heap.collector.stats.live_objects, 0);
+        assert_eq!(heap.finalized[0], 1);
+        heap.frame.header.count = 2;
         let child = heap.object(24, 10, 111);
         heap.watch(child, 1);
         let numeric = heap.object(24, 10, child as u64);

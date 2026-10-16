@@ -1,0 +1,118 @@
+diff --git a/TOUR.md b/TOUR.md
+index c442d1a0..694d49d5 100644
+--- a/TOUR.md
++++ b/TOUR.md
+@@ -285 +285 @@ write. Provider and runtime linking remain explicit build operations.
+-`wasm-binary->llvm`, `llvm-object` and `link-native-object`. Its explicit provider
++`wasm-binary->llvm`, `llvm-bitcode`, `llvm-object` and `link-native-object`. Its explicit provider
+@@ -415,2 +415,3 @@ select Wasm or native host behavior inside that shared runtime library. The
+-native guest is an object before Cargo links it, so Rust LTO does not inline
+-provider bodies into generated guest code.
++ordinary native build retains guest bitcode until linker-plugin fat LTO can
++optimize it together with the Rust entry, runtime and provider crates. Saved ELF
++artifacts keep their machine-object path and remain linkable.
+diff --git a/doc/native.md b/doc/native.md
+index 8c91f871..5b3fe9d3 100644
+--- a/doc/native.md
++++ b/doc/native.md
+@@ -11 +11 @@ located SFIR -> checked and specialized program -> Wasm -> Binaryen
+-  -> canonical Wasm types and operations -> LLVM opt/llc -> Cargo/rust-lld + Rust runtime/providers
++  -> canonical Wasm types and operations -> LLVM bitcode -> Cargo/rust-lld shared LTO + Rust runtime/providers
+@@ -62,2 +62,4 @@ absolute paths from any working directory; its first comment runs the
+-physical `make-native-import` declarations and build paths. `llvm-object` produces the
+-object, and `link-native-object` receives the runtime root, object, Rust entry,
++physical `make-native-import` declarations and build paths. `llvm-bitcode` retains
++the guest for shared LTO with the Rust runtime and providers. `llvm-object` still
++produces a machine object for saved ELF artifacts. `link-native-object` receives
++the runtime root, bitcode or object, Rust entry,
+diff --git a/scripts/build-native.scm b/scripts/build-native.scm
+index 680b254a..bee9923e 100644
+--- a/scripts/build-native.scm
++++ b/scripts/build-native.scm
+@@ -69 +69,2 @@
+-         (llvm (path-join directory "module.ll")) (object (path-join directory "module.o")))
++         (llvm (path-join directory "module.ll"))
++         (object (path-join directory (if (eq? mode 'object) "module.o" "module.bc"))))
+@@ -74 +75 @@
+-             ((eq? mode 'llvm) (write-text llvm (read-text source)) (llvm-object llvm object))
++             ((eq? mode 'llvm) (write-text llvm (read-text source)) (llvm-bitcode llvm object))
+@@ -77 +78 @@
+-                   (llvm-object llvm object)))))
++                   (llvm-bitcode llvm object)))))
+diff --git a/wasm-native/README.md b/wasm-native/README.md
+index 9bd4e27d..d00a95c3 100644
+--- a/wasm-native/README.md
++++ b/wasm-native/README.md
+@@ -32,2 +32,2 @@ works from outside the repository. A Sphere build additionally passes
+-(llvm-object "build/program/module.ll" "build/program/module.o")
+-(link-native-object runtime-root "build/program/module.o" "entry.rs"
++(llvm-bitcode "build/program/module.ll" "build/program/module.bc")
++(link-native-object runtime-root "build/program/module.bc" "entry.rs"
+@@ -45,2 +45,3 @@ actual Wasm signatures fail before linking.
+-`llvm-object` runs LLVM optimization and object emission. Keeping these operations
+-separate lets a host append a fixed entry bridge before object emission.
++`llvm-bitcode` runs LLVM optimization and retains bitcode for the final shared
++link. `llvm-object` additionally emits a machine object for saved ELF artifacts.
++Keeping these operations separate lets a host append a fixed entry bridge first.
+@@ -49 +50 @@ separate lets a host append a fixed entry bridge before object emission.
+-an object, an ordinary Rust crate-root entry file, provider declarations, and a
++LLVM bitcode or a machine object, an ordinary Rust crate-root entry file, provider declarations, and a
+@@ -54,2 +55,3 @@ Providers are `(module-name rust-source-path)` pairs. Each compiles as a separat
+-Cargo dependency; the guest is already machine code,
+-so Rust LTO cannot optimize through guest calls to those providers. The returned
++Cargo dependency. Linker-plugin fat LTO optimizes guest bitcode together with the
++Rust entry, runtime and providers; existing machine objects remain linkable.
++The LLVM tools and Rust linker must accept each other's bitcode versions. The returned
+diff --git a/wasm-native/scheme/wasm-native.sld b/wasm-native/scheme/wasm-native.sld
+index b4fe5263..b54105b3 100644
+--- a/wasm-native/scheme/wasm-native.sld
++++ b/wasm-native/scheme/wasm-native.sld
+@@ -4 +4 @@
+-          wasm-binary->llvm llvm-object link-native-object
++          wasm-binary->llvm llvm-bitcode llvm-object link-native-object
+diff --git a/wasm-native/scheme/wasm-native/native-build.sld b/wasm-native/scheme/wasm-native/native-build.sld
+index f40a7175..f8659254 100644
+--- a/wasm-native/scheme/wasm-native/native-build.sld
++++ b/wasm-native/scheme/wasm-native/native-build.sld
+@@ -1 +1 @@
+-;; Native builds keep one path: optimized Wasm, LLVM object, Cargo-linked Rust.
++;; Native builds keep LLVM bitcode visible until Cargo's shared Rust link.
+@@ -4 +4 @@
+-          llvm-object link-native-object native-cargo-environment native-system-environment
++          llvm-bitcode llvm-object link-native-object native-cargo-environment native-system-environment
+@@ -134 +134,5 @@
+-    ;; ---- Mechanical LLVM object emission ----
++    ;; ---- LLVM bitcode for shared LTO and machine objects for saved artifacts ----
++
++    (define (llvm-bitcode input output)
++      (run-command! (list (tool-name "LLVM_OPT" "opt") "-passes=default<O3>" input "-o" output))
++      output)
+@@ -137,2 +141 @@
+-      (let ((optimized (string-append output ".bc")))
+-        (run-command! (list (tool-name "LLVM_OPT" "opt") "-passes=default<O3>" input "-o" optimized))
++      (let ((optimized (llvm-bitcode input (string-append output ".bc"))))
+@@ -180,0 +184,6 @@
++    (define (native-lto-environment directory)
++      ;; Cargo disables bitcode for host build scripts. These shared flags also
++      ;; reach those scripts, so explicitly retain bitcode before requesting LTO.
++      (let ((flags (append (native-linker-flags directory)
++                           '("-C" "linker-plugin-lto" "-C" "lto=fat" "-C" "embed-bitcode=yes"))))
++        (list (cons "CARGO_ENCODED_RUSTFLAGS" (string-join flags (string (integer->char 31)))))))
+@@ -204 +213 @@
+-                    `((environment . ,(native-cargo-environment directory)))))
++                    `((environment . ,(native-lto-environment directory)))))
+@@ -244,2 +253,2 @@
+-      ;; LLVM has already emitted machine code. Rust LTO can optimize its own
+-      ;; crates but cannot see through the guest's foreign calls to providers.
++      ;; Linker-plugin LTO sees the guest bitcode together with the Rust entry,
++      ;; providers and runtime. Previously saved machine objects still link.
+diff --git a/wasm-native/tests/standalone.scm b/wasm-native/tests/standalone.scm
+index 46661fb3..b8d6fa5e 100644
+--- a/wasm-native/tests/standalone.scm
++++ b/wasm-native/tests/standalone.scm
+@@ -12 +12 @@
+-(define object (path-join directory "module.o"))
++(define object (path-join directory "module.bc"))
+@@ -46 +46 @@
+-  (llvm-object llvm object)
++  (llvm-bitcode llvm object)
