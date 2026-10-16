@@ -41,6 +41,12 @@ still uses the system C runtime and startup objects; `SNAIL_NATIVE_LIBC` and
 ordinary file copying and hashing for the Scheme tools.
 See [command options](options.md).
 
+Executable builds keep optimized guest LLVM bitcode until linker-plugin fat LTO
+can optimize it with the Rust entry, runtime and providers. LLVM `opt` and Rust's
+bundled linker must accept compatible bitcode versions. The public `llvm-object`
+operation still emits a real ELF object for saved artifacts; these link without
+guest optimization across the machine-code boundary.
+
 Native array length and element accesses emit checked LLVM header loads and
 address calculations with the validated storage width. Allocation and bulk copy
 stay in Rust; the [package representation contract](../wasm-native/README.md#native-array-representation)
@@ -51,7 +57,9 @@ small Scheme wrapper also supplies the native linker for Cargo's host build scri
 Wasm builds. It preserves Cargo's selected compiler, explicit target and linker.
 On x86-64 Linux outside the Nix shell, enable it from the checkout with
 `export RUSTC_WRAPPER="$PWD/wasm-native/scripts/rustc-native"` before running Cargo directly.
-Native build scripts configure their linker themselves.
+Native executable builds configure their linker and default to this wrapper,
+preserving an explicit override. They pass a native Cargo target so shared-LTO
+flags reach only target crates, leaving host build scripts to the wrapper.
 
 [`build.scm`](../build.scm) is a small library-composition recipe. From any
 working directory, with `repo` set to the checkout's absolute path:

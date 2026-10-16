@@ -8,13 +8,13 @@ specialization and representation choices happen before Wasm emission.
 
 ```text
 located SFIR -> checked and specialized program -> Wasm -> Binaryen
-  -> canonical Wasm types and operations -> LLVM opt/llc -> Cargo/rust-lld + Rust runtime/providers
+  -> canonical Wasm types and operations -> LLVM bitcode -> Cargo/rust-lld shared LTO
 ```
 
 The Wasm pipeline links its provider Wasm and optimizes the linked module too.
-Native linking and Wasm linking offer different cross-provider optimization
-opportunities. Comparisons retain the common program Wasm identity and disclose
-these final provider/linkage differences.
+Native linking optimizes the guest bitcode together with the Rust entry, runtime
+and providers. Comparisons retain the common program Wasm identity and disclose
+the final provider/linkage differences between the two routes.
 
 ## Build and invoke
 
@@ -59,9 +59,11 @@ absolute paths from any working directory; its first comment runs the
 [`entry.rs`](../examples/native/entry.rs) example, which prints `42`.
 
 `(wasm-native)` reads a Wasm file through `wasm-binary->llvm`, with explicit
-physical `make-native-import` declarations and build paths. `llvm-object` produces the
-object, and `link-native-object` receives the runtime root, object, Rust entry,
-providers and build directory. These operations do not import compiler syntax,
+physical `make-native-import` declarations and build paths. `llvm-bitcode` retains
+optimized guest bitcode for the executable link; `llvm-object` emits real ELF
+machine code for saved artifacts. `link-native-object` receives the runtime root,
+bitcode or machine object, Rust entry, providers and build directory.
+These operations do not import compiler syntax,
 bindings or inferred IR. The runtime root is the `wasm-native/` directory,
 containing the single Cargo crate used for both Wasm and native execution.
 
@@ -115,16 +117,17 @@ Static arrays use the same payload layout. Reference-array layout and permanent
 static reference roots remain unchanged; numeric payloads are never scanned.
 
 The collector and native host live in the shared Rust runtime crate, selected
-with native target conditions. LLVM emits the guest object before Cargo links
-it with that crate. Consequently Rust LTO can inline within the runtime, but it
-cannot eliminate allocator zeroing using later guest field stores. The earlier
+with native target conditions and statically linked into the executable. Ordinary
+native builds retain guest bitcode so linker-plugin fat LTO can optimize guest
+calls together with Rust runtime and provider bodies. Saved ELF artifacts remain
+machine objects and do not expose guest bodies to later optimization. The
+allocator's zeroed-storage, collection, root-publication and allocation-counter
+contracts apply to both paths. The earlier
 [allocation visibility experiment](../benchmarks/results/2026-10-14-native-allocation-visibility/README.md)
-measured a C/LTO build; its result does not describe this Rust link boundary.
-The allocator continues to return zeroed storage, with the same collection,
-root-publication and allocation-counter contracts. Array construction uses this
-cleared payload directly when the incoming initializer's full bit pattern is
-zero. Nonzero patterns, including floating-point negative zero and NaN payloads,
-take the ordinary width-specific fill path.
+measured a separate C/LTO prototype; its results do not describe this Rust build.
+Array construction uses the cleared payload directly when the incoming
+initializer's full bit pattern is zero. Nonzero patterns, including floating-point
+negative zero and NaN payloads, take the ordinary width-specific fill path.
 
 Roots include live reference locals/operands, globals, tables, mutable static
 literal reference slots and Rust-owned ABI table entries. A collection excludes

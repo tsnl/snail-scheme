@@ -1,7 +1,8 @@
 //! Native benchmark inputs. The campaign supplies immutable case configuration.
-//! Cargo compiles this provider separately from the translated guest: input and
-//! hide calls remain opaque even when observation counters are disabled.
+//! Black-box returns keep imported values opaque when LTO sees this provider
+//! together with the guest, including builds with observation counters disabled.
 
+use std::hint::black_box;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -19,70 +20,70 @@ fn observe_barrier() {
 
 #[unsafe(export_name = "input_i64")]
 pub extern "C" fn input_i64(index: i32) -> i64 {
-    INPUT_INTEGERS[index as usize]
+    black_box(INPUT_INTEGERS[index as usize])
 }
 
 #[unsafe(export_name = "input_f64")]
 pub extern "C" fn input_f64(index: i32) -> f64 {
-    INPUT_REALS[index as usize]
+    black_box(INPUT_REALS[index as usize])
 }
 
 #[unsafe(export_name = "vector_length")]
 pub extern "C" fn vector_length(index: i32) -> i64 {
-    VECTOR_SIZES[index as usize]
+    black_box(VECTOR_SIZES[index as usize])
 }
 
 #[unsafe(export_name = "vector_i64")]
 pub extern "C" fn vector_i64(index: i32, element: i64) -> i64 {
-    VECTOR_INTEGERS[(VECTOR_OFFSETS[index as usize] + element) as usize]
+    black_box(VECTOR_INTEGERS[(VECTOR_OFFSETS[index as usize] + element) as usize])
 }
 
 #[unsafe(export_name = "vector_f64")]
 pub extern "C" fn vector_f64(index: i32, element: i64) -> f64 {
-    VECTOR_REALS[(VECTOR_OFFSETS[index as usize] + element) as usize]
+    black_box(VECTOR_REALS[(VECTOR_OFFSETS[index as usize] + element) as usize])
 }
 
 #[unsafe(export_name = "expected_length")]
 pub extern "C" fn expected_length() -> i64 {
-    EXPECTED_SIZE
+    black_box(EXPECTED_SIZE)
 }
 
 #[unsafe(export_name = "expected_i64")]
 pub extern "C" fn expected_i64(index: i64) -> i64 {
-    EXPECTED_INTEGERS[index as usize]
+    black_box(EXPECTED_INTEGERS[index as usize])
 }
 
 #[unsafe(export_name = "expected_f64")]
 pub extern "C" fn expected_f64(index: i64) -> f64 {
-    EXPECTED_REALS[index as usize]
+    black_box(EXPECTED_REALS[index as usize])
 }
 
 #[unsafe(export_name = "tolerance")]
 pub extern "C" fn tolerance() -> f64 {
-    EXPECTED_TOLERANCE
+    black_box(EXPECTED_TOLERANCE)
 }
 
 #[unsafe(export_name = "count")]
 pub extern "C" fn count() -> i64 {
-    CONFIGURED_COUNT
+    black_box(CONFIGURED_COUNT)
 }
 
 #[unsafe(export_name = "hide_i64")]
 pub extern "C" fn hide_i64(value: i64) -> i64 {
     observe_barrier();
-    value
+    black_box(value)
 }
 
 #[unsafe(export_name = "hide_f64")]
 pub extern "C" fn hide_f64(value: f64) -> f64 {
     observe_barrier();
-    value
+    black_box(value)
 }
 
 #[unsafe(export_name = "barrier")]
 pub extern "C" fn barrier() -> i32 {
     observe_barrier();
-    1
+    black_box(1)
 }
 
 #[unsafe(no_mangle)]

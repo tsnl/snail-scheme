@@ -26,7 +26,7 @@
 (define directory (make-build-directory (path-directory output) "sphere-build-"))
 (define binary (path-join directory "program.wasm"))
 (define llvm (path-join directory "program.ll"))
-(define object (path-join directory "program.o"))
+(define bitcode (path-join directory "program.bc"))
 (define imports
   (map (lambda (entry)
          (make-native-import (car (car entry)) (cadr (car entry)) (cadr entry)
@@ -45,5 +45,5 @@
                                       (make-generation-context (path-join root "scripts/run-sfir-generator.mjs") #f))))
      (write-bytes binary (artifact-bytes (compile libraries (make-entry key selected)))))
    (wasm-binary->llvm binary imports directory llvm)
-   (llvm-object llvm object)
-   (rename-file (link-native-object runtime-root object rust-entry '() directory) output)))
+   (llvm-bitcode llvm bitcode)
+   (rename-file (link-native-object runtime-root bitcode rust-entry '() directory) output)))

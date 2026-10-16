@@ -150,6 +150,15 @@ that proof and checks its artifacts before execution. All original validation
 outcomes remain visible. Preparation and clean-artifact validation are never
 timing samples.
 
+Native providers pass their scalar inputs, expected values, counts and hide
+returns through Rust's `black_box`, including generated pathname accessors.
+This preserves value opacity with the tested Rust/LLVM toolchain when shared
+LTO can see both provider and guest. Observation counters remain disabled in
+clean builds. Correctness predicates and hook counts are separate from evidence
+that repeated work survives optimization; timing claims must check the actual
+clean executable's work too. Existing frozen campaigns retain their copied
+providers; this change applies to newly prepared native artifacts.
+
 Clean Wasm hosts preserve the scalar, typed sequence, decimal Integer,
 Datum/runtime, Nucleic, Tail and Ray interfaces explicitly. Compiler, Dynamic,
 Scheme and SLaTeX use the uninstrumented runtime host and scalar native entry;
