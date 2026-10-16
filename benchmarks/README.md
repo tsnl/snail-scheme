@@ -25,6 +25,12 @@ visible, unfinished routes become `not-completed`, and the scheduler continues
 every remaining selected workload. Validation requires a fresh attempt; a failed
 campaign stays intact and a new campaign uses a new output directory.
 
+Preparation captures `SNAIL_NATIVE_CPU`. Leave it unset for the portable native
+default or select an explicit compiler CPU name such as `x86-64-v3`. Freezes
+reject `native`, whose meaning depends on the build host, and empty values.
+This override affects SFIR-native guest code and its Rust runtime/providers;
+the independent Rust-native controls keep their own build configuration.
+
 Tail compares the entire output against an independently reversed-line oracle.
 Its concatenation uses bounded call arity, avoiding an observed Chibi crash in
 the canonical validator. UTF-8 decoding, blank lines, LF termination and
