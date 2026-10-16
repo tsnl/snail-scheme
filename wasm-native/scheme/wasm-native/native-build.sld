@@ -1,7 +1,7 @@
-;; Native builds keep one path: optimized Wasm, LLVM object, Cargo-linked Rust.
+;; Native executables keep guest LLVM bitcode visible to Rust's final LTO link.
 (define-library (wasm-native native-build)
   (export rust-bindings runtime-bindings check-provider-bindings
-          llvm-object link-native-object native-cargo-environment native-system-environment
+          llvm-bitcode llvm-object link-native-object native-cargo-environment native-system-environment
           ensure-native-supervisor native-rustc-main
           rust-source-inputs source-hashes check-stable-inputs native-evidence)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
@@ -131,12 +131,17 @@
            (unless (equal? actual wanted) (error "native provider signature or symbol mismatch" (car wanted)))))
        required))
 
-    ;; ---- Mechanical LLVM object emission ----
+    ;; ---- Optimized bitcode and saved machine objects ----
+
+    (define native-target "x86_64-unknown-linux-gnu")
+
+    (define (llvm-bitcode input output)
+      (run-command! (list (tool-name "LLVM_OPT" "opt") "-passes=default<O3>" input "-o" output))
+      output)
 
     (define (llvm-object input output)
-      (let ((optimized (string-append output ".bc")))
-        (run-command! (list (tool-name "LLVM_OPT" "opt") "-passes=default<O3>" input "-o" optimized))
-        (run-command! (list (tool-name "LLC" "llc") "-O=3" "-mtriple=x86_64-unknown-linux-gnu"
+      (let ((optimized (llvm-bitcode input (string-append output ".bc"))))
+        (run-command! (list (tool-name "LLC" "llc") "-O=3" (string-append "-mtriple=" native-target)
                             "-relocation-model=pic" "-function-sections" "-data-sections"
                             "-filetype=obj" optimized "-o" output))
         output))
@@ -178,6 +183,11 @@
     (define (native-cargo-environment directory)
       (let ((flags (native-linker-flags directory)))
         (list (cons "CARGO_ENCODED_RUSTFLAGS" (string-join flags (string (integer->char 31)))))))
+    (define (native-lto-environment root)
+      (let ((flags (append (native-linker-flags (path-join root "build/native-runtime"))
+                           '("-C" "linker-plugin-lto" "-C" "lto=fat"))))
+        (list (cons "CARGO_ENCODED_RUSTFLAGS" (string-join flags (string (integer->char 31))))
+              (cons "RUSTC_WRAPPER" (tool-name "RUSTC_WRAPPER" (path-join root "scripts/rustc-native"))))))
     (define (native-system-environment)
       (list (cons "SNAIL_NATIVE_LIBC" (libc-directory)) (cons "SNAIL_NATIVE_GCC" (gcc-directory))))
     (define (rustc-target arguments)
@@ -187,7 +197,7 @@
             (else (rustc-target (cdr arguments)))))
     (define (needs-native-linker? arguments)
       (let ((target (rustc-target arguments)))
-        (and (or (not target) (equal? target "x86_64-unknown-linux-gnu"))
+        (and (or (not target) (equal? target native-target))
              (not (any (lambda (argument) (or (string-prefix? "linker=" argument) (string-prefix? "-Clinker=" argument))) arguments)))))
     (define (native-rustc-main root arguments)
       ;; Cargo passes its chosen compiler as argv[0]. Host build scripts also
@@ -198,10 +208,12 @@
                (append arguments (if (needs-native-linker? (cdr arguments))
                                      (native-linker-flags (path-join root "build/native-runtime")) '())))
       (emergency-exit 127))
-    (define (cargo-build manifest target directory)
+    (define (cargo-build root manifest target)
+      ;; An explicit target keeps LTO flags off host build scripts. The existing
+      ;; compiler wrapper supplies their native linker without enabling LTO.
       (run-command! (list (tool-name "CARGO" "cargo") "build" "--quiet" "--offline" "--release"
-                          "--manifest-path" manifest "--target-dir" target)
-                    `((environment . ,(native-cargo-environment directory)))))
+                          "--target" native-target "--manifest-path" manifest "--target-dir" target)
+                    `((environment . ,(native-lto-environment root)))))
 
     ;; ---- Rust providers and a single shared runtime ----
 
@@ -241,8 +253,8 @@
                                                              (string-append (car provider) " = { path = "
                                                                             (json->string (cdr provider)) " }\n")) providers))
                                  "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1\n"))
-      ;; LLVM has already emitted machine code. Rust LTO can optimize its own
-      ;; crates but cannot see through the guest's foreign calls to providers.
+      ;; Bitcode joins Rust's final optimization. A saved ELF object still links,
+      ;; but its guest bodies are already machine code and cannot participate.
       (write-text (path-join directory "build.rs")
                   (string-append "fn main() {\n    println!(\"cargo:rustc-link-arg={}\", "
                                  (json->string object) ");\n}\n")))
@@ -262,9 +274,9 @@
               (lambda ()
                 (set! staged (stage-entry-source entry crates directory))
                 (write-link-package root object staged crates directory)
-                (cargo-build (path-join directory "Cargo.toml") target (path-join root "build/native-runtime"))
+                (cargo-build root (path-join directory "Cargo.toml") target)
                 (let ((program (path-join directory "program")))
-                  (write-bytes program (read-bytes (path-join target "release" (link-package-name directory))))
+                  (write-bytes program (read-bytes (path-join target native-target "release" (link-package-name directory))))
                   (chmod program #o755) program))
               (lambda () (when staged (delete-file staged)))))))
     (define (ensure-native-supervisor root)

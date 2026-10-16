@@ -7,8 +7,8 @@ with no Scheme expander or interpreter in the compilation pipeline.
 Compiler: SFIR text → located syntax → parsed library values → resolved source
           → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
-          optimized Wasm → wasm-native → LLVM opt/llc → native object
-                         → Cargo + Rust runtime/providers → x86-64 Linux executable
+          optimized Wasm → wasm-native → optimized LLVM bitcode
+                         → Cargo LTO + Rust runtime/providers → x86-64 Linux executable
 ```
 
 The [language contract](doc/sfir.md) describes intended language behavior. This
@@ -284,8 +284,9 @@ compilation reads no source files and returns artifact bytes for the caller to
 write. Provider and runtime linking remain explicit build operations.
 
 [`(wasm-native)`](wasm-native/scheme/wasm-native.sld) exposes
-`wasm-binary->llvm`, `llvm-object` and `link-native-object`. Its explicit provider
-declarations are `(make-native-import module name c-symbol parameters result)`:
+`wasm-binary->llvm`, `llvm-bitcode`, `llvm-object` and `link-native-object`.
+Its provider declarations are
+`(make-native-import module name c-symbol parameters result)`:
 string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a scalar or
 `void` result. Missing declarations and signature mismatches fail. Lowering
 consumes the Wasm representation, physical imports and runtime ABI; it receives
@@ -414,8 +415,10 @@ Trailing input is rejected. [`native-build.sld`](wasm-native/scheme/wasm-native/
 checks scalar provider declarations, runs LLVM, and assembles a Cargo package
 with one runtime dependency and ordinary provider crates. Rust target `cfg`s
 select Wasm or native host behavior inside that shared runtime library. The
-native guest is an object before Cargo links it, so Rust LTO does not inline
-provider bodies into generated guest code.
+native executable build retains guest bitcode until linker-plugin fat LTO can
+optimize it with the Rust entry, runtime and providers. `llvm-object` remains the explicit
+machine-code path for saved ELF artifacts, which link without exposing guest
+bodies to later optimization.
 
 Repository Scheme entry points explicitly add `src/` and `wasm-native/scheme/`
 to Chibi's search path. Standalone package consumers add only its `scheme/`
