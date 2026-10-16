@@ -155,6 +155,14 @@ precise Any witnesses and tail calls retain their existing Wasm contracts.
 Emission checks that demand is already complete. The shared
 [`wasm.sld`](wasm-native/scheme/wasm-native/wasm.sld) serializes Wasm data.
 
+[`wasm-strings.sld`](src/snail-scheme/wasm-strings.sld) owns the UTF-8 string
+layout and its emitted Wasm operations. Each owner retains a scalar count, used
+byte length, packed backing array and cached scalar/byte boundary. Conversion
+validates once and copies bytes; slicing and equality operate on encoded spans.
+Width-changing mutation preserves owner identity and updates its backing storage.
+Large literals are filled by module start before source execution. The mechanical
+native lowering executes the same operations and publishes their managed roots.
+
 Concrete signatures take the fused path without subtree typing. Unresolved call
 arguments and branch results may require an explicit type-only constraint probe
 before choosing their layouts. Source and nominal identities in request keys are

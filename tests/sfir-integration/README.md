@@ -1,11 +1,16 @@
 # SFIR integration contracts
 
-`../../scripts/test-sfir-integration` checks all 320 compiler cases in
+`../../scripts/test-sfir-integration` checks every compiler case in
 `cases.json`. Each case names one authored `.sfir` fixture. The runner verifies
 that the two inventories agree, compiles with the direct SFIR frontend, and
 executes both the raw diagnostic module and mandatory-Binaryen optimized module.
 `run.mjs` preserves the original assertions, including ordered scalar observers
 on the same instance after an expected `WebAssembly.RuntimeError`.
+
+`string-utf8-storage` exercises cached scalar boundaries, width-changing
+mutation and overlap in both directions, unused backing capacity, and independent
+copies. The older `string-blocks` fixtures retain their original large Unicode
+inputs and range checks; their names describe the former storage layout.
 
 The original 315 case identities and source hashes are recorded in `migration.json`.
 The source base was `78734dd`; the subsequent compiler checkpoint `6983894` changes

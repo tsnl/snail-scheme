@@ -81,7 +81,7 @@ variable is rigid when its definition is checked.
 | Bool | `#t` and `#f` |
 | Char | Unicode scalar values, such as `#\a` |
 | Unit | One value, constructed by `(unit)` |
-| String | Text |
+| String | Well-formed UTF-8 text, indexed by Unicode scalar value |
 | Bytevector | A sequence of bytes |
 
 An unannotated integer literal such as `42` has type I32. An unannotated floating

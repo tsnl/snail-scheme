@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-// ---- Python's independent UTF-8 oracle, one record per Unicode scalar ----
+// ---- Rust's independent UTF-8 oracle, one record per Unicode scalar ----
 
 const [modulePath, oraclePath] = process.argv.slice(2);
 const oracle = fs.readFileSync(oraclePath);
