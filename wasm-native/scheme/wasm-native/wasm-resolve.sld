@@ -276,12 +276,20 @@
                     (reverse (lower-expressions (list (car fields)) context (make-space (make-hash-table eq?) 0) '() '()))
                     (map (lambda (name) (index-of (context-functions context) name)) names)))))
 
+    ;; Walk declarations and their results in order without making one variadic
+    ;; append call whose argument list grows with the complete module.
+    (define (resolve-declarations nodes context)
+      (let loop ((nodes nodes) (resolved '()) (output '()))
+        (cond ((pair? resolved) (loop nodes (cdr resolved) (cons (car resolved) output)))
+              ((pair? nodes) (loop (cdr nodes) (resolve-declaration (car nodes) context) output))
+              (else (reverse output)))))
+
     (define (resolve-wasm datum)
       (unless (and (pair? datum) (eq? (car datum) 'module)) (error "expected a Wasm module datum"))
       (let ((context (make-context '() '() '() (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-space (make-hash-table eq?) 0) (make-hash-table eq?))))
         (for-each (lambda (node) (register-type! context node)) (cdr datum))
         (for-each (lambda (node) (register-declaration! context node)) (cdr datum))
-        (let ((nodes (apply append (map (lambda (node) (resolve-declaration node context)) (cdr datum)))))
+        (let ((nodes (resolve-declarations (cdr datum) context)))
           (append (type-declarations context) nodes))))
 
     ;; ---- Folded expressions to evaluated instruction order ----
@@ -449,6 +457,35 @@
                   '((local.get 0) (block i32) (i32.const 9) (local.set 0) (local.get 0)
                     (call 0) (end) (numeric "i32" add 2) (end)))))
 
+      (define (test-empty-declarations)
+        (expect (resolve-wasm '(module)) '())
+        (expect (resolve-wasm '(module (type $a (struct)) (type $b (array i8))))
+                '((type 0 (struct)) (type 1 (array i8)))))
+
+      (define (resolved-test-node node)
+        (if (eq? (car node) 'func)
+            (list 'func (cadr node) (caddr node) (cadddr node)
+                  (lower-wasm-body (car (cddddr node)))) node))
+
+      (define (test-declaration-order)
+        (expect
+         (map resolved-test-node
+              (resolve-wasm
+               '(module (type $void (func)) (type $box (struct))
+                        (import "host" "f" (func $import (type $void)))
+                        (func $first (type $void) (export "first") (export "alias") (call $second (i32.const 9)))
+                        (type $bytes (array i8))
+                        (global $g (export "g") i32 (i32.const 7))
+                        (func $second (param i32) (drop (global.get $g)))
+                        (export "second" (func $second)))))
+         '((type 0 (func () ())) (type 1 (struct)) (type 2 (array i8)) (type 3 (func (i32) ()))
+           (import "host" "f" (func 0 0))
+           (func 1 0 () ((i32.const 9) (call 2) (end)))
+           (export "first" (func 1)) (export "alias" (func 1)) (function-name 1 "first")
+           (global 0 i32 ((i32.const 7))) (export "g" (global 0))
+           (func 2 3 () ((global.get 0) (drop) (end))) (function-name 2 "second")
+           (export "second" (func 2)))))
+
       (define (test-recursive-groups)
         (let* ((nodes (resolve-wasm
                        '(module
@@ -493,5 +530,7 @@
         (run-test test-canonical-types)
         (run-test test-recursive-groups)
         (run-test test-folded-order)
+        (run-test test-empty-declarations)
+        (run-test test-declaration-order)
         (run-test test-label-scope)
         (run-test test-resolution-errors))))))
