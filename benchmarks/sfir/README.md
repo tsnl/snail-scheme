@@ -127,9 +127,14 @@ chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.s
   --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
 chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.scm verify --output /tmp/sfir-full57
 # Run only after coordinating a quiet machine with every active worker.
+SNAIL_NATIVE_SUPERVISOR=/tmp/sfir-full57/toolchain/snail-native-supervisor \
 chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/timing.scm measure --output /tmp/sfir-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
+
+Set the frozen supervisor path before starting the measurement driver; the
+supervisor setting in each child environment does not initialize the parent
+Chibi process launcher.
 
 The harness supports all 57 registered workloads and all six target/control
 routes; a named subset can still be selected explicitly. The plan retains

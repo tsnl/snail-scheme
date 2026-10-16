@@ -37,6 +37,11 @@ wrapping/IEEE arithmetic, direct native array addressing and Binaryen's guest
 inlining policy, retaining every sample and the remaining representation costs.
 Those selected workloads do not establish a new whole-suite ranking.
 
+The [UTF-8 string comparison](results/2026-10-16-utf8-strings/README.md) repeats
+unchanged `bv2string` against a fresh compiler baseline: 6.1× faster on V8 and
+10.1× natively, with original/adapted Chez and Rust controls. It retains all
+samples and documents shared-host conditions and the remaining Rust gap.
+
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not
 replace this full-suite freeze. The earlier
