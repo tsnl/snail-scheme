@@ -1,7 +1,8 @@
 ;; Actual native artifacts exercise the compiler API and checked bridge.
-(import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+(import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-sfir frontend) (snail-sfir compiler)
+        (snail-sfir native) (only (wasm-native) make-native-import)
         (only (snail-sfir artifact) emit-artifact)
         (only (srfi 130) string-contains))
 
@@ -62,20 +63,21 @@
 
 ;; ---- Checked native artifacts ----
 
-(define target
-  (native64-target
-   (append (map (lambda (name) (make-native-import "probe" name name '() 'i32)) '("tick" "bad_bool" "bad_char" "hang"))
-           (map (lambda (name) (make-native-import "probe" name name '() 'void)) '("open_resource" "spawn_child"))
-           (list (make-native-import "probe" "mark" "mark" '(i32) 'void)
-                 (make-native-import "snail.library" "snail:text/downcase" "snail:text/downcase" '(i32) 'i32)))))
+(define imports
+  (append (map (lambda (name) (make-native-import "probe" name name '() 'i32)) '("tick" "bad_bool" "bad_char" "hang"))
+          (map (lambda (name) (make-native-import "probe" name name '() 'void)) '("open_resource" "spawn_child"))
+          (list (make-native-import "probe" "mark" "mark" '(i32) 'void)
+                (make-native-import "snail.library" "snail:text/downcase" "snail:text/downcase" '(i32) 'i32))))
+(define (native-object artifact name)
+  (let ((build (string-append directory "/native-" name)))
+    (create-directory* build)
+    (artifact->native-object artifact imports build (string-append directory "/" name ".o"))))
 (define (build library name filename)
-  (let ((artifact (compile libraries (make-entry library name) target)))
-    (call-with-port (open-binary-output-file (string-append directory "/" filename ".o"))
-      (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
+  (native-object (compile libraries (make-entry library name)) filename))
 (build '(native facade) 'main "state")
 (call-with-port (open-binary-output-file (string-append directory "/state.wasm"))
   (lambda (port)
-    (write-bytevector (artifact-bytes (compile libraries (make-entry '(native facade) 'main) wasm-target)) port)))
+    (write-bytevector (artifact-bytes (compile libraries (make-entry '(native facade) 'main))) port)))
 (build '(native dependent) 'entry "failed")
 (build '(native traps) 'entry "traps")
 (build '(native lifetime) 'entry "lifetime")
@@ -92,10 +94,10 @@
                                   (string-contains (error-object-message failure)
                                                    (if (eq? case 'wrong-main) "native initializer signature"
                                                        "native entry signature")))))
-         (emit-artifact
-          `(module (func (export "main") ,@(if (eq? case 'wrong-main) '((result i32) (i32.const 0)) '()))
-                   (func (export "entry") (param ,(if (eq? case 'wrong-entry) 'i64 'i32)) (result i32) (i32.const 0)))
-          (make-entry '(native invalid) 'entry) '(I32) 'I32 target)
+         (native-object (emit-artifact
+                         `(module (func (export "main") ,@(if (eq? case 'wrong-main) '((result i32) (i32.const 0)) '()))
+                                  (func (export "entry") (param ,(if (eq? case 'wrong-entry) 'i64 'i32)) (result i32) (i32.const 0)))
+                         (make-entry '(native invalid) 'entry) '(I32) 'I32) (symbol->string case))
          #f)
      (error "native bridge accepted inconsistent entry metadata" case)))
  '(wrong-main wrong-entry))
@@ -103,9 +105,9 @@
 (unless
     (guard (failure (else (and (error-object? failure)
                                (string-contains (error-object-message failure) "automatic start"))))
-      (emit-artifact '(module (import "probe" "mark" (func $mark (param i32)))
-                              (func $initialize (export "main") (call $mark (i32.const 1))) (start $initialize)
-                              (func (export "entry") (result i32) (i32.const 0)))
-                     (make-entry '(native start) 'entry) '() 'I32 target)
+      (native-object (emit-artifact '(module (import "probe" "mark" (func $mark (param i32)))
+                                             (func $initialize (export "main") (call $mark (i32.const 1))) (start $initialize)
+                                             (func (export "entry") (result i32) (i32.const 0)))
+                                    (make-entry '(native start) 'entry) '() 'I32) "automatic-start")
       #f)
   (error "native bridge accepted automatic initialization"))

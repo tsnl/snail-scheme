@@ -1,6 +1,6 @@
 ;; Assertions shared by colocated host tests. No implementation-module imports:
 ;; a module must be able to use these helpers without creating an import cycle.
-(define-library (snail-scheme test-utils)
+(define-library (wasm-native test-utils)
   (export expect run-test)
   (import (scheme base) (scheme write))
   (begin

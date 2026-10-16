@@ -3,7 +3,7 @@
   (export reference-compiler-main)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
           (chibi filesystem) (chibi pathname) (only (chibi string) string-prefix? string-suffix? string-trim)
-          (srfi 1) (srfi 95) (snail-tools process) (snail-tools native-build)
+          (srfi 1) (srfi 95) (wasm-native process) (wasm-native native-build)
           (wasm-reference suite) (wasm-reference audit))
   (begin
 

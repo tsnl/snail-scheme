@@ -5,7 +5,7 @@
           (scheme process-context) (srfi 1) (srfi 69)
           (only (srfi 132) list-sort)
           (only (chibi string) string-split string-trim string-prefix? string-contains string-join substring-cursor)
-          (snail-tools process) (snail-tools host-tools))
+          (wasm-native process) (snail-tools host-tools))
   (begin
 
     ;; ---- Structured Unicode mappings ----

@@ -1,8 +1,8 @@
-;; Serialize the structured Wasm emitted by SFIR or consumed by native lowering.
+;; Serialize structured Wasm into the text format accepted by Binaryen.
 ;; This module has no source-language analysis or compilation dependencies.
-(define-library (snail-scheme wasm)
+(define-library (wasm-native wasm)
   (export write-wasm)
-  (import (scheme base) (scheme cxr) (scheme write) (snail-scheme chromium-trace))
+  (import (scheme base) (scheme cxr) (scheme write) (wasm-native chromium-trace))
   (begin
 
     ;; ---- Wasm text ----
@@ -66,7 +66,7 @@
   (cond-expand
    (snail-tests
     (export test-wasm)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-wat-leaves)
         (let ((port (open-output-string)))

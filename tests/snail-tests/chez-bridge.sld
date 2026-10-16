@@ -36,8 +36,12 @@
 
     ;; ---- Every binary64 text byte agrees with the static Rust reference ----
 
+    (define (formatter-source)
+      (let ((current (path-join (library-root) "wasm-native/src/lib.rs")))
+        ;; Reviewed historical library snapshots retain the original layout.
+        (if (file-exists? current) current (path-join (library-root) "src/lib.rs"))))
     (define (check-formatting)
-      (let* ((source (read-text (path-join (library-root) "src/lib.rs")))
+      (let* ((source (read-text (formatter-source)))
              (start (string-contains source "fn float_text("))
              (end (string-contains source "// ---- Tests ----" start))
              (body (substring-cursor source start end))
