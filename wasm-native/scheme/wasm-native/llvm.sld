@@ -310,7 +310,10 @@
           (instruction type opcode " " (typed value) " to " (llvm-type type))))
 
     (define (call-native name result arguments)
-      (let ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")")))
+      ;; Shared LTO can specialize the one allocating ABI for each struct size.
+      ;; The call-site inline hint preserves its collecting effects and failures.
+      (let ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")"
+                        (if (equal? name "native_alloc") " alwaysinline" ""))))
         (if (string=? result "void") (begin (line call) #f)
             (instruction result call))))
 
