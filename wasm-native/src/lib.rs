@@ -66,7 +66,7 @@ fn fail_message(message: &str) -> ! {
         not(target_arch = "wasm32"),
         any(not(feature = "native-runtime"), test)
     ))]
-    panic!("snail-lofi: {message}")
+    panic!("lofi: {message}")
 }
 
 /// Print a diagnostic borrowed from the linked runtime's shared linear memory.
@@ -76,7 +76,7 @@ fn fail_message(message: &str) -> ! {
 #[unsafe(export_name = "snail:report-error")]
 pub unsafe extern "C" fn report_error(pointer: *const u8, length: usize) {
     let bytes = unsafe { std::slice::from_raw_parts(pointer, length) };
-    eprintln!("snail-lofi: {}", String::from_utf8_lossy(bytes));
+    eprintln!("lofi: {}", String::from_utf8_lossy(bytes));
     std::process::exit(1)
 }
 

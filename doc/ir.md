@@ -1,7 +1,7 @@
 # Resolved Lofi IR
 
-The direct [frontend](../src/snail-lofi/frontend.sld) turns located s-expressions
-into the expression and binding records in [ir.sld](../src/snail-scheme/ir.sld).
+The direct [frontend](../src/lofi/frontend.sld) turns located s-expressions
+into the expression and binding records in [ir.sld](../src/lofi/ir.sld).
 It resolves names and attaches binding declarations. Expressions have no inferred
 type or constraint fields. The frontend does not
 expand macros, infer types or optimize expressions.
@@ -142,6 +142,6 @@ readiness checks are deferred optimizations. The emitter's private local/layout
 registries remain mutable; the demand graph and worklist are persistent values.
 No native lowering or runtime ownership protocol changes with this representation.
 
-The [tour](../TOUR.md) names each implementing module. The internal
-`snail-scheme`/`strict-*` module names are migration remnants; they do not expose
-a second product language. [The Lofi design](lofi.md) is the language contract.
+The [tour](../TOUR.md) gives a reading order through `src/lofi/`, and the
+[compiler reference](compiler.md) describes each module's contract.
+[The Lofi design](lofi.md) is the language contract.

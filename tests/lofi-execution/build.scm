@@ -1,9 +1,9 @@
 ;; Produce actual compiler artifacts for execution-adapter contracts.
 (import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler)
-        (snail-lofi native)
-        (only (snail-lofi artifact) emit-artifact))
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi native)
+        (only (lofi artifact) emit-artifact))
 
 (define directory (cadr (command-line)))
 (define (parsed text)

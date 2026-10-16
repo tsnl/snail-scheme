@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {loadWasm, instantiate, invokeEntry, closeInstance, InitializationError}
-  from '../../src/snail-lofi/execute.mjs';
+  from '../../src/lofi/execute.mjs';
 
 const directory = process.argv[2];
 const bytes = name => readFileSync(join(directory, name));

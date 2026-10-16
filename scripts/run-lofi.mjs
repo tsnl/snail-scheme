@@ -31,6 +31,6 @@ try {
   if (!filename) throw new Error('usage: run-lofi.mjs MODULE.wasm [ARGUMENT ...]');
   process.exitCode = await run(filename, arguments_);
 } catch (error) {
-  console.error(`snail-lofi: ${error.message}`);
+  console.error(`lofi: ${error.message}`);
   process.exitCode = 1;
 }

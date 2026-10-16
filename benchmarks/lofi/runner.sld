@@ -530,7 +530,7 @@
     (define (compiler-fatal? result)
       (and (succeeded? (fields-with result (cons 'returncode 0))) (= (field result 'returncode -1) 1)
            (string=? (field result 'stdout "") "(#f \"Internal error, no exception handler at this point\" #f)\n")
-           (string-prefix? "snail-lofi: benchmark primitive error\n" (field result 'stderr ""))
+           (string-prefix? "lofi: benchmark primitive error\n" (field result 'stderr ""))
            (not (text-contains? (field result 'stderr "") "fatal compiler handler returned"))))
 
     (define (compiler-fatal-validation directory source target manifest environment native?)
@@ -737,12 +737,12 @@
       (define (test-fatal-result)
         (let ((record '((status . "finished") (returncode . 1) (timeout . #f) (descendants_gone . #t)
                         (stdout . "(#f \"Internal error, no exception handler at this point\" #f)\n")
-                        (stderr . "snail-lofi: benchmark primitive error\n"))))
+                        (stderr . "lofi: benchmark primitive error\n"))))
           (expect (compiler-fatal? record) #t)
           (for-each (lambda (entry) (expect (compiler-fatal? (fields-with record entry)) #f))
                     '((returncode . 0) (returncode . 139) (timeout . #t) (stdout . "")
                       (stderr . "unrelated") (executing_descendants . #(42))
-                      (stderr . "snail-lofi: benchmark primitive error\nfatal compiler handler returned")))))
+                      (stderr . "lofi: benchmark primitive error\nfatal compiler handler returned")))))
 
       (define (test-adapted-result)
         (let ((passed '((wasm_validation . "passed") (native_validation . "passed")

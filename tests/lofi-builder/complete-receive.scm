@@ -1,9 +1,9 @@
 ;; This compiler host owns no producer code or heap. The only input is syntax.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write) (chibi filesystem)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler)
-        (snail-lofi native) (only (wasm-native) make-native-import)
-        (snail-lofi library-transfer) (only (wasm-native test-utils) expect)
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi native) (only (wasm-native) make-native-import)
+        (lofi library-transfer) (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))
 (define directory (cadr (command-line)))
 (define (receive name)

@@ -3,7 +3,7 @@
 (import (scheme base) (scheme cxr) (scheme file) (scheme write)
         (chibi filesystem) (chibi pathname) (chibi string) (chibi regexp) (srfi 1)
         (wasm-native) (wasm-native process) (wasm-native wasm-optimize)
-        (wasm-native chromium-trace) (snail-lofi source-driver))
+        (wasm-native chromium-trace) (lofi source-driver))
 
 ;; ---- Source selection and protected outputs ----
 
@@ -111,4 +111,4 @@
             (lambda () (native-evidence root directory inputs before output))))))
   0)
 
-(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "snail-lofi")
+(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "lofi")

@@ -1,8 +1,8 @@
 ;; Compile supplied library values. Filesystem writes surround the compiler API.
 (import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
-        (snail-scheme reader) (snail-scheme syntax-parser)
-        (wasm-native chromium-trace) (snail-scheme strict-primitives)
-        (snail-lofi frontend) (snail-lofi compiler) (snail-lofi native)
+        (lofi reader) (lofi syntax-parser)
+        (wasm-native chromium-trace) (lofi primitives)
+        (lofi frontend) (lofi compiler) (lofi native)
         (only (wasm-native) make-native-import)
         (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))

@@ -1,0 +1,6 @@
+#!/bin/sh
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case ${1:-} in
+  -h|--help) cat "$root/scripts/lofi-help.txt"; exit 0 ;;
+esac
+exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/wasm-native/scheme" "$root/scripts/lofi.scm" "$root" "$@"

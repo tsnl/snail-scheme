@@ -132,12 +132,12 @@
     ;; ---- Public command status, publication, cleanup and standard input ----
 
     (define (public-command label arguments . options)
-      (apply checked label (append (list (path "snail-lofi")) arguments) options))
+      (apply checked label (append (list (path "lofi")) arguments) options))
     (define (command-source name text) (write-source (string-append name ".lofi") (string-append text "\n")))
     (define (compile-command-source target label source destination checks options)
       (checked label
                (if (string=? target "wasm")
-                   (append (list (path "snail-lofi") "compile" "-o" destination) options (list source))
+                   (append (list (path "lofi") "compile" "-o" destination) options (list source))
                    (append (list (path "scripts/build-native")) options (list source destination))) checks))
     (define (execute-command-source target label source arguments checks options)
       (if (string=? target "wasm")

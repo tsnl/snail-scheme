@@ -1,8 +1,8 @@
 ;; Parsing and copied syntax must leave the same decisions to ordinary checking.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-scheme source) (snail-lofi frontend)
-        (snail-lofi compiler) (snail-lofi library-transfer) (wasm-native test-utils))
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi source) (lofi frontend)
+        (lofi compiler) (lofi library-transfer) (wasm-native test-utils))
 
 (define directory (cadr (command-line)))
 (define primitive (cons '(lofi primitive) (make-primitive-library primitive-names)))

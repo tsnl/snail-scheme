@@ -1,6 +1,6 @@
 (import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler) (snail-lofi library-transfer))
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi frontend) (lofi compiler) (lofi library-transfer))
 (define directory (cadr (command-line)))
 (define (parsed path) (parse-library (car (reader->syntax-list (file->reader path)))))
 (with-chromium-trace-to

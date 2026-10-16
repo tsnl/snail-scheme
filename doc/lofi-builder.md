@@ -137,7 +137,7 @@ descriptions until ordinary map resolution finds their supplied providers.
 
 ## Execution and ownership
 
-[`library-builder.mjs`](../src/snail-lofi/library-builder.mjs) supplies the fixed
+[`library-builder.mjs`](../src/lofi/library-builder.mjs) supplies the fixed
 scalar constructor protocol as a typed `WebAssembly.Instance` provider. Its I64
 handles contain an invocation tag and local node ID. Every operation checks the
 origin, node category and referenced nodes. The receiver performs the remaining
@@ -188,7 +188,7 @@ follow, or authoritative origin strings in the packet.
 
 ## Receiving and compiling
 
-The Chibi module [`library-transfer.sld`](../src/snail-lofi/library-transfer.sld)
+The Chibi module [`library-transfer.sld`](../src/lofi/library-transfer.sld)
 accepts one complete packet through an explicit, bounded port (a file or an
 already framed message). It preserves all JSON control escapes and rejects
 trailing input:

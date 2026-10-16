@@ -16,13 +16,22 @@ Lofi. Scheme elaboration, macros and self-hosting are deferred.
 The [Lofi chapters](doc/book/lofi/index.md) specify the typed language,
 library values and compiler-as-library model, with examples and formal rules.
 
+## Start reading
+
+Open [`examples/fibonacci.lofi`](examples/fibonacci.lofi), then
+[`src/lofi/compiler.sld`](src/lofi/compiler.sld). The [short compiler tour](TOUR.md)
+gives the reading order, follows a source file through the command and maps the
+repository directories. Compiler passes live together in `src/lofi/`; the
+[detailed compiler reference](doc/compiler.md) explains their contracts and the
+execution APIs.
+
 ## Getting started
 
 ```sh
 nix-shell
 rustup target add wasm32-wasip1
-./snail-lofi run examples/fibonacci.lofi
-./snail-lofi compile -o fibonacci.wasm examples/fibonacci.lofi
+./lofi run examples/fibonacci.lofi
+./lofi compile -o fibonacci.wasm examples/fibonacci.lofi
 scripts/build-native examples/fibonacci.lofi build/fibonacci
 build/fibonacci
 ```
