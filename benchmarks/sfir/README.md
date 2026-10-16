@@ -197,9 +197,12 @@ The plan records Node/V8, Chez, Rust, compiler/source/input, executable/provider
 and immutable shared-library identities. Full preparation verification precedes
 and follows the campaign; each trial checks its executed files and inputs. The
 fixed protocol rejects nonempty `NODE_OPTIONS`, coverage, preload and GC
-observation settings; rejected values remain in the manifest and error. The
-frozen tree must have no writers. The quiet-window text is an operational
-attestation, not an automatic proof that the machine has no competing work.
+observation settings. `SNAIL_GC_STATS` must be unset: its presence enables native
+statistics even when its value is empty. Missing/null settings and inert empty
+values such as `NODE_OPTIONS=""` or `LD_PRELOAD=""` remain accepted; rejected
+values remain in the manifest and error. The frozen tree must have no writers.
+The quiet-window text is an operational attestation, not an automatic proof that
+the machine has no competing work.
 Interrupt the command if the coordinated interval is lost: partial attempts and
 unattempted schedule entries remain recorded, and comparisons are withheld.
 Only complete routes with a successful warmup and all five valid measurements
