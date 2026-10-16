@@ -1,0 +1,104 @@
+LLVM object excerpts; hexadecimal addresses are offsets within each function section.
+
+array1 f.3 before
+      71:      	movq	0x10(%r15), %rax
+      75:      	testq	%rax, %rax
+      78:      	je	0xef <f.3+0xef>
+      7a:      	movq	0x8(%rax), %rdi
+      7e:      	movl	%ebx, %esi
+      80:      	movl	$0x8, %edx
+      85:      	callq	0x8a <f.3+0x8a>
+		0000000000000086:  R_X86_64_PLT32	native_array_slot-0x4
+      8a:      	movq	%rbx, (%rax)
+
+array1 f.3 after
+      75:      	movq	0x10(%r15), %rax
+      79:      	testq	%rax, %rax
+      7c:      	je	0xf8 <f.3+0xf8>
+      7e:      	movq	0x8(%rax), %rax
+      82:      	testq	%rax, %rax
+      85:      	je	0xf8 <f.3+0xf8>
+      87:      	testb	$0x1, %al
+      89:      	jne	0xf8 <f.3+0xf8>
+      8b:      	cmpq	0x8(%rax), %rbx
+      8f:      	jae	0xf8 <f.3+0xf8>
+      91:      	movq	%rbx, 0x10(%rax,%rbx,8)
+
+array1 f.4 before
+      90:      	movq	0x8(%r14), %rdi
+      94:      	movq	0x10(%r14), %r14
+      98:      	movl	%ebx, %esi
+      9a:      	movl	$0x8, %edx
+      9f:      	callq	0xa4 <f.4+0xa4>
+		00000000000000a0:  R_X86_64_PLT32	native_array_slot-0x4
+      a4:      	movq	(%rax), %rbp
+      a7:      	movq	%r14, %rdi
+      aa:      	movl	%ebx, %esi
+      ac:      	movl	$0x8, %edx
+      b1:      	callq	0xb6 <f.4+0xb6>
+		00000000000000b2:  R_X86_64_PLT32	native_array_slot-0x4
+      b6:      	movq	%rbp, (%rax)
+
+array1 f.4 after
+      80:      	movq	0x8(%r14), %rax
+      84:      	testq	%rax, %rax
+      87:      	je	0x165 <f.4+0x165>
+      8d:      	testb	$0x1, %al
+      8f:      	jne	0x165 <f.4+0x165>
+      95:      	cmpq	0x8(%rax), %rbx
+      99:      	jae	0x165 <f.4+0x165>
+      9f:      	movq	0x10(%r14), %rcx
+      a3:      	testq	%rcx, %rcx
+      a6:      	je	0x165 <f.4+0x165>
+      ac:      	testb	$0x1, %cl
+      af:      	jne	0x165 <f.4+0x165>
+      b5:      	cmpq	0x8(%rcx), %rbx
+      b9:      	jae	0x165 <f.4+0x165>
+      bf:      	movq	0x10(%rax,%rbx,8), %rax
+      c4:      	movq	%rax, 0x10(%rcx,%rbx,8)
+
+bv2string f.22 before
+      d3:      	movq	0x18(%rax), %rax
+      d7:      	testq	%rax, %rax
+      da:      	je	0x14c <f.22+0x14c>
+      dc:      	movq	0x8(%rax), %rdi
+      e0:      	movl	%ebx, %esi
+      e2:      	movl	$0x1, %edx
+      e7:      	callq	0xec <f.22+0xec>
+		00000000000000e8:  R_X86_64_PLT32	native_array_slot-0x4
+      ec:      	movb	%r15b, (%rax)
+      ef:      	movq	0x30(%rsp), %rax
+
+bv2string f.22 after
+      d3:      	testq	%rcx, %rcx
+      d6:      	je	0x14d <f.22+0x14d>
+      d8:      	movq	0x8(%rcx), %rcx
+      dc:      	testq	%rcx, %rcx
+      df:      	je	0x14d <f.22+0x14d>
+      e1:      	testb	$0x1, %cl
+      e4:      	jne	0x14d <f.22+0x14d>
+      e6:      	cmpq	0x8(%rcx), %rbx
+      ea:      	jae	0x14d <f.22+0x14d>
+      ec:      	movb	%al, 0x10(%rcx,%rbx)
+
+gcbench f.10 before
+     10a:      	shrq	$0x20, %rax
+     10e:      	jne	0x1d8 <f.10+0x1d8>
+     114:      	movq	0x10(%r15), %rdi
+     118:      	movl	%ebx, %esi
+     11a:      	movl	$0x8, %edx
+     11f:      	callq	0x124 <f.10+0x124>
+		0000000000000120:  R_X86_64_PLT32	native_array_slot-0x4
+     124:      	movsd	0x8(%rsp), %xmm0
+     12a:      	movsd	%xmm0, (%rax)
+     12e:      	movq	0x28(%rsp), %r15
+
+gcbench f.10 after
+     109:      	movq	0x10(%r15), %rax
+     10d:      	testq	%rax, %rax
+     110:      	je	0x1dc <f.10+0x1dc>
+     116:      	testb	$0x1, %al
+     118:      	jne	0x1dc <f.10+0x1dc>
+     11e:      	cmpq	0x8(%rax), %r13
+     122:      	jae	0x1dc <f.10+0x1dc>
+     128:      	movsd	%xmm0, 0x10(%rax,%r14,8)

@@ -1,0 +1,95 @@
+[
+  {
+    "case": "array1",
+    "before": {
+      "optimized_wasm_sha256": "86421df767a99f0c2b4aea57209bcb64a8d852a93d0e132efa3c85f790c35191",
+      "llvm_sha256": "c7f301abff381b5a7a7aa277082ae60d1f2042aab034989bb14e435deb7fa40d",
+      "object_sha256": "60067ec96ab1ff720d02dbd683e28b1ad57077d52d9c251dbdc83500deedea19",
+      "calls": {
+        "native_array_slot": 3,
+        "native_array_length": 2,
+        "native_roots_enter": 14,
+        "native_roots_leave": 18,
+        "native_array_new": 3,
+        "native_alloc": 26,
+        "native_ref_test": 7
+      }
+    },
+    "after": {
+      "optimized_wasm_sha256": "86421df767a99f0c2b4aea57209bcb64a8d852a93d0e132efa3c85f790c35191",
+      "llvm_sha256": "928ba3b88506e3a28e094389f39554247bbff67dddfb551c3570e2ddd6776048",
+      "object_sha256": "63788aca8c3aefa44d64b4be16cdfd7c090885b1162212cda94a1b385b72aae1",
+      "calls": {
+        "native_array_slot": 0,
+        "native_array_length": 0,
+        "native_roots_enter": 14,
+        "native_roots_leave": 18,
+        "native_array_new": 3,
+        "native_alloc": 26,
+        "native_ref_test": 7
+      }
+    }
+  },
+  {
+    "case": "bv2string",
+    "before": {
+      "optimized_wasm_sha256": "54dd5b4b180a66299e9a33ae0cea75143afe65efdfcad1f33f9276cd7bbc14ea",
+      "llvm_sha256": "f7fe6273df723b76b6b3099a54e61ca25955acd1798f01f918de2ad1ffebdb21",
+      "object_sha256": "0954cb3fecf6334623d9445256f8c278bf3abbba124c92f6e6d8d1b0131ab5cd",
+      "calls": {
+        "native_array_slot": 21,
+        "native_array_length": 5,
+        "native_roots_enter": 33,
+        "native_roots_leave": 47,
+        "native_array_new": 7,
+        "native_alloc": 70,
+        "native_ref_test": 6
+      }
+    },
+    "after": {
+      "optimized_wasm_sha256": "54dd5b4b180a66299e9a33ae0cea75143afe65efdfcad1f33f9276cd7bbc14ea",
+      "llvm_sha256": "4ef19967d8972771da9540d8cbeaa6bd9f60b8bd21db62987961b2ed1053499a",
+      "object_sha256": "727bd4ccf14a9bde3651a1b79b205a5fa8b613d2ac34f8df3d3e8253cb45747b",
+      "calls": {
+        "native_array_slot": 0,
+        "native_array_length": 0,
+        "native_roots_enter": 33,
+        "native_roots_leave": 47,
+        "native_array_new": 7,
+        "native_alloc": 70,
+        "native_ref_test": 6
+      }
+    }
+  },
+  {
+    "case": "gcbench",
+    "before": {
+      "optimized_wasm_sha256": "6bc0ae3bac7a36aa7670425d74cb8275486dd140c5f4639792463aeb1cfadee7",
+      "llvm_sha256": "1365a8c5b57d1a75549cd980be2827c2331b0f9981f6ac90e91678a9a1f08eb6",
+      "object_sha256": "febc607ebd21eb457b9a382ef8f83028932bf7ed559eb6114f42abfc1cb2c61f",
+      "calls": {
+        "native_array_slot": 2,
+        "native_array_length": 1,
+        "native_roots_enter": 22,
+        "native_roots_leave": 29,
+        "native_array_new": 1,
+        "native_alloc": 54,
+        "native_ref_test": 16
+      }
+    },
+    "after": {
+      "optimized_wasm_sha256": "6bc0ae3bac7a36aa7670425d74cb8275486dd140c5f4639792463aeb1cfadee7",
+      "llvm_sha256": "f77e61bac16275c111750cc97913d57c1816108c3b8b975145d33731deb05538",
+      "object_sha256": "d59d732ad28264c3ee978c8ecc95a11f00fadb40e90d82a7afcd55159400c6f5",
+      "calls": {
+        "native_array_slot": 0,
+        "native_array_length": 0,
+        "native_roots_enter": 22,
+        "native_roots_leave": 29,
+        "native_array_new": 1,
+        "native_alloc": 54,
+        "native_ref_test": 16
+      }
+    }
+  }
+]

@@ -41,6 +41,11 @@ still uses the system C runtime and startup objects; `SNAIL_NATIVE_LIBC` and
 ordinary file copying and hashing for the Scheme tools.
 See [command options](options.md).
 
+Native array length and element accesses emit checked LLVM header loads and
+address calculations with the validated storage width. Allocation and bulk copy
+stay in Rust; the [package representation contract](../wasm-native/README.md#native-array-representation)
+describes the layout, traps and compatibility exports.
+
 The Nix shell sets `RUSTC_WRAPPER` to `wasm-native/scripts/rustc-native`. This
 small Scheme wrapper also supplies the native linker for Cargo's host build scripts during
 Wasm builds. It preserves Cargo's selected compiler, explicit target and linker.
