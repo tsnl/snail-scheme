@@ -123,6 +123,17 @@ conversions retain precise semantic type witnesses, including nominal identities
 Proper tail calls remain target tail calls, including a Unit-valued call followed
 only by an inert Unit constructor.
 
+A known lexical self call can reuse the current closure environment. Its concrete
+binding instance must select the enclosing implementation, and its complete
+initializer must be that implementation's literal lambda. Each activation
+initializes this binding once, so a successful read identifies the executing
+closure even when several factory activations share code. Module initialization
+rejects repeated or reentrant execution. Aliases, computed
+initializers, nested owners and other specializations do not establish this proof.
+The call still evaluates every argument and then reads the operator, including
+its readiness and payload null checks. Only the redundant held-local null check
+and closure environment load disappear; closure allocation and capture stay intact.
+
 ## Current tradeoffs
 
 Summary discovery and target emission are still separate concrete traversals:

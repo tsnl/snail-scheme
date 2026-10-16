@@ -59,6 +59,7 @@
   {"name": "direct-escaping-readiness", "result": "42", "exports": {"checked": "trap", "before": "1", "after": "42", "observed": "2"}},
   {"name": "direct-escaping-chain", "result": "42"},
   {"name": "direct-activation-cells", "result": "42"},
+  {"name": "direct-self-environment", "result": "42"},
   {"name": "direct-shadowed-reference", "result": "42"},
   {"name": "direct-escaping-alias", "result": "42"},
   {"name": "direct-tail-rest", "result": "42"},
