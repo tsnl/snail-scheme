@@ -1,12 +1,11 @@
-;; One located IR is shared by expansion, checking and specialization. Expansion
-;; resolves identities and attaches declared syntax; every expression and binder
-;; starts with its own Hole. Checking refines an owned copy, and specialization
-;; makes concrete copies without changing a generic template or runtime site.
+;; Source expressions contain syntax and resolved identities, never inferred
+;; expression types. The frontend links an owned graph; checking and generation
+;; treat it as immutable. Binding schemes live separately from expression data.
 ;; See doc/ir.md for variant layouts and phase invariants.
 (define-library (snail-scheme ir)
   (export
-   make-node node? node-kind node-type node-loc node-data node-constraints
-   refine-node! children copy-ir-graph attach-declarations!
+   make-node node? node-kind node-loc node-data
+   resolve-node-data! children copy-ir-graph attach-declarations!
    make-value-definition value-definition? value-definition-name value-definition-loc
    binding-id? binding-origin
    prepare-binding! binding-scheme set-binding-scheme!
@@ -97,13 +96,11 @@
     ;; ---- Located expressions and declarations ----
 
     (define-record-type <node>
-      (make-node kind type loc data constraints) node?
-      (kind node-kind set-node-kind!) (type node-type set-node-type!) (loc node-loc)
-      (data node-data set-node-data!) (constraints node-constraints set-node-constraints!))
-    (define (source-node kind loc data) (make-node kind (fresh-hole) loc data '()))
-    (define (refine-node! node kind type data constraints)
-      (set-node-kind! node kind) (set-node-type! node type)
-      (set-node-data! node data) (set-node-constraints! node constraints) node)
+      (make-node kind loc data) node?
+      (kind node-kind) (loc node-loc) (data node-data resolve-node-data!))
+    (define source-node make-node)
+    ;; resolve-node-data! is a construction boundary for frontend import
+    ;; resolution and graph copying. Compiler passes never call it.
     (define (kind? node kind) (and (node? node) (eq? (node-kind node) kind)))
 
     ;; ---- Resolved definitions own their schemes and initializer metadata ----
@@ -339,9 +336,8 @@
         (define (reserve original copy)
           (hash-table-set! copies original copy) copy)
         (define (copy-node node)
-          (let ((copy (reserve node (make-node (node-kind node) #f (node-loc node) '() '()))))
-            (refine-node! copy (node-kind node) (walk (node-type node))
-                          (walk (node-data node)) (walk (node-constraints node)))))
+          (let ((copy (reserve node (make-node (node-kind node) (node-loc node) '()))))
+            (resolve-node-data! copy (walk (node-data node))) copy))
         (define (copy-definition definition)
           (let ((copy (reserve definition
                                (new-definition (value-definition-name definition)
@@ -392,11 +388,9 @@
     (export test-ir)
     (import (wasm-native test-utils) (only (snail-scheme source) make-loc))
     (begin
-      (define (test-source-holes)
+      (define (test-source-identities)
         (let* ((definition (make-value-definition 'x #f)) (use (make-name definition #f)))
-          (expect (hole? (node-type use)) #t)
           (expect (hole? (scheme-type (binding-scheme definition))) #t)
-          (expect (eq? (node-type use) (scheme-type (binding-scheme definition))) #f)
           (expect (eq? (name-definition use) definition) #t)))
       (define (test-definition-cycle)
         (let* ((definition (make-value-definition 'recur #f))
@@ -415,13 +409,14 @@
         (let* ((hole (fresh-hole)) (rigid (fresh-rigid))
                (scheme (make-scheme (list rigid) (function-type (list rigid) #f hole) '()))
                (substitutions (list (cons rigid hole)))
-               (node (make-node 'name hole #f substitutions '())))
+               (node (make-node 'name #f (cons hole substitutions))))
           (set-scheme-constraints! scheme (list (list 'Proof node scheme)))
           (let* ((copies (copy-ir-graph (list node scheme hole)))
                  (node-copy (car copies)) (scheme-copy (cadr copies)) (hole-copy (caddr copies)))
-            (expect (eq? (node-type node-copy) hole-copy) #t)
-            (expect (eq? (cdar (node-data node-copy)) hole-copy) #t)
-            (expect (eq? (caar (node-data node-copy)) (car (scheme-variables scheme-copy))) #t)
+            (expect (eq? (car (node-data node-copy)) hole-copy) #t)
+            (expect (eq? (cdr (cadr (node-data node-copy))) hole-copy) #t)
+            (expect (eq? (car (cadr (node-data node-copy)))
+                         (car (scheme-variables scheme-copy))) #t)
             (expect (eq? (caddar (scheme-constraints scheme-copy)) scheme-copy) #t)
             (expect (eq? (car (scheme-variables scheme-copy)) rigid) #f)
             (unify! hole-copy 'Bool #f)
@@ -473,7 +468,7 @@
         (let loop ((left count) (nodes '()))
           (if (= left 0) nodes
               (loop (- left 1)
-                    (cons (make-node 'probe 'I64 #f (list left payload) '()) nodes)))))
+                    (cons (make-node 'probe #f (list left payload)) nodes)))))
       (define (test-copy-wide-sharing)
         (let* ((shared (vector 'payload)) (source (copy-test-graph 2000 shared))
                (copies (copy-ir-graph source)) (payload (cadr (node-data (car copies)))))
@@ -514,7 +509,7 @@
                     (make-overload-declaration family #f body #f) #f)
                   "overload requires an explicit signature")))
       (define (test-ir)
-        (run-test test-source-holes)
+        (run-test test-source-identities)
         (run-test test-definition-cycle)
         (run-test test-copy-proof-sharing)
         (run-test test-copy-mutable-data)

@@ -478,8 +478,8 @@
     (define (attach-static-kind form scope declaration)
       (let ((items (definition-parts form)) (expected (former-kind form scope)))
         (if (= (length items) 3)
-            (make-node 'static-kind #f (syntax-loc (cadr items))
-                       (list (parse-kind (cadr items) scope) expected declaration) '())
+            (make-node 'static-kind (syntax-loc (cadr items))
+                       (list (parse-kind (cadr items) scope) expected declaration))
             declaration)))
 
     ;; ---- Data, classes, overloads and foreign declarations ----
