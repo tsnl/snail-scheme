@@ -82,6 +82,15 @@ do not collect or change root publication; allocation, initialization and bulk
 copy remain in Rust. The exported Rust `native_array_length` and
 `native_array_slot` functions remain for previously emitted native objects.
 
+The lowering computes synchronous collection effects over resolved Wasm direct
+calls. Imports, dynamic calls, allocation and unfamiliar operations may collect;
+that effect propagates to their callers. A recursive group with no collecting
+path uses private local slots and omits root-frame publication. Wrappers and
+module initialization remain conservative. Private slots retain normal parameter
+and null initialization; noncollecting runtime helpers cannot invoke guest code.
+GC stress injection keeps every function framed, including functions that cannot
+collect in production.
+
 ## Shared Wasm and host utilities
 
 Libraries such as `(wasm-native wasm)`, `(wasm-native wasm-optimize)`,

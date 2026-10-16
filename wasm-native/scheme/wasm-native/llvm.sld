@@ -101,11 +101,13 @@
       (globals module-globals) (constants module-constants) (output module-output))
 
     (define-record-type <function>
-      (make-function name params result locals body import type attributes)
+      (make-function name params result locals body import type attributes calls collects?)
       function?
       (name function-name) (params function-params) (result function-result)
       (locals function-locals) (body function-body) (import function-import)
-      (type function-wasm-type) (attributes function-attributes set-function-attributes!))
+      (type function-wasm-type) (attributes function-attributes set-function-attributes!)
+      (calls function-calls set-function-calls!)
+      (collects? function-collects? set-function-collects!))
 
     (define current-module (make-parameter #f))
 
@@ -119,7 +121,7 @@
       (let* ((type (caddr node)) (signature (type-definition type)))
         (make-function (cadr node) (cadr signature) (result-type signature)
                        (if import '() (cadddr node))
-                       (and (not import) (car (cddddr node))) import type "")))
+                       (and (not import) (car (cddddr node))) import type "" '() #f)))
 
     (define (iota count start)
       (let loop ((index 0) (result '()))
@@ -165,6 +167,53 @@
 
     (define (function-type index) (function-wasm-type (function-info index)))
 
+    ;; ---- Synchronous collection effects ----
+
+    ;; Imports and unknown operations may collect. A closed direct-call cycle
+    ;; with no collecting operation cannot: collection only runs synchronously.
+    ;; Keep a small call graph rather than retaining every normalized body.
+    ;; Stress mode injects collecting entry/tail calls, so it proves no leaves.
+    ;; The allowed numeric, reference, struct, array-copy and table-access
+    ;; lowerings never collect or call guest code. Unmanaged Rust allocation
+    ;; alone does not collect; adding a collecting helper requires a new effect.
+    (define (noncollecting-operation? op)
+      (memq op '(block loop if else end local.get local.set local.tee numeric
+                       i32.const i64.const f32.const f64.const global.get global.set
+                       br br_if br_table unreachable nop drop return select
+                       ref.null ref.func ref.i31 i31.get_s i31.get_u ref.as_non_null
+                       ref.eq ref.is_null ref.test ref.cast struct.get struct.get_s
+                       struct.get_u struct.set array.get array.get_s array.get_u
+                       array.set array.len array.copy table.get table.set table.size)))
+
+    (define (record-function-effects! function)
+      (if (or (function-import function) (current-native-gc-stress))
+          (set-function-collects! function #t)
+          (for-each
+           (lambda (node)
+             (if (memq (car node) '(call return_call))
+                 (set-function-calls! function (cons (cadr node) (function-calls function)))
+                 (unless (noncollecting-operation? (car node))
+                   (set-function-collects! function #t))))
+           (lower-wasm-body (function-body function)))))
+
+    (define (callee-collects? calls)
+      (and (pair? calls)
+           (or (function-collects? (function-info (car calls)))
+               (callee-collects? (cdr calls)))))
+
+    (define (propagate-collection! function)
+      (and (not (function-collects? function)) (callee-collects? (function-calls function))
+           (begin (set-function-collects! function #t) #t)))
+
+    (define (record-collection-effects!)
+      (let ((functions (vector->list (module-functions (current-module)))))
+        (for-each record-function-effects! functions)
+        (let loop ()
+          (let ((changed? #f))
+            (for-each (lambda (function)
+                        (when (propagate-collection! function) (set! changed? #t))) functions)
+            (when changed? (loop))))))
+
     ;; ---- Native function state ----
 
     ;; Locals and structured joins use entry-block slots. LLVM promotes them to
@@ -185,6 +234,9 @@
       (local-roots emitter-local-roots set-emitter-local-roots!))
 
     (define current-emitter (make-parameter #f))
+    ;; Wrappers and initialization stay conservative. Only a proved Wasm
+    ;; function may keep references in private slots invisible to the collector.
+    (define current-function-collects (make-parameter #t))
 
     (define (fresh prefix)
       (let* ((emitter (current-emitter)) (number (+ 1 (emitter-serial emitter))))
@@ -274,20 +326,24 @@
       (trap-unless (instruction "i1" "icmp ne " (typed value) ", 0"))
       value)
 
-    ;; Reference locals live directly in the frame. At synchronous safepoints
-    ;; only operand temporaries need copies. Nonmoving objects need no reload.
+    ;; Collecting functions keep reference locals directly in the frame. At
+    ;; synchronous safepoints only operand temporaries need copies. Nonmoving
+    ;; objects need no reload.
     ;; The active count excludes stale temporary slots left by earlier loops.
     (define (publish-roots arguments)
-      (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
-             (values (filter reference-value? (append (emitter-stack emitter) arguments)))
-             (count (+ offset (length values))))
-        (set-emitter-roots! emitter (max (emitter-roots emitter) count))
-        (for-each (lambda (value index) (store value (root-slot (+ index 3))))
-                  values (iota (length values) offset))
-        (store (constant "i64" count) (root-slot 2))))
+      (when (current-function-collects)
+        (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
+               (values (filter reference-value? (append (emitter-stack emitter) arguments)))
+               (count (+ offset (length values))))
+          (set-emitter-roots! emitter (max (emitter-roots emitter) count))
+          (for-each (lambda (value index) (store value (root-slot (+ index 3))))
+                    values (iota (length values) offset))
+          (store (constant "i64" count) (root-slot 2)))))
 
+    ;; A no-GC proof removes publication, not local storage or initialization.
+    ;; initialize-locals still writes parameters and nulls to these private slots.
     (define (local-storage type)
-      (if (not (string=? type "ref")) (slot type)
+      (if (or (not (string=? type "ref")) (not (current-function-collects))) (slot type)
           (let* ((emitter (current-emitter)) (index (emitter-local-roots emitter)))
             (set-emitter-local-roots! emitter (+ index 1))
             (constant type (cdr (root-slot (+ index 3)))))))
@@ -295,7 +351,8 @@
     (define (root-slot index)
       (constant "i64" (cdr (instruction "ptr" "getelementptr i64, ptr %roots, i64 " index))))
 
-    (define (leave-roots) (line "call void @native_roots_leave(ptr %roots)"))
+    (define (leave-roots)
+      (when (current-function-collects) (line "call void @native_roots_leave(ptr %roots)")))
 
     (define (return-value value . tail?)
       (unless (and (pair? tail?) (car tail?)) (leave-roots))
@@ -807,8 +864,9 @@
         (output "define " name "(" (llvm-join (map typed params) ", ") ") " attributes "{\nentry:")
         (for-each (lambda (line) (write-llvm line (module-output (current-module))))
                   (reverse (emitter-slots emitter)))
-        (output "  %roots = alloca { ptr, i64, i64, [" (max (emitter-roots emitter) (emitter-local-roots emitter)) " x i64] }, align 8")
-        (output "  call void @native_roots_enter(ptr %roots, i64 " (emitter-roots emitter) ")")
+        (when (current-function-collects)
+          (output "  %roots = alloca { ptr, i64, i64, [" (max (emitter-roots emitter) (emitter-local-roots emitter)) " x i64] }, align 8")
+          (output "  call void @native_roots_enter(ptr %roots, i64 " (emitter-roots emitter) ")"))
         (display (get-output-string (emitter-port emitter)) (module-output (current-module)))
         (close-output-port (emitter-port emitter))
         (output "}\n")))
@@ -827,26 +885,27 @@
         (llvm-quoted (cadr entry))))
 
     (define (emit-function function)
-      (let ((params (parameter-values function)) (result (function-result function)))
-        (emit-definition
-         (list "internal tailcc " (llvm-type result) " " (symbol-name "f." (function-name function)))
-         params
-         (lambda ()
-           (if (function-import function)
-               (begin (publish-roots params)
-                      (return-value (call-native (import-name function) result params)))
-               (begin
-                 (initialize-locals function)
-                 (stress-safepoint '())
-                 (set-emitter-result! (current-emitter) result)
-                 (let ((exit (make-target "return" result))
-                       (code (vector (lower-wasm-body (function-body function)))))
-                   (set-emitter-targets! (current-emitter) (list exit))
-                   (unless (and (eq? (emit-stream code) 'end) (null? (vector-ref code 0)))
-                     (error "invalid Wasm function ending"))
-                   (close-control exit)
-                   (let ((value (join-target exit))) (when (alive?) (return-value value)))))))
-         (function-attributes function))))
+      (parameterize ((current-function-collects (function-collects? function)))
+        (let ((params (parameter-values function)) (result (function-result function)))
+          (emit-definition
+           (list "internal tailcc " (llvm-type result) " " (symbol-name "f." (function-name function)))
+           params
+           (lambda ()
+             (if (function-import function)
+                 (begin (publish-roots params)
+                        (return-value (call-native (import-name function) result params)))
+                 (begin
+                   (initialize-locals function)
+                   (stress-safepoint '())
+                   (set-emitter-result! (current-emitter) result)
+                   (let ((exit (make-target "return" result))
+                         (code (vector (lower-wasm-body (function-body function)))))
+                     (set-emitter-targets! (current-emitter) (list exit))
+                     (unless (and (eq? (emit-stream code) 'end) (null? (vector-ref code 0)))
+                       (error "invalid Wasm function ending"))
+                     (close-control exit)
+                     (let ((value (join-target exit))) (when (alive?) (return-value value)))))))
+           (function-attributes function)))))
 
     (define (emit-export node)
       (case (caaddr node)
@@ -1130,6 +1189,7 @@
                                  (make-vector (declaration-count declarations 'global) #f) port)))
         (parameterize ((current-module module))
           (for-each record-declaration! declarations)
+          (record-collection-effects!)
           (for-each (lambda (node) (when (eq? (car node) 'global) (plan-global! node))) declarations)
           (output "; WasmGC -> LLVM. Generated by the wasm-native library.\n"
                   "target triple = \"x86_64-unknown-linux-gnu\"\n")
@@ -1176,6 +1236,41 @@
            (module (import "snail.rust" "snail:fail" (func)))
            (module (import "wasi_snapshot_preview1" "args_get" (func (param i32 i32) (result i32)))))))
 
+      (define collection-test-module
+        '(module
+          (type $box (struct)) (type $array (array eqref)) (type $f (func))
+          (import "test" "collect" (func $import)) (table 1 funcref)
+          (elem declare func $pure-a)
+          (func $pure-a (call $pure-b)) (func $pure-b (return_call $pure-a))
+          (func $transitive-a (call $transitive-b))
+          (func $transitive-b (return_call $allocate))
+          (func $allocate (drop (struct.new $box)))
+          (func (call $import))
+          (func (call_ref $f (ref.func $pure-a)))
+          (func (call_indirect (type $f) (i32.const 0)))
+          (func (drop (array.new_default $array (i32.const 1))))
+          (func (drop (table.grow 0 (ref.null func) (i32.const 1))))
+          (func unreachable)))
+
+      (define (collection-test-flags datum)
+        (let* ((nodes (resolve-wasm datum))
+               (module (make-module (make-vector (declaration-count nodes 'type))
+                                    (make-vector (+ (declaration-count nodes 'func)
+                                                    (declaration-count nodes 'import)))
+                                    '#() '#() #f)))
+          (parameterize ((current-module module))
+            (for-each record-declaration! nodes)
+            (record-collection-effects!)
+            (map function-collects? (vector->list (module-functions module))))))
+
+      (define (test-llvm-collection-effects)
+        (expect (collection-test-flags collection-test-module)
+                '(#t #f #f #t #t #t #t #t #t #t #t #f))
+        (expect (and (noncollecting-operation? 'future-operation) #t) #f)
+        (parameterize ((current-native-gc-stress #t))
+          (expect (collection-test-flags collection-test-module) (make-list 12 #t))))
+
       (define (test-llvm)
         (run-test test-llvm-floats)
-        (run-test test-llvm-rejections))))))
+        (run-test test-llvm-rejections)
+        (run-test test-llvm-collection-effects))))))

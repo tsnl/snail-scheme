@@ -19,6 +19,8 @@ unsafe extern "C" {
     fn tail(p0: u32) -> u64;
     #[link_name = "wasm.root"]
     fn root(p0: u32) -> u64;
+    #[link_name = "wasm.gc-effects"]
+    fn gc_effects() -> u64;
     #[link_name = "wasm.tail-gc"]
     fn tail_gc(p0: u32) -> u64;
     #[link_name = "wasm.gc-operands"]
@@ -211,6 +213,7 @@ unsafe fn check_roots() {
         );
         assert!(native::native_roots_peak() < 8);
         assert_eq!(root(500), 99);
+        assert_eq!(gc_effects(), 42);
         native::native_roots_reset_peak();
         assert_eq!(tail_gc(20_000), 42);
         assert!(native::native_roots_peak() < 8);

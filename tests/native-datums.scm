@@ -139,6 +139,42 @@
            (struct.get $box 0 (ref.cast (ref $box) (struct.get $box 1 (global.get $mutable))))
            (struct.get $box 0 (ref.cast (ref $box) (array.get $refs (local.get $array) (i32.const 1))))))
 
+    ;; ---- Collection effects through direct and dynamic calls ----
+
+    ;; A reference can cross a pure recursive group without a published frame.
+    ;; The allocating group must retain frames even in its nonallocating arm.
+    (func $pure-null (result i32) (local eqref) (ref.is_null (local.get 0)))
+    (func $pure-even (type $short) (param $n i32) (param $keep eqref) (result eqref)
+          (if (result eqref) (i32.eqz (local.get $n))
+              (then (local.get $keep))
+              (else (call $pure-odd (i32.sub (local.get $n) (i32.const 1)) (local.get $keep)))))
+    (func $pure-odd (type $short) (param $n i32) (param $keep eqref) (result eqref)
+          (return_call $pure-even (local.get $n) (local.get $keep)))
+    (func $collect-even (type $short) (param $n i32) (param $keep eqref) (result eqref)
+          (if (result eqref) (i32.eqz (local.get $n))
+              (then (local.get $keep))
+              (else (call $collect-odd (i32.sub (local.get $n) (i32.const 1)) (local.get $keep)))))
+    (func $collect-odd (type $short) (param $n i32) (param $keep eqref) (result eqref)
+          (drop (struct.new $box (i64.const 0) (local.get $keep)))
+          (call $collect-even (local.get $n) (local.get $keep)))
+    (table $collectors 1 1 funcref)
+    (elem (table $collectors) (i32.const 0) func $collect-even)
+    (func $dynamic-keep (param $keep eqref) (result eqref)
+          (drop (call_ref $short (i32.const 20) (local.get $keep) (ref.func $collect-even)))
+          (local.get $keep))
+    (func $indirect-keep (param $keep eqref) (result eqref)
+          (drop (call_indirect $collectors (type $short) (i32.const 20) (local.get $keep) (i32.const 0)))
+          (local.get $keep))
+    (func (export "gc-effects") (result i64)
+          (local $keep eqref)
+          (if (i32.eqz (call $pure-null)) (then unreachable))
+          (local.set $keep (struct.new $box (i64.const 42) (ref.null eq)))
+          (local.set $keep (call $pure-even (i32.const 50) (local.get $keep)))
+          (drop (call $collect-even (i32.const 20) (local.get $keep)))
+          (drop (call $dynamic-keep (local.get $keep)))
+          (drop (call $indirect-keep (local.get $keep)))
+          (struct.get $box 0 (ref.cast (ref $box) (local.get $keep))))
+
     ;; ---- Containers, branch values and numeric edges ----
 
     (func $cold.increment (type $integer) (param $n i32) (result i32)

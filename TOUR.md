@@ -401,6 +401,8 @@ Unicode data and Rust's recorded casing baseline.
 [`wasm-resolve.sld`](wasm-native/scheme/wasm-native/wasm-resolve.sld) resolves Wasm identities.
 [`llvm.sld`](wasm-native/scheme/wasm-native/llvm.sld) mechanically lowers those operations,
 including checked array header loads and addressing with known storage widths;
+its direct-call effect analysis omits root frames only for functions proved
+unable to collect. Imports, dynamic calls and injected GC stress stay conservative.
 [`llvmlite.sld`](wasm-native/scheme/wasm-native/llvmlite.sld) writes LLVM text. Native uses the
 same Rust extern implementations and resolves imports directly against
 literal Rust `extern "C"` provider declarations. [`native_gc.rs`](wasm-native/src/native_gc.rs) owns
