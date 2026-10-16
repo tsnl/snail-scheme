@@ -48,6 +48,17 @@ Actual optimized native execution with forced collection also passed. These
 are prototype checks; later product review and validation are recorded by the
 implementation PR.
 
+The product implementation retains this cache operation and documents both
+storage lifetime and the absence of mutable descriptor borrows. Its focused
+test explicitly forces worklist capacity growth, traces eight distinct tag-only
+children, rejects an undeclared scalar decoy, and observes finalizers. Separate
+tests reject offsets equal to the payload word count and `u32::MAX`. All 61
+product Rust tests and formatting checks pass, as do 253 checked native-suite
+commands including forced collection, expected traps and resource cleanup.
+A copied standalone package passes native execution with forced GC and its
+trap check, plus V8 execution of the exact optimized Wasm. These are correctness
+checks; they add no timing samples to the exploratory experiment above.
+
 ## Reproduction and evidence
 
 Each linking pair uses identical frozen guest code, Rust entry/provider,
