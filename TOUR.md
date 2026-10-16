@@ -1,94 +1,84 @@
-# Reading the Lofi compiler
+# Languages are libraries
 
-Start with [`examples/fibonacci.lofi`](examples/fibonacci.lofi), then open
-[`src/lofi/compiler.sld`](src/lofi/compiler.sld). Its `compile` function is the
-map of the compiler: resolve library identities, check types, prepare concrete
-code, emit Wasm and package the optimized artifact.
+The compiler is a library. Language definitions are libraries. All Lofi and
+Scheme libraries live under `src/`, with paths matching their library names.
+Programs use `.sld`; their imports select the forms and operations they use.
+Lofi means **Low-level Functional IR**.
 
-Lofi means **Low-level Functional IR**. Programs and standard libraries are
-`.lofi` files. The compiler itself is Scheme hosted by Chibi, in `.sld` files.
-There is one source language and one compiler implementation directory.
+Start with [`examples/fibonacci.sld`](examples/fibonacci.sld), then compare
+[`examples/scheme-fibonacci.sld`](examples/scheme-fibonacci.sld). Both print
+`832040`. The first uses the typed Lofi kernel; the second imports the initial
+[`(scheme base)`](src/scheme/base.sld), whose hygienic macros produce that kernel.
+Both reach the same type checker, specialization pass and Wasm backend.
+
+The public [`(lofi compiler)`](src/lofi/compiler.sld) is usable by either surface.
+It supplies parsing, explicit library maps, compilation and Wasm execution through
+the compiler service. The current implementation is Scheme hosted by Chibi:
+[`(lofi compiler bootstrap)`](src/lofi/compiler/bootstrap.sld) composes the passes.
+The compiler cannot compile its own implementation yet. `bootstrap/` is a loader
+view of `src/lofi`, keeping Chibi's own `(scheme base)` separate from the product
+library. Executable Chibi orchestration scripts retain `.scm`.
 
 ## Read the passes in this order
 
 | Step | File | What to follow |
 | --- | --- | --- |
-| 1. Compilation | [`compiler.sld`](src/lofi/compiler.sld) | `compile` and `library-map->core`: the public entry and the composition of passes. |
-| 2. Parsing | [`frontend.sld`](src/lofi/frontend.sld) | `parse-library`: located syntax becomes a `LofiLibrary` with binding identities and unresolved imports. |
-| 3. Resolution | [`library.sld`](src/lofi/library.sld) | `resolve-library-map`: supplied library values become resolved imports, exports and source expressions. [`ir.sld`](src/lofi/ir.sld) defines those expressions. |
-| 4. Checking | [`infer.sld`](src/lofi/infer.sld) | `infer-program`: check bodies and retain binding schemes, scopes and class evidence in [`checked.sld`](src/lofi/checked.sld). [`types.sld`](src/lofi/types.sld) supplies the type operations. |
-| 5. Concrete demand | [`specialize.sld`](src/lofi/specialize.sld) | `prepare-generation` and `prepare-entry-generation`: choose concrete implementations and settle storage and captures. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/emit-wasm.sld) | `strict-core->wasm`: visit source with established type and storage evidence and emit WasmGC. |
-
-Each module keeps its decisions and supporting operations together. Scheme unit
-tests live in the final `Tests` section under the `snail-tests` feature.
+| 1. Compilation | [`compiler/bootstrap.sld`](src/lofi/compiler/bootstrap.sld) | `compile` and `library-map->core` compose resolution, checking and emission. |
+| 2. Description | [`frontend.sld`](src/lofi/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. |
+| 3. Resolution and expansion | [`library.sld`](src/lofi/library.sld), [`macros.sld`](src/lofi/macros.sld) | Resolve imported binding identities, expand `syntax-rules`, then parse the expanded kernel. |
+| 4. Checking | [`infer.sld`](src/lofi/infer.sld) | `infer-program` checks bodies and records types, scopes and class evidence in [`checked.sld`](src/lofi/checked.sld). |
+| 5. Concrete demand | [`specialize.sld`](src/lofi/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures. |
+| 6. Emission | [`emit-wasm.sld`](src/lofi/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence. |
 
 ```text
-located syntax → parsed libraries → resolved source → checked program
-               → concrete demand and storage → WasmGC → Binaryen
+located library source → imported identities and hygienic expansion
+                       → resolved Lofi → checked program
+                       → concrete demand and storage → WasmGC → Binaryen
 ```
 
-Resolution examines every entry in the supplied map. Checking examines every
-body in the selected root's dependency closure, including unused functions.
+Macro transformers retain definition-site bindings, including private helpers.
+They disappear before ordinary type checking and code generation. Read the
+[macro and Scheme chapter](doc/book/lofi/macros.md) for supported forms and limits.
+Modules keep their decisions together; host unit tests live in final `Tests`
+sections under the `snail-tests` feature.
+
+Resolution examines every entry supplied in a library map. Checking examines
+every body in the root's dependency closure, including unused functions.
 Concrete demand selects the implementations and initializers needed for emitted
 code. These scopes differ deliberately.
 
 ## Follow a file through the command
 
 ```sh
-./lofi run examples/fibonacci.lofi
+./lofi run examples/scheme-fibonacci.sld
 ```
 
-This prints `832040`. [`lofi`](lofi) starts
-[`scripts/lofi.scm`](scripts/lofi.scm), which owns command options, private build
-directories and publication. [`scripts/build-lofi.scm`](scripts/build-lofi.scm)
-calls [`source-driver.sld`](src/lofi/source-driver.sld):
+[`lofi`](lofi) starts [`scripts/lofi.scm`](scripts/lofi.scm), which owns command
+options and build directories. [`source-driver.sld`](src/lofi/source-driver.sld)
+finds `.sld` dependencies, prepares a library map and calls the compiler. It can
+also execute explicit `generate-library` recipes: producer and application maps
+are separate, with shared source choices and cycle detection. Build scripts
+optimize with Binaryen, link Rust scalar services and run on V8 or lower through
+the independent [`wasm-native/`](wasm-native/README.md) package for native execution.
 
-1. `collect-source-file` finds and parses source dependencies into a library map.
-2. `source-file->core` resolves that map and checks the root through
-   `library-map->core` in the compiler module.
-3. `source-file->wasm` prepares concrete demand and emits the script's Wasm.
-
-The build scripts optimize with Binaryen, link the Rust scalar services and run
-the resulting module on V8. The file path can also execute `generate-library`
-recipes during preparation. Read that machinery after the ordinary source path;
-producer and application maps are separate, with shared source choices and cycle
-detection.
-
-The map-based `compile` API starts with parsed library values and a public export.
-It reads no source files and returns optimized artifact bytes with a checked
-scalar entry signature. The script path emits a body result for build drivers to
-optimize and link. [`build.scm`](build.scm) shows a complete library-based native
-build once those boundaries are familiar.
+The map-based `compile` API reads no source files. It accepts library values and
+a public export, and returns optimized artifact bytes with a checked scalar
+entry signature. [`build.scm`](build.scm) shows direct bootstrap library
+composition for a native build.
 
 ## Where things live
 
 | Path | Responsibility |
 | --- | --- |
-| [`src/lofi/`](src/lofi/) | Chibi-hosted compiler passes and its Wasm execution/service adapters. |
-| [`lib/lofi/`](lib/lofi/README.md) | Standard libraries written in Lofi, including the guest compiler service API. |
-| [`examples/`](examples/) | Small programs and explicit build/generation examples. |
-| [`wasm-native/`](wasm-native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. Start here only when following execution below Wasm. |
-| [`scripts/`](scripts/) | Commands for builds, integration tests, formatting and the book. |
+| [`src/lofi/`](src/lofi/README.md) | Typed core, runtime libraries, public compiler API and bootstrap implementation modules. |
+| [`src/scheme/`](src/scheme/) | Scheme language libraries; currently a typed subset of base forms. |
+| [`src/lofi/tools/`](src/lofi/tools/) | Trace viewing and Unicode generation libraries. |
+| [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
+| [`examples/`](examples/) | Programs and explicit build/generation examples. |
+| [`wasm-native/`](wasm-native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. |
+| [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners and shared assertions. |
-| [`benchmarks/`](benchmarks/README.md) | The 57-workload corpus, controls and recorded evidence. |
-| [`src/lofi-tools/`](src/lofi-tools/) and [`tools/host/`](tools/host/) | Trace viewing and Unicode generation tools. |
-| [`doc/`](doc/) | Language contracts, build instructions and detailed implementation references. |
+| [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 
-The Scheme import `(lofi compiler)` loads `src/lofi/compiler.sld`. The same
-spelling in a Lofi program selects `lib/lofi/compiler.lofi`, the guest service
-API. The host's module path and Lofi's library search path are separate.
-
-## Go deeper when needed
-
-- [Compiler reference](doc/compiler.md): module contracts, library builders,
-  artifact lifetimes and execution adapters.
-- [Language book](doc/book/lofi/index.md): syntax, types and library semantics.
-- [IR and checking](doc/ir.md): representations and implementation tradeoffs.
-- [Build and test requirements](doc/backend.md), [commands](doc/options.md) and
-  [native execution](doc/native.md).
-- [Roadmap](doc/roadmap.md): proposed work, separate from implemented behavior.
-
-Use `make test` for compiler host tests and `make check` for formatting checks.
-`scripts/test-backend` runs linked Wasm and native contracts; `scripts/test-build`
-exercises the public command and native build composition.
+Use the [detailed compiler reference](doc/compiler.md) for pass contracts and
+execution APIs, and the [language book](doc/book/lofi/index.md) for semantics.

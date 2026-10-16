@@ -1,13 +1,13 @@
 ;; Produce actual compiler artifacts for execution-adapter contracts.
 (import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
         (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi primitives) (lofi frontend) (lofi compiler bootstrap)
         (lofi native)
         (only (lofi artifact) emit-artifact))
 
 (define directory (cadr (command-line)))
 (define (parsed text)
-  (parse-library (car (reader->syntax-list (string->reader "execution-fixture.lofi" text)))))
+  (parse-library (car (reader->syntax-list (string->reader "execution-fixture.sld" text)))))
 (define libraries
   (with-chromium-trace-to
    (string-append directory "/parse.json")

@@ -50,7 +50,7 @@
         (stream-invoke label command directory failure?)))
     (define (run-reader)
       (prepare-stream! "lofi-reader"
-                       (lambda () (stream-build "lofi-reader" "reader.lofi" '("check" "scan" "storage") "entry.rs"
+                       (lambda () (stream-build "lofi-reader" "reader.sld" '("check" "scan" "storage") "entry.rs"
                                                 (list (list "reader.test" (fixture "lofi-reader" "observer.rs"))))))
       (let* ((cases (read-json (fixture "lofi-reader" "cases.json")))
              (valid (field cases 'valid)) (invalid (rows (field cases 'invalid))))
@@ -121,7 +121,7 @@
       (let ((corpus (read-json (fixture "lofi-write" "cases.json"))))
         (let ((oracle (command-output "graph-oracle" (list (tool-name "CHEZ" "scheme") "--script" (fixture "lofi-write" "oracle.scm")))))
           (assert-equal (regexp-replace-all (pcre->regexp "#vu8\\(") oracle "#u8(") (field corpus 'graphs)))
-        (prepare-stream! "lofi-write" (lambda () (stream-build "lofi-write" "output.lofi" (strings (field corpus 'exports)) "entry.rs" '())))
+        (prepare-stream! "lofi-write" (lambda () (stream-build "lofi-write" "output.sld" (strings (field corpus 'exports)) "entry.rs" '())))
         (for-each (lambda (form)
                     (for-each (lambda (action) (writer-check corpus form action "" #f)) '("stream" "graphs" "deep"))
                     (writer-check corpus form "stdout" "stdout:λ😀 (a \"b\")\nborrowed:!\n()\n" #f)
@@ -173,7 +173,7 @@
       (test-environment (cons '("SNAIL_NATIVE_GC_INTERVAL" . "1") (test-environment)))
       (let* ((corpus (read-json (fixture "lofi-text" "cases.json"))) (streams '()))
         (write-text-corpus corpus)
-        (prepare-stream! "lofi-text" (lambda () (stream-build "lofi-text" "text.lofi" (strings (field corpus 'exports)) "entry.rs" '())))
+        (prepare-stream! "lofi-text" (lambda () (stream-build "lofi-text" "text.sld" (strings (field corpus 'exports)) "entry.rs" '())))
         (for-each (lambda (form)
                     (let ((stdout (text-check form "scalars" '())))
                       (set! streams (cons stdout streams))
@@ -218,8 +218,8 @@
     (define (run-packets)
       (test-environment (append '(("SNAIL_NATIVE_GC_INTERVAL" . "1") ("CARGO_BUILD_JOBS" . "1")) (test-environment)))
       (prepare-stream! "lofi-io" (lambda ()
-                                   (stream-build "lofi-io" "packet.lofi" '("copy-characters" "mixed-readers" "cached-close" "copy-standard"
-                                                                           "open-growing" "peek-growing" "read-growing" "close-growing") "packet.rs" '())))
+                                   (stream-build "lofi-io" "packet.sld" '("copy-characters" "mixed-readers" "cached-close" "copy-standard"
+                                                                          "open-growing" "peek-growing" "read-growing" "close-growing") "packet.rs" '())))
       (for-each (lambda (length) (packet-check (string-append "ascii-" (number->string length)) (make-bytevector length 97) "copy-characters" #f #f #f))
                 '(0 1 6 7 8 13 14 15 8191 8192 8193))
       (for-each (lambda (row) (packet-check (car row) (string->utf8 (cadr row)) "copy-characters" #f #f #f))
@@ -250,7 +250,7 @@
       (runtime-build)
       (for-each (lambda (name)
                   (let ((wasm (build-path (string-append name ".wasm"))))
-                    (build-guest (fixture "lofi-io" (string-append name ".lofi")) wasm
+                    (build-guest (fixture "lofi-io" (string-append name ".sld")) wasm
                                  (cond ((string=? name "output") io-exports) ((string=? name "input") input-exports) (else '())))
                     (for-each (lambda (form)
                                 (let ((linked (build-path (string-append name "-" form ".wasm")))

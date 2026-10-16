@@ -5,7 +5,7 @@ import {join, basename} from 'node:path';
 export function createProviders(context) {
   assert(Object.isFrozen(context));
   assert(Object.isFrozen(context.libraryKey));
-  assert.equal(basename(context.sourcePath), `${context.libraryKey.at(-1)}.lofi`);
+  assert.equal(basename(context.sourcePath), `${context.libraryKey.at(-1)}.sld`);
   const output = process.env.LOFI_GENERATION_TEST_OUTPUT;
   const log = action => appendFileSync(join(output, 'providers.jsonl'), JSON.stringify({action, ...context}) + '\n');
   log('open');

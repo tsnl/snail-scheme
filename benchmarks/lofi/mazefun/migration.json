@@ -42,5 +42,13 @@
     "before_sha256": "3524a327fd4282bbd03dead6a9753de87e63da2d27adb3b7e848de2717cb9e91",
     "after_sha256": "9ff751b2ebe85fccd4de6937659f88ce209b723a4cec30f4fbb9c34acbdc9d2a",
     "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "mazefun/main.lofi",
+    "after_path": "mazefun/main.sld",
+    "before_sha256": "9ff751b2ebe85fccd4de6937659f88ce209b723a4cec30f4fbb9c34acbdc9d2a",
+    "after_sha256": "9ff751b2ebe85fccd4de6937659f88ce209b723a4cec30f4fbb9c34acbdc9d2a",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
   }
 }

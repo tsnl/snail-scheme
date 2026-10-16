@@ -1,25 +1,25 @@
 # Instance initialization and ordinary-call contracts
 
-Run `chibi-scheme -I src -I tests tests/lofi-instances/check.scm`. Each attempt retains its commands,
+Run `chibi-scheme -I bootstrap -I tests tests/lofi-instances/check.scm`. Each attempt retains its commands,
 outcomes, raw and optimized Wasm, native lowering, and artifact hashes under
 `build/lofi-instances`. Native execution consumes the retained raw Wasm and must
 produce exactly the optimized guest bytes executed by V8. Native runs force GC
 at allocation boundaries.
 
-- `initialization.lofi` checks row order independent of class method order,
+- `initialization.sld` checks row order independent of class method order,
   general expressions, unused instance effects, initialized name aliases,
   concrete selection of a generic name, shared mutable captures and repeated
   calls without repeated initialization.
-- `unused-forward-alias.lofi` checks a premature read at an unused instance site.
+- `unused-forward-alias.sld` checks a premature read at an unused instance site.
   The later initializer must not execute.
-- `trapping-expression.lofi` checks that a later row's trap preserves earlier
+- `trapping-expression.sld` checks that a later row's trap preserves earlier
   effects and prevents subsequent rows from running.
-- `wrong-result.lofi` rejects a wrong method result even when its general
+- `wrong-result.sld` rejects a wrong method result even when its general
   expression and instance are unused.
-- `ordinary-calls.lofi` checks argument effects before operator effects, unused
+- `ordinary-calls.sld` checks argument effects before operator effects, unused
   eager arguments, immediate and rest calls, and sequential-let polymorphism.
-- `immediate-parameter.lofi` and `named-parameter.lofi` reject the same attempt
-  to use a function parameter at incompatible types. `aliased-parameter.lofi`
+- `immediate-parameter.sld` and `named-parameter.sld` reject the same attempt
+  to use a function parameter at incompatible types. `aliased-parameter.sld`
   checks that a sequential alias cannot generalize that parameter's type.
 
 An explicit scalar provider records each effect as it occurs. V8 compares the

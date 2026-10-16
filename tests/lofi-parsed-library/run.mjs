@@ -22,7 +22,7 @@ try {
   assert.equal(invokeEntry(instance, []), 42);
   assert.equal(probe.exports.trace.value, 555, 'same parsed value inserted twice initializes once');
   assert.equal(messages.length, 7);
-  for (const expected of ['run', 'missing.lofi', 'wide-error.lofi', 'rest-error.lofi', 'vector-error.lofi', 'grammar-error.lofi', 'multiple.lofi'])
+  for (const expected of ['run', 'missing.sld', 'wide-error.sld', 'rest-error.sld', 'vector-error.sld', 'grammar-error.sld', 'multiple.sld'])
     assert(messages.some(message => message.includes(expected)), `${expected}: ${messages}`);
 } finally {
   if (instance) closeInstance(instance);

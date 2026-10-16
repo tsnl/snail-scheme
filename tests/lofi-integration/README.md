@@ -1,7 +1,7 @@
 # Lofi integration contracts
 
 `../../scripts/test-lofi-integration` checks every compiler case in
-`cases.json`. Each case names one authored `.lofi` fixture. The runner verifies
+`cases.json`. Each case names one authored `.sld` fixture. The runner verifies
 that the two inventories agree, compiles with the direct Lofi frontend, and
 executes both the raw diagnostic module and mandatory-Binaryen optimized module.
 `run.mjs` preserves the original assertions, including ordered scalar observers
@@ -32,7 +32,9 @@ source snapshot.
 Five former detached-signature tests now explicitly check rejection of syntax
 removed from Lofi. They do not establish the old detached-declaration rules.
 `overload-macro` and `data-hygiene` retain their runtime overload and nominal-scope
-assertions through authored declarations; they no longer test macro expansion.
+assertions through authored declarations. Additional `macro-*` and `scheme-*`
+fixtures exercise hygienic expansion, imported private helpers, lexical and type
+scopes, repetition, generated definitions and the initial Scheme forms.
 `string-literals` uses the fixed `String` type spelling and retains all literal,
 identity and storage assertions; its former imported type alias is absent.
 
@@ -54,7 +56,7 @@ binding is now explicit and distinct from its surrounding parameter.
 The adjacent `lofi-bytes`, `lofi-extern`, `lofi-integer`, `lofi-io`,
 `lofi-numbers`, `lofi-reader`, `lofi-text`, and `lofi-write` directories retain the
 custom Node and Rust hosts and independent data oracles. Scalar trigonometry remains
-in `../lofi-math.lofi` with its existing Node/Rust hosts. Their corresponding commands
+in `../lofi-math.sld` with its existing Node/Rust hosts. Their corresponding commands
 are `scripts/test-lofi-<name>`.
 
 These runners compile static target sources. They may generate input values,
@@ -64,7 +66,7 @@ Neither is a target-language elaborator.
 
 The Integer runner imports the ordinary `test-integer` entry point at production
 radix and at radix 4. The latter build uses the authored
-`../lofi-integer/small-radix/lofi/integer.lofi` override. A read-only comparison
+`../lofi-integer/small-radix/lofi/integer.sld` override. A read-only comparison
 requires the complete override to equal the production library except for the
 two exact `radix` and `limb-bits` declarations. Separate build outputs and a check
 of the emitted production-radix constant verify that the library selection

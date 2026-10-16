@@ -1,5 +1,8 @@
 # Formal summary
 
+These rules describe the typed kernel after [hygienic macro expansion](macros.md).
+The initial Scheme forms are library macros that produce this same kernel.
+
 This is the compact companion to [Terms and definitions](terms.md) and
 [Types](types.md). The grammar defines source forms; parsing turns them into
 an abstract syntax tree (AST), a structured value representing the program.

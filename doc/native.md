@@ -22,12 +22,12 @@ The tested target is **64-bit x86-64 Linux**. Other 64-bit targets need explicit
 ABI, collector and tail-call validation. 32-bit native targets are rejected.
 
 ```sh
-scripts/build-native examples/fibonacci.lofi build/fibonacci
+scripts/build-native examples/fibonacci.sld build/fibonacci
 build/fibonacci
 
 scripts/build-native \
   --rust-provider fixture tests/native-mixed.rs \
-  tests/native-mixed.lofi build/mixed
+  tests/native-mixed.sld build/mixed
 
 scripts/build-native --wasm --entry-rust tests/native-runner.rs \
   build/native-tests/semantics.wasm build/semantics
@@ -55,7 +55,7 @@ for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
 [`build.scm`](../build.scm) shows the ordinary library calls for a selected public
 entry. It accepts `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` and works with
 absolute paths from any working directory; its first comment runs the
-[`answer.lofi`](../examples/native/answer.lofi) and
+[`answer.sld`](../examples/native/answer.sld) and
 [`entry.rs`](../examples/native/entry.rs) example, which prints `42`.
 
 `(wasm-native)` reads a Wasm file through `wasm-binary->llvm`, with explicit

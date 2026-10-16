@@ -41,5 +41,13 @@
     "before_sha256": "4218053a59096a3a32617ac598157ef5562c2de1175f7bf9777100a0643d23b7",
     "after_sha256": "b291feeb5088d5b5f3f85833e67869e8f0ce1d5283bfdebdb9a58ed9d5d73895",
     "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "cpstak/main.lofi",
+    "after_path": "cpstak/main.sld",
+    "before_sha256": "b291feeb5088d5b5f3f85833e67869e8f0ce1d5283bfdebdb9a58ed9d5d73895",
+    "after_sha256": "b291feeb5088d5b5f3f85833e67869e8f0ce1d5283bfdebdb9a58ed9d5d73895",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
   }
 }

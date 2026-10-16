@@ -1,7 +1,7 @@
 # Lofi commands
 
 Lofi means **Low-level Functional IR**. It was previously named SFIR.
-Source files now use `.lofi`, standard libraries use `(lofi ...)`, and the
+Source files now use `.sld`, standard libraries use `(lofi ...)`, and the
 command is `lofi`. Rename existing files and imports before rebuilding.
 Compiler services and saved artifacts also use `lofi` protocol names; rebuild
 artifacts and update their consumers together. SRFI names belong to the Scheme
@@ -10,14 +10,16 @@ host's libraries and retain their original spelling.
 `lofi` is hosted by Chibi. Help works before dependency checks.
 
 ```sh
-./lofi run [-I DIRECTORY] SOURCE.lofi [ARGUMENT ...]
-./lofi compile [-I DIRECTORY] -o OUTPUT SOURCE.lofi
+./lofi run [-I DIRECTORY] SOURCE.sld [ARGUMENT ...]
+./lofi compile [-I DIRECTORY] -o OUTPUT SOURCE.sld
 ```
 
 Both commands use Wasm. `-I` may repeat; search those directories in order,
-then the repository's `lib/` directory. Library names map to `.lofi` paths:
-`(example math)` loads `example/math.lofi`. Inputs have explicit Lofi syntax;
-there is no Scheme or macro-expansion mode.
+then the repository's `src/` directory. Library names map to `.sld` paths:
+`(example math)` loads `example/math.sld`. Imports select language bindings:
+`(lofi core)` names the typed kernel and `(scheme base)` supplies the initial
+Scheme forms. The extension does not select a dialect. Chibi orchestration uses
+`.scm` and the separate `bootstrap/` loader view.
 
 Arguments after the source in `run` are literal program arguments, including
 strings beginning with a dash. The host receives them in its argument vector.

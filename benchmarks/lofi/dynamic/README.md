@@ -1,6 +1,6 @@
 # Dynamic type inference
 
-`main.lofi` contains all 229 kernel forms of the upstream dynamic type inferencer.
+`main.sld` contains all 229 kernel forms of the upstream dynamic type inferencer.
 Each of the 500 canonical iterations reads the complete 83,872-byte
 `inputs/dynamic.data`, parses its source forms, constructs and normalizes type
 constraints, and runs the original counter-producing traversal. The worker

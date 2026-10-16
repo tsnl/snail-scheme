@@ -68,7 +68,7 @@
              (valid (filter (lambda (case) (not (field case 'error))) cases))
              (failures (filter (lambda (case) (field case 'error)) cases)))
         (write-json (build-path "scalar-valid.json") (list->vector valid))
-        (checked "scalar-compile" (list (path-join (target-root) "scripts/build-lofi") "--export" "probe" (fixture "lofi-numbers" "bridge.lofi") wasm))
+        (checked "scalar-compile" (list (path-join (target-root) "scripts/build-lofi") "--export" "probe" (fixture "lofi-numbers" "bridge.sld") wasm))
         (for-each (lambda (form)
                     (let ((linked (build-path (string-append "scalar-" form "-linked.wasm"))))
                       (checked (string-append "scalar-" form "-link")

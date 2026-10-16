@@ -20,8 +20,8 @@ does not search directories or invoke a language frontend.
   (datatype ()
     (entry (library LibraryKey) (export Name))))
 
-(let math (parse-library (read-source "demo/math.lofi")))
-(let app (parse-library (read-source "demo/app.lofi")))
+(let math (parse-library (read-source "demo/math.sld")))
+(let app (parse-library (read-source "demo/app.sld")))
 (let libraries
   (map-insert (map-insert base-libraries math-key math) app-key app))
 (let artifact (compile libraries (entry app-key main-name)))
@@ -137,21 +137,27 @@ calls and shared references keep their usual meanings.
 
 ## Other languages and macros
 
-A future Scheme frontend could implement `scheme->lofi` as a function returning a
-`LofiLibrary`. It performs macro expansion and semantic translation, preserving
-source locations. Its output can import functions and types written directly
-in Lofi. The common checker verifies their interaction, and the common optimizer
-performs specialization and eliminates redundant checks. Lowering itself need
-not perform those optimizations.
+Language definitions are libraries. [`(scheme base)`](https://github.com/tsnl/snail-scheme/blob/main/src/scheme/base.sld)
+defines an initial Scheme surface with Lofi `syntax-rules`; both surfaces share
+one resolver, expander, checked representation and backend. Imports select the
+forms used by a `.sld` source. Neither extension nor implementation language
+changes the meaning of `(lofi compiler)`.
 
-Scheme expansion may require transformer values and helper functions from
-other Scheme libraries. The frontend defines how it obtains them before
-producing Lofi. Compiling a module's ordinary functions does not by itself
-preserve its macros for a later expansion. A reusable macro interface would
-need to retain transformer code or data together with the binding information
-and dependencies required by the expander. The Lofi library interface does not
-prescribe that frontend-specific protocol. Scheme elaboration, macro staging and
-self-hosting remain deferred; Chibi hosts the current compiler implementation.
+A library description retains source syntax when expansion needs imported
+transformers. Resolution obtains providers from the explicit library map, then
+expands against their actual binding identities. Transformer data retains its
+definition environment, including private helper macros and runtime definitions.
+Export, `only`, rename and re-export preserve those identities. Compiling runtime
+functions alone is insufficient: later expansion still requires the provider's
+library description and its dependencies. Transfer retains original located
+source so receiving contexts can resolve and expand it afresh.
+
+The [macro chapter](macros.md) describes implemented rules and the initial Scheme
+subset. These declarative transformers expand away; there is no runtime
+transformer object or arbitrary compile-time evaluator. Chibi still hosts the
+compiler implementation in `(lofi compiler bootstrap)`. Compiling that Scheme
+implementation through the product pipeline requires future Scheme support and
+is a separate self-hosting milestone.
 
 ## Compiler responsibilities
 

@@ -6,7 +6,7 @@ diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm,
 mandatory Binaryen output, and native execution with forced collection where the
 contract calls for it.
 
-Lofi fixtures use `.lofi` files and `(lofi ...)` imports. Frozen migration,
+Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
 validation and oracle-provenance records retain the SFIR names and paths from
 their recorded revisions; they are historical evidence, not current commands.
 

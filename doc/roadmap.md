@@ -108,7 +108,7 @@ distinct from the core language contract.
 - [x] Complete focused clarity reviews of [recursive inference](../tests/lofi-recursion/README.md),
   [literal construction](../tests/lofi-literal-widths/README.md),
   [arithmetic lowering](../tests/lofi-arithmetic/README.md) and
-  [shared I/O ownership](../lib/lofi/README.md). Retain independent explanations,
+  [shared I/O ownership](../src/lofi/README.md). Retain independent explanations,
   rejected alternatives and target execution evidence for those concrete changes.
 - [ ] Investigate the measured full57 bottlenecks and continue scoped compiler
   and runtime simplification with type/ownership evidence and execution checks.
@@ -155,13 +155,19 @@ are historical evidence, not a current Lofi score.
 - Add source mappings from emitted code back to located Lofi and future source
   frontends.
 
-## Deferred frontends and self-hosting
+## Language libraries and future self-hosting
 
-A later Scheme frontend may construct located Lofi ASTs inside `generate-library`.
-It will perform elaboration and macro expansion, while Lofi owns checking and
-optimization. Scheme code may depend on Lofi definitions and must check against
-their types. Other languages can use the same boundary.
+- [x] Put compiler and language libraries under `src/` with matching namespaces
+  and `.sld` sources. Keep the public `(lofi compiler)` usable by product callers
+  and the Chibi implementation under `(lofi compiler bootstrap)`.
+- [x] Add hygienic declarative `syntax-rules` to Lofi, including imported and
+  exported transformers, definition-site private bindings and nested repetition.
+- [x] Implement an initial `(scheme base)` using those macros and the typed core.
+- [ ] Extend Scheme beyond the documented typed subset: quoted data, general
+  truthiness, mutation, richer runtime interfaces and other R7RS requirements.
+- [ ] Specify procedural transformer evaluation and phase interfaces separately.
+- [ ] Compile the Scheme implementation through the product pipeline, then retire
+  Chibi at a distinct self-hosting milestone.
 
-Cross-module macros, compile-time datum access, staged execution and self-hosting
-are deliberately deferred. No Scheme compiler or interpreter is required by the
-current goal. Older designs and implementation history remain in Git.
+The earlier removal of the legacy expander remains historical migration work;
+the current declarative expander is implemented in the shared library pipeline.

@@ -60,7 +60,7 @@ const host = JSON.parse(readFileSync(process.env.LOFI_SERVICE_TEST_HOST, 'utf8')
 delete process.env.LOFI_SERVICE_TEST_HOST;
 try {
   const functions = api(scope), map = success(functions, functions['map-empty']()), name = key(functions, ['survivor']);
-  const libraries = success(functions, functions['map-source'](map, name, text(functions, 'owned.lofi'),
+  const libraries = success(functions, functions['map-source'](map, name, text(functions, 'owned.sld'),
     text(functions, '(define-library (survivor) (export main) (begin '
       + '(define-extern callback "reentry" "callback" (-> Unit)) (callback) '
       + '(def main (-> I32) (lambda () (begin (callback) 42)))))')));

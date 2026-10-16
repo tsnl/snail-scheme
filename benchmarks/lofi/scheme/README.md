@@ -1,6 +1,6 @@
 # Scheme interpreter
 
-`main.lofi` is the complete upstream interpreter written as ordinary, statically
+`main.sld` is the complete upstream interpreter written as ordinary, statically
 checked Lofi. All 260 non-import, non-driver source forms remain, including the
 interpreter's compiler, environment, macro machinery and primitive registration.
 The measured worker evaluates the unchanged sorting program 100,000 times and
@@ -8,7 +8,7 @@ compares the complete 30-string result with the original expected list. Input
 reading and primitive-environment initialization precede the worker.
 
 The interpreter's language is benchmark data. The product compiler reads only the
-static `.lofi` file; neither the corpus runner nor execution invokes a Scheme
+static `.sld` file; neither the corpus runner nor execution invokes a Scheme
 expander, converter, host evaluator or product interpreter. `source-coverage.json`
 records every upstream form in order. The old frontend was used once as an
 uncommitted authoring tool; its output is now ordinary source.

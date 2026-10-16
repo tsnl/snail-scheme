@@ -28,7 +28,7 @@ try {
   assert.equal(shared.exports.trace.value, 121277, 'aliases initialize once per instance; failed initializers retain effects');
   assert.equal(wrong.exports.trace.value, 0, 'provider mismatch precedes initialization');
   assert.equal(messages.length, 13);
-  for (const expected of ['bad-source.lofi', 'source state', 'lofi primitive', 'unknown provider set',
+  for (const expected of ['bad-source.sld', 'source state', 'lofi primitive', 'unknown provider set',
     'missing Wasm provider', 'expected type', 'semantic signature', 'closed', 'initialization failed', 'unreachable'])
     assert(messages.some(message => message.includes(expected)), `${expected}: ${messages}`);
   assert(existsSync('saved-application.wasm'));

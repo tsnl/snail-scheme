@@ -3,11 +3,14 @@
 For a first reading, use the [short compiler tour](../TOUR.md). This reference
 describes individual module contracts and the execution APIs in detail.
 
-Chibi hosts the compiler implementation. The supported input is located Lofi,
-with no Scheme expander or interpreter in the compilation pipeline.
+Chibi hosts the compiler implementation. Product libraries share located syntax,
+hygienic expansion and typed Lofi checking. `(scheme base)` supplies initial
+Scheme forms as macros; arbitrary procedural expansion and self-hosting remain
+future work.
 
 ```text
-Compiler: Lofi text → located syntax → parsed library values → resolved source
+Compiler: source → located library values → resolved imports and macro expansion
+          → resolved Lofi source
           → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
           optimized Wasm → wasm-native → LLVM opt/llc → native object
@@ -21,12 +24,15 @@ compiler and [`wasm-native`](../wasm-native/README.md) when composing a native b
 The standalone package contains the native lowering, shared Rust runtime and
 neutral host utilities; it has no compiler dependency.
 
-`src/lofi` contains the public compiler API, library loading, frontend and compiler
-passes, hosted by Chibi. `lib/lofi` contains libraries written in Lofi, and
-`wasm-native` is the separate native backend and runtime package.
+All product/compiler library paths follow their names under `src/lofi` and
+`src/scheme`. The public `(lofi compiler)` is a product library calling the
+compiler service. `(lofi compiler bootstrap)` is its current Chibi implementation;
+other implementation modules remain Chibi-hosted too. Use `-I bootstrap` for
+Chibi so its host `(scheme base)` is distinct from `src/scheme/base.sld`.
+`wasm-native` remains the independent native backend and runtime package.
 
 For a first read, start with `compile` and `entry-program` in
-[`compiler.sld`](../src/lofi/compiler.sld), then the source records in
+[`compiler.sld`](../src/lofi/compiler/bootstrap.sld), then the source records in
 [`ir.sld`](../src/lofi/ir.sld). Follow `generate-call` in
 [`specialize.sld`](../src/lofi/specialize.sld) alongside
 `rule-call` in [`infer.sld`](../src/lofi/infer.sld) and
@@ -55,7 +61,11 @@ therefore stores the default width unless the literal explicitly selects one.
 [`frontend.sld`](../src/lofi/frontend.sld) parses the small Lofi grammar into
 `LofiLibrary` values without loading dependencies. `parse-library` accepts one
 located `define-library`; `syntax-list->lofi-library` also accepts a script body.
-It reserves each block's bindings before parsing initializers. Local references
+A body using macros retains source until its imported transformers are known.
+[`macros.sld`](../src/lofi/macros.sld) then expands declarative patterns with lexical
+contexts, preserves private definition-site references and removes transformer
+definitions. The resulting kernel parser reserves each block's bindings before
+parsing initializers. Local references
 carry binding identities; unresolved imports carry a name, the library's import
 scope, a syntactic category and a location. `def` reserves a block-wide identity;
 each sequential `let` introduces its identity after parsing its initializer.
@@ -173,7 +183,7 @@ readiness-check elimination are deferred. Private target local/layout registries
 remain mutable. These [implementation tradeoffs](ir.md#current-tradeoffs) are
 separate from language semantics and measured runtime performance.
 
-[`compiler.sld`](../src/lofi/compiler.sld) composes the passes.
+[`compiler.sld`](../src/lofi/compiler/bootstrap.sld) composes the passes.
 The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks
 the chosen root's dependency closure. It requires no tracing or source context.
 `compile` takes that same map and `(make-entry library-key public-name)`, and
@@ -199,7 +209,7 @@ opens retained evidence in Perfetto.
 `scripts/build-lofi` keeps its script behavior and `--export` selector for unique
 flattened binding names. The library API uses public Entry selection.
 Lofi producers can construct, inspect and transfer the complete library syntax
-described below. [`(lofi compiler)`](../lib/lofi/compiler.lofi) also exposes explicit
+described below. [`(lofi compiler)`](../src/lofi/compiler.sld) also exposes explicit
 map assembly, compilation, Wasm loading, independent instantiation and checked
 scalar entry invocation as ordinary Lofi calls. Every fallible operation returns
 an ordinary `CompilerResult` success or diagnostic string.
@@ -226,7 +236,7 @@ source context and preparation errors.
 
 ## Parsed and constructed library values
 
-[`compiler-builder.lofi`](../lib/lofi/compiler-builder.lofi) lets compiled Lofi
+[`compiler-builder.sld`](../src/lofi/compiler-builder.sld) lets compiled Lofi
 producers compose nominal library, declaration, type, scope, binding and reference
 values. Constructors use explicit operands; no ambient current library is mutated.
 The API covers the book's types and binding signatures, literals, expressions,
@@ -366,7 +376,7 @@ the Rust runtime's Wasm form, links its scalar externs into a WASI reactor,
 drops unused runtime exports and optimizes the result. This utility imports no
 native lowering or execution code.
 [`run-lofi.mjs`](../scripts/run-lofi.mjs) initializes once, invokes `main`, and drains
-resource cleanup. The [Lofi libraries](../lib/lofi/README.md) implement numeric,
+resource cleanup. The [Lofi libraries](../src/lofi/README.md) implement numeric,
 container, datum and I/O behavior in Lofi; Rust externs supply concrete host
 operations. Wasm owns managed collection.
 
@@ -378,15 +388,15 @@ services retain temporary token text and stable symbol IDs, while Lofi owns the
 reader and managed datum graph. These services accept scalars and never retain
 guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
 
-[`io.lofi`](../lib/lofi/io.lofi) shares an owned file's pending input and closed
+[`io.sld`](../src/lofi/io.sld) shares an owned file's pending input and closed
 handle across aliases. Rust returns up to seven already-buffered ASCII characters
 in one scalar packet; character, line and datum reads consume that same cursor.
 Optional packet bytes never refill the native buffer or decode a later invalid
 suffix. Borrowed stdin retains the native scalar read/peek cursor so direct
-foreign reads interoperate. The [input contract](../lib/lofi/README.md#text-input-cursor)
+foreign reads interoperate. The [input contract](../src/lofi/README.md#text-input-cursor)
 describes the representation, EOF behavior and execution checks.
 
-[`text.lofi`](../lib/lofi/text.lofi) owns string ordering and full case-fold output
+[`text.sld`](../src/lofi/text.sld) owns string ordering and full case-fold output
 storage. [`strict_text.rs`](../wasm-native/src/strict_text.rs) exposes Unicode operations as
 scalar C/Wasm functions. [`unicode.rs`](../wasm-native/src/unicode.rs) keeps one generated
 folding implementation with at most three stack-resident output scalars;

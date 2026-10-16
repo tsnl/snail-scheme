@@ -4,11 +4,15 @@ So far, a program has been expressions and definitions with familiar names such
 as `+` already available. Libraries explain where those names come from and how
 separately written pieces fit together.
 
-A `LofiLibrary` is a value representing one source unit: its declarations,
-imports, exports and source locations. Its declarations are syntax trees using
-the language just described. Parsing establishes their structure and local
-binding identities. Imported references and inferred types still need resolution
-and checking, so a newly produced library is not yet a fully typed tree.
+A `LofiLibrary` describes one source unit: imports, exports, declarations and
+source locations. Plain kernel source is parsed immediately. Source that needs
+imported macros retains its located syntax until resolution supplies the
+transformers and their binding identities. Expansion then produces the same
+Lofi declarations. Neither representation is fully typed until checking.
+
+Library names correspond to paths under `src/`: `(scheme base)` lives at
+`src/scheme/base.sld`, `(lofi compiler)` at `src/lofi/compiler.sld`. Imports select
+language/forms; `.sld` is common to all of them.
 
 ## Writing a library
 
@@ -17,14 +21,14 @@ Its import clauses state which bindings the body can use; its export clauses
 state which bindings other libraries can use.
 
 ```scheme
-; demo/math.lofi
+; demo/math.sld
 (define-library (demo math)
   (import (lofi base))
   (export increment)
   (begin
     (def increment (-> I32 I32) (lambda (value) (+ value 1)))))
 
-; demo/app.lofi
+; demo/app.sld
 (define-library (demo app)
   (import (lofi base) (only (demo math) increment))
   (export main)
@@ -82,7 +86,9 @@ An export gives a binding a public name. Unexported names remain private, but
 exported functions can still refer to private definitions. Exporting a type
 preserves its nominal identity; constructors and accessors must be exported
 separately to be available by name. Re-exporting an imported binding preserves
-its original identity and does not copy its value or implementation.
+its original identity and does not copy its value or implementation. The same
+rules apply to [macros](macros.md); their templates retain private definition-site
+bindings without exposing those names in the public interface.
 
 An import introduces local names for exported bindings. `only` restricts the
 names introduced; `rename` changes their local spelling. Two import paths to
@@ -107,7 +113,7 @@ run the provider's initializers.
 ## Finding source files
 
 The default source driver supplies those values by searching explicit `-I`
-directories. `(demo math)` maps to `demo/math.lofi`. Search directories in the
+directories. `(demo math)` maps to `demo/math.sld`. Search directories in the
 given order and use the first matching file; report its path in diagnostics.
 A found file must describe the requested name with `define-library` or the
 `generate-library` form below. Parse errors in a found file are errors, not a
@@ -132,7 +138,7 @@ A file may describe how to produce a library instead of spelling out its
 declarations. The driver recognizes this second file-level form:
 
 ```scheme
-; demo/legacy.lofi
+; demo/legacy.sld
 (generate-library (demo legacy)
   (import (lofi base) (lofi compiler) (frontend scheme))
   (scheme->lofi (read-source "legacy.scm")))

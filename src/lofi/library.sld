@@ -2,9 +2,9 @@
 ;; consumes an explicit map and makes owned IR; it never reads source or runs
 ;; initializers. Source identities survive copies through their origin IDs.
 (define-library (lofi library)
-  (export make-lofi-library lofi-library? lofi-library-id lofi-library-name
+  (export make-lofi-library make-expanding-library lofi-library? lofi-library-id lofi-library-name
           lofi-library-scope lofi-library-imports lofi-library-exports
-          lofi-library-declarations lofi-library-bindings lofi-library-loc
+          lofi-library-declarations lofi-library-bindings lofi-library-loc lofi-library-syntax
           make-scope-id scope-id?
           make-scoped-reference scoped-reference? reference-name reference-scope
           reference-role reference-loc
@@ -12,7 +12,7 @@
           make-lofi-import lofi-import? lofi-import-provider lofi-import-selection
           lofi-import-scope lofi-import-loc
           resolve-library-map resolve-source-library)
-  (import (scheme base) (scheme cxr) (lofi resolved-library) (lofi ir)
+  (import (scheme base) (scheme cxr) (lofi resolved-library) (lofi ir) (lofi macros)
           (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
   (begin
 
@@ -34,15 +34,21 @@
       (provider lofi-import-provider) (selection lofi-import-selection)
       (scope lofi-import-scope) (loc lofi-import-loc))
     (define-record-type <lofi-library>
-      (new-lofi-library id name scope imports exports declarations bindings loc) lofi-library?
+      (new-lofi-library id name scope imports exports declarations bindings loc expander syntax) lofi-library?
       (id lofi-library-id) (name lofi-library-name) (scope lofi-library-scope)
       (imports lofi-library-imports) ; descriptive selections in source order
       (exports lofi-library-exports) ; public names with local or scoped references
       (declarations lofi-library-declarations) ; source nodes retain locations and lexical structure
       (bindings lofi-library-bindings) ; local names for import-conflict and family resolution
-      (loc lofi-library-loc))
+      (loc lofi-library-loc)
+      (expander library-expander) (syntax lofi-library-syntax))
     (define (make-lofi-library name scope imports exports declarations bindings loc)
-      (new-lofi-library (make-library-id) name scope imports exports declarations bindings loc))
+      (new-lofi-library (make-library-id) name scope imports exports declarations bindings loc #f #f))
+    (define (make-expanding-library source expander syntax)
+      (new-lofi-library (lofi-library-id source) (lofi-library-name source) (lofi-library-scope source)
+                        (lofi-library-imports source) (lofi-library-exports source)
+                        (lofi-library-declarations source) (lofi-library-bindings source)
+                        (lofi-library-loc source) expander syntax))
 
     ;; ---- Import selection over a provider's public names ----
 
@@ -144,7 +150,9 @@
       (let* ((imports (map (lambda (declaration)
                              (resolve-import declaration (lofi-library-scope source) state pending))
                            (lofi-library-imports source)))
-             (library (lower-library source imports)))
+             (environment (import-environment imports))
+             (expanded (if (library-expander source) ((library-expander source) imports) source))
+             (library (lower-library expanded imports (lofi-library-id source) environment)))
         (set-resolution-completed! state (cons (cons (lofi-library-id source) library)
                                                (resolution-completed state)))
         library))
@@ -155,7 +163,7 @@
       (let ((kind (binding-kind definition)))
         (case (reference-role reference)
           ((binding) #t)
-          ((value) (not (memq kind '(datatype typeclass instance))))
+          ((value) (not (memq kind '(datatype typeclass instance syntax syntax-form))))
           ((datatype) (eq? kind 'datatype))
           ((constraint) (memq kind '(typeclass overload)))
           (else #f))))
@@ -191,7 +199,8 @@
                   (caddr data))
                 (begin (resolve-node-data! node data) node))))
         (define (walk object)
-          (cond ((scoped-reference? object) (resolve-reference object scope imports))
+          (cond ((protected-reference? object) (resolve-protected-reference object))
+                ((scoped-reference? object) (resolve-reference object scope imports))
                 ((assq object aliases) => cdr)
                 ((hash-table-ref/default visited object #f))
                 ((or (value-definition? object) (node? object))
@@ -201,14 +210,14 @@
                 ((pair? object) (cons (walk (car object)) (walk (cdr object))))
                 (else object)))
         (walk roots)))
-    (define (lower-library source imports)
+    (define (lower-library source imports identity environment)
       (let* ((exports (lofi-library-exports source))
              (copies (copy-ir-graph (list (lofi-library-declarations source) (lofi-library-bindings source)
                                           (map named-binding-definition exports))))
-             (environment (import-environment imports))
              (aliases (overload-aliases (cadr copies) environment))
              (resolved (lower-declarations copies (lofi-library-scope source) environment aliases)))
+        (rebase-transformers! (cadr resolved))
         (make-library (lofi-library-name source) imports
                       (map make-named-binding (map named-binding-name exports) (caddr resolved))
                       (map lofi-import-provider (lofi-library-imports source))
-                      (car resolved) (lofi-library-loc source) (lofi-library-id source))))))
+                      (car resolved) (lofi-library-loc source) identity)))))

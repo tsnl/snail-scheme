@@ -5,7 +5,7 @@ It has no dependency on native lowering. Importing its libraries creates no
 trace files. A build establishes a destination before it runs traced passes,
 and closes that destination on normal return.
 
-`scripts/build-lofi input.lofi output.wasm` retains `output.wasm.trace.json`.
+`scripts/build-lofi input.sld output.wasm` retains `output.wasm.trace.json`.
 Native builds retain `compile.trace.json` in their unique build directory.
 These are compiler timings, separate from benchmark execution measurements.
 

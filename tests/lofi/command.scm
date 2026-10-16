@@ -1,4 +1,4 @@
-;; Run from the repository root with chibi-scheme -I src -I tests.
+;; Run from the repository root with chibi-scheme -I bootstrap -I tests.
 (import (scheme base) (scheme process-context) (chibi filesystem)
         (snail-tests harness) (snail-tests commands))
 (initialize-suite! (current-directory) (cdr (command-line)) "build")

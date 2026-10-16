@@ -1,6 +1,6 @@
 # CTAK
 
-`main.lofi` ports the complete upstream `ctak` and `ctak-aux` algorithm.
+`main.sld` ports the complete upstream `ctak` and `ctak-aux` algorithm.
 The canonical input remains one invocation with `(32, 16, 8)`, with result `9`.
 The benchmark driver hides all three arguments separately and checks the final
 integer through `spec.json`. The original Chez source and input are unchanged.
@@ -20,13 +20,13 @@ transition loop. Lofi uses mutually tail-recursive functions and WasmGC ownershi
 The numerical domain is `I64`; every canonical intermediate fits that domain.
 These representation and control differences must remain visible in comparisons.
 
-`observe.lofi` adds diagnostic event calls for source calls, captures and
+`observe.sld` adds diagnostic event calls for source calls, captures and
 invocations. `verify.mjs OBSERVE_WASM` compares every event with
 `chez-observe.scm`, which retains actual `call/cc` and explicitly chooses the
 same left-to-right operand order permitted by the source. Its four checks cover
 the base case and all three recursive operands. They supplement the full canonical
 run; they do not replace it. The `(10, 6, 3)` trace contains 497 calls, 497 captures
-and 373 invocations, and returns 4. No event calls occur in `main.lofi`.
+and 373 invocations, and returns 4. No event calls occur in `main.sld`.
 
 The frozen corpus runner passed the complete canonical predicate on Lofi/V8,
 Lofi/native64, original/adapted Chez, and Rust Wasm/native. That native preparation

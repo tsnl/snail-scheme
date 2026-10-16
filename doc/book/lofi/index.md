@@ -5,6 +5,12 @@ and a reusable compiler target. It keeps functions, algebraic data and generic
 definitions intact long enough for the compiler to reason about them. Its
 S-expression syntax is small enough to generate and practical to write by hand.
 
+Languages are libraries: the typed kernel, [hygienic macros and initial Scheme
+forms](macros.md), and compiler APIs share the same library system. Source files
+use `.sld`; imports select their forms. `(scheme base)` expands to Lofi before
+checking and compilation. Its supported subset is documented separately from
+full Scheme, and Chibi still hosts the compiler implementation.
+
 ## A first look
 
 Parentheses enclose an operation and its arguments. `def` introduces a binding;
@@ -92,7 +98,7 @@ declares an operation; instances provide implementations for particular types.
 (to-hex-string (primary (red))) ; "#ff0000ff"
 ```
 
-[`(example hex)`](https://github.com/tsnl/snail-scheme/blob/main/examples/example/hex.lofi) supplies
+[`(example hex)`](https://github.com/tsnl/snail-scheme/blob/main/examples/example/hex.sld) supplies
 `byte->hex : (-> I32 String)`, which formats an integer
 from 0 through 255 as two lowercase hexadecimal digits. Components here must be
 finite and between zero and one; `f32->i32` truncates toward zero. Production

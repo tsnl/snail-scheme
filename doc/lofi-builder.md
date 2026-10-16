@@ -10,7 +10,7 @@ ordinary parsed libraries through this same syntax API.
 
 ## Constructive Lofi interface
 
-[`(lofi compiler-builder)`](../lib/lofi/compiler-builder.lofi) provides nominal
+[`(lofi compiler-builder)`](../src/lofi/compiler-builder.sld) provides nominal
 types with private constructors and scalar handle fields. Its public functions
 compose immutable syntax nodes owned by an explicitly supplied builder provider.
 There is no mutable current library. Lists passed to constructors are ordinary
@@ -126,7 +126,7 @@ and `same-type-variable?` compare identities, independent of names.
 `builder-name-text` returns a copied String. String and bytevector literal views
 also return copies, so mutating those copies cannot change the inspected node.
 A view constructor creates ordinary view data; only a checked syntax constructor
-creates a syntax handle. [`rebuild.lofi`](../tests/lofi-builder/rebuild.lofi)
+creates a syntax handle. [`rebuild.sld`](../tests/lofi-builder/rebuild.sld)
 shows a compiled transformation that rebuilds a library through these views,
 retaining every binding identity.
 
@@ -226,7 +226,7 @@ attached-signature spans, survive the copy. No source grammar is parsed again.
 
 ## Exact build and run example
 
-[`examples/library-builder.lofi`](../examples/library-builder.lofi) constructs a
+[`examples/library-builder.sld`](../examples/library-builder.sld) constructs a
 private zero-argument function returning I32 `42`, exports it as `run`, and
 returns that library from its Lofi `produce` function. Its `build` function is
 the scalar wrapper used by the driver. Run the complete example and boundary
@@ -263,4 +263,15 @@ diagnostics. These checks are correctness evidence, not clean measurements.
 The [compiler service](lofi-compiler-service.md) exposes parsing, explicit maps,
 compilation and Wasm execution to Lofi. [Native loading](lofi-native-loading.md)
 is separately available through its host adapter, which consumes a Wasm artifact.
-Scheme elaboration and macro staging remain deferred.
+Source transfers can retain an optional seventh `library` field containing
+original located syntax. Its `syntax-token`, `syntax-list` and `syntax-vector`
+nodes retain spelling and source spans, never trusted lexical contexts. The
+receiver reparses them and verifies the declared library key; resolution expands
+macros against the receiving map. Six-field constructed libraries remain valid.
+
+The existing typed declaration views describe the immediately parsed kernel.
+For a source library awaiting macro expansion these views can be empty; the
+optional source field remains authoritative during transfer and compilation.
+Reconstructing only the six legacy fields deliberately creates a kernel library
+and does not preserve pending macro source. Expanded syntax views and procedural
+macro staging remain future work.

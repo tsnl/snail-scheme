@@ -9,7 +9,7 @@ Wasm artifact into such an object. Chibi still hosts compilation, and the compil
 always emits Wasm. The native package imports no compiler modules.
 
 Repository host scripts use
-`chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" SCRIPT`.
+`chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" SCRIPT`.
 Loading an existing object needs only `-I "$package/scheme"`. Supply the
 package directory explicitly as `runtime-root`:
 

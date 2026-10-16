@@ -72,7 +72,7 @@ class CompilerHost {
   start(chibi) {
     const errors = openSync(join(this.directory, 'host-errors.txt'), 'w');
     try {
-      this.child = spawn(chibi, ['-I', fileURLToPath(new URL('../', import.meta.url)),
+      this.child = spawn(chibi, ['-I', fileURLToPath(new URL('../../bootstrap/', import.meta.url)),
         '-I', fileURLToPath(new URL('../../wasm-native/scheme/', import.meta.url)),
         fileURLToPath(new URL('../../scripts/serve-lofi-compiler.scm', import.meta.url)), this.directory],
       {detached: true, stdio: ['ignore', 'ignore', errors]});

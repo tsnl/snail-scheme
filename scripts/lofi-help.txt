@@ -1,7 +1,8 @@
-Usage: lofi run [OPTIONS] SOURCE.lofi [ARGUMENT ...]
-       lofi compile [OPTIONS] -o OUTPUT SOURCE.lofi
+Usage: lofi run [OPTIONS] SOURCE.sld [ARGUMENT ...]
+       lofi compile [OPTIONS] -o OUTPUT SOURCE.sld
 
-Compile explicit Lofi syntax. Chibi hosts the compiler; Binaryen is required.
+Compile .sld source using imported Lofi or Scheme forms.
+Chibi hosts the compiler; Binaryen is required.
 
   -I DIR, --library DIR      Add a Lofi library search directory; may repeat.
   --generation-provider FILE

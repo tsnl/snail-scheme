@@ -20,6 +20,7 @@
    atom-syntax?
    atom-syntax-value
    atom-syntax-number-spelling
+   atom-syntax-context atom-syntax-reference atom-syntax-source-name make-identifier-syntax
    atom-syntax-loc)
 
   (import
@@ -65,13 +66,17 @@
       (new-atom-syntax
        value ; decoded terminal value
        loc ; loc indicating the start of this syntax object
-       number-spelling) ; original numeric token, before host floating-point rounding
+       number-spelling context reference source-name) ; token, lexical evidence and original diagnostic name
       atom-syntax?
       (value atom-syntax-value)
       (loc atom-syntax-loc)
-      (number-spelling atom-syntax-number-spelling))
+      (number-spelling atom-syntax-number-spelling)
+      (context atom-syntax-context) (reference atom-syntax-reference)
+      (source-name atom-syntax-source-name))
     (define (make-atom-syntax value loc . spelling)
-      (new-atom-syntax value loc (and (pair? spelling) (car spelling))))
+      (new-atom-syntax value loc (and (pair? spelling) (car spelling)) #f #f value))
+    (define (make-identifier-syntax name loc context reference . source-name)
+      (new-atom-syntax name loc #f context reference (if (pair? source-name) (car source-name) name)))
 
     (define (syntax-identifier? stx)
       (and (atom-syntax? stx) (symbol? (atom-syntax-value stx))))

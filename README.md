@@ -10,16 +10,19 @@ Binaryen always optimizes that Wasm. Run it on V8, or pass it to the separate
 [Wasm-to-native package](wasm-native/README.md) for LLVM lowering and a native
 executable with the in-house collector.
 
-The compiler is written in Scheme and hosted by Chibi. Its input language is
-Lofi. Scheme elaboration, macros and self-hosting are deferred.
+Languages are libraries. The typed Lofi kernel, hygienic `syntax-rules` macros,
+and an initial `(scheme base)` share one library system and backend. All language
+and compiler libraries live under `src/`; `.sld` files use imports to select their
+forms. The public `(lofi compiler)` works from either surface. Its implementation
+remains Scheme hosted by Chibi; self-hosting and full R7RS support are future work.
 
 The [Lofi chapters](doc/book/lofi/index.md) specify the typed language,
 library values and compiler-as-library model, with examples and formal rules.
 
 ## Start reading
 
-Open [`examples/fibonacci.lofi`](examples/fibonacci.lofi), then
-[`src/lofi/compiler.sld`](src/lofi/compiler.sld). The [short compiler tour](TOUR.md)
+Open [`examples/fibonacci.sld`](examples/fibonacci.sld), then
+[`src/lofi/compiler/bootstrap.sld`](src/lofi/compiler/bootstrap.sld). The [short compiler tour](TOUR.md)
 gives the reading order, follows a source file through the command and maps the
 repository directories. Compiler passes live together in `src/lofi/`; the
 [detailed compiler reference](doc/compiler.md) explains their contracts and the
@@ -30,9 +33,10 @@ execution APIs.
 ```sh
 nix-shell
 rustup target add wasm32-wasip1
-./lofi run examples/fibonacci.lofi
-./lofi compile -o fibonacci.wasm examples/fibonacci.lofi
-scripts/build-native examples/fibonacci.lofi build/fibonacci
+./lofi run examples/fibonacci.sld
+./lofi run examples/scheme-fibonacci.sld
+./lofi compile -o fibonacci.wasm examples/fibonacci.sld
+scripts/build-native examples/fibonacci.sld build/fibonacci
 build/fibonacci
 ```
 
@@ -43,7 +47,7 @@ See [commands](doc/options.md) and [build requirements](doc/backend.md).
 The [language design](doc/lofi.md) defines the surface and type model.
 The [compiler tour](TOUR.md) follows source locations and type evidence through
 the implementation. [The roadmap](doc/roadmap.md) separates current work from
-future frontends and self-hosting. [`build.scm`](build.scm) is a concrete Chibi
+further Scheme support and self-hosting. [`build.scm`](build.scm) is a concrete Chibi
 recipe that imports the compiler and Wasm-to-native package separately, then
 links the generated object with a Rust entry point. Its first comment gives an
 example that works from outside the checkout and prints `42`.

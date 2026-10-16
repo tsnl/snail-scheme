@@ -1,7 +1,7 @@
 # Compiler calls from Lofi
 
-[`(lofi compiler)`](../lib/lofi/compiler.lofi) exposes compilation, Wasm loading,
-instantiation and scalar entry calls to ordinary compiled Lofi programs. Its
+[`(lofi compiler)`](../src/lofi/compiler.sld) exposes compilation, Wasm loading,
+instantiation and scalar entry calls to compiled Lofi and initial Scheme programs. Its
 explicit foreign service keeps the compiler implementation in Scheme hosted by
 Chibi. The caller supplies an immutable library map and a public entry;
 compilation does not search directories, read source files or run generators.
@@ -48,7 +48,7 @@ used by generators. The result supports every builder inspection view and can be
 rebuilt or transformed before `library-map-insert`.
 
 ```scheme
-(let original (require (parse-library "math.lofi" source-text)))
+(let original (require (parse-library "math.sld" source-text)))
 (let changed
   (match (inspect-library original)
     ((view-library key scope imports exports declarations span)
@@ -70,6 +70,12 @@ the same returned value preserves its library identity within the service scope.
 Constructing a replacement library creates a new library value. Source strings
 and mutable data obtained from views are copied, so changing them cannot change
 an existing library. All values retain the service's builder lifetime.
+
+A parsed source library can retain pending macro syntax until imports resolve.
+The transfer carries that located source; the existing declaration views may be
+empty before expansion. Rebuilding only their six legacy fields produces a core
+library without the pending source. See [the builder protocol](lofi-builder.md)
+and [macro semantics](book/lofi/macros.md).
 
 ## Supplying libraries
 
@@ -195,7 +201,7 @@ Startup uses the same owned group and deadline, with no separate preflight proce
 ## Verification
 
 Run `scripts/test-lofi-compiler-service`. Its linked
-[Lofi build program](../tests/lofi-compiler-service/program.lofi) exercises every
+[Lofi build program](../tests/lofi-compiler-service/program.sld) exercises every
 public operation, source and constructed imports, alias initialization, missing
 dependencies, copied source ownership, separate state, provider mismatches,
 semantic signature rejection, all seven result types, failed initialization,

@@ -1,7 +1,7 @@
 ;; One explicitly owned compiler session. Requests supply source or owned syntax;
 ;; compilation sees only the resulting map and never discovers dependencies.
 (import (scheme base) (scheme file) (scheme read) (scheme write) (scheme process-context)
-        (wasm-native json) (lofi frontend) (lofi compiler)
+        (wasm-native json) (lofi frontend) (lofi compiler bootstrap)
         (lofi library-transfer) (lofi reader) (lofi syntax-parser)
         (lofi source) (lofi primitives) (wasm-native chromium-trace))
 
@@ -94,10 +94,19 @@
     (vector #t (dispatch request))))
 (define (write-response response output)
   (display (json->string response) output) (newline output) (flush-output-port output))
+;; Chibi's read-line defaults to 8192 characters. Library transfers can exceed
+;; that limit; retain the complete newline-delimited JSON request.
+(define (read-request-line input)
+  (let ((output (open-output-string)))
+    (let read ((character (read-char input)))
+      (cond ((eof-object? character)
+             (let ((text (get-output-string output))) (if (string=? text "") character text)))
+            ((char=? character #\newline) (get-output-string output))
+            (else (write-char character output) (read (read-char input)))))))
 (define (serve input output)
   (write-response '#(#t "ready") output)
   (let loop ()
-    (let ((line (read-line input)))
+    (let ((line (read-request-line input)))
       (unless (eof-object? line)
         (let ((request (json-read (open-input-string line))))
           (if (equal? request '#("close")) (write-response '#(#t "closed") output)

@@ -114,8 +114,8 @@
 
     (define (run-providers)
       (let ((options (list "--rust-provider" "fixture" (path "tests/native-mixed.rs"))))
-        (checked "mixed" (list (native-fixture (path "tests/native-mixed.lofi") "mixed" options)))
-        (let ((source (write-source "wrong-signature.lofi"
+        (checked "mixed" (list (native-fixture (path "tests/native-mixed.sld") "mixed" options)))
+        (let ((source (write-source "wrong-signature.sld"
                                     "(import (lofi primitive))\n(define-extern f \"fixture\" \"scalar_i32\" (-> I64 I64))\n(f (ann 1 I64))\n")))
           (checked "signature-rejected" (append (list (path "scripts/build-native")) options (list source (build-path "wrong-signature")))
                    '((status . 1) (error . "native provider signature does not match Wasm import")))
@@ -123,18 +123,18 @@
       (for-each (lambda (case)
                   (let ((provider (write-source "unsupported-provider.rs" (car case))))
                     (checked "unsupported-provider" (list (path "scripts/build-native") "--rust-provider" "bad" provider
-                                                          (path "tests/native-mixed.lofi") (build-path "bad-provider"))
+                                                          (path "tests/native-mixed.sld") (build-path "bad-provider"))
                              `((status . error) (error . ,(cadr case))))))
                 '(("#[unsafe(export_name = \"f\")] pub extern \"C\" fn f(value: *const i32) -> i32 { 0 }" "unsupported native Rust scalar type")
                   ("#[unsafe(export_name = \"f\")] pub unsafe extern \"C\" fn f(value: i32, ...) -> i32 { 0 }" "unsupported Rust parameter declaration")
                   ("#[unsafe(export_name = \"f\")] pub extern \"system\" fn f(value: i32) -> i32 { value }" "unsupported Rust export declaration syntax")
                   ("#[unsafe(export_name = \"f\")] pub extern \"C\" fn f(value: bool) -> i32 { 0 }" "unsupported native Rust scalar type")))
       (let* ((exports '("worker" "round32" "view64" "view32"))
-             (native (native-fixture (fixture "lofi-extern" "round.lofi") "round"
+             (native (native-fixture (fixture "lofi-extern" "round.sld") "round"
                                      (append (list "--entry-rust" (path "tests/native-round.rs")) (append-map (lambda (name) (list "--export" name)) exports)))))
         (checked "round" (list native)))
       (for-each (lambda (case)
-                  (let ((native (native-fixture (fixture "lofi-integration" (string-append (car case) ".lofi")) (car case) '())))
+                  (let ((native (native-fixture (fixture "lofi-integration" (string-append (car case) ".sld")) (car case) '())))
                     (checked (car case) (list native) `((status . ,(cadr case)) (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))))
                 '(("data-native-fields" 12) ("data-tree" 14) ("data-gcbench" 62) ("data-empty-cases" 42)
                   ("string-literals" 42) ("string-block-literal" 42) ("bytevector-builtins" 42) ("bytevector-utf8" 42)
@@ -155,7 +155,7 @@
                     (when (member name '("bytevector-errors" "bytevector-utf8-errors"))
                       (let* ((names (map (lambda (entry) (symbol->string (car entry)))
                                          (filter (lambda (entry) (string=? (cdr entry) "trap")) (field case 'exports))))
-                             (source (fixture "lofi-integration" (string-append name ".lofi")))
+                             (source (fixture "lofi-integration" (string-append name ".sld")))
                              (entry (write-source (string-append name "-entry.rs") (bytevector-entry (read-text source) names)))
                              (native (native-fixture source name (append (list "--entry-rust" entry) (append-map (lambda (name) (list "--export" name)) names)))))
                         (for-each (lambda (export) (checked (string-append name "-" export) (list native export)
@@ -173,7 +173,7 @@
         (assert-equal (string->number (car (lines (read-text (path-join directory "released"))))) releases name)
         directory))
     (define (run-native-io)
-      (let* ((native (native-fixture (fixture "lofi-io" "output.lofi") "io"
+      (let* ((native (native-fixture (fixture "lofi-io" "output.sld") "io"
                                      (append (list "--entry-rust" (path "tests/native-io-runner.rs"))
                                              (append-map (lambda (name) (list "--export" name)) io-exports))))
              (nothing (lambda (directory) #f)))
@@ -195,7 +195,7 @@
         (for-each (lambda (environment) (observe native "initialization-failure" '() 0 #t environment nothing))
                   '((("SNAIL_GC_HEAP_BYTES" . "1")) (("SNAIL_GC_INITIAL_BYTES" . "1"))
                     (("SNAIL_GC_INITIAL_BYTES" . "65536") ("SNAIL_GC_HEAP_BYTES" . "32768"))))
-        (let* ((exhaust (native-fixture (path "tests/native-exhaust.lofi") "exhaust"
+        (let* ((exhaust (native-fixture (path "tests/native-exhaust.sld") "exhaust"
                                         (list "--export" "read-huge" "--entry-rust" (path "tests/native-lifecycle.rs"))))
                (directory (observe exhaust "exhaust" '() 1 #t '(("SNAIL_GC_HEAP_BYTES" . "32768")) nothing)))
           (assert-equal (read-text (path-join directory "exhaust.txt")) "buffered before exhaustion"))))
@@ -205,7 +205,7 @@
                  (let ((target (path-join directory "λ😀.txt")))
                    (if contents (write-bytes target contents) (create-directory* target))))))
     (define (run-native-input)
-      (let* ((native (native-fixture (fixture "lofi-io" "input.lofi") "input"
+      (let* ((native (native-fixture (fixture "lofi-io" "input.sld") "input"
                                      (append (list "--entry-rust" (path "tests/native-input-runner.rs"))
                                              (append-map (lambda (name) (list "--export" name)) input-exports))))
              (cases (append '(("" "" 0) ("\n" "\n" 1) ("\n\n" "\n\n" 2) ("last" "last\n" 1)
@@ -225,11 +225,11 @@
                             (let ((directory (input-observe native (string-append "invalid-" (number->string index)) contents '("invalid") 2 #t)))
                               (assert-equal (read-text (path-join directory "buffered.txt")) "released after read failure")))
                           (list #u8(255) #u8(240 159) #u8(13 255) #f)))
-      (let ((native (native-fixture (fixture "lofi-io" "input-main-trap.lofi") "input-main-trap"
+      (let ((native (native-fixture (fixture "lofi-io" "input-main-trap.sld") "input-main-trap"
                                     (list "--entry-rust" (path "tests/native-lifecycle.rs")))))
         (input-observe native "main-trap" (string->utf8 "line\n") '() 1 #t)))
     (define (run-build-ownership)
-      (let ((source (write-source "ownership/main.lofi" "42\n")) (destination (build-path "ownership/application"))
+      (let ((source (write-source "ownership/main.sld" "42\n")) (destination (build-path "ownership/application"))
             (alias (build-path "ownership/source-alias")))
         (write-text destination "previous executable")
         (checked "publication-failure" (list (path "scripts/build-native") source destination)

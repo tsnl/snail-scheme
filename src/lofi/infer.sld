@@ -1031,7 +1031,7 @@
                   (test-dependencies! next (list latest latest))
                   (loop (- left 1) next (cons next bindings)))))))
       (define (test-forms text)
-        (reader->syntax-list (string->reader "ownership.lofi" text)))
+        (reader->syntax-list (string->reader "ownership.sld" text)))
       (define (test-no-load name) (error "unexpected library load" name))
       (define (test-cached-library)
         (syntax->ir-library

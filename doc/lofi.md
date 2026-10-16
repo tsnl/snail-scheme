@@ -13,6 +13,8 @@ library and build model.
   - [Types](book/lofi/types.md): primitives, functions, polymorphism, structs,
     unions, classes and subtyping.
   - [Formal summary](book/lofi/reference.md): grammar, typing and evaluation rules.
+- [Macros and Scheme libraries](book/lofi/macros.md): hygienic `syntax-rules`,
+  imported transformers and the initial typed Scheme base.
 - [Libraries](book/lofi/libraries.md): source descriptions, exports, imports,
   discovery, generation recipes and the `LofiLibrary` representation.
 - [Compilers as libraries](book/lofi/compilers.md): compilation, loading,

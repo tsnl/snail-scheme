@@ -13,7 +13,7 @@
     (define (copy-wasm-compiler outside)
       (let* ((copy (path-join outside "wasm-only")) (modules (path-join copy "wasm-native/scheme/wasm-native")))
         (create-directory* modules)
-        (checked "copy-compiler" (list "cp" "-a" "--" (path "src") (path "lib") (path "scripts") (path "lofi") copy))
+        (checked "copy-compiler" (list "cp" "-a" "--" (path "src") (path "bootstrap") (path "scripts") (path "lofi") copy))
         (for-each (lambda (name)
                     (write-bytes (path-join modules (string-append name ".sld"))
                                  (read-bytes (path "wasm-native/scheme/wasm-native" (string-append name ".sld"))))) neutral-libraries)
@@ -29,13 +29,13 @@
                         ("CARGO" . ,forbidden) ("RUSTC" . ,forbidden)))))
     (define (isolated-chibi copy script . arguments)
       (append (list "env" "-u" "SNAIL_NATIVE_SUPERVISOR" "-u" "CHIBI_MODULE_PATH"
-                    (tool-name "CHIBI" "chibi-scheme") "-I" (path-join copy "src")
+                    (tool-name "CHIBI" "chibi-scheme") "-I" (path-join copy "bootstrap")
                     "-I" (path-join copy "wasm-native/scheme") (path-join copy script)) arguments))
 
     ;; ---- Real Wasm generation and supplied-runtime linking ----
 
     (define (check-wasm-only copy options)
-      (let ((source (build-path "answer.lofi")) (binary (build-path "answer.wasm")))
+      (let ((source (build-path "answer.sld")) (binary (build-path "answer.wasm")))
         (write-text source "(import (lofi primitive))\n(i32-add 40 2)\n")
         (checked "isolated-compile" (isolated-chibi copy "scripts/build-lofi.scm" copy "--command" source binary) options)
         (for-each (lambda (artifact)
@@ -54,7 +54,7 @@
         (write-text (path-join directory "requests")
                     (string-append (join (map json-text
                                               (list '#("empty") '#("primitives" 1)
-                                                    (vector "source" 2 '#("isolated" "answer") "isolated-service.lofi" source)
+                                                    (vector "source" 2 '#("isolated" "answer") "isolated-service.sld" source)
                                                     '#("compile" 3 #("isolated" "answer") "answer") '#("close"))) "\n") "\n"))))
     (define (check-compiler-service copy options)
       (let ((session (build-path "service")) (runner (path-join copy "service-entry.mjs")))
@@ -71,7 +71,7 @@
     (define (check-composed-recipe working)
       (let ((program (build-path "composed-answer")))
         (checked "composed-recipe"
-                 (chibi (path "build.scm") (root) (path "examples/native/answer.lofi") "answer"
+                 (chibi (path "build.scm") (root) (path "examples/native/answer.sld") "answer"
                         (path "examples/native/entry.rs") program) `((directory . ,working)))
         (checked "composed-execute" (list program) `((directory . ,working) (stdout . "42\n")))))
     (define (run-package-isolation)

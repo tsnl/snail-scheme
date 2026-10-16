@@ -1,6 +1,6 @@
 # SLaTeX
 
-`main.lofi` retains all 183 kernel forms after flattening the upstream top-level
+`main.sld` retains all 183 kernel forms after flattening the upstream top-level
 blocks. It runs the complete source-processing algorithm 500 times against the
 unchanged `inputs/slatex-data/test` input. The original result predicate accepts
 any returned value; this port preserves that predicate and adds independent file

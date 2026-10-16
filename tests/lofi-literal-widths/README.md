@@ -1,14 +1,14 @@
 # Numeric literal representation
 
-Run `chibi-scheme -I src -I tests tests/lofi-literal-widths/check.scm`. Every attempt retains commands,
+Run `chibi-scheme -I bootstrap -I tests tests/lofi-literal-widths/check.scm`. Every attempt retains commands,
 located rejection diagnostics, inference traces and actual raw/optimized Wasm
 and native outcomes under `build/lofi-literal-widths`. Native builds consume the
 retained raw guest and must produce the same optimized guest bytes as V8. Native
 execution forces GC and verifies the effect before either the result or trap.
 
-`defaults.lofi` checks I32 and F64 synthesis, direct `ann`, direct `def` and `let`
+`defaults.sld` checks I32 and F64 synthesis, direct `ann`, direct `def` and `let`
 annotations, an I64 value outside I32's range, exact source-to-F32 rounding,
-overload selection and an Any roundtrip. `any-projection.lofi` stores an ordinary
+overload selection and an Any roundtrip. `any-projection.sld` stores an ordinary
 integer literal in Any and must trap when projected as I64.
 
 The rejection fixtures stop before specialization. Call operands, function
@@ -40,13 +40,13 @@ values. The remaining two literals intentionally overflow before construction.
 `inventory.scm` records final checked numeric values, before specialization:
 
 ```sh
-chibi-scheme -I src tests/lofi-literal-widths/inventory.scm \
-  "$PWD" "$PWD/benchmarks/lofi/ack/main.lofi" /tmp/ack-literals.scm
+chibi-scheme -I bootstrap tests/lofi-literal-widths/inventory.scm \
+  "$PWD" "$PWD/benchmarks/lofi/ack/main.sld" /tmp/ack-literals.scm
 ```
 
 The migration comparison normalizes F32 and F64 values to their actual IEEE bits.
 The supplemental logger recorded values before rounding; four raw host values
-in `literal-source-precision.lofi` consequently differ from the final values.
+in `literal-source-precision.sld` consequently differ from the final values.
 Checking the unchanged fixture with the pre-policy precision compiler gives the
 same 19 target values as the migrated fixture. This preserves the earlier exact
 decimal fix, including its F32 tie boundary, F64 rounding, largest finite value

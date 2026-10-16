@@ -103,7 +103,7 @@ the Nix shell and Rust stable channel are not a frozen benchmark toolchain.
 Build scripts can also produce just the two Snail artifacts:
 
 ```sh
-chibi-scheme -I src benchmarks/native-build.scm
+chibi-scheme -I bootstrap benchmarks/native-build.scm
 build/native-benchmark/cpu 64
 node --no-warnings scripts/run-wasi.mjs build/native-benchmark/cpu.wasm 64
 ```

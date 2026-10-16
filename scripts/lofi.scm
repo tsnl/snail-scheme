@@ -26,7 +26,7 @@
                '("lofi" "wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml"))
           (append-map directory-files-recursive
                       (append (map (lambda (name) (path-join root name))
-                                   '("src" "lib" "scripts" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts"))
+                                   '("src" "bootstrap" "scripts" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts"))
                               (libraries options)))))
 (define (check-request root options)
   (when (string=? (option-ref options 'action "") "compile")
@@ -36,7 +36,7 @@
                      (append (list (option-ref options 'source #f) (option-ref options 'provider #f))
                              (compiler-inputs root options)))
                 (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-                     (append (map (lambda (name) (path-join root name)) '("src" "lib" "scripts" "wasm-native")) (libraries options))))
+                     (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts" "wasm-native")) (libraries options))))
         (error "compile output must not replace compiler or library inputs"))
       (unless (null? (option-ref options 'arguments '())) (error "compile accepts one source")))))
 
@@ -56,7 +56,7 @@
 (define (perform root options)
   (check-request root options)
   (let* ((output (option-ref options 'output #f))
-         (directory (make-build-directory (if output (path-directory output) (path-join root "build/lofi-runs")) ".lofi-")))
+         (directory (make-build-directory (if output (path-directory output) (path-join root "build/lofi-runs")) ".sld-")))
     (guard (failure (else (display (string-append "build evidence retained at " directory "\n") (current-error-port)) (raise failure)))
       (let* ((artifact (build root options directory))
              (status (if (string=? (option-ref options 'action "") "compile")

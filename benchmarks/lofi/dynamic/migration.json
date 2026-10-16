@@ -74,5 +74,13 @@
     "before_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
     "after_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
     "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "dynamic/main.lofi",
+    "after_path": "dynamic/main.sld",
+    "before_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+    "after_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
   }
 }

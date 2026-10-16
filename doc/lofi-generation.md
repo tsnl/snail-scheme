@@ -26,12 +26,12 @@ consume supplied library values without discovering source or running recipes.
 
 ## Try the example
 
-[`demo/answer.lofi`](../examples/generation/demo/answer.lofi) constructs a
+[`demo/answer.sld`](../examples/generation/demo/answer.sld) constructs a
 zero-argument function returning I32 `42`. A source command imports that result:
 
 ```sh
-./lofi run -I examples/generation examples/generation/main.lofi
-scripts/build-native -I examples/generation examples/generation/main.lofi build/generated-answer
+./lofi run -I examples/generation examples/generation/main.sld
+scripts/build-native -I examples/generation examples/generation/main.sld build/generated-answer
 build/generated-answer
 ```
 
@@ -41,7 +41,7 @@ either case. The native build separately lowers its generated application's Wasm
 
 ## Selection, identities and separate preparation
 
-Search paths map `(demo answer)` to `demo/answer.lofi`. The first matching path
+Search paths map `(demo answer)` to `demo/answer.sld`. The first matching path
 wins, including when its contents are malformed. A selected file's declared
 name must match the requested key. Diagnostics retain that chosen path. The
 generated value's descriptive name may differ: the driver registers the value
@@ -90,7 +90,7 @@ Recipes have the builder service automatically. Other foreign services come
 from an explicitly selected ES module:
 
 ```sh
-./lofi run --generation-provider ./build-providers.mjs -I lib main.lofi
+./lofi run --generation-provider ./build-providers.mjs -I generated main.sld
 ```
 
 The same option is supported by both build scripts. The module exports:
@@ -120,8 +120,10 @@ it when necessary. It closes the producer and builder arena before writing the
 owned transfer. Both execution and cleanup errors are retained when both fail.
 Already performed provider effects are not rolled back.
 
-There is no built-in `read-source`, Scheme frontend, macro expansion or
-auxiliary-artifact protocol in this driver. The separate
+Recipe bodies and returned source libraries can import hygienic macros and the
+initial `(scheme base)`, just like ordinary source. Expansion occurs when their
+respective maps resolve. There is no built-in `read-source`, procedural
+compile-time evaluator or auxiliary-artifact protocol in this driver. The separate
 [Lofi compiler service](lofi-compiler-service.md) exposes explicit compilation
 and Wasm execution calls; this recipe runner does not automatically install it.
 The book's

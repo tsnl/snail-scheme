@@ -2,10 +2,13 @@
 
 ## Deliberate exclusions
 
-Lofi has no user macro system. Frontends expand their own languages before
-producing library values. There is no function-definition shorthand, named
-`let`, `let*`, `cond`, `and`, `or`, `when` or `unless`. Sequential `let` statements
-and recursive `def` bindings inside `begin` supply the binding operations.
+The [macro and Scheme chapter](macros.md) describes hygienic `syntax-rules` and
+the initial `(scheme base)`. Procedural transformers, `let-syntax`, `letrec-syntax`,
+custom ellipsis identifiers and escaped ellipses remain unsupported. The Scheme
+surface is a typed subset, without general Scheme truthiness, quoted datums,
+`set!`, multiple values or continuations. It is not R7RS conformant.
+Sequential core `let` statements and recursive `def` bindings inside `begin`
+supply the binding operations after expansion.
 Names cannot be reassigned; explicit cells represent mutable state.
 Both `def` and `let` can infer their annotations. Static definitions use
 `datatype`, `typeclass` or `instance` as the direct body of a library-level `def`.
@@ -49,7 +52,7 @@ ownership calculus.
 
 The [builder protocol](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-builder.md) documents
 the implemented structured representation and owned transfer of library data between compiled Lofi
-and Chibi. Additional cross-runtime transports, frontend macro interfaces and general target
+and Chibi. Additional cross-runtime transports, procedural macro interfaces and general target
 capability contracts need separate specifications. The [compiler
 service](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-compiler-service.md) and [native
 loader](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-native-loading.md) document their

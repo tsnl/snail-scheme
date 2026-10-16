@@ -619,7 +619,7 @@
             (prefix (lofi resolved-library) library:))
     (begin
       (define (test-program text)
-        (let ((library (syntax-list->ir-library (reader->syntax-list (string->reader "demand.lofi" text))
+        (let ((library (syntax-list->ir-library (reader->syntax-list (string->reader "demand.sld" text))
                                                 (lambda (name) (error "unexpected import" name)) '())))
           (infer-program (library:library-body library) '() (library:library-loc library))))
       (define (test-recursive-reservation)

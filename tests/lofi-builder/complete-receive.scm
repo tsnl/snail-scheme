@@ -1,7 +1,7 @@
 ;; This compiler host owns no producer code or heap. The only input is syntax.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write) (chibi filesystem)
         (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi primitives) (lofi frontend) (lofi compiler bootstrap)
         (lofi native) (only (wasm-native) make-native-import)
         (lofi library-transfer) (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))
@@ -12,10 +12,10 @@
 (define generated (receive "complete"))
 (define source
   (with-chromium-trace-to (string-append directory "/complete-source-parse.json")
-                          (lambda () (parse-library (car (reader->syntax-list (file->reader "tests/lofi-builder/complete-source.lofi")))))))
+                          (lambda () (parse-library (car (reader->syntax-list (file->reader "tests/lofi-builder/complete-source.sld")))))))
 (define provider
   (with-chromium-trace-to (string-append directory "/complete-provider-parse.json")
-                          (lambda () (parse-library (car (reader->syntax-list (file->reader "tests/lofi-builder/complete-provider.lofi")))))))
+                          (lambda () (parse-library (car (reader->syntax-list (file->reader "tests/lofi-builder/complete-provider.sld")))))))
 (define primitive (cons '(lofi primitive) (make-primitive-library primitive-names)))
 (define imports (list (make-native-import "tests.builder" "add" "builder_add" '(i32 i32) 'i32)))
 (define (write-result library name export)

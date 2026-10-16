@@ -68,7 +68,7 @@
               (string-split (run-command! (list "git" "-C" root "ls-files" "-z")) #\null)))
 
     (define (compiler-file? name)
-      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "lib/" "wasm-native/" "scripts/"))
+      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "wasm-native/" "scripts/"))
           (member name '("Cargo.toml" "Cargo.lock" "rust-toolchain.toml" "build.rs"))))
 
     (define (campaign-file? name)
@@ -78,8 +78,12 @@
           (string-prefix? "benchmarks/wasm-reference/" name)))
 
     (define (campaign-paths root)
-      (sort (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
-                    (relative-files root)) string<?))
+      (let ((files (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
+                           (relative-files root))))
+        ;; Materialize the bootstrap loader view as ordinary frozen files.
+        ;; Its repository symlink cannot escape into a campaign's live checkout.
+        (sort (append files (map (lambda (path) (string-append "bootstrap/" (substring path 4)))
+                                 (filter (lambda (path) (string-prefix? "src/lofi/" path)) files))) string<?)))
 
     (define (freeze-files root destination paths)
       (map
@@ -310,7 +314,7 @@
     ;; ---- Compile exactly the retained Lofi sources ----
 
     (define (chibi-command directory manifest script)
-      (list (tool manifest 'CHIBI) "-I" (path-join directory "source/src")
+      (list (tool manifest 'CHIBI) "-I" (path-join directory "source/bootstrap")
             "-I" (path-join directory "source/wasm-native/scheme")
             "-I" (path-join directory "source/benchmarks") (path-join directory "source" script)))
 
@@ -319,7 +323,7 @@
         (record-command target "lofi-build"
                         (append (list (path-join directory "source/scripts/build-lofi"))
                                 (append-map (lambda (name) (list "--export" name)) exports)
-                                (list (path-join source "main.lofi") (path-join target "program.wasm")))
+                                (list (path-join source "main.sld") (path-join target "program.wasm")))
                         environment (source-directory directory) (compile-timeout manifest))))
 
     (define (module-interface path target label manifest environment)
@@ -752,12 +756,12 @@
                             (lambda (root preserve)
                               (let ((original (path-join root "source")) (frozen (path-join root "frozen")))
                                 (create-directory* original)
-                                (write-text (path-join original "main.lofi") "(define answer 42)\nanswer\n")
-                                (let ((files (freeze-files original frozen '("main.lofi"))))
-                                  (write-text (path-join original "main.lofi") "changed checkout")
+                                (write-text (path-join original "main.sld") "(define answer 42)\nanswer\n")
+                                (let ((files (freeze-files original frozen '("main.sld"))))
+                                  (write-text (path-join original "main.sld") "changed checkout")
                                   (verify-source-files frozen files)
-                                  (expect (equal? files (freeze-files original (path-join root "next") '("main.lofi"))) #f)
-                                  (write-text (path-join frozen "main.lofi") "changed frozen input")
+                                  (expect (equal? files (freeze-files original (path-join root "next") '("main.sld"))) #f)
+                                  (write-text (path-join frozen "main.sld") "changed frozen input")
                                   (expect (rejected? (lambda () (verify-source-files frozen files))) #t))))))
 
       (define (test-path-containment)
@@ -938,7 +942,7 @@
          (lambda (directory preserve)
            (validation-fixture directory)
            (let* ((root (benchmark-root))
-                  (command (list (find-executable 'CHIBI "chibi-scheme") "-I" (path-join root "src")
+                  (command (list (find-executable 'CHIBI "chibi-scheme") "-I" (path-join root "bootstrap")
                                  "-I" (path-join root "wasm-native/scheme") "-I" (path-join root "benchmarks")
                                  (path-join root "benchmarks/lofi/runner.scm")
                                  "validate-case" "--output" directory "--benchmarks" "signal"))

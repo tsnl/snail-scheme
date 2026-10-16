@@ -569,7 +569,7 @@
 
       (define (test-incomplete-validation-case)
         (call-with-temp-dir
-         "sfir-incomplete-case"
+         "lofi-incomplete-case"
          (lambda (directory preserve)
            (let* ((case '((name . "probe") (host . "scalar")))
                   (source (case-source directory case))
@@ -587,8 +587,8 @@
       (define (test-pending-validation-routes)
         (let ((status '((scheduler_validation . "passed") (wasm_validation . "pending")
                         (native_validation . "pending") (chez_validation . "passed"))))
-          (expect (validated-route-status status "sfir-wasm") "pending")
-          (expect (validated-route-status status "sfir-native") "pending")
+          (expect (validated-route-status status "lofi-wasm") "pending")
+          (expect (validated-route-status status "lofi-native") "pending")
           (expect (validated-route-status status "chez-original") "passed")
           (expect (validated-route-status (fields-with status (cons 'scheduler_validation #f)) "chez-original")
                   "failed-validation-process")

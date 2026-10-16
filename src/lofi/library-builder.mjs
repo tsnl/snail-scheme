@@ -271,6 +271,7 @@ function constructors(arena) {
 // Packet IDs have no authority outside this packet. Only copied arena handles
 // are exposed, after the entire closed graph has passed structural checks.
 const packetForms = new Map([
+  ['syntax-token', ['text', 'span']], ['syntax-list', ['syntax-sequence', 'syntax-tail', 'span']], ['syntax-vector', ['syntax-sequence', 'span']],
   ['name', ['text']], ['span', ['name', 'positive', 'positive']], ['scope', []],
   ['child-scope', ['scope-id']], ['binding', ['scope-id', 'name', 'span']],
   ['nil', []], ['cons', ['any', 'sequence']], ['scalar-type', ['scalar']],
@@ -285,9 +286,10 @@ const packetForms = new Map([
   ['export', ['name', 'binding-reference']], ['library', ['names', 'scope', 'imports', 'exports', 'declarations', 'span']],
   ['byte', ['byte-value']], ...syntaxForms,
 ]);
-const packetSequences = {...sequences, expressions: 'expression', names: 'name',
+const packetSequences = {...sequences, 'syntax-sequence': 'syntax', expressions: 'expression', names: 'name',
   renames: 'rename-pair', imports: 'import', exports: 'export'};
-const packetCategories = {...categories, sequence: sequenceKinds, selection: selectionKinds};
+const packetCategories = {...categories, syntax: ['syntax-token', 'syntax-list', 'syntax-vector'],
+  'syntax-tail': ['nil', 'syntax-token', 'syntax-list', 'syntax-vector'], sequence: sequenceKinds, selection: selectionKinds};
 const scalarFields = ['text', 'positive', 'scalar', 'byte-value'];
 
 function packetScalar(value, descriptor) {
@@ -318,6 +320,7 @@ function checkPacketSequence(nodes, id, descriptor) {
 function packetSchema(node) {
   const fields = packetForms.get(node[0]);
   if (fields && node.length === fields.length + 1) return fields;
+  if (node[0] === 'library' && node.length === fields.length + 2) return [...fields, 'syntax'];
   if (['definition', 'local-binding', 'overload'].includes(node[0]) && node.length === fields.length + 2)
     return [...fields, 'span'];
   throw new TypeError('unsupported transfer node');

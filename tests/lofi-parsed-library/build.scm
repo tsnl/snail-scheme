@@ -1,5 +1,5 @@
 (import (scheme base) (scheme file) (scheme process-context)
-        (lofi source-driver) (lofi frontend) (lofi compiler)
+        (lofi source-driver) (lofi frontend) (lofi compiler bootstrap)
         (lofi reader) (lofi syntax-parser)
         (lofi primitives) (wasm-native chromium-trace))
 
@@ -9,11 +9,11 @@
  (string-append output "/build.trace.json")
  (lambda ()
    (let ((rebuild (parse-library (car (reader->syntax-list (file->reader
-                                                            (string-append root "/tests/lofi-builder/rebuild.lofi")))))))
+                                                            (string-append root "/tests/lofi-builder/rebuild.sld")))))))
      (call-with-values
          (lambda ()
-           (collect-source-file (string-append root "/tests/lofi-parsed-library/program.lofi")
-                                (list (string-append root "/lib"))
+           (collect-source-file (string-append root "/tests/lofi-parsed-library/program.sld")
+                                (list (string-append root "/src"))
                                 (list (cons '(lofi primitive) (make-primitive-library primitive-names))
                                       (cons '(builder rebuild) rebuild)) #f))
        (lambda (key libraries)

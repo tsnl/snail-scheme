@@ -1,6 +1,6 @@
 # Complete compiler workload
 
-`main.lofi` retains all 1,343 kernel forms from the upstream compiler, including
+`main.sld` retains all 1,343 kernel forms from the upstream compiler, including
 the frontend, optimization passes, virtual machine representation, register
 allocation and target assembly generation. `source-coverage.json` records the
 original 1,345 forms, with only the import and benchmark driver replaced. The
@@ -94,9 +94,9 @@ boundaries remain visible instead of splitting them into numbered fragments.
 To reproduce all six correctness routes from a fresh freeze:
 
 ```sh
-chibi-scheme -I src -I benchmarks benchmarks/lofi/runner.scm prepare --benchmarks compiler \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --benchmarks compiler \
   --output /tmp/lofi-compiler --compile-timeout 7200 --run-timeout 1800
-chibi-scheme -I src -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-compiler
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-compiler
 ```
 
 The explicit timeout accommodates the complete source; it does not reduce the

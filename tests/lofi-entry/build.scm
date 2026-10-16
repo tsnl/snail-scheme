@@ -2,14 +2,14 @@
 (import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
         (lofi reader) (lofi syntax-parser)
         (wasm-native chromium-trace) (lofi primitives)
-        (lofi frontend) (lofi compiler) (lofi native)
+        (lofi frontend) (lofi compiler bootstrap) (lofi native)
         (only (wasm-native) make-native-import)
         (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))
 
 (define directory (cadr (command-line)))
 (define (parsed text)
-  (parse-library (car (reader->syntax-list (string->reader "entry-fixture.lofi" text)))))
+  (parse-library (car (reader->syntax-list (string->reader "entry-fixture.sld" text)))))
 (define libraries
   (with-chromium-trace-to
    (string-append directory "/parse.json")

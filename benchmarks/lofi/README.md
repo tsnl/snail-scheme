@@ -3,14 +3,16 @@
 Lofi was previously named SFIR. The rename preserves all 57 workloads, canonical
 inputs and external controls. Each `migration.json` retains its historical
 `sfir_sha256` and records the renamed source in `lofi_sha256` and
-`language_rename`. Preparation checks `lofi_sha256`. Frozen reports, raw records
+`language_rename`. The subsequent `source_layout` records the `.sld` path move
+with before/after hashes; all 57 main source contents are unchanged by that move.
+Preparation checks `lofi_sha256`. Frozen reports, raw records
 and their `sfir-*` route labels retain the names used by the measured revision;
 the rename does not establish new validation or performance results.
 
 The corpus keeps all 57 workloads from R7RS benchmarks revision
 `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each directory contains the
 canonical input, an external original Chez program, source provenance, and a
-complete bare `main.lofi`. Adapted Chez controls expose
+complete bare `main.sld`. Adapted Chez controls expose
 representation changes separately. Rust implementations remain in
 [`../wasm-reference`](../wasm-reference).
 
@@ -74,11 +76,11 @@ the formatter also fails on the pre-migration Parsing source.
 ## Preparation and validation
 
 ```sh
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack \
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack \
   --compile-timeout 1800
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm verify --output /tmp/lofi-check
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm verify --output /tmp/lofi-check
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
 ```
 
 Preparation copies static source files, compiler/runtime/build support, Rust
@@ -131,12 +133,12 @@ added correctness coverage while both workloads were unmeasured at that checkpoi
 ## Clean timing protocol
 
 ```sh
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm prepare --output /tmp/lofi-full57 \
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm prepare --output /tmp/lofi-full57 \
   --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm verify --output /tmp/lofi-full57
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm verify --output /tmp/lofi-full57
 # Run only after coordinating a quiet machine with every active worker.
 SNAIL_NATIVE_SUPERVISOR=/tmp/lofi-full57/toolchain/snail-native-supervisor \
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm measure --output /tmp/lofi-full57 \
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm measure --output /tmp/lofi-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
 
@@ -236,7 +238,7 @@ framework was introduced.
 The full-corpus timing extension used a fresh no-files explainer and informed
 critique to retain one scalar native entry and one decimal entry. Run the
 bounded harness checks with
-`chibi-scheme -D snail-tests -I src -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
+`chibi-scheme -D snail-tests -I bootstrap -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
 dependency and scheduling tests, reduced synthetic Wasm/Rust/Chez probes execute
 every host category, typed sequence/decimal/math interfaces, failed predicates,
 declared fixture copies and native heap propagation. Their command records and

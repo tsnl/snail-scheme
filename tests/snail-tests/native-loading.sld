@@ -150,7 +150,7 @@
           (assert-equal (read-bytes (build-path "native-state/optimized.wasm")) artifact
                         "native and Wasm mandatory optimized module bytes differ")))
       (checked "host-loss" (list (tool-name "CARGO" "cargo") "run" "--offline" "--quiet" "--manifest-path" (path "tests/Cargo.toml")
-                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
                                  "-I" (path "wasm-native/scheme") "-I" (path "tests") "-I" (path "wasm-native/tests")
                                  (path "tests/run.scm") (root) "lofi-native-loading-lost-host" "--output" (output))
                `((environment . ,(native-cargo-environment (path "build/native-runtime")))))

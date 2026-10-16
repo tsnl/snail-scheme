@@ -33,7 +33,7 @@
 (define (protected-output? root output inputs libraries)
   (or (any (lambda (input) (paths-alias? output input)) inputs)
       (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-           (append (map (lambda (name) (path-join root name)) '("src" "scripts" "lib" "wasm-native")) libraries))))
+           (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts" "wasm-native")) libraries))))
 
 ;; ---- Command entry policy ----
 
@@ -92,7 +92,7 @@
                                                                     (list (option-ref options 'entry #f)) '())))
                          (directory-files-recursive (path-join root "src"))
                          (directory-files-recursive (path-join root "scripts"))
-                         (append-map directory-files-recursive (cons (path-join root "lib") libraries))
+                         (append-map directory-files-recursive (cons (path-join root "src") libraries))
                          (append-map (lambda (part) (directory-files-recursive (path-join root "wasm-native" part)))
                                      '("src" "scheme" "scripts"))
                          (list (path-join root "wasm-native/Cargo.toml") (path-join root "wasm-native/Cargo.lock")))))

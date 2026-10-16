@@ -1,6 +1,6 @@
 # FIBC
 
-`main.lofi` ports the complete upstream `succ`, `pred`, `addc` and `fibc` algorithm.
+`main.sld` ports the complete upstream `succ`, `pred`, `addc` and `fibc` algorithm.
 The canonical input remains ten evaluations of `fibc(30)`, with final result
 `832040`. The driver separately hides the input and identity continuation. The
 original Chez source, count, input and numeric correctness predicate are unchanged.
@@ -18,13 +18,13 @@ has a `black_box` barrier. Lofi uses mutually tail-recursive functions and WasmG
 ownership. All canonical numbers fit `I64`. These representation and barrier
 differences remain relevant when comparing performance.
 
-`observe.lofi` adds events for calls, captures, invocations and Peano steps.
+`observe.sld` adds events for calls, captures, invocations and Peano steps.
 `verify.mjs OBSERVE_WASM` compares every event against actual `call/cc` in
 `chez-observe.scm`, with the same explicitly chosen left-to-right operand order.
 The cases cover both base cases and complete recursive traces. At input 10 the
 trace must contain 177 calls, 176 captures, 177 invocations and 130 Peano steps.
 These small observations supplement the full canonical run. The measured
-`main.lofi` contains no event calls.
+`main.sld` contains no event calls.
 
 The frozen corpus runner passed the complete canonical predicate on Lofi/V8,
 Lofi/native64, original/adapted Chez, and Rust Wasm/native. That native preparation

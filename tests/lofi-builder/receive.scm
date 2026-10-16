@@ -1,7 +1,7 @@
 ;; A new compiler host receives data only. It has no producer map or arena.
 (import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
         (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi primitives) (lofi frontend) (lofi compiler bootstrap)
         (lofi library) (lofi library-transfer)
         (only (lofi ir) binding-origin value-binding-definition)
         (only (wasm-native test-utils) expect)
@@ -25,7 +25,7 @@
              (binding-origin (value-binding-definition (car (lofi-library-declarations second))))) #f)
 (expect (lofi-library-name first) '(generated descriptive))
 
-(define (parsed text) (parse-library (car (reader->syntax-list (string->reader "result-driver.lofi" text)))))
+(define (parsed text) (parse-library (car (reader->syntax-list (string->reader "result-driver.sld" text)))))
 (define libraries
   (with-chromium-trace-to
    (string-append directory "/receiver-parse.json")
@@ -51,7 +51,7 @@
 ;; Missing output dependencies stay missing even though the producer used them.
 (reject (list (cons '(output first) first)) '(output first) 'run "Lofi library not found")
 (reject libraries '(output first) 'hidden "entry is not a public export")
-(reject (cons (cons '(output invalid) ill-typed) libraries) '(output invalid) 'run "generated-example.lofi:11:5:")
+(reject (cons (cons '(output invalid) ill-typed) libraries) '(output invalid) 'run "generated-example.sld:11:5:")
 (for-each
  (lambda (selection)
    (let ((artifact (compile libraries (make-entry (car selection) (cadr selection)))))

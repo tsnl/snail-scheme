@@ -119,7 +119,7 @@
     (define (command-output label command . options)
       (field (apply checked label command options) 'stdout))
     (define (chibi source . arguments)
-      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
                     "-I" (path "wasm-native/scheme") "-I" (path "tests")
                     "-I" (path "wasm-native/tests") source) arguments))
     (define (node script . arguments)
@@ -180,7 +180,7 @@
         (write-bytes target (read-bytes source))
         (cons (string->symbol relative) (file-sha256 target))))
     (define (freeze-sources! suite)
-      (let* ((directories (list "src" "lib" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
+      (let* ((directories (list "src" "bootstrap" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
                                 (if (string=? suite "native") "tests" (string-append "tests/" suite))))
              (paths (append-map (lambda (directory) (directory-files-recursive (path directory))) directories))
              (files (map path '("wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
@@ -216,8 +216,8 @@
     (define (verify-reuse!)
       (for-each (lambda (entry)
                   (let ((name (symbol->string (car entry))))
-                    (when (or (starts? name "src/") (starts? name "lib/") (starts? name "wasm-native/")
-                              (member (path-extension name) '("lofi" "rs"))
+                    (when (or (starts? name "src/") (starts? name "bootstrap/") (starts? name "wasm-native/")
+                              (member (path-extension name) '("sld" "rs"))
                               (member name '("Cargo.toml" "Cargo.lock")))
                       (assert-equal (file-sha256 (path name)) (cdr entry) "cannot reuse changed compiled source" name))))
                 (read-json (path-join (artifacts) "source-identities.json")))

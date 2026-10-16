@@ -1,0 +1,181 @@
+;; This is the build program: compilation and every execution operation below
+;; are ordinary Lofi calls, including recoverable errors and explicit closure.
+(define-library (service test)
+  (import (lofi base) (lofi compiler) (lofi compiler-builder))
+  (export main)
+  (begin
+
+    ;; ---- Observable assertions and typed service results ----
+
+    (define-extern observe-character "tests" "character" (-> Char Unit))
+    (define-extern observe-message "tests" "message" (-> Unit))
+    (define-extern fail "tests" "fail" (-> Unit))
+    (def report-from (-> String I64 Unit)
+         (lambda (text index)
+           (if (= index (string-length text)) (observe-message)
+               (begin (observe-character (string-ref text index)) (report-from text (+ index (ann 1 I64)))))))
+    (def require (All (T) (-> (CompilerResult T) T))
+         (lambda (result)
+           (match result
+             ((compiler-success value) value)
+             ((compiler-failure message) (begin (report-from message (ann 0 I64)) (fail) (unreachable))))))
+    (def reject (All (T) (-> (CompilerResult T) Unit))
+         (lambda (result)
+           (match result
+             ((compiler-success value) (begin (fail) (unreachable)))
+             ((compiler-failure message) (report-from message (ann 0 I64))))))
+    (def assert (-> Bool Unit)
+         (lambda (condition) (if condition (unit) (begin (fail) (unreachable)))))
+    (def expect-i32 (-> (CompilerResult ScalarValue) I32 Unit)
+         (lambda (result expected)
+           (match (require result)
+             ((scalar-i32 actual) (assert (= actual expected)))
+             ((scalar-i64 actual) (fail)) ((scalar-f32 actual) (fail)) ((scalar-f64 actual) (fail))
+             ((scalar-bool actual) (fail)) ((scalar-char actual) (fail)) ((scalar-unit) (fail)))))
+    (def key (-> String String (List String))
+         (lambda (first second) (cons first (cons second (empty-list)))))
+    (def argument (-> I32 (List ScalarValue))
+         (lambda (value) (cons (scalar-i32 value) (empty-list))))
+
+    ;; ---- Constructed syntax imports a separately supplied parsed library ----
+
+    (def generated (-> LofiLibrary)
+         (lambda ()
+           (begin
+             (let span (source-span (builder-name "generated-call.sld") 7 3))
+             (let scope (library-scope))
+             (let local (nested-scope scope))
+             (let name (builder-name "run"))
+             (let function (binding scope name span))
+             (let parameter (binding local (builder-name "amount") span))
+             (let call (application-expression
+                        (reference-expression (import-reference scope (builder-name "step") span))
+                        (cons (reference-expression (local-reference parameter span)) (empty-list)) span))
+             (lofi-library
+              (cons (builder-name "descriptive") (empty-list)) scope
+              (cons (library-import (cons (builder-name "source") (cons (builder-name "state") (empty-list)))
+                                    (all-imports) scope span) (empty-list))
+              (cons (library-export name (local-reference function span)) (empty-list))
+              (cons (definition function (function-type (cons (type-i32) (empty-list)) (type-i32))
+                      (lambda-expression local (cons parameter (empty-list)) call span) span) (empty-list)) span))))
+
+    (def assembled (-> LibraryMap)
+         (lambda ()
+           (begin
+             (let empty (require (empty-library-map)))
+             (reject (library-map-parse empty (key "bad" "syntax") "bad-source.sld" "(define-library (bad syntax) (wrong))"))
+             (let generated-value (generated))
+             (let first (require (library-map-insert empty (key "generated" "call") generated-value)))
+             (let aliases (require (library-map-insert first (key "generated" "alias") generated-value)))
+             (let app (require (library-map-parse aliases (key "source" "app") "app.sld"
+                                                  "(define-library (source app) (import (generated call) (only (generated alias)) (only (source alias)))
+                 (export (rename run main))
+                 (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit)) (mark 2)))")))
+             (reject (compile app (entry (key "source" "app") "main")))
+             (let state-source (string-copy
+                                "(define-library (source state)
+                 (import (only (lofi primitive) ref ref-get ref-set! i32-add)) (export step)
+                 (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit)) (mark 1)
+                   (def count (ref (ann 0 I32)))
+                   (def step (-> I32 I32) (lambda (amount)
+                     (begin (ref-set! count (i32-add (ref-get count) amount)) (ref-get count))))))"))
+             (let state (require (library-map-parse app (key "source" "state") "state.sld" state-source)))
+             (string-set! state-source (ann 0 I64) #\X)
+             (let complete (require (library-map-alias state (key "source" "state") (key "source" "alias"))))
+             (reject (compile complete (entry (key "source" "app") "main")))
+             (require (library-map-primitives complete)))))
+
+    ;; ---- Compilation, provider checks, independent state and recoverable calls ----
+
+    (def run-state (-> LibraryMap Unit)
+         (lambda (libraries)
+           (begin
+             (let artifact (require (compile libraries (entry (key "source" "app") "main"))))
+             (require (write-artifact artifact "saved-application.wasm"))
+             (let code (require (load artifact)))
+             (reject (instantiate code (provider-set "absent")))
+             (reject (instantiate code (provider-set "empty")))
+             (reject (instantiate code (provider-set "wrong")))
+             (let first (require (instantiate code (provider-set "probe"))))
+             (let second (require (instantiate code (provider-set "probe"))))
+             (expect-i32 (invoke-entry first (argument 4)) 4)
+             (expect-i32 (invoke-entry first (argument 3)) 7)
+             (expect-i32 (invoke-entry second (argument 2)) 2)
+             (reject (invoke-entry first (empty-list)))
+             (reject (invoke-entry first (cons (scalar-bool #t) (empty-list))))
+             (reject (invoke-entry first (cons (scalar-i64 (ann 1 I64)) (empty-list))))
+             (expect-i32 (invoke-entry first (argument 0)) 7)
+             (require (close-instance first))
+             (require (close-instance first))
+             (reject (invoke-entry first (argument 1)))
+             (expect-i32 (invoke-entry second (argument 1)) 3))))
+
+    (def run-failures (-> LibraryMap Unit)
+         (lambda (base)
+           (begin
+             (let libraries (require (library-map-parse base (key "tests" "failure") "failure.sld"
+                                                        "(define-library (tests failure) (import (only (lofi primitive) unreachable)) (export main)
+                 (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit))
+                   (def main (-> I32) (lambda () 42)) (mark 7) (unreachable)))")))
+             (let artifact (require (compile libraries (entry (key "tests" "failure") "main"))))
+             (let code (require (load artifact)))
+             (reject (instantiate code (provider-set "probe")))
+             (reject (instantiate code (provider-set "probe")))
+             (let traps (require (library-map-parse base (key "tests" "trap") "trap.sld"
+                                                    "(define-library (tests trap)
+                 (import (only (lofi primitive) ref ref-get ref-set! i32-add i32-eq unreachable)) (export main)
+                 (begin (def count (ref (ann 0 I32)))
+                   (def main (-> I32 I32) (lambda (value)
+                     (begin (ref-set! count (i32-add (ref-get count) 1))
+                       (if (i32-eq value 0) (unreachable) (ref-get count)))))))")))
+             (let runtime (require (instantiate
+                                    (require (load (require (compile traps (entry (key "tests" "trap") "main")))))
+                                    (provider-set "empty"))))
+             (reject (invoke-entry runtime (argument 0)))
+             (expect-i32 (invoke-entry runtime (argument 1)) 2)
+             (require (close-instance runtime)))))
+
+    ;; ---- Every supported semantic scalar crosses both execution boundaries ----
+
+    (def scalar-tag (-> ScalarValue I32)
+         (lambda (value)
+           (match value
+             ((scalar-i32 x) 0) ((scalar-i64 x) 1) ((scalar-f32 x) 2) ((scalar-f64 x) 3)
+             ((scalar-bool x) 4) ((scalar-char x) 5) ((scalar-unit) 6))))
+    (def scalar-correct (-> ScalarValue Bool)
+         (lambda (value)
+           (match value
+             ((scalar-i32 x) (= x -2147483648)) ((scalar-i64 x) (= x (ann 9007199254740993 I64)))
+             ((scalar-f32 x) (= x (ann 1.5 F32))) ((scalar-f64 x) (= x 1.25))
+             ((scalar-bool x) x) ((scalar-char x) (char=? x (string-ref "🦊" (ann 0 I64))))
+             ((scalar-unit) #t))))
+    (def run-scalar (-> LibraryMap String (List ScalarValue) I32 Unit)
+         (lambda (libraries name values tag)
+           (begin
+             (let artifact (require (compile libraries (entry (key "tests" "scalars") name))))
+             (let runtime (require (instantiate (require (load artifact)) (provider-set "empty"))))
+             (let result (require (invoke-entry runtime values)))
+             (assert (= (scalar-tag result) tag)) (assert (scalar-correct result))
+             (require (close-instance runtime)))))
+    (def run-scalars (-> LibraryMap Unit)
+         (lambda (base)
+           (begin
+             (let libraries (require (library-map-parse base (key "tests" "scalars") "scalars.sld"
+                                                        "(define-library (tests scalars) (import (only (lofi primitive) unit))
+                 (export i32 i64 f32 f64 bool char unit-result)
+                 (begin (def i32 (-> I32 I32) (lambda (x) x)) (def i64 (-> I64 I64) (lambda (x) x))
+                   (def f32 (-> F32 F32) (lambda (x) x)) (def f64 (-> F64 F64) (lambda (x) x))
+                   (def bool (-> Bool Bool) (lambda (x) x)) (def char (-> Char Char) (lambda (x) x))
+                   (def unit-result (-> Unit) (lambda () (unit)))))")))
+             (run-scalar libraries "i32" (argument -2147483648) 0)
+             (run-scalar libraries "i64" (cons (scalar-i64 (ann 9007199254740993 I64)) (empty-list)) 1)
+             (run-scalar libraries "f32" (cons (scalar-f32 (ann 1.5 F32)) (empty-list)) 2)
+             (run-scalar libraries "f64" (cons (scalar-f64 1.25) (empty-list)) 3)
+             (run-scalar libraries "bool" (cons (scalar-bool #t) (empty-list)) 4)
+             (run-scalar libraries "char" (cons (scalar-char (string-ref "🦊" (ann 0 I64))) (empty-list)) 5)
+             (run-scalar libraries "unit-result" (empty-list) 6))))
+
+    (def main (-> I32)
+         (lambda ()
+           (begin (let libraries (assembled))
+                  (run-state libraries) (run-failures libraries) (run-scalars libraries) 42)))))

@@ -1,5 +1,5 @@
 (import (scheme base) (scheme file) (scheme process-context)
-        (lofi source-driver) (lofi frontend) (lofi compiler)
+        (lofi source-driver) (lofi frontend) (lofi compiler bootstrap)
         (lofi primitives) (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
@@ -9,8 +9,8 @@
  (lambda ()
    (call-with-values
        (lambda ()
-         (collect-source-file (string-append root "/tests/lofi-compiler-service/program.lofi")
-                              (list (string-append root "/lib"))
+         (collect-source-file (string-append root "/tests/lofi-compiler-service/program.sld")
+                              (list (string-append root "/src"))
                               (list (cons '(lofi primitive) (make-primitive-library primitive-names))) #f))
      (lambda (key libraries)
        (let ((artifact (compile libraries (make-entry key 'main))))

@@ -1,12 +1,12 @@
 ;; Prepare one output independently, then collect and compile its consumer graph.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write)
-        (lofi source-driver) (lofi compiler) (lofi frontend) (lofi library)
+        (lofi source-driver) (lofi compiler bootstrap) (lofi frontend) (lofi library)
         (lofi primitives) (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))
 (define fixture (string-append root "/tests/lofi-generation"))
-(define directories (list (string-append fixture "/lib") (string-append root "/lib")))
+(define directories (list (string-append fixture "/lib") (string-append root "/src")))
 (define base (list (cons '(lofi primitive) (make-primitive-library primitive-names))))
 (define context (make-generation-context (string-append root "/scripts/run-lofi-generator.mjs")
                                          (string-append fixture "/providers.mjs")))

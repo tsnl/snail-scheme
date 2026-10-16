@@ -28,7 +28,7 @@ Native output is unbuffered, so a trap cannot hide its preceding effects. Unit
 exports use the public void ABI. Native checks use the ordinary process
 floating-point environment; modified rounding modes are outside this scope.
 
-`libraries.lofi` checks ordinary arithmetic, the compatible named wrapping/IEEE
+`libraries.sld` checks ordinary arithmetic, the compatible named wrapping/IEEE
 aliases, nominal Number overflow, and exact-to-F64 rounding at the finite
 boundary. Existing Datum hash and Integer/Number suites exercise production
 callers. Unbounded Integer arithmetic remains exact.

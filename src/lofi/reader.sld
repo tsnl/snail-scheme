@@ -105,13 +105,13 @@
         (expect (reader-eof? (list->reader "empty.scm" '())) #t))
 
       (define (test-file->reader)
-        (let* ((filename "tests/lofi/reader-input.lofi")
+        (let* ((filename "tests/lofi/reader-input.sld")
                (reader (file->reader filename)))
           (expect (list->string (reader-chars reader)) "(def answer I64 42)\nanswer\n")
           (expect (test-value (reader-loc reader)) (list filename 1 1)))
         (expect
          (guard (ex ((file-error? ex) #t))
-           (file->reader "tests/lofi/reader-input.lofi/missing.lofi")
+           (file->reader "tests/lofi/reader-input.sld/missing.sld")
            #f)
          #t))
 

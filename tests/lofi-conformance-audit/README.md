@@ -3,7 +3,7 @@ recursive captures and the value restriction. The runner uses the existing Lofi
 integration harness and checks every listed source on raw and optimized Wasm:
 
 ```sh
-chibi-scheme -I src -I tests tests/lofi-conformance-audit/check.scm --output /tmp/lofi-conformance
+chibi-scheme -I bootstrap -I tests tests/lofi-conformance-audit/check.scm --output /tmp/lofi-conformance
 ```
 
 The [2026-10-15 audit index](evidence/20261015-book-contracts.json) records a
