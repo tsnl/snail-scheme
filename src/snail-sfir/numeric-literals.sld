@@ -145,7 +145,7 @@
   (cond-expand
    (snail-tests
     (export test-numeric-literals)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (scheme bytevector) bytevector-ieee-single-native-set! bytevector-ieee-double-native-set!
                   bytevector-u32-native-ref bytevector-u64-native-ref))
     (begin

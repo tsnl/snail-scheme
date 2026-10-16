@@ -1,5 +1,5 @@
 ;; Concrete filesystem and subprocess operations for Chibi-hosted tools.
-(define-library (snail-tools process)
+(define-library (wasm-native process)
   (export run-command/capture run-command! current-command-records current-command-log
           current-process-supervisor close-owned-descriptor
           read-text write-text read-bytes write-bytes read-json write-json
@@ -7,7 +7,7 @@
           option-ref command-line-main directory-files-recursive)
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (chibi filesystem) (chibi pathname)
-          (snail-tools json)
+          (wasm-native json)
           (only (chibi io) port->string port->bytevector)
           (only (chibi process) fork execute waitpid current-process-id)
           (only (chibi string) string-trim string-prefix?) (srfi 1) (srfi 151))
@@ -87,9 +87,7 @@
 
     (define current-process-supervisor (make-parameter (get-environment-variable "SNAIL_NATIVE_SUPERVISOR")))
     (define (process-supervisor options)
-      (let ((path (option-ref options 'supervisor
-                              (or (current-process-supervisor)
-                                  (path-join (current-directory) "build/native-runtime/release/snail-native-supervisor")))))
+      (let ((path (option-ref options 'supervisor (current-process-supervisor))))
         (when (and (option-ref options 'require-supervisor? #f) (not (and path (file-exists? path))))
           (error "captured command requires a built native process supervisor" path))
         (and path (file-exists? path) path)))
@@ -166,8 +164,9 @@
                  (option-ref record 'stderr "") (option-ref record 'stdout "")))
         (option-ref record 'stdout "")))
 
-    (define (command-line-main main)
-      (guard (failure (else (display "snail-sfir: " (current-error-port))
+    (define (command-line-main main . name)
+      (guard (failure (else (display (if (null? name) "wasm-native" (car name)) (current-error-port))
+                            (display ": " (current-error-port))
                             (write failure (current-error-port)) (newline (current-error-port)) (exit 1)))
         (exit (main (cdr (command-line)))))))
 
@@ -176,7 +175,7 @@
   (cond-expand
    (snail-tests
     (export test-process)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-captured-byte-identity)
         (expect (bytevector->hex-string #u8()) "")

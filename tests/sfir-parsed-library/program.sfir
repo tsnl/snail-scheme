@@ -34,7 +34,7 @@
     (def run (-> LibraryMap String String ScalarValue)
          (lambda (libraries selected name)
            (begin
-             (let artifact (require (compile libraries (entry (key selected) name) (wasm-target))))
+             (let artifact (require (compile libraries (entry (key selected) name))))
              (let runtime (require (instantiate (require (load artifact)) (provider-set "probe"))))
              (let result (require (invoke-entry runtime (empty-list))))
              (require (close-instance runtime)) result)))
@@ -81,7 +81,7 @@
              (assert (same-scope? (scope-of original) (scope-of changed)))
              (let transformed (require (library-map-insert base (key "changed") changed)))
              (expect-i32 (run transformed "changed" "answer") 42)
-             (reject (compile transformed (entry (key "changed") "run") (wasm-target)))
+             (reject (compile transformed (entry (key "changed") "run")))
              (expect-i32 (run first "first" "run") 42))))
 
     ;; ---- Parsing succeeds before import resolution and representation selection ----
@@ -92,15 +92,15 @@
              (let missing (require (parse-library "missing.sfir"
                                                   "(define-library (missing) (import (absent)) (export run) (begin (def run (lambda () remote))))")))
              (let imports (require (library-map-insert base (key "missing") missing)))
-             (reject (compile imports (entry (key "missing") "run") (wasm-target)))
+             (reject (compile imports (entry (key "missing") "run")))
              (let invalid (require (parse-library "wide-error.sfir"
                                                   "(define-library (wide) (export run) (begin (def run (-> I64) (lambda () 9223372036854775808))))")))
              (let too-wide (require (library-map-insert base (key "wide") invalid)))
-             (reject (compile too-wide (entry (key "wide") "run") (wasm-target)))
+             (reject (compile too-wide (entry (key "wide") "run")))
              (let rest (require (parse-library "rest-error.sfir"
                                                "(define-library (rest) (export run) (begin (def run (Rest I32) 1)))")))
              (let wrong-rest (require (library-map-insert base (key "rest") rest)))
-             (reject (compile wrong-rest (entry (key "rest") "run") (wasm-target)))
+             (reject (compile wrong-rest (entry (key "rest") "run")))
              (reject (parse-library "vector-error.sfir" "(define-library (bad) (begin (def value #(1 2))))"))
              (reject (parse-library "grammar-error.sfir" "(define-library (bad) (wrong))"))
              (reject (parse-library "multiple.sfir" "(define-library (one)) (define-library (two))")))))

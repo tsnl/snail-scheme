@@ -1,6 +1,6 @@
 ;; File scopes own Chromium traces. Only completed calls emit spans; an initial
 ;; metadata event lets every span start with a comma.
-(define-library (snail-scheme chromium-trace)
+(define-library (wasm-native chromium-trace)
   (export chromium-trace with-chromium-trace-to)
   (import (scheme base) (scheme file) (scheme time) (scheme write))
   (begin
@@ -89,7 +89,7 @@
 
   (cond-expand
    (snail-tests
-    (import (snail-tools json) (chibi temp-file) (snail-scheme test-utils))
+    (import (wasm-native json) (chibi temp-file) (wasm-native test-utils))
     (export test-chromium-trace)
     (begin
       (define (trace-test-path directory name)

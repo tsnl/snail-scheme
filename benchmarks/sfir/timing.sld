@@ -6,8 +6,8 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
           (scheme process-context) (scheme write) (srfi 1) (srfi 95)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (except (chibi filesystem) file-exists?) (snail-tools json)
-          (snail-tools process) (sfir runner) (sfir support))
+          (except (chibi filesystem) file-exists?) (wasm-native json)
+          (wasm-native process) (sfir runner) (sfir support))
   (begin
 
     ;; ---- Fixed experiment and explicit observation exclusions ----
@@ -425,7 +425,7 @@
   (cond-expand
    (snail-tests
     (export test-sfir-timing)
-    (import (snail-scheme test-utils) (chibi temp-file) (snail-tools native-build))
+    (import (wasm-native test-utils) (chibi temp-file) (wasm-native native-build))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
@@ -687,7 +687,7 @@
 
       (define (test-clean-host-execution)
         (let ((directory (make-build-directory (path-join (benchmark-root) "build/sfir-timing-probes") "attempt-")))
-          (current-process-supervisor (ensure-native-supervisor (benchmark-root)))
+          (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root))))
           (copy-tree (path-join (benchmark-root) "benchmarks/sfir/support") (path-join directory "source/benchmarks/sfir/support"))
           (create-directory* (path-join directory "data/inputs"))
           (probe-runtime-hosts directory) (probe-path-hosts directory)

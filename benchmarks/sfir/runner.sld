@@ -1,6 +1,6 @@
 ;; Freeze authored workloads and retain actual target execution evidence.
 (define-library (sfir runner)
-  (export benchmark-root selected-cases prepare verify-preparation validate inventory
+  (export benchmark-root runtime-project-directory selected-cases prepare verify-preparation validate inventory
           record-command succeeded? frozen-environment tool source-directory case-source
           execution-directory workload-directory compile-chez native-build native-parity
           verify-native-parity native-artifact-files runtime-provider fft-provider
@@ -11,12 +11,13 @@
           (srfi 1) (srfi 95) (except (chibi filesystem) file-exists?)
           (only (srfi 130) string-contains)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (snail-tools json) (snail-tools process) (snail-tools native-build) (sfir support))
+          (wasm-native json) (wasm-native process) (wasm-native native-build) (sfir support))
   (begin
 
     ;; ---- Corpus and explicit configuration ----
 
     (define benchmark-root (make-parameter (current-directory)))
+    (define (runtime-project-directory root) (path-join root "wasm-native"))
     (define (trim text) (string-trim text char-whitespace?))
     (define tools
       '((CHIBI . "chibi-scheme") (WASM_OPT . "wasm-opt") (WASM_AS . "wasm-as")
@@ -67,7 +68,7 @@
               (string-split (run-command! (list "git" "-C" root "ls-files" "-z")) #\null)))
 
     (define (compiler-file? name)
-      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "lib/" "runtime/" "scripts/"))
+      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "lib/" "wasm-native/" "scripts/"))
           (member name '("Cargo.toml" "Cargo.lock" "rust-toolchain.toml" "build.rs"))))
 
     (define (campaign-file? name)
@@ -132,11 +133,11 @@
       (let ((wrapper (field environment 'RUSTC_WRAPPER 'null))
             (workspace (field environment 'RUSTC_WORKSPACE_WRAPPER 'null)))
         (unless (or (not (string? wrapper)) (string=? wrapper "")
-                    (paths-alias? wrapper (path-join root "scripts/rustc-native")))
+                    (paths-alias? wrapper (path-join root "wasm-native/scripts/rustc-native")))
           (error "benchmark freeze requires the repository Rust compiler wrapper; unset RUSTC_WRAPPER" wrapper))
         (when (and (string? workspace) (not (string=? workspace "")))
           (error "benchmark freeze requires no workspace wrapper; unset RUSTC_WORKSPACE_WRAPPER" workspace))
-        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/scripts/rustc-native"))
+        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/wasm-native/scripts/rustc-native"))
                      (cons 'RUSTC_WORKSPACE_WRAPPER 'null))))
 
     (define (file-identity path)
@@ -179,7 +180,7 @@
                                                        (path-join (get-environment-variable "HOME") ".cargo")))
                                 (filter (lambda (entry) (not (string=? (car entry) "CARGO_HOME"))) (frozen-environment manifest))))
              (result (record-command directory "vendor-locked-crates"
-                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "Cargo.toml")
+                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "wasm-native/Cargo.toml")
                                            "--sync" (path-join source "benchmarks/wasm-reference/Cargo.toml") destination)
                                      environment source (compile-timeout manifest))))
         (unless (succeeded? result) (error "cannot freeze locked Cargo dependencies" result))
@@ -197,7 +198,7 @@
         (when (or (file-exists? destination) (string=? root destination) (string-prefix? (string-append root "/") destination))
           (error "prepare requires a fresh destination outside the checkout" destination))
         (create-directory* destination)
-        (current-process-supervisor (ensure-native-supervisor root))
+        (current-process-supervisor (ensure-native-supervisor (runtime-project-directory root)))
         (let* ((paths (campaign-paths root))
                (manifest `((format . 2) (kind . "sfir-preparation")
                            (config . ((compile_timeout . ,(timeout-value compile-seconds)) (run_timeout . ,(timeout-value run-seconds))))
@@ -298,6 +299,7 @@
 
     (define (chibi-command directory manifest script)
       (list (tool manifest 'CHIBI) "-I" (path-join directory "source/src")
+            "-I" (path-join directory "source/wasm-native/scheme")
             "-I" (path-join directory "source/benchmarks") (path-join directory "source" script)))
 
     (define (sfir-build directory case source target manifest environment)
@@ -319,7 +321,7 @@
       (let* ((runtime-target (path-join directory "runtime-target"))
              (build (record-command target "runtime-build"
                                     (list (tool manifest 'CARGO) "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--locked"
-                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/Cargo.toml")
+                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/wasm-native/Cargo.toml")
                                           "--target-dir" runtime-target) environment (source-directory directory) (compile-timeout manifest))))
         (unless (succeeded? build) (error "Rust scalar runtime build failed" build))
         (copy-file (path-join runtime-target "wasm32-wasip1/release/snail_runtime.wasm") (path-join target "runtime.wasm"))
@@ -418,7 +420,7 @@
     (define (native-artifact-files target)
       (let ((paths (append (map (lambda (name) (path-join target name)) '("program.wasm.raw.wasm" "program.wasm" "program.native"))
                            (append-map (lambda (attempt) (map (lambda (name) (path-join attempt name))
-                                                              '("optimized.wasm" "module.ll" "build.json" "build.scm"))) (native-attempts target)))))
+                                                              '("optimized.wasm" "module.ll" "build.json" "build.rs" "Cargo.toml" "main.rs"))) (native-attempts target)))))
         (when (any file-link? paths) (error "native artifacts must be ordinary files" target))
         (map (lambda (path) (cons (string->symbol (substring path (+ 1 (string-length target)))) (file-sha256 path)))
              (filter file-regular? paths))))
@@ -435,14 +437,14 @@
 
     (define (verify-native-evidence target attempt files)
       (let ((evidence (field (read-json (path-join attempt "build.json")) 'sha256)))
-        (field files (string->symbol (substring (path-join attempt "build.scm") (+ 1 (string-length target)))))
         (for-each
          (lambda (path)
            (unless (string=? (field evidence (string->symbol (absolute-path path)))
                              (field files (string->symbol (substring path (+ 1 (string-length target))))))
              (error "native evidence does not identify retained artifact" path)))
          (list (path-join target "program.wasm.raw.wasm") (path-join target "program.native")
-               (path-join attempt "optimized.wasm") (path-join attempt "module.ll")))))
+               (path-join attempt "optimized.wasm") (path-join attempt "module.ll")
+               (path-join attempt "build.rs") (path-join attempt "Cargo.toml") (path-join attempt "main.rs")))))
 
     (define (native-parity target built expected)
       (let ((report `((status . ,(if (succeeded? built) "failed-parity" "failed-build")) (command . ,(field built 'command)))))
@@ -671,7 +673,7 @@
   (cond-expand
    (snail-tests
     (export test-sfir-runner)
-    (import (snail-scheme test-utils) (chibi temp-file))
+    (import (wasm-native test-utils) (chibi temp-file))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
@@ -703,7 +705,7 @@
 
       (define (test-frozen-wrapper)
         (let ((environment (frozen-wrapper-environment "/checkout" "/frozen" '())))
-          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/scripts/rustc-native")
+          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/wasm-native/scripts/rustc-native")
           (expect (field environment 'RUSTC_WORKSPACE_WRAPPER) 'null))
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WRAPPER . "/unrecorded/wrapper"))))) #t)
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WORKSPACE_WRAPPER . "sccache"))))) #t))
@@ -753,7 +755,7 @@
            '("failed-build" "pending" "unavailable" "passed") '(#f #f #f #t))))
 
       (define (test-recorded-processes)
-        (current-process-supervisor (ensure-native-supervisor (benchmark-root)))
+        (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root))))
         (call-with-temp-dir
          "sfir-processes"
          (lambda (root preserve)
@@ -782,7 +784,9 @@
           (for-each (lambda (entry) (write-text (path-join target (car entry)) (cdr entry)))
                     '(("program.wasm.raw.wasm" . "raw") ("program.wasm" . "optimized") ("program.native" . "executable")
                       ("program.native.native-test/optimized.wasm" . "optimized") ("program.native.native-test/module.ll" . "LLVM")
-                      ("program.native.native-test/build.scm" . "configuration")))
+                      ("program.native.native-test/build.rs" . "object link")
+                      ("program.native.native-test/Cargo.toml" . "package configuration")
+                      ("program.native.native-test/main.rs" . "entry source")))
           (write-parity-evidence target)
           `((raw_sha256 . ,(file-sha256 (path-join target "program.wasm.raw.wasm")))
             (optimized_sha256 . ,(file-sha256 (path-join target "program.wasm"))))))
@@ -790,12 +794,17 @@
       (define (write-parity-evidence target)
         (write-json (path-join target "program.native.native-test/build.json")
                     `((sha256 . ,(map (lambda (name) (let ((path (path-join target name))) (cons (string->symbol path) (file-sha256 path))))
-                                      '("program.wasm.raw.wasm" "program.native" "program.native.native-test/optimized.wasm" "program.native.native-test/module.ll"))))))
+                                      '("program.wasm.raw.wasm" "program.native" "program.native.native-test/optimized.wasm" "program.native.native-test/module.ll"
+                                        "program.native.native-test/build.rs" "program.native.native-test/Cargo.toml" "program.native.native-test/main.rs"))))))
 
       (define (test-native-parity)
         (call-with-temp-dir "sfir-parity"
                             (lambda (target preserve)
                               (let ((expected (parity-fixture target)) (built '((returncode . 0) (descendants_gone . #t) (command . #("native-builder")))))
+                                (expect (native-parity target built expected) "passed")
+                                (write-text (path-join target "program.native.native-test/build.rs") "changed object link")
+                                (expect (native-parity target built expected) "failed-parity")
+                                (write-text (path-join target "program.native.native-test/build.rs") "object link")
                                 (expect (native-parity target built expected) "passed")
                                 (delete-file (path-join target "program.wasm.raw.wasm"))
                                 (expect (native-parity target built expected) "failed-parity")

@@ -1,10 +1,9 @@
-;; Binaryen optimizes Scheme-only Wasm before the complete program is linked.
+;; Binaryen optimizes guest Wasm before the complete program is linked.
 ;; Importing this library performs no tool checks or compilation.
-(define-library (snail-scheme wasm-optimize)
-  (export wasm-features check-binaryen-tools assemble-wasm optimize-scheme-wasm)
+(define-library (wasm-native wasm-optimize)
+  (export wasm-features check-binaryen-tools assemble-wasm optimize-wasm)
   (import (scheme base) (scheme file) (scheme write)
-          (snail-scheme build-host)
-          (only (snail-scheme wasm) write-wasm))
+          (wasm-native build-host))
   (begin
 
     ;; ---- Explicit dependency preflight ----
@@ -21,10 +20,12 @@
                                 ". Install Binaryen on PATH (the repository nix-shell includes it), or set " variable
                                 " to its executable path.")))))
 
-    (define (check-binaryen-tools)
+    (define (check-binaryen-tools . selected)
       (for-each (lambda (entry) (check-binaryen-tool (car entry) (cdr entry)))
-                '(("WASM_AS" . "wasm-as") ("WASM_OPT" . "wasm-opt")
-                  ("WASM_DIS" . "wasm-dis") ("WASM_MERGE" . "wasm-merge"))))
+                (if (null? selected)
+                    '(("WASM_AS" . "wasm-as") ("WASM_OPT" . "wasm-opt")
+                      ("WASM_DIS" . "wasm-dis") ("WASM_MERGE" . "wasm-merge"))
+                    (car selected))))
 
     ;; ---- Shared Wasm optimization ----
 
@@ -40,8 +41,8 @@
 
     ;; Exports are the ABI link contract. Preserve them here; complete Wasm
     ;; programs receive a separate optimization after linking the Rust runtime.
-    (define (optimize-scheme-wasm input output)
-      (run-command "build.optimize-scheme"
+    (define (optimize-wasm input output)
+      (run-command "build.optimize-wasm"
                    (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
                            (list "-O3" "--closed-world" "--always-inline-max-function-size=40"
                                  "--converge" input "-o" output))))

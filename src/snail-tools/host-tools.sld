@@ -1,7 +1,7 @@
 ;; Small OS/Rust operations used by Scheme tools, built independently of the runtime.
 (define-library (snail-tools host-tools)
   (export build-host-tool)
-  (import (scheme base) (chibi filesystem) (snail-tools process) (snail-tools native-build))
+  (import (scheme base) (chibi filesystem) (wasm-native process) (wasm-native native-build))
   (begin
 
     ;; ---- Cargo-built host capabilities ----

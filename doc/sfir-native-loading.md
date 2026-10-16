@@ -1,18 +1,25 @@
 # Native loading and independent instances
 
-The Scheme adapter in [`execute-native.sld`](../src/snail-sfir/execute-native.sld)
-loads compiler-produced x86-64 Linux objects, links explicit foreign providers,
-and creates independent instances. Chibi still hosts compilation. This adapter
-does not add a Scheme frontend, self-hosting, or an SFIR compiler service.
+The optional Scheme protocol in
+[`(wasm-native execute)`](../wasm-native/scheme/wasm-native/execute.sld) loads
+x86-64 Linux objects carrying the fixed scalar bridge, links explicit foreign
+providers, and creates independent instances. The separate
+[`(snail-sfir native)`](../src/snail-sfir/native.sld) adapter converts a compiler
+Wasm artifact into such an object. Chibi still hosts compilation, and the compiler
+always emits Wasm. The native package imports no compiler modules.
 
-Run the host script with `chibi-scheme -I src` from the repository:
+Repository host scripts use
+`chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" SCRIPT`.
+Loading an existing object needs only `-I "$package/scheme"`. Supply the
+package directory explicitly as `runtime-root`:
 
 ```scheme
-(import (scheme base) (snail-tools process) (snail-sfir execute-native))
+(import (scheme base) (wasm-native process) (wasm-native execute))
 
+(define runtime-root "/absolute/path/to/checkout/wasm-native")
 (define code (load-native (read-bytes "counter.o")))
 (define linked
-  (link-native code (list (runtime-provider)) "build/counter-loading"))
+  (link-native code (list (runtime-provider)) "build/counter-loading" runtime-root))
 (define first (instantiate linked))
 (dynamic-wind
   (lambda () #f)
@@ -20,10 +27,16 @@ Run the host script with `chibi-scheme -I src` from the repository:
   (lambda () (close-instance first)))
 ```
 
-Here `counter.o` is the byte sequence returned by `compile` with a
-`native64-target`, for a selected public `(-> I32 I32)` export. The target must
-declare the Rust scalar imports used by that program. Loading snapshots bytes
-and returns immutable `library`, `export`, `parameters`, `result` and `imports`
+Here `counter.o` is the object written by
+`(artifact->native-object artifact imports directory output)` for a selected
+public `(-> I32 I32)` export. Its `artifact` comes from
+`(compile libraries (make-entry library-key public-name))`; `imports` explicitly
+declares the program's physical Rust scalar imports with `make-native-import`
+from `(wasm-native)`. The caller creates the build `directory` and supplies the
+object `output` path. The adapter preserves the Wasm artifact's semantic scalar
+signature and origin description while separately invoking native lowering.
+Loading snapshots bytes and returns immutable `library`, `export`, `parameters`,
+`result` and `imports`
 descriptions. Linking retains commands, object bytes and executables under a
 fresh private subdirectory of the supplied directory. Each instantiation retains
 its own `stdout`, `stderr` and `process.json`. The caller owns these retained
@@ -44,7 +57,7 @@ trusted executable inputs. This adapter is not a native-code verifier or sandbox
 
 ## Entry evidence and transport
 
-[`native-entry.sld`](../src/snail-sfir/native-entry.sld) resolves the actual
+[`scalar-entry.sld`](../wasm-native/scheme/wasm-native/scalar-entry.sld) resolves the actual
 Binaryen-optimized Wasm module and checks that `main` has `() -> Unit` and
 `entry` has the recorded physical signature. Automatic start functions are
 rejected. It adds a fixed `i64 (ptr)` LLVM bridge to the same module. The bridge
@@ -58,8 +71,13 @@ the bridge arity, and an alias of the bridge whose name encodes the semantic
 signature. Loading checks the ELF target, metadata schema, arity and alias
 identity before publishing code. These checks detect an incompatible object or
 inconsistent saved metadata. They cannot authenticate or prove the behavior of
-arbitrary machine code. The compiler's checked construction establishes the
+arbitrary machine code. The adapter's checked construction establishes the
 bridge contract, just as the trusted native runtime establishes its own ABI.
+The protocol retains the existing section and symbol names, including
+`.sfir.entry`, and the saved Bool/Char tags. It owns their scalar encoding and
+checks; the source adapter supplies the semantic signature and library/export
+description. Generic Wasm-to-native lowering receives only the Wasm
+representation, physical imports and runtime contract.
 
 | SFIR type | Scheme value and transport |
 | --- | --- |
@@ -93,7 +111,7 @@ acknowledges successful initialization. Failure raises a Scheme error,
 returns no instance, and preserves external effects already performed. Ordinary
 native terminal cleanup still closes Rust-owned resources on a guest trap.
 
-[`native_worker.rs`](../src/native_worker.rs) supports two executables:
+[`native_worker.rs`](../wasm-native/src/native_worker.rs) supports two executables:
 a supervisor with no guest/provider linkage, and a guest worker. Before executing
 the guest image, the supervisor establishes an owned process group. Thus foreign
 provider constructors execute inside that ownership too. The supervisor becomes
@@ -105,7 +123,7 @@ providers remain outside the trusted native boundary.
 
 Commands and replies travel through dedicated inherited pipes; program stdout
 and stderr go to regular log files and cannot fill an undrained output pipe.
-The compiler-created bridge fixes the request arity; there is one outstanding
+The adapter-created bridge fixes the request arity; there is one outstanding
 call at a time. I64 and IEEE values use little-endian binary words, not textual
 numbers. Scalar words are never treated as GC roots. The compiled exported
 function publishes its managed roots across collecting calls as usual.

@@ -477,7 +477,7 @@
   (cond-expand
    (snail-tests
     (export test-strict-specialize)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-site global? initializers)
         (let ((site (make-site #f #f global? '() #f #f)))

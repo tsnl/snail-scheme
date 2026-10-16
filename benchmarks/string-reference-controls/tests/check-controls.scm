@@ -1,3 +1,3 @@
 #!/usr/bin/env chibi-scheme
-(import (scheme base) (string-reference-controls checks) (snail-tools process))
+(import (scheme base) (string-reference-controls checks) (wasm-native process))
 (command-line-main controls-main)
