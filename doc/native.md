@@ -188,9 +188,10 @@ through isolated Rust workers.
 
 ## Failure and resource lifetime
 
-Expected Wasm failures check divisors, overflow, conversion ranges, nulls, bounds
-and casts before LLVM operations can produce undefined behavior. Unsupported
-optimized instructions or module shapes fail with a Wasm-specific diagnostic.
+Expected Wasm failures check divisors, signed division overflow, conversion
+ranges, nulls, bounds and casts before LLVM operations can produce undefined
+behavior. Unsupported optimized instructions or module shapes fail with a
+Wasm-specific diagnostic.
 Linear memory, SIMD, atomics, exceptions and multivalue results remain outside
 the native lowering subset. Function and global exports have C adapters;
 exporting a table to a C host is rejected. Active element segments validate the

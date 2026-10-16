@@ -113,6 +113,16 @@ distinct from the core language contract.
 - [ ] Investigate the measured full57 bottlenecks and continue scoped compiler
   and runtime simplification with type/ownership evidence and execution checks.
   Completed reviews do not establish universal optimization or explain every slowdown.
+- [x] Measure default arithmetic and direct native array access with unchanged
+  inputs and repeated Chez/Rust controls in the
+  [four-arm, six-workload ablation](../benchmarks/results/2026-10-15-arithmetic-array-ablation/README.md).
+  Retain the inlining experiment as evidence: its GCbench recovery trades off
+  against a substantial bytevector/string conversion regression.
+- [ ] Bound recursive code expansion while preserving useful helper inlining.
+  Measure both allocation-heavy and conversion-heavy workloads before changing
+  the global policy; smaller Wasm alone does not establish faster execution.
+- [ ] Ablate empty native root-frame calls, redundant zero fills and repeated
+  UTF-8 validation using the representation and execution contracts in that report.
 
 The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
 with frontend, integration, library, public-command and native execution checks.
