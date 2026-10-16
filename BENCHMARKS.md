@@ -6,9 +6,11 @@ and [the manifest](benchmarks/lofi/corpus.json) for each workload's source,
 correctness and measurement status.
 
 ```sh
-chibi-scheme -I src -I benchmarks benchmarks/lofi/runner.scm inventory
-chibi-scheme -I src -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-suite
-chibi-scheme -I src -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-suite
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks \
+  benchmarks/lofi/runner.scm prepare --output /tmp/lofi-suite
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks \
+  benchmarks/lofi/runner.scm validate --output /tmp/lofi-suite
 ```
 
 The default selection is the complete suite. A selected subset is a diagnostic,

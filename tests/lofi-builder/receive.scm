@@ -1,9 +1,9 @@
 ;; A new compiler host receives data only. It has no producer map or arena.
 (import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler)
-        (snail-lofi library) (snail-lofi library-transfer)
-        (only (snail-scheme ir) binding-origin value-binding-definition)
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi frontend) (lofi compiler)
+        (lofi library) (lofi library-transfer)
+        (only (lofi ir) binding-origin value-binding-definition)
         (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))
 

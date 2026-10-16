@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {loadWasm} from '../../src/snail-lofi/execute.mjs';
-import {invokeLibraryGenerator, libraryTransferJSON, openLibraryBuilder} from '../../src/snail-lofi/library-builder.mjs';
+import {loadWasm} from '../../src/lofi/execute.mjs';
+import {invokeLibraryGenerator, libraryTransferJSON, openLibraryBuilder} from '../../src/lofi/library-builder.mjs';
 
 const directory = process.argv[2];
 const code = loadWasm(readFileSync(join(directory, 'complete-producer.wasm')));

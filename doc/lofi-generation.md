@@ -1,6 +1,6 @@
 # Source recipes and dependency preparation
 
-The Chibi [`source-driver.sld`](../src/snail-lofi/source-driver.sld) reads Lofi
+The Chibi [`source-driver.sld`](../src/lofi/source-driver.sld) reads Lofi
 source and assembles an explicit map for the compiler. It accepts ordinary
 `define-library` files and the book's exact recipe grammar:
 
@@ -30,7 +30,7 @@ consume supplied library values without discovering source or running recipes.
 zero-argument function returning I32 `42`. A source command imports that result:
 
 ```sh
-./snail-lofi run -I examples/generation examples/generation/main.lofi
+./lofi run -I examples/generation examples/generation/main.lofi
 scripts/build-native -I examples/generation examples/generation/main.lofi build/generated-answer
 build/generated-answer
 ```
@@ -90,7 +90,7 @@ Recipes have the builder service automatically. Other foreign services come
 from an explicitly selected ES module:
 
 ```sh
-./snail-lofi run --generation-provider ./build-providers.mjs -I lib main.lofi
+./lofi run --generation-provider ./build-providers.mjs -I lib main.lofi
 ```
 
 The same option is supported by both build scripts. The module exports:

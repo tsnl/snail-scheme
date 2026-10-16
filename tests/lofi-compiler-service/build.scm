@@ -1,6 +1,6 @@
 (import (scheme base) (scheme file) (scheme process-context)
-        (snail-lofi source-driver) (snail-lofi frontend) (snail-lofi compiler)
-        (snail-scheme strict-primitives) (wasm-native chromium-trace))
+        (lofi source-driver) (lofi frontend) (lofi compiler)
+        (lofi primitives) (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))

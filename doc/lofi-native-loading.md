@@ -4,7 +4,7 @@ The optional Scheme protocol in
 [`(wasm-native execute)`](../wasm-native/scheme/wasm-native/execute.sld) loads
 x86-64 Linux objects carrying the fixed scalar bridge, links explicit foreign
 providers, and creates independent instances. The separate
-[`(snail-lofi native)`](../src/snail-lofi/native.sld) adapter converts a compiler
+[`(lofi native)`](../src/lofi/native.sld) adapter converts a compiler
 Wasm artifact into such an object. Chibi still hosts compilation, and the compiler
 always emits Wasm. The native package imports no compiler modules.
 

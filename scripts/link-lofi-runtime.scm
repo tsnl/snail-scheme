@@ -22,4 +22,4 @@
                        (build-wasm-runtime (path-join root "wasm-native")))))
      (link-wasm-runtime (option-ref options 'source #f) (option-ref options 'output #f)
                         runtime (option-ref options 'diagnostic #f))))
- "snail-lofi")
+ "lofi")

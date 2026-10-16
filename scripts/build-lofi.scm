@@ -1,7 +1,7 @@
 ;; Chibi hosts the compiler; Lofi is its sole product input language.
 (import (scheme base) (scheme cxr) (scheme file) (scheme process-context)
         (chibi filesystem) (chibi string) (srfi 1)
-        (wasm-native process) (snail-lofi source-driver)
+        (wasm-native process) (lofi source-driver)
         (wasm-native chromium-trace) (wasm-native wasm-optimize))
 
 ;; ---- Command request ----
@@ -45,4 +45,4 @@
                               (assemble-wasm (string-append output ".wat") (string-append output ".raw.wasm"))
                               (optimize-wasm (string-append output ".raw.wasm") output)))
     0))
-(command-line-main (lambda (arguments) (build (car arguments) (request (cdr arguments)))) "snail-lofi")
+(command-line-main (lambda (arguments) (build (car arguments) (request (cdr arguments)))) "lofi")

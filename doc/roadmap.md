@@ -85,7 +85,7 @@ distinct from the core language contract.
 ## Current Lofi migration
 
 - [x] Land the Lofi language design before implementation (PR #225).
-- [x] Make `snail-lofi` the sole product command and remove Scheme compilation,
+- [x] Make `lofi` the sole product command and remove Scheme compilation,
   interpretation, macro expansion and the legacy emitter.
 - [x] Complete the direct located-syntax → resolved IR → inference → concrete
   specialization → WasmGC pipeline, with visible contracts between passes.

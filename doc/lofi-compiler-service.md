@@ -119,7 +119,7 @@ packet contains declared syntax and identities, never inferred checking evidence
 | `close-instance` | instance | `Unit` |
 
 Compilation retains the existing monomorphic scalar entry restriction. Loading
-copies the owned artifact into the [Wasm execution adapter](../src/snail-lofi/execute.mjs).
+copies the owned artifact into the [Wasm execution adapter](../src/lofi/execute.mjs).
 Provider linking happens during instantiation, after compilation. The engine
 checks actual provider and entry function signatures before initializers run.
 Every instantiation has separate library state. Aliases initialize one library
@@ -148,9 +148,9 @@ services explicitly:
 
 ```javascript
 import {readFileSync} from 'node:fs';
-import {openCompilerService} from './src/snail-lofi/compiler-service.mjs';
+import {openCompilerService} from './src/lofi/compiler-service.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance}
-  from './src/snail-lofi/execute.mjs';
+  from './src/lofi/execute.mjs';
 
 const service = openCompilerService({
   providerSets: new Map([['empty', new Map()]])

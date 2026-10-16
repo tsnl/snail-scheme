@@ -1,9 +1,9 @@
 ;; Record intrinsic numeric representations at source locations for migration
 ;; audits. This helper neither rewrites source nor participates in compilation.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context)
-        (snail-lofi source-driver) (snail-scheme strict-core)
-        (snail-scheme ir) (snail-scheme source)
-        (only (snail-scheme strict-infer) infer-literal judgment-type judgment-detail)
+        (lofi source-driver) (lofi checked)
+        (lofi ir) (lofi source)
+        (only (lofi infer) infer-literal judgment-type judgment-detail)
         (only (wasm-native chromium-trace) with-chromium-trace-to)
         (only (scheme hash-table) make-hash-table hash-table-ref/default hash-table-set!))
 

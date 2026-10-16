@@ -10,7 +10,7 @@ Install the Rust target used by the shared WASI runtime:
 
 ```sh
 rustup target add wasm32-wasip1
-./snail-lofi run examples/fibonacci.lofi
+./lofi run examples/fibonacci.lofi
 scripts/build-native examples/fibonacci.lofi build/fibonacci
 build/fibonacci
 ```

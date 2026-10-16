@@ -4,7 +4,7 @@
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
 NIXFMT ?= nixfmt
-BENCH_OUTPUT ?= /tmp/snail-lofi-benchmarks
+BENCH_OUTPUT ?= /tmp/lofi-benchmarks
 
 test:
 	"$(CHIBI)" -D snail-tests -I wasm-native/scheme -I wasm-native/tests wasm-native/tests/host.scm
@@ -22,5 +22,5 @@ format:
 
 check:
 	EMACS="$(EMACS)" find src lib tests examples wasm-native/scheme wasm-native/tests -type f \( -name '*.scm' -o -name '*.sld' -o -name '*.lofi' \) -exec ./scripts/format-scheme --check {} +
-	awk -v limit=100 -f scripts/check-line-length.awk src/snail-scheme/ir.sld
+	awk -v limit=100 -f scripts/check-line-length.awk src/lofi/ir.sld
 	$(NIXFMT) --check shell.nix

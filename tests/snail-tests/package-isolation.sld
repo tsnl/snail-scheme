@@ -13,7 +13,7 @@
     (define (copy-wasm-compiler outside)
       (let* ((copy (path-join outside "wasm-only")) (modules (path-join copy "wasm-native/scheme/wasm-native")))
         (create-directory* modules)
-        (checked "copy-compiler" (list "cp" "-a" "--" (path "src") (path "lib") (path "scripts") (path "snail-lofi") copy))
+        (checked "copy-compiler" (list "cp" "-a" "--" (path "src") (path "lib") (path "scripts") (path "lofi") copy))
         (for-each (lambda (name)
                     (write-bytes (path-join modules (string-append name ".sld"))
                                  (read-bytes (path "wasm-native/scheme/wasm-native" (string-append name ".sld"))))) neutral-libraries)
@@ -63,7 +63,7 @@
         (assert-equal (map string->json (lines (read-text (path-join session "responses"))))
                       '(#(#t "ready") #(#t 1) #(#t 2) #(#t 3) #(#t #t) #(#t "closed")))
         (write-text runner
-                    "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/snail-lofi/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
+                    "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/lofi/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
         (checked "isolated-service-execute" (node runner (path-join session "artifact.wasm")) options)))
 
     ;; ---- A root recipe explicitly composes the independent libraries ----

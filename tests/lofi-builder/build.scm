@@ -1,7 +1,7 @@
 ;; The producer map is explicit and is discarded before receiving its output.
 (import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
-        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler))
+        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
+        (lofi primitives) (lofi frontend) (lofi compiler))
 
 (define directory (cadr (command-line)))
 (define (parse-file path) (parse-library (car (reader->syntax-list (file->reader path)))))

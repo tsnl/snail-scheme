@@ -1,7 +1,7 @@
 ;; Prepare one output independently, then collect and compile its consumer graph.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write)
-        (snail-lofi source-driver) (snail-lofi compiler) (snail-lofi frontend) (snail-lofi library)
-        (snail-scheme strict-primitives) (wasm-native chromium-trace))
+        (lofi source-driver) (lofi compiler) (lofi frontend) (lofi library)
+        (lofi primitives) (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))

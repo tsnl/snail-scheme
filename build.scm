@@ -6,9 +6,9 @@
 ;;     "$repo/examples/native/entry.rs" /tmp/sphere-answer
 (import (scheme base) (scheme process-context) (chibi filesystem)
         (wasm-native) (wasm-native process) (wasm-native chromium-trace)
-        (snail-lofi compiler) (snail-lofi source-driver)
-        (only (snail-lofi frontend) make-primitive-library)
-        (only (snail-scheme strict-primitives) primitive-names))
+        (lofi compiler) (lofi source-driver)
+        (only (lofi frontend) make-primitive-library)
+        (only (lofi primitives) primitive-names))
 
 ;; ---- Explicit build inputs ----
 

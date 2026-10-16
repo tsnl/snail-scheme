@@ -2,16 +2,16 @@
 
 Lofi means **Low-level Functional IR**. It was previously named SFIR.
 Source files now use `.lofi`, standard libraries use `(lofi ...)`, and the
-command is `snail-lofi`. Rename existing files and imports before rebuilding.
+command is `lofi`. Rename existing files and imports before rebuilding.
 Compiler services and saved artifacts also use `lofi` protocol names; rebuild
 artifacts and update their consumers together. SRFI names belong to the Scheme
 host's libraries and retain their original spelling.
 
-`snail-lofi` is hosted by Chibi. Help works before dependency checks.
+`lofi` is hosted by Chibi. Help works before dependency checks.
 
 ```sh
-./snail-lofi run [-I DIRECTORY] SOURCE.lofi [ARGUMENT ...]
-./snail-lofi compile [-I DIRECTORY] -o OUTPUT SOURCE.lofi
+./lofi run [-I DIRECTORY] SOURCE.lofi [ARGUMENT ...]
+./lofi compile [-I DIRECTORY] -o OUTPUT SOURCE.lofi
 ```
 
 Both commands use Wasm. `-I` may repeat; search those directories in order,
@@ -51,7 +51,7 @@ SOURCE.rs` supplies concrete scalar Rust exports compiled by Cargo;
 and is required for object input. `-I`, `--export`, and `--generation-provider`
 control the source-compilation step.
 
-The compiler has no target argument, and `snail-lofi` has no `--target` option.
+The compiler has no target argument, and `lofi` has no `--target` option.
 [`build.scm`](../build.scm) shows the direct library calls with explicit
 `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` arguments. See
 [native execution](native.md) for the physical ABI and retained build evidence.

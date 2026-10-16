@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {openCompilerService} from '../../src/snail-lofi/compiler-service.mjs';
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/snail-lofi/execute.mjs';
+import {openCompilerService} from '../../src/lofi/compiler-service.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
 
 const directory = process.argv[2];
 const module = name => new WebAssembly.Module(readFileSync(join(directory, `${name}.wasm`)));
