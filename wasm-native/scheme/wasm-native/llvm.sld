@@ -37,7 +37,7 @@
       (if (and (pair? type) (eq? (car type) 'mut)) (cadr type) type))
 
     (define (zero type)
-      (if (member type '("double" "float")) "0.0" "0"))
+      (if (member type '("double" "float")) "0.0" 0))
 
     ;; Operand types retain reference identity even though the machine ABI is i64.
     (define (llvm-type type) (if (string=? type "ref") "i64" type))
