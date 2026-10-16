@@ -55,6 +55,13 @@ unchanged `bv2string` against a fresh compiler baseline: 6.1× faster on V8 and
 10.1× natively, with original/adapted Chez and Rust controls. It retains all
 samples and documents shared-host conditions and the remaining Rust gap.
 
+The [production shared-LTO comparison](results/2026-10-16-production-lto/README.md)
+measures six unchanged workloads after self-call environment reuse. All 234
+scheduled attempts pass. Shared LTO reduces native time by 35% on Mandelbrot,
+40% on Array1, 31% on bytevector-to-string and 9% on GCbench; Fibonacci changes
+little. Native still trails V8 on five of those six cases. This selected result
+does not replace the full57 baseline.
+
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not
 replace this full-suite freeze. The earlier
