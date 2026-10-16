@@ -11,7 +11,7 @@
   (import (scheme base) (scheme cxr) (snail-scheme strict-types)
           (snail-scheme strict-core) (snail-scheme strict-overloads) (snail-scheme strict-primitives)
           (snail-scheme strict-data) (snail-scheme strict-pass)
-          (srfi 146 hash) (only (srfi 128) make-eq-comparator)
+          (snail-scheme hashmap) (only (srfi 128) make-eq-comparator)
           (snail-sfir numeric-literals)
           (only (srfi 69) make-hash-table hash-table-ref hash-table-ref/default hash-table-set! hash-table-exists?)
           (snail-scheme wasm-extern)
@@ -77,6 +77,8 @@
       (result summary-result) (scope summary-scope))
     ;; Only lexical scope owners and bindings are retained. The parameter is
     ;; private solver state; the completed persistent map is in the program.
+    ;; Persistent map lookup and update use explicit tail loops, independent
+    ;; of the increasingly deep source visitor's continuation.
     (define checking-scopes (make-parameter #f))
     (define checking-summaries (make-parameter '()))
     (define replay-mapping (make-parameter #f))
