@@ -42,6 +42,8 @@
           (array.new $storage-f32 (f32.reinterpret_i32 (local.get $bits)) (local.get $length)))
     (func (export "storage-f64") (param $length i32) (param $bits i64) (result eqref)
           (array.new $storage-f64 (f64.reinterpret_i64 (local.get $bits)) (local.get $length)))
+    (func (export "storage-refs") (param $length i32) (result eqref)
+          (array.new_default $refs (local.get $length)))
     (func (export "storage-static-u8") (result eqref) (global.get $static-u8))
     (func (export "storage-static-u16") (result eqref) (global.get $static-u16))
     (func (export "storage-static-i32") (result eqref) (global.get $static-i32))

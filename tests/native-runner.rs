@@ -61,6 +61,8 @@ unsafe extern "C" {
     fn storage_f32(p0: u32, p1: u32) -> u64;
     #[link_name = "wasm.storage-f64"]
     fn storage_f64(p0: u32, p1: u64) -> u64;
+    #[link_name = "wasm.storage-refs"]
+    fn storage_refs(p0: u32) -> u64;
     #[link_name = "wasm.storage-static-u8"]
     fn static_u8() -> u64;
     #[link_name = "wasm.storage-static-u16"]
@@ -110,6 +112,14 @@ unsafe fn check_array_storage() {
             storage_f64(2, 0x7ff8000000001234),
             &[0x7ff8000000001234u64; 2],
         );
+        // Forced collection reclaims the preceding nonzero arrays. Defaults
+        // must still expose cleared scalar payloads and null reference edges.
+        check_payload(storage_u8(3, 0), &[0u8; 3]);
+        check_payload(storage_u16(3, 0), &[0u16; 3]);
+        check_payload(storage_i32(3, 0), &[0u32; 3]);
+        check_payload(storage_f32(3, 0), &[0u32; 3]);
+        check_payload(storage_f64(3, 0), &[0u64; 3]);
+        check_payload(storage_refs(3), &[0u64; 3]);
         check_payload(storage_u8(0, 42), &[] as &[u8]);
         check_payload(static_u8(), &[255u8, 52, 128]);
         check_payload(static_u16(), &[65535u16, 9029, 32768]);
