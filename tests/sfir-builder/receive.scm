@@ -1,10 +1,10 @@
 ;; A new compiler host receives data only. It has no producer map or arena.
 (import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-sfir frontend) (snail-sfir compiler)
         (snail-sfir library) (snail-sfir library-transfer)
         (only (snail-scheme ir) binding-origin value-binding-definition)
-        (only (snail-scheme test-utils) expect)
+        (only (wasm-native test-utils) expect)
         (only (srfi 130) string-contains))
 
 (define directory (cadr (command-line)))
@@ -46,7 +46,7 @@
 (define (reject libraries key name message)
   (expect (guard (failure (else (and (error-object? failure)
                                      (if (string-contains (error-object-message failure) message) #t #f))))
-            (compile libraries (make-entry key name) wasm-target) #f) #t))
+            (compile libraries (make-entry key name)) #f) #t))
 
 ;; Missing output dependencies stay missing even though the producer used them.
 (reject (list (cons '(output first) first)) '(output first) 'run "SFIR library not found")
@@ -54,21 +54,21 @@
 (reject (cons (cons '(output invalid) ill-typed) libraries) '(output invalid) 'run "generated-example.sfir:11:5:")
 (for-each
  (lambda (selection)
-   (let ((artifact (compile libraries (make-entry (car selection) (cadr selection)) wasm-target)))
+   (let ((artifact (compile libraries (make-entry (car selection) (cadr selection)))))
      (call-with-port (open-binary-output-file (string-append directory "/" (caddr selection) ".wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
  '(((output first) run "first-result") ((output alias) run "alias-result")
    ((output second) run "second-result") ((output first) reexport "reexport-result")
    ((output combined) run "combined-result")))
 (let ((artifact (compile (list (cons '(generated answer) example))
-                         (make-entry '(generated answer) 'run) wasm-target)))
+                         (make-entry '(generated answer) 'run))))
   (call-with-port (open-binary-output-file (string-append directory "/example-result.wasm"))
     (lambda (port) (write-bytevector (artifact-bytes artifact) port))))
 (display "PASS owned transfer identities, explicit result dependencies and located generated diagnostics\n")
 (for-each
  (lambda (name)
    (let* ((library (receive-library-transfer context (read-transfer name)))
-          (artifact (compile (list (cons '(scalar) library)) (make-entry '(scalar) 'run) wasm-target)))
+          (artifact (compile (list (cons '(scalar) library)) (make-entry '(scalar) 'run))))
      (call-with-port (open-binary-output-file (string-append directory "/" name "-result.wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
  '("i64-min" "i64-max" "f32-zero" "f32-subnormal" "f32-max" "f64-roundtrip" "f64-max"

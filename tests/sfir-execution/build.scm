@@ -1,7 +1,8 @@
 ;; Produce actual compiler artifacts for execution-adapter contracts.
-(import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+(import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-sfir frontend) (snail-sfir compiler)
+        (snail-sfir native)
         (only (snail-sfir artifact) emit-artifact))
 
 (define directory (cadr (command-line)))
@@ -50,14 +51,16 @@
   (call-with-port (open-binary-output-file (string-append directory "/" name))
     (lambda (port) (write-bytevector (artifact-bytes artifact) port))))
 (define (build library export name)
-  (save (compile libraries (make-entry library export) wasm-target) (string-append name ".wasm")))
+  (save (compile libraries (make-entry library export)) (string-append name ".wasm")))
 
 (build '(execution facade) 'main "state")
 (build '(execution dependent) 'entry "failed")
 (build '(execution traps) 'entry "traps")
 (for-each (lambda (name) (build '(execution scalars) name (symbol->string name))) '(i32 i64 f32 f64 bool char unit-result))
 (for-each (lambda (name) (build '(execution foreign) name (symbol->string name))) '(bad-bool bad-char callback))
-(save (compile libraries (make-entry '(execution scalars) 'i32) (native64-target '())) "native.o")
+(create-directory* (string-append directory "/native"))
+(artifact->native-object (compile libraries (make-entry '(execution scalars) 'i32)) '()
+                         (string-append directory "/native") (string-append directory "/native.o"))
 
 ;; Deliberately inconsistent saved metadata tests the actual export checks.
 (for-each
@@ -67,6 +70,6 @@
                    (func (export "main") ,@(if (eq? case 'wrong-main) '((result i32)) '())
                          (call $mark (i32.const 8)) ,@(if (eq? case 'wrong-main) '((i32.const 0)) '()))
                    (func (export "entry") (param ,(if (eq? case 'wrong-entry) 'i64 'i32)) (result i32) (i32.const 0)))
-          (make-entry '(execution invalid) 'entry) '(I32) 'I32 wasm-target)
+          (make-entry '(execution invalid) 'entry) '(I32) 'I32)
          (string-append (symbol->string case) ".wasm")))
  '(wrong-main wrong-entry))

@@ -71,7 +71,7 @@
                                                   "(define-library (source app) (import (generated call) (only (generated alias)) (only (source alias)))
                  (export (rename run main))
                  (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit)) (mark 2)))")))
-             (reject (compile app (entry (key "source" "app") "main") (wasm-target)))
+             (reject (compile app (entry (key "source" "app") "main")))
              (let state-source (string-copy
                                 "(define-library (source state)
                  (import (only (sfir primitive) ref ref-get ref-set! i32-add)) (export step)
@@ -82,7 +82,7 @@
              (let state (require (library-map-parse app (key "source" "state") "state.sfir" state-source)))
              (string-set! state-source (ann 0 I64) #\X)
              (let complete (require (library-map-alias state (key "source" "state") (key "source" "alias"))))
-             (reject (compile complete (entry (key "source" "app") "main") (wasm-target)))
+             (reject (compile complete (entry (key "source" "app") "main")))
              (require (library-map-primitives complete)))))
 
     ;; ---- Compilation, provider checks, independent state and recoverable calls ----
@@ -90,7 +90,7 @@
     (def run-state (-> LibraryMap Unit)
          (lambda (libraries)
            (begin
-             (let artifact (require (compile libraries (entry (key "source" "app") "main") (wasm-target))))
+             (let artifact (require (compile libraries (entry (key "source" "app") "main"))))
              (require (write-artifact artifact "saved-application.wasm"))
              (let code (require (load artifact)))
              (reject (instantiate code (provider-set "absent")))
@@ -117,7 +117,7 @@
                                                         "(define-library (tests failure) (import (only (sfir primitive) unreachable)) (export main)
                  (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit))
                    (def main (-> I32) (lambda () 42)) (mark 7) (unreachable)))")))
-             (let artifact (require (compile libraries (entry (key "tests" "failure") "main") (wasm-target))))
+             (let artifact (require (compile libraries (entry (key "tests" "failure") "main"))))
              (let code (require (load artifact)))
              (reject (instantiate code (provider-set "probe")))
              (reject (instantiate code (provider-set "probe")))
@@ -129,7 +129,7 @@
                      (begin (ref-set! count (i32-add (ref-get count) 1))
                        (if (i32-eq value 0) (unreachable) (ref-get count)))))))")))
              (let runtime (require (instantiate
-                                    (require (load (require (compile traps (entry (key "tests" "trap") "main") (wasm-target)))))
+                                    (require (load (require (compile traps (entry (key "tests" "trap") "main")))))
                                     (provider-set "empty"))))
              (reject (invoke-entry runtime (argument 0)))
              (expect-i32 (invoke-entry runtime (argument 1)) 2)
@@ -152,7 +152,7 @@
     (def run-scalar (-> LibraryMap String (List ScalarValue) I32 Unit)
          (lambda (libraries name values tag)
            (begin
-             (let artifact (require (compile libraries (entry (key "tests" "scalars") name) (wasm-target))))
+             (let artifact (require (compile libraries (entry (key "tests" "scalars") name))))
              (let runtime (require (instantiate (require (load artifact)) (provider-set "empty"))))
              (let result (require (invoke-entry runtime values)))
              (assert (= (scalar-tag result) tag)) (assert (scalar-correct result))

@@ -1,6 +1,6 @@
 ;; Adapt configured Binaryen spellings to the host Scheme datum reader.
 ;; Name/type resolution stays in wasm-resolve; this is not a general WAT parser.
-(define-library (snail-scheme wasm-read)
+(define-library (wasm-native wasm-read)
   (export read-binaryen-module)
   (import (scheme base) (scheme file) (scheme char) (scheme write)
           (rename (only (chibi) read) (read read-wasm-datum)))
@@ -42,10 +42,10 @@
     (define (read-wat-token input)
       (let loop ((bytes '()))
         (let ((next (peek-wat-byte input)))
-          (if (or (not next) (wat-space? next) (memv next '(40 41)))
+          (if (or (not next) (wat-space? next) (memv next '(40 41 59)))
               (wat-bytes->text bytes)
               (begin
-                (when (memv next '(34 59)) (error "unsupported Binaryen atom"))
+                (when (= next 34) (error "unsupported Binaryen atom"))
                 (loop (cons (take-wat-byte input) bytes)))))))
 
     (define (wat-hex-digit byte)
@@ -87,21 +87,50 @@
       (if (and (member previous '("f32.const" "f64.const")) (decimal-integer-token? text))
           (string-append text ".0") text))
 
+    ;; ---- Comments are whitespace ----
+
+    ;; Binaryen describes opaque custom sections in line comments. Block
+    ;; comments may nest; quotes and escapes inside comments have no meaning.
+    (define (skip-wat-line-comment input)
+      (let ((next (peek-wat-byte input)))
+        (when (and next (not (memv next '(10 13))))
+          (take-wat-byte input) (skip-wat-line-comment input))))
+
+    (define (skip-wat-block-comment input)
+      (let loop ((depth 1))
+        (unless (peek-wat-byte input) (error "unfinished Binaryen block comment"))
+        (let* ((byte (take-wat-byte input)) (next (peek-wat-byte input)))
+          (cond ((and (= byte 40) (eqv? next 59))
+                 (take-wat-byte input) (loop (+ depth 1)))
+                ((and (= byte 59) (eqv? next 41))
+                 (take-wat-byte input) (unless (= depth 1) (loop (- depth 1))))
+                (else (loop depth))))))
+
     ;; ---- WAT spellings to Scheme text ----
 
     ;; This exhaustive lexical loop preserves module structure. Its only atom
     ;; rewrite is integer-spelled floats; WAT bytes become Scheme strings.
-    ;; Binaryen's configured disassembler emits no comments or quoted identifiers.
+    ;; Comments preserve the preceding token, just like ordinary whitespace.
     (define (normalize-binaryen-text port output)
       (let ((input (make-wat-input port (bytevector) 0)))
         (let loop ((previous #f))
           (let ((next (peek-wat-byte input)))
             (cond ((not next) #t)
                   ((= next 34) (write (read-wat-string input) output) (loop #f))
-                  ((or (wat-space? next) (memv next '(40 41)))
+                  ((= next 40)
+                   (take-wat-byte input)
+                   (if (eqv? (peek-wat-byte input) 59)
+                       (begin (take-wat-byte input) (skip-wat-block-comment input)
+                              (write-char #\space output) (loop previous))
+                       (begin (write-char #\( output) (loop #f))))
+                  ((or (wat-space? next) (= next 41))
                    (write-char (integer->char (take-wat-byte input)) output)
                    (loop (and (wat-space? next) previous)))
-                  ((= next 59) (error "unexpected Binaryen comment"))
+                  ((= next 59)
+                   (take-wat-byte input)
+                   (unless (eqv? (peek-wat-byte input) 59) (error "unexpected Binaryen semicolon"))
+                   (take-wat-byte input) (skip-wat-line-comment input)
+                   (write-char #\space output) (loop previous))
                   (else (let ((text (read-wat-token input)))
                           (display (scheme-wat-token previous text) output)
                           (loop text))))))))
@@ -145,14 +174,26 @@
   (cond-expand
    (snail-tests
     (export test-wasm-read)
-    (import (scheme inexact) (snail-scheme test-utils))
+    (import (scheme inexact) (wasm-native test-utils))
     (begin
       (define (read-text text)
         (let ((output (open-output-string)))
           (normalize-binaryen-text (open-input-bytevector (string->utf8 text)) output)
           (read-wasm-module (open-input-string (get-output-string output)))))
 
+      (define (test-wat-comments)
+        (expect (read-text "(; prefix (; nested ;) ;) (module;; opaque custom section\n(f64.const(; token gap ;)-0)) ;; trailing")
+                '(module (f64.const -0.0)))
+        (expect (read-text "(module (export \";; (; literal ;)\" (func 0)))")
+                '(module (export ";; (; literal ;)" (func 0))))
+        (expect (read-text (string-append "(module (;" (make-string 65536 #\x) "(; split ;) ;) )")) '(module))
+        (let ((zero (cadr (cadr (read-text "(module (f64.const;; comment\r-0))")))))
+          (expect (negative? (/ 1.0 zero)) #t))
+        (for-each (lambda (text) (expect (guard (failure (else #t)) (read-text text) #f) #t))
+                  '("(module (; unfinished)" "(module (; nested (; ;) )" "(module ;)")))
+
       (define (test-wasm-read)
+        (run-test test-wat-comments)
         (expect (read-text "(module (type $t (struct)) (i32.const -0))")
                 '(module (type $t (struct)) (i32.const 0)))
         (expect (read-text "(module (export \"\\ce\\bb\\00\\n\\t\\r\\\"\\\\\" (func $f)))")

@@ -1,0 +1,55 @@
+;; This script needs only this package's scheme/ and tests/ include paths.
+(import (scheme base) (scheme write) (scheme process-context) (chibi filesystem)
+        (only (chibi string) string-contains)
+        (wasm-native) (wasm-native process) (wasm-native test-utils)
+        (only (wasm-native wasm-optimize) assemble-wasm)
+        (only (wasm-native chromium-trace) with-chromium-trace-to))
+
+(define root (absolute-path (current-directory)))
+(define directory (make-build-directory (path-join root "build") "standalone-"))
+(define binary (path-join directory "authored.wasm"))
+(define llvm (path-join directory "module.ll"))
+(define object (path-join directory "module.o"))
+(define imports (list (make-native-import "example" "example_hide" "example_hide" '(i64) 'i64)))
+(define providers (list (list "example" (path-join root "tests/provider.rs"))))
+
+(define (append-custom-section path)
+  ;; Opaque custom bytes must not affect lowering. Binaryen prints them in a
+  ;; comment; the native reader must ignore that comment without language data.
+  (let* ((name (string->utf8 "example.meta")) (data (string->utf8 "opaque \"(; data ;)\""))
+         (output (open-output-bytevector)))
+    (write-bytevector (read-bytes path) output)
+    (write-u8 0 output)
+    (write-u8 (+ 1 (bytevector-length name) (bytevector-length data)) output)
+    (write-u8 (bytevector-length name) output)
+    (write-bytevector name output) (write-bytevector data output)
+    (write-bytes path (get-output-bytevector output))))
+
+(define (check-execution program)
+  (let* ((options `((environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")))
+                    (log-directory . ,directory)))
+         (success (run-command/capture (list program) options))
+         (trap (run-command/capture (list program "trap") options)))
+    (expect (option-ref success 'status #f) 0)
+    (expect (option-ref success 'stdout #f) "42\n")
+    (expect (and (string-contains (option-ref success 'stderr "") "collections=") #t) #t)
+    (expect (option-ref trap 'status #f) 1)
+    (expect (and (string-contains (option-ref trap 'stderr "") "WebAssembly trap") #t) #t)))
+
+(parameterize ((current-command-records '()) (current-command-log (path-join directory "commands.json")))
+  (with-chromium-trace-to
+   (path-join directory "assemble.trace.json")
+   (lambda () (assemble-wasm (path-join root "tests/authored.wat") binary)))
+  (append-custom-section binary)
+  (check-provider-bindings (native-imports->bindings imports) (apply rust-bindings (car providers)))
+  (wasm-binary->llvm binary imports directory llvm)
+  (llvm-object llvm object)
+  (let ((supervisor (ensure-native-supervisor root)))
+    (parameterize ((current-process-supervisor supervisor))
+      (expect (file-exists? (path-join directory "linked")) #f)
+      (check-execution
+       (link-native-object "." (substring object (+ 1 (string-length root))) "tests/entry.rs"
+                           '(("example" "tests/provider.rs"))
+                           (path-join (substring directory (+ 1 (string-length root))) "linked"))))))
+(display directory)
+(newline)

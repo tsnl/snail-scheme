@@ -133,7 +133,7 @@
   (cond-expand
    (snail-tests
     (export test-strict-types)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-strict-types)
         (let ((hole (fresh-hole)) (rigid (fresh-rigid)))

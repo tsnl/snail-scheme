@@ -5,7 +5,7 @@
           (srfi 1) (srfi 18) (chibi bytevector) (only (chibi ast) gc)
           (only (chibi string) call-with-output-string string-split)
           (chibi regexp) (chibi regexp pcre)
-          (snail-sfir execute-native) (only (snail-tests commands) optimizer-scope) (snail-tests harness))
+          (wasm-native execute) (only (snail-tests commands) optimizer-scope) (snail-tests harness))
   (begin
 
     ;; ---- Explicit linking and retained owned-instance evidence ----
@@ -14,7 +14,7 @@
       (list (make-rust-provider "probe" (fixture "sfir-native-loading" "provider.rs")) (runtime-provider)))
     (define (linked name . selected)
       (link-native (load-native (read-bytes (build-path (string-append name ".o"))))
-                   (if (null? selected) (providers) (car selected)) (output) (root)))
+                   (if (null? selected) (providers) (car selected)) (output) (runtime-root)))
     (define (environment name)
       `(("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")
         ("SNAIL_TEST_EFFECTS" . ,(build-path (string-append name "-effects")))
@@ -98,10 +98,10 @@
                 (else (loop (+ at 1)))))))
     (define (check-rejections)
       (let ((bytes (read-bytes (build-path "state.o"))))
-        (fails (lambda () (link-native (list bytes) (providers) (output) (root))) "loaded native code")
-        (fails (lambda () (link-native (load-native bytes) '() (output) (root))) "missing native provider")
+        (fails (lambda () (link-native (list bytes) (providers) (output) (runtime-root))) "loaded native code")
+        (fails (lambda () (link-native (load-native bytes) '() (output) (runtime-root))) "missing native provider")
         (fails (lambda () (link-native (load-native bytes)
-                                       (list (make-rust-provider "probe" (fixture "sfir-native-loading" "wrong.rs"))) (output) (root))) "signature")
+                                       (list (make-rust-provider "probe" (fixture "sfir-native-loading" "wrong.rs"))) (output) (runtime-root))) "signature")
         (fails (lambda () (instantiate (list (linked "i32" '())))) "explicitly linked")
         (fails (lambda () (invoke-entry '() '(1))) "native instance")
         (fails (lambda () (load-native (replace-bytes bytes "\"parameters\":[\"I32\"]" "\"parameters\":[\"I64\"]"))) "bridge signature disagrees")
@@ -142,10 +142,16 @@
                                               (checked "build" (chibi (fixture "sfir-native-loading" "build.scm") (output)))
                                               (for-each (lambda (check) (check)) (list check-state check-scalars check-rejections check-failure-and-lifetime check-constructors-and-timeouts))))))
         (assert-that (>= (length optimizations) 2) "native and Wasm optimization evidence missing")
-        (assert-equal (field (car optimizations) 'sha256) (field (cadr optimizations) 'sha256)
-                      "native and Wasm mandatory optimized module bytes differ"))
+        ;; The compiler appends sfir.entry after its optimizer probe. Compare
+        ;; the final artifact, which is the native lowering input, directly.
+        (let ((artifact (read-bytes (build-path "state.wasm"))))
+          (assert-equal (read-bytes (build-path "native-state/sphere.wasm")) artifact
+                        "native lowering input differs from the compiler artifact")
+          (assert-equal (read-bytes (build-path "native-state/optimized.wasm")) artifact
+                        "native and Wasm mandatory optimized module bytes differ")))
       (checked "host-loss" (list (tool-name "CARGO" "cargo") "run" "--offline" "--quiet" "--manifest-path" (path "tests/Cargo.toml")
-                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "src") "-I" (path "tests")
+                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+                                 "-I" (path "wasm-native/scheme") "-I" (path "tests") "-I" (path "wasm-native/tests")
                                  (path "tests/run.scm") (root) "sfir-native-loading-lost-host" "--output" (output))
                `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (complete! "native instance state, exact scalars, rejection and owned process lifetimes" '((passed . #t) (actual_native_execution . #t))))))

@@ -1,5 +1,5 @@
 (import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-sfir frontend) (snail-sfir compiler) (snail-sfir library-transfer))
 (define directory (cadr (command-line)))
 (define (parsed path) (parse-library (car (reader->syntax-list (file->reader path)))))
@@ -10,7 +10,7 @@
                            (cons '(sfir compiler-builder) (parsed "lib/sfir/compiler-builder.sfir"))
                            (cons '(builder rebuild) (parsed "tests/sfir-builder/rebuild.sfir"))
                            (cons '(builder complete) (parsed "tests/sfir-builder/complete.sfir"))))
-          (artifact (compile libraries (make-entry '(builder complete) 'build) wasm-target)))
+          (artifact (compile libraries (make-entry '(builder complete) 'build))))
      (call-with-port (open-binary-output-file (string-append directory "/complete-producer.wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port))))))
 
@@ -24,6 +24,6 @@
                            (cons '(sfir compiler-builder) (parsed "lib/sfir/compiler-builder.sfir"))
                            (cons '(builder rebuild) (parsed "tests/sfir-builder/rebuild.sfir"))
                            (cons '(builder parsed) (parsed "tests/sfir-builder/parsed-producer.sfir"))))
-          (artifact (compile libraries (make-entry '(builder parsed) 'build) wasm-target)))
+          (artifact (compile libraries (make-entry '(builder parsed) 'build))))
      (call-with-port (open-binary-output-file (string-append directory "/parsed-producer.wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port))))))

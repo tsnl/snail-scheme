@@ -1,7 +1,9 @@
 # Native execution
 
-The native backend mechanically lowers Binaryen-optimized Wasm to LLVM, then
-links the same Rust scalar extern implementations used by Wasm. SFIR inference,
+The standalone [Wasm-to-native package](../wasm-native/README.md) mechanically
+lowers Binaryen-optimized Wasm to LLVM, then links the same Rust scalar extern
+implementations used by Wasm. The compiler emits Wasm only. Ordinary Scheme
+build scripts import the compiler and native package separately; SFIR inference,
 specialization and representation choices happen before Wasm emission.
 
 ```text
@@ -20,8 +22,8 @@ The tested target is **64-bit x86-64 Linux**. Other 64-bit targets need explicit
 ABI, collector and tail-call validation. 32-bit native targets are rejected.
 
 ```sh
-./snail-sfir run --target native examples/fibonacci.sfir
-./snail-sfir compile --target native -o build/fibonacci examples/fibonacci.sfir
+scripts/build-native examples/fibonacci.sfir build/fibonacci
+build/fibonacci
 
 scripts/build-native \
   --rust-provider fixture tests/native-mixed.rs \
@@ -31,11 +33,13 @@ scripts/build-native --wasm --entry-rust tests/native-runner.rs \
   build/native-tests/semantics.wasm build/semantics
 ```
 
-A command's final result is `Unit`, `I32` or `I64`. Unit produces status zero;
+With its default command host, `scripts/build-native` accepts a final result of
+`Unit`, `I32` or `I64`. Unit produces status zero;
 integers in 0..255 become the process status and other integers produce status
 one. `-I DIRECTORY` selects SFIR libraries. See [command options](options.md).
 
-The lower-level helper accepts `--export NAME` and `--entry-rust FILE`. A custom
+The helper also accepts `--llvm` and `--object` inputs, `--export NAME`, and
+`--entry-rust FILE`. Object input requires an explicit Rust entry point. A custom
 host calls `native_host_init(argc, argv)`, `native_module_init()`, `wasm.main`,
 then additional typed exports, and finishes with `native_finish(status)`.
 Its Rust `extern "C"` declarations must match those exports exactly. Ordinary foreign interfaces
@@ -47,6 +51,19 @@ atomically. Failed builds retain intermediates without replacing an existing
 executable. Configuration, commands, hashes and compiler traces remain beside
 the output in its uniquely named build directory. Binaryen is mandatory even
 for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
+
+[`build.scm`](../build.scm) shows the ordinary library calls for a selected public
+entry. It accepts `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` and works with
+absolute paths from any working directory; its first comment runs the
+[`answer.sfir`](../examples/native/answer.sfir) and
+[`entry.rs`](../examples/native/entry.rs) example, which prints `42`.
+
+`(wasm-native)` reads a Wasm file through `wasm-binary->llvm`, with explicit
+physical `make-native-import` declarations and build paths. `llvm-object` produces the
+object, and `link-native-object` receives the runtime root, object, Rust entry,
+providers and build directory. These operations do not import compiler syntax,
+bindings or inferred IR. The runtime root is the `wasm-native/` directory,
+containing the single Cargo crate used for both Wasm and native execution.
 
 ## Direct C contracts
 
@@ -194,7 +211,9 @@ also exercise mixed Rust scalar signatures at the C ABI, concrete variants/strin
 Unicode/I64 I/O, including `/dev/full`, stale aliases and allocation failure.
 Commands and terminal outcomes remain under `build/native-tests`.
 
-The shared checks are `make test`, `make check`, `cargo test --offline`,
-`cargo fmt --all -- --check`, `scripts/test-backend` and `scripts/test-build`.
+The shared checks are `make test`, `make check`,
+`cargo test --manifest-path wasm-native/Cargo.toml --offline`,
+`cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check`,
+`scripts/test-backend` and `scripts/test-build`.
 The public command and linked Wasm must actually execute; compilation alone is
 not target validation. See [build requirements](backend.md).

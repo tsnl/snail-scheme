@@ -1,7 +1,7 @@
 ;; Prepare one output independently, then collect and compile its consumer graph.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write)
         (snail-sfir source-driver) (snail-sfir compiler) (snail-sfir frontend) (snail-sfir library)
-        (snail-scheme strict-primitives) (snail-scheme chromium-trace))
+        (snail-scheme strict-primitives) (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))
@@ -12,7 +12,7 @@
                                          (string-append fixture "/providers.mjs")))
 (define (assert truth message) (unless truth (error message)))
 (define (write-compiled name libraries key export)
-  (let ((artifact (compile libraries (make-entry key export) wasm-target)))
+  (let ((artifact (compile libraries (make-entry key export))))
     (call-with-port (open-binary-output-file (string-append output "/" name ".wasm"))
       (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
 

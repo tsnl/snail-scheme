@@ -71,7 +71,7 @@
   (cond-expand
    (snail-tests
     (export test-library)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-dependency-order)
         (define (unit name imports)

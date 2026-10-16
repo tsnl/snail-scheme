@@ -1,6 +1,6 @@
 ;; The producer map is explicit and is discarded before receiving its output.
 (import (scheme base) (scheme file) (scheme process-context)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-sfir frontend) (snail-sfir compiler))
 
 (define directory (cadr (command-line)))
@@ -24,19 +24,19 @@
                             (export sum) (begin (def sum (-> I32 I32 I32) (lambda (x y) (i32-add x y)))))"))))))
 (for-each
  (lambda (name)
-   (let ((artifact (compile libraries (make-entry '(builder producer) name) wasm-target)))
+   (let ((artifact (compile libraries (make-entry '(builder producer) name))))
      (call-with-port (open-binary-output-file (string-append directory "/" (symbol->string name) ".wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
  '(build fail wrong-token wrong-kind bad-location))
-(let ((artifact (compile libraries (make-entry '(builder example) 'build) wasm-target)))
+(let ((artifact (compile libraries (make-entry '(builder example) 'build))))
   (call-with-port (open-binary-output-file (string-append directory "/example.wasm"))
     (lambda (port) (write-bytevector (artifact-bytes artifact) port))))
-(let ((artifact (compile libraries (make-entry '(builder initial-failure) 'run) wasm-target)))
+(let ((artifact (compile libraries (make-entry '(builder initial-failure) 'run))))
   (call-with-port (open-binary-output-file (string-append directory "/initial-failure.wasm"))
     (lambda (port) (write-bytevector (artifact-bytes artifact) port))))
 (for-each
  (lambda (name)
-   (let ((artifact (compile libraries (make-entry '(builder scalars) name) wasm-target)))
+   (let ((artifact (compile libraries (make-entry '(builder scalars) name))))
      (call-with-port (open-binary-output-file (string-append directory "/" (symbol->string name) ".wasm"))
        (lambda (port) (write-bytevector (artifact-bytes artifact) port)))))
  '(build-i64 build-f32 build-f64 build-bool build-char))

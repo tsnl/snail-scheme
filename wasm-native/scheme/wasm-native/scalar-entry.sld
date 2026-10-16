@@ -1,10 +1,10 @@
 ;; The native process adapter calls one fixed ABI, never a caller-chosen cast.
 ;; Construct it from checked scalar metadata and the actual optimized Wasm types.
-(define-library (snail-sfir native-entry)
+(define-library (wasm-native scalar-entry)
   (export write-native-entry)
   (import (scheme base) (scheme cxr)
-          (only (snail-tools json) json->string)
-          (snail-scheme wasm-resolve) (snail-scheme llvmlite))
+          (only (wasm-native json) json->string)
+          (wasm-native wasm-resolve) (wasm-native llvmlite))
   (begin
 
     ;; ---- Actual function signatures ----

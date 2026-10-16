@@ -1,8 +1,9 @@
 # Compiler traces
 
-The Chibi-hosted compiler uses `(snail-scheme chromium-trace)`. Importing its
-libraries creates no trace files. A build establishes a destination before it
-runs traced passes, and closes that destination on normal return.
+The Chibi-hosted compiler uses the neutral `(wasm-native chromium-trace)` utility.
+It has no dependency on native lowering. Importing its libraries creates no
+trace files. A build establishes a destination before it runs traced passes,
+and closes that destination on normal return.
 
 `scripts/build-sfir input.sfir output.wasm` retains `output.wasm.trace.json`.
 Native builds retain `compile.trace.json` in their unique build directory.
@@ -33,7 +34,7 @@ There are no portable collector or per-instruction measurements in these traces.
 ## Host API
 
 ```scheme
-(import (scheme base) (snail-scheme chromium-trace))
+(import (scheme base) (wasm-native chromium-trace))
 (define timed-add (chromium-trace "add" (lambda (x y) (+ x y))))
 (with-chromium-trace-to "operations.json"
   (lambda () (timed-add 20 22)))

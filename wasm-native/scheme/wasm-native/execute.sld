@@ -1,20 +1,20 @@
 ;; Checked native artifacts are linked explicitly; every instance owns a process.
 ;; Executable code and providers are trusted. Metadata proves ABI consistency,
 ;; not machine-code safety. Rust owns process groups and enforces call deadlines.
-(define-library (snail-sfir execute-native)
+(define-library (wasm-native execute)
   (export load-native link-native instantiate invoke-entry close-instance
           runtime-provider make-rust-provider native-code? linked-code? native-instance?
           native-code-library native-code-export native-code-parameters native-code-result
           linked-code-directory instance-directory)
   (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
-          (scheme process-context) (chibi filesystem) (chibi bytevector) (snail-tools json)
+          (scheme process-context) (chibi filesystem) (chibi bytevector) (wasm-native json)
           (chibi weak) (chibi string) (srfi 1) (srfi 18) (srfi 151)
           (only (srfi 132) list-sort)
           (only (chibi process) fork execute waitpid current-process-id set-signal-action! signal/pipe)
-          (snail-tools process) (snail-tools native-build))
+          (wasm-native process) (wasm-native native-build))
   (begin
 
-    ;; ---- Bounded ELF sections and compiler-owned symbols ----
+    ;; ---- Bounded ELF sections and scalar protocol symbols ----
 
     (define (region data offset size)
       (unless (and (exact-integer? offset) (exact-integer? size) (<= 0 offset) (<= 0 size)
@@ -161,10 +161,10 @@
                (else (error "providers must be runtime-provider or Rust provider values")))) providers))
     (define worker-entry
       "unsafe extern \"C\" { fn native_module_init(); #[link_name = \"wasm.main\"] fn initialize(); static sfir_native_arity: u64; fn sfir_native_entry(arguments: *const u64) -> u64; }\nunsafe extern \"C\" fn start() { unsafe { native_module_init(); initialize(); } }\nfn main() { std::process::exit(snail_runtime::native::worker::run_guest(unsafe { sfir_native_arity } as usize, start, sfir_native_entry)); }\n")
-    (define (link-native code providers directory . root-option)
+    (define (link-native code providers directory runtime-root)
       (unless (native-code? code) (error "link-native requires loaded native code"))
       (unless (list? providers) (error "providers must be a list"))
-      (let* ((root (absolute-path (if (null? root-option) "." (car root-option))))
+      (let* ((root (absolute-path runtime-root))
              (output (make-build-directory (absolute-path directory) "native-link-"))
              (object (path-join output "artifact.o")) (entry (path-join output "entry.rs")))
         (parameterize ((current-command-records '()) (current-command-log (path-join output "commands.json")))
@@ -366,7 +366,7 @@
   (cond-expand
    (snail-tests
     (export test-native-execution)
-    (import (snail-scheme test-utils) (only (chibi ast) gc))
+    (import (wasm-native test-utils) (only (chibi ast) gc))
     (begin
       (define (test-error thunk)
         (guard (failure (else (and (error-object? failure) (error-object-message failure)))) (thunk) #f))

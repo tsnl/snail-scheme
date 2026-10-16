@@ -16,7 +16,7 @@
    reader-loc)
 
   (import
-   (snail-scheme chromium-trace)
+   (wasm-native chromium-trace)
    (scheme base)
    (only (snail-scheme common) file->string)
    (snail-scheme source))
@@ -84,7 +84,7 @@
   (cond-expand
    (snail-tests
     (export test-reader)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.
       (define (test-value value)

@@ -1,5 +1,5 @@
 (import (scheme base) (scheme write) (scheme process-context)
-        (snail-scheme chromium-trace))
+        (wasm-native chromium-trace))
 
 (define (check expected actual)
   (if (not (equal? expected actual)) (error "chromium-trace behavior mismatch" expected actual)))

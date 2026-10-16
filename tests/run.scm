@@ -1,7 +1,8 @@
 ;; Ordinary Chibi scripts orchestrate tests; Cargo supplies native fixtures only.
 (import (scheme base) (scheme process-context) (snail-tests harness)
         (snail-tests contracts) (snail-tests targets) (snail-tests streams)
-        (snail-tests commands) (snail-tests native) (snail-tests native-loading) (snail-tests chez-bridge) (snail-tests view-traces))
+        (snail-tests commands) (snail-tests native) (snail-tests native-loading) (snail-tests chez-bridge) (snail-tests view-traces)
+        (snail-tests package-isolation))
 (define arguments (cdr (command-line)))
 (define repository (car arguments))
 (define suite (cadr arguments))
@@ -18,4 +19,5 @@
                                 ((string=? suite "sfir-native-loading-lost-host") (native-loading-lost-host))
                                 ((string=? suite "sfir-chez-bridge") (run-chez-bridge))
                                 ((string=? suite "view-traces") (run-view-traces))
+                                ((string=? suite "package-isolation") (run-package-isolation))
                                 (else (run-command-suite suite)))) finalize-records!)

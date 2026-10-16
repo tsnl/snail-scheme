@@ -3,11 +3,11 @@
 `snail-sfir` is hosted by Chibi. Help works before dependency checks.
 
 ```sh
-./snail-sfir run [-I DIRECTORY] [--target wasm|native] SOURCE.sfir [ARGUMENT ...]
-./snail-sfir compile [-I DIRECTORY] [--target wasm|native] -o OUTPUT SOURCE.sfir
+./snail-sfir run [-I DIRECTORY] SOURCE.sfir [ARGUMENT ...]
+./snail-sfir compile [-I DIRECTORY] -o OUTPUT SOURCE.sfir
 ```
 
-Wasm is the default target. `-I` may repeat; search those directories in order,
+Both commands use Wasm. `-I` may repeat; search those directories in order,
 then the repository's `lib/` directory. Library names map to `.sfir` paths:
 `(example math)` loads `example/math.sfir`. Inputs have explicit SFIR syntax;
 there is no Scheme or macro-expansion mode.
@@ -21,7 +21,7 @@ and traps drain owned runtime resources.
 
 Compilation writes into a private directory and publishes the completed output
 atomically. A failed build retains its intermediates and preserves the previous
-output. Running compiles privately, invokes the selected host, and removes the
+output. Running compiles privately, invokes the Wasm host, and removes the
 successful build's temporary files.
 
 ## Module and backend tools
@@ -34,9 +34,17 @@ may expose other concrete signatures for custom hosts.
 `scripts/link-sfir-runtime INPUT.wasm OUTPUT.wasm` links scalar Rust externs and
 optimizes the complete Wasm reactor. `scripts/run-sfir.mjs` executes that reactor.
 
-`scripts/build-native` takes SFIR by default. `--wasm` consumes an existing Wasm
-module and still runs Binaryen before mechanical LLVM lowering. `--rust-provider
-MODULE SOURCE.rs` supplies concrete scalar Rust exports compiled by Cargo;
-`--entry-rust FILE` supplies a Rust executable crate root as the invocation host.
-There is no `--strict` split
-or dynamic Scheme foreign-call convention.
+`scripts/build-native [OPTIONS] SOURCE OUTPUT` is an ordinary Scheme composition
+script. It compiles SFIR to Wasm, passes that Wasm to `(wasm-native)`, and links
+the resulting object with Cargo. `--wasm` consumes an existing Wasm module and
+still runs Binaryen before mechanical LLVM lowering. `--llvm` and `--object`
+resume from an existing LLVM module or native object. `--rust-provider MODULE
+SOURCE.rs` supplies concrete scalar Rust exports compiled by Cargo;
+`--entry-rust FILE` supplies a Rust executable crate root as the invocation host
+and is required for object input. `-I`, `--export`, and `--generation-provider`
+control the source-compilation step.
+
+The compiler has no target argument, and `snail-sfir` has no `--target` option.
+[`build.scm`](../build.scm) shows the direct library calls with explicit
+`REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` arguments. See
+[native execution](native.md) for the physical ABI and retained build evidence.

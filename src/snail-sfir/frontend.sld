@@ -552,7 +552,7 @@
   (cond-expand
    (snail-tests
     (export test-frontend)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list))
     (begin

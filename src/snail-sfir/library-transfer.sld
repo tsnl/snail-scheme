@@ -4,7 +4,7 @@
 (define-library (snail-sfir library-transfer)
   (export read-library-transfer write-library-transfer library-transfer?
           make-library-transfer-context receive-library-transfer)
-  (import (scheme base) (scheme cxr) (scheme write) (only (snail-tools json) json-read json->string)
+  (import (scheme base) (scheme cxr) (scheme write) (only (wasm-native json) json-read json->string)
           (snail-scheme source) (snail-scheme ir)
           (only (snail-scheme library) make-named-binding named-binding-name named-binding-definition)
           (snail-sfir library) (snail-sfir signatures) (snail-sfir numeric-literals)
@@ -864,9 +864,9 @@
   (cond-expand
    (snail-tests
     (export test-library-transfer)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (chibi temp-file) call-with-temp-dir)
-            (only (snail-scheme chromium-trace) with-chromium-trace-to)
+            (only (wasm-native chromium-trace) with-chromium-trace-to)
             (only (snail-sfir frontend) parse-library)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list)

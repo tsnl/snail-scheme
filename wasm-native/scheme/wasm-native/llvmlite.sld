@@ -1,4 +1,4 @@
-(define-library (snail-scheme llvmlite)
+(define-library (wasm-native llvmlite)
   (export llvm-name llvm-quoted llvm-hex llvm-join write-llvm)
   (import (scheme base) (only (scheme write) display write-simple))
   (begin
@@ -75,7 +75,7 @@
   (cond-expand
    (snail-tests
     (export test-llvmlite)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (llvm-string value)
         (let ((port (open-output-string)))

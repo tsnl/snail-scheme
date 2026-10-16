@@ -1,6 +1,6 @@
 ;; Resolve the compiler's folded Wasm datums for native lowering. This is not
 ;; a general WAT parser or validator: unsupported module shapes fail explicitly.
-(define-library (snail-scheme wasm-resolve)
+(define-library (wasm-native wasm-resolve)
   (export resolve-wasm lower-wasm-body)
   (import (scheme base) (scheme cxr) (scheme hash-table))
   (begin
@@ -420,7 +420,7 @@
   (cond-expand
    (snail-tests
     (export test-wasm-resolve)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-canonical-types)
         (expect

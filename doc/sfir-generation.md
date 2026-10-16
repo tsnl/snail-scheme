@@ -20,8 +20,8 @@ separate adapter keep driver names out of the expression's lexical environment.
 
 The resulting library has its own imports. These are collected independently
 for the application. A producer's imports never implicitly enter the returned
-application map. Producer compilation currently uses Wasm; the application can
-use either existing target. [`compile`](book/sfir/compilers.md) continues to
+application map. Both compilations emit Wasm; an ordinary build script can then
+lower the application's Wasm to native code. [`compile`](book/sfir/compilers.md) continues to
 consume supplied library values without discovering source or running recipes.
 
 ## Try the example
@@ -31,11 +31,12 @@ zero-argument function returning I32 `42`. A source command imports that result:
 
 ```sh
 ./snail-sfir run -I examples/generation examples/generation/main.sfir
-./snail-sfir run --target native -I examples/generation examples/generation/main.sfir
+scripts/build-native -I examples/generation examples/generation/main.sfir build/generated-answer
+build/generated-answer
 ```
 
-Both commands exit with status `42`. The producer runs as compiled Wasm in
-either case. The second command executes its generated application natively.
+Both executions exit with status `42`. The producer runs as compiled Wasm in
+either case. The native build separately lowers its generated application's Wasm.
 `scripts/build-sfir` and `scripts/build-native` use the same source driver.
 
 ## Selection, identities and separate preparation
@@ -136,6 +137,6 @@ subsequent type checking.
 `scripts/test-sfir-generation` compiles and executes nested producers and their
 generated applications. It checks distinct producer and consumer imports,
 independent preparation, explicit aliases, initialization through diamond
-imports, fresh instances, descriptor-relative input, name hygiene, both command
-targets, wrong results, generated checking locations, missing dependencies,
+imports, fresh instances, descriptor-relative input, name hygiene, Wasm commands
+and native builds, wrong results, generated checking locations, missing dependencies,
 preparation cycles, first-path selection, and provider cleanup on failure.

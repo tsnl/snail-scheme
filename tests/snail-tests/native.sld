@@ -208,7 +208,8 @@
                  '((status . 1) (error . "must not replace an input")))))
     (define (run-native-suite)
       (run-semantics) (run-element-segments) (run-concurrent-builds)
-      (checked "collector-contracts" (list (tool-name "CARGO" "cargo") "test" "--offline" "--features" "native-runtime")
+      (checked "collector-contracts" (list (tool-name "CARGO" "cargo") "test" "--offline" "--features" "native-runtime"
+                                           "--manifest-path" (path "wasm-native/Cargo.toml"))
                `((stdout . #f) (stderr . #f) (environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (run-providers) (run-bytevector-traps) (run-native-io) (run-native-input) (run-build-ownership)
       (checked "instance-ordering" (chibi (path "tests/run.scm") (root) "sfir-instances") '((stdout . #f)))

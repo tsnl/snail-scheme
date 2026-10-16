@@ -2,7 +2,7 @@
 ;; Every fallible operation returns a value. One host scope owns all handles.
 (define-library (sfir compiler)
   (export CompilerResult compiler-success compiler-failure LibraryMap Entry entry
-          Target wasm-target Artifact Code Providers provider-set Instance ScalarValue
+          Artifact Code Providers provider-set Instance ScalarValue
           scalar-i32 scalar-i64 scalar-f32 scalar-f64 scalar-bool scalar-char scalar-unit
           parse-library empty-library-map library-map-primitives library-map-parse library-map-insert
           library-map-alias compile load instantiate invoke-entry close-instance write-artifact)
@@ -19,7 +19,6 @@
     (def Code (datatype () (wrap-code (token I64 code-token))))
     (def Instance (datatype () (wrap-instance (token I64 instance-token))))
     (def Entry (datatype () (entry (library (List String) entry-library) (export String entry-export))))
-    (def Target (datatype () (wasm-target)))
     (def Providers (datatype () (provider-set (name String provider-set-name))))
     (def ScalarValue (datatype ()
                                (scalar-i32 (value I32)) (scalar-i64 (value I64))
@@ -132,15 +131,13 @@
 
     ;; ---- Wasm artifacts, separate provider linkage and runtime lifetimes ----
 
-    (def compile (-> LibraryMap Entry Target (CompilerResult Artifact))
-         (lambda (libraries selected target)
-           (match target
-             ((wasm-target)
-              (begin (let result (raw-compile (map-token libraries) (encode-key (entry-library selected))
-                                              (encode-text (entry-export selected))))
-                     (if (raw-result-ok result)
-                         (compiler-success (wrap-artifact (raw-result-value result)))
-                         (compiler-failure (error-text result))))))))
+    (def compile (-> LibraryMap Entry (CompilerResult Artifact))
+         (lambda (libraries selected)
+           (begin (let result (raw-compile (map-token libraries) (encode-key (entry-library selected))
+                                           (encode-text (entry-export selected))))
+                  (if (raw-result-ok result)
+                      (compiler-success (wrap-artifact (raw-result-value result)))
+                      (compiler-failure (error-text result))))))
     (def load (-> Artifact (CompilerResult Code))
          (lambda (artifact)
            (begin (let result (raw-load (artifact-token artifact)))

@@ -34,8 +34,9 @@ at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 `core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations were retained by the initial extraction. It preserved foreign
-module/provider strings and scalar signatures. Rust scalar services continue to
-serve both Wasm and native execution; the input packet extension is described below.
+module/provider strings and scalar signatures. The single Rust runtime crate in
+[`wasm-native/`](../../wasm-native/README.md) serves both Wasm and native execution;
+the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
@@ -190,6 +191,6 @@ Compiled producers transfer owned values into Chibi through the checked
 recipes. `compiler.sfir` provides first-class parsing, explicit library maps,
 compilation, loading, independent instances and checked scalar invocation through
 the Chibi-hosted [compiler service](../../doc/sfir-compiler-service.md). That service
-currently targets Wasm; [native loading](../../doc/sfir-native-loading.md) uses its
-separate host adapter. Source discovery and provider installation remain explicit
-driver operations.
+always compiles to Wasm; [native loading](../../doc/sfir-native-loading.md) uses a
+separate adapter that passes the Wasm artifact to the native package. Source
+discovery and provider installation remain explicit driver operations.

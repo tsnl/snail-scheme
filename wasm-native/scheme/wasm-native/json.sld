@@ -1,5 +1,5 @@
 ;; Preserve control-character meanings at bounded JSON message boundaries.
-(define-library (snail-tools json)
+(define-library (wasm-native json)
   (export json-read json-write string->json json->string)
   (import (scheme base) (scheme write)
           (rename (only (chibi json) json-read json->string)
@@ -67,7 +67,7 @@
   (cond-expand
    (snail-tests
     (export test-json)
-    (import (snail-scheme test-utils))
+    (import (wasm-native test-utils))
     (begin
       (define (test-standard-escapes)
         (expect (map char->integer (string->list (string->json "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\\u0000\"")))

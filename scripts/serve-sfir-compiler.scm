@@ -1,9 +1,9 @@
 ;; One explicitly owned compiler session. Requests supply source or owned syntax;
 ;; compilation sees only the resulting map and never discovers dependencies.
 (import (scheme base) (scheme file) (scheme read) (scheme write) (scheme process-context)
-        (snail-tools json) (snail-sfir frontend) (snail-sfir compiler)
+        (wasm-native json) (snail-sfir frontend) (snail-sfir compiler)
         (snail-sfir library-transfer) (snail-scheme reader) (snail-scheme syntax-parser)
-        (snail-scheme source) (snail-scheme strict-primitives) (snail-scheme chromium-trace))
+        (snail-scheme source) (snail-scheme strict-primitives) (wasm-native chromium-trace))
 
 ;; ---- Session-owned parsed values and immutable maps ----
 
@@ -55,7 +55,7 @@
     (unless entry (error "alias source library is absent" key))
     (insert-map id to (cdr entry))))
 (define (compile-map id key export)
-  (let ((artifact (compile (get-map id) (make-entry (library-key key) (string->symbol export)) wasm-target)))
+  (let ((artifact (compile (get-map id) (make-entry (library-key key) (string->symbol export)))))
     (call-with-port (open-binary-output-file (string-append directory "/artifact.wasm"))
       (lambda (port) (write-bytevector (artifact-bytes artifact) port)))
     #t))

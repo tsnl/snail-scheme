@@ -1,9 +1,9 @@
-;; Process operations of the Chibi-hosted SFIR compiler.
-(define-library (snail-scheme build-host)
+;; Inherited-stream process operations for Chibi-hosted builds.
+(define-library (wasm-native build-host)
   (export process-status run-command tool-name)
   (import (scheme base) (scheme process-context) (scheme write)
-          (snail-scheme chromium-trace)
-          (only (snail-tools process) close-owned-descriptor)
+          (wasm-native chromium-trace)
+          (only (wasm-native process) close-owned-descriptor)
           (only (chibi process) fork execute waitpid)
           (only (chibi filesystem) change-directory open open/read duplicate-file-descriptor-to))
   (begin

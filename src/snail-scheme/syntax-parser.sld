@@ -11,7 +11,7 @@
   (export reader->syntax-list s-file s-expr s-atom number-literal? char-literal? symbol-literal?)
 
   (import
-   (snail-scheme chromium-trace)
+   (wasm-native chromium-trace)
    (scheme base)
    (snail-scheme common)
    (snail-scheme reader)
@@ -536,7 +536,7 @@
   (cond-expand
    (snail-tests
     (export test-syntax-parser)
-    (import (snail-scheme test-utils) (snail-scheme source))
+    (import (wasm-native test-utils) (snail-scheme source))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.
       (define (test-value value)

@@ -265,7 +265,7 @@
   (cond-expand
    (snail-tests
     (export test-parser)
-    (import (snail-scheme test-utils) (snail-scheme source))
+    (import (wasm-native test-utils) (snail-scheme source))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.
       (define (test-value value)

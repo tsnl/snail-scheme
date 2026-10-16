@@ -4,7 +4,7 @@
   (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
           (srfi 1) (srfi 69) (only (chibi string) string-suffix? string-split)
           (snail-tests harness)
-          (snail-tools json) (chibi regexp) (chibi regexp pcre) (only (chibi string) call-with-input-string))
+          (wasm-native json) (chibi regexp) (chibi regexp pcre) (only (chibi string) call-with-input-string))
   (begin
 
     ;; ---- One source, linked Wasm forms and a real native executable ----

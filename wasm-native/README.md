@@ -1,0 +1,120 @@
+# Wasm to native
+
+This project lowers supported WebAssembly to x86-64 Linux machine code. Its
+Scheme libraries run on Chibi and consume Wasm without a source compiler or
+inferred source types. Binaryen optimization is mandatory before native lowering.
+
+The single `snail-runtime` Cargo crate supplies shared scalar services on both
+Wasm and native targets. Its native configuration adds WasmGC allocation, exact
+root tracing, numeric traps, tables, and process ownership. The scalar services
+retain their declared `snail.library` ABI. Rust providers own external resources
+behind scalar handles; they do not retain managed guest references.
+
+## Scheme build API
+
+Add this project's `scheme/` directory to Chibi's search path:
+
+```sh
+chibi-scheme -I "$package/scheme" /absolute/path/to/build.scm
+```
+
+Set `package` to this directory's absolute path. The library's own dependencies
+use that same search root and installed Chibi/SRFI libraries, so this command
+works from outside the repository. A Sphere build additionally passes
+`-I "$repo/src"`; see the repository's [`build.scm`](../build.scm).
+
+```scheme
+(import (wasm-native))
+
+(define imports
+  (list (make-native-import "host" "read" "host_read" '(i32) 'i64)))
+(wasm-binary->llvm "program.wasm" imports "build/program" "build/program/module.ll")
+(llvm-object "build/program/module.ll" "build/program/module.o")
+(link-native-object runtime-root "build/program/module.o" "entry.rs"
+                    '(("host" "provider.rs")) "build/program")
+```
+
+`make-native-import` takes the Wasm module/name, native symbol, physical parameter
+types, and physical result type. Supported scalar types are `i32`, `i64`, `f32`
+and `f64`; a result may be `void`. `native-imports->bindings` returns the physical
+declarations used by the provider checker. Duplicate import keys and mismatched
+actual Wasm signatures fail before linking.
+
+`wasm-binary->llvm` retains `optimized.wasm`, `optimized.wat`, `reader.scm` and
+`native.trace.json` in the supplied directory. It returns the LLVM output path.
+`llvm-object` runs LLVM optimization and object emission. Keeping these operations
+separate lets a host append a fixed entry bridge before object emission.
+
+`link-native-object` takes this project's directory as `runtime-root`,
+an object, an ordinary Rust crate-root entry file, provider declarations, and a
+retained build directory.
+Relative paths are resolved from the caller's working directory before Cargo
+files are generated. The retained build directory is created when absent.
+Providers are `(module-name rust-source-path)` pairs. Each compiles as a separate
+Cargo dependency; the guest is already machine code,
+so Rust LTO cannot optimize through guest calls to those providers. The returned
+executable is `program` in the retained directory. The custom entry explicitly
+initializes the runtime and invokes the desired Wasm exports; no source-language
+command policy is assumed.
+
+`rust-bindings` reads literal `#[unsafe(export_name = "name")] pub extern "C"`
+scalar declarations. `runtime-bindings` describes the shared runtime's scalar
+exports. `check-provider-bindings` verifies required declarations before linking.
+`source-hashes`, `check-stable-inputs`, `rust-source-inputs` and `native-evidence`
+support retained input and artifact evidence for a surrounding build command.
+
+## Shared Wasm and host utilities
+
+Libraries such as `(wasm-native wasm)`, `(wasm-native wasm-optimize)`,
+`(wasm-native runtime-wasm)`, `(wasm-native process)`, `(wasm-native json)` and
+`(wasm-native chromium-trace)` have no native-lowering imports. A Wasm-only client
+can use these modules without loading LLVM emission or the native executor.
+`optimize-wasm` preserves exports and uses the same Binaryen optimization flags
+as native lowering. Traced low-level operations run within an explicit
+`with-chromium-trace-to` scope; the public lowering call owns its own scope.
+
+`build-wasm-runtime` takes the runtime root and builds the same Cargo crate for
+`wasm32-wasip1`. `link-wasm-runtime` takes guest Wasm, output, runtime Wasm and a
+diagnostic-pruning Boolean, then links the declared scalar services with Binaryen.
+
+The optional `(wasm-native scalar-entry)` and `(wasm-native execute)` libraries
+implement the existing fixed scalar invocation protocol. Saved objects retain
+their ELF metadata, scalar kinds, ABI witnesses and opaque source-origin labels.
+Each instantiated object runs in its own owned process. Source-language adapters
+map their exported types and validate their origin labels before invoking it.
+
+## Dependencies and checks
+
+Binary input lowering requires Chibi, Binaryen `wasm-opt`/`wasm-dis`, LLVM
+`opt`/`llc`, and coreutils. Structured Wasm assembly adds `wasm-as`; runtime Wasm
+linking adds `wasm-merge`. Native linking requires Cargo, Rust's `rust-lld`, the
+cached `libc` crate, and Linux libc startup/runtime objects plus `libgcc_s`.
+It does not invoke a C compiler driver. The current target is x86-64 Linux;
+unsupported Wasm declarations and instructions fail explicitly. In particular,
+native lowering does not implement linear memories, multivalue signatures or
+parameterized blocks.
+
+`SNAIL_NATIVE_LIBC` and `SNAIL_NATIVE_GCC` select the system library directories.
+Native build helpers provide the Rust linker arguments. For direct Cargo commands
+and cross-compilation host build scripts, use the package's compiler wrapper:
+
+```sh
+export RUSTC_WRAPPER="$PWD/scripts/rustc-native"
+cargo test --offline --features native-runtime
+cargo fmt --all -- --check
+chibi-scheme -D snail-tests -I scheme -I tests tests/host.scm
+chibi-scheme -I scheme -I tests tests/standalone.scm
+```
+
+Run those commands from this directory. `tests/standalone.scm` builds an
+independently authored Wasm module with a Rust scalar provider, runs it with
+forced GC, checks a trap, and prints the retained directory. It uses only this
+project's Scheme and test paths. An optional Node/V8 parity check runs the exact
+optimized Wasm:
+
+```sh
+node tests/authored.mjs build/standalone-*/optimized.wasm
+```
+
+Choose the exact retained directory when several runs exist. The package can be
+copied outside the enclosing repository and these checks run unchanged.
