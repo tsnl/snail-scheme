@@ -19,6 +19,20 @@ compiler and [`wasm-native`](wasm-native/README.md) when composing a native buil
 The standalone package contains the native lowering, shared Rust runtime and
 neutral host utilities; it has no compiler dependency.
 
+The directory names separate responsibilities. `src/snail-sfir` contains the
+public compiler API, library loading and frontend; `src/snail-scheme` contains
+compiler internals under their historical name. Both are Scheme hosted by Chibi.
+`lib/sfir` contains libraries written in SFIR, and `wasm-native` is the separate
+native backend and runtime package.
+
+For a first read, start with `compile` and `entry-program` in
+[`compiler.sld`](src/snail-sfir/compiler.sld), then the source records in
+[`ir.sld`](src/snail-scheme/ir.sld). Follow `generate-call` in
+[`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) alongside
+`rule-call` in [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) and
+`emit-application-rule` in [`strict-wasm.sld`](src/snail-scheme/strict-wasm.sld).
+These show how one source call becomes constraints, concrete demand and Wasm.
+
 ## Source and binding identity
 
 [`source.sld`](src/snail-scheme/source.sld) defines filename, line and column.
@@ -117,7 +131,14 @@ checks required at dynamic boundaries.
 ## Concrete code and storage
 
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) reserves demanded
-implementations in a persistent SRFI 146 hash map and drains a pending list.
+implementations in a persistent hash map and drains a pending list.
+[`hashmap.sld`](src/snail-scheme/hashmap.sld) implements the compiler's
+[SRFI 146](https://srfi.schemers.org/srfi-146/srfi-146.html) subset with a compressed
+binary hash trie. Lookup follows an explicit tail loop;
+update records and rebuilds the changed path while sharing untouched branches.
+Collision buckets retain comparator equality, and old map snapshots remain valid.
+Its supported operations are construction, lookup, functional set, folding,
+membership, size and comparator access; it does not replace the host's full library.
 Source identity, concrete quantifier substitutions and lexical instance identity
 select stable IDs before recursive requests. A site owns initialization, a value
 owns a concrete payload, and a function owns code. Summary discovery records
