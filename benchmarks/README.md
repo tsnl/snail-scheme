@@ -62,6 +62,13 @@ scheduled attempts pass. Shared LTO reduces native time by 35% on Mandelbrot,
 little. Native still trails V8 on five of those six cases. This selected result
 does not replace the full57 baseline.
 
+The [native root-proof comparison](results/2026-10-16-native-proof-ablation/README.md)
+retains all 102 attempts across five selected workloads. Proving that recursive
+Fibonacci workers cannot collect removes unnecessary root frames and enables
+further LLVM optimization: integer and floating Fibonacci become 2.49× and
+1.69× as fast as V8. Array1 remains faster; GCbench remains about 2.09× slower.
+A separate final-type check experiment has mixed results and remains unlanded.
+
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not
 replace this full-suite freeze. The earlier
