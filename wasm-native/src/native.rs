@@ -355,7 +355,11 @@ pub unsafe extern "C" fn native_array_new(
     unsafe {
         words.write(kind);
         words.add(1).write(length as u64);
-        array_fill(words.add(2).cast(), length, initial, stride);
+        // Allocation clears fresh and recycled payloads. Test the complete bit
+        // pattern so floating-point negative zero still receives its fill.
+        if initial != 0 {
+            array_fill(words.add(2).cast(), length, initial, stride);
+        }
     }
     reference
 }

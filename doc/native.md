@@ -121,7 +121,10 @@ cannot eliminate allocator zeroing using later guest field stores. The earlier
 [allocation visibility experiment](../benchmarks/results/2026-10-14-native-allocation-visibility/README.md)
 measured a C/LTO build; its result does not describe this Rust link boundary.
 The allocator continues to return zeroed storage, with the same collection,
-root-publication and allocation-counter contracts.
+root-publication and allocation-counter contracts. Array construction uses this
+cleared payload directly when the incoming initializer's full bit pattern is
+zero. Nonzero patterns, including floating-point negative zero and NaN payloads,
+take the ordinary width-specific fill path.
 
 Roots include live reference locals/operands, globals, tables, mutable static
 literal reference slots and Rust-owned ABI table entries. A collection excludes
@@ -130,6 +133,13 @@ parent chain; recursive group canonicalization preserves Wasm equivalence and
 inherited field layout. A sibling cast traps. The frontend's existing rejection
 of cyclic datum-label literals remains; mutable literal graphs can form cycles
 at runtime and are traced correctly.
+
+Tracing marks every line occupied by a live allocation, including large-object
+continuation and tail blocks. After weak cleanup, a block with no marked lines
+can clear its exact-start map without inspecting dead object headers. Candidate
+roots must pass exact-start membership before a header is read, so stale header
+bits cannot revive an object. Allocation clears the payload before reusing that
+storage. Blocks containing live lines retain the ordinary per-object sweep.
 
 Guest functions use LLVM `tailcc`; C imports and exported adapters keep the C
 convention. A tail transfer resolves its target and performs all checks before
