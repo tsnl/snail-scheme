@@ -111,6 +111,13 @@ and null initialization; noncollecting runtime helpers cannot invoke guest code.
 GC stress injection keeps every function framed, including functions that cannot
 collect in production.
 
+Struct allocation calls carry LLVM's call-site `alwaysinline` hint. The private
+Rust allocation method is also marked for inlining, so shared LTO can specialize
+layout arithmetic and zero filling for each fixed size. Allocation preserves
+collection, root publication, required zero initialization and failure handling.
+The exported `native_alloc` C ABI handles arbitrary sizes and remains linkable
+from independently compiled objects.
+
 ## Shared Wasm and host utilities
 
 Libraries such as `(wasm-native wasm)`, `(wasm-native wasm-optimize)`,
