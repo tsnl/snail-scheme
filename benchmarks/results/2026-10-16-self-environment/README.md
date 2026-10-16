@@ -57,8 +57,8 @@ The baseline is `0a765e72375a07c521c404e5a95b3688c265956b`; the prototype commit
 baseline Rust runtime, provider, entry, configuration and opaque boundary object.
 Only the emitter changes between control and candidate. Machine-object and
 shared-LTO builds retain their separate commands and final disassembly. These
-experiments use the earlier opaque object boundary, not the later product
-benchmark harness's Rust `black_box` implementation.
+experiments use the earlier opaque object boundary. The Rust `black_box` variant
+of the benchmark harness remains on the unlanded LTO branch.
 
 The unchanged source uses count 1, inputs `[500, 1000000]` and expected result
 1000000: 500 complete array creation/copy iterations. The exact workload,
@@ -100,3 +100,12 @@ instances, early-read traps and argument ordering. A public-library probe retain
 one shared lambda node in two bindings and confirms distinct concrete IDs.
 Earlier failed fixture/import attempts are retained. The independent proof
 review and permanent product tests accompany the implementation change.
+
+Product validation passes `make test`, `make check`, all 29 ordered
+`scripts/test-backend` components (including all 323 integration cases), all 255
+checked commands in `scripts/test-native`, and all 35 checked commands in
+`scripts/test-build`. These suites include linked Wasm, actual saved-ELF loading
+and native execution, expected traps, and forced GC. The public shared-lambda
+probe returns 42, and raw-Wasm comparisons for both `array1` and the focused
+fixture permit only the nine intended environment substitutions. This
+correctness validation is separate from the exploratory timings above.
