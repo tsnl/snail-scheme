@@ -75,6 +75,13 @@ further LLVM optimization: integer and floating Fibonacci become 2.49× and
 1.69× as fast as V8. Array1 remains faster; GCbench remains about 2.09× slower.
 A separate final-type check experiment has mixed results and remains unlanded.
 
+The [native CPU and allocation experiments](results/2026-10-16-native-cpu-gc/README.md)
+retain 138 exploratory attempts and 42 separate successor attempts. The product
+x86-64-v3 option reduces Mandelbrot time by 33.6%; the supported allocation
+call-site candidate reduces GCbench time by 8.85% against its matched control
+but takes 1.95% more time than the earlier inline prototype. The larger GC
+budget remains experimental, with pause and memory limits recorded separately.
+
 The later [packet-input comparison](sfir/evidence/20261015-input-packets.md)
 measures current input buffering on Cat/WC separately; those medians do not
 replace this full-suite freeze. The earlier
