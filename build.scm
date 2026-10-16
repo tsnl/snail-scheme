@@ -1,39 +1,49 @@
-;; Bootstrap from the checkout, then rebuild using the resulting executable:
-;;   chibi-scheme -h512M -I src build.scm
-;;   node scripts/run-wasi.mjs build/snail-scheme.wasm -Isrc build.scm
-;; An optional argument selects the complete output filename.
-(import (scheme base) (scheme file) (scheme write) (scheme process-context)
-        (snail-scheme build) (snail-scheme build-host)
-        (snail-scheme chromium-trace))
+;; A concrete build recipe: compile a public Sphere entry to Wasm, then pass
+;; those bytes to the independently imported native backend and Cargo linker.
+;; From any working directory, using absolute paths:
+;;   chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
+;;     "$repo" "$repo/examples/native/answer.sfir" answer \
+;;     "$repo/examples/native/entry.rs" /tmp/sphere-answer
+(import (scheme base) (scheme process-context) (chibi filesystem)
+        (wasm-native) (wasm-native process) (wasm-native chromium-trace)
+        (snail-sfir compiler) (snail-sfir source-driver)
+        (only (snail-sfir frontend) make-primitive-library)
+        (only (snail-scheme strict-primitives) primitive-names))
+
+;; ---- Explicit build inputs ----
 
 (define arguments (cdr (command-line)))
-(if (> (length arguments) 1) (error "usage: build.scm [OUTPUT]"))
-(define output (if (null? arguments) "build/snail-scheme.wasm" (car arguments)))
-(define trace-file (string-append output ".trace.json"))
-(define root (absolute-path "."))
-(define source (string-append root "/main.scm"))
-(if (or (same-file? source trace-file) (same-file? output trace-file))
-    (error "trace file must not replace build input or output" trace-file))
+(unless (= 5 (length arguments))
+  (error "usage: build.scm REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT"))
+(define root (absolute-path (list-ref arguments 0)))
+(define source (absolute-path (list-ref arguments 1)))
+(define selected (string->symbol (list-ref arguments 2)))
+(define rust-entry (absolute-path (list-ref arguments 3)))
+(define output (absolute-path (list-ref arguments 4)))
+(define runtime-root (path-join root "wasm-native"))
+(when (or (paths-alias? output source) (paths-alias? output rust-entry))
+  (error "build output must not replace an input"))
+(define directory (make-build-directory (path-directory output) "sphere-build-"))
+(define binary (path-join directory "program.wasm"))
+(define llvm (path-join directory "program.ll"))
+(define object (path-join directory "program.o"))
+(define imports
+  (map (lambda (entry)
+         (make-native-import (car (car entry)) (cadr (car entry)) (cadr entry)
+                             (list-ref entry 2)
+                             (if (null? (list-ref entry 3)) 'void (car (list-ref entry 3)))))
+       (runtime-bindings runtime-root)))
 
-;; Installation data belongs to this build, alongside its compiler intermediates.
-(define (write-installation directory)
-  (create-directory* (string-append directory "/snail-scheme"))
-  (call-with-output-file (string-append directory "/snail-scheme/installation.sld")
-    (lambda (port)
-      (write `(define-library (snail-scheme installation)
-                (export installation-root) (import (scheme base))
-                (begin (define installation-root ,root))) port))))
+;; ---- Library composition ----
 
-(define (output-directory output)
-  (let ((path (absolute-path output)))
-    (let loop ((index (- (string-length path) 1)))
-      (if (char=? (string-ref path index) #\/) (substring path 0 (+ index 1))
-          (loop (- index 1))))))
-
-(create-directory* (output-directory output))
-(with-chromium-trace-to trace-file
-                        (lambda ()
-                          (call-with-build-output output (list source)
-                                                  (lambda (directory artifact)
-                                                    (write-installation directory)
-                                                    (compile-wasm root source directory artifact build-host-imports (list directory) 'main)))))
+(with-chromium-trace-to
+ (path-join directory "build.trace.json")
+ (lambda ()
+   (let-values (((key libraries)
+                 (collect-source-file source (list (path-directory source) (path-join root "lib"))
+                                      (list (cons '(sfir primitive) (make-primitive-library primitive-names)))
+                                      (make-generation-context (path-join root "scripts/run-sfir-generator.mjs") #f))))
+     (write-bytes binary (artifact-bytes (compile libraries (make-entry key selected)))))
+   (wasm-binary->llvm binary imports directory llvm)
+   (llvm-object llvm object)
+   (rename-file (link-native-object runtime-root object rust-entry '() directory) output)))

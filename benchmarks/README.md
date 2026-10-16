@@ -7,13 +7,14 @@ only compiler input language. Chibi hosts the compiler; Chez is an independent
 comparison system.
 
 The current harness is Scheme and all comparison implementations and native
-entries are Rust built with Cargo. [Historical sources](history.md) preserve
+entries are Rust built with Cargo. The shared runtime is built through
+`wasm-native/Cargo.toml`. [Historical sources](history.md) preserve
 the earlier C/Python experiment drivers at their exact Git revision.
 
 ```sh
-chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm inventory
-chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm prepare --output /tmp/sfir-check --benchmarks ack
-chibi-scheme -I src -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-check
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm inventory
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm prepare --output /tmp/sfir-check --benchmarks ack
+chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-check
 ```
 
 Preparation copies checked-in target sources; it does not elaborate Scheme or

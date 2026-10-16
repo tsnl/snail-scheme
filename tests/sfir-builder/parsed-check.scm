@@ -1,8 +1,8 @@
 ;; Parsing and copied syntax must leave the same decisions to ordinary checking.
 (import (scheme base) (scheme file) (scheme process-context) (scheme write)
-        (snail-scheme reader) (snail-scheme syntax-parser) (snail-scheme chromium-trace)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
         (snail-scheme strict-primitives) (snail-scheme source) (snail-sfir frontend)
-        (snail-sfir compiler) (snail-sfir library-transfer) (snail-scheme test-utils))
+        (snail-sfir compiler) (snail-sfir library-transfer) (wasm-native test-utils))
 
 (define directory (cadr (command-line)))
 (define primitive (cons '(sfir primitive) (make-primitive-library primitive-names)))
@@ -14,7 +14,7 @@
     (receive-library-transfer (make-library-transfer-context)
                               (read-library-transfer (open-input-string (get-output-string port))))))
 (define (compiled library entry)
-  (compile (list primitive (cons '(precision) library)) (make-entry '(precision) entry) wasm-target))
+  (compile (list primitive (cons '(precision) library)) (make-entry '(precision) entry)))
 (define (diagnostic library)
   (guard (failure
           (else (let* ((details (error-object-irritants failure)) (location (and (pair? details) (car details))))

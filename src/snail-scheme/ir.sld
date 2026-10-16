@@ -390,7 +390,7 @@
   (cond-expand
    (snail-tests
     (export test-ir)
-    (import (snail-scheme test-utils) (only (snail-scheme source) make-loc))
+    (import (wasm-native test-utils) (only (snail-scheme source) make-loc))
     (begin
       (define (test-source-holes)
         (let* ((definition (make-value-definition 'x #f)) (use (make-name definition #f)))

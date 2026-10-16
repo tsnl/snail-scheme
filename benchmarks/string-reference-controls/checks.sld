@@ -5,8 +5,8 @@
           (scheme read) (scheme write) (scheme process-context) (srfi 1)
           (only (srfi 130) string-contains string-cursor->index)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim string-trim-right)
-          (except (chibi filesystem) file-exists?) (snail-tools json)
-          (snail-tools process) (snail-tools native-build) (sfir runner) (sfir support))
+          (except (chibi filesystem) file-exists?) (wasm-native json)
+          (wasm-native process) (wasm-native native-build) (sfir runner) (sfir support))
   (begin
 
     ;; ---- Fixed contracts and retained commands ----
@@ -211,7 +211,7 @@
     (define (fresh-output path)
       (when (file-exists? path) (error "control output must be fresh" path))
       (create-directory* path)
-      (current-process-supervisor (ensure-native-supervisor (benchmark-root))))
+      (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root)))))
 
     (define (controls-main values)
       (let* ((options (arguments values '("--artifact" "--output"))) (output (field options 'output))

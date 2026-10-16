@@ -3,14 +3,14 @@
 [`(sfir compiler)`](../lib/sfir/compiler.sfir) exposes compilation, Wasm loading,
 instantiation and scalar entry calls to ordinary compiled SFIR programs. Its
 explicit foreign service keeps the compiler implementation in Scheme hosted by
-Chibi. The caller supplies an immutable library map, a public entry and a target;
+Chibi. The caller supplies an immutable library map and a public entry;
 compilation does not search directories, read source files or run generators.
 
 The service currently runs in Node on Linux with Chibi, the existing Binaryen
-tools, `mkfifo` and GNU `ps` available. Its sole target constructor is `(wasm-target)`.
-Native compilation remains available through the existing Chibi API and CLI;
-independent native instances use the [Scheme native adapter](sfir-native-loading.md).
-Native target support in this SFIR service remains pending. This is a correctness
+tools, `mkfifo` and GNU `ps` available. Compilation always returns a Wasm artifact.
+Native builds use ordinary Chibi scripts that pass Wasm to the separate native
+package; independent native instances use the
+[Scheme native adapter](sfir-native-loading.md). This is a correctness
 implementation, with no claim about compile-service latency or clean benchmark
 timings.
 
@@ -19,7 +19,7 @@ timings.
 Every fallible public operation returns `(CompilerResult T)`:
 
 ```scheme
-(match (compile libraries (entry application-key "main") (wasm-target))
+(match (compile libraries (entry application-key "main"))
   ((compiler-success artifact) (use-artifact artifact))
   ((compiler-failure message) (report-error message)))
 ```
@@ -54,7 +54,7 @@ rebuilt or transformed before `library-map-insert`.
     ((view-library key scope imports exports declarations span)
       (sfir-library replacement-key scope imports exports declarations span))))
 (let libraries (require (library-map-insert dependencies application-key changed)))
-(let artifact (require (compile libraries (entry application-key "run") (wasm-target))))
+(let artifact (require (compile libraries (entry application-key "run"))))
 ```
 
 The example assumes supplied text, name lists, dependencies and a `require`
@@ -111,7 +111,7 @@ packet contains declared syntax and identities, never inferred checking evidence
 
 | Operation | Arguments | Success value |
 | --- | --- | --- |
-| `compile` | map, `Entry`, `(wasm-target)` | `Artifact` |
+| `compile` | map, `Entry` | Wasm `Artifact` |
 | `write-artifact` | artifact, explicit path string | `Unit` |
 | `load` | artifact | `Code` |
 | `instantiate` | code, `(provider-set name)` | `Instance` |

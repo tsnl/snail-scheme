@@ -1,8 +1,8 @@
 ;; Chibi hosts the compiler; SFIR is its sole product input language.
 (import (scheme base) (scheme cxr) (scheme file) (scheme process-context)
         (chibi filesystem) (chibi string) (srfi 1)
-        (snail-tools process) (snail-sfir source-driver)
-        (snail-scheme chromium-trace) (snail-scheme wasm-optimize))
+        (wasm-native process) (snail-sfir source-driver)
+        (wasm-native chromium-trace) (wasm-native wasm-optimize))
 
 ;; ---- Command request ----
 
@@ -43,6 +43,6 @@
                                              (generation-provider-module provider))
                                 (apply source-file->wat-file root source (string-append output ".wat") (map string->symbol exports)))
                               (assemble-wasm (string-append output ".wat") (string-append output ".raw.wasm"))
-                              (optimize-scheme-wasm (string-append output ".raw.wasm") output)))
+                              (optimize-wasm (string-append output ".raw.wasm") output)))
     0))
-(command-line-main (lambda (arguments) (build (car arguments) (request (cdr arguments)))))
+(command-line-main (lambda (arguments) (build (car arguments) (request (cdr arguments)))) "snail-sfir")

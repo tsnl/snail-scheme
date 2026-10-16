@@ -1,6 +1,6 @@
 ;; Shared assertions keep every compiler, engine and native invocation reviewable.
 (define-library (snail-tests harness)
-  (export root output artifacts test-environment test-arguments
+  (export root runtime-root output artifacts test-environment test-arguments
           path fixture build-path field rows strings assert-that assert-equal
           contains? starts? number-text json-text lines join indexed-for-each
           invoke checked command-output chibi node binaryen-features
@@ -14,9 +14,9 @@
           option-ref tool-name)
   (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
           (scheme process-context) (scheme time) (scheme inexact)
-          (snail-tools json) (chibi filesystem) (chibi pathname) (chibi regexp)
-          (srfi 1) (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string) (srfi 95) (snail-tools process)
-          (only (snail-tools native-build) ensure-native-supervisor native-cargo-environment))
+          (wasm-native json) (chibi filesystem) (chibi pathname) (chibi regexp)
+          (srfi 1) (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string) (srfi 95) (wasm-native process)
+          (only (wasm-native native-build) ensure-native-supervisor native-cargo-environment))
   (begin
 
     ;; ---- Concrete paths, options and structured evidence ----
@@ -27,6 +27,7 @@
     (define test-arguments (make-parameter '()))
     (define test-environment (make-parameter '(("BINARYEN_CORES" . "1"))))
     (define (path . parts) (apply path-join (root) parts))
+    (define (runtime-root) (path "wasm-native"))
     (define (fixture suite . parts) (apply path "tests" suite parts))
     (define (build-path . parts) (apply path-join (output) parts))
     (define (field value key . default) (option-ref value key (if (null? default) #f (car default))))
@@ -64,7 +65,7 @@
       (root (absolute-path repository)) (test-arguments arguments)
       (output (absolute-path (argument-value "--output" (fresh-output suite))))
       (create-directory* (output))
-      (let ((supervisor (ensure-native-supervisor (root))))
+      (let ((supervisor (ensure-native-supervisor (runtime-root))))
         (current-process-supervisor supervisor)
         (test-environment (cons (cons "SNAIL_NATIVE_SUPERVISOR" supervisor) (test-environment)))))
 
@@ -118,7 +119,9 @@
     (define (command-output label command . options)
       (field (apply checked label command options) 'stdout))
     (define (chibi source . arguments)
-      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "src") "-I" (path "tests") source) arguments))
+      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+                    "-I" (path "wasm-native/scheme") "-I" (path "tests")
+                    "-I" (path "wasm-native/tests") source) arguments))
     (define (node script . arguments)
       (append (list (tool-name "NODE" "node") "--disable-warning=ExperimentalWarning" "--expose-gc" script) arguments))
     (define binaryen-features
@@ -139,13 +142,16 @@
                        (if (null? options) '() (car options)) (list source executable))))
     (define (runtime-build)
       (checked "runtime" (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline"
-                               "--release" "--target" "wasm32-wasip1" "--target-dir" (path "build/wasm-runtime"))))
+                               "--release" "--target" "wasm32-wasip1"
+                               "--manifest-path" (path "wasm-native/Cargo.toml")
+                               "--target-dir" (path "build/wasm-runtime"))))
     (define (link-forms wasm)
       (runtime-build)
       (for-each
        (lambda (form)
          (checked (string-append form "-link")
                   (append (list (path-join (argument-value "--compiler" (root)) "scripts/link-sfir-runtime"))
+                          (list "--runtime" (path "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"))
                           (if (string=? form "raw") '("--diagnostic-prune-only") '())
                           (list (if (string=? form "raw") (string-append wasm ".raw.wasm") wasm)
                                 (build-path (string-append form ".wasm")))))) '("raw" "optimized")))
@@ -174,12 +180,12 @@
         (write-bytes target (read-bytes source))
         (cons (string->symbol relative) (file-sha256 target))))
     (define (freeze-sources! suite)
-      (let* ((directories (list "src" "lib" "tests/snail-tests"
+      (let* ((directories (list "src" "lib" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
                                 (if (string=? suite "native") "tests" (string-append "tests/" suite))))
              (paths (append-map (lambda (directory) (directory-files-recursive (path directory))) directories))
-             (files (map path '("Cargo.toml" "Cargo.lock" "tests/native-support.rs" "tests/run.scm"
+             (files (map path '("wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
                                 "scripts/build-sfir" "scripts/build-sfir.scm" "scripts/build-native"
-                                "scripts/build-native.scm" "scripts/build-native-driver.scm" "scripts/link-sfir-runtime"))))
+                                "scripts/build-native.scm" "scripts/link-sfir-runtime" "scripts/link-sfir-runtime.scm"))))
         (write-json (build-path "source-identities.json")
                     (map snapshot-source (delete-duplicates
                                           (filter (lambda (file) (not (contains? file "/target/"))) (append paths files)))))))
@@ -210,7 +216,7 @@
     (define (verify-reuse!)
       (for-each (lambda (entry)
                   (let ((name (symbol->string (car entry))))
-                    (when (or (starts? name "src/") (starts? name "lib/")
+                    (when (or (starts? name "src/") (starts? name "lib/") (starts? name "wasm-native/")
                               (member (path-extension name) '("sfir" "rs"))
                               (member name '("Cargo.toml" "Cargo.lock")))
                       (assert-equal (file-sha256 (path name)) (cdr entry) "cannot reuse changed compiled source" name))))

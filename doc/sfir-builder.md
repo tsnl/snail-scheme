@@ -199,7 +199,7 @@ trailing input:
 (define generated (receive-library-transfer context transfer))
 (define artifact
   (compile (cons (cons generated-key generated) output-dependencies)
-           (make-entry generated-key 'run) wasm-target))
+           (make-entry generated-key 'run)))
 ```
 
 `read-library-transfer` parses a closed schema, checks reference kinds and
@@ -262,5 +262,5 @@ diagnostics. These checks are correctness evidence, not clean measurements.
 
 The [compiler service](sfir-compiler-service.md) exposes parsing, explicit maps,
 compilation and Wasm execution to SFIR. [Native loading](sfir-native-loading.md)
-is separately available through its host adapter; native targets in the SFIR
-service, Scheme elaboration and macro staging remain pending.
+is separately available through its host adapter, which consumes a Wasm artifact.
+Scheme elaboration and macro staging remain deferred.

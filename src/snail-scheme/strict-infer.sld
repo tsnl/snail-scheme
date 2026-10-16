@@ -938,7 +938,7 @@
   (cond-expand
    (snail-tests
     (export test-strict-infer)
-    (import (snail-scheme test-utils)
+    (import (wasm-native test-utils)
             (only (snail-sfir frontend) syntax->ir-library syntax-list->ir-library)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list)
