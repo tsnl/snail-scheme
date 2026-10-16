@@ -10,13 +10,22 @@
 (def power-two (-> I64 Integer)
      (lambda (exponent) (integer-power (integer-from-i64 (ann 2 I64)) exponent)))
 
-;; Named word operations retain modulo arithmetic, including function values.
+;; Ordinary word arithmetic wraps, including negation expressed as subtraction.
+(require (= (+ (ann 9223372036854775807 I64) (ann 1 I64)) (ann -9223372036854775808 I64)))
+(require (= (- (ann 0 I64) (ann -9223372036854775808 I64)) (ann -9223372036854775808 I64)))
+(require (= (- 0 -2147483648) -2147483648))
+
+;; Named word aliases retain the same contract, including function values.
 (require (= (i64-wrapping-add (ann 9223372036854775807 I64) (ann 1 I64)) (ann -9223372036854775808 I64)))
 (require (= ((ref-get wrapping-add) (ann 9223372036854775807 I64) (ann 1 I64)) (ann -9223372036854775808 I64)))
 (require (= (i64-wrapping-mul (ann 4294967296 I64) (ann 4294967296 I64)) (ann 0 I64)))
 (require (= ((ref-get wrapping-mul) (ann -9223372036854775808 I64) (ann -1 I64)) (ann -9223372036854775808 I64)))
 
-;; Explicit IEEE arithmetic preserves overflow instead of weakening base operators.
+;; Ordinary floats and compatibility aliases retain IEEE overflow results.
+(require (= (+ maximum maximum) +inf.0))
+(require (= (- maximum (- 0.0 maximum)) +inf.0))
+(require (= (* maximum 2.0) +inf.0))
+(require (= (/ maximum 0.5) +inf.0))
 (require (= (f64-ieee-add maximum maximum) +inf.0))
 (require (= (f64-ieee-sub maximum (- 0.0 maximum)) +inf.0))
 (require (= (f64-ieee-mul maximum 2.0) +inf.0))

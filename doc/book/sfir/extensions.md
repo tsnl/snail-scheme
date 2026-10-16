@@ -72,23 +72,25 @@ even. It traps when a finite input rounds to infinity. Explicit infinities and
 NaNs remain IEEE special values; underflow may produce a subnormal or signed
 zero. These checks apply equally to direct calls and first-class function values.
 
-Ordinary I32/I64 addition, subtraction and multiplication trap on signed
-overflow. F32/F64 addition, subtraction, multiplication and division trap when
-finite operands produce an infinite rounded result, except that a zero divisor
-retains IEEE zero-division behavior. Direct primitives, overloads and function
-values have the same contract; discarding a result does not discard its trap.
+Ordinary I32/I64 addition, subtraction and multiplication wrap at their declared
+width. F32/F64 addition, subtraction, multiplication and division retain IEEE
+results, including infinity on overflow. Direct primitives, overloads and
+function values have the same contract. A discarded arithmetic result may be
+eliminated, but its argument effects and any required division or conversion
+traps remain observable.
 
-The primitive library provides explicit exceptions for existing low-level
-algorithms: `i64-wrapping-add` and `i64-wrapping-mul` compute modulo 2^64, while
-`f64-ieee-add`, `f64-ieee-sub`, `f64-ieee-mul` and `f64-ieee-div` retain IEEE
-overflow results. Import these names explicitly from `(sfir primitive)`;
-ordinary operators in `(sfir base)` remain checked. Datum hashing uses the
-wrapping operations. The nominal `Number` library preserves IEEE behavior for
-inexact arithmetic, and the named `integer->f64`, `integer-ratio->f64` and
+The primitive library retains compatible names used by existing libraries:
+`i64-wrapping-add` and `i64-wrapping-mul` have the same modulo-2^64 semantics as
+ordinary I64 addition and multiplication. `f64-ieee-add`, `f64-ieee-sub`,
+`f64-ieee-mul` and `f64-ieee-div` have the same semantics as their ordinary F64
+counterparts. Import these aliases explicitly from `(sfir primitive)` when
+needed. Datum hashing uses the word aliases. The nominal `Number` library
+preserves IEEE behavior for inexact arithmetic, and the named `integer->f64`, `integer-ratio->f64` and
 `rational->f64` conversions round an out-of-range exact value to infinity.
 The scalar externs in `(sfir math)` likewise expose their documented IEEE
-overflow/domain results. These library contracts do not weaken fixed-width
-arithmetic or insert an implicit numeric promotion.
+overflow/domain results. No implicit numeric promotion is inserted. Explicit
+overflow-checking arithmetic variants remain future work, including their use by
+a future Scheme-to-SFIR frontend; that frontend remains deferred.
 
 The [implementation
 roadmap](https://github.com/tsnl/snail-scheme/blob/main/doc/roadmap.md#align-with-the-sfir-book)

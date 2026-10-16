@@ -200,8 +200,8 @@
 
     ;; ---- Scalar arithmetic promotes only at an inexact boundary ----
 
-    ;; Number's inexact branches retain IEEE overflow as infinity. Ordinary
-    ;; fixed-width SFIR arithmetic remains checked; these calls opt in explicitly.
+    ;; Number's inexact branches retain IEEE overflow as infinity, using aliases
+    ;; with the same semantics as ordinary fixed-width floating-point arithmetic.
 
     (def scalar-add (-> Scalar Scalar Scalar)
          (lambda (left right)
