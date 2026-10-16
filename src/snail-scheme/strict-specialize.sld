@@ -613,13 +613,13 @@
    (snail-tests
     (export test-strict-specialize)
     (import (wasm-native test-utils)
-            (only (snail-sfir frontend) syntax-list->ir-library)
+            (only (snail-lofi frontend) syntax-list->ir-library)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list)
             (prefix (snail-scheme library) library:))
     (begin
       (define (test-program text)
-        (let ((library (syntax-list->ir-library (reader->syntax-list (string->reader "demand.sfir" text))
+        (let ((library (syntax-list->ir-library (reader->syntax-list (string->reader "demand.lofi" text))
                                                 (lambda (name) (error "unexpected import" name)) '())))
           (infer-program (library:library-body library) '() (library:library-loc library))))
       (define (test-recursive-reservation)

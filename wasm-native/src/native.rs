@@ -161,7 +161,7 @@ fn fail_bytes(prefix: &[u8], message: &[u8]) -> ! {
 }
 
 pub(crate) fn report_error(message: &str) -> ! {
-    fail_bytes(b"snail-sfir: ", message.as_bytes());
+    fail_bytes(b"snail-lofi: ", message.as_bytes());
 }
 
 #[unsafe(no_mangle)]
@@ -178,7 +178,7 @@ pub extern "C" fn native_trap() -> ! {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn native_report_error(bytes: *const u8, length: usize) -> ! {
     let message = unsafe { std::slice::from_raw_parts(bytes, length) };
-    fail_bytes(b"snail-sfir: ", message);
+    fail_bytes(b"snail-lofi: ", message);
 }
 
 // ---- Published roots and allocation ----

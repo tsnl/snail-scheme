@@ -1,0 +1,10 @@
+(import (lofi base))
+(def cell
+     (ref (ann 42 I64)))
+(def filled
+     (make-vector (ann 2 I64) cell))
+(if (if (ref-eq? (vector-ref filled (ann 0 I64)) (vector-ref filled (ann 1 I64)))
+        (= (ref-get (vector-ref filled (ann 1 I64))) (ann 42 I64))
+        #f)
+    (ann 42 I64)
+    (unreachable))

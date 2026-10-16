@@ -1,3 +1,0 @@
-(import (sfir base))
-(def sfir-migration-instance-1 (instance (+ Bool Bool Bool) (+ (lambda (left right) left))))
-0

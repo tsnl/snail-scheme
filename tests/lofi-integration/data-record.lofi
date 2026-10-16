@@ -1,0 +1,5 @@
+(import (lofi base))
+(def Point (datatype () (point (x F64 point-x) (y I64 point-y) (done Unit point-done))))
+(def p
+     (point 3.5 (ann 7 I64) (unit)))
+(+ (point-y p) (f64->i64 (point-x p)))

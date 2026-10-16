@@ -1,12 +1,12 @@
 # Summary
 
-[SFIR](sfir/index.md)
+[Lofi](lofi/index.md)
 
-- [Terms and definitions](sfir/terms.md)
-- [Types](sfir/types.md)
-- [Formal summary](sfir/reference.md)
-- [Libraries](sfir/libraries.md)
-- [Compilers as libraries](sfir/compilers.md)
-- [Notable omissions](sfir/omissions.md)
-- [Implementation extensions](sfir/extensions.md)
-- [References](sfir/references.md)
+- [Terms and definitions](lofi/terms.md)
+- [Types](lofi/types.md)
+- [Formal summary](lofi/reference.md)
+- [Libraries](lofi/libraries.md)
+- [Compilers as libraries](lofi/compilers.md)
+- [Notable omissions](lofi/omissions.md)
+- [Implementation extensions](lofi/extensions.md)
+- [References](lofi/references.md)

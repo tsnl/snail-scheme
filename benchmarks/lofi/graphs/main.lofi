@@ -1,0 +1,129 @@
+;; Canonical bare Lofi. See migration.json for source provenance.
+
+(import (lofi base))
+
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(def length
+  (lambda (xs)
+    (((lambda () (begin (def loop.6 (lambda (xs.1 n.2) (if (null? xs.1) n.2 (loop.6 (cdr xs.1) (+ n.2 (ann 1 I64)))))) loop.6)))
+      xs
+      (ann 0 I64))))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(def integer-zero? (lambda (n.1) (= n.1 (ann 0 I64))))
+
+(def bool-equal? (lambda (left right) (if left right (not right))))
+
+(def list-for-each
+  (lambda (function values)
+    (if (null? values)
+      (unit)
+      (begin (function (car values)) (list-for-each function (cdr values)) (unit)))))
+
+(def hide (lambda (count.1 x.4) (hide-i64 x.4)))
+
+(def fold
+  (lambda (lst.2 folder.4 state.20)
+    (((lambda () (begin (def loop.5 (lambda (lst.3 state.21) (if (null? lst.3) state.21 (loop.5 (cdr lst.3) (folder.4 (car lst.3) state.21))))) loop.5)))
+      lst.2
+      state.20)))
+
+(def proc->vector
+  (lambda (size.4 f.1)
+    (if (integer-zero? size.4)
+      (vector)
+      ((lambda (x.3) (begin (((lambda () (begin (def loop.4 (lambda (i.7) (if (< i.7 size.4) (begin (vector-set! x.3 i.7 (f.1 i.7)) (loop.4 (+ i.7 (ann 1 I64))) (unit)) (unit)))) loop.4))) (ann 1 I64)) x.3))
+        (make-vector size.4 (f.1 (ann 0 I64)))))))
+
+(def vector-fold
+  (lambda (vec folder.3 state.18)
+    ((lambda (len) (((lambda () (begin (def loop.3 (lambda (i.6 state.19) (if (= i.6 len) state.19 (loop.3 (+ i.6 (ann 1 I64)) (folder.3 (vector-ref vec i.6) state.19))))) loop.3))) (ann 0 I64) state.18))
+      (vector-length vec))))
+
+(def giota
+  (lambda (limit.4)
+    (((lambda () (begin (def _-*-.7 (lambda (limit.5 res.1) (if (integer-zero? limit.5) res.1 ((lambda (limit.6) (_-*-.7 limit.6 (cons limit.6 res.1))) (- limit.5 (ann 1 I64)))))) _-*-.7)))
+      limit.4
+      (empty-list ))))
+
+(def gnatural-fold
+  (lambda (limit.3 folder.2 state.16)
+    (((lambda () (begin (def loop.2 (lambda (i.5 state.17) (if (= i.5 limit.3) state.17 (loop.2 (+ i.5 (ann 1 I64)) (folder.2 i.5 state.17))))) loop.2)))
+      (ann 0 I64)
+      state.16)))
+
+(def gnatural-for-each
+  (lambda (limit.2 proc!)
+    (((lambda () (begin (def loop.1 (lambda (i.4) (if (= i.4 limit.2) (unit) (begin (proc! i.4) (loop.1 (+ i.4 (ann 1 I64))))))) loop.1)))
+      (ann 0 I64))))
+
+(def natural-for-all?
+  (lambda (limit.1 ok?.2)
+    (((lambda () (begin (def _-*-.6 (lambda (i.3) ((lambda (value.4) (if value.4 value.4 (if (ok?.2 i.3) (_-*-.6 (+ i.3 (ann 1 I64))) #f))) (= i.3 limit.1)))) _-*-.6)))
+      (ann 0 I64))))
+
+(def natural-there-exists?
+  (lambda (limit ok?.1)
+    (((lambda () (begin (def _-*-.5 (lambda (i.2) (if (not (= i.2 limit)) ((lambda (value.3) (if value.3 value.3 (_-*-.5 (+ i.2 (ann 1 I64))))) (ok?.1 i.2)) #f))) _-*-.5)))
+      (ann 0 I64))))
+
+(def there-exists?
+  (lambda (lst ok?)
+    (((lambda () (begin (def _-*-.4 (lambda (lst.1) (if (not (null? lst.1)) ((lambda (value.2) (if value.2 value.2 (_-*-.4 (cdr lst.1)))) (ok? (car lst.1))) #f))) _-*-.4)))
+      lst)))
+
+(def fold-over-perm-tree
+  (lambda (universe b-folder b-state t-folder t-state)
+    (((lambda () (begin (def _-*-.3 (lambda (universe.1 b-state.1 t-state.1 accross.4) (if (null? universe.1) (t-folder b-state.1 t-state.1 accross.4) (((lambda () (begin (def _-**-.1 (lambda (in out t-state.2) ((lambda (first) ((lambda (rest) ((lambda (accross.5) ((lambda () (b-folder first b-state.1 t-state.2 (lambda (new-b-state new-t-state.1) (_-*-.3 (fold out cons rest) new-b-state new-t-state.1 accross.5)) accross.5)))) (if (null? rest) accross.4 (lambda (new-t-state) (_-**-.1 rest (cons first out) new-t-state))))) (cdr in))) (car in)))) _-**-.1))) universe.1 (empty-list ) t-state.1)))) _-*-.3)))
+      universe
+      b-state
+      t-state
+      (lambda (final-t-state) final-t-state))))
+
+(def make-minimal?
+  (lambda (max-size)
+    ((lambda (iotas perm.3) (lambda (size.3 graph.1 folder.1 state.15) (fold-over-perm-tree (vector-ref iotas size.3) (lambda (perm-x.1 x.2 state.13 deeper accross.2) ((lambda (comparison.1) (if (= comparison.1 (ann 0 I64)) #f (if (= comparison.1 (ann 1 I64)) (begin (vector-set! perm.3 x.2 perm-x.1) (deeper (+ x.2 (ann 1 I64)) state.13)) (if (= comparison.1 (ann 2 I64)) (accross.2 state.13) (unreachable))))) (cmp-next-vertex graph.1 perm.3 x.2 perm-x.1))) (ann 0 I64) (lambda (leaf-depth state.14 accross.3) (folder.1 perm.3 state.14 accross.3)) state.15)))
+      (proc->vector (+ max-size (ann 1 I64)) giota)
+      (make-vector max-size (ann 0 I64)))))
+
+(def cmp-next-vertex
+  (lambda (graph perm.2 x.1 perm-x)
+    ((lambda (from-x from-perm-x) (((lambda () (begin (def _-*-.2 (lambda (y) (if (= x.1 y) (ann 1 I64) ((lambda (x->y? perm-y) (if (bool-equal? x->y? (vector-ref from-perm-x perm-y)) ((lambda (y->x?) (if (bool-equal? y->x? (vector-ref (vector-ref graph perm-y) perm-x)) (_-*-.2 (+ y (ann 1 I64))) (if y->x? (ann 0 I64) (ann 2 I64)))) (vector-ref (vector-ref graph y) x.1)) (if x->y? (ann 0 I64) (ann 2 I64)))) (vector-ref from-x y) (vector-ref perm.2 y))))) _-*-.2))) (ann 0 I64)))
+      (vector-ref graph x.1)
+      (vector-ref graph perm-x))))
+
+(def fold-over-rdg
+  (lambda (size.1 max-out folder state.2)
+    ((lambda (root) ((lambda (edge?) ((lambda (edges) ((lambda (out-degrees) ((lambda (minimal-folder) ((lambda (non-root-minimal?) ((lambda (root-minimal?) ((lambda () (((lambda () (begin (def _-*- (lambda (vertex state.3) (if (not (non-root-minimal? vertex)) state.3 (if (= vertex root) ((lambda (reach? from-root) (((lambda () (begin (def _-*-.1 (lambda (v.2 outs.1 efr efrr state.11) (if (not ((lambda (value.1) (if value.1 value.1 (= outs.1 max-out))) (= v.2 root))) (begin (vector-set! from-root v.2 #t) ((lambda (state.12) (begin (vector-set! from-root v.2 #f) (_-*-.1 (+ v.2 (ann 1 I64)) outs.1 efr efrr state.12))) (_-*-.1 (+ v.2 (ann 1 I64)) (+ outs.1 (ann 1 I64)) (cons v.2 efr) (cons (vector-ref reach? v.2) efrr) state.11))) (if (if (natural-for-all? root (lambda (v.1) (there-exists? efrr (lambda (r) (vector-ref r v.1))))) (root-minimal?) #f) (begin (vector-set! edges root efr) (folder (proc->vector size.1 (lambda (i.1) (vector-ref edges i.1))) state.11)) state.11)))) _-*-.1))) (ann 0 I64) (ann 0 I64) (empty-list ) (empty-list ) state.3)) (make-reach? root edges) (vector-ref edge? root)) ((lambda (from-vertex) (((lambda () (begin (def _-**- (lambda (sv outs state.4) (if (= sv vertex) (begin (vector-set! out-degrees vertex outs) (_-*- (+ vertex (ann 1 I64)) state.4)) ((lambda (state.5) ((lambda (from-sv) ((lambda (sv-out) ((lambda (state.9) ((lambda () (if (= outs max-out) state.9 (begin (vector-set! edges vertex (cons sv (vector-ref edges vertex))) (vector-set! from-vertex sv #t) ((lambda (state.10) (begin (vector-set! from-vertex sv #f) (vector-set! edges vertex (cdr (vector-ref edges vertex))) state.10)) (_-**- (+ sv (ann 1 I64)) (+ outs (ann 1 I64)) state.9))))))) (if (= sv-out max-out) state.5 (begin (vector-set! edges sv (cons vertex (vector-ref edges sv))) (vector-set! from-sv vertex #t) (vector-set! out-degrees sv (+ sv-out (ann 1 I64))) ((lambda (state.6) ((lambda (state.8) ((lambda () (begin (vector-set! out-degrees sv sv-out) (vector-set! from-sv vertex #f) (vector-set! edges sv (cdr (vector-ref edges sv))) state.8)))) (if (= outs max-out) state.6 (begin (vector-set! from-vertex sv #t) (vector-set! edges vertex (cons sv (vector-ref edges vertex))) ((lambda (state.7) (begin (vector-set! edges vertex (cdr (vector-ref edges vertex))) (vector-set! from-vertex sv #f) state.7)) (_-**- (+ sv (ann 1 I64)) (+ outs (ann 1 I64)) state.6)))))) (_-**- (+ sv (ann 1 I64)) outs state.5)))))) (vector-ref out-degrees sv))) (vector-ref edge? sv))) (_-**- (+ sv (ann 1 I64)) outs state.4))))) _-**-))) (ann 0 I64) (ann 0 I64) state.3)) (vector-ref edge? vertex)))))) _-*-))) (ann 0 I64) state.2)))) ((lambda (cont.1) (lambda () (minimal-folder root edge? cont.1 #t))) (lambda (perm.1 state.1 accross.1) ((lambda (comparison) (if (= comparison (ann 0 I64)) #f (if ((lambda (value) (if value value (= comparison (ann 2 I64)))) (= comparison (ann 1 I64))) (accross.1 #t) (unreachable)))) (cmp-next-vertex edge? perm.1 root root)))))) ((lambda (cont) (lambda (size.2) (minimal-folder size.2 edge? cont #t))) (lambda (perm state accross) (accross #t))))) (make-minimal? root))) (make-vector size.1 (ann 0 I64)))) (make-vector size.1 (empty-list )))) (proc->vector size.1 (lambda (from) (make-vector size.1 #f)))))
+      (- size.1 (ann 1 I64)))))
+
+(def make-reach?
+  (lambda (size vertex->out)
+    ((lambda (res) (begin (gnatural-for-each size (lambda (m) ((lambda (from-m) (gnatural-for-each size (lambda (f) ((lambda (from-f) (if (vector-ref from-f m) (begin (gnatural-for-each size (lambda (t) (if (vector-ref from-m t) (begin (vector-set! from-f t #t) (unit)) (unit)))) (unit)) (unit))) (vector-ref res f))))) (vector-ref res m)))) res))
+      (proc->vector
+        size
+        (lambda (v)
+          ((lambda (from-v) (begin (vector-set! from-v v #t) (list-for-each (lambda (x) (vector-set! from-v x #t)) (vector-ref vertex->out v)) from-v))
+            (make-vector size #f)))))))
+
+(def run (lambda (n) (fold-over-rdg n (ann 2 I64) cons (empty-list ))))
+
+(def input0 (native-input-i64 (ann 0 I32)))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (length (run (hide count input0)))) result))) loop)))
+      (ann 0 I64)
+      (ann 0 I64))))
+
+(unit)

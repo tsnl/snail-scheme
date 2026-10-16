@@ -1,0 +1,113 @@
+;; Actual native artifacts exercise the compiler API and checked bridge.
+(import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
+        (snail-scheme reader) (snail-scheme syntax-parser) (wasm-native chromium-trace)
+        (snail-scheme strict-primitives) (snail-lofi frontend) (snail-lofi compiler)
+        (snail-lofi native) (only (wasm-native) make-native-import)
+        (only (snail-lofi artifact) emit-artifact)
+        (only (srfi 130) string-contains))
+
+;; ---- Fixture libraries ----
+
+(define directory (cadr (command-line)))
+(define (parsed text)
+  (parse-library (car (reader->syntax-list (string->reader "native-loading.lofi" text)))))
+(define libraries
+  (with-chromium-trace-to
+   (string-append directory "/parse.json")
+   (lambda ()
+     (let ((state (parsed "(define-library (native state)
+                           (import (only (lofi primitive) ref ref-get ref-set! i32-add)) (export step)
+                           (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit))
+                             (define-extern tick \"probe\" \"tick\" (-> I32))
+                             (mark 1) (def counter (ref (tick)))
+                             (def make-step (lambda (state) (lambda (amount) (begin
+                               (let fresh (ref (i32-add (ref-get state) amount)))
+                               (ref-set! state (ref-get fresh)) (ref-get state)))))
+                             (def step (-> I32 I32) (make-step counter))))"))
+           (facade (parsed "(define-library (native facade)
+                            (import (native state) (only (native alias))) (export (rename step main))
+                            (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit)) (mark 2)))"))
+           (failed (parsed "(define-library (native failed)
+                            (import (only (lofi primitive) unreachable)) (export entry)
+                            (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit))
+                              (define-extern open_resource \"probe\" \"open_resource\" (-> Unit))
+                              (define-extern spawn_child \"probe\" \"spawn_child\" (-> Unit))
+                              (def entry (-> I32 I32) (lambda (x) x))
+                              (spawn_child) (open_resource) (mark 7) (unreachable)))"))
+           (dependent (parsed "(define-library (native dependent) (import (native failed)) (export entry)
+                                (begin (define-extern mark \"probe\" \"mark\" (-> I32 Unit)) (mark 9)))"))
+           (scalars (parsed "(define-library (native scalars) (import (only (lofi primitive) unit))
+                             (export i32 i64 f32 f64 bool char unit-result)
+                             (begin (def i32 (-> I32 I32) (lambda (x) x)) (def i64 (-> I64 I64) (lambda (x) x))
+                               (def f32 (-> F32 F32) (lambda (x) x)) (def f64 (-> F64 F64) (lambda (x) x))
+                               (def bool (-> Bool Bool) (lambda (x) x)) (def char (-> Char Char) (lambda (x) x))
+                               (def unit-result (-> Unit) (lambda () (unit)))))"))
+           (traps (parsed "(define-library (native traps)
+                           (import (only (lofi primitive) i32-eq unreachable)) (export entry)
+                           (begin (def entry (-> I32 I32) (lambda (x)
+                             (if (i32-eq x 0) (unreachable) x)))))"))
+           (foreign (parsed "(define-library (native foreign) (export bad-bool bad-char lowercase hang)
+                             (begin (define-extern bad-bool \"probe\" \"bad_bool\" (-> Bool))
+                               (define-extern bad-char \"probe\" \"bad_char\" (-> Char))
+                               (define-extern lowercase \"snail.library\" \"snail:text/downcase\" (-> Char Char))
+                               (define-extern hang \"probe\" \"hang\" (-> I32))))"))
+           (lifetime (parsed "(define-library (native lifetime) (export entry)
+                              (begin (define-extern spawn_child \"probe\" \"spawn_child\" (-> Unit))
+                                (define-extern open_resource \"probe\" \"open_resource\" (-> Unit))
+                                (spawn_child) (open_resource) (def entry (-> I32) (lambda () 42))))")))
+       (list (cons '(lofi primitive) (make-primitive-library primitive-names))
+             (cons '(native state) state) (cons '(native alias) state) (cons '(native facade) facade)
+             (cons '(native failed) failed) (cons '(native dependent) dependent)
+             (cons '(native scalars) scalars) (cons '(native traps) traps)
+             (cons '(native foreign) foreign) (cons '(native lifetime) lifetime))))))
+
+;; ---- Checked native artifacts ----
+
+(define imports
+  (append (map (lambda (name) (make-native-import "probe" name name '() 'i32)) '("tick" "bad_bool" "bad_char" "hang"))
+          (map (lambda (name) (make-native-import "probe" name name '() 'void)) '("open_resource" "spawn_child"))
+          (list (make-native-import "probe" "mark" "mark" '(i32) 'void)
+                (make-native-import "snail.library" "snail:text/downcase" "snail:text/downcase" '(i32) 'i32))))
+(define (native-object artifact name)
+  (let ((build (string-append directory "/native-" name)))
+    (create-directory* build)
+    (artifact->native-object artifact imports build (string-append directory "/" name ".o"))))
+(define (build library name filename)
+  (native-object (compile libraries (make-entry library name)) filename))
+(build '(native facade) 'main "state")
+(call-with-port (open-binary-output-file (string-append directory "/state.wasm"))
+  (lambda (port)
+    (write-bytevector (artifact-bytes (compile libraries (make-entry '(native facade) 'main))) port)))
+(build '(native dependent) 'entry "failed")
+(build '(native traps) 'entry "traps")
+(build '(native lifetime) 'entry "lifetime")
+(for-each (lambda (name) (build '(native scalars) name (symbol->string name))) '(i32 i64 f32 f64 bool char unit-result))
+(for-each (lambda (name) (build '(native foreign) name (symbol->string name))) '(bad-bool bad-char lowercase hang))
+
+;; ---- Rejected bridge contracts ----
+
+;; Metadata must agree with the optimized module before any bridge is emitted.
+(for-each
+ (lambda (case)
+   (unless
+       (guard (failure (else (and (error-object? failure)
+                                  (string-contains (error-object-message failure)
+                                                   (if (eq? case 'wrong-main) "native initializer signature"
+                                                       "native entry signature")))))
+         (native-object (emit-artifact
+                         `(module (func (export "main") ,@(if (eq? case 'wrong-main) '((result i32) (i32.const 0)) '()))
+                                  (func (export "entry") (param ,(if (eq? case 'wrong-entry) 'i64 'i32)) (result i32) (i32.const 0)))
+                         (make-entry '(native invalid) 'entry) '(I32) 'I32) (symbol->string case))
+         #f)
+     (error "native bridge accepted inconsistent entry metadata" case)))
+ '(wrong-main wrong-entry))
+
+(unless
+    (guard (failure (else (and (error-object? failure)
+                               (string-contains (error-object-message failure) "automatic start"))))
+      (native-object (emit-artifact '(module (import "probe" "mark" (func $mark (param i32)))
+                                             (func $initialize (export "main") (call $mark (i32.const 1))) (start $initialize)
+                                             (func (export "entry") (result i32) (i32.const 0)))
+                                    (make-entry '(native start) 'entry) '() 'I32) "automatic-start")
+      #f)
+  (error "native bridge accepted automatic initialization"))

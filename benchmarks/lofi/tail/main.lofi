@@ -1,0 +1,72 @@
+;; Canonical bare Lofi. See migration.json for source provenance.
+
+(import (lofi base) (rename (lofi io) (eof-object? line-eof?)))
+
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(def length
+  (lambda (xs)
+    (((lambda () (begin (def loop.2 (lambda (xs.1 n) (if (null? xs.1) n (loop.2 (cdr xs.1) (+ n (ann 1 I64)))))) loop.2)))
+      xs
+      (ann 0 I64))))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(def tail-for-each (All (T) (-> (-> T Unit) (List T) Unit))
+  (lambda (procedure values)
+    (if (null? values)
+      (unit)
+      (begin (procedure (car values)) (tail-for-each procedure (cdr values)) (unit)))))
+
+(def hide (lambda (count.2 x.1) (hide-i64 x.1)))
+
+(def tail-r-aux (-> InputPort (List String) (List String))
+  (lambda (port file-so-far)
+    ((lambda (x) (if (line-eof? x) file-so-far (tail-r-aux port (cons (line-text x) file-so-far))))
+      (read-line port))))
+
+(def echo-lines-in-reverse-order (-> InputPort OutputPort Unit)
+  (lambda (in.1 out.1)
+    (tail-for-each
+      (lambda (line.1) (begin (write-string line.1 out.1) (newline out.1)))
+      (tail-r-aux in.1 (empty-list )))))
+
+(def go (-> String String Unit)
+  (lambda (input output)
+    (call-with-input-file
+      input
+      (lambda (in)
+        (begin
+          (if (file-exists? output) (begin (delete-file output) (unit)) (unit))
+          (call-with-output-file output (lambda (out) (echo-lines-in-reverse-order in out))))))))
+
+(define-extern path-length "benchmark" "path_length" (-> I32 I64))
+
+(define-extern path-character "benchmark" "path_character" (-> I32 I64 Char))
+
+(def input-path (-> I32 String)
+  (lambda (which)
+    ((lambda (size) ((lambda (text) ((lambda () (((lambda () (begin (def loop.1 (lambda (index) (if (= index size) text (begin (string-set! text index (path-character which index)) (loop.1 (+ index (ann 1 I64))))))) loop.1))) (ann 0 I64))))) (make-string size)))
+      (path-length which))))
+
+(def input0 (input-path (ann 0 I32)))
+
+(def input1 (input-path (ann 1 I32)))
+
+(def hide-path (-> I64 String String)
+  (lambda (count.1 value) (if (barrier) value (unreachable))))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (def loop (lambda (i) (if (< i count) (begin (go (hide-path count input0) (hide-path count input1)) (loop (+ i (ann 1 I64)))) (ann 1 I64)))) loop)))
+      (ann 0 I64))))
+
+(unit)

@@ -6,6 +6,10 @@ diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm,
 mandatory Binaryen output, and native execution with forced collection where the
 contract calls for it.
 
+Lofi fixtures use `.lofi` files and `(lofi ...)` imports. Frozen migration,
+validation and oracle-provenance records retain the SFIR names and paths from
+their recorded revisions; they are historical evidence, not current commands.
+
 Native entries and scalar providers are Rust sources. The build driver creates
 Cargo packages that link the generated guest object with the same `snail-runtime`
 library used by the product. `tests/Cargo.toml` owns independent transport-data,

@@ -1,0 +1,9 @@
+(import (lofi base) (lofi math))
+
+;; ---- A scalar worker exercises all three shared Rust exports ----
+
+(def trigonometry (-> I64 F64 F64)
+     (lambda (operation value)
+       (if (= operation (ann 0 I64)) (sin value) (if (= operation (ann 1 I64)) (cos value) (atan value)))))
+
+(unit)

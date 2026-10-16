@@ -3,11 +3,11 @@
 The standalone [Wasm-to-native package](../wasm-native/README.md) mechanically
 lowers Binaryen-optimized Wasm to LLVM, then links the same Rust scalar extern
 implementations used by Wasm. The compiler emits Wasm only. Ordinary Scheme
-build scripts import the compiler and native package separately; SFIR inference,
+build scripts import the compiler and native package separately; Lofi inference,
 specialization and representation choices happen before Wasm emission.
 
 ```text
-located SFIR -> checked and specialized program -> Wasm -> Binaryen
+located Lofi -> checked and specialized program -> Wasm -> Binaryen
   -> canonical Wasm types and operations -> LLVM bitcode -> Cargo/rust-lld shared LTO
 ```
 
@@ -22,12 +22,12 @@ The tested target is **64-bit x86-64 Linux**. Other 64-bit targets need explicit
 ABI, collector and tail-call validation. 32-bit native targets are rejected.
 
 ```sh
-scripts/build-native examples/fibonacci.sfir build/fibonacci
+scripts/build-native examples/fibonacci.lofi build/fibonacci
 build/fibonacci
 
 scripts/build-native \
   --rust-provider fixture tests/native-mixed.rs \
-  tests/native-mixed.sfir build/mixed
+  tests/native-mixed.lofi build/mixed
 
 scripts/build-native --wasm --entry-rust tests/native-runner.rs \
   build/native-tests/semantics.wasm build/semantics
@@ -36,7 +36,7 @@ scripts/build-native --wasm --entry-rust tests/native-runner.rs \
 With its default command host, `scripts/build-native` accepts a final result of
 `Unit`, `I32` or `I64`. Unit produces status zero;
 integers in 0..255 become the process status and other integers produce status
-one. `-I DIRECTORY` selects SFIR libraries. See [command options](options.md).
+one. `-I DIRECTORY` selects Lofi libraries. See [command options](options.md).
 
 The helper also accepts `--llvm` and `--object` inputs, `--export NAME`, and
 `--entry-rust FILE`. Object input requires an explicit Rust entry point. A custom
@@ -55,7 +55,7 @@ for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
 [`build.scm`](../build.scm) shows the ordinary library calls for a selected public
 entry. It accepts `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` and works with
 absolute paths from any working directory; its first comment runs the
-[`answer.sfir`](../examples/native/answer.sfir) and
+[`answer.lofi`](../examples/native/answer.lofi) and
 [`entry.rs`](../examples/native/entry.rs) example, which prints `42`.
 
 `(wasm-native)` reads a Wasm file through `wasm-binary->llvm`, with explicit
@@ -85,7 +85,7 @@ exports, pointers, variadics and aggregates are outside this closed interface.
 Cargo compiles the same source as an ordinary dependency, with one shared Rust
 runtime and standard library. There are no C headers or C compilation steps.
 
-| SFIR/Wasm value | Rust carrier at the C ABI |
+| Lofi/Wasm value | Rust carrier at the C ABI |
 | --- | --- |
 | I32, Bool, Char / i32 | `i32` or `u32` |
 | I64 / i64 | `i64` or `u64` |
@@ -202,7 +202,7 @@ high-water mark; these are virtual managed extents, not resident memory.
 `last_live` counts only its live payload bytes.
 `SNAIL_NATIVE_GC_INTERVAL=1` forces collection before every allocation for testing.
 There is no moving compaction or multithreaded guest execution. The
-[Scheme native adapter](sfir-native-loading.md) provides independent instances
+[Scheme native adapter](lofi-native-loading.md) provides independent instances
 through isolated Rust workers.
 
 ## Failure and resource lifetime
@@ -216,7 +216,7 @@ the native lowering subset. Function and global exports have C adapters;
 exporting a table to a C host is rejected. Active element segments validate the
 whole range, including empty segments beyond the table end.
 
-SFIR I/O wrappers own scalar Rust resource handles. Alias-visible close detaches
+Lofi I/O wrappers own scalar Rust resource handles. Alias-visible close detaches
 the handle before flushing, and callbacks do not keep a Rust resource borrow
 across a guest call. Normal return, traps, I/O failures and arena exhaustion
 finish through terminal cleanup. Cleanup does not reenter generated code or
@@ -226,7 +226,7 @@ that instance; another instance may run the same linked artifact.
 ## Validation
 
 `scripts/test-native` executes common Wasm/native scalar semantics, conversions,
-traps, subtype identity, cyclic graphs, exact tracing and tail calls. SFIR cases
+traps, subtype identity, cyclic graphs, exact tracing and tail calls. Lofi cases
 also exercise mixed Rust scalar signatures at the C ABI, concrete variants/strings/bytevectors and
 Unicode/I64 I/O, including `/dev/full`, stale aliases and allocation failure.
 Commands and terminal outcomes remain under `build/native-tests`.

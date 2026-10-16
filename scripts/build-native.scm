@@ -1,9 +1,9 @@
-;; Build-script composition: Sphere emits Wasm, then the standalone package
+;; Build-script composition: Lofi emits Wasm, then the standalone package
 ;; lowers that Wasm and explicitly links Cargo providers. No compiler target.
 (import (scheme base) (scheme cxr) (scheme file) (scheme write)
         (chibi filesystem) (chibi pathname) (chibi string) (chibi regexp) (srfi 1)
         (wasm-native) (wasm-native process) (wasm-native wasm-optimize)
-        (wasm-native chromium-trace) (snail-sfir source-driver))
+        (wasm-native chromium-trace) (snail-lofi source-driver))
 
 ;; ---- Source selection and protected outputs ----
 
@@ -65,7 +65,7 @@
     (assemble-wasm text binary)
     binary))
 (define (compile-native root options directory bindings)
-  (let* ((source (option-ref options 'source #f)) (mode (option-ref options 'mode 'sfir))
+  (let* ((source (option-ref options 'source #f)) (mode (option-ref options 'mode 'lofi))
          (llvm (path-join directory "module.ll"))
          (guest (path-join directory (if (eq? mode 'object) "module.o" "module.bc"))))
     (with-chromium-trace-to
@@ -110,7 +110,7 @@
                   (check-stable-inputs before)
                   (rename-file program output))))
             (lambda () (native-evidence root directory inputs before output
-                                        (if (eq? (option-ref options 'mode 'sfir) 'object) "imported" "fresh")))))))
+                                        (if (eq? (option-ref options 'mode 'lofi) 'object) "imported" "fresh")))))))
   0)
 
-(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "snail-sfir")
+(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "snail-lofi")

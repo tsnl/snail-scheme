@@ -1,0 +1,15 @@
+(import (lofi base))
+(def values
+     (make-vector (ann 3 I64) (ann 1 I64)))
+(def alias
+     values)
+(vector-set! alias (ann 1 I64) (ann 42 I64))
+(if (if (vector-eq? values alias)
+        (if (= (vector-length values) (ann 3 I64))
+            (if (= (vector-ref values (ann 0 I64)) (ann 1 I64))
+                (if (= (vector-ref values (ann 1 I64)) (ann 42 I64)) (not (vector-eq? values (vector-copy values))) #f)
+                #f)
+            #f)
+        #f)
+    (ann 42 I64)
+    (unreachable))

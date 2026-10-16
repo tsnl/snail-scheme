@@ -1,0 +1,59 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/compiler.scm",
+  "upstream_sha256": "e4444c65d55712d7141f147661efcc744df5e4b5699bbbf73b27d16eaf441209",
+  "canonical_input_sha256": "baba2d35f2c354ccd96dc3d1797bf2bc164f6f94884b9c9cad50419f791e6105",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "equivalence_status": "Full canonical 2,000 passed optimized V8/native64 and original/adapted Chez/Rust Wasm/native controls. All 497 assembly strings and 22 observations match; optimized guest parity passed. Target artifacts use the recorded 3b084776 compiler snapshot; no performance measurement.",
+  "controls": {
+    "chez-original.scm": "1e9ce4adeade027233de91887fba0830282259b36b23dac82052e0e8937476b0",
+    "chez-adapted.scm": "ed4e8f089c27794c13210df0dd4b2cecf04a79322137e2be912f7acf35a83a72"
+  },
+  "historical_placeholder": {
+    "historical_port_revision": "0cda43f",
+    "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+    "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1"
+  },
+  "conversion": "Retained complete benchmark-local Value/Procedure/CompilerResult port, followed by an audited initialization correction, syntax-only def/let/base migration, and checked source-location width annotations. Preparation copies this static source.",
+  "sfir_sha256": "360c58d6d0995be182ce242ee22f64ad0867c75af53c97bcfe1533096006a7c0",
+  "source_coverage_sha256": "9b06cd2512e88e77cef01c1daba65c7f36e08bc9a9c10adae20b4fe81cbca1b5",
+  "representation": "Closed benchmark-local Value with mutable pair cells, typed vectors, concrete closure cases, explicit identity-tagged error escapes, and shared Integer/Rational/Number/I/O services.",
+  "initialization_correction": {
+    "manifest": "initialization-migration.json",
+    "sha256": "11c51ae77171b86bcae70380291df9159df49e04bf477c8849d8e219389d814b",
+    "sites": 1268,
+    "adapted_chez_same_sites": 1268,
+    "contract": "The cell write returns Unit; successful source initialization then carries an explicit unspecified Value. Existing aborting branches keep their effects and control flow."
+  },
+  "surface_migration": {
+    "case": "compiler",
+    "counts": {
+      "base-imports": 1,
+      "static-definitions": 8,
+      "value-definitions": 4968,
+      "parallel-lets": 746,
+      "empty-list-values": 15,
+      "simultaneous-initializers": 18
+    },
+    "before_sha256": "8d38db2c840fcb6f9a40d96c5cb38d822d3bad76e98422dce9e2e9fce1c51e7d",
+    "after_sha256": "527193ecbd15bf2d6328941bda698235174955cd69aaf8efc6e6bf3c0c98c35b",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "literal_spellings_preserved": true
+  },
+  "literal_width_migration": {
+    "manifest": "literal-migration.json",
+    "sha256": "9be57e0529a0564f8511e2385e0cba565b2f3802f254d784cd8f65507b54e55a",
+    "old_literals_checked": 2550,
+    "annotations_added": 2515,
+    "representations_and_target_values_preserved": true
+  },
+  "validation": "validation.json",
+  "lofi_sha256": "1aa6381ddce0a2bba98b63e06776c1e4359108646f2a59c5d677ad3217cef513",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "360c58d6d0995be182ce242ee22f64ad0867c75af53c97bcfe1533096006a7c0",
+    "after_sha256": "1aa6381ddce0a2bba98b63e06776c1e4359108646f2a59c5d677ad3217cef513",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  }
+}

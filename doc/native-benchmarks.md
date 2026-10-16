@@ -1,8 +1,8 @@
 # Historical runtime benchmarks
 
 This page archives the October 10 Scheme experiments, including their language
-scope, collector and build commands. It does not describe current SFIR behavior.
-See [BENCHMARKS.md](../BENCHMARKS.md) for the active SFIR, Chez and Rust corpus.
+scope, collector and build commands. It does not describe current Lofi behavior.
+See [BENCHMARKS.md](../BENCHMARKS.md) for the active Lofi, Chez and Rust corpus.
 The commands and fixtures below require their historical source checkout:
 
 ```sh

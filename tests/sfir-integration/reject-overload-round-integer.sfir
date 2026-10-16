@@ -1,2 +1,0 @@
-(import (sfir base))
-(round (ann 42 I64))

@@ -17,7 +17,7 @@
    (snail-scheme reader)
    (snail-scheme parser)
    (snail-scheme syntax)
-   (only (snail-sfir numeric-literals) literal-number-value))
+   (only (snail-lofi numeric-literals) literal-number-value))
 
   (begin
 
@@ -527,7 +527,7 @@
        (lambda (reader)
          (let ((result (s-file reader)))
            (if (parse-result-err? result)
-               (error "cannot parse SFIR source" (reader-loc (parse-result-input result))))
+               (error "cannot parse Lofi source" (reader-loc (parse-result-input result))))
            (parse-result-value result)))))
     )
 
