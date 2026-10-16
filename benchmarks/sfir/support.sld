@@ -288,7 +288,8 @@
           (error "Tail oracle requires LF-only input"))
         (let* ((lines (string-split text #\newline))
                (lines (if (and (pair? lines) (string-null? (last lines))) (drop-right lines 1) lines)))
-          (string->utf8 (apply string-append (map (lambda (line) (string-append line "\n")) (reverse lines)))))))
+          ;; Keep call arity bounded even when the input contains many lines.
+          (string->utf8 (string-join (map (lambda (line) (string-append line "\n")) (reverse lines)) "")))))
 
     (define (output-files-match? source working target route)
       (let* ((spec (read-json (path-join source "spec.json"))) (name (field spec 'name)))
@@ -357,7 +358,32 @@
                                   (expect (map car digests) paths)
                                   (expect (map cdr digests) (map file-sha256 paths)))))))
 
+      (define (test-tail-lines)
+        (for-each
+         (lambda (example)
+           (expect (tail-bytes (string->utf8 (car example))) (string->utf8 (cadr example))))
+         '(("" "") ("a" "a\n") ("a\n" "a\n") ("\n" "\n") ("\n\n" "\n\n")
+           ("a\nb" "b\na\n") ("a\nb\n" "b\na\n") ("\na\n" "a\n\n")
+           ("a\n\nb\n" "b\n\na\n") ("λ🙂\né\n" "é\nλ🙂\n")))
+        (for-each (lambda (input) (expect (rejected? (lambda () (tail-bytes (string->utf8 input)))) #t))
+                  '("\ra\n" "a\rb\n" "a\r" "a\r\n")))
+
+      (define (numbered-lines start end step)
+        (let ((output (open-output-string)))
+          (let loop ((index start))
+            (unless (= index end)
+              (display "line " output) (display index output) (newline output)
+              (loop (+ index step))))
+          (string->utf8 (get-output-string output))))
+
+      (define (test-tail-many-lines)
+        ;; More lines than the canonical bib fixture, without expanding a
+        ;; fragment list into that many arguments in the compiler host.
+        (expect (tail-bytes (numbered-lines 0 40000 1)) (numbered-lines 39999 -1 -1)))
+
       (define (test-sfir-support)
         (run-test test-scalar-configuration)
         (run-test test-numbered-files)
-        (run-test test-digest-filenames))))))
+        (run-test test-digest-filenames)
+        (run-test test-tail-lines)
+        (run-test test-tail-many-lines))))))

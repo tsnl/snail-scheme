@@ -25,6 +25,11 @@ visible, unfinished routes become `not-completed`, and the scheduler continues
 every remaining selected workload. Validation requires a fresh attempt; a failed
 campaign stays intact and a new campaign uses a new output directory.
 
+Tail compares the entire output against an independently reversed-line oracle.
+Its concatenation uses bounded call arity, avoiding an observed Chibi crash in
+the canonical validator. UTF-8 decoding, blank lines, LF termination and
+rejection of CR remain explicit; the host's internal failure mechanism is unresolved.
+
 Preparation copies checked-in target sources; it does not elaborate Scheme or
 expand macros. The compiler always runs Binaryen. Native builds consume the
 retained raw Wasm and verify that their mandatory optimization produces exactly
