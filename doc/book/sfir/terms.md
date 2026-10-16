@@ -168,6 +168,39 @@ case must trap at execution. Calling `first` before the second definition in
 the first example would fail for the same reason. This preserves source order
 for effects, including initializers whose results are never used.
 
+### Closure captures and initialization cells
+
+Closures capture values by copy. A scalar capture copies the scalar; capturing
+a `Ref`, vector, string or other object copies its reference, preserving the
+object's identity. Capture does not deep-copy the object, so mutations through
+another reference remain visible.
+
+The block-wide scope of `def` requires an initialization exception. A closure
+may capture a binding whose value does not exist yet:
+
+```scheme
+(begin
+  (def read-value (lambda () value))
+  (def value 42)
+  (read-value)) ; 42
+```
+
+The implementation can reserve a hidden, single-initialization cell for `value`
+and copy the cell's reference into the closure. Completing the `def` initializer
+fills that cell. Creating the closure does not read the uninitialized payload;
+calling it does. Calling `read-value` before `value` is initialized must trap.
+Recursive definitions use the same mechanism. These hidden cells implement
+initialization, not assignment: they are not user-visible `Ref` values, and the
+binding remains immutable after initialization.
+
+`let` introduces its binding only after its initializer completes, so capturing
+that binding needs no deferred-initialization cell. Its initialized value can be
+copied directly. The current compiler conservatively uses cells for captured
+local definitions, including `let`; this is an implementation cost, not a
+semantic requirement for `let`. Neither form guarantees a heap allocation:
+the compiler or downstream optimizer may remove cells, readiness checks or
+closure allocations when doing so preserves these rules.
+
 ## Mutation
 
 An immutable binding can refer to a mutable object. `(ref 0)` creates a cell;
