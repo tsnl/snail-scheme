@@ -1,0 +1,34 @@
+diff --git a/tests/native-array-storage.scm b/tests/native-array-storage.scm
+index b31ae941..766ef7c4 100644
+--- a/tests/native-array-storage.scm
++++ b/tests/native-array-storage.scm
+@@ -44,0 +45,2 @@
++    (func (export "storage-refs") (param $length i32) (result eqref)
++          (array.new_default $refs (local.get $length)))
+diff --git a/tests/native-runner.rs b/tests/native-runner.rs
+index d9a08bca..6572ac52 100644
+--- a/tests/native-runner.rs
++++ b/tests/native-runner.rs
+@@ -63,0 +64,2 @@ unsafe extern "C" {
++    #[link_name = "wasm.storage-refs"]
++    fn storage_refs(p0: u32) -> u64;
+@@ -112,0 +115,8 @@ unsafe fn check_array_storage() {
++        // The forced-collection run reclaims earlier nonzero array storage.
++        // Dynamic defaults must still clear every scalar width and null edge.
++        check_payload(storage_u8(3, 0), &[0u8; 3]);
++        check_payload(storage_u16(3, 0), &[0u16; 3]);
++        check_payload(storage_i32(3, 0), &[0u32; 3]);
++        check_payload(storage_f32(3, 0), &[0u32; 3]);
++        check_payload(storage_f64(3, 0), &[0u64; 3]);
++        check_payload(storage_refs(3), &[0u64; 3]);
+diff --git a/wasm-native/src/native.rs b/wasm-native/src/native.rs
+index a680804e..283d4ae2 100644
+--- a/wasm-native/src/native.rs
++++ b/wasm-native/src/native.rs
+@@ -358 +358,5 @@ pub unsafe extern "C" fn native_array_new(
+-        array_fill(words.add(2).cast(), length, initial, stride);
++        // Allocation clears fresh and recycled payloads. Test the complete bit
++        // pattern so floating-point negative zero still receives its fill.
++        if initial != 0 {
++            array_fill(words.add(2).cast(), length, initial, stride);
++        }
