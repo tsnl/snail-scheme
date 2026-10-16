@@ -1,0 +1,85 @@
+diff --git a/doc/native.md b/doc/native.md
+index 8c91f871..ac98e948 100644
+--- a/doc/native.md
++++ b/doc/native.md
+@@ -124 +124,4 @@ The allocator continues to return zeroed storage, with the same collection,
+-root-publication and allocation-counter contracts.
++root-publication and allocation-counter contracts. Array construction uses this
++cleared payload directly when the incoming initializer's full bit pattern is
++zero. Nonzero patterns, including floating-point negative zero and NaN payloads,
++take the ordinary width-specific fill path.
+@@ -133,0 +137,7 @@ at runtime and are traced correctly.
++Tracing marks every line occupied by a live allocation, including large-object
++continuation and tail blocks. After weak cleanup, a block with no marked lines
++can clear its exact-start map without inspecting dead object headers. Candidate
++roots must pass exact-start membership before a header is read, so stale header
++bits cannot revive an object. Allocation clears the payload before reusing that
++storage. Blocks containing live lines retain the ordinary per-object sweep.
++
+diff --git a/tests/native-array-storage.scm b/tests/native-array-storage.scm
+index b31ae941..766ef7c4 100644
+--- a/tests/native-array-storage.scm
++++ b/tests/native-array-storage.scm
+@@ -44,0 +45,2 @@
++    (func (export "storage-refs") (param $length i32) (result eqref)
++          (array.new_default $refs (local.get $length)))
+diff --git a/tests/native-runner.rs b/tests/native-runner.rs
+index d9a08bca..2c38976a 100644
+--- a/tests/native-runner.rs
++++ b/tests/native-runner.rs
+@@ -63,0 +64,2 @@ unsafe extern "C" {
++    #[link_name = "wasm.storage-refs"]
++    fn storage_refs(p0: u32) -> u64;
+@@ -112,0 +115,8 @@ unsafe fn check_array_storage() {
++        // Forced collection reclaims the preceding nonzero arrays. Defaults
++        // must still expose cleared scalar payloads and null reference edges.
++        check_payload(storage_u8(3, 0), &[0u8; 3]);
++        check_payload(storage_u16(3, 0), &[0u16; 3]);
++        check_payload(storage_i32(3, 0), &[0u32; 3]);
++        check_payload(storage_f32(3, 0), &[0u32; 3]);
++        check_payload(storage_f64(3, 0), &[0u64; 3]);
++        check_payload(storage_refs(3), &[0u64; 3]);
+diff --git a/wasm-native/src/native.rs b/wasm-native/src/native.rs
+index a680804e..283d4ae2 100644
+--- a/wasm-native/src/native.rs
++++ b/wasm-native/src/native.rs
+@@ -358 +358,5 @@ pub unsafe extern "C" fn native_array_new(
+-        array_fill(words.add(2).cast(), length, initial, stride);
++        // Allocation clears fresh and recycled payloads. Test the complete bit
++        // pattern so floating-point negative zero still receives its fill.
++        if initial != 0 {
++            array_fill(words.add(2).cast(), length, initial, stride);
++        }
+diff --git a/wasm-native/src/native_gc.rs b/wasm-native/src/native_gc.rs
+index 450e88fd..159440ca 100644
+--- a/wasm-native/src/native_gc.rs
++++ b/wasm-native/src/native_gc.rs
+@@ -610 +610,13 @@ impl Collector {
+-            unsafe { self.sweep_starts(region, index) };
++            let live_lines = self.regions[region].blocks[index]
++                .lines
++                .iter()
++                .filter(|&&line| line != 0)
++                .count();
++            if live_lines == 0 {
++                // Tracing marks every line of a live allocation, including
++                // large continuations. Finalizers ran before this sweep;
++                // clearing exact membership makes stale headers unreachable.
++                self.regions[region].blocks[index].starts.fill(0);
++            } else {
++                unsafe { self.sweep_starts(region, index) };
++            }
+@@ -612,2 +624,2 @@ impl Collector {
+-            block.live_lines = block.lines.iter().filter(|&&line| line != 0).count();
+-            if block.live_lines == 0 {
++            block.live_lines = live_lines;
++            if live_lines == 0 {
+@@ -1167,0 +1180,8 @@ mod tests {
++        assert_eq!(heap.collector.stats.live_objects, 0);
++        // Republish the reclaimed exact address before any storage is reused.
++        // Its old header cannot authorize a root after start membership clears.
++        heap.frame.header.count = 3;
++        heap.collect();
++        assert_eq!(heap.collector.stats.live_objects, 0);
++        assert_eq!(heap.finalized[0], 1);
++        heap.frame.header.count = 2;
