@@ -134,6 +134,12 @@ inherited field layout. A sibling cast traps. The frontend's existing rejection
 of cyclic datum-label literals remains; mutable literal graphs can form cycles
 at runtime and are traced correctly.
 
+Each record's immutable field descriptor is resolved once before tracing its
+edges. Marking makes no callbacks and neither mutates nor mutably borrows the
+owned offset storage, so a growing worklist cannot invalidate it. Each offset
+is checked against the object's payload extent before its field is read;
+pointer-shaped scalar words remain unscanned.
+
 Tracing marks every line occupied by a live allocation, including large-object
 continuation and tail blocks. After weak cleanup, a block with no marked lines
 can clear its exact-start map without inspecting dead object headers. Candidate
