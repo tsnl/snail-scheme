@@ -84,10 +84,12 @@
              (original (path-join directory "validation" name)) (target (path-join directory "timing/artifacts" name)))
         (when (file-exists? target) (error "clean artifacts cannot reuse an earlier build" target))
         (create-directory* target)
+        (for-each (lambda (name) (copied-artifact (path-join source name) (path-join target name))) '("input.txt" "spec.json"))
         (for-each (lambda (name)
                     (when (file-exists? (path-join original name)) (copied-artifact (path-join original name) (path-join target name))))
-                  '("input.txt" "spec.json" "program.wasm" "program.wasm.raw.wasm" "provider.wasm" "math-provider.wasm" "native-input.txt"))
-        (values target (if (equal? (field status 'native_validation #f) "passed")
+                  '("program.wasm" "program.wasm.raw.wasm" "provider.wasm" "math-provider.wasm" "native-input.txt"))
+        (values target (if (and (equal? (field status 'scheduler_validation #f) "passed")
+                                (equal? (field status 'native_validation #f) "passed"))
                            (clean-native directory case source target status manifest environment) status))))
 
     (define (clean-native directory case source target status manifest environment)
@@ -249,12 +251,18 @@
           (fields-with row (cons 'validation result)
                        (cons 'eligibility (if (string=? (field result 'status) "passed") "ready" (field result 'status)))))))
 
+    (define (validated-route-status status route)
+      (if (equal? (field status 'scheduler_validation #f) "passed")
+          (field status (cdr (assoc route routes)) "not-attempted") "failed-validation-process"))
+
     (define (prepare-route directory case route target status manifest environment)
       (let* ((spec (read-json (path-join target "spec.json")))
              (heap (if (and (string=? route "sfir-native") (assq 'native_heap_bytes spec))
                        `((SNAIL_GC_HEAP_BYTES . ,(number->string (field spec 'native_heap_bytes)))) '()))
-             (row `((case . ,(field case 'name)) (route . ,route) (eligibility . ,(field status (cdr (assoc route routes)) "not-attempted"))
-                    (correctness_record . ,(string-append "validation/" (field case 'name) "/status.json")) (execution_environment . ,heap))))
+             (eligible (validated-route-status status route))
+             (row `((case . ,(field case 'name)) (route . ,route) (eligibility . ,eligible)
+                    (correctness_record . ,(string-append "validation/" (field case 'name) "/status.json"))
+                    (validation_process . ,(field status 'validation_process 'null)) (execution_environment . ,heap))))
         (if (not (string=? (field row 'eligibility) "passed")) row
             (guard (failure (else (fields-with row (cons 'eligibility "failed-clean-preparation") (cons 'reason (exception-text failure)))))
               (prepare-ready-route directory case route target row manifest environment)))))
@@ -509,6 +517,33 @@
                                 (write-text (path-join root "input.txt") "changed")
                                 (expect (rejected? (lambda () (verify-dependencies root row))) #t)))))
 
+      (define (test-incomplete-validation-case)
+        (call-with-temp-dir
+         "sfir-incomplete-case"
+         (lambda (directory preserve)
+           (let* ((case '((name . "probe") (host . "scalar")))
+                  (source (case-source directory case))
+                  (status '((scheduler_validation . "failed") (native_validation . "passed") (wasm_validation . "passed"))))
+             (create-directory* source)
+             (write-text (path-join source "input.txt") "canonical input\n")
+             (write-json (path-join source "spec.json") '((name . "probe") (count . 1)))
+             (let-values (((target observed) (case-artifacts directory case status '() '())))
+               (expect (read-text (path-join target "input.txt")) "canonical input\n")
+               (expect observed status)
+               (for-each (lambda (route)
+                           (expect (field (prepare-route directory case (car route) target status '() '()) 'eligibility)
+                                   "failed-validation-process")) routes))))))
+
+      (define (test-pending-validation-routes)
+        (let ((status '((scheduler_validation . "passed") (wasm_validation . "pending")
+                        (native_validation . "pending") (chez_validation . "passed"))))
+          (expect (validated-route-status status "sfir-wasm") "pending")
+          (expect (validated-route-status status "sfir-native") "pending")
+          (expect (validated-route-status status "chez-original") "passed")
+          (expect (validated-route-status (fields-with status (cons 'scheduler_validation #f)) "chez-original")
+                  "failed-validation-process")
+          (expect (validated-route-status '((chez_validation . "passed")) "chez-original") "failed-validation-process")))
+
       (define (probe-command target label command . options)
         (record-command target label command (if (null? options) '() (car options)) target 120))
 
@@ -639,7 +674,7 @@
                                                                  '("layouts" "globals" "tables" "parents")))))
             (expect (succeeded? (probe-command target "object" (list (tool-name "LLC" "llc") "-filetype=obj"
                                                                      (path-join target "empty.ll") "-o" object))) #t)
-            (let* ((program (link-native-object (benchmark-root) object entry
+            (let* ((program (link-native-object (runtime-project-directory (benchmark-root)) object entry
                                                 (list (list "benchmark" (path-join target (string-append provider "-provider.rs"))))
                                                 (probe-target target "cargo")))
                    (command (append (list program) (if integer? (list (path-join target "native-input.txt")) '())))
@@ -705,4 +740,6 @@
         (run-test test-incomplete-measurements)
         (run-test test-host-coverage)
         (run-test test-frozen-artifact)
+        (run-test test-incomplete-validation-case)
+        (run-test test-pending-validation-routes)
         (when (and (pair? execute?) (car execute?)) (run-test test-clean-host-execution)))))))

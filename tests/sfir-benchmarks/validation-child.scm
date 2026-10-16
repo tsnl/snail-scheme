@@ -1,0 +1,53 @@
+;; Synthetic scheduler children never compile or measure a workload.
+(import (scheme base) (scheme process-context) (scheme write)
+        (only (chibi filesystem) create-directory*)
+        (only (chibi process) kill current-process-id signal/term)
+        (wasm-native process))
+
+(define arguments (cdr (command-line)))
+(define directory (cadr (member "--output" arguments)))
+(define name (car (reverse arguments)))
+(define target (path-join directory "validation" name))
+(define validation-keys
+  '(wasm_validation native_validation chez_validation chez_adapted_validation
+                    rust_wasm_validation rust_native_validation))
+
+(define (case-status complete?)
+  (append `((name . ,name) (source . "present") (build . "passed") (optimized . "passed")
+            (measurement . "not-measured") (adapted_control_required . #t))
+          (map (lambda (key) (cons key (if (or complete? (eq? key 'wasm_validation)) "passed" "pending")))
+               validation-keys)))
+
+(define (signal-self)
+  (kill (current-process-id) signal/term)
+  (exit 99))
+
+(create-directory* target)
+(write-json (path-join target "status.json") (case-status #f))
+(display (string-append name " stdout\n"))
+(display (string-append name " stderr\n") (current-error-port))
+(flush-output-port) (flush-output-port (current-error-port))
+(cond
+ ((string=? name "exit") (exit 7))
+ ((string=? name "signal") (signal-self))
+ ((string=? name "missing") (exit 0))
+ ((string=? name "partial-write")
+  (write-text (path-join target "status.json.pending") "{\"unfinished\":")
+  (signal-self))
+ ((string=? name "malformed-final")
+  (write-text (path-join target "result.json") "{\"unfinished\":")
+  (exit 0))
+ ((string=? name "malformed-checkpoint")
+  (write-text (path-join target "status.json") "{\"unfinished\":")
+  (exit 7))
+ ((string=? name "late-signal")
+  (write-json (path-join target "status.json") (case-status #t))
+  (signal-self))
+ (else
+  (let ((status (case-status #t)))
+    (when (string=? name "route-failure") (set-cdr! (assq 'native_validation status) "failed"))
+    (when (string=? name "pending-routes")
+      (set-cdr! (assq 'build status) "failed")
+      (set-cdr! (assq 'optimized status) "not-established")
+      (for-each (lambda (key) (set-cdr! (assq key status) "pending")) '(wasm_validation native_validation)))
+    (write-json (path-join target "result.json") status))))

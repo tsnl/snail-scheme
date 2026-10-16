@@ -17,6 +17,14 @@ chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.s
 chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/sfir/runner.scm validate --output /tmp/sfir-check
 ```
 
+Validation runs each workload's six routes in one fresh Chibi process. Scheduler
+commands retain raw output, exit status and signals under
+`commands/validation-scheduler/`; frozen-driver captures remain under
+`frozen-driver/`. If a child terminates, completed route checkpoints remain
+visible, unfinished routes become `not-completed`, and the scheduler continues
+every remaining selected workload. Validation requires a fresh attempt; a failed
+campaign stays intact and a new campaign uses a new output directory.
+
 Preparation copies checked-in target sources; it does not elaborate Scheme or
 expand macros. The compiler always runs Binaryen. Native builds consume the
 retained raw Wasm and verify that their mandatory optimization produces exactly
