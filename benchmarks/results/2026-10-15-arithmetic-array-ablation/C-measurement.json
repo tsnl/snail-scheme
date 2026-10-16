@@ -1,0 +1,2782 @@
+{
+  "kind": "six-workload controlled arithmetic/array/inlining ablation",
+  "arm": "C",
+  "description": "Wrapping/IEEE arithmetic; direct checked native array access; forced inline limit 40",
+  "frozen_directory": "/tmp/sfir-unchecked-array-candidate-20261015",
+  "source_revision": "73faf9f36013c4ec4ee8ad401cab56353db9f8d9",
+  "source_status": "",
+  "manifest_sha256": "317e96ee6e956114971819bcc74be4240ea4f3eed56666122d6d7efb8d762dce",
+  "plan_sha256": "073eea884218946a53b7816f32abad19aa31eb318c86693f577632350e430278",
+  "original_measurement_sha256": "2f44ca71f23ad8c5c6bbcbb43fc337dc4cafdf397ff42486fb0168ad234f34d8",
+  "machine_sha256": "e608b29b4cadb89e4f9d756e1e066f57c6d1ec2ac9952e8344cff5128b740f30",
+  "machine": {
+    "uname": "Linux nti-ws 7.2.3 #1-NixOS SMP PREEMPT_DYNAMIC Wed Sep  2 12:33:21 UTC 2026 x86_64 GNU/Linux",
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "cpu": 2,
+    "configuration": {
+      "cpufreq/scaling_governor": "powersave",
+      "cpufreq/scaling_driver": "intel_pstate",
+      "topology/thread_siblings_list": "2"
+    },
+    "selected_cpuinfo": "processor\t: 2\nvendor_id\t: GenuineIntel\ncpu family\t: 6\nmodel\t\t: 198\nmodel name\t: Intel(R) Core(TM) Ultra 7 270K Plus\nstepping\t: 2\nmicrocode\t: 0x122\ncpu MHz\t\t: 5485.459\ncache size\t: 36864 KB\nphysical id\t: 0\nsiblings\t: 24\ncore id\t\t: 16\ncpu cores\t: 24\napicid\t\t: 32\ninitial apicid\t: 32\nfpu\t\t: yes\nfpu_exception\t: yes\ncpuid level\t: 35\nwp\t\t: yes\nflags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni lass lam wbnoinvd dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities\nvmx flags\t: vnmi preemption_timer posted_intr invvpid ept_x_only ept_ad ept_1gb flexpriority apicv tsc_offset vtpr mtf vapic ept vpid unrestricted_guest vapic_reg vid ple shadow_vmcs pml ept_violation_ve ept_mode_based_exec tsc_scaling usr_wait_pause notify_vm_exiting ipi_virt\nbugs\t\t: spectre_v1 spectre_v2 spec_store_bypass swapgs bhi spectre_v2_user vmscape\nbogomips\t: 7372.80\nclflush size\t: 64\ncache_alignment\t: 64\naddress sizes\t: 46 bits physical, 48 bits virtual\npower management:"
+  },
+  "protocol": {
+    "cpu": 2,
+    "warmups": 1,
+    "repeats": 5,
+    "fresh_processes": true,
+    "timer": "guest monotonic seconds; repeated workload plus complete final predicate",
+    "excluded": "input/setup, result formatting and final resource cleanup",
+    "rotation": "rotate cases by round; rotate six route positions by round plus case position",
+    "failure_policy": "retain all attempts; no retries; any failed warmup/sample withholds route comparisons"
+  },
+  "records": "C-records.jsonl",
+  "records_sha256": "11c125199a5ad4339bf7c0e3f75e9cfb575f4a5e5ae4258f7f46211193e73121",
+  "result": {
+    "attempts": [
+      {
+        "status": "passed",
+        "seconds": 1.462509281,
+        "record": "timing/measurement/warmup-0-fib-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 3.173696633,
+        "record": "timing/measurement/warmup-0-fib-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 1.313333985,
+        "record": "timing/measurement/warmup-0-fib-chez-original/commands/execute/record.json",
+        "id": "warmup-0-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.656714089,
+        "record": "timing/measurement/warmup-0-fib-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.730341127,
+        "record": "timing/measurement/warmup-0-fib-rust-native/commands/execute/record.json",
+        "id": "warmup-0-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580203056,
+        "record": "timing/measurement/warmup-0-fibfp-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.853555432,
+        "record": "timing/measurement/warmup-0-fibfp-chez-original/commands/execute/record.json",
+        "id": "warmup-0-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.228345893,
+        "record": "timing/measurement/warmup-0-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.231170593,
+        "record": "timing/measurement/warmup-0-fibfp-rust-native/commands/execute/record.json",
+        "id": "warmup-0-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.275504572,
+        "record": "timing/measurement/warmup-0-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 2.223643792,
+        "record": "timing/measurement/warmup-0-mbrot-chez-original/commands/execute/record.json",
+        "id": "warmup-0-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 2.222085322,
+        "record": "timing/measurement/warmup-0-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "warmup-0-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.38409782,
+        "record": "timing/measurement/warmup-0-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.219491644,
+        "record": "timing/measurement/warmup-0-mbrot-rust-native/commands/execute/record.json",
+        "id": "warmup-0-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.289052135,
+        "record": "timing/measurement/warmup-0-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.731241336,
+        "record": "timing/measurement/warmup-0-mbrot-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.316025923,
+        "record": "timing/measurement/warmup-0-array1-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 2.387526743,
+        "record": "timing/measurement/warmup-0-array1-rust-native/commands/execute/record.json",
+        "id": "warmup-0-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 5.3687928,
+        "record": "timing/measurement/warmup-0-array1-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 3.489153254,
+        "record": "timing/measurement/warmup-0-array1-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 6.662375065,
+        "record": "timing/measurement/warmup-0-array1-chez-original/commands/execute/record.json",
+        "id": "warmup-0-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.043190956,
+        "record": "timing/measurement/warmup-0-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026344785,
+        "record": "timing/measurement/warmup-0-bv2string-rust-native/commands/execute/record.json",
+        "id": "warmup-0-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.678599256,
+        "record": "timing/measurement/warmup-0-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 1.13945095,
+        "record": "timing/measurement/warmup-0-bv2string-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.464494391,
+        "record": "timing/measurement/warmup-0-bv2string-chez-original/commands/execute/record.json",
+        "id": "warmup-0-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.466405121,
+        "record": "timing/measurement/warmup-0-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "warmup-0-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.562486658,
+        "record": "timing/measurement/warmup-0-gcbench-rust-native/commands/execute/record.json",
+        "id": "warmup-0-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 1.173427328,
+        "record": "timing/measurement/warmup-0-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "warmup-0-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 3.071510692,
+        "record": "timing/measurement/warmup-0-gcbench-sfir-native/commands/execute/record.json",
+        "id": "warmup-0-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.385730767,
+        "record": "timing/measurement/warmup-0-gcbench-chez-original/commands/execute/record.json",
+        "id": "warmup-0-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.828661468,
+        "record": "timing/measurement/warmup-0-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "warmup-0-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.703599678,
+        "record": "timing/measurement/warmup-0-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "warmup-0-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "warmup",
+        "round": 0
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580422339,
+        "record": "timing/measurement/sample-1-fibfp-sfir-native/commands/execute/record.json",
+        "id": "sample-1-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.854781917,
+        "record": "timing/measurement/sample-1-fibfp-chez-original/commands/execute/record.json",
+        "id": "sample-1-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.228715881,
+        "record": "timing/measurement/sample-1-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.229527276,
+        "record": "timing/measurement/sample-1-fibfp-rust-native/commands/execute/record.json",
+        "id": "sample-1-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.274325525,
+        "record": "timing/measurement/sample-1-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 2.221115793,
+        "record": "timing/measurement/sample-1-mbrot-chez-original/commands/execute/record.json",
+        "id": "sample-1-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 2.222170446,
+        "record": "timing/measurement/sample-1-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "sample-1-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.362547598,
+        "record": "timing/measurement/sample-1-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.219226538,
+        "record": "timing/measurement/sample-1-mbrot-rust-native/commands/execute/record.json",
+        "id": "sample-1-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.289198529,
+        "record": "timing/measurement/sample-1-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.729268593,
+        "record": "timing/measurement/sample-1-mbrot-sfir-native/commands/execute/record.json",
+        "id": "sample-1-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.316104546,
+        "record": "timing/measurement/sample-1-array1-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 2.365285271,
+        "record": "timing/measurement/sample-1-array1-rust-native/commands/execute/record.json",
+        "id": "sample-1-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 5.407237994,
+        "record": "timing/measurement/sample-1-array1-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 3.339518207,
+        "record": "timing/measurement/sample-1-array1-sfir-native/commands/execute/record.json",
+        "id": "sample-1-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 6.625096756,
+        "record": "timing/measurement/sample-1-array1-chez-original/commands/execute/record.json",
+        "id": "sample-1-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.042836653,
+        "record": "timing/measurement/sample-1-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026305258,
+        "record": "timing/measurement/sample-1-bv2string-rust-native/commands/execute/record.json",
+        "id": "sample-1-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.680795598,
+        "record": "timing/measurement/sample-1-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 1.134168966,
+        "record": "timing/measurement/sample-1-bv2string-sfir-native/commands/execute/record.json",
+        "id": "sample-1-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.464645595,
+        "record": "timing/measurement/sample-1-bv2string-chez-original/commands/execute/record.json",
+        "id": "sample-1-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.466495474,
+        "record": "timing/measurement/sample-1-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "sample-1-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.560978357,
+        "record": "timing/measurement/sample-1-gcbench-rust-native/commands/execute/record.json",
+        "id": "sample-1-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 1.174943653,
+        "record": "timing/measurement/sample-1-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 3.047197083,
+        "record": "timing/measurement/sample-1-gcbench-sfir-native/commands/execute/record.json",
+        "id": "sample-1-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.388781092,
+        "record": "timing/measurement/sample-1-gcbench-chez-original/commands/execute/record.json",
+        "id": "sample-1-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.839997667,
+        "record": "timing/measurement/sample-1-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "sample-1-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.676291493,
+        "record": "timing/measurement/sample-1-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 1.460760867,
+        "record": "timing/measurement/sample-1-fib-sfir-wasm/commands/execute/record.json",
+        "id": "sample-1-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 3.188650914,
+        "record": "timing/measurement/sample-1-fib-sfir-native/commands/execute/record.json",
+        "id": "sample-1-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 1.339007034,
+        "record": "timing/measurement/sample-1-fib-chez-original/commands/execute/record.json",
+        "id": "sample-1-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.672799394,
+        "record": "timing/measurement/sample-1-fib-rust-wasm/commands/execute/record.json",
+        "id": "sample-1-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 0.730943844,
+        "record": "timing/measurement/sample-1-fib-rust-native/commands/execute/record.json",
+        "id": "sample-1-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 1
+      },
+      {
+        "status": "passed",
+        "seconds": 2.222090971,
+        "record": "timing/measurement/sample-2-mbrot-chez-original/commands/execute/record.json",
+        "id": "sample-2-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 2.221487144,
+        "record": "timing/measurement/sample-2-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "sample-2-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.362022446,
+        "record": "timing/measurement/sample-2-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.221412587,
+        "record": "timing/measurement/sample-2-mbrot-rust-native/commands/execute/record.json",
+        "id": "sample-2-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.289172765,
+        "record": "timing/measurement/sample-2-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.726936632,
+        "record": "timing/measurement/sample-2-mbrot-sfir-native/commands/execute/record.json",
+        "id": "sample-2-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.316833479,
+        "record": "timing/measurement/sample-2-array1-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 2.417836485,
+        "record": "timing/measurement/sample-2-array1-rust-native/commands/execute/record.json",
+        "id": "sample-2-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 5.414127194,
+        "record": "timing/measurement/sample-2-array1-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 3.239677255,
+        "record": "timing/measurement/sample-2-array1-sfir-native/commands/execute/record.json",
+        "id": "sample-2-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 6.703745093,
+        "record": "timing/measurement/sample-2-array1-chez-original/commands/execute/record.json",
+        "id": "sample-2-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.042664261,
+        "record": "timing/measurement/sample-2-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026320913,
+        "record": "timing/measurement/sample-2-bv2string-rust-native/commands/execute/record.json",
+        "id": "sample-2-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.680772533,
+        "record": "timing/measurement/sample-2-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 1.122803557,
+        "record": "timing/measurement/sample-2-bv2string-sfir-native/commands/execute/record.json",
+        "id": "sample-2-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.464255203,
+        "record": "timing/measurement/sample-2-bv2string-chez-original/commands/execute/record.json",
+        "id": "sample-2-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.467004536,
+        "record": "timing/measurement/sample-2-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "sample-2-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.562239659,
+        "record": "timing/measurement/sample-2-gcbench-rust-native/commands/execute/record.json",
+        "id": "sample-2-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 1.174942654,
+        "record": "timing/measurement/sample-2-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 3.045046904,
+        "record": "timing/measurement/sample-2-gcbench-sfir-native/commands/execute/record.json",
+        "id": "sample-2-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.385974186,
+        "record": "timing/measurement/sample-2-gcbench-chez-original/commands/execute/record.json",
+        "id": "sample-2-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.83528609,
+        "record": "timing/measurement/sample-2-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "sample-2-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.697227173,
+        "record": "timing/measurement/sample-2-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 1.532339176,
+        "record": "timing/measurement/sample-2-fib-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 3.19443233,
+        "record": "timing/measurement/sample-2-fib-sfir-native/commands/execute/record.json",
+        "id": "sample-2-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 1.330249194,
+        "record": "timing/measurement/sample-2-fib-chez-original/commands/execute/record.json",
+        "id": "sample-2-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.657581321,
+        "record": "timing/measurement/sample-2-fib-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.730452399,
+        "record": "timing/measurement/sample-2-fib-rust-native/commands/execute/record.json",
+        "id": "sample-2-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580046871,
+        "record": "timing/measurement/sample-2-fibfp-sfir-native/commands/execute/record.json",
+        "id": "sample-2-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.85023889,
+        "record": "timing/measurement/sample-2-fibfp-chez-original/commands/execute/record.json",
+        "id": "sample-2-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.246490591,
+        "record": "timing/measurement/sample-2-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "sample-2-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.23138571,
+        "record": "timing/measurement/sample-2-fibfp-rust-native/commands/execute/record.json",
+        "id": "sample-2-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.273517227,
+        "record": "timing/measurement/sample-2-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "sample-2-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 2
+      },
+      {
+        "status": "passed",
+        "seconds": 0.31687586,
+        "record": "timing/measurement/sample-3-array1-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 2.415059405,
+        "record": "timing/measurement/sample-3-array1-rust-native/commands/execute/record.json",
+        "id": "sample-3-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 5.454653527,
+        "record": "timing/measurement/sample-3-array1-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 3.272293487,
+        "record": "timing/measurement/sample-3-array1-sfir-native/commands/execute/record.json",
+        "id": "sample-3-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 6.667470177,
+        "record": "timing/measurement/sample-3-array1-chez-original/commands/execute/record.json",
+        "id": "sample-3-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.043527703,
+        "record": "timing/measurement/sample-3-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026267591,
+        "record": "timing/measurement/sample-3-bv2string-rust-native/commands/execute/record.json",
+        "id": "sample-3-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.681399618,
+        "record": "timing/measurement/sample-3-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 1.137897407,
+        "record": "timing/measurement/sample-3-bv2string-sfir-native/commands/execute/record.json",
+        "id": "sample-3-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.464756039,
+        "record": "timing/measurement/sample-3-bv2string-chez-original/commands/execute/record.json",
+        "id": "sample-3-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.466458895,
+        "record": "timing/measurement/sample-3-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "sample-3-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.559822631,
+        "record": "timing/measurement/sample-3-gcbench-rust-native/commands/execute/record.json",
+        "id": "sample-3-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 1.176067473,
+        "record": "timing/measurement/sample-3-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 3.046549364,
+        "record": "timing/measurement/sample-3-gcbench-sfir-native/commands/execute/record.json",
+        "id": "sample-3-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.385901191,
+        "record": "timing/measurement/sample-3-gcbench-chez-original/commands/execute/record.json",
+        "id": "sample-3-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.836500477,
+        "record": "timing/measurement/sample-3-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "sample-3-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.683224123,
+        "record": "timing/measurement/sample-3-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 1.469943692,
+        "record": "timing/measurement/sample-3-fib-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 3.194435354,
+        "record": "timing/measurement/sample-3-fib-sfir-native/commands/execute/record.json",
+        "id": "sample-3-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 1.367638387,
+        "record": "timing/measurement/sample-3-fib-chez-original/commands/execute/record.json",
+        "id": "sample-3-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.666727047,
+        "record": "timing/measurement/sample-3-fib-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.733505371,
+        "record": "timing/measurement/sample-3-fib-rust-native/commands/execute/record.json",
+        "id": "sample-3-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580745485,
+        "record": "timing/measurement/sample-3-fibfp-sfir-native/commands/execute/record.json",
+        "id": "sample-3-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.853242968,
+        "record": "timing/measurement/sample-3-fibfp-chez-original/commands/execute/record.json",
+        "id": "sample-3-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.228733941,
+        "record": "timing/measurement/sample-3-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.231503337,
+        "record": "timing/measurement/sample-3-fibfp-rust-native/commands/execute/record.json",
+        "id": "sample-3-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.278495357,
+        "record": "timing/measurement/sample-3-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 2.222692927,
+        "record": "timing/measurement/sample-3-mbrot-chez-original/commands/execute/record.json",
+        "id": "sample-3-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 2.22150142,
+        "record": "timing/measurement/sample-3-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "sample-3-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.384906472,
+        "record": "timing/measurement/sample-3-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "sample-3-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.219320293,
+        "record": "timing/measurement/sample-3-mbrot-rust-native/commands/execute/record.json",
+        "id": "sample-3-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.289127151,
+        "record": "timing/measurement/sample-3-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "sample-3-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.729565187,
+        "record": "timing/measurement/sample-3-mbrot-sfir-native/commands/execute/record.json",
+        "id": "sample-3-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 3
+      },
+      {
+        "status": "passed",
+        "seconds": 0.043127001,
+        "record": "timing/measurement/sample-4-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026335438,
+        "record": "timing/measurement/sample-4-bv2string-rust-native/commands/execute/record.json",
+        "id": "sample-4-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.678750345,
+        "record": "timing/measurement/sample-4-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 1.108445081,
+        "record": "timing/measurement/sample-4-bv2string-sfir-native/commands/execute/record.json",
+        "id": "sample-4-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.465766885,
+        "record": "timing/measurement/sample-4-bv2string-chez-original/commands/execute/record.json",
+        "id": "sample-4-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.466244674,
+        "record": "timing/measurement/sample-4-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "sample-4-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.559509026,
+        "record": "timing/measurement/sample-4-gcbench-rust-native/commands/execute/record.json",
+        "id": "sample-4-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 1.174415485,
+        "record": "timing/measurement/sample-4-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 3.046622698,
+        "record": "timing/measurement/sample-4-gcbench-sfir-native/commands/execute/record.json",
+        "id": "sample-4-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.381783663,
+        "record": "timing/measurement/sample-4-gcbench-chez-original/commands/execute/record.json",
+        "id": "sample-4-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.838015554,
+        "record": "timing/measurement/sample-4-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "sample-4-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.708011706,
+        "record": "timing/measurement/sample-4-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 1.465593946,
+        "record": "timing/measurement/sample-4-fib-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 3.196622081,
+        "record": "timing/measurement/sample-4-fib-sfir-native/commands/execute/record.json",
+        "id": "sample-4-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 1.318409914,
+        "record": "timing/measurement/sample-4-fib-chez-original/commands/execute/record.json",
+        "id": "sample-4-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.673281042,
+        "record": "timing/measurement/sample-4-fib-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.730762193,
+        "record": "timing/measurement/sample-4-fib-rust-native/commands/execute/record.json",
+        "id": "sample-4-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580106383,
+        "record": "timing/measurement/sample-4-fibfp-sfir-native/commands/execute/record.json",
+        "id": "sample-4-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.846168044,
+        "record": "timing/measurement/sample-4-fibfp-chez-original/commands/execute/record.json",
+        "id": "sample-4-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.228602622,
+        "record": "timing/measurement/sample-4-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.231192025,
+        "record": "timing/measurement/sample-4-fibfp-rust-native/commands/execute/record.json",
+        "id": "sample-4-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.273155088,
+        "record": "timing/measurement/sample-4-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 2.223912872,
+        "record": "timing/measurement/sample-4-mbrot-chez-original/commands/execute/record.json",
+        "id": "sample-4-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 2.22258484,
+        "record": "timing/measurement/sample-4-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "sample-4-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.362973855,
+        "record": "timing/measurement/sample-4-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.21974759,
+        "record": "timing/measurement/sample-4-mbrot-rust-native/commands/execute/record.json",
+        "id": "sample-4-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.289589078,
+        "record": "timing/measurement/sample-4-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.730166751,
+        "record": "timing/measurement/sample-4-mbrot-sfir-native/commands/execute/record.json",
+        "id": "sample-4-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.316335775,
+        "record": "timing/measurement/sample-4-array1-rust-wasm/commands/execute/record.json",
+        "id": "sample-4-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 2.402081617,
+        "record": "timing/measurement/sample-4-array1-rust-native/commands/execute/record.json",
+        "id": "sample-4-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 5.408890311,
+        "record": "timing/measurement/sample-4-array1-sfir-wasm/commands/execute/record.json",
+        "id": "sample-4-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 3.302631387,
+        "record": "timing/measurement/sample-4-array1-sfir-native/commands/execute/record.json",
+        "id": "sample-4-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 6.721596854,
+        "record": "timing/measurement/sample-4-array1-chez-original/commands/execute/record.json",
+        "id": "sample-4-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 4
+      },
+      {
+        "status": "passed",
+        "seconds": 0.569876399,
+        "record": "timing/measurement/sample-5-gcbench-rust-native/commands/execute/record.json",
+        "id": "sample-5-gcbench-rust-native",
+        "case": "gcbench",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 1.176489833,
+        "record": "timing/measurement/sample-5-gcbench-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-gcbench-sfir-wasm",
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 3.061863027,
+        "record": "timing/measurement/sample-5-gcbench-sfir-native/commands/execute/record.json",
+        "id": "sample-5-gcbench-sfir-native",
+        "case": "gcbench",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.385322358,
+        "record": "timing/measurement/sample-5-gcbench-chez-original/commands/execute/record.json",
+        "id": "sample-5-gcbench-chez-original",
+        "case": "gcbench",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.837873872,
+        "record": "timing/measurement/sample-5-gcbench-chez-adapted/commands/execute/record.json",
+        "id": "sample-5-gcbench-chez-adapted",
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.69706804,
+        "record": "timing/measurement/sample-5-gcbench-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-gcbench-rust-wasm",
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 1.462659541,
+        "record": "timing/measurement/sample-5-fib-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-fib-sfir-wasm",
+        "case": "fib",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 3.193178282,
+        "record": "timing/measurement/sample-5-fib-sfir-native/commands/execute/record.json",
+        "id": "sample-5-fib-sfir-native",
+        "case": "fib",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 1.362505696,
+        "record": "timing/measurement/sample-5-fib-chez-original/commands/execute/record.json",
+        "id": "sample-5-fib-chez-original",
+        "case": "fib",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.657168184,
+        "record": "timing/measurement/sample-5-fib-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-fib-rust-wasm",
+        "case": "fib",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.732388773,
+        "record": "timing/measurement/sample-5-fib-rust-native/commands/execute/record.json",
+        "id": "sample-5-fib-rust-native",
+        "case": "fib",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.580212156,
+        "record": "timing/measurement/sample-5-fibfp-sfir-native/commands/execute/record.json",
+        "id": "sample-5-fibfp-sfir-native",
+        "case": "fibfp",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.848759373,
+        "record": "timing/measurement/sample-5-fibfp-chez-original/commands/execute/record.json",
+        "id": "sample-5-fibfp-chez-original",
+        "case": "fibfp",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.228407,
+        "record": "timing/measurement/sample-5-fibfp-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-fibfp-rust-wasm",
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.231373187,
+        "record": "timing/measurement/sample-5-fibfp-rust-native/commands/execute/record.json",
+        "id": "sample-5-fibfp-rust-native",
+        "case": "fibfp",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.276677637,
+        "record": "timing/measurement/sample-5-fibfp-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-fibfp-sfir-wasm",
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 2.224207934,
+        "record": "timing/measurement/sample-5-mbrot-chez-original/commands/execute/record.json",
+        "id": "sample-5-mbrot-chez-original",
+        "case": "mbrot",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 2.231926715,
+        "record": "timing/measurement/sample-5-mbrot-chez-adapted/commands/execute/record.json",
+        "id": "sample-5-mbrot-chez-adapted",
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.362621856,
+        "record": "timing/measurement/sample-5-mbrot-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-mbrot-rust-wasm",
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.219732689,
+        "record": "timing/measurement/sample-5-mbrot-rust-native/commands/execute/record.json",
+        "id": "sample-5-mbrot-rust-native",
+        "case": "mbrot",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.28897298,
+        "record": "timing/measurement/sample-5-mbrot-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-mbrot-sfir-wasm",
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.728896568,
+        "record": "timing/measurement/sample-5-mbrot-sfir-native/commands/execute/record.json",
+        "id": "sample-5-mbrot-sfir-native",
+        "case": "mbrot",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.316222754,
+        "record": "timing/measurement/sample-5-array1-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-array1-rust-wasm",
+        "case": "array1",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 2.383742833,
+        "record": "timing/measurement/sample-5-array1-rust-native/commands/execute/record.json",
+        "id": "sample-5-array1-rust-native",
+        "case": "array1",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 5.416794504,
+        "record": "timing/measurement/sample-5-array1-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-array1-sfir-wasm",
+        "case": "array1",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 3.271318209,
+        "record": "timing/measurement/sample-5-array1-sfir-native/commands/execute/record.json",
+        "id": "sample-5-array1-sfir-native",
+        "case": "array1",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 6.729669298,
+        "record": "timing/measurement/sample-5-array1-chez-original/commands/execute/record.json",
+        "id": "sample-5-array1-chez-original",
+        "case": "array1",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.043130515,
+        "record": "timing/measurement/sample-5-bv2string-rust-wasm/commands/execute/record.json",
+        "id": "sample-5-bv2string-rust-wasm",
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.026251375,
+        "record": "timing/measurement/sample-5-bv2string-rust-native/commands/execute/record.json",
+        "id": "sample-5-bv2string-rust-native",
+        "case": "bv2string",
+        "route": "rust-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.680456739,
+        "record": "timing/measurement/sample-5-bv2string-sfir-wasm/commands/execute/record.json",
+        "id": "sample-5-bv2string-sfir-wasm",
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 1.138035087,
+        "record": "timing/measurement/sample-5-bv2string-sfir-native/commands/execute/record.json",
+        "id": "sample-5-bv2string-sfir-native",
+        "case": "bv2string",
+        "route": "sfir-native",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.464704084,
+        "record": "timing/measurement/sample-5-bv2string-chez-original/commands/execute/record.json",
+        "id": "sample-5-bv2string-chez-original",
+        "case": "bv2string",
+        "route": "chez-original",
+        "phase": "sample",
+        "round": 5
+      },
+      {
+        "status": "passed",
+        "seconds": 0.466936724,
+        "record": "timing/measurement/sample-5-bv2string-chez-adapted/commands/execute/record.json",
+        "id": "sample-5-bv2string-chez-adapted",
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "phase": "sample",
+        "round": 5
+      }
+    ],
+    "rows": [
+      {
+        "median": 1.465593946,
+        "minimum": 1.460760867,
+        "maximum": 1.532339176,
+        "case": "fib",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          1.460760867,
+          1.532339176,
+          1.469943692,
+          1.465593946,
+          1.462659541
+        ]
+      },
+      {
+        "median": 3.19443233,
+        "minimum": 3.188650914,
+        "maximum": 3.196622081,
+        "case": "fib",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          3.188650914,
+          3.19443233,
+          3.194435354,
+          3.196622081,
+          3.193178282
+        ]
+      },
+      {
+        "median": 1.339007034,
+        "minimum": 1.318409914,
+        "maximum": 1.367638387,
+        "case": "fib",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          1.339007034,
+          1.330249194,
+          1.367638387,
+          1.318409914,
+          1.362505696
+        ]
+      },
+      {
+        "case": "fib",
+        "route": "chez-adapted",
+        "eligibility": "unavailable",
+        "complete": false,
+        "seconds": []
+      },
+      {
+        "median": 0.666727047,
+        "minimum": 0.657168184,
+        "maximum": 0.673281042,
+        "case": "fib",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.672799394,
+          0.657581321,
+          0.666727047,
+          0.673281042,
+          0.657168184
+        ]
+      },
+      {
+        "median": 0.730943844,
+        "minimum": 0.730452399,
+        "maximum": 0.733505371,
+        "case": "fib",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.730943844,
+          0.730452399,
+          0.733505371,
+          0.730762193,
+          0.732388773
+        ]
+      },
+      {
+        "median": 0.274325525,
+        "minimum": 0.273155088,
+        "maximum": 0.278495357,
+        "case": "fibfp",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.274325525,
+          0.273517227,
+          0.278495357,
+          0.273155088,
+          0.276677637
+        ]
+      },
+      {
+        "median": 0.580212156,
+        "minimum": 0.580046871,
+        "maximum": 0.580745485,
+        "case": "fibfp",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.580422339,
+          0.580046871,
+          0.580745485,
+          0.580106383,
+          0.580212156
+        ]
+      },
+      {
+        "median": 0.85023889,
+        "minimum": 0.846168044,
+        "maximum": 0.854781917,
+        "case": "fibfp",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.854781917,
+          0.85023889,
+          0.853242968,
+          0.846168044,
+          0.848759373
+        ]
+      },
+      {
+        "case": "fibfp",
+        "route": "chez-adapted",
+        "eligibility": "unavailable",
+        "complete": false,
+        "seconds": []
+      },
+      {
+        "median": 0.228715881,
+        "minimum": 0.228407,
+        "maximum": 0.246490591,
+        "case": "fibfp",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.228715881,
+          0.246490591,
+          0.228733941,
+          0.228602622,
+          0.228407
+        ]
+      },
+      {
+        "median": 0.231373187,
+        "minimum": 0.229527276,
+        "maximum": 0.231503337,
+        "case": "fibfp",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.229527276,
+          0.23138571,
+          0.231503337,
+          0.231192025,
+          0.231373187
+        ]
+      },
+      {
+        "median": 0.289172765,
+        "minimum": 0.28897298,
+        "maximum": 0.289589078,
+        "case": "mbrot",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.289198529,
+          0.289172765,
+          0.289127151,
+          0.289589078,
+          0.28897298
+        ]
+      },
+      {
+        "median": 0.729268593,
+        "minimum": 0.726936632,
+        "maximum": 0.730166751,
+        "case": "mbrot",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.729268593,
+          0.726936632,
+          0.729565187,
+          0.730166751,
+          0.728896568
+        ]
+      },
+      {
+        "median": 2.222692927,
+        "minimum": 2.221115793,
+        "maximum": 2.224207934,
+        "case": "mbrot",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          2.221115793,
+          2.222090971,
+          2.222692927,
+          2.223912872,
+          2.224207934
+        ]
+      },
+      {
+        "median": 2.222170446,
+        "minimum": 2.221487144,
+        "maximum": 2.231926715,
+        "case": "mbrot",
+        "route": "chez-adapted",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          2.222170446,
+          2.221487144,
+          2.22150142,
+          2.22258484,
+          2.231926715
+        ]
+      },
+      {
+        "median": 0.362621856,
+        "minimum": 0.362022446,
+        "maximum": 0.384906472,
+        "case": "mbrot",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.362547598,
+          0.362022446,
+          0.384906472,
+          0.362973855,
+          0.362621856
+        ]
+      },
+      {
+        "median": 0.219732689,
+        "minimum": 0.219226538,
+        "maximum": 0.221412587,
+        "case": "mbrot",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.219226538,
+          0.221412587,
+          0.219320293,
+          0.21974759,
+          0.219732689
+        ]
+      },
+      {
+        "median": 5.414127194,
+        "minimum": 5.407237994,
+        "maximum": 5.454653527,
+        "case": "array1",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          5.407237994,
+          5.414127194,
+          5.454653527,
+          5.408890311,
+          5.416794504
+        ]
+      },
+      {
+        "median": 3.272293487,
+        "minimum": 3.239677255,
+        "maximum": 3.339518207,
+        "case": "array1",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          3.339518207,
+          3.239677255,
+          3.272293487,
+          3.302631387,
+          3.271318209
+        ]
+      },
+      {
+        "median": 6.703745093,
+        "minimum": 6.625096756,
+        "maximum": 6.729669298,
+        "case": "array1",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          6.625096756,
+          6.703745093,
+          6.667470177,
+          6.721596854,
+          6.729669298
+        ]
+      },
+      {
+        "case": "array1",
+        "route": "chez-adapted",
+        "eligibility": "unavailable",
+        "complete": false,
+        "seconds": []
+      },
+      {
+        "median": 0.316335775,
+        "minimum": 0.316104546,
+        "maximum": 0.31687586,
+        "case": "array1",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.316104546,
+          0.316833479,
+          0.31687586,
+          0.316335775,
+          0.316222754
+        ]
+      },
+      {
+        "median": 2.402081617,
+        "minimum": 2.365285271,
+        "maximum": 2.417836485,
+        "case": "array1",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          2.365285271,
+          2.417836485,
+          2.415059405,
+          2.402081617,
+          2.383742833
+        ]
+      },
+      {
+        "median": 0.680772533,
+        "minimum": 0.678750345,
+        "maximum": 0.681399618,
+        "case": "bv2string",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.680795598,
+          0.680772533,
+          0.681399618,
+          0.678750345,
+          0.680456739
+        ]
+      },
+      {
+        "median": 1.134168966,
+        "minimum": 1.108445081,
+        "maximum": 1.138035087,
+        "case": "bv2string",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          1.134168966,
+          1.122803557,
+          1.137897407,
+          1.108445081,
+          1.138035087
+        ]
+      },
+      {
+        "median": 0.464704084,
+        "minimum": 0.464255203,
+        "maximum": 0.465766885,
+        "case": "bv2string",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.464645595,
+          0.464255203,
+          0.464756039,
+          0.465766885,
+          0.464704084
+        ]
+      },
+      {
+        "median": 0.466495474,
+        "minimum": 0.466244674,
+        "maximum": 0.467004536,
+        "case": "bv2string",
+        "route": "chez-adapted",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.466495474,
+          0.467004536,
+          0.466458895,
+          0.466244674,
+          0.466936724
+        ]
+      },
+      {
+        "median": 0.043127001,
+        "minimum": 0.042664261,
+        "maximum": 0.043527703,
+        "case": "bv2string",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.042836653,
+          0.042664261,
+          0.043527703,
+          0.043127001,
+          0.043130515
+        ]
+      },
+      {
+        "median": 0.026305258,
+        "minimum": 0.026251375,
+        "maximum": 0.026335438,
+        "case": "bv2string",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.026305258,
+          0.026320913,
+          0.026267591,
+          0.026335438,
+          0.026251375
+        ]
+      },
+      {
+        "median": 1.174943653,
+        "minimum": 1.174415485,
+        "maximum": 1.176489833,
+        "case": "gcbench",
+        "route": "sfir-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          1.174943653,
+          1.174942654,
+          1.176067473,
+          1.174415485,
+          1.176489833
+        ]
+      },
+      {
+        "median": 3.046622698,
+        "minimum": 3.045046904,
+        "maximum": 3.061863027,
+        "case": "gcbench",
+        "route": "sfir-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          3.047197083,
+          3.045046904,
+          3.046549364,
+          3.046622698,
+          3.061863027
+        ]
+      },
+      {
+        "median": 0.385901191,
+        "minimum": 0.381783663,
+        "maximum": 0.388781092,
+        "case": "gcbench",
+        "route": "chez-original",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.388781092,
+          0.385974186,
+          0.385901191,
+          0.381783663,
+          0.385322358
+        ]
+      },
+      {
+        "median": 0.837873872,
+        "minimum": 0.83528609,
+        "maximum": 0.839997667,
+        "case": "gcbench",
+        "route": "chez-adapted",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.839997667,
+          0.83528609,
+          0.836500477,
+          0.838015554,
+          0.837873872
+        ]
+      },
+      {
+        "median": 0.69706804,
+        "minimum": 0.676291493,
+        "maximum": 0.708011706,
+        "case": "gcbench",
+        "route": "rust-wasm",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.676291493,
+          0.697227173,
+          0.683224123,
+          0.708011706,
+          0.69706804
+        ]
+      },
+      {
+        "median": 0.560978357,
+        "minimum": 0.559509026,
+        "maximum": 0.569876399,
+        "case": "gcbench",
+        "route": "rust-native",
+        "eligibility": "ready",
+        "complete": true,
+        "seconds": [
+          0.560978357,
+          0.562239659,
+          0.559822631,
+          0.559509026,
+          0.569876399
+        ]
+      }
+    ],
+    "ratios": [
+      {
+        "case": "fib",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 1.094537899
+      },
+      {
+        "case": "fib",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 2.198191828
+      },
+      {
+        "case": "fib",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 2.385672554
+      },
+      {
+        "case": "fib",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 4.370284197
+      },
+      {
+        "case": "fibfp",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 0.3226452333
+      },
+      {
+        "case": "fibfp",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 1.199416166
+      },
+      {
+        "case": "fibfp",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 0.6824107469
+      },
+      {
+        "case": "fibfp",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 2.507689692
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 0.1301001868
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-adapted",
+        "ratio": 0.1301307762
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 0.7974499061
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 0.3281013694
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-native",
+        "denominator": "chez-adapted",
+        "ratio": 0.3281785132
+      },
+      {
+        "case": "mbrot",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 3.318889858
+      },
+      {
+        "case": "array1",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 0.807627247
+      },
+      {
+        "case": "array1",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 17.11512773
+      },
+      {
+        "case": "array1",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 0.4881291639
+      },
+      {
+        "case": "array1",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 1.362274064
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 1.464959221
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-adapted",
+        "ratio": 1.459333629
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 15.78529731
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 2.440626207
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-native",
+        "denominator": "chez-adapted",
+        "ratio": 2.431253955
+      },
+      {
+        "case": "bv2string",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 43.11567543
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-original",
+        "ratio": 3.044674856
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-wasm",
+        "denominator": "chez-adapted",
+        "ratio": 1.402291791
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-wasm",
+        "denominator": "rust-wasm",
+        "ratio": 1.685550887
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-native",
+        "denominator": "chez-original",
+        "ratio": 7.894825849
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-native",
+        "denominator": "chez-adapted",
+        "ratio": 3.636135223
+      },
+      {
+        "case": "gcbench",
+        "numerator": "sfir-native",
+        "denominator": "rust-native",
+        "ratio": 5.430909517
+      }
+    ],
+    "ended_utc": "2026-10-16T02:20:05Z",
+    "status": "complete",
+    "started_utc": "2026-10-16T02:09:53Z",
+    "quiet_window": "Root authorized sequential A3, B, C, D after all builds/tests and preparation audits exited 0. Observer 01a1414e confirmed idle until timing completion. Root host checks showed no other owned compile/test workloads; only longstanding idle Chibi servers and ordinary desktop services remain. All preparation/audit work stopped; quiet cooldown ran from 2026-10-16 01:43:57 UTC through 2026-10-16 01:45:17 UTC, at least 45 seconds. CPU 2; original public drivers; unique private host TMPDIR per arm; no diagnostic instrumentation, retries, or replacement samples. Original A and A2 host failures remain excluded and preserved.",
+    "plan_sha256": "073eea884218946a53b7816f32abad19aa31eb318c86693f577632350e430278"
+  }
+}
