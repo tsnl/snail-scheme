@@ -100,6 +100,10 @@ classifications, not runtime values.
 `uninitialized`. A value evaluation is written `⟨e,ρ,σ⟩ ⇓ ⟨v,σ′⟩`.
 Environments captured by closures retain locations, so later initialization
 and explicit cell mutation can be observed without changing lexical scope.
+These locations are an abstract evaluation model, not a requirement to allocate
+every binding. Initialized immutable values can be copied into closures; the
+[capture rules](terms.md#closure-captures-and-initialization-cells) explain the
+hidden initialization cells needed for forward and recursive `def` captures.
 
 ```text
 σ(ρ(x)) = v
