@@ -104,8 +104,9 @@ map their exported types and validate their origin labels before invoking it.
 
 ## Dependencies and checks
 
-Binary input lowering requires Chibi, Binaryen `wasm-opt`/`wasm-dis`, LLVM
-`opt`/`llc`, and coreutils. Structured Wasm assembly adds `wasm-as`; runtime Wasm
+Binary input lowering requires Chibi, Binaryen `wasm-opt`/`wasm-dis`, and coreutils.
+LLVM `opt` produces optimized bitcode; `llc` additionally emits saved ELF objects.
+Structured Wasm assembly adds `wasm-as`; runtime Wasm
 linking adds `wasm-merge`. Native linking requires Cargo, Rust's `rust-lld`, the
 cached `libc` crate, and Linux libc startup/runtime objects plus `libgcc_s`.
 The LLVM tools and Rust's bundled linker must accept compatible bitcode versions.

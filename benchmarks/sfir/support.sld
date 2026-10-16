@@ -209,12 +209,12 @@
       (cond
        ((string=? (field spec 'name) "tail")
         (string-append
-         "\n#[unsafe(export_name = \"path_length\")]\npub extern \"C\" fn path_length(which: i32) -> i64 { PATH_SIZES[which as usize] }\n"
-         "#[unsafe(export_name = \"path_character\")]\npub extern \"C\" fn path_character(which: i32, at: i64) -> u32 { PATH_CHARACTERS[(PATH_OFFSETS[which as usize] + at) as usize] }\n"))
+         "\n#[unsafe(export_name = \"path_length\")]\npub extern \"C\" fn path_length(which: i32) -> i64 { black_box(PATH_SIZES[which as usize]) }\n"
+         "#[unsafe(export_name = \"path_character\")]\npub extern \"C\" fn path_character(which: i32, at: i64) -> u32 { black_box(PATH_CHARACTERS[(PATH_OFFSETS[which as usize] + at) as usize]) }\n"))
        ((string=? (field spec 'name) "ray")
         (string-append
-         "\n#[unsafe(export_name = \"path_length\")]\npub extern \"C\" fn path_length() -> i64 { PATH_SIZES[0] }\n"
-         "#[unsafe(export_name = \"path_character\")]\npub extern \"C\" fn path_character(at: i64) -> u32 { PATH_CHARACTERS[at as usize] }\n"))
+         "\n#[unsafe(export_name = \"path_length\")]\npub extern \"C\" fn path_length() -> i64 { black_box(PATH_SIZES[0]) }\n"
+         "#[unsafe(export_name = \"path_character\")]\npub extern \"C\" fn path_character(at: i64) -> u32 { black_box(PATH_CHARACTERS[at as usize]) }\n"))
        (else "")))
 
     (define (native-sources support source target timing?)
