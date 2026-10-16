@@ -1,0 +1,22 @@
+{
+  "performance_samples": false,
+  "partial_journal_authoritative": false,
+  "files": [
+    {
+      "name": "failed-launch.json",
+      "sha256": "cc159d41e45d7665ab9b95dd693aef04a61b8f920d67186d00618df553cbda3f"
+    },
+    {
+      "name": "failed-recovery-preparation.json",
+      "sha256": "4c806177388e23bcc3bd4fa8fad063a77a8a9394cb2828052770d16a438d0a30"
+    },
+    {
+      "name": "failed-launch-partial-journal.json",
+      "sha256": "5187aac38b7997b55116b40581795eb8f9249051a4d3f8b9c9e9d016a0acb630"
+    },
+    {
+      "name": "failed-launch-records.jsonl",
+      "sha256": "41713dd63c5fa14945263e03d29f15b7bf09638d464f4a6119022f15c16d0d70"
+    }
+  ]
+}
