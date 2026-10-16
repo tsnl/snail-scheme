@@ -392,6 +392,8 @@ impl Collector {
         }
     }
 
+    // Keep zeroing visible to fixed-size guest allocation sites under shared LTO.
+    #[inline(always)]
     pub unsafe fn allocate(&mut self, bytes: usize, roots: *mut NativeRoots) -> *mut u64 {
         // Two low header bits hold flags. This bound also makes alignment,
         // block rounding and collection-budget arithmetic safe before mutation.

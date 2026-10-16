@@ -1,6 +1,6 @@
 ;; This script needs only this package's scheme/ and tests/ include paths.
 (import (scheme base) (scheme file) (scheme write) (scheme process-context) (chibi filesystem)
-        (only (chibi string) string-contains)
+        (only (chibi string) string-contains string-split) (only (srfi 1) filter)
         (wasm-native) (wasm-native process) (wasm-native test-utils)
         (only (wasm-native wasm-optimize) assemble-wasm)
         (only (wasm-native chromium-trace) with-chromium-trace-to))
@@ -25,6 +25,16 @@
     (write-u8 (bytevector-length name) output)
     (write-bytevector name output) (write-bytevector data output)
     (write-bytes path (get-output-bytevector output))))
+
+(define (check-allocation-hints)
+  ;; The same mixed module is parsed by LLVM and executed through both links.
+  ;; Provider names are quoted fragments; only allocation calls carry the hint.
+  (let* ((text (read-text llvm)) (lines (string-split text #\newline))
+         (allocations (filter (lambda (line) (string-contains line "call i64 @native_alloc(")) lines))
+         (hinted (filter (lambda (line) (string-contains line " alwaysinline")) lines)))
+    (expect (pair? allocations) #t)
+    (expect hinted allocations)
+    (expect (and (string-contains text "call i64 @\"example_hide\"(") #t) #t)))
 
 (define (check-execution program)
   (let* ((options `((environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")))
@@ -51,6 +61,7 @@
   (append-custom-section binary)
   (check-provider-bindings (native-imports->bindings imports) (apply rust-bindings (car providers)))
   (wasm-binary->llvm binary imports directory llvm)
+  (check-allocation-hints)
   (llvm-bitcode llvm bitcode)
   (llvm-object llvm object)
   (expect (bytevector-copy (read-bytes bitcode) 0 4) #u8(66 67 192 222))
