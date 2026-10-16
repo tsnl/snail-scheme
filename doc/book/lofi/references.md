@@ -9,7 +9,11 @@
   [Revised⁷ Report on the Algorithmic Language Scheme (R7RS-Small)][r7rs-small].
   Background on Scheme expressions, procedures and libraries. Lofi's own rules
   are specified in these chapters.
+- Artyom Bologov, [My Perfect Scheme][my-scheme].
+  Future reading on small implementations, type checking, readability, SRFIs
+  and interactive development.
 
 [simply-easy]: https://www.andres-loeh.de/LambdaPi/SimplyEasy.pdf
 [three-implementations]: https://legacy.cs.indiana.edu/~dyb/papers/3imp.pdf
 [r7rs-small]: https://small.r7rs.org/attachment/r7rs.pdf
+[my-scheme]: https://aartaka.me/my-scheme.html
