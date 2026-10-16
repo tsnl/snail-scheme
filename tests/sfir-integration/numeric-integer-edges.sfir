@@ -1,5 +1,5 @@
 (import (sfir base))
-;; In-range boundaries succeed; the arithmetic suite separately requires overflow traps.
+;; Signed boundaries and division; the arithmetic suite also checks wrapping.
 (if (if (= (+ (ann 9223372036854775806 I64) (ann 1 I64)) (ann 9223372036854775807 I64))
         (if (= (+ (ann 2147483646 I32) (ann 1 I32)) (ann 2147483647 I32))
             (if (= (quotient (ann -7 I64) (ann 3 I64)) (ann -2 I64))

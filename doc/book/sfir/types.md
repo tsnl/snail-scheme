@@ -132,17 +132,29 @@ I32 type. Boxing `(def value Any 42)` preserves I32, so `(ann value I64)` fails
 its runtime type check. `Unit` is constructed by the ordinary `(unit)` operation with
 signature `(-> Unit)`.
 
-An out-of-range literal is a compile-time error. Arithmetic and conversions must
-report representation overflow instead of silently wrapping or silently
-widening the type. Floating-point rounding within range is expected; an overflow
-of the finite range is an error. The check uses the rounded result: a value that
-rounds back into the finite range is allowed. Integer division by zero and signed
-minimum divided by minus one are errors as well. Integer remainder of signed
-minimum by minus one is zero. Floating division by zero and invalid domains
-retain IEEE results, as do operations with explicit infinity or NaN operands;
-they are distinct from overflow of a finite arithmetic result. Underflow may
-produce a subnormal or signed zero. Explicitly named operations with different
-contracts are described among the [implementation extensions](extensions.md).
+An out-of-range literal is a compile-time error. Runtime I32/I64 addition,
+subtraction and multiplication wrap modulo 2^32 or 2^64, respectively, with the
+result interpreted as a signed integer of the same width. They do not trap on
+overflow or widen the type. Thus I32 maximum plus one is I32 minimum, and
+subtracting I32 minimum from zero returns I32 minimum. Integer division by zero
+and signed minimum divided by minus one trap. Integer remainder by zero traps;
+remainder of signed minimum by minus one is zero.
+
+F32/F64 addition, subtraction, multiplication and division use IEEE results,
+rounded to the operation's width with nearest rounding and ties to even.
+Overflow may produce infinity; underflow may
+produce a subnormal or signed zero. Division by zero, invalid domains and
+operations with infinity or NaN operands retain their IEEE behavior. NaN payloads
+and signs are not prescribed. These contracts apply to direct primitives,
+overloads and first-class function values on both Wasm and native execution.
+
+Explicit narrowing conversions remain checked: an out-of-range integer or a
+finite float that rounds to infinity traps. Floating-to-integer conversion also
+traps for NaN, infinity or a truncated result outside the signed destination
+range. These conversion contracts are detailed among the
+[implementation extensions](extensions.md). The nominal unbounded `Integer`
+library retains exact arithmetic. Explicit overflow-checking arithmetic variants
+are future operations; they are not part of the current interface.
 
 Floating literals round once from the source value to the selected IEEE format,
 using nearest rounding with ties to even. A finite value just above the largest

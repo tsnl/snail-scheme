@@ -29,9 +29,11 @@ contracts, their execution evidence and remaining extensions are recorded below:
   width and reject representation overflow at literal construction.
 - [x] Check primitive numeric conversions, including integer narrowing and
   finite floating-point narrowing overflow, on Wasm and native.
-- [x] Check representation overflow in primitive runtime arithmetic. Preserve
-  intentional hashing and numeric-library semantics through explicit wrapping
-  and IEEE operations; ordinary fixed-width overloads remain checked.
+- [x] Use wrapping I32/I64 and IEEE F32/F64 arithmetic by default on Wasm and
+  native, with identical semantics for direct primitives, overloads and function
+  values. Preserve literal, narrowing and division checks and exact Integer arithmetic.
+- [ ] Add explicit overflow-checking arithmetic operations when needed. A future
+  Scheme-to-SFIR frontend may select them; Scheme frontend work remains deferred.
 - [x] Infer recursive groups monomorphically, including annotated and phantom
   instantiations. Generalize after the group while preserving rigid contracts
   and the value restriction; retain source-order readiness checks.
@@ -105,7 +107,7 @@ distinct from the core language contract.
   Report the Mperm timer correction as a distinct campaign.
 - [x] Complete focused clarity reviews of [recursive inference](../tests/sfir-recursion/README.md),
   [literal construction](../tests/sfir-literal-widths/README.md),
-  [checked arithmetic](../tests/sfir-arithmetic/README.md) and
+  [arithmetic lowering](../tests/sfir-arithmetic/README.md) and
   [shared I/O ownership](../lib/sfir/README.md). Retain independent explanations,
   rejected alternatives and target execution evidence for those concrete changes.
 - [ ] Investigate the measured full57 bottlenecks and continue scoped compiler

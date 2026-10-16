@@ -37,9 +37,10 @@ distinguishes implemented language and library contracts from remaining adapter 
 Each execution adapter documents its supported targets and entry ABI.
 
 Literal defaults are I32 and F64, with explicit annotations for other widths.
-Ordinary primitive arithmetic and conversions check representation overflow;
-the [extensions](extensions.md) document explicitly named wrapping and IEEE
-library operations.
+Ordinary fixed-width arithmetic uses wrapping integer and IEEE floating-point
+operations. Literal construction and narrowing conversions still check their
+representation bounds. Explicit checked-arithmetic variants are deferred; the
+[extensions](extensions.md) document current operations and compatibility aliases.
 
 The [earlier ownership proposal][ownership] develops affine values and cleanup rules.
 The present chapters describe the unrestricted core and reserve `many(T)` for

@@ -77,7 +77,7 @@
                   '(("mixed" "no compatible overload signature") ("private" "unbound") ("limbs" "unbound")))
         (numeric-corpus "sfir-integer" #f)))
 
-    ;; ---- Checked arithmetic preserves operand evaluation and unused traps ----
+    ;; ---- Arithmetic and narrowing preserve operand evaluation and required traps ----
 
     (define (run-arithmetic-or-narrowing suite)
       (let* ((arithmetic? (string=? suite "sfir-arithmetic"))
@@ -113,7 +113,7 @@
                                   (if (or (not (string=? (field case 'kind) "control")) trap?) "effect:1\n" "")) case)))
             (if arithmetic? '(0) '(0 1)))) cases)
         (when arithmetic? (arithmetic-libraries))
-        (complete! "checked arithmetic and narrowing on raw/optimized Wasm and native"
+        (complete! "arithmetic and checked narrowing on raw/optimized Wasm and native"
                    `((passed . #t) (cases . ,(length cases)) (diagnostic_only . #t)))))
     (define (arithmetic-libraries)
       (let ((wasm (build-path "libraries.wasm")) (native (build-path "libraries.native")))

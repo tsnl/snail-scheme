@@ -42,10 +42,12 @@ The libraries retain concrete storage and explicit mutation. Integer limb arrays
 are private scratch storage until publication; rationals normalize at construction;
 numeric exactness and binary64 signed-zero rules remain visible in the numeric
 modules. Datums retain distinct mutable storage identity and recursive view IDs.
-Fixed-width arithmetic is checked. Datum hashing explicitly imports wrapping
-word operations; nominal `Number` inexact arithmetic and the named exact-to-F64
-conversions explicitly retain IEEE overflow results. `(sfir math)` scalar
-services also retain IEEE overflow and domain behavior.
+Fixed-width integer arithmetic wraps at its declared width, while floats retain
+IEEE overflow and domain results. Literal construction and narrowing remain
+checked. Datum hashing's named word operations have the same wrapping contract.
+Nominal `Number` inexact arithmetic, the named exact-to-F64 conversions and
+`(sfir math)` scalar services also retain IEEE results; unbounded `Integer`
+arithmetic remains exact.
 Graph equality and output keep their existing work lists and cycle handling.
 No generic evaluator, boxed replacement algorithm or reduced numeric domain is
 introduced by the migration.
@@ -103,7 +105,7 @@ observable before a later UTF-8 error, and batching does not wait for additional
 input. A positive I64 holds up to seven nonzero byte lanes, each `ASCII code + 1`;
 zero marks exhausted lanes and leaves NUL distinct. `-1` represents EOF, and
 `-code - 2` represents one validated non-ASCII scalar. The bounded encoding fits
-in I64; SFIR uses checked arithmetic and conversions while consuming it.
+in I64; the decoding arithmetic stays in range and conversions remain checked.
 
 Peek retains the pending character or EOF. Read consumes one character and
 clears an EOF packet, preserving the previous behavior if a file later grows.

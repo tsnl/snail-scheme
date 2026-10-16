@@ -5,8 +5,8 @@ first-class conversion calls on raw Wasm, optimized Wasm and native. Native
 lowering must consume the same optimized guest bytes. Each run retains its
 inputs, commands, outcomes and artifact hashes under `build/sfir-narrowing/`.
 
-Integer expectations use the signed I32 range. Float expectations use Python's
-binary32 packing, independently of the SFIR emitter, with explicit expected
+Integer expectations use the signed I32 range. The retained float expectations
+use independent binary32 packing, with explicit expected
 answers at seven rounding boundaries. Cases cover both signs,
 integer endpoints, ties to even, the finite-overflow rounding boundary,
 subnormals, signed zero, infinity and NaN. Explicit argument effects must occur
@@ -24,13 +24,13 @@ cases rather than accepting infinities.
 
 These checks cover primitive conversions. The
 [arithmetic suite](../sfir-arithmetic/README.md) separately checks runtime
-arithmetic overflow. Native execution uses the ordinary process
-floating-point environment; altered rounding modes and flush-to-zero settings
+wrapping integer and IEEE floating-point arithmetic. Native execution uses the
+ordinary process floating-point environment; altered rounding modes and flush-to-zero settings
 are outside this verification.
 
 A fresh explanation without repository access and an informed critique kept the
 two conversion helpers. Held operands establish evaluation once; a stored F32
 establishes rounding once. The review rejected extra conversion-policy state and
 a generic numeric framework, and added discarded-result, branch and native trap
-effect checks. The test input matrix, build/run orchestration and C dispatch stay
+effect checks. The test input matrix, build/run orchestration and Rust dispatch stay
 together where splitting them would obscure their complete verification step.
