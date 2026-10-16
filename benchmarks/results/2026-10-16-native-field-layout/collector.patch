@@ -1,0 +1,19 @@
+--- /tmp/snail-native-allocator-20261016/probe/gcbench-field-layout-20261016/control-native_gc.rs	2026-10-16 05:59:37.421688811 -0700
++++ /tmp/snail-native-allocator-20261016/probe/gcbench-field-layout-20261016/runtime/src/native_gc.rs	2026-10-16 06:01:55.134728022 -0700
+@@ -517,12 +517,12 @@
+             }
+             Layout::Fields(fields) => {
+                 let length = fields.len();
++                // Layouts and their offsets stay immutable while marking. The
++                // worklist may grow, but it cannot invalidate this field storage.
++                let offsets = fields.as_ptr();
+                 self.stats.field_visits += length;
+                 for index in 0..length {
+-                    let Layout::Fields(fields) = &self.metadata.layouts[type_id - 1] else {
+-                        unreachable!()
+-                    };
+-                    let offset = fields[index] as usize;
++                    let offset = unsafe { *offsets.add(index) } as usize;
+                     assert!(offset < count);
+                     unsafe { self.mark(*words.add(offset)) };
+                 }
