@@ -126,12 +126,15 @@
     (define (capture-process argv options directory)
       (let* ((input (path-join directory "stdin")) (output (path-join directory "stdout"))
              (errors (path-join directory "stderr")) (record (path-join directory "process.json")) (start (current-jiffy))
-             (cwd (option-ref options 'directory (current-directory))))
+             (cwd (option-ref options 'directory (current-directory)))
+             ;; Reject invalid launch settings in the parent. An exception before
+             ;; child-command's guard must never resume the caller in a child.
+             (command (process-arguments argv options record)))
         (write-text input (option-ref options 'input ""))
         (flush-output-port (current-output-port)) (flush-output-port (current-error-port))
         (let ((pid (fork)))
           (unless pid (error "cannot fork process" argv))
-          (when (zero? pid) (child-command (process-arguments argv options record) cwd input output errors))
+          (when (zero? pid) (child-command command cwd input output errors))
           (let ((status (decoded-status (cadr (waitpid pid 0)))))
             (append `((command . ,(list->vector argv)) (status . ,status) (stdout . ,(captured-text output))
                       (stderr . ,(captured-text errors)) (supervisor_pid . ,pid) (cwd . ,cwd)
@@ -192,5 +195,19 @@
                    "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
                    "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
                    "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"))))
-      (define (test-process) (run-test test-captured-byte-identity))))
+      (define (test-supervisor-before-fork)
+        (let* ((parent (current-process-id))
+               (logs (make-build-directory (tool-name "TMPDIR" "/tmp") "snail-process-test-"))
+               (result
+                (guard (failure (else failure))
+                  (parameterize ((current-process-supervisor #f))
+                    (run-command/capture '("true") `((require-supervisor? . #t) (log-directory . ,logs))))
+                  #f)))
+          (unless (= parent (current-process-id)) (emergency-exit 98))
+          (delete-file-hierarchy logs)
+          (expect (and (error-object? result) (error-object-message result))
+                  "captured command requires a built native process supervisor")))
+      (define (test-process)
+        (run-test test-captured-byte-identity)
+        (run-test test-supervisor-before-fork))))
    (else)))
