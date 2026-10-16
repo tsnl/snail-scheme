@@ -20,7 +20,7 @@ chibi-scheme -I "$package/scheme" /absolute/path/to/build.scm
 
 Set `package` to this directory's absolute path. The library's own dependencies
 use that same search root and installed Chibi/SRFI libraries, so this command
-works from outside the repository. A Sphere build additionally passes
+works from outside the repository. A Lofi build additionally passes
 `-I "$repo/src"`; see the repository's [`build.scm`](../build.scm).
 
 ```scheme

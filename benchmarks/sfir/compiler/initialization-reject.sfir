@@ -1,6 +1,0 @@
-;; The retained draft failed here: a cell write is Unit, not a source Value.
-(import (sfir base))
-(def Value (datatype () (value-unspecified)))
-(def CompilerResult (datatype () (compiler-ok (value Value))))
-(def cell (ref (value-unspecified)))
-(compiler-ok (ref-set! cell (value-unspecified)))

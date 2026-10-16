@@ -1,0 +1,8 @@
+(import (lofi base))
+(def cell
+     (ref (ann 0 I64)))
+
+(def broad (Ref Any)
+     cell)
+(ref-set! broad (ann #t Any))
+(ref-get cell)

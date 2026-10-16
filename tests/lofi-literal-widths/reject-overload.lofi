@@ -1,0 +1,3 @@
+(import (lofi primitive))
+(define-overload choose (-> I64 I64) (lambda (value) value))
+(choose 1)

@@ -1,0 +1,29 @@
+(import (lofi base))
+
+(def state
+     (ref (ann 0 I64)))
+
+(def calls (-> I64)
+     (lambda () (ref-get state)))
+
+(def after-forward (-> I64)
+     (lambda () (ref-get state)))
+
+(def checked (-> Unit)
+     (lambda ()
+       (begin
+         (ref-set! state (ann 1 I64))
+         (ann (ann (ann 42 I64) Any) Unit)
+         (unit))))
+
+(def forward (-> Unit)
+     (lambda ()
+       (begin
+         (def early
+              (begin (ref-set! state (ann 2 I64)) later (unit)))
+         (def later
+              (unit))
+         early
+         (unit))))
+
+(ann 42 I64)

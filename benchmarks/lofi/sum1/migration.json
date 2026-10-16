@@ -1,0 +1,57 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/sum1.scm",
+  "upstream_sha256": "b0dd067a98487589a1b71aad82c5110f6569dd30691058389d754e9f44acadd5",
+  "canonical_input_sha256": "398f2de9fa76586c40499a1f4b37d5a043e68fe575e88f37b679b06f9ee2adf1",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "5d55bd07a20c35ad42b497d4e4610ed9e2fab8f54460c9261afc97a81ea75934",
+  "sfir_sha256": "c4796df2deacac2d2dd457bea6c81ab8a2beb3e637ef21c5f3819de462140d39",
+  "controls": {
+    "chez-adapted.scm": "646ec34fdca9788d379bfa4cb644ac55783c58e054aa86039a49184a09ad4aed",
+    "chez-original.scm": "4b347b1a9650ff75b335376b15b6a2df66b66a368aedcc4634e016534c68f7de"
+  },
+  "control_boundary_corrections": [
+    {
+      "before_sha256": "a8cd42da7b8978af633f36817764fc11dcb4a21ffb8c8ef03507d6cbc0d8ac3e",
+      "change": "Import Chez vector-copy for the unchanged Integer library decimal-chunks procedure; target, benchmark, library bodies and input are unchanged.",
+      "edit": {
+        "before": "(import\n",
+        "after": "(import\n  (only (chezscheme) vector-copy)\n"
+      },
+      "exact_reverse_verified": true
+    }
+  ],
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "d9cb451df067634ed2ae58e22d19b646cd465234a4c847b83827c264e645e28a",
+    "migrated_unformatted_sha256": "1e2d7b3caa87bcdcc6bbe1a8e7612d12df3c692bfc117182dde3153f562130ff",
+    "after_sha256": "1e2d7b3caa87bcdcc6bbe1a8e7612d12df3c692bfc117182dde3153f562130ff",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  },
+  "literal_width_migration": {
+    "before_sha256": "1e2d7b3caa87bcdcc6bbe1a8e7612d12df3c692bfc117182dde3153f562130ff",
+    "after_sha256": "c4796df2deacac2d2dd457bea6c81ab8a2beb3e637ef21c5f3819de462140d39",
+    "annotations_added": 6,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
+  },
+  "lofi_sha256": "8a2e740440b5d0014fa6fa3497b484619763c96f76be5247e64946eda2502d47",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "c4796df2deacac2d2dd457bea6c81ab8a2beb3e637ef21c5f3819de462140d39",
+    "after_sha256": "8a2e740440b5d0014fa6fa3497b484619763c96f76be5247e64946eda2502d47",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/fibc.scm",
+  "upstream_sha256": "0542fcfb58e03322c534139bae7466422fe8ae96e2eef2b45dd9a1cb3d36ccc2",
+  "canonical_input_sha256": "30f0ad427974b54d130356c7922f4141d5b58a9f9c6d4afee41b9a17b4f04720",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "Authored directly as static SFIR; upstream call/cc contexts are immutable closed continuation variants. No Scheme elaborator is used by preparation, compilation, or execution.",
+  "equivalence_status": "Complete canonical predicate passed all six frozen routes: SFIR/V8, SFIR/native64, original/adapted Chez, Rust Wasm/native. Complete diagnostic event traces matched actual call/cc with explicit left-to-right order. The recorded native preparation performed an extra optimization pass and is correctness evidence, not optimized-module parity.",
+  "controls": {
+    "chez-adapted.scm": "3e668901c5e072d69cc5987d43359a02413929f4ee58a18b28c824735939a0eb",
+    "chez-observe.scm": "e7e6977e273a91058a3a16b08d3bd2f1178da620babeb575b28cf42a8b323f75",
+    "chez-original.scm": "ddca50c7c5ea6db504cd887428eec0e4ea587f09dcb011ec3f4df9201ecc2eb1"
+  },
+  "representation": "I64 for the canonical bounded integer domain; immutable continuation records; source operand order chosen left to right. Original and adapted Chez controls retain full canonical counts and predicates.",
+  "sfir_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+  "observation_sfir_sha256": "30fa87bbb0825010154bd5537319f4693404093692ec8bef2c8acfc9af8f0840",
+  "canonical_validation": "/tmp/snail-sfir-continuation-validation-20261015/validation.json",
+  "clarity_review": "Fresh independent no-files explanation and focused critique of closed continuation contexts, CTAK shadowing captures, source operand order, ownership and complete Peano addition; measured sources unchanged.",
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "87d86bfbfe8eab5f1f4bc6bb4c95911d6cb7b0d37c59a4f2465aba2f9f690fe9",
+    "migrated_unformatted_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "after_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source.",
+    "observer": {
+      "before_sha256": "fec8eb138f113e7310748c7d5e88619710e755396bb007566ba85a47e6ff08c3",
+      "migrated_unformatted_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+      "after_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc"
+    }
+  },
+  "literal_width_migration": {
+    "before_sha256": "f00b697a86312ec59e95db44078ef3a8030f67809a9bc884c978521c1278cb7d",
+    "after_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+    "annotations_added": 10,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources.",
+    "observer": {
+      "before_sha256": "916f344b3defda52ca2606a8ef9ab1819ecf3db8cd021be92db1b581c4e988cc",
+      "after_sha256": "30fa87bbb0825010154bd5537319f4693404093692ec8bef2c8acfc9af8f0840",
+      "annotations_added": 18
+    }
+  },
+  "lofi_sha256": "0da4d5049c4dbc3c5ab891a61bc449c167b21f3df1acde402d14394d92f406ba",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "b00743e71ede20e40ff433fbee1c31ee7fa4a60f36072e2e4fd3b6633f273a52",
+    "after_sha256": "0da4d5049c4dbc3c5ab891a61bc449c167b21f3df1acde402d14394d92f406ba",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  }
+}

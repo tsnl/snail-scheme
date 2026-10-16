@@ -1,0 +1,60 @@
+(define-library (builder producer)
+  (import (lofi compiler-builder)
+          (only (lofi primitive) empty-list cons i32-lt unreachable)
+          (output arithmetic))
+  (export build fail wrong-token wrong-kind bad-location)
+  (begin
+    ;; Producer execution and generated imports may overlap, but are supplied
+    ;; independently. Calling sum here does not provide it to the result.
+    (def produce (-> I32 LofiLibrary)
+         (lambda (offset)
+           (begin
+             (let span (source-span (builder-name "generated-example.lofi") (ann 11 I32) (ann 5 I32)))
+             (let scope (library-scope))
+             (let secret-name (builder-name "secret"))
+             (let secret (binding scope secret-name span))
+             (let hidden-name (builder-name "hidden"))
+             (let hidden (binding scope hidden-name span))
+             (let main-name (builder-name "main"))
+             (let main (binding scope main-name span))
+             (let hidden-scope (nested-scope scope))
+             (let hidden-parameter (binding hidden-scope secret-name span))
+             (let main-scope (nested-scope scope))
+             (let main-parameter (binding main-scope secret-name span))
+             (let sum-name (builder-name "sum"))
+             (let combine-name (builder-name "combine"))
+             (let combine (import-reference scope combine-name span))
+             (let unary (function-type (cons (type-i32) (empty-list)) (type-i32)))
+             (let hidden-body
+                 (application-expression (reference-expression combine)
+                                         (cons (reference-expression (local-reference hidden-parameter span))
+                                               (cons (reference-expression (local-reference secret span)) (empty-list))) span))
+             (let main-body
+                 (application-expression (reference-expression (local-reference hidden span))
+                                         (cons (reference-expression (local-reference main-parameter span)) (empty-list)) span))
+             (let value
+                 (if (i32-lt offset (ann 0 I32)) (literal-bool #t span)
+                     (literal-i32 (sum offset (ann 0 I32)) span)))
+             (lofi-library
+              (cons (builder-name "generated") (cons (builder-name "descriptive") (empty-list))) scope
+              (cons (library-import
+                     (cons (builder-name "output") (cons (builder-name "arithmetic") (empty-list)))
+                     (rename-imports (only-imports (all-imports) (cons sum-name (empty-list)))
+                                     (cons (import-rename sum-name combine-name) (empty-list))) scope span) (empty-list))
+              (cons (library-export (builder-name "run") (local-reference main span))
+                    (cons (library-export (builder-name "reexport") combine) (empty-list)))
+              (cons (definition secret (type-i32) value span)
+                    (cons (definition hidden unary
+                            (lambda-expression hidden-scope (cons hidden-parameter (empty-list)) hidden-body span) span)
+                          (cons (definition main unary
+                                  (lambda-expression main-scope (cons main-parameter (empty-list)) main-body span) span)
+                                (empty-list)))) span))))
+    ;; This scalar ABI wrapper is a driver operation, not the library value.
+    (def build (-> I32 I64) (lambda (offset) (library-token (produce offset))))
+    (def fail (-> I64) (lambda () (begin (produce (ann 7 I32)) (unreachable))))
+    (def wrong-token (-> I64) (lambda () (ann 0 I64)))
+    (define-extern raw-name "lofi.builder" "name-empty" (-> I64))
+    (def wrong-kind (-> I64) (lambda () (raw-name)))
+    (def bad-location (-> I64)
+         (lambda ()
+           (begin (source-span (builder-name "bad.lofi") (ann 0 I32) (ann 1 I32)) (ann 0 I64))))))

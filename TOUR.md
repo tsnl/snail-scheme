@@ -1,17 +1,17 @@
-# The SFIR compiler
+# The Lofi compiler
 
-Chibi hosts the compiler implementation. The supported input is located SFIR,
+Chibi hosts the compiler implementation. The supported input is located Lofi,
 with no Scheme expander or interpreter in the compilation pipeline.
 
 ```text
-Compiler: SFIR text → located syntax → parsed library values → resolved source
+Compiler: Lofi text → located syntax → parsed library values → resolved source
           → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
           optimized Wasm → wasm-native → LLVM opt/llc → native object
                          → Cargo + Rust runtime/providers → x86-64 Linux executable
 ```
 
-The [language contract](doc/sfir.md) describes intended language behavior. This
+The [language contract](doc/lofi.md) describes intended language behavior. This
 tour describes the current modules; the `snail-scheme` and `strict-*` internal
 filenames are being migrated and do not select a second source language.
 The compiler emits Wasm only. Ordinary Chibi scripts independently import the
@@ -19,14 +19,14 @@ compiler and [`wasm-native`](wasm-native/README.md) when composing a native buil
 The standalone package contains the native lowering, shared Rust runtime and
 neutral host utilities; it has no compiler dependency.
 
-The directory names separate responsibilities. `src/snail-sfir` contains the
+The directory names separate responsibilities. `src/snail-lofi` contains the
 public compiler API, library loading and frontend; `src/snail-scheme` contains
 compiler internals under their historical name. Both are Scheme hosted by Chibi.
-`lib/sfir` contains libraries written in SFIR, and `wasm-native` is the separate
+`lib/lofi` contains libraries written in Lofi, and `wasm-native` is the separate
 native backend and runtime package.
 
 For a first read, start with `compile` and `entry-program` in
-[`compiler.sld`](src/snail-sfir/compiler.sld), then the source records in
+[`compiler.sld`](src/snail-lofi/compiler.sld), then the source records in
 [`ir.sld`](src/snail-scheme/ir.sld). Follow `generate-call` in
 [`strict-specialize.sld`](src/snail-scheme/strict-specialize.sld) alongside
 `rule-call` in [`strict-infer.sld`](src/snail-scheme/strict-infer.sld) and
@@ -43,7 +43,7 @@ s-expressions and rejects quote abbreviations. These are implementation modules
 written in Scheme; Chibi reads their own source.
 
 Numeric tokens retain their original spelling through syntax and resolved IR.
-[`numeric-literals.sld`](src/snail-sfir/numeric-literals.sld) decodes exact decimal
+[`numeric-literals.sld`](src/snail-lofi/numeric-literals.sld) decodes exact decimal
 values and rounds directly to the selected IEEE width, including subnormals and
 overflow boundaries. The reader also uses its exact decoding for bytevector
 elements; host floating-point approximations cannot turn a fraction into a byte.
@@ -52,9 +52,9 @@ enclosing `ann` or a direct binding annotation selects another scalar width;
 call, branch and result expectations check the fixed representation. `Any`
 therefore stores the default width unless the literal explicitly selects one.
 
-[`frontend.sld`](src/snail-sfir/frontend.sld) parses the small SFIR grammar into
-`SfirLibrary` values without loading dependencies. `parse-library` accepts one
-located `define-library`; `syntax-list->sfir-library` also accepts a script body.
+[`frontend.sld`](src/snail-lofi/frontend.sld) parses the small Lofi grammar into
+`LofiLibrary` values without loading dependencies. `parse-library` accepts one
+located `define-library`; `syntax-list->lofi-library` also accepts a script body.
 It reserves each block's bindings before parsing initializers. Local references
 carry binding identities; unresolved imports carry a name, the library's import
 scope, a syntactic category and a location. `def` reserves a block-wide identity;
@@ -64,7 +64,7 @@ separate, so an argument name cannot hide an enclosing quantified type variable.
 Library `begin` clauses concatenate before parsing; expression `begin` keeps
 its own lexical scope. No step performs inference or executes user source.
 
-[`snail-sfir/library.sld`](src/snail-sfir/library.sld) records parsed library
+[`snail-lofi/library.sld`](src/snail-lofi/library.sld) records parsed library
 identities, descriptive imports, exports and located declarations. Its
 `resolve-library-map` accepts an association list of library keys to parsed
 values and returns an association list of keys to resolved libraries. This
@@ -83,7 +83,7 @@ source expression and binding records. Expressions have no inferred type or
 constraint fields; binding definitions retain attached declarations and schemes.
 Immutable `LibraryId` and `BindingId` origins survive resolution and
 checking copies; mutable definition objects are canonical within their own graph.
-[`signatures.sld`](src/snail-sfir/signatures.sld) retains quantified source type
+[`signatures.sld`](src/snail-lofi/signatures.sld) retains quantified source type
 identities. A hole is missing compile-time information, never an implicit Any.
 The internal solver and Wasm emitter still spell the universal type `Top`;
 the source surface uses `Any`.
@@ -173,7 +173,7 @@ readiness-check elimination are deferred. Private target local/layout registries
 remain mutable. These [implementation tradeoffs](doc/ir.md#current-tradeoffs) are
 separate from language semantics and measured runtime performance.
 
-[`compiler.sld`](src/snail-sfir/compiler.sld) composes the passes.
+[`compiler.sld`](src/snail-lofi/compiler.sld) composes the passes.
 The Chibi-hosted `library-map->core` resolves the supplied parsed map and checks
 the chosen root's dependency closure. It requires no tracing or source context.
 `compile` takes that same map and `(make-entry library-key public-name)`, and
@@ -186,47 +186,47 @@ monomorphic functions with fixed scalar parameters and a scalar or Unit result.
 Inferred function signatures are accepted; an `All` entry needs type arguments
 that this interface does not supply.
 
-[`source-driver.sld`](src/snail-sfir/source-driver.sld) owns file selection,
+[`source-driver.sld`](src/snail-lofi/source-driver.sld) owns file selection,
 independent library preparation and dependency collection, including compiled
 `generate-library` recipes. Producer and application maps are separate; a shared
 preparation chain diagnoses cycles and preserves each selected value's identity.
 The older frontend convenience APIs remain adapters for already parsed source.
-The source driver's `sfir.parse`, `sfir.check`, `sfir.specialize` and `sfir.emit-wasm`
+The source driver's `lofi.parse`, `lofi.check`, `lofi.specialize` and `lofi.emit-wasm`
 trace spans expose the boundaries. [`chromium-trace.sld`](wasm-native/scheme/wasm-native/chromium-trace.sld)
 requires an explicit trace scope. [`scripts/view-traces`](scripts/view-traces)
 opens retained evidence in Perfetto.
 
-`scripts/build-sfir` keeps its script behavior and `--export` selector for unique
+`scripts/build-lofi` keeps its script behavior and `--export` selector for unique
 flattened binding names. The library API uses public Entry selection.
-SFIR producers can construct, inspect and transfer the complete library syntax
-described below. [`(sfir compiler)`](lib/sfir/compiler.sfir) also exposes explicit
+Lofi producers can construct, inspect and transfer the complete library syntax
+described below. [`(lofi compiler)`](lib/lofi/compiler.lofi) also exposes explicit
 map assembly, compilation, Wasm loading, independent instantiation and checked
-scalar entry invocation as ordinary SFIR calls. Every fallible operation returns
+scalar entry invocation as ordinary Lofi calls. Every fallible operation returns
 an ordinary `CompilerResult` success or diagnostic string.
 
-[`compiler-service.mjs`](src/snail-sfir/compiler-service.mjs) owns one Chibi
+[`compiler-service.mjs`](src/snail-lofi/compiler-service.mjs) owns one Chibi
 process, the matching builder arena, copied artifacts and runtime instances.
-[`serve-sfir-compiler.scm`](scripts/serve-sfir-compiler.scm) parses supplied source
+[`serve-lofi-compiler.scm`](scripts/serve-lofi-compiler.scm) parses supplied source
 once or receives constructed syntax and retains unresolved library values in
 immutable maps. Compilation resolves only the supplied map; provider linkage
 remains a separate execution operation. Failed initialization publishes no
 instance; a trapped call retains its instance and preceding effects. A lost
 compiler process invalidates map operations while copied artifacts and existing
 runtime instances remain owned by the service scope. See the
-[service API](doc/sfir-compiler-service.md) for lifecycle rules, Wasm execution
-and first-class parsed `SfirLibrary` values. The separate Scheme native
+[service API](doc/lofi-compiler-service.md) for lifecycle rules, Wasm execution
+and first-class parsed `LofiLibrary` values. The separate Scheme native
 loading adapter is described below.
 
-[`run-sfir-generator.mjs`](scripts/run-sfir-generator.mjs) executes compiled
+[`run-lofi-generator.mjs`](scripts/run-lofi-generator.mjs) executes compiled
 recipes through the checked builder boundary. An explicit provider factory
 receives the selected descriptor's directory and owns its foreign services until
 cleanup. The driver registers the returned syntax and separately obtains its
-imports. See [source recipes](doc/sfir-generation.md) for the API, command example,
+imports. See [source recipes](doc/lofi-generation.md) for the API, command example,
 source context and preparation errors.
 
 ## Parsed and constructed library values
 
-[`compiler-builder.sfir`](lib/sfir/compiler-builder.sfir) lets compiled SFIR
+[`compiler-builder.lofi`](lib/lofi/compiler-builder.lofi) lets compiled Lofi
 producers compose nominal library, declaration, type, scope, binding and reference
 values. Constructors use explicit operands; no ambient current library is mutated.
 The API covers the book's types and binding signatures, literals, expressions,
@@ -236,7 +236,7 @@ identities. Typed inspection views expose all constructor fields and copy mutabl
 literal payloads. Binding references are distinct from expressions, and private
 handles do not expose managed pointers.
 
-[`library-builder.mjs`](src/snail-sfir/library-builder.mjs) supplies typed scalar
+[`library-builder.mjs`](src/snail-lofi/library-builder.mjs) supplies typed scalar
 constructors in an invocation-owned arena. `invokeLibraryGenerator` initializes
 and calls an ordinary compiled producer, copies its completed syntax graph into
 an owned transfer, and closes the arena and producer instance on success or trap.
@@ -244,12 +244,12 @@ The same arena receives copied parse packets with checked structure and fresh
 local identities; parsed and constructed values share all typed views.
 The transfer has a versioned schema and preserves nodes and their local IDs.
 
-[`library-transfer.sld`](src/snail-sfir/library-transfer.sld) receives that data
+[`library-transfer.sld`](src/snail-lofi/library-transfer.sld) receives that data
 in Chibi, checks Unicode and structure, then reserves definitions and visits
 statements in order, introducing each `let` after its initializer. Every reference
 is checked against its lexical occurrence, including quantified type identities
 and static binding roles. It shares the frontend's reserved binding-name rule
-and creates an unresolved `SfirLibrary`. An explicit receiving context preserves
+and creates an unresolved `LofiLibrary`. An explicit receiving context preserves
 reuse of legitimate owned transfers; reading raw bytes again creates fresh
 identities.
 Its reverse writer traverses unresolved parser declarations with binder identity
@@ -258,13 +258,13 @@ signature locations, quantified variables and numeric source spellings survive
 that copy. Parsing still uses only `frontend.sld`; no types are inferred during
 transfer. Output imports need their own supplied map. The receiver neither discovers
 dependencies nor accepts inferred IR as evidence. See the [builder API and
-executable example](doc/sfir-builder.md) for ownership, supported constructors,
+executable example](doc/lofi-builder.md) for ownership, supported constructors,
 and typed inspection.
 
 ## Wasm artifacts, native composition and runtime
 
-[`snail-sfir`](snail-sfir) owns command parsing, private build directories,
-publication and Wasm host invocation. [`build-sfir`](scripts/build-sfir) and
+[`snail-lofi`](snail-lofi) owns command parsing, private build directories,
+publication and Wasm host invocation. [`build-lofi`](scripts/build-lofi) and
 [`build-native`](scripts/build-native) preserve intermediates for module-level
 work. The latter is an ordinary composition script that passes emitted Wasm to
 the native package, then links its object with Cargo. [`build.scm`](build.scm)
@@ -272,9 +272,9 @@ shows these library calls directly for an explicit public export and Rust entry
 point. [`wasm-optimize.sld`](wasm-native/scheme/wasm-native/wasm-optimize.sld)
 requires Binaryen on both execution routes.
 
-[`snail-sfir/artifact.sld`](src/snail-sfir/artifact.sld) implements the Chibi
+[`snail-lofi/artifact.sld`](src/snail-lofi/artifact.sld) implements the Chibi
 Entry and Artifact boundary. Compilation returns optimized, unlinked Wasm bytes
-with a versioned `sfir.entry` custom section containing the public
+with a versioned `lofi.entry` custom section containing the public
 Entry description and semantic scalar signature. The section is appended after
 Binaryen optimization; loading verifies its schema and execution verifies the
 actual exported signatures. Tool temporaries live in a private directory;
@@ -289,12 +289,12 @@ string names, physical `i32`/`i64`/`f32`/`f64` parameter types, and a scalar or
 consumes the Wasm representation, physical imports and runtime ABI; it receives
 no source bindings, inference state or compiler IR.
 
-[`snail-sfir/native.sld`](src/snail-sfir/native.sld) is the optional source-aware
+[`snail-lofi/native.sld`](src/snail-lofi/native.sld) is the optional source-aware
 adapter. `(artifact->native-object artifact imports directory output)` supplies
 the saved scalar signature and source entry description to
 [`scalar-entry.sld`](wasm-native/scheme/wasm-native/scalar-entry.sld). That optional
 protocol layer checks the actual optimized Wasm `main`/`entry` signatures and
-emits a fixed scalar-bits bridge into the native LLVM module. An ELF `.sfir.entry`
+emits a fixed scalar-bits bridge into the native LLVM module. An ELF `.lofi.entry`
 section and signature-encoded bridge alias preserve the scalar tags, origin
 description and required foreign declarations. Bool and Char remain distinct
 protocol tags despite sharing physical `i32`. The native loader checks their
@@ -305,10 +305,10 @@ Artifact accessors expose the original Entry, semantic scalar parameter
 and result types, and bytes. The fixed ABI exports `entry` for the selected
 function and `main` for one-shot library initialization; native symbols are
 `wasm.entry` and `wasm.main`, after `native_module_init`. Calling `entry` before
-successful initialization traps. A public SFIR export named `main` is therefore
+successful initialization traps. A public Lofi export named `main` is therefore
 unambiguous. Native object bytes do not themselves represent a running instance.
 
-[`snail-sfir/execute.mjs`](src/snail-sfir/execute.mjs) is the explicit JavaScript
+[`snail-lofi/execute.mjs`](src/snail-lofi/execute.mjs) is the explicit JavaScript
 Wasm execution adapter. `loadWasm(bytes)` snapshots a `Uint8Array`, validates the
 module and saved scalar metadata, and returns loaded code with read-only
 `entry`, `parameters` and `result` descriptions. It performs no library
@@ -357,36 +357,36 @@ GC and provider state. [`native_worker.rs`](wasm-native/src/native_worker.rs) su
 a separate supervisor and guest worker; ownership precedes provider constructors.
 Failed initialization publishes no instance. Native traps and interrupted calls
 invalidate their instance; the supervisor reaps its owned descendants, including
-after host death. The [native loading contract](doc/sfir-native-loading.md)
+after host death. The [native loading contract](doc/lofi-native-loading.md)
 describes the API, retained logs, unsafe native boundary and target limitations.
 
-[`link-sfir-runtime`](scripts/link-sfir-runtime) calls
+[`link-lofi-runtime`](scripts/link-lofi-runtime) calls
 [`runtime-wasm.sld`](wasm-native/scheme/wasm-native/runtime-wasm.sld), which builds
 the Rust runtime's Wasm form, links its scalar externs into a WASI reactor,
 drops unused runtime exports and optimizes the result. This utility imports no
 native lowering or execution code.
-[`run-sfir.mjs`](scripts/run-sfir.mjs) initializes once, invokes `main`, and drains
-resource cleanup. The [SFIR libraries](lib/sfir/README.md) implement numeric,
-container, datum and I/O behavior in SFIR; Rust externs supply concrete host
+[`run-lofi.mjs`](scripts/run-lofi.mjs) initializes once, invokes `main`, and drains
+resource cleanup. The [Lofi libraries](lib/lofi/README.md) implement numeric,
+container, datum and I/O behavior in Lofi; Rust externs supply concrete host
 operations. Wasm owns managed collection.
 
 [`wasm-native/Cargo.toml`](wasm-native/Cargo.toml) defines the one runtime crate.
 [`lib.rs`](wasm-native/src/lib.rs) contains runtime initialization, diagnostics and shared
 floating-point text. [`strict_io.rs`](wasm-native/src/strict_io.rs) owns file IDs and terminal
 cleanup; [`host.rs`](wasm-native/src/host.rs) implements buffered Unicode streams. The datum
-services retain temporary token text and stable symbol IDs, while SFIR owns the
+services retain temporary token text and stable symbol IDs, while Lofi owns the
 reader and managed datum graph. These services accept scalars and never retain
 guest GC roots. There is no boxed Scheme-value ABI or wrapper-finalizer bridge.
 
-[`io.sfir`](lib/sfir/io.sfir) shares an owned file's pending input and closed
+[`io.lofi`](lib/lofi/io.lofi) shares an owned file's pending input and closed
 handle across aliases. Rust returns up to seven already-buffered ASCII characters
 in one scalar packet; character, line and datum reads consume that same cursor.
 Optional packet bytes never refill the native buffer or decode a later invalid
 suffix. Borrowed stdin retains the native scalar read/peek cursor so direct
-foreign reads interoperate. The [input contract](lib/sfir/README.md#text-input-cursor)
+foreign reads interoperate. The [input contract](lib/lofi/README.md#text-input-cursor)
 describes the representation, EOF behavior and execution checks.
 
-[`text.sfir`](lib/sfir/text.sfir) owns string ordering and full case-fold output
+[`text.lofi`](lib/lofi/text.lofi) owns string ordering and full case-fold output
 storage. [`strict_text.rs`](wasm-native/src/strict_text.rs) exposes Unicode operations as
 scalar C/Wasm functions. [`unicode.rs`](wasm-native/src/unicode.rs) keeps one generated
 folding implementation with at most three stack-resident output scalars;
@@ -423,42 +423,42 @@ imports, so Wasm builds can use them without loading the native backend.
 
 ## Checks and measurements
 
-`make test` executes compiler host tests. `scripts/test-sfir` checks explicit
+`make test` executes compiler host tests. `scripts/test-lofi` checks explicit
 syntax, typing, module identity and actual V8 execution. `scripts/test-build`
 checks the Wasm public command and the native composition script, including
 cleanup and publication.
-`scripts/test-sfir-entry` compiles supplied library maps, links public Entry
+`scripts/test-lofi-entry` compiles supplied library maps, links public Entry
 artifacts to foreign providers, and executes both Wasm and native64 aliases.
-`scripts/test-sfir-native-loading` checks independent native instances, exact
+`scripts/test-lofi-native-loading` checks independent native instances, exact
 scalar transport, forced collection, provider ABI errors and process cleanup.
-`scripts/test-sfir-execution` exercises the Wasm adapter with typed providers,
+`scripts/test-lofi-execution` exercises the Wasm adapter with typed providers,
 independent state, failed initialization and checked scalar transport.
-`scripts/test-sfir-builder` compiles an SFIR producer, transfers its structured
+`scripts/test-lofi-builder` compiles an Lofi producer, transfers its structured
 result into a separate Chibi host, and compiles and executes the received library.
 Its complete-library fixture rebuilds syntax through typed inspection and compares
 with ordinary source on linked Wasm and native execution with frequent collection;
 malicious packets test lexical ownership, static roles, Unicode and unforgeable
 checking evidence.
-`scripts/test-sfir-compiler-service` executes compilation and the full Wasm
-execution lifecycle from an SFIR build program. It checks recoverable diagnostics,
+`scripts/test-lofi-compiler-service` executes compilation and the full Wasm
+execution lifecycle from an Lofi build program. It checks recoverable diagnostics,
 source and constructed dependencies, provider signatures, instance ownership and
 continued artifact execution after the owned Chibi process is lost.
-`scripts/test-sfir-integration` executes 320 authored SFIR fixtures retaining the
+`scripts/test-lofi-integration` executes 320 authored Lofi fixtures retaining the
 previous compiler contracts. `scripts/test-backend` combines these with extern,
 library, scalar-service and Binaryen checks; `scripts/test-native` exercises
 mechanical lowering, collection, C signatures and resource cleanup.
 
-The [benchmark corpus](benchmarks/README.md) keeps 57 workloads, authored SFIR,
+The [benchmark corpus](benchmarks/README.md) keeps 57 workloads, authored Lofi,
 Chez controls and Rust comparisons. Source availability, execution correctness
 and clean measurement are distinct statuses. Compiler traces and instrumented
 runs explain work; they are not substituted for clean timing runs.
 
-`benchmarks/sfir/runner.scm` freezes the compiler, corpus inputs, selected Rust
+`benchmarks/lofi/runner.scm` freezes the compiler, corpus inputs, selected Rust
 installation and locked crate sources, then validates each target route.
 Dynamic, Scheme and SLaTeX keep their complete workload and resource
 contracts in local verifiers and native entries; the runner owns fixture copies,
 tool invocation and artifact parity. Scheme's interpreter is benchmark code.
-`benchmarks/sfir/timing.scm` prepares clean artifacts for all 57 registered
+`benchmarks/lofi/timing.scm` prepares clean artifacts for all 57 registered
 workloads, fixes the comparison schedule, supervises fresh execution processes
 and summarizes complete sample
 sets. Failed routes remain visible alongside measured routes.
@@ -473,8 +473,8 @@ and unit tests run in Chibi.
 
 ## Language specification
 
-The [SFIR book](doc/book/sfir/index.md) specifies the language, library
-values and staged builds. [Its entry page](doc/sfir.md) links the chapters and
+The [Lofi book](doc/book/lofi/index.md) specifies the language, library
+values and staged builds. [Its entry page](doc/lofi.md) links the chapters and
 preview commands. `scripts/book` builds or serves the book; shared rule snippets
 keep the explanations and formal summary synchronized. The book specifies design
 contracts, while this tour describes the installed implementation.

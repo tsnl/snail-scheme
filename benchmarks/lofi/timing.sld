@@ -1,0 +1,708 @@
+;; One frozen schedule, complete predicates, and no replacement samples.
+(define-library (lofi timing)
+  (export timing-main protocol-configuration execution-schedule elapsed-seconds
+          route-statistics comparison-ratios decimal-timing-source measurement-passed?
+          clean-wasm-command require-clean-environment)
+  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
+          (scheme process-context) (scheme write) (srfi 1) (srfi 95)
+          (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
+          (except (chibi filesystem) file-exists?) (wasm-native json)
+          (wasm-native process) (lofi runner) (lofi support))
+  (begin
+
+    ;; ---- Fixed experiment and explicit observation exclusions ----
+
+    (define routes
+      '(("lofi-wasm" . wasm_validation) ("lofi-native" . native_validation)
+        ("chez-original" . chez_validation) ("chez-adapted" . chez_adapted_validation)
+        ("rust-wasm" . rust_wasm_validation) ("rust-native" . rust_native_validation)))
+    (define observers '(NODE_OPTIONS NODE_V8_COVERAGE LD_PRELOAD SNAIL_GC_STATS SNAIL_NATIVE_GC_INTERVAL))
+    (define (trim text) (string-trim text char-whitespace?))
+
+    (define (require-clean-environment manifest)
+      (for-each (lambda (name)
+                  (let ((value (field (field manifest 'execution_environment) name 'null)))
+                    (unless (or (eq? value 'null) (not value) (equal? value ""))
+                      (error "clean timing excludes active observation settings" name value)))) observers)
+      (tool manifest 'TASKSET))
+
+    (define (allowed-cpus)
+      (let* ((line (find (lambda (line) (string-prefix? "Cpus_allowed_list:" line))
+                         (string-split (read-text "/proc/self/status") #\newline)))
+             (ranges (string-split (trim (cadr (string-split line #\:))) #\,)))
+        (append-map (lambda (range)
+                      (let* ((ends (map string->number (string-split range #\-)))
+                             (first (car ends)) (last (if (null? (cdr ends)) first (cadr ends))))
+                        (iota (+ 1 (- last first)) first))) ranges)))
+
+    (define (protocol-configuration cpu warmups repeats)
+      (unless (and (member cpu (allowed-cpus)) (= warmups 1) (= repeats 5))
+        (error "choose an allowed CPU; this protocol requires one warmup and five repeats" cpu))
+      `((cpu . ,cpu) (warmups . 1) (repeats . 5) (fresh_processes . #t)
+        (timer . "guest monotonic seconds; repeated workload plus complete final predicate")
+        (excluded . "input/setup, result formatting and final resource cleanup")
+        (rotation . "rotate cases by round; rotate six route positions by round plus case position")
+        (failure_policy . "retain all attempts; no retries; any failed warmup/sample withholds route comparisons")))
+
+    (define (prepare-timing directory options)
+      (let* ((protocol (protocol-configuration (field options 'cpu) 1 5))
+             (manifest (prepare (benchmark-root) directory (field options 'benchmarks)
+                                (field options 'compile-timeout) (field options 'run-timeout))))
+        (require-clean-environment manifest)
+        (write-json (path-join directory "manifest.json") (fields-with manifest (cons 'timing_protocol protocol)))))
+
+    (define (machine-context cpu)
+      (let ((root (path-join "/sys/devices/system/cpu" (string-append "cpu" (number->string cpu)))))
+        `((uname . ,(trim (run-command! '("uname" "-a"))))
+          (affinity . ,(list->vector (allowed-cpus))) (cpu . ,cpu) (cpuinfo . ,(read-text "/proc/cpuinfo"))
+          (configuration . ,(filter-map (lambda (name)
+                                          (and (file-regular? (path-join root name))
+                                               (cons (string->symbol name) (trim (read-text (path-join root name))))))
+                                        '("cpufreq/scaling_governor" "cpufreq/scaling_driver" "topology/thread_siblings_list"))))))
+
+    (define (tool-versions directory manifest environment)
+      (for-each
+       (lambda (entry)
+         (unless (succeeded? (record-command directory (string-append "versions/" (car entry))
+                                             (cons (tool manifest (cadr entry)) (cddr entry)) environment
+                                             (source-directory directory) (compile-timeout manifest)))
+           (error "cannot record exact tool identity" (car entry))))
+       '(("node-v8" NODE "-p" "JSON.stringify(process.versions)") ("chez" CHEZ "--version")
+         ("rustc" RUSTC "--version" "--verbose") ("cargo" CARGO "--version")
+         ("binaryen" WASM_OPT "--version") ("llvm" LLC "--version")))
+      (write-json (path-join directory "machine.json") (machine-context (field (field manifest 'timing_protocol) 'cpu))))
+
+    ;; ---- Clean artifacts retain the full workload and optimized guest identity ----
+
+    (define (copied-artifact source destination)
+      (when (file-link? source) (error "timing artifact must be an ordinary file" source))
+      (copy-file source destination)
+      (unless (string=? (file-sha256 source) (file-sha256 destination)) (error "copied execution artifact changed" source)))
+
+    (define (case-artifacts directory case status manifest environment)
+      (let* ((name (field case 'name)) (source (case-source directory case))
+             (original (path-join directory "validation" name)) (target (path-join directory "timing/artifacts" name)))
+        (when (file-exists? target) (error "clean artifacts cannot reuse an earlier build" target))
+        (create-directory* target)
+        (for-each (lambda (name)
+                    (when (file-exists? (path-join original name)) (copied-artifact (path-join original name) (path-join target name))))
+                  '("input.txt" "spec.json" "program.wasm" "program.wasm.raw.wasm" "provider.wasm" "math-provider.wasm" "native-input.txt"))
+        (values target (if (equal? (field status 'native_validation #f) "passed")
+                           (clean-native directory case source target status manifest environment) status))))
+
+    (define (clean-native directory case source target status manifest environment)
+      (guard (failure (else (write-json (path-join target "clean-native-preparation.json")
+                                        `((status . "failed") (reason . ,(exception-text failure))))
+                            (fields-with status (cons 'native_validation "failed-clean-preparation"))))
+        (let ((parity (native-parity target (native-build directory source target manifest environment #t) status)))
+          (if (string=? parity "passed") status
+              (fields-with status (cons 'native_validation (string-append "failed-clean-" parity)))))))
+
+    (define (clean-wasm-command directory case target manifest)
+      (let* ((host (field case 'host)) (provider (path-join target "provider.wasm"))
+             (choice (cond ((string=? host "scalar") '("scalar-host.mjs" "--timing"))
+                           ((string=? host "integer") '("integer-timing.mjs"))
+                           ((member host '("nucleic" "tail" "ray")) (list (string-append host "-host.mjs") "--timing" provider))
+                           ((member host '("datum-io" "compiler" "dynamic" "scheme" "slatex")) (list "reader-timing.mjs" provider))
+                           (else (error "no clean Wasm host" host)))))
+        (append (list (tool manifest 'NODE) "--no-warnings" (path-join directory "source/benchmarks/lofi/support" (car choice))
+                      (path-join target "program.wasm") (path-join target "spec.json")) (cdr choice))))
+
+    (define (decimal-timing-source text adapter)
+      (let ((invocation "(run-benchmark)\n"))
+        (unless (string-suffix? invocation text) (error "decimal control must end with one explicit benchmark invocation"))
+        (string-append (substring text 0 (- (string-length text) (string-length invocation))) adapter)))
+
+    (define (clean-chez directory case route target manifest environment)
+      (if (not (string=? (field case 'host) "integer"))
+          (copied-artifact (path-join directory "validation" (field case 'name) (string-append route ".so"))
+                           (path-join target (string-append route ".so")))
+          (begin
+            (write-text (path-join target (string-append route ".scm"))
+                        (decimal-timing-source (read-text (path-join (case-source directory case) (string-append route ".scm")))
+                                               (read-text (path-join directory "source/benchmarks/lofi/support/decimal-timing.scm"))))
+            (unless (succeeded? (compile-chez target target manifest environment (substring route 5)))
+              (error "decimal timing control failed to compile" route)))))
+
+    (define (route-command directory case route target manifest environment)
+      (cond ((string=? route "lofi-native") (append (list (path-join target "program.native"))
+                                                    (if (string=? (field case 'host) "integer") (list (path-join target "native-input.txt")) '())))
+            ((string=? route "lofi-wasm") (clean-wasm-command directory case target manifest))
+            ((string-prefix? "chez-" route)
+             (clean-chez directory case route target manifest environment)
+             (list (tool manifest 'CHEZ) "--program" (path-join target (string-append route ".so"))))
+            (else (rust-command directory case route target manifest))))
+
+    (define (rust-command directory case route target manifest)
+      (let* ((wasm? (string=? route "rust-wasm")) (suffix (if wasm? ".wasm" ""))
+             (binary (path-join directory "rust-target" (if wasm? "wasm32-wasip1/release" "release") (string-append (field case 'name) suffix)))
+             (target (path-join target (string-append route suffix))))
+        (copied-artifact binary target)
+        (if wasm? (list (tool manifest 'NODE) "--no-warnings" (path-join directory "source/benchmarks/wasm-reference/run-wasi.mjs") target) (list target))))
+
+    ;; ---- Every executed artifact and shared dependency has a retained digest ----
+
+    (define (path-identities directory paths)
+      (map (lambda (path) (cons (string->symbol (substring path (+ 1 (string-length directory)))) (file-sha256 path)))
+           (delete-duplicates (filter (lambda (path) (and (string-prefix? (string-append directory "/") path) (file-regular? path))) paths))))
+
+    (define (command-dependencies directory command target case)
+      (path-identities directory
+                       (append command (map (lambda (name) (path-join target name))
+                                            '("input.txt" "spec.json" "math-provider.wasm" "native-input.txt" "chez-original.scm" "chez-adapted.scm"))
+                               (map (lambda (name) (path-join directory "source/benchmarks/lofi" name)) '("runner.scm" "runner.sld" "timing.scm" "timing.sld" "support.sld"))
+                               (map (lambda (name) (path-join (case-source directory case) name)) '("input.txt" "spec.json")))))
+
+    (define (shared-dependencies command target route manifest environment)
+      (let* ((result (record-command target (string-append route "-shared-libraries") (list (tool manifest 'LDD) (car command))
+                                     environment target (compile-timeout manifest)))
+             (words (string-split (field result 'stdout "") char-whitespace?))
+             (libraries (filter (lambda (word) (string-prefix? "/" word)) words))
+             (paths (append (map (lambda (name) (tool manifest name)) '(NODE CHEZ TASKSET)) libraries)))
+        (unless (succeeded? result) (error "cannot identify actual shared libraries" route))
+        (map (lambda (path) (cons (string->symbol path) (file-sha256 path))) (delete-duplicates paths))))
+
+    (define (checked-native-parity directory target row)
+      (let* ((report (read-json (path-join target "native-parity.json"))) (files (field report 'files)))
+        (unless (string=? (field report 'status) "passed") (error "timing requires native optimized-program parity"))
+        (verify-source-files target files)
+        (verify-native-parity target `((raw_sha256 . ,(field files 'program.wasm.raw.wasm))
+                                       (optimized_sha256 . ,(field files 'program.wasm))) files)
+        (fields-with row (cons 'native_parity report)
+                     (cons 'files (append (path-identities directory
+                                                           (cons (path-join target "native-parity.json")
+                                                                 (map (lambda (entry) (path-join target (symbol->string (car entry)))) files))) (field row 'files))))))
+
+    (define (prepare-ready-route directory case route target row manifest environment)
+      (let* ((command (route-command directory case route target manifest environment))
+             (row (fields-with row (cons 'command (list->vector command)) (cons 'files (command-dependencies directory command target case))))
+             (row (if (string=? route "lofi-native") (checked-native-parity directory target row) row))
+             (shared (shared-dependencies command target route manifest environment))
+             (boots (if (string-prefix? "chez-" route)
+                        (filter (lambda (path) (string-suffix? ".boot" path)) (source-files (path-directory (path-directory (tool manifest 'CHEZ))))) '()))
+             (row (fields-with row (cons 'immutable_dependencies
+                                         (append shared (map (lambda (path) (cons (string->symbol path) (file-sha256 path))) boots))))))
+        (validate-clean-route directory row target manifest environment)))
+
+    ;; ---- Timers are accepted only with the complete canonical result ----
+
+    (define (lofi-elapsed output spec)
+      (let* ((rows (map string->json (filter (lambda (line) (string-prefix? "{" line)) (string-split output #\newline))))
+             (expected (if (vector? (field spec 'expected)) 1 (field spec 'expected))))
+        (unless (= 1 (length rows)) (error "guest must report exactly one correct result"))
+        (let ((result (field (car rows) 'result)))
+          (unless (if (and (number? expected) (inexact? expected)) (= expected (if (string? result) (string->number result) result))
+                      (equal? (if (string? result) result (number->string result)) (number->string expected)))
+            (error "guest timer result differs from canonical predicate" result expected)))
+        (field (car rows) 'seconds)))
+
+    (define (timer-name? route name spec)
+      (let* ((canonical (field (field spec 'timer_names '()) (string->symbol (car (string-split route #\-))) #f))
+             (parts (string-split name #\:)))
+        (if canonical (string=? name canonical)
+            (and (string=? (car parts) (field spec 'name)) (string=? (last parts) (number->string (field spec 'count)))))))
+
+    (define (control-elapsed route output spec)
+      (let ((rows (map (lambda (line) (string-split (substring line 11) #\,))
+                       (filter (lambda (line) (string-prefix? "+!CSVLINE!+" line)) (string-split output #\newline)))))
+        (unless (and (= 1 (length rows)) (= 3 (length (car rows))) (timer-name? route (cadar rows) spec))
+          (error "timer report must identify canonical case and count" rows))
+        (string->number (caddar rows))))
+
+    (define (check-decimal-output route output spec)
+      (when (assq 'output spec)
+        (let* ((marker (if (string-prefix? "lofi-" route) "{" "+!CSVLINE!+"))
+               (lines (string-split output #\newline))
+               (observed (string-join (filter (lambda (line) (not (string-prefix? marker line))) lines) "\n"))
+               (expected (string-append (if (string-prefix? "rust-" route) "Result: " "") (field spec 'output))))
+          (unless (string=? observed expected) (error "complete decimal output bytes differ" observed expected)))))
+
+    (define (elapsed-seconds route output spec)
+      (when (text-contains? output "INCORRECT") (error "guest reported incorrect result"))
+      (check-decimal-output route output spec)
+      (timeout-value (if (string-prefix? "lofi-" route) (lofi-elapsed output spec) (control-elapsed route output spec))))
+
+    (define (execute-attempt directory row target manifest environment)
+      (let* ((source (path-join directory "source/benchmarks/lofi" (field row 'case)))
+             (working (workload-directory directory source target "workload"))
+             (active (environment-with environment (map (lambda (entry) (cons (symbol->string (car entry)) (cdr entry))) (field row 'execution_environment))))
+             (command (append (list (tool manifest 'TASKSET) "-c" (number->string (field (field manifest 'timing_protocol) 'cpu)))
+                              (json-array (field row 'command))))
+             (result (record-command target "execute" command active working (run-timeout manifest) (read-text (path-join target "input.txt")))))
+        (checked-sample directory row target working result source)))
+
+    (define (checked-sample directory row target working result source)
+      (let ((record (substring (path-join target "commands/execute/record.json") (+ 1 (string-length directory)))))
+        (if (not (succeeded? result)) `((status . "failed-process") (record . ,record))
+            (guard (failure (else `((status . "failed-result") (reason . ,(exception-text failure)) (record . ,record))))
+              (let ((seconds (elapsed-seconds (field row 'route) (field result 'stdout) (read-json (path-join source "spec.json")))))
+                (unless (output-files-match? source working target (field row 'route)) (error "complete output bytes differ"))
+                `((status . "passed") (seconds . ,seconds) (record . ,record)))))))
+
+    (define (validate-clean-route directory row target manifest environment)
+      (let ((trial (path-join directory "timing/clean-validation" (field row 'case) (field row 'route))))
+        (when (file-exists? trial) (error "clean validation cannot reuse an attempt" trial))
+        (create-directory* trial)
+        (copy-file (path-join target "input.txt") (path-join trial "input.txt"))
+        (let ((result (execute-attempt directory row trial manifest environment)))
+          (write-json (path-join trial "result.json") (fields-with result (cons 'performance_sample #f)))
+          (fields-with row (cons 'validation result)
+                       (cons 'eligibility (if (string=? (field result 'status) "passed") "ready" (field result 'status)))))))
+
+    (define (prepare-route directory case route target status manifest environment)
+      (let* ((spec (read-json (path-join target "spec.json")))
+             (heap (if (and (string=? route "lofi-native") (assq 'native_heap_bytes spec))
+                       `((SNAIL_GC_HEAP_BYTES . ,(number->string (field spec 'native_heap_bytes)))) '()))
+             (row `((case . ,(field case 'name)) (route . ,route) (eligibility . ,(field status (cdr (assoc route routes)) "not-attempted"))
+                    (correctness_record . ,(string-append "validation/" (field case 'name) "/status.json")) (execution_environment . ,heap))))
+        (if (not (string=? (field row 'eligibility) "passed")) row
+            (guard (failure (else (fields-with row (cons 'eligibility "failed-clean-preparation") (cons 'reason (exception-text failure)))))
+              (prepare-ready-route directory case route target row manifest environment)))))
+
+    ;; ---- Schedule and dependency verification never adapt to sample results ----
+
+    (define (rotated values offset)
+      (let ((offset (modulo offset (length values)))) (append (drop values offset) (take values offset))))
+
+    (define (execution-schedule cases rows protocol)
+      (let ((eligible (filter (lambda (row) (string=? (field row 'eligibility) "ready")) rows)))
+        (append-map
+         (lambda (round)
+           (let ((phase (if (< round (field protocol 'warmups)) "warmup" "sample")))
+             (append-map (lambda (name position)
+                           (filter-map (lambda (route)
+                                         (and (find (lambda (row) (and (string=? name (field row 'case)) (string=? route (field row 'route)))) eligible)
+                                              `((id . ,(string-append phase "-" (number->string round) "-" name "-" route))
+                                                (case . ,name) (route . ,route) (phase . ,phase) (round . ,round))))
+                                       (rotated (map car routes) (+ round position))))
+                         (rotated cases round) (iota (length cases)))))
+         (iota (+ (field protocol 'warmups) (field protocol 'repeats))))))
+
+    (define (build directory)
+      (let* ((manifest (verify-preparation directory)) (environment (frozen-environment manifest)))
+        (require-clean-environment manifest)
+        (tool-versions directory manifest environment)
+        (let* ((validation (validate directory))
+               (rows (append-map (lambda (case status)
+                                   (let-values (((target status) (case-artifacts directory case status manifest environment)))
+                                     (map (lambda (route) (prepare-route directory case (car route) target status manifest environment)) routes)))
+                                 (json-array (field manifest 'cases)) (json-array (field validation 'cases))))
+               (plan `((protocol . ,(field manifest 'timing_protocol)) (rows . ,(list->vector rows))
+                       (schedule . ,(list->vector (execution-schedule (map (lambda (case) (field case 'name)) (json-array (field manifest 'cases))) rows (field manifest 'timing_protocol)))))))
+          (write-json (path-join directory "timing/plan.json") plan)
+          (write-json (path-join directory "manifest.json") (fields-with manifest (cons 'timing_plan_sha256 (file-sha256 (path-join directory "timing/plan.json")))))
+          (verify-ready directory)
+          plan)))
+
+    (define (verify-dependencies directory row)
+      (verify-source-files directory (field row 'files '()))
+      (for-each (lambda (entry)
+                  (unless (string=? (file-sha256 (symbol->string (car entry))) (cdr entry))
+                    (error "execution dependency changed" (car entry)))) (field row 'immutable_dependencies '())))
+
+    (define (verify-ready directory)
+      (let* ((manifest (verify-preparation directory)) (path (path-join directory "timing/plan.json")))
+        (unless (string=? (file-sha256 path) (field manifest 'timing_plan_sha256)) (error "frozen timing plan changed"))
+        (let ((plan (read-json path)))
+          (for-each (lambda (row) (verify-dependencies directory row)) (json-array (field plan 'rows)))
+          (require-clean-environment manifest)
+          (values manifest plan))))
+
+    ;; ---- Complete routes alone contribute to comparison ratios ----
+
+    (define (same-route? a b)
+      (and (equal? (field a 'case) (field b 'case)) (equal? (field a 'route) (field b 'route))))
+
+    (define (route-statistics row attempts protocol)
+      (let* ((matching (filter (lambda (attempt) (same-route? row attempt)) attempts))
+             (samples (filter (lambda (attempt) (and (equal? (field attempt 'phase) "sample") (equal? (field attempt 'status) "passed"))) matching))
+             (warmups (filter (lambda (attempt) (and (equal? (field attempt 'phase) "warmup") (equal? (field attempt 'status) "passed"))) matching))
+             (complete (and (equal? (field row 'eligibility) "ready") (= (length samples) (field protocol 'repeats))
+                            (= (length warmups) (field protocol 'warmups)) (= (length matching) (+ (length samples) (length warmups)))))
+             (seconds (map (lambda (attempt) (field attempt 'seconds)) samples))
+             (result `((case . ,(field row 'case)) (route . ,(field row 'route)) (eligibility . ,(field row 'eligibility))
+                       (complete . ,complete) (seconds . ,(list->vector seconds)))))
+        (if complete (fields-with result (cons 'median (list-ref (sort seconds <) (quotient (length seconds) 2)))
+                                  (cons 'minimum (apply min seconds)) (cons 'maximum (apply max seconds))) result)))
+
+    (define (comparison-ratios rows)
+      (append-map
+       (lambda (row)
+         (if (and (field row 'complete) (string-prefix? "lofi-" (field row 'route)))
+             (filter-map (lambda (control)
+                           (let ((other (find (lambda (candidate) (and (field candidate 'complete)
+                                                                       (equal? (field candidate 'case) (field row 'case))
+                                                                       (equal? (field candidate 'route) control))) rows)))
+                             (and other `((case . ,(field row 'case)) (numerator . ,(field row 'route))
+                                          (denominator . ,control) (ratio . ,(/ (field row 'median) (field other 'median)))))))
+                         (list "chez-original" "chez-adapted" (string-append "rust-" (substring (field row 'route) 5)))) '())) rows))
+
+    (define (measurement-passed? report)
+      (let ((eligible (filter (lambda (row) (equal? (field row 'eligibility) "ready")) (json-array (field report 'rows)))))
+        (and (equal? (field report 'status) "complete") (pair? eligible) (every (lambda (row) (field row 'complete)) eligible))))
+
+    (define (publish-measurement directory report plan)
+      (let* ((complete? (equal? (field report 'status) "complete"))
+             (rows (map (lambda (row)
+                          (let ((result (route-statistics row (field report 'attempts) (field plan 'protocol))))
+                            (if complete? result (fields-with (filter (lambda (entry) (not (memq (car entry) '(median minimum maximum)))) result) (cons 'complete #f)))))
+                        (json-array (field plan 'rows))))
+             (result (fields-with report (cons 'attempts (list->vector (field report 'attempts)))
+                                  (cons 'rows (list->vector rows)) (cons 'ratios (list->vector (comparison-ratios rows))))))
+        (write-json (path-join directory "timing/measurement.json") result)
+        result))
+
+    (define (scheduled-attempt directory entry row manifest environment)
+      (verify-dependencies directory row)
+      (verify-source-files (path-join directory "data") (field manifest 'inputs))
+      (let ((target (path-join directory "timing/measurement" (field entry 'id))))
+        (when (file-exists? target) (error "scheduled attempts cannot be repeated" target))
+        (create-directory* target)
+        (copy-file (path-join directory "source/benchmarks/lofi" (field entry 'case) "input.txt") (path-join target "input.txt"))
+        (append (execute-attempt directory row target manifest environment) entry)))
+
+    (define (utc-now)
+      (trim (run-command! '("date" "-u" "+%Y-%m-%dT%H:%M:%SZ"))))
+
+    (define (measure directory quiet-window)
+      (let-values (((manifest plan) (verify-ready directory)))
+        (when (string=? (trim quiet-window) "") (error "record explicit coordinated quiet-window attestation"))
+        (let ((target (path-join directory "timing/measurement")))
+          (when (file-exists? target) (error "measurement cannot resume or retry an earlier schedule"))
+          (create-directory* target))
+        (let ((report `((status . "running") (started_utc . ,(utc-now)) (quiet_window . ,quiet-window)
+                        (plan_sha256 . ,(field manifest 'timing_plan_sha256)) (attempts . ())))
+              (environment (frozen-environment manifest)) (schedule (json-array (field plan 'schedule))))
+          (dynamic-wind
+              (lambda () #t)
+              (lambda ()
+                (guard (failure (else (set! report (fields-with report (cons 'status "interrupted") (cons 'reason (exception-text failure))
+                                                                (cons 'unattempted (list->vector (drop schedule (length (field report 'attempts)))))))
+                                      (raise failure)))
+                  (for-each (lambda (entry)
+                              (let ((row (find (lambda (row) (same-route? row entry)) (json-array (field plan 'rows)))))
+                                (set! report (fields-with report (cons 'attempts
+                                                                       (append (field report 'attempts) (list (scheduled-attempt directory entry row manifest environment))))))
+                                (publish-measurement directory report plan))) schedule)
+                  (verify-ready directory)
+                  (set! report (fields-with report (cons 'status "complete")))))
+              (lambda () (set! report (fields-with report (cons 'ended_utc (utc-now))))
+                      (publish-measurement directory report plan)))
+          (publish-measurement directory report plan))))
+
+    ;; ---- Entry points hand execution to the copied Scheme driver ----
+
+    (define (options arguments)
+      (let loop ((arguments arguments) (result '((benchmarks . ("all")) (cpu . 2) (quiet-window . "") (compile-timeout . 1800) (run-timeout . 1200))))
+        (cond ((null? arguments) result)
+              ((equal? (car arguments) "--benchmarks")
+               (let-values (((names rest) (span (lambda (name) (not (string-prefix? "--" name))) (cdr arguments))))
+                 (when (null? names) (error "--benchmarks requires names"))
+                 (loop rest (fields-with result (cons 'benchmarks names)))))
+              ((and (pair? (cdr arguments)) (member (car arguments) '("--output" "--cpu" "--quiet-window" "--compile-timeout" "--run-timeout")))
+               (let* ((name (string->symbol (substring (car arguments) 2))) (text (cadr arguments))
+                      (value (case name ((output) (absolute-path text)) ((quiet-window) text) (else (string->number text)))))
+                 (loop (cddr arguments) (fields-with result (cons name value)))))
+              (else (error "unknown or incomplete timing option" arguments)))))
+
+    (define (timing-main arguments)
+      (when (null? arguments) (error "expected prepare, build, verify, or measure"))
+      (let* ((action (car arguments)) (options (options (cdr arguments))) (directory (field options 'output)))
+        (when (equal? action "prepare")
+          (prepare-timing directory options)
+          (set! action "build")
+          (set! arguments (cons action (cdr arguments))))
+        (enter-frozen-driver directory "benchmarks/lofi/timing.scm" arguments)
+        (cond ((equal? action "build") (let ((plan (build directory))) (json-write plan (current-output-port)) (newline) 0))
+              ((equal? action "verify") (verify-ready directory) 0)
+              ((equal? action "measure") (let ((report (measure directory (field options 'quiet-window))))
+                                           (json-write report (current-output-port)) (newline) (if (measurement-passed? report) 0 1)))
+              (else (error "unknown timing action" action)))))
+    )
+
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-lofi-timing)
+    (import (wasm-native test-utils) (chibi temp-file) (wasm-native native-build))
+    (begin
+      (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
+
+      (define (test-clean-environment)
+        (let ((manifest '((tools . ((TASKSET . ((path . "/taskset")))))
+                          (execution_environment . ((NODE_OPTIONS . "--cpu-prof"))))))
+          (expect (rejected? (lambda () (require-clean-environment manifest))) #t)
+          (require-clean-environment (fields-with manifest (cons 'execution_environment '((NODE_OPTIONS . "")))))))
+
+      (define (test-canonical-timers)
+        (let ((spec '((name . "ack") (count . 2) (expected . 32765))))
+          (expect (elapsed-seconds "chez-original" "+!CSVLINE!+chez,ack:3:12:2,0.25\n" spec) 0.25)
+          (for-each (lambda (output) (expect (rejected? (lambda () (elapsed-seconds "chez-original" output spec))) #t))
+                    '("+!CSVLINE!+chez,ack:2,0.25\n+!CSVLINE!+chez,ack:2,0.25\n"
+                      "+!CSVLINE!+chez,fib:2,0.25\n" "+!CSVLINE!+chez,ack:1,0.25\n"
+                      "+!CSVLINE!+chez,ack:2,nan\n" "+!CSVLINE!+chez,ack:2,0\n"))
+          (expect (rejected? (lambda () (elapsed-seconds "lofi-native" "{\"seconds\":0.25,\"result\":42}" spec))) #t)))
+
+      (define (test-exact-result-bits)
+        (let ((spec '((name . "large") (count . 1) (expected . 9007199254740993))))
+          (expect (elapsed-seconds "lofi-native" "{\"result\":\"9007199254740993\",\"seconds\":0.1}" spec) 0.1)
+          (expect (rejected? (lambda () (elapsed-seconds "lofi-native" "{\"result\":\"9007199254740992\",\"seconds\":0.1}" spec))) #t)
+          (expect (elapsed-seconds "lofi-wasm" "{\"result\":\"1\",\"seconds\":0.1}"
+                                   (fields-with spec (cons 'expected '#(1 2 3)))) 0.1)))
+
+      (define (test-parameterized-timers)
+        (for-each
+         (lambda (case)
+           (let ((spec (read-json (path-join (benchmark-root) "benchmarks/lofi" (car case) "spec.json"))))
+             (for-each (lambda (route)
+                         (let ((name (if (string-prefix? "chez-" (car route)) (cadr case) (caddr case))))
+                           (expect (elapsed-seconds (car route) (string-append "+!CSVLINE!+control," name ",0.1\n") spec) 0.1)
+                           (expect (rejected? (lambda () (elapsed-seconds (car route) (string-append "+!CSVLINE!+control," name ":1,0.1\n") spec))) #t)))
+                       (cddr routes))))
+         '(("array1" "array1:1000000:500" "array1:500") ("equal" "equal:100:100:8:1000:2000:5000" "equal:1")
+           ("mperm" "mperm:20:10:2:1" "mperm:20"))))
+
+      (define (test-decimal-bytes)
+        (let ((spec '((name . "pi") (count . 2) (expected . #("123" "-4")) (output . "(123 -4)\n"))))
+          (for-each
+           (lambda (entry)
+             (let* ((route (car entry)) (prefix (if (string-prefix? "rust-" route) "Result: " ""))
+                    (timer (if (string-prefix? "lofi-" route) "{\"result\":\"1\",\"seconds\":0.1}\n" "+!CSVLINE!+control,pi:2,0.1\n")))
+               (expect (elapsed-seconds route (string-append prefix "(123 -4)\n" timer) spec) 0.1)
+               (for-each (lambda (payload) (expect (rejected? (lambda () (elapsed-seconds route (string-append prefix payload timer) spec))) #t))
+                         '("(123 -5)\n" "(123 -4)\r\n" "(123 -4)\nextra\n")))) routes)))
+
+      (define (test-schedule)
+        (let* ((rows (append-map (lambda (name) (map (lambda (route) `((case . ,name) (route . ,(car route))
+                                                                       (eligibility . ,(if (and (string=? name "ack") (string=? (car route) "rust-wasm")) "failed" "ready")))) routes)) '("ack" "cat")))
+               (schedule (execution-schedule '("ack" "cat") rows '((warmups . 1) (repeats . 5)))))
+          (expect (length schedule) 66)
+          (expect (length (filter (lambda (entry) (and (equal? (field entry 'case) "ack") (equal? (field entry 'route) "rust-wasm"))) schedule)) 0)
+          (expect (field (find (lambda (entry) (= 1 (field entry 'round))) schedule) 'case) "cat")))
+
+      (define (test-incomplete-measurements)
+        (let* ((row '((case . "ack") (route . "lofi-wasm") (eligibility . "ready")))
+               (protocol '((warmups . 1) (repeats . 5)))
+               (samples (map (lambda (n) (append `((phase . "sample") (status . "passed") (seconds . ,n)) row)) '(1 2 3 4 5)))
+               (warmup (append '((phase . "warmup") (status . "passed") (seconds . 9)) row)))
+          (expect (field (route-statistics row samples protocol) 'complete) #f)
+          (expect (field (route-statistics row (cons warmup samples) protocol) 'median) 3)
+          (expect (field (route-statistics row (cons warmup (cdr samples)) protocol) 'complete) #f)
+          (expect (field (route-statistics row (cons warmup (cons warmup samples)) protocol) 'complete) #f)))
+
+      (define (test-host-coverage)
+        (let ((cases (inventory '("all"))) (manifest '((tools . ((NODE . ((path . "/node"))))))))
+          (expect (length cases) 57)
+          (for-each (lambda (case)
+                      (let ((command (clean-wasm-command "/frozen" case "/artifact" manifest)))
+                        (expect (and (member "--validate" command) #t) #f)
+                        (expect (text-contains? (string-join command " ") "verify.mjs") #f))) cases)
+          (expect (rejected? (lambda () (clean-wasm-command "/frozen" '((host . "unknown")) "/artifact" manifest))) #t)))
+
+      (define (test-frozen-artifact)
+        (call-with-temp-dir "lofi-timing-test"
+                            (lambda (root preserve)
+                              (write-text (path-join root "input.txt") "canonical")
+                              (let ((row `((files . ((input.txt . ,(file-sha256 (path-join root "input.txt"))))))))
+                                (verify-dependencies root row)
+                                (write-text (path-join root "input.txt") "changed")
+                                (expect (rejected? (lambda () (verify-dependencies root row))) #t)))))
+
+      (define (probe-command target label command . options)
+        (record-command target label command (if (null? options) '() (car options)) target 120))
+
+      (define (probe-assemble target name text)
+        (let ((source (path-join target (string-append name ".wat")))
+              (artifact (path-join target (string-append name ".wasm"))))
+          (write-text source text)
+          (expect (succeeded? (probe-command target (string-append "assemble-" name)
+                                             (list (tool-name "WASM_AS" "wasm-as") source "-o" artifact))) #t)))
+
+      (define (probe-target directory name)
+        (let ((target (path-join directory name))) (create-directory* target) target))
+
+      (define (probe-provider target)
+        (probe-assemble target "provider"
+                        "(module (memory (export \"memory\") 1) (func (export \"_initialize\"))
+            (func (export \"snail:io/close-all\") (result i32) (i32.const 0)))"))
+
+      (define (probe-wasm directory target host spec text)
+        (probe-assemble target "program" text)
+        (write-json (path-join target "spec.json") spec)
+        (let* ((manifest `((tools . ((NODE . ((path . ,(tool-name "NODE" "node"))))))))
+               (command (clean-wasm-command directory `((host . ,host)) target manifest))
+               (record (probe-command target "execute" command)))
+          (expect (succeeded? record) #t)
+          (expect (> (elapsed-seconds "lofi-wasm" (field record 'stdout) spec) 0) #t)))
+
+      (define (probe-runtime-hosts directory)
+        (for-each
+         (lambda (host)
+           (let ((target (probe-target directory host)))
+             (probe-provider target)
+             (probe-wasm directory target host '((name . "typed-runtime-probe") (inputs . #(7 2.5)) (count . 2) (expected . 1))
+                         "(module
+                  (import \"benchmark\" \"input_i64\" (func $integer (param i32) (result i64)))
+                  (import \"benchmark\" \"input_f64\" (func $real (param i32) (result f64)))
+                  (import \"benchmark\" \"barrier\" (func $barrier (result i32)))
+                  (func (export \"main\"))
+                  (func (export \"configured-count\") (result i64) (i64.const 2))
+                  (func (export \"bench\") (param i64) (result i64)
+                    (if (i64.ne (call $integer (i32.const 0)) (i64.const 7)) (then unreachable))
+                    (if (f64.ne (call $real (i32.const 1)) (f64.const 2.5)) (then unreachable))
+                    (drop (call $barrier)) (i64.const 1)))")))
+         '("datum-io" "compiler" "dynamic" "scheme" "slatex" "nucleic")))
+
+      (define (probe-path-hosts directory)
+        (for-each
+         (lambda (host)
+           (let ((target (probe-target directory host)) (indexed? (string=? host "tail")))
+             (probe-provider target)
+             (probe-wasm directory target host
+                         `((name . ,host) (inputs . #()) (count . 2) (expected . 1) (pathname . "a") (pathnames . #("a" "b")))
+                         (string-append "(module
+                  (import \"benchmark\" \"path_length\" (func $length " (if indexed? "(param i32)" "") " (result i64)))
+                  (import \"benchmark\" \"path_character\" (func $character " (if indexed? "(param i32 i64)" "(param i64)") " (result i32)))
+                  (func (export \"main\")) (func (export \"bench\") (param i64) (result i64)
+                    (if (i64.ne (call $length " (if indexed? "(i32.const 0)" "") ") (i64.const 1)) (then unreachable))
+                    (if (i32.ne (call $character " (if indexed? "(i32.const 0) " "") "(i64.const 0)) (i32.const 97)) (then unreachable))
+                    (i64.const 1)))")))) '("tail" "ray")))
+
+      (define (probe-scalar-hosts directory)
+        (let ((target (probe-target directory "scalar-vector")))
+          (probe-wasm directory target "scalar"
+                      '((name . "vector-probe") (inputs . #(#(3 4))) (count . 2) (expected . #(3 4)) (result_kind . "i64-vector-values"))
+                      "(module
+              (import \"benchmark\" \"vector_i64\" (func $input (param i32 i64) (result i64)))
+              (import \"benchmark\" \"expected_i64\" (func $expected (param i64) (result i64)))
+              (func (export \"main\")) (func (export \"bench\") (param i64) (result i64)
+                (if (i64.ne (call $input (i32.const 0) (i64.const 1)) (call $expected (i64.const 1))) (then unreachable))
+                (i64.const 1)))"))
+        (let ((target (probe-target directory "scalar-math")))
+          (probe-assemble target "math-provider" "(module (func (export \"snail_sin\") (param f64) (result f64) (local.get 0)))")
+          (probe-wasm directory target "scalar"
+                      '((name . "math-probe") (inputs . #()) (count . 2) (expected . 0.0) (math_provider . "math-provider.wasm"))
+                      "(module (import \"math\" \"snail_sin\" (func $sin (param f64) (result f64)))
+              (func (export \"main\")) (func (export \"bench\") (param i64) (result f64) (call $sin (f64.const 0))))")))
+
+      (define (probe-decimal-host directory)
+        (let ((target (probe-target directory "integer-wasm")))
+          (probe-wasm directory target "integer"
+                      '((name . "pi") (count . 2) (inputs . #(7 50 50)) (expected . #("123")) (output . "(123)\n"))
+                      (string-append "(module
+              (import \"benchmark\" \"expected_character\" (func $expected (param i64 i64) (result i32)))
+              (import \"benchmark\" \"emit_character\" (func $emit (param i32)))
+              (func (export \"main\")) (func (export \"bench\") (param i64) (result i64)
+                (if (i32.ne (call $expected (i64.const 0) (i64.const 2)) (i32.const 51)) (then unreachable)) (i64.const 1))
+              (func (export \"observe\") "
+                                     (string-join (map (lambda (character) (string-append "(call $emit (i32.const " (number->string (char->integer character)) "))"))
+                                                       (string->list "(123)\n")) " ") "))"))))
+
+      (define (probe-native-guest floating? integer?)
+        (let ((type (if floating? "f64" "i64")) (counter (if integer? "barrier_count" "benchmark_barriers")))
+          (string-append
+           "unsafe extern \"C\" { fn input_i64(index: i32) -> i64; fn hide_i64(value: i64) -> i64;
+              fn hide_f64(value: f64) -> f64; fn expected_character(index: i64, at: i64) -> u32;
+              fn " counter "() -> " (if integer? "u64" "i64") "; }
+            #[unsafe(no_mangle)] pub extern \"C\" fn native_module_init() {}
+            #[unsafe(export_name = \"wasm.main\")] pub extern \"C\" fn initialize() {}
+            #[unsafe(export_name = \"wasm.bench\")] pub extern \"C\" fn bench(count: i64) -> " type " {
+              assert_eq!(count, 2); unsafe { assert_eq!(input_i64(0), 7); assert_eq!(hide_i64(7), 7);
+              assert_eq!(" counter "(), 0); "
+              (if floating? "assert_eq!(hide_f64(2.5), 2.5);" "")
+              (if integer? "assert_eq!(expected_character(0, 2), 51);" "") " }
+              if std::env::var_os(\"TIMING_PROBE_WRONG\").is_some() { 0 as " type " }
+              else { " (if floating? "2.5" "1") " }
+            }
+            #[unsafe(export_name = \"wasm.observe\")] pub extern \"C\" fn observe() { println!(\"(123)\"); }\n")))
+
+      (define (probe-native-host directory kind)
+        (let* ((target (probe-target directory (string-append "native-" kind)))
+               (floating? (string=? kind "floating")) (integer? (string=? kind "integer"))
+               (spec `((name . ,(if floating? "fibfp" (if integer? "pi" "probe")))
+                       (count . 2) (inputs . ,(if integer? '#(7 50 50) '#(7)))
+                       (expected . ,(if floating? 2.5 (if integer? '#("123") '#(3 4))))))
+               (spec (if integer? (fields-with spec (cons 'output "(123)\n")) spec))
+               (support (path-join directory "source/benchmarks/lofi/support")))
+          (write-json (path-join target "spec.json") spec)
+          (let* ((provider (native-sources support target target #t))
+                 (entry (path-join target (string-append provider "-timing-entry.rs")))
+                 (object (path-join target "empty.o")))
+            (write-text (path-join target "guest.rs") (probe-native-guest floating? integer?))
+            (write-text entry (string-append (read-text entry) "\nmod guest;\n"))
+            (write-text (path-join target "empty.ll")
+                        (string-append "; Guest exports live in guest.rs; this probe has no managed objects.\n"
+                                       (apply string-append (map (lambda (name)
+                                                                   (string-append "@native_gc_" name "_count = constant i64 0\n"
+                                                                                  "@native_gc_" name " = constant [0 x i64] []\n"))
+                                                                 '("layouts" "globals" "tables" "parents")))))
+            (expect (succeeded? (probe-command target "object" (list (tool-name "LLC" "llc") "-filetype=obj"
+                                                                     (path-join target "empty.ll") "-o" object))) #t)
+            (let* ((program (link-native-object (benchmark-root) object entry
+                                                (list (list "benchmark" (path-join target (string-append provider "-provider.rs"))))
+                                                (probe-target target "cargo")))
+                   (command (append (list program) (if integer? (list (path-join target "native-input.txt")) '())))
+                   (record (probe-command target "execute" command))
+                   (wrong (probe-command target "wrong-result" command '(("TIMING_PROBE_WRONG" . "1")))))
+              (expect (succeeded? record) #t)
+              (expect (> (elapsed-seconds "lofi-native" (field record 'stdout) spec) 0) #t)
+              (expect (succeeded? wrong) #f)
+              (expect (text-contains? (field wrong 'stdout) "seconds") #f)))))
+
+      (define (probe-chez-adapter directory)
+        (let* ((target (probe-target directory "decimal-chez"))
+               (source (probe-target directory "source/benchmarks/lofi/pi"))
+               (control (path-join source "chez-original.scm"))
+               (manifest `((tools . ((CHEZ . ((path . ,(tool-name "CHEZ" "scheme")))))) (config . ((compile_timeout . 30))))))
+          (write-text control "(import (chezscheme))
+            (define (run-r7rs-benchmark name count thunk correct?) (error 'untimed \"original driver\"))
+            (define (run-benchmark) (run-r7rs-benchmark \"pi:2\" 2 (lambda () '(123)) (lambda (x) (equal? x '(123)))))
+(run-benchmark)\n")
+          (let ((digest (file-sha256 control)))
+            (clean-chez directory '((name . "pi") (host . "integer")) "chez-original" target manifest '())
+            (let ((record (probe-command target "execute" (list (tool manifest 'CHEZ) "--program" (path-join target "chez-original.so")))))
+              (expect (succeeded? record) #t)
+              (expect (> (elapsed-seconds "chez-original" (field record 'stdout)
+                                          '((name . "pi") (count . 2) (expected . #("123")) (output . "(123)\n"))) 0) #t)
+              (expect (file-sha256 control) digest)))))
+
+      (define (probe-attempt-fixtures directory)
+        (let* ((target (probe-target directory "attempt-fixtures"))
+               (source (probe-target directory "source/benchmarks/lofi/fixture-probe"))
+               (script (path-join target "check.scm"))
+               (manifest `((tools . ((TASKSET . ((path . ,(tool-name "TASKSET" "taskset"))))))
+                           (timing_protocol . ((cpu . ,(car (allowed-cpus))))) (config . ((run_timeout . 30)))))
+               (row `((case . "fixture-probe") (route . "lofi-native")
+                      (command . ,(vector (tool-name "CHIBI" "chibi-scheme") script))
+                      (execution_environment . ((SNAIL_GC_HEAP_BYTES . "1234"))))))
+          (write-json (path-join source "spec.json") '((name . "fixture-probe") (count . 1) (expected . 1) (execution_files . #("probes.scm"))))
+          (write-text (path-join source "probes.scm") "required fixture")
+          (write-text (path-join target "input.txt") "canonical input")
+          (write-text script "(import (scheme base) (scheme file) (scheme write) (scheme process-context))
+            (unless (and (string=? (call-with-input-file \"probes.scm\" (lambda (p) (read-string 100 p))) \"required fixture\")
+                         (equal? (get-environment-variable \"SNAIL_GC_HEAP_BYTES\") \"1234\")) (exit 1))
+            (display \"{\\\"result\\\":\\\"1\\\",\\\"seconds\\\":0.1}\\n\")\n")
+          (expect (field (execute-attempt directory row target manifest '(("SNAIL_GC_HEAP_BYTES" . "9999"))) 'status) "passed")))
+
+      (define (test-clean-host-execution)
+        (let ((directory (make-build-directory (path-join (benchmark-root) "build/lofi-timing-probes") "attempt-")))
+          (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root))))
+          (copy-tree (path-join (benchmark-root) "benchmarks/lofi/support") (path-join directory "source/benchmarks/lofi/support"))
+          (create-directory* (path-join directory "data/inputs"))
+          (probe-runtime-hosts directory) (probe-path-hosts directory)
+          (probe-scalar-hosts directory) (probe-decimal-host directory)
+          (for-each (lambda (kind) (probe-native-host directory kind)) '("scalar" "floating" "integer"))
+          (probe-chez-adapter directory) (probe-attempt-fixtures directory)))
+
+      (define (test-lofi-timing . execute?)
+        (run-test test-clean-environment)
+        (run-test test-canonical-timers)
+        (run-test test-exact-result-bits)
+        (run-test test-parameterized-timers)
+        (run-test test-decimal-bytes)
+        (run-test test-schedule)
+        (run-test test-incomplete-measurements)
+        (run-test test-host-coverage)
+        (run-test test-frozen-artifact)
+        (when (and (pair? execute?) (car execute?)) (run-test test-clean-host-execution)))))))

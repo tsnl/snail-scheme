@@ -1,0 +1,7 @@
+(import (lofi base))
+(def ints
+     (make-vector (ann 2 I64) (ann 42 I32)))
+(def flags
+     (make-vector (ann 2 I64) #f))
+(vector-set! flags (ann 1 I64) #t)
+(if (vector-ref flags (ann 1 I64)) (vector-ref ints (ann 0 I64)) (ann 0 I32))

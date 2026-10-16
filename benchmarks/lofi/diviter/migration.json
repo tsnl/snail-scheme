@@ -1,0 +1,45 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/diviter.scm",
+  "upstream_sha256": "c2c9cc35f4da9689842ddffb261e60e9590836dbb54f90204cd6a374f88bba59",
+  "canonical_input_sha256": "c4df45a46786daf9e66a4f0731c30b21c6e6a2415feae8c27c16698531638e09",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "6b5161a474f64f5c36dbaa00a032bd194be773ff6f7cf59cd3964f46718b5ccc",
+  "sfir_sha256": "6ed086c489a453e5910be8a9c863631b616f8320209dbf759f821cfe743dcb0b",
+  "controls": {
+    "chez-original.scm": "6ab8e075e5e92a6bb1a04f36523b9cb4328804dd5cd19024e96ae6754ae77b8c"
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "b60cd6a5751210dfa44035969a52b0cf1d43d43429e16280649221d290a612a4",
+    "migrated_unformatted_sha256": "00067ed76a243c67b3117c8978cc769fa0c68817b84e251ce65e7cefc352db2c",
+    "after_sha256": "00067ed76a243c67b3117c8978cc769fa0c68817b84e251ce65e7cefc352db2c",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  },
+  "literal_width_migration": {
+    "before_sha256": "00067ed76a243c67b3117c8978cc769fa0c68817b84e251ce65e7cefc352db2c",
+    "after_sha256": "6ed086c489a453e5910be8a9c863631b616f8320209dbf759f821cfe743dcb0b",
+    "annotations_added": 6,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
+  },
+  "lofi_sha256": "7fd263ea4407d18424f74ce07d5dc598cc4d128b49ccebc1c5caa064167d50b5",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "6ed086c489a453e5910be8a9c863631b616f8320209dbf759f821cfe743dcb0b",
+    "after_sha256": "7fd263ea4407d18424f74ce07d5dc598cc4d128b49ccebc1c5caa064167d50b5",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  }
+}

@@ -68,7 +68,7 @@ chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/string-refere
   --output build/string-controls-check
 ```
 
-`checks.sld` copies the retained original Chez source and input from the SFIR
+`checks.sld` copies the retained original Chez source and input from the Lofi
 corpus, compiles that source with the selected Chez, and records their identities.
 Historical binary bundles remain in [Git history](../history.md).
 Actual Node/Wasm and original Chez pass

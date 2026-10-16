@@ -1,0 +1,132 @@
+;; Canonical bare Lofi. See migration.json for source provenance.
+
+(import
+  (lofi base)
+  (rename (lofi datum) (string->symbol typed-string->symbol))
+  (lofi io)
+  (lofi read))
+
+(def symbol-a (datum-symbol (typed-string->symbol "a")))
+
+(def equal-zero? (lambda (n.13) (= n.13 (ann 0 I64))))
+
+(def equal-make-vector (-> I64 Datum Datum)
+  (lambda (count.3 fill) (datum-vector (make-vector count.3 fill))))
+
+(def equal-vector->list (-> Datum Datum)
+  (lambda (value.5)
+    ((lambda (values.1) (((lambda () (begin (def loop.2 (lambda (index.2 result.1) (if (= index.2 (ann 0 I64)) result.1 (loop.2 (- index.2 (ann 1 I64)) (datum-cons (vector-ref values.1 (- index.2 (ann 1 I64))) result.1))))) loop.2))) (vector-length values.1) (datum-null)))
+      (datum-vector-values value.5))))
+
+(def equal-list-tail (-> Datum I64 Datum)
+  (lambda (value.4 count.2)
+    (if (= count.2 (ann 0 I64)) value.4 (equal-list-tail (datum-cdr value.4) (- count.2 (ann 1 I64))))))
+
+(def make-test-list1 (-> I64 Datum Datum)
+  (lambda (n.12 x.6)
+    (if (equal-zero? n.12) (datum-null) (datum-cons x.6 (make-test-list1 (- n.12 (ann 1 I64)) x.6)))))
+
+(def make-test-tree1 (-> I64 Datum)
+  (lambda (n.11)
+    (if (equal-zero? n.11) (datum-null) (make-test-list1 n.11 (make-test-tree1 (- n.11 (ann 1 I64)))))))
+
+(def make-test-list2 (-> I64 (-> Datum) Datum)
+  (lambda (n.10 thunk.1)
+    (if (equal-zero? n.10) (datum-null) (datum-cons (thunk.1) (make-test-list2 (- n.10 (ann 1 I64)) thunk.1)))))
+
+(def make-test-tree2 (-> I64 Datum)
+  (lambda (n.9)
+    (if (equal-zero? n.9)
+      (datum-null)
+      (make-test-list2 n.9 (lambda () (make-test-tree2 (- n.9 (ann 1 I64))))))))
+
+(def make-test-tree5 (-> I64 Datum)
+  (lambda (n.8)
+    (if (equal-zero? n.8) (datum-null) (datum-cons (make-test-tree5 (- n.8 (ann 1 I64))) symbol-a))))
+
+(def iterate (-> I64 (-> Bool) Bool)
+  (lambda (n.7 thunk)
+    (if (= n.7 (ann 1 I64)) (thunk) (if (> n.7 (ann 1 I64)) (begin (thunk) (iterate (- n.7 (ann 1 I64)) thunk)) #f))))
+
+(def equality-benchmark0 (-> I64 Bool)
+  (lambda (n.6)
+    ((lambda (x.5) (begin (datum-set-cdr! (equal-list-tail x.5 (- n.6 (ann 1 I64))) x.5) (iterate n.6 (hide n.6 (lambda () (datum=? x.5 (datum-cdr x.5)))))))
+      (equal-vector->list (equal-make-vector n.6 symbol-a)))))
+
+(def equality-benchmark1 (-> I64 Bool)
+  (lambda (n.5)
+    ((lambda (x.4 y.4) (iterate n.5 (hide n.5 (lambda () (datum=? x.4 y.4)))))
+      (make-test-tree1 n.5)
+      (make-test-tree1 n.5))))
+
+(def equality-benchmark2 (-> I64 Bool)
+  (lambda (n.4)
+    ((lambda (x.3 y.3) (iterate n.4 (hide n.4 (lambda () (datum=? x.3 y.3)))))
+      (make-test-tree2 n.4)
+      (make-test-tree2 n.4))))
+
+(def equality-benchmark3 (-> I64 Bool)
+  (lambda (n.3)
+    ((lambda (x.2) ((lambda (y.2) ((lambda () (iterate n.3 (hide n.3 (lambda () (datum=? x.2 y.2))))))) (equal-make-vector n.3 symbol-a)))
+      (equal-make-vector n.3 symbol-a))))
+
+(def equality-benchmark4 (-> I64 Bool)
+  (lambda (n.2)
+    ((lambda (x.1) ((lambda (y.1) ((lambda () (iterate n.2 (hide n.2 (lambda () (datum=? x.1 y.1))))))) (equal-vector->list (equal-make-vector n.2 (make-test-tree2 (ann 3 I64))))))
+      (equal-vector->list (equal-make-vector n.2 (make-test-tree2 (ann 3 I64)))))))
+
+(def equality-benchmark5 (-> I64 (Rest I64) Bool)
+  (lambda (n.1 . rest)
+    ((lambda (x) ((lambda (y) ((lambda (iterations) ((lambda () (iterate iterations (hide n.1 (lambda () (datum=? x y))))))) (if (null? rest) n.1 (car rest)))) (make-test-tree5 n.1)))
+      (make-test-tree5 n.1))))
+
+(def equality-benchmark5short (-> I64 Bool) (lambda (n) (equality-benchmark5 n (ann 100 I64))))
+
+(def equality-benchmarks (-> I64 I64 I64 I64 I64 I64 Bool)
+  (lambda (n0 n1 n2 n3 n4 n5)
+    (if (equality-benchmark1 n1)
+      (if (equality-benchmark2 n2)
+        (if (equality-benchmark3 n3) (if (equality-benchmark4 n4) (equality-benchmark5 n5) #f) #f)
+        #f)
+      #f)))
+
+(def equal-exact (-> Datum I64)
+  (lambda (datum)
+    (match (datum-number-value datum)
+      ((exact-number value.1) value.1)
+      ((rational-number value.2) (datum-fail "equal: expected an exact parameter"))
+      ((inexact-number value.3) (datum-fail "equal: expected an exact parameter"))
+      ((complex-number real imaginary) (datum-fail "equal: expected an exact parameter")))))
+
+(def read-parameters (-> InputPort (Vector I64))
+  (lambda (port)
+    ((lambda (values) (((lambda () (begin (def loop.1 (lambda (index.1) (if (= index.1 (ann 6 I64)) (begin (read-value! (read port)) values) (begin (vector-set! values index.1 (equal-exact (read-value! (read port)))) (loop.1 (+ index.1 (ann 1 I64))))))) loop.1))) (ann 0 I64)))
+      (make-vector (ann 6 I64) (ann 0 I64)))))
+
+(def parameters (call-with-input-file "input.txt" read-parameters))
+
+(def input0 (vector-ref parameters (ann 0 I64)))
+
+(def input1 (vector-ref parameters (ann 1 I64)))
+
+(def input2 (vector-ref parameters (ann 2 I64)))
+
+(def input3 (vector-ref parameters (ann 3 I64)))
+
+(def input4 (vector-ref parameters (ann 4 I64)))
+
+(def input5 (vector-ref parameters (ann 5 I64)))
+
+(def configured-count (-> I64) (lambda () (ann 1 I64)))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(def hide (All (T) (-> I64 T T)) (lambda (count.1 value) (if (barrier) value (unreachable))))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (def loop (lambda (index result) (if (< index count) (loop (+ index (ann 1 I64)) (equality-benchmarks (hide input0 input0) (hide input0 input1) (hide input0 input2) (hide input0 input3) (hide input0 input4) (hide input0 input5))) (if result (ann 1 I64) (ann 0 I64))))) loop)))
+      (ann 0 I64)
+      #f)))
+
+(unit)

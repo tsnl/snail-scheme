@@ -1,0 +1,4 @@
+(import (lofi base))
+(define-overload keep (All (T) (-> T (-> T)))
+  (lambda (value) (lambda () value)))
+(if (if ((keep #t)) (= ((keep (ann 42 I64))) (ann 42 I64)) #f) (ann 42 I64) (unreachable))

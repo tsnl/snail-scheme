@@ -1,0 +1,14 @@
+(import (lofi base))
+(def calls
+     (ref (ann 0 I64)))
+
+(def observed (-> I64)
+     (lambda () (ref-get calls)))
+(def Impossible (datatype () (impossible (first Unit) (stop Never) (last Unit))))
+
+(def construct (-> I64)
+     (lambda ()
+       (begin
+         (impossible (ref-set! calls (ann 1 I64)) (unreachable) (ref-set! calls (ann 2 I64)))
+         (ann 0 I64))))
+(ann 42 I64)

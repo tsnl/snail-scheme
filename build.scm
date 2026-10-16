@@ -2,12 +2,12 @@
 ;; those bytes to the independently imported native backend and Cargo linker.
 ;; From any working directory, using absolute paths:
 ;;   chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
-;;     "$repo" "$repo/examples/native/answer.sfir" answer \
+;;     "$repo" "$repo/examples/native/answer.lofi" answer \
 ;;     "$repo/examples/native/entry.rs" /tmp/sphere-answer
 (import (scheme base) (scheme process-context) (chibi filesystem)
         (wasm-native) (wasm-native process) (wasm-native chromium-trace)
-        (snail-sfir compiler) (snail-sfir source-driver)
-        (only (snail-sfir frontend) make-primitive-library)
+        (snail-lofi compiler) (snail-lofi source-driver)
+        (only (snail-lofi frontend) make-primitive-library)
         (only (snail-scheme strict-primitives) primitive-names))
 
 ;; ---- Explicit build inputs ----
@@ -41,8 +41,8 @@
  (lambda ()
    (let-values (((key libraries)
                  (collect-source-file source (list (path-directory source) (path-join root "lib"))
-                                      (list (cons '(sfir primitive) (make-primitive-library primitive-names)))
-                                      (make-generation-context (path-join root "scripts/run-sfir-generator.mjs") #f))))
+                                      (list (cons '(lofi primitive) (make-primitive-library primitive-names)))
+                                      (make-generation-context (path-join root "scripts/run-lofi-generator.mjs") #f))))
      (write-bytes binary (artifact-bytes (compile libraries (make-entry key selected)))))
    (wasm-binary->llvm binary imports directory llvm)
    (llvm-object llvm object)

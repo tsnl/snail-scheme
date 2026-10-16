@@ -1,0 +1,62 @@
+;; Cat retains every read, write, file deletion and per-iteration open/close.
+(import (lofi base) (lofi io) (lofi datum) (lofi read))
+
+;; ---- Canonical character-copy algorithm ----
+
+(def catport (-> InputPort OutputPort Unit)
+  (lambda (input output)
+    (match (read-char input)
+      ((character-end) (unit))
+      ((character-value character)
+        (begin (write-char character output) (catport input output))))))
+
+(def go (-> String String Unit)
+  (lambda (input output)
+    (begin
+      (if (file-exists? output) (delete-file output) (unit))
+      (call-with-input-file input
+        (lambda (input-port)
+          (call-with-output-file output
+            (lambda (output-port) (catport input-port output-port))))))))
+
+;; ---- Typed input boundary and original always-true predicate ----
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+(def exact-input (-> Datum I64)
+  (lambda (value)
+    (match (datum-number-value value)
+      ((exact-number number) number)
+      ((rational-number number) (datum-fail "count must fit I64"))
+      ((inexact-number number) (datum-fail "count must be exact"))
+      ((complex-number real imaginary) (datum-fail "count must be exact")))))
+
+(def Specification (datatype ()
+  (specification (count I64 specification-count) (input String specification-input)
+    (output String specification-output))))
+
+(def read-specification (-> InputPort Specification)
+  (lambda (port)
+    (begin (let count (exact-input (read-value! (read port))))
+      (begin (let input (datum-string-value (read-value! (read port))))
+        (begin (let output (datum-string-value (read-value! (read port))))
+          (begin (read-value! (read port)) (specification count input output)))))))
+
+(def configured (call-with-input-file "input.txt" read-specification))
+(def configured-count (-> I64) (lambda () (specification-count configured)))
+(def hide-path (-> I64 String String)
+  (lambda (count path) (if (barrier) path (unreachable))))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (begin
+      (def repeat (-> I64 I64)
+        (lambda (index)
+          (if (< index count)
+            (begin
+              (go (hide-path count (specification-input configured))
+                  (hide-path count (specification-output configured)))
+              (repeat (+ index (ann 1 I64))))
+            (ann 1 I64))))
+      (repeat (ann 0 I64)))))
+
+(unit)

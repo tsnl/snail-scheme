@@ -1,0 +1,3 @@
+(import (lofi base))
+(def Choice (datatype () (some (value I64)) (none)))
+(match (some (ann 6 I64)) ((none) (unreachable)) ((some value) value))

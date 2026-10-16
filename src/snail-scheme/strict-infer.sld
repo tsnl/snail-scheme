@@ -12,7 +12,7 @@
           (snail-scheme strict-core) (snail-scheme strict-overloads) (snail-scheme strict-primitives)
           (snail-scheme strict-data) (snail-scheme strict-pass)
           (snail-scheme hashmap) (only (srfi 128) make-eq-comparator)
-          (snail-sfir numeric-literals)
+          (snail-lofi numeric-literals)
           (only (srfi 69) make-hash-table hash-table-ref hash-table-ref/default hash-table-set! hash-table-exists?)
           (snail-scheme wasm-extern)
           (only (snail-scheme ir)
@@ -21,7 +21,7 @@
                 binding-initializer set-binding-initializer! binding-kind binding-payload
                 binding-declaration set-binding-declaration! children copy-ir-graph)
           (prefix (snail-scheme ir) ir:)
-          (prefix (snail-sfir signatures) source:))
+          (prefix (snail-lofi signatures) source:))
   (begin
 
     ;; ---- Lexical checking scopes ----
@@ -992,7 +992,7 @@
    (snail-tests
     (export test-strict-infer)
     (import (wasm-native test-utils)
-            (only (snail-sfir frontend) syntax->ir-library syntax-list->ir-library)
+            (only (snail-lofi frontend) syntax->ir-library syntax-list->ir-library)
             (only (snail-scheme reader) string->reader)
             (only (snail-scheme syntax-parser) reader->syntax-list)
             (prefix (snail-scheme library) library:))
@@ -1031,7 +1031,7 @@
                   (test-dependencies! next (list latest latest))
                   (loop (- left 1) next (cons next bindings)))))))
       (define (test-forms text)
-        (reader->syntax-list (string->reader "ownership.sfir" text)))
+        (reader->syntax-list (string->reader "ownership.lofi" text)))
       (define (test-no-load name) (error "unexpected library load" name))
       (define (test-cached-library)
         (syntax->ir-library

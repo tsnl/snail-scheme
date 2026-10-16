@@ -16,11 +16,11 @@ path = "harness/data.rs"
 
 [[bin]]
 name = "chibi-probe"
-path = "sfir-compiler-service/chibi-probe.rs"
+path = "lofi-compiler-service/chibi-probe.rs"
 
 [[bin]]
 name = "chibi-adversary"
-path = "sfir-compiler-service/chibi-adversary.rs"
+path = "lofi-compiler-service/chibi-adversary.rs"
 
 [[bin]]
 name = "optimizer-probe"
@@ -32,4 +32,4 @@ path = "harness/native-host-loss.rs"
 
 [[bin]]
 name = "format-reference"
-path = "sfir-numbers/format-reference.rs"
+path = "lofi-numbers/format-reference.rs"
