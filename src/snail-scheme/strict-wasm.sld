@@ -528,9 +528,10 @@
     ;; ---- Positional calls and proper tail calls ----
 
     (define-record-type <emitted>
-      (new-emitted type code function operation) emitted?
-      (type emitted-type) (code raw-emitted-code) (function emitted-function) (operation emitted-operation))
-    (define (make-emitted type code function) (new-emitted type code function #f))
+      (new-emitted type code function operation self?) emitted?
+      (type emitted-type) (code raw-emitted-code) (function emitted-function)
+      (operation emitted-operation) (self? emitted-self?))
+    (define (make-emitted type code function) (new-emitted type code function #f #f))
     (define (emitted-code value context)
       (or (raw-emitted-code value)
           (emit-primitive-closure (cdr (emitted-operation value)) (emitted-type value) context)))
@@ -550,7 +551,11 @@
             (append (car parts) (list (rest-list (cdr parts) (function-rest signature) state))))))
     (define (emit-invocation operator closure arguments context tail?)
       (let* ((state (context-state context)) (type (emitted-type operator)) (name (layout-name type state))
-             (function (emitted-function operator)) (environment `(struct.get ,name 1 ,closure)))
+             (function (emitted-function operator))
+             ;; A self name read already checked readiness and payload non-null
+             ;; before hold-emitted stored it. Its fresh local cannot change here;
+             ;; only the repeated local null check and environment load disappear.
+             (environment (if (emitted-self? operator) '(local.get $environment) `(struct.get ,name 1 ,closure))))
         (if function
             `(,(if tail? 'return_call 'call) ,(function-name (context-entity (state-compilation state) function)) ,environment ,@arguments)
             `(,(if tail? 'return_call_ref 'call_ref) ,(call-name type state) ,environment ,@arguments (struct.get ,name 0 ,closure)))))
@@ -592,13 +597,28 @@
         ((I32) `(i32.const ,value)) ((I64) `(i64.const ,value))
         ((F32) `(f32.const ,(float-token value))) ((F64) `(f64.const ,(float-token value)))
         (else `(ref.null ,(layout-name type state)))))
+    ;; Function request keys include the concrete binding instance, even when
+    ;; two initializers share one lambda node. The owner must match that request
+    ;; and the whole initializer must be its lambda, excluding aliases/computed
+    ;; values. Local cells initialize once per activation (prepare-activation),
+    ;; and emit-entry rejects repeated/reentrant module initialization.
+    ;; The executing closure therefore reads itself from that lexical binding;
+    ;; another factory activation has its own cell, and a nested owner differs.
+    (define (self-reference? value generation state)
+      (let ((owner (environment-owner (generation-environment generation))))
+        (and owner (eqv? owner (value-function value))
+             (eq? (value-initializer value)
+                  (function-source (context-entity (state-compilation state) owner))))))
     (define (emit-name-rule generation context)
       (let ((detail (generation-detail generation)) (type (generation-type generation)))
         (if (eq? (car detail) 'get)
             (let ((value (lookup-value (cadr detail) (context-state context))))
-              (make-emitted type (if (eq? type 'Never) `(block (drop ,(read-value value context)) (unreachable))
-                                     (read-value value context)) (value-function value)))
-            (new-emitted type #f #f (cons (car detail) (cadr detail))))))
+              ;; Retain the operator read and its initialization check. Only
+              ;; its final environment selection uses the self-instance proof.
+              (new-emitted type (if (eq? type 'Never) `(block (drop ,(read-value value context)) (unreachable))
+                                    (read-value value context)) (value-function value) #f
+                                    (self-reference? value generation (context-state context))))
+            (new-emitted type #f #f (cons (car detail) (cadr detail)) #f))))
     (define (emit-sequence children context)
       (cond ((null? children) '((i32.const 0)))
             ((null? (cdr children)) (list (emitted-code (car children) context)))
