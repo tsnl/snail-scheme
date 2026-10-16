@@ -517,12 +517,13 @@ impl Collector {
             }
             Layout::Fields(fields) => {
                 let length = fields.len();
+                // Collection is single-threaded, with no marking callbacks.
+                // mark neither mutates nor mutably borrows layouts or offsets,
+                // so this owned storage stays valid while the worklist grows.
+                let offsets = fields.as_ptr();
                 self.stats.field_visits += length;
                 for index in 0..length {
-                    let Layout::Fields(fields) = &self.metadata.layouts[type_id - 1] else {
-                        unreachable!()
-                    };
-                    let offset = fields[index] as usize;
+                    let offset = unsafe { *offsets.add(index) } as usize;
                     assert!(offset < count);
                     unsafe { self.mark(*words.add(offset)) };
                 }
@@ -963,6 +964,53 @@ mod tests {
         assert!(old.is_some());
         assert_eq!(data, (&mut heap.finalized[4] as *mut usize).cast());
         assert_eq!(permanent, 0);
+    }
+
+    #[test]
+    fn cached_fields_survive_worklist_growth_and_ignore_undeclared_words() {
+        let mut heap = Heap::new(8, 8);
+        let offsets = vec![15, 1, 13, 3, 11, 5, 9, 7];
+        heap.collector.metadata.layouts[0] = Layout::Fields(offsets.clone());
+        let parent = heap.object(17 * 8, 6, 0);
+        heap.frame.values[0] = parent as u64;
+        for (index, offset) in offsets.iter().enumerate() {
+            let child = heap.object(8, 10, 0); // Tag-only object, empty descriptor.
+            unsafe { parent.add(*offset as usize).write(child as u64) };
+            heap.watch(child, index);
+        }
+        let decoy = heap.object(8, 10, 0);
+        unsafe { parent.add(2).write(decoy as u64) };
+        heap.watch(decoy, 8);
+        heap.collector.work = Vec::with_capacity(1);
+        let starting_capacity = heap.collector.work.capacity();
+        assert!(starting_capacity < offsets.len());
+        heap.collect();
+        assert!(heap.collector.work.capacity() > starting_capacity);
+        assert_eq!(heap.collector.stats.field_visits, offsets.len());
+        assert_eq!(heap.collector.stats.live_objects, offsets.len() + 1);
+        assert_eq!(&heap.finalized[..9], &[0, 0, 0, 0, 0, 0, 0, 0, 1]);
+        heap.frame.values[0] = 0;
+        heap.collect();
+        assert_eq!(heap.collector.stats.live_objects, 0);
+        assert_eq!(&heap.finalized[..9], &[1; 9]);
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: offset < count")]
+    fn field_offset_at_extent_panics_before_payload_read() {
+        let mut heap = Heap::new(1, 1);
+        heap.collector.metadata.layouts[0] = Layout::Fields(vec![2]);
+        heap.frame.values[0] = heap.object(16, 6, 0) as u64;
+        heap.collect();
+    }
+
+    #[test]
+    #[should_panic(expected = "assertion failed: offset < count")]
+    fn extreme_field_offset_panics_before_payload_read() {
+        let mut heap = Heap::new(1, 1);
+        heap.collector.metadata.layouts[0] = Layout::Fields(vec![u32::MAX]);
+        heap.frame.values[0] = heap.object(16, 6, 0) as u64;
+        heap.collect();
     }
 
     #[test]
