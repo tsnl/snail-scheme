@@ -32,7 +32,7 @@
                        RUSTFLAGS RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET
                        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER
                        CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS CARGO_TARGET_WASM32_WASIP1_LINKER LD_LIBRARY_PATH LIBRARY_PATH
-                       SNAIL_NATIVE_LIBC SNAIL_NATIVE_GCC SNAIL_NATIVE_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
+                       SNAIL_NATIVE_CPU SNAIL_NATIVE_LIBC SNAIL_NATIVE_GCC SNAIL_NATIVE_SUPERVISOR CHIBI_MODULE_PATH SCHEMEHEAPDIRS LANG LC_ALL TZ))
     (define runtime-features
       '("--mvp-features" "--enable-mutable-globals" "--enable-nontrapping-float-to-int"
         "--enable-bulk-memory" "--enable-sign-ext" "--enable-reference-types"
@@ -140,6 +140,11 @@
         (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/wasm-native/scripts/rustc-native"))
                      (cons 'RUSTC_WORKSPACE_WRAPPER 'null))))
 
+    (define (check-frozen-native-cpu environment)
+      (let ((cpu (field environment 'SNAIL_NATIVE_CPU 'null)))
+        (when (member cpu '("" "native"))
+          (error "benchmark freeze requires a named SNAIL_NATIVE_CPU or no override" cpu))))
+
     (define (file-identity path)
       `((path . ,path) (sha256 . ,(file-sha256 path))))
 
@@ -193,7 +198,9 @@
                                         (append (source-files destination) (list (path-join directory "toolchain/cargo-home/config.toml")))))))))
 
     (define (prepare root destination names compile-seconds run-seconds)
-      (let* ((corpus (read-json (path-join root "benchmarks/sfir/corpus.json"))) (cases (selected-cases corpus names)))
+      (let* ((corpus (read-json (path-join root "benchmarks/sfir/corpus.json"))) (cases (selected-cases corpus names))
+             (environment (captured-environment)))
+        (check-frozen-native-cpu environment)
         (for-each (lambda (case) (verify-case-sources root case)) (json-array (field corpus 'cases)))
         (when (or (file-exists? destination) (string=? root destination) (string-prefix? (string-append root "/") destination))
           (error "prepare requires a fresh destination outside the checkout" destination))
@@ -207,7 +214,7 @@
                            (tools . ,(tool-identities)) (cases . ,(list->vector cases)) (measurement . "not-measured")
                            (source_revision . ,(trim (run-command! (list "git" "-C" root "rev-parse" "HEAD"))))
                            (source_status . ,(run-command! (list "git" "-C" root "status" "--porcelain" "--ignore-submodules=all")))
-                           (execution_environment . ,(frozen-wrapper-environment root destination (captured-environment)))))
+                           (execution_environment . ,(frozen-wrapper-environment root destination environment))))
                (manifest (vendor-rust destination (freeze-rust destination manifest)))
                (supervisor (path-join destination "toolchain/snail-native-supervisor")))
           (copy-file (current-process-supervisor) supervisor)
@@ -773,6 +780,15 @@
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WRAPPER . "/unrecorded/wrapper"))))) #t)
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WORKSPACE_WRAPPER . "sccache"))))) #t))
 
+      (define (test-frozen-native-cpu)
+        (expect (and (memq 'SNAIL_NATIVE_CPU execution-variables) #t) #t)
+        (for-each (lambda (cpu)
+                    (expect (rejected? (lambda () (check-frozen-native-cpu `((SNAIL_NATIVE_CPU . ,cpu))))) #f))
+                  '(null "x86-64-v3" "compiler-decides"))
+        (for-each (lambda (cpu)
+                    (expect (rejected? (lambda () (check-frozen-native-cpu `((SNAIL_NATIVE_CPU . ,cpu))))) #t))
+                  '("" "native")))
+
       (define (test-execution-files)
         (call-with-temp-dir "sfir-execution"
                             (lambda (root preserve)
@@ -982,6 +998,7 @@
         (run-test test-path-containment)
         (run-test test-timeout-contract)
         (run-test test-frozen-wrapper)
+        (run-test test-frozen-native-cpu)
         (run-test test-execution-files)
         (run-test test-provider-exports)
         (run-test test-fatal-result)
