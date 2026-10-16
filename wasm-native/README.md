@@ -60,11 +60,31 @@ The returned executable is `program` in the retained directory. The custom entry
 explicitly initializes the runtime and invokes the desired Wasm exports; no
 source-language command policy is assumed.
 
+`SNAIL_NATIVE_CPU` optionally selects a CPU spelling accepted by LLVM and Rust,
+for example `x86-64-v3`. When unset, the portable compiler defaults are preserved.
+The package passes it to guest optimization, saved-object code generation, and
+the Rust entry, runtime and providers. Host build scripts and the process
+supervisor keep their existing flags. An empty value is rejected at native
+compilation; the compilers diagnose unsupported names. `native` is allowed for
+ordinary builds but makes the result depend on the build host. CPU selection
+preserves strict floating-point and trap semantics.
+
+Linking a saved ELF object does not change its guest instructions or establish
+which CPU originally produced it. The override applies to newly compiled Rust
+code during that link. Callers remain responsible for running the resulting
+program on a compatible CPU.
+
 `rust-bindings` reads literal `#[unsafe(export_name = "name")] pub extern "C"`
 scalar declarations. `runtime-bindings` describes the shared runtime's scalar
 exports. `check-provider-bindings` verifies required declarations before linking.
 `source-hashes`, `check-stable-inputs`, `rust-source-inputs` and `native-evidence`
 support retained input and artifact evidence for a surrounding build command.
+`native-evidence` accepts an optional final guest-source label. The repository
+build command supplies `fresh` for newly compiled guest code and `imported` for
+`--object`. Its `build.json` records guest and Rust CPU requests separately under
+`native_cpu`: `null` means the unchanged compiler default for fresh code, while
+an imported or unreported guest CPU is `unknown`. Failed builds retain the raw
+requested spelling, including an invalid empty value.
 
 ## Native array representation
 

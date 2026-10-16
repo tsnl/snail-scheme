@@ -47,6 +47,16 @@ bundled linker must accept compatible bitcode versions. The public `llvm-object`
 operation still emits a real ELF object for saved artifacts; these link without
 guest optimization across the machine-code boundary.
 
+Set `SNAIL_NATIVE_CPU=x86-64-v3` to opt into that CPU for fresh guest code and
+the Rust entry, runtime and providers. Leaving it unset preserves the portable
+default. CPU selection does not enable relaxed floating-point operations or
+change traps. Empty values fail at native compilation; LLVM and Rust diagnose
+unsupported names. Ordinary builds may use `native`, whose meaning depends on
+the build host. Host build scripts and the supervisor retain their existing
+flags. A saved ELF object retains its original instructions when linked later;
+its guest CPU stays unknown in build evidence, separately from the new Rust CPU
+selection. See the [package build API](../wasm-native/README.md#scheme-build-api).
+
 Native array length and element accesses emit checked LLVM header loads and
 address calculations with the validated storage width. Allocation and bulk copy
 stay in Rust; the [package representation contract](../wasm-native/README.md#native-array-representation)

@@ -109,7 +109,8 @@
                 (let ((program (compile-native root options directory bindings)))
                   (check-stable-inputs before)
                   (rename-file program output))))
-            (lambda () (native-evidence root directory inputs before output))))))
+            (lambda () (native-evidence root directory inputs before output
+                                        (if (eq? (option-ref options 'mode 'sfir) 'object) "imported" "fresh")))))))
   0)
 
 (command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "snail-sfir")

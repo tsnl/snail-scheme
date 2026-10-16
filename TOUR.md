@@ -421,6 +421,9 @@ native executable build retains guest bitcode until linker-plugin fat LTO can
 optimize it with the Rust entry, runtime and providers. `llvm-object` remains the explicit
 machine-code path for saved ELF artifacts, which link without exposing guest
 bodies to later optimization.
+The optional `SNAIL_NATIVE_CPU` selection reaches fresh guest code and target
+Rust crates while host helpers keep their existing flags. Build evidence records
+guest and Rust CPU choices separately; imported guest choices remain unknown.
 
 Repository Scheme entry points explicitly add `src/` and `wasm-native/scheme/`
 to Chibi's search path. Standalone package consumers add only its `scheme/`
