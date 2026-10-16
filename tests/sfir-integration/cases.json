@@ -304,6 +304,7 @@
   {"name": "string-literals", "result": "42"},
   {"name": "string-builtins", "result": "42"},
   {"name": "string-mutation", "result": "42"},
+  {"name": "string-utf8-storage", "result": "42"},
   {"name": "string-blocks", "result": "42"},
   {"name": "string-block-literal", "result": "42", "exports": {"set-literal": "trap", "copy-literal": "trap", "empty-literal-copy": "trap", "unchanged": "1"}},
   {"name": "string-block-range-errors", "result": "42", "exports": {"partial-source": "trap", "partial-target": "trap", "negative-start": "trap", "negative-end": "trap", "wrapped-target": "trap", "wrapped-start": "trap", "empty-past-target": "trap", "empty-past-source": "trap", "endpoint-index": "trap", "unchanged": "1"}},

@@ -82,6 +82,27 @@ Boolean; only the selected branch runs. Both branches are required and must have
 compatible types. `ann` checks an explicit type annotation, and `inst` supplies
 type arguments to a generic binding; both are explained in [Types](types.md).
 
+## Strings and bytes
+
+`String` stores well-formed UTF-8. `string-length`, `string-ref`, `substring`
+and the positions in `string-copy!` count Unicode scalar values. They do not
+count bytes or grapheme clusters: `"Aé😀"` has three characters and seven bytes.
+Character replacement preserves the string's character count and identity,
+even when the replacement needs a different number of bytes. Random character
+access may scan UTF-8; it has no constant-time guarantee.
+
+String literals are readonly. `make-string`, `string-copy`, `substring` and
+`utf8->string` produce independent mutable strings. Mutating a readonly string
+traps, including an empty `string-copy!`. Copies validate complete ranges before
+changing contents and preserve the original source characters when ranges overlap.
+
+`(sfir bytes)` provides `utf8->string` and `string->utf8`. The former validates
+the selected byte range and rejects malformed encodings; the latter selects a
+range of characters. Both allocate independent mutable results. Empty byte ranges
+are valid, and bytes outside the selected range are not validated. Neither operation
+normalizes text or changes Unicode scalar values. The current representation
+limits a string's encoded contents to `2^32 - 2` bytes; allocation can fail sooner.
+
 ## Functions and local names
 
 `(lambda (x) (+ x 1))` constructs a function with one parameter, `x`. Creating it

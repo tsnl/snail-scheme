@@ -17,7 +17,7 @@ overload families.
 | `io` | Scalar file services, explicit shared-handle ownership, borrowed standard streams, line input and text output. |
 | `math` | Binary64 trigonometry, exponentials and logarithms through scalar externs. |
 | `text` | Unicode scalar properties, full string case folding and lexical string ordering. |
-| `bytes` | Packed bytes, checked copies and strict UTF-8 conversion. |
+| `bytes` | Packed bytes, checked copies and owned UTF-8 conversion. |
 | `integer` | Exact signed integers, arithmetic, division, roots and correctly rounded binary64 conversion. |
 | `rational` | Exact normalized ratios with positive coprime denominators. |
 | `number` | Concrete exact/inexact real and rectangular complex values, arithmetic, comparison and formatting. |
