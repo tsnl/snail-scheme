@@ -24,7 +24,8 @@ large-allocation line coverage, and finalizer ordering. The focused regression
 republishes a reclaimed exact address before reuse and verifies it cannot revive
 the old object. Cargo's 58 tests, formatting, actual native execution including
 forced collection and traps, and a copied standalone package's native and V8
-execution checks pass. The native suite records 253 successful commands.
+execution checks pass. The native suite records 253 checked commands, including
+expected traps and failures.
 
 ## CPU tuning is a separate experiment
 
