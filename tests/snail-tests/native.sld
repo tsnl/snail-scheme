@@ -137,7 +137,8 @@
                   (let ((native (native-fixture (fixture "sfir-integration" (string-append (car case) ".sfir")) (car case) '())))
                     (checked (car case) (list native) `((status . ,(cadr case)) (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))))
                 '(("data-native-fields" 12) ("data-tree" 14) ("data-gcbench" 62) ("data-empty-cases" 42)
-                  ("string-literals" 42) ("string-block-literal" 42) ("bytevector-builtins" 42) ("bytevector-utf8" 42))))
+                  ("string-literals" 42) ("string-block-literal" 42) ("bytevector-builtins" 42) ("bytevector-utf8" 42)
+                  ("direct-self-environment" 42))))
     (define (bytevector-entry source names)
       (let* ((declarations
               (map (lambda (name index)

@@ -152,7 +152,9 @@ generated code and the next request context. Typing rules consume immediate chil
 judgments; separate emission rules consume generated children. Target code is
 emitted after capture and storage summaries settle. Scalars, structs, arrays,
 precise Any witnesses and tail calls retain their existing Wasm contracts.
-Emission checks that demand is already complete. The shared
+An exact lexical self call reuses its current environment after the ordinary
+operator read; concrete binding identity and a literal initializer establish
+the proof. Emission checks that demand is already complete. The shared
 [`wasm.sld`](wasm-native/scheme/wasm-native/wasm.sld) serializes Wasm data.
 
 [`wasm-strings.sld`](src/snail-scheme/wasm-strings.sld) owns the UTF-8 string
