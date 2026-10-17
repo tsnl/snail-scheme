@@ -110,21 +110,27 @@ export async function checkColony(test, fresh, call) {
 
   await test('camera coordinates agree for pointer placement, pan and cursor movement', () => {
     const r = fresh(), local = (name, args = []) => r.dispatch(2, r.command('client', name, args));
-    local('pan', [4,-3]); local('move', [8,9]);
-    assert.deepEqual(r.snapshot(2), [3,1,12,20,4,11]);
+    local('pan', [4,-3]); local('move', [340,380]);
+    assert.deepEqual(r.snapshot(2), [4,1,340,380,160000,440000]);
     const effects = local('confirm').effects; call(r, 'extract', [12,20]);
     assert.deepEqual(r.effectCommand(effects[0]), r.command('match', 'extract', [12,20]));
-    local('nudge', [-30,0]); const moved = r.snapshot(2); assert.equal(moved[2], -3); assert.equal(moved[4], -3);
-    local('home'); assert.deepEqual(r.snapshot(2), [3,1,8,22,0,14]);
-    for (const [dx,dy,cx,cy,sx,sy] of [[-100,-100,-3,-3,0,0],[100,0,27,-3,23,0],[0,100,27,23,23,15],[-100,0,-3,23,0,15]]) {
+    local('nudge', [-30,0]); const moved = r.snapshot(2); assert.equal(moved[2], 0); assert.equal(moved[4], -100000);
+    local('home'); assert.deepEqual(r.snapshot(2), [4,1,340,340,0,560000]);
+    for (const [dx,dy,cx,cy,sx,sy] of [[-100,-100,-120000,-120000,0,0],[100,0,1080000,-120000,959,0],[0,100,1080000,920000,959,639],[-100,0,-120000,920000,0,639]]) {
       local('pan', [dx,dy]); local('move', [sx,sy]); const camera = r.snapshot(2);
       assert.deepEqual(camera.slice(4), [cx,cy]); r.restore(2, camera);
       const before = state(r), command = r.effectCommand(local('confirm').effects[0]); r.dispatch(1, command);
       assert.equal(state(r).notice, 15); assert.equal(state(r).ore, before.ore);
       assert.equal(state(r).buildings.length, before.buildings.length);
     }
-    const invalid = r.snapshot(2); invalid[4] = -4;
-    assert.throws(() => r.restore(2, invalid), WebAssembly.RuntimeError); r.close();
+    const invalid = r.snapshot(2); invalid[4] = -120001;
+    assert.throws(() => r.restore(2, invalid), WebAssembly.RuntimeError);
+    local('home'); local('drift', [-1,0]); local('move', [0,0]);
+    assert.equal(r.snapshot(2)[4], -360);
+    assert.deepEqual(r.effectCommand(local('confirm').effects[0]), r.command('match','extract',[-1,14]));
+    local('move', [1,0]); assert.deepEqual(r.effectCommand(local('confirm').effects[0]), r.command('match','extract',[0,14]));
+    local('home'); for (let i=0;i<10;i++) local('drift',[16,0]); const shortFrames=r.snapshot(2);
+    local('home'); for (let i=0;i<5;i++) local('drift',[32,0]); assert.deepEqual(r.snapshot(2),shortFrames); r.close();
   });
 
   await test('shared pause freezes all simulation while retaining inspection and paid planning', () => {

@@ -24,7 +24,8 @@
   ],
   "pointer": {
     "move": "move",
-    "confirm": "confirm"
+    "confirm": "confirm",
+    "coordinates": "pixels"
   },
   "keys": {
     "1": [
@@ -64,22 +65,22 @@
       "home"
     ],
     "w": [
-      "pan",
+      "drift",
       0,
       -1
     ],
     "a": [
-      "pan",
+      "drift",
       -1,
       0
     ],
     "s": [
-      "pan",
+      "drift",
       0,
       1
     ],
     "d": [
-      "pan",
+      "drift",
       1,
       0
     ],
@@ -106,10 +107,6 @@
   },
   "inputRepeatMilliseconds": 140,
   "repeatKeys": [
-    "w",
-    "a",
-    "s",
-    "d",
     "ArrowLeft",
     "ArrowRight",
     "ArrowUp",
@@ -170,9 +167,48 @@
       0
     ]
   },
-  "repeatButtons": [12, 13, 14, 15],
+  "repeatButtons": [
+    12,
+    13,
+    14,
+    15
+  ],
   "controllerAxes": [
-    {"axis": 0, "negative": ["pan", -1, 0], "positive": ["pan", 1, 0], "deadzone": 0.35},
-    {"axis": 1, "negative": ["pan", 0, -1], "positive": ["pan", 0, 1], "deadzone": 0.35}
+    {
+      "axis": 0,
+      "negative": [
+        "drift",
+        -1,
+        0
+      ],
+      "positive": [
+        "drift",
+        1,
+        0
+      ],
+      "deadzone": 0.35,
+      "continuous": true
+    },
+    {
+      "axis": 1,
+      "negative": [
+        "drift",
+        0,
+        -1
+      ],
+      "positive": [
+        "drift",
+        0,
+        1
+      ],
+      "deadzone": 0.35,
+      "continuous": true
+    }
+  ],
+  "continuousKeys": [
+    "w",
+    "a",
+    "s",
+    "d"
   ]
 }

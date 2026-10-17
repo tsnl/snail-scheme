@@ -36,7 +36,7 @@
       <section class="command-group" aria-labelledby="colony-heading">
         <h2 id="colony-heading">Colony <span>Workers act on their own</span></h2>
         <div class="controls">
-          <button data-handler="fabricate" title="Queue a new colony worker: 25 ore and three seconds to assemble."><kbd>F / LT</kbd>Assemble worker<small>25 ore · 3 sec</small></button>
+          <button data-handler="fabricate" title="Queue a new colony worker: 25 ore and three seconds to assemble. Haulers carry up to 16 ore per trip."><kbd>F / LT</kbd>Assemble worker<small>25 ore · 3 sec</small></button>
           <button data-handler="prioritize" title="Give the selected site's construction or mine deliveries priority."><kbd>P / RT</kbd>Prioritize selected<small>Give this site priority</small></button>
           <button data-handler="improve" title="Upgrade the selected mine's yield or observation tower's range. Field status shows the selected upgrade's cost and availability."><kbd>U / LB</kbd>Upgrade selected<small>Mine yield / tower range</small></button>
           <button data-handler="mend" title="Toggle automatic hub and structure repairs. Repair spends ore while retaining a construction reserve; field status shows whether it is on."><kbd>R / RB</kbd>Toggle auto repair<small>Current state in field status</small></button>
@@ -68,7 +68,7 @@
   <details class="field-guide">
     <summary>Field guide</summary>
     <div class="guide-grid">
-      <p><strong>Build a supply line.</strong> Put extractors on deposits. Autonomous workers deliver ore, finish construction, and keep the colony running. Ore waiting at a mine is not spendable until a worker delivers it to the hub. Add workers as the workload grows.</p>
+      <p><strong>Build a supply line.</strong> Put extractors on deposits. Autonomous workers deliver ore, finish construction, and keep the colony running. Ore waiting at a mine is not spendable until a worker delivers it to the hub. Haulers carry up to 16 ore; a mine holds at most 120. Growing mine stock means hauling is behind production. Add workers as the workload grows.</p>
       <p><strong>Survey before expanding.</strong> Build on currently visible ground with a surveyed route from the hub. Completed towers reveal more terrain; upgrade their range to reach farther. Shaded terrain is remembered; bright terrain is in view.</p>
       <p><strong>Select a site.</strong> Hover or move the cursor onto it, then use Upgrade or Prioritize; no click is needed. Artillery automatically attacks visible threats within eight cells. Automatic repairs cover the hub and structures, keeping 40 ore in reserve. Defeated enemies give no ore. Pause stops the shared simulation while allowing camera movement and planning; construction waits for Resume.</p>
     </div>
