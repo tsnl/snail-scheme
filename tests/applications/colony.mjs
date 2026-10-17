@@ -1,18 +1,16 @@
 // Actual compiled reducers exercise spatial knowledge, shared labor and material
 // ownership. Snapshot edits below only establish boundary/failure scenarios.
 import assert from 'node:assert/strict';
-import {colony, addEnemy} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker} from './colony-state.mjs';
 
 export async function checkColony(test, fresh, call) {
   const advance = (runtime, ticks = 1) => { for (let tick = 0; tick < ticks; tick++) call(runtime, 'advance'); };
   const state = runtime => colony(runtime.snapshot(1));
   function materialBalance(world) {
     assert.equal(world.ore, 160 + world.delivered - world.spent);
-    const cargo = world.bots.filter(bot => bot.job === 2).reduce((total, bot) => total + bot.cargo, 0);
-    const stock = world.buildings.reduce((total, building) => total + building.stock, 0);
-    assert.equal(world.produced, world.delivered + cargo + stock);
+    assert.equal(world.produced, colonyBalance(world).raw);
     for (const building of world.buildings) {
-      const carriers = world.bots.filter(bot => [3,5].includes(bot.job) && bot.cargo > 4 && bot.target === building.id);
+      const carriers = world.bots.filter(bot => ([3,5].includes(bot.job) || (bot.job === 7 && bot.timer === 5)) && bot.cargo > 4 && bot.target === building.id);
       assert.equal(carriers.length, building.stage === 1 ? 1 : 0);
     }
   }
@@ -27,7 +25,7 @@ export async function checkColony(test, fresh, call) {
     call(r, 'observe', [12,8]); advance(r, 200);
     call(r, 'upgrade', [12,8]); call(r, 'extract', [5,5]);
     const northern = state(r).buildings.find(building => building.x === 5 && building.y === 5);
-    assert.ok(northern); let northDelivered = false;
+    assert.ok(northern); call(r, 'fabricate-worker'); assert.equal(state(r).bots.length, 4); let northDelivered = false;
     for (let tick = 0; tick < 600; tick++) {
       const before = state(r);
       const arriving = before.bots.some(bot => bot.job === 2 && bot.target === northern.id && bot.cargo > 0 && bot.path.length === 0);
@@ -43,7 +41,8 @@ export async function checkColony(test, fresh, call) {
     const r = fresh(); call(r, 'observe', [2,16]); advance(r, 120);
     const before = state(r); call(r, 'fortify', [2,9]);
     assert.equal(state(r).notice, 6); assert.equal(state(r).ore, before.ore);
-    const words = r.snapshot(1); words[32 + 5] = 1; words[1] = 129; r.restore(1, words);
+    const words = r.snapshot(1); words[32 + 5] = 1; words[1] = 129;
+    for (let i=0;i<3;i++) setWorker(words,i,{id:i+1}); r.restore(1, words);
     addEnemy(r, {x:2, y:16, target:before.buildings[0].id, kind:1});
     advance(r); assert.equal(state(r).lost, 1); assert.deepEqual(state(r).surveys, before.surveys);
     call(r, 'fortify', [2,9]); assert.equal(state(r).notice, 1);
@@ -53,11 +52,11 @@ export async function checkColony(test, fresh, call) {
   await test('interrupted construction returns exactly one paid kit and resumes after danger', () => {
     const r = fresh(); call(r, 'observe', [12,14]); advance(r);
     const project = state(r).buildings[0]; assert.equal(project.stage, 1);
-    addEnemy(r, {x:8, y:22}); advance(r);
-    assert.equal(state(r).bots.filter(bot => bot.job === 5 && bot.target === project.id).length, 1);
-    advance(r, 8); assert.equal(state(r).buildings[0].stage, 0);
-    assert.equal(state(r).bots.filter(bot => bot.job === 3).length, 0);
-    const clear = r.snapshot(1); clear[9] = 0; r.restore(1, clear); advance(r, 150);
+    addEnemy(r, {x:8, y:22}); advance(r, 3);
+    assert.equal(state(r).bots.filter(bot => bot.job === 7 && bot.timer === 5 && bot.target === project.id).length, 1);
+    advance(r, 25); assert.equal(state(r).buildings[0].stage, 1);
+    assert.equal(state(r).spent, 25); materialBalance(state(r));
+    const clear = r.snapshot(1); clear[9] = 0; r.restore(1, clear); advance(r, 260);
     assert.equal(state(r).buildings[0].stage, 2); assert.equal(state(r).spent, 25); assert.equal(state(r).ore, 135);
     r.close();
   });

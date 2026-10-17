@@ -7,7 +7,7 @@
           (browser application)
           (siegework model)
           (siegework terrain)
-          (only (lofi base) string-append))
+          (only (lofi base) string-append i32->i64))
   (begin
 
     ;; ---- Field tiles, remembered terrain and active observation ----
@@ -22,12 +22,12 @@
            (> (* (+ y 1) 40) cy) (< (* y 40) (+ cy 640))))
     (define (terrain-color world x y)
       (cond ((not (surveyed? (world-surveys world) x y)) 461584)
-            ((not (ground? x y)) (if (visible? world x y) 4674150 2174772))
+            ((not (ground? (world-seed world) x y)) (if (visible? world x y) 4674150 2174772))
             ((not (visible? world x y)) 1053471)
             ((= (remainder (+ x (* y 3)) 7) 0) 1719104)
             (else 1455672)))
     (define (deposit-quads world x y sx sy)
-      (if (and (> (deposit-rate x y) 0) (surveyed? (world-surveys world) x y))
+      (if (and (> (deposit-rate (world-seed world) x y) 0) (surveyed? (world-surveys world) x y))
           (let ((color (if (visible? world x y) 4908718 3436655)))
             (list (rect (+ sx 10) (+ sy 5) 18 28 color)
                   (rect (+ sx 5) (+ sy 12) 28 14 color)
@@ -88,14 +88,30 @@
             (append (if (on-screen? (building-x building) (building-y building) cx cy)
                         (one-building world building x y) (empty-list))
                     (building-quads world (cdr buildings) cx cy)))))
+    (define (mine-slot-x slot) (if (= slot 0) 25 -25))
+    (define (mine-slot-quads building bots slot x y)
+      (let* ((staff (workers-at bots 8 (building-id building)))
+             (incoming (workers-at bots 9 (building-id building)))
+             (x (+ x (mine-slot-x slot))))
+        (append (outline (- x 12) (- y 15) 24 33
+                         (if (< slot staff) 6619039 (if (< slot (+ staff incoming)) 15448892 5733241)))
+                (if (< slot staff) (list (quad (- x 8) (- y 13) 16 29 6619039 35))
+                    (list (rect (- x 3) (+ y 1) 6 2 5733241))))))
+    (define (mine-slots world building x y)
+      (if (and (ready? building) (= (building-kind building) 1))
+          (append (mine-slot-quads building (world-bots world) 0 x y)
+                  (if (= (building-level building) 2)
+                      (mine-slot-quads building (world-bots world) 1 x y) (empty-list)))
+          (empty-list)))
     (define (one-building world building x y)
       (append (if (ready? building) (building-symbol building x y)
                   (append (outline (- x 14) (- y 14) 28 28 (building-color (building-kind building)))
                           (list (rect (- x 6) (- y 5) (if (= (building-stage building) 0) 4 12) 10 15641955))))
-              (append (list (rect (- x 14) (+ y 24)
-                                  (quotient (* (building-hp building) 28) (building-health (building-kind building))) 2 9352916))
-                      (if (= (building-id building) (world-priority world))
-                          (outline (- x 19) (- y 19) 38 38 16769709) (empty-list)))))
+              (append (mine-slots world building x y)
+                      (append (list (rect (- x 14) (+ y 24)
+                                          (quotient (* (building-hp building) 28) (building-health (building-kind building))) 2 9352916))
+                              (if (= (building-id building) (world-priority world))
+                                  (outline (- x 19) (- y 19) 38 38 16769709) (empty-list))))))
 
     ;; Cooldown 8..5 draws one shot over four simulation frames. Damage is still
     ;; immediate at firing; the saved aim is the hit position, not a live target.
@@ -124,21 +140,50 @@
     ;; ---- Ant traffic and the jobs carried across the field ----
 
     (define (worker-color bot)
-      (cond ((= (bot-job bot) 5) 15766888) ((= (bot-job bot) 4) 15382726)
-            ((= (bot-job bot) 3) 15641955) ((> (bot-cargo bot) 0) 6619039)
-            (else 13225174)))
+      (let ((job (bot-job bot)))
+        (cond ((= job 7) 15766888) ((= job 10) 15448892)
+              ((or (= job 8) (= job 9)) 6619039)
+              ((and (>= job 3) (<= job 6)) 15641955)
+              ((or (= job 1) (= job 2)) 15058886)
+              (else 9352916))))
+    (define (at-hub? bot)
+      (and (= (bot-x bot) (cell-x hub-x)) (= (bot-y bot) (cell-y hub-y))))
+    ;; Arrival is the exact hub center, not merely the same cell. Creation order
+    ;; spreads up to twelve arrivals around the hub without moving any world data.
+    (define (hub-slot-x slot)
+      (cond ((< slot 4) (- (* slot 24) 36))
+            ((< slot 8) (if (= (remainder slot 2) 0) -52 52))
+            (else (- (* (- slot 8) 24) 36))))
+    (define (hub-slot-y slot)
+      (cond ((< slot 4) -45) ((< slot 8) (- (* (quotient (- slot 4) 2) 30) 15))
+            (else 47)))
+    ;; Parked miners share their mine's physical center. Their two display slots
+    ;; use the same creation-order rank as the occupied frames beside the mine.
+    (define (miner-slot bot bots)
+      (if (or (null? bots) (= (bot-id bot) (bot-id (car bots)))) 0
+          (+ (if (and (= (bot-job (car bots)) 8) (= (bot-target bot) (bot-target (car bots)))) 1 0)
+             (miner-slot bot (cdr bots)))))
+    (define (worker-offset-x bot bots hub-slot)
+      (cond ((at-hub? bot) (hub-slot-x hub-slot))
+            ((= (bot-job bot) 8) (mine-slot-x (miner-slot bot bots))) (else 0)))
     (define (trail-quads path cx cy)
       (if (null? path) (empty-list)
           (let ((x (index-x (car path))) (y (index-y (car path))))
             (append (if (on-screen? x y cx cy)
                         (list (quad (+ (screen-x (cell-x x) cx) 2) (+ (screen-y (cell-y y) cy) 2) 3 3 10853523 50))
                         (empty-list)) (trail-quads (cdr path) cx cy)))))
-    (define (bot-quads bots cx cy)
+    (define (bot-quads world bots cx cy hub-slot)
       (if (null? bots) (empty-list)
-          (let* ((bot (car bots)) (x (screen-x (bot-x bot) cx)) (y (screen-y (bot-y bot) cy)))
+          (let ((bot (car bots)))
             (append (trail-quads (bot-path bot) cx cy)
-                    (append (if (on-screen? (quotient (bot-x bot) cell-size) (quotient (bot-y bot) cell-size) cx cy)
-                                (one-bot bot x y) (empty-list)) (bot-quads (cdr bots) cx cy))))))
+                    (append (worker-quads bot (world-bots world) hub-slot cx cy)
+                            (bot-quads world (cdr bots) cx cy (+ hub-slot (if (at-hub? bot) 1 0))))))))
+    (define (worker-quads bot bots hub-slot cx cy)
+      (let ((x (+ (screen-x (bot-x bot) cx) (worker-offset-x bot bots hub-slot)))
+            (y (+ (screen-y (bot-y bot) cy) (if (at-hub? bot) (hub-slot-y hub-slot) 0))))
+        (if (and (> x -20) (< x 980) (> y -20) (< y 660))
+            (append (one-bot bot x y) (append (worker-mark bot x y) (worker-health bot x y)))
+            (empty-list))))
     (define (one-bot bot x y)
       (list (rect (- x 7) (- y 3) 14 2 5733241)
             (rect (- x 7) (+ y 3) 14 2 5733241)
@@ -146,6 +191,20 @@
             (rect (- x 4) (- y 1) 8 7 (worker-color bot))
             (rect (- x 2) (+ y 7) 4 4 (worker-color bot))
             (rect (- x 5) (- y 12) (if (> (bot-cargo bot) 0) 10 0) 3 (worker-color bot))))
+    (define (worker-mark bot x y)
+      (cond ((or (= (bot-job bot) 8) (= (bot-job bot) 9))
+             (list (rect (+ x 6) (- y 9) 2 14 6619039) (rect (+ x 3) (- y 10) 7 3 6619039)))
+            ((= (bot-job bot) 7)
+             (list (rect (- x 11) (- y 6) 2 9 15766888) (rect (+ x 9) (- y 6) 2 9 15766888)))
+            ((= (bot-job bot) 10)
+             (list (rect (- x 4) (- y 14) 3 4 15448892) (rect (+ x 1) (- y 14) 3 4 15448892)))
+            ((= (bot-job bot) 6) (outline (- x 9) (- y 12) 18 26 15641955))
+            (else (empty-list))))
+    (define (worker-health bot x y)
+      (if (< (bot-hp bot) 14)
+          (list (rect (- x 6) (+ y 14) 12 2 3883588)
+                (rect (- x 6) (+ y 14) (quotient (* (bot-hp bot) 12) 14) 2 15766888))
+          (empty-list)))
     (define (enemy-quads world enemies cx cy)
       (if (null? enemies) (empty-list)
           (let* ((enemy (car enemies)) (x (quotient (enemy-x enemy) cell-size))
@@ -175,13 +234,31 @@
                       (+ 16 (* (building-y (car buildings)) 3)) 3 3
                       (building-color (building-kind (car buildings))))
                 (minimap-buildings (cdr buildings)))))
+    ;; Alerts copy actual friendly damage locations. Their eighty-tick lifetime
+    ;; and pulse stop with the simulation; they never consult enemy positions.
+    (define (recent-alert? alert tick)
+      (and (>= tick (alert-tick alert)) (< (- tick (alert-tick alert)) 80)))
+    (define (bounded value low high)
+      (if (< value low) low (if (> value high) high value)))
+    (define (minimap-alert alert tick)
+      (let* ((x (+ 805 (* (alert-x alert) 3))) (y (+ 17 (* (alert-y alert) 3)))
+             (left (bounded (- x 4) 804 948)) (right (bounded (+ x 5) 804 948))
+             (top (bounded (- y 4) 16 124)) (bottom (bounded (+ y 5) 16 124))
+             (color (if (< (remainder (- tick (alert-tick alert)) 10) 5) 15766888 16769709)))
+        (append (outline left top (- right left) (- bottom top) color)
+                (list (rect (- x 1) (- y 1) 3 3 15766888)))))
+    (define (minimap-alerts alerts tick)
+      (if (null? alerts) (empty-list)
+          (append (if (recent-alert? (car alerts) tick) (minimap-alert (car alerts) tick) (empty-list))
+                  (minimap-alerts (cdr alerts) tick))))
     (define (minimap world cx cy)
       (append (list (quad 798 10 156 120 461584 240))
               (append (minimap-tiles world 0)
                       (append (minimap-buildings (world-buildings world))
                               (append (list (rect (+ 804 (* hub-x 3)) (+ 16 (* hub-y 3)) 4 4 15058886))
                                       (append (outline 802 14 148 112 9352916)
-                                              (minimap-window cx cy)))))))
+                                              (append (minimap-window cx cy)
+                                                      (minimap-alerts (world-alerts world) (world-tick world)))))))))
     (define (minimap-window cx cy)
       (let ((left (if (< cx 0) 0 cx)) (top (if (< cy 0) 0 cy))
             (right (if (> (+ cx 960) 1920) 1920 (+ cx 960)))
@@ -198,15 +275,17 @@
                       (append (outline (- 0 cx) (- 0 cy) 1920 1440 9352916)
                               (append (hub-quads world cx cy)
                                       (append (building-quads world (world-buildings world) cx cy)
-                                              (append (bot-quads (world-bots world) cx cy)
+                                              (append (bot-quads world (world-bots world) cx cy 0)
                                                       (append (enemy-quads world (world-enemies world) cx cy)
                                                               (append (shots-quads (world-buildings world) cx cy)
                                                                       (append (cursor world tool x y cx cy) (minimap world cx cy)))))))))))
 
-    ;; ---- Readable economy, selection and fair global warnings ----
+    ;; ---- Worker roles, actual damage and scheduled threats ----
 
     (define (count-job bots job)
       (if (null? bots) 0 (+ (if (= (bot-job (car bots)) job) 1 0) (count-job (cdr bots) job))))
+    (define (count-at-hub bots)
+      (if (null? bots) 0 (+ (if (at-hub? (car bots)) 1 0) (count-at-hub (cdr bots)))))
     (define (waiting-ore buildings)
       (if (null? buildings) 0 (+ (building-stock (car buildings)) (waiting-ore (cdr buildings)))))
     (define (clock-text tick)
@@ -214,14 +293,29 @@
                      (if (< (remainder (quotient tick 10) 60) 10) "0" "")
                      (integer-text (remainder (quotient tick 10) 60))))
     (define (warning-text world)
-      (cond ((= (world-outcome world) 1) "HUB LOST · N / Start begins a fresh colony")
-            ((= (world-outcome world) 2) "SIEGE REPELLED · the colony held for eight minutes")
-            ((= (world-outcome world) 3) "THREAT EXTERMINATED · the colony survives")
-            ((>= (world-tick world) 4200) "THE SIEGE BEAST IS ADVANCING FROM THE EAST")
-            ((>= (world-tick world) 3600) "WARNING · eastern siege beast at 7:00 · reinforce the crossing")
-            ((>= (world-tick world) 2100) "Outpost raid dispatched · eastern waves continue · final siege at 7:00")
-            ((>= (world-tick world) 1500) "WARNING · raiders target the outer operation at 3:30")
-            (else "Eastern waves each minute · outpost raid at 3:30 · final siege at 7:00")))
+      (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · N / Start begins a fresh colony")
+            ((= (world-outcome world) 2) "RUN ENDED · SIEGE REPELLED · the colony held for eight minutes")
+            ((= (world-outcome world) 3) "RUN ENDED · THREAT EXTERMINATED · the colony survives")
+            ((>= (world-tick world) 4200) "SCHEDULE · final siege began at 7:00 · hold until 8:00")
+            ((>= (world-tick world) 3600) "SCHEDULE · eastern siege at 7:00 · reinforce the crossing")
+            ((>= (world-tick world) 2100) "SCHEDULE · outpost raid began at 3:30 · final siege at 7:00")
+            ((>= (world-tick world) 1500) "SCHEDULE · outpost raid at 3:30 · protect the outer operation")
+            (else "SCHEDULE · eastern waves each minute · outpost raid 3:30 · final siege 7:00")))
+    (define (alert-name kind)
+      (cond ((= kind 0) "HUB") ((= kind 1) "Extractor") ((= kind 2) "Artillery")
+            ((= kind 3) "Tower") (else "Workers")))
+    (define (alert-text alert ended)
+      (string-append (alert-name (alert-kind alert)) (if ended " hit [" " under attack [")
+                     (integer-text (alert-x alert)) "," (integer-text (alert-y alert)) "]"))
+    (define (damage-messages alerts tick ended)
+      (if (null? alerts) ""
+          (let ((later (damage-messages (cdr alerts) tick ended)))
+            (if (recent-alert? (car alerts) tick)
+                (string-append (alert-text (car alerts) ended) (if (= (string-length later) (i32->i64 0)) "" " · ") later)
+                later))))
+    (define (damage-status world)
+      (let ((messages (damage-messages (world-alerts world) (world-tick world) (not (= (world-outcome world) 0)))))
+        (if (= (string-length messages) (i32->i64 0)) "" (string-append "RECENT DAMAGE · " messages "\n"))))
     (define (reason-text reason)
       (cond ((= reason 1) "Outside active observation · extend a tower first")
             ((= reason 2) "Rock or water · choose traversable ground")
@@ -236,45 +330,85 @@
             ((= reason 11) "Select an operational mine or tower with an available upgrade")
             ((= reason 12) "Upgrade installed")
             ((= reason 13) "Worker assembling at the hub · ready in three seconds")
-            ((= reason 14) "Site prioritized · construction and mine collection")
+            ((= reason 14) "Site prioritized · construction, mine staffing and collection")
             ((= reason 15) "Outside map boundary · move the cursor onto the field")
-            (else "Ready to place · workers handle construction, hauling and repairs")))
+            ((= reason 16) "Seed must be 1–65535; colony unchanged")
+            (else "Ready to place · workers build, mine, haul and repair")))
     (define (building-name kind)
       (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") (else "OBSERVATION TOWER")))
+    (define (mine-production-text world building staff)
+      (cond ((not (ready? building)) " · production starts after construction and staffing")
+            ((= staff 0) " · no miners: no production")
+            ((= (building-stock building) 120) " · buffer full: waiting for a hauler")
+            (else (string-append " · staffed rate "
+                                 (integer-text (* staff (deposit-rate (world-seed world) (building-x building) (building-y building))))
+                                 " ore/sec"))))
+    (define (mine-detail world building)
+      (let ((staff (workers-at (world-bots world) 8 (building-id building))))
+        (string-append " · miners " (integer-text staff) "/" (integer-text (building-level building))
+                       " (+" (integer-text (workers-at (world-bots world) 9 (building-id building))) " incoming)"
+                       (mine-production-text world building staff)
+                       "\nStock " (integer-text (building-stock building)) "/120 · "
+                       (integer-text (workers-at (world-bots world) 1 (building-id building))) " collectors en route"
+                       (if (= (building-level building) 2) " · two mining slots installed"
+                           (if (ready? building) " · U: +1 mining slot / 40 ore; needs another worker"
+                               " · upgrade after construction")))))
+    (define (tower-detail building)
+      (string-append " · sight " (integer-text (building-radius building)) " cells"
+                     (if (= (building-level building) 2) " · range upgrade installed"
+                         (if (ready? building) " · U: sight 10 / 35 ore" " · upgrade after construction"))))
     (define (building-detail world building)
       (string-append (building-name (building-kind building))
                      (if (= (building-stage building) 0) " · kit waiting at hub"
                          (if (= (building-stage building) 1) " · worker delivering construction kit" " · operational"))
                      " · " (integer-text (building-hp building)) " health"
                      (if (= (building-kind building) 1)
-                         (string-append " · " (integer-text (building-stock building)) "/120 ore waiting · "
-                                        (integer-text (workers-at (world-bots world) 1 (building-id building))) " collectors en route"
-                                        (if (= (building-level building) 2) " · production ×2 installed"
-                                            (if (ready? building) " · U: production ×2 / 40 ore" " · upgrade after construction")))
+                         (mine-detail world building)
                          (if (= (building-kind building) 3)
-                             (string-append " · sight " (integer-text (building-radius building)) " cells"
-                                            (if (= (building-level building) 2) " · range upgrade installed"
-                                                (if (ready? building) " · U: sight 10 / 35 ore" " · upgrade after construction")))
+                             (tower-detail building)
                              " · automatic aim · 8-cell range · visible threats"))))
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (not (null? found)) (building-detail world (car found))
             (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                            (integer-text x) "," (integer-text y) "] · "
-                           (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate x y) 0))
-                               (string-append "deposit: " (integer-text (deposit-rate x y)) " ore/sec · ") "")
+                           (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
+                               (string-append "deposit: " (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
                            (if (= tool 2) "8-cell firing range · " "")
                            (reason-text (placement-reason world tool x y))))))
+    (define (worker-work-text bots)
+      (string-append "Mining " (integer-text (count-job bots 8)) " (+" (integer-text (count-job bots 9)) " incoming) · "
+                     "hauling " (integer-text (+ (count-job bots 1) (count-job bots 2))) " · "
+                     "building/repair " (integer-text (+ (count-job bots 3) (count-job bots 4))) " · "
+                     "kit return " (integer-text (count-job bots 5)) "\n"
+                     "Retreating " (integer-text (count-job bots 7)) " · blocked by danger " (integer-text (count-job bots 10)) " · "
+                     "idle " (integer-text (count-job bots 0)) " · assembling " (integer-text (count-job bots 6))))
+    (define (sheltering-count bots)
+      (if (null? bots) 0
+          (+ (if (and (at-hub? (car bots)) (= (bot-job (car bots)) 10)) 1 0)
+             (sheltering-count (cdr bots)))))
+    (define (shelter-text world)
+      (if (and (= (world-outcome world) 0) (> (sheltering-count (world-bots world)) 0))
+          (string-append (integer-text (sheltering-count (world-bots world)))
+                         " sheltering at hub until a route is safe\n") ""))
+    (define (population-text world)
+      (string-append "COLONY " (integer-text (list-size (world-bots world))) "/12 · "
+                     "AT HUB " (integer-text (count-at-hub (world-bots world))) " · lost "
+                     (integer-text (world-casualties world)) " workers / " (integer-text (world-lost-ore world)) " ore\n"
+                     (worker-work-text (world-bots world)) "\n" (shelter-text world)))
+    (define (economy-text world)
+      (string-append (integer-text (world-credits world)) " ORE · HUB " (integer-text (world-hull world)) "/300 · "
+                     (clock-text (world-tick world)) "/8:00 · seed " (integer-text (world-seed world)) "\n"
+                     "Mine stock " (integer-text (waiting-ore (world-buildings world))) " · delivered "
+                     (integer-text (world-delivered world)) " · defeated " (integer-text (world-kills world)) "\n"))
+    (define (order-text world)
+      (string-append "Last order: " (reason-text (world-notice world)) " · Auto repair "
+                     (if (= (world-repairs world) 1) "ON (keeps 40 ore)" "OFF")))
     (define (colony-status world tool x y)
-      (string-append (if (= (world-paused world) 1) "PAUSED · shared colony · planning stays available\n" "")
+      (string-append (if (and (= (world-outcome world) 0) (= (world-paused world) 1))
+                         "PAUSED · shared colony · planning stays available\n" "")
                      (warning-text world) "\n"
-                     (integer-text (world-credits world)) " ORE  ·  HUB " (integer-text (world-hull world)) "/300  ·  "
-                     (clock-text (world-tick world)) "/8:00  ·  " (integer-text (world-kills world)) " defeated\n"
-                     "COLONY " (integer-text (list-size (world-bots world))) "/12 workers · "
-                     (integer-text (+ (count-job (world-bots world) 1) (count-job (world-bots world) 2))) " hauling · "
-                     (integer-text (count-job (world-bots world) 3)) " building · "
-                     (integer-text (waiting-ore (world-buildings world))) " ore waiting at mines · "
-                     (integer-text (world-delivered world)) " delivered\n"
-                     (selection-text world tool x y) "\n"
-                     "Last order: " (reason-text (world-notice world)) " · Auto repair "
-                     (if (= (world-repairs world) 1) "ON (keeps 40 ore)" "OFF")))))
+                     (damage-status world) (economy-text world) (population-text world)
+                     "Ants: teal mining · pale hauling · gold kits · coral retreat · amber wait · gray idle\n"
+                     "Mine slots: filled = mining · amber outline = incoming · gray = empty\n"
+                     (selection-text world tool x y) "\n" (order-text world)))))
