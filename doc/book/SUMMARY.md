@@ -8,6 +8,7 @@
 - [Macros and Scheme libraries](lofi/macros.md)
 - [Libraries](lofi/libraries.md)
 - [Compilers as libraries](lofi/compilers.md)
+- [Applications, state, and hot reload](lofi/applications.md)
 - [Notable omissions](lofi/omissions.md)
 - [Implementation extensions](lofi/extensions.md)
 - [References](lofi/references.md)

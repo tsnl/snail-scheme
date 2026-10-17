@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Siegework — a short cooperative siege</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<header><div><p class="eyebrow">A TWO-MINUTE FIELD EXPERIMENT</p><h1>SIEGEWORK<span>01</span></h1></div><p class="tagline">Land. Extract. Fortify.<br>Hold against what comes.</p></header>
+<section class="board"><canvas width="960" height="560" tabindex="0" aria-label="Siegework battlefield. Use arrow keys to move the build cursor; 1 selects extractor, 2 artillery, Enter places it."></canvas>
+<div class="map-label west">HUB / DROP ZONE</div><div class="map-label east">THREATS APPROACH ←</div></section>
+<section class="console"><p data-status>Establishing the field link…</p><div class="controls">
+<button data-handler="choose" data-args="[1]"><kbd>1 / X</kbd> Extractor <small>30 ore</small></button>
+<button data-handler="choose" data-args="[2]"><kbd>2 / Y</kbd> Artillery <small>45 ore</small></button>
+<button data-handler="improve"><kbd>U / LB</kbd> Upgrade mine <small>55 ore</small></button>
+<button data-handler="mend"><kbd>R / RB</kbd> Repair hub <small>30 ore</small></button>
+<button data-handler="restart"><kbd>N / START</kbd> New run</button></div></section>
+<footer><p>Choose a turquoise deposit, then place artillery along the eastern approach. The bot hauls automatically.<br>Point + click, or arrows / D-pad + Enter / A. Share this server with a second browser tab to cooperate.</p><p data-connection>CONNECTING</p></footer>
+<details><summary>About this prototype</summary><p>Game rules, client state, and shader expressions are Scheme libraries. Real WebGPU draws the field. A single local authority runs Scheme-generated Wasm, commits to SQLite, and streams accepted snapshots. Rebuilding swaps compatible code and shaders without resetting your match or selection. This tiny fixed map is an experiment, not the full game.</p></details>
+</main><script type="module" src="/lib/browser/client.mjs"></script></body></html>
