@@ -18,9 +18,9 @@ function replaceOnce(source, before, after) {
   return source.replace(before, after);
 }
 
-function decorate(source, expression, name) {
+function decorate(source, expression, constructor, name) {
   const opening = expression.indexOf(' ');
-  const call = `((chromium-trace "${name}" ${expression.slice(1, opening)})`;
+  const call = `((${constructor} "${name}" ${expression.slice(1, opening)})`;
   return replaceOnce(source, expression, call + expression.slice(opening));
 }
 
@@ -33,8 +33,8 @@ function compilerOverlay(source) {
     ['(prepare-entry-generation core checked)', 'lofi.specialize'],
     ['(emit-artifact (strict-core->wasm program)', 'lofi.artifact'],
     ['(strict-core->wasm program)', 'lofi.emit'],
-  ]) source = decorate(source, call, name);
-  return source.replaceAll('(chromium-trace "lofi.', '(profile-phase "lofi.');
+  ]) source = decorate(source, call, 'profile-phase', name);
+  return source;
 }
 
 function artifactOverlay(source) {
@@ -44,7 +44,7 @@ function artifactOverlay(source) {
     '(string-append (get-environment-variable "SNAIL_PROFILE_DIRECTORY")\n' +
     '                         "/artifact-" (symbol->string (entry-export entry)) ".trace.json")');
   // write-wasm and Binaryen already trace their work inside the retained scope.
-  return decorate(source, '(file-bytes output)', 'lofi.read-artifact');
+  return decorate(source, '(file-bytes output)', 'chromium-trace', 'lofi.read-artifact');
 }
 
 function instrumentUnits(overlay, environment) {
