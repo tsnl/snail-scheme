@@ -183,7 +183,7 @@ The allocation policy follows [Immix, sections 3.1–3.3](https://www.mmtk.io/as
   copy movable survivors once, leave forwarding headers, and repair every edge.
   If target space runs out, retain the remaining objects in place.
 
-The histogram follows the [MMTk block sweep](https://github.com/JikesRVM/JikesRVM/blob/400b7978e4c94efb7d2c352c01c11aa54cb465dd/MMTk/src/org/mmtk/policy/immix/Block.java#L120):
+The histogram follows the [original MMTk block sweep](https://github.com/JikesRVM/JikesRVM/blob/f10ba059ebdb801cc66e2cb6552a6f4a3a0f193d/MMTk/src/org/mmtk/policy/immix/Block.java#L139):
 count transitions from marked to unmarked lines before reserving the conservative
 following line. Estimate copy volume from marked lines,
 separately from retained allocation capacity. Otherwise alternating live/dead
@@ -192,6 +192,13 @@ Prior marks predict copy cost; current allocation state bounds target capacity.
 New allocations reduce available target space without being presumed live in the
 previous mark histogram. Each copy checks actual capacity, so underestimated
 survival causes in-place marking rather than overwriting occupied storage.
+
+At the cutoff, follow the [2008 implementation](https://github.com/JikesRVM/JikesRVM/blob/f10ba059ebdb801cc66e2cb6552a6f4a3a0f193d/MMTk/src/org/mmtk/policy/immix/Defrag.java#L171):
+include the first histogram bucket that reaches or exceeds estimated target
+capacity, then rely on allocation failure to stop copying. Section 3.2.1's prose
+instead excludes the crossing bucket. That interpretation can repeatedly skip a
+large group of equally fragmented blocks and eventually exhaust the heap; a
+regression test exercises partial evacuation of exactly this case.
 
 Allocation occupancy and current collection marks are separate maps. Evacuation
 uses only previously free storage and never allocates into selected source blocks.

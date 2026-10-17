@@ -633,12 +633,15 @@ impl Collector {
         }
         let (mut required, mut threshold) = (0, LINES + 1);
         for holes in (1..=LINES).rev() {
-            required += marked[holes];
-            space -= available[holes];
-            if required > space {
+            if required >= space {
                 break;
             }
+            // The original MMTk implementation includes the crossing bucket.
+            // Excluding it can prevent any progress on equally fragmented
+            // blocks. Actual target exhaustion safely stops copying instead.
             threshold = holes;
+            required += marked[holes];
+            space -= available[holes];
         }
         threshold
     }
@@ -1476,6 +1479,30 @@ mod tests {
         assert_eq!(heap.collector.stats.moved_objects, 256);
         assert_eq!(heap.collector.stats.recovered_blocks, 2);
         for (index, &value) in heap.frame.values.iter().enumerate() {
+            assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 2) as u64);
+        }
+    }
+
+    #[test]
+    fn automatic_evacuation_can_partially_copy_an_oversized_histogram_bucket() {
+        let mut heap = Heap::new(4, 4);
+        for index in 0..384 {
+            let object = heap.object(248, 10, index as u64);
+            if index % 2 == 0 {
+                heap.frame.values[index / 2] = object as u64;
+            }
+        }
+        heap.collect();
+        // Three equally fragmented blocks need 384 marked lines. Only one
+        // empty block (256 lines) can receive copies. Excluding this bucket
+        // would leave all three fragmented blocks untouched indefinitely.
+        assert_eq!(heap.collector.evacuation_threshold(), 64);
+        heap.collect();
+        assert!(heap.collector.evacuation_exhausted);
+        assert_eq!(heap.collector.stats.moved_objects, 128);
+        assert_eq!(heap.collector.stats.recovered_blocks, 2);
+        assert_eq!(heap.collector.free_blocks, 2);
+        for (index, &value) in heap.frame.values[..192].iter().enumerate() {
             assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 2) as u64);
         }
     }
