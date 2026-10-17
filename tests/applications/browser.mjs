@@ -83,11 +83,11 @@ try {
     globalThis.savedFetch = fetch; globalThis.submitted = []; globalThis.releaseRenewal = undefined;
     let rejected = false;
     globalThis.fetch = (...args) => {
-      if (args[0] === '/command') {
+      if (new URL(args[0], location.href).pathname === '/command') {
         const body = JSON.parse(args[1].body); submitted.push(body);
         if (!rejected) { rejected = true; return savedFetch(args[0], {...args[1],body:JSON.stringify({...body,epoch:'stale-test-epoch'})}); }
       }
-      if (args[0] === '/session' && rejected && !releaseRenewal)
+      if (new URL(args[0], location.href).pathname === '/session' && rejected && !releaseRenewal)
         return new Promise(resolve => { globalThis.releaseRenewal = () => resolve(savedFetch(...args)); });
       return savedFetch(...args);
     };
@@ -165,7 +165,7 @@ try {
   for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
   await pause(250);
   console.log('ok - shared pause freezes combat and hauling across visibility changes and repeated pause requests');
-  await a.evaluate("snailApp.local('pan',[-100,-100]);snailApp.local('choose',[2]);snailApp.local('move',[5,5]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('fabricate')");
+  await a.evaluate("snailApp.local('pan',[-100,-100]);snailApp.local('choose',[2]);snailApp.local('move',[5,5]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>new URL(args[0],location.href).pathname==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('fabricate')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.equal(JSON.parse(before.pending).length, 1);
   assert.deepEqual(before.local.slice(4), [-120000,-120000]);

@@ -14,6 +14,7 @@ import {packageApplication} from '../../src/browser/build.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
 
 const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
+const artifacts = resolve(process.argv[4] ?? output);
 const manifest = JSON.parse(readFileSync(join(output, 'manifest.json'))), bytes = readFileSync(join(output, manifest.module));
 async function fresh() { const r = new ReducerRuntime(); await r.replace(r.prepare(bytes, manifest)); await r.initialize(1); await r.initialize(2); return r; }
 function call(r, binding, args = []) { return r.dispatch(1, r.command('match', binding, args)); }
@@ -117,7 +118,7 @@ await test('invalid transition output fails before durable state or epoch public
 });
 await test('packaging catches a declared/encoded size mismatch before publishing a manifest', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'snail-preflight-')), root = resolve(import.meta.dirname, '../..');
-  for (const name of ['shader.wasm', 'application.syntax.json']) copyFileSync(join(output, name), join(directory, name));
+  for (const name of ['shader.wasm', 'application.syntax.json']) copyFileSync(join(artifacts, name), join(directory, name));
   writeFileSync(join(directory, 'simulation.wasm'), fixture('invalid-initial'));
   writeFileSync(join(directory, 'manifest.json'), 'previous manifest');
   await assert.rejects(() => packageApplication(root, join(root, 'apps/siegework'), directory), /application startup check failed/);

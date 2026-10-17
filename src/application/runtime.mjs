@@ -58,7 +58,7 @@ export function parseCommand(manifest, owner, command) {
 
 // Contracts may reorder slots, but a live replacement cannot add/remove/change
 // endpoint identities. Pending envelopes remain encoded under their old contract.
-function protocolContract(manifest) {
+export function protocolContract(manifest) {
   return JSON.stringify({effects: manifest.effects,
     applications: manifest.applications.map(app => ({owner: app.owner, state: app.state, schema: app.schema,
       handlers: app.handlers.map(h => [h.id, h.payload, h.result]).sort((a,b) => a[0].localeCompare(b[0]))}))

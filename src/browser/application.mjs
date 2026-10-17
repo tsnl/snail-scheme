@@ -1,0 +1,103 @@
+// Shared browser presentation and client-owner transitions. A session supplies
+// the concrete authoritative submission: local durable commit or cloud request.
+import {ReducerRuntime} from '../application/runtime.mjs';
+import {createRenderer} from '../webgpu/quads.mjs';
+import {BrowserInput, parseInputSettings} from './input.mjs';
+
+export class BrowserApplication {
+  runtime = new ReducerRuntime(); base = new URL('../../', import.meta.url);
+  generation = ''; dirty = true; reloadTicket = 0; localWork = 0; updates = Promise.resolve(); closing = false;
+  constructor() {
+    this.canvas = document.querySelector('canvas'); this.status = document.querySelector('[data-status]');
+    this.connection = document.querySelector('[data-connection]');
+  }
+  get revision() { return this.session?.revision ?? -1; }
+  get pending() { return this.session?.pending ?? []; }
+  note(text) { this.connection.textContent = text; }
+  update(operation) {
+    // Browser operations may await network renewal or GPU preparation. They
+    // call into the runtime FIFO; runtime messages never wait on this lane.
+    if (this.closing) return Promise.reject(new Error('Browser application is closing'));
+    const result = this.updates.then(operation); this.updates = result.catch(() => {}); return result;
+  }
+  async open(target) {
+    this.target = target;
+    this.renderer = await createRenderer(this.canvas, error => this.note(error.message));
+    await this.reload();
+  }
+  async reload() {
+    const ticket = ++this.reloadTicket;
+    const next = await (await fetch(new URL('manifest.json', this.base), {cache: 'no-store'})).json();
+    if (next.target !== this.target) throw new Error(`Expected a ${this.target} package`);
+    if (next.generation === this.generation) return;
+    this.session?.checkManifest(next);
+    await this.prepareGeneration(next, ticket);
+  }
+  async prepareGeneration(next, ticket) {
+    const settings = parseInputSettings(next.settings);
+    const [bytes, source] = await Promise.all([fetch(new URL(next.module, this.base)).then(r => r.arrayBuffer()),
+      fetch(new URL(next.shader, this.base)).then(r => r.text())]);
+    const candidate = this.runtime.prepare(new Uint8Array(bytes), next);
+    try {
+      const pipeline = await this.renderer.prepare(source);
+      await this.update(() => this.install(candidate, pipeline, settings, ticket));
+    } catch (error) { this.runtime.discard(candidate); throw error; }
+  }
+  async install(candidate, pipeline, settings, ticket) {
+    if (ticket !== this.reloadTicket) { this.runtime.discard(candidate); return; }
+    await this.runtime.replace(candidate); this.renderer.replace(pipeline);
+    this.manifest = this.runtime.manifest; this.generation = this.manifest.generation; this.inputSettings = settings;
+    await this.runtime.initialize(1); await this.runtime.initialize(2); this.dirty = true;
+    this.note(`LIVE · ${this.pending.length ? `${this.pending.length} pending` : 'state preserved'} · ${this.generation.slice(0, 7)}`);
+  }
+  start(session) {
+    this.session = session;
+    this.input = new BrowserInput(this.canvas, () => this.inputSettings, (binding, args) => this.local(binding, args));
+    requestAnimationFrame(time => this.frame(time));
+    globalThis.snailApp = this; // Executable browser diagnostics.
+  }
+  local(binding, args = []) {
+    const command = this.runtime.command('client', binding, args.slice()); this.localWork++;
+    return this.update(() => this.localTransition(command)).catch(error => this.report(error)).finally(() => this.localWork--);
+  }
+  async localTransition(command) {
+    const result = await this.runtime.dispatch(2, command);
+    for (const effect of result.effects) {
+      if (effect.kind === 'send' && effect.owner === 1) await this.session.submit(this.runtime.effectCommand(effect));
+      else if (effect.kind === 'notice') this.note(effect.text);
+    }
+    this.dirty = true;
+  }
+  acceptSnapshot(snapshot) { return this.session.acceptSnapshot(snapshot); }
+  reconcileGeneration() {
+    if (this.manifest && this.generation !== this.runtime.manifest.generation) {
+      this.manifest = this.runtime.manifest; this.generation = this.manifest.generation; this.renderer.rollback();
+      this.inputSettings = parseInputSettings(this.manifest.settings); this.dirty = true;
+    }
+  }
+  report(error) {
+    this.reconcileGeneration(); this.dirty = true;
+    this.note(`Transition rejected; committed state retained: ${error.message}`);
+  }
+  frame(time) {
+    if (this.closing) return;
+    this.reconcileGeneration();
+    if (!this.localWork) this.input.frame(time);
+    else this.input.time = time; // Never accumulate held-input catch-up behind a save.
+    if (this.dirty && !document.hidden) {
+      try { this.draw(); } catch (error) { this.report(error); }
+    }
+    requestAnimationFrame(next => this.frame(next));
+  }
+  draw() {
+    const presentation = this.runtime.view();
+    this.renderer.draw(presentation.quads, this.manifest.settings.width, this.manifest.settings.height);
+    this.status.textContent = presentation.label; this.dirty = false;
+  }
+  async close() {
+    this.closing = true;
+    await this.updates; // UI work already accepted may still submit to the runtime.
+    await this.runtime.close();
+    this.renderer?.close();
+  }
+}

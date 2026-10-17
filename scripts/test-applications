@@ -27,4 +27,4 @@ for fixture in reject-state reject-payload reject-owner; do
   fi
   printf 'ok - compile rejects %s\n' "$fixture"
 done
-node "$root/tests/applications/runtime.mjs" "$output/siegework" "$output"
+node "$root/tests/applications/runtime.mjs" "$output/siegework/cloud" "$output" "$output/siegework"

@@ -1,7 +1,7 @@
 # Application integration checks
 
 Run `scripts/test-applications` from any directory. It builds the actual Siegework
-artifacts into the disposable `build/application-tests/siegework` package, plus
+artifacts into `build/application-tests/siegework` with `solo` and `cloud` packages, plus
 small public-API fixtures, checks compile-negative state/payload/
 owner errors, then executes the Wasm in Node. It exercises immutable records and
 retained snapshots, automatic hauling, a losing and winning run, pure view,
@@ -35,13 +35,13 @@ build and compile-negative checks were not repeated for this JavaScript change.
 For real browser checks, start the packaged server:
 
 ```sh
-PORT=4176 node build/application-tests/siegework/lib/browser/server.mjs "$PWD/build/application-tests/siegework"
+PORT=4176 node build/application-tests/siegework/cloud/lib/browser/server.mjs "$PWD/build/application-tests/siegework/cloud"
 ```
 
 Start a separate Chromium with a local DevTools port, then run:
 
 ```sh
-node tests/applications/browser.mjs "$PWD/build/application-tests/siegework" http://127.0.0.1:4176 http://127.0.0.1:9336
+node tests/applications/browser.mjs "$PWD/build/application-tests/siegework/cloud" http://127.0.0.1:4176 http://127.0.0.1:9336
 ```
 
 The browser test opens two clients, makes shared purchases, checks real WebGPU
@@ -66,6 +66,28 @@ margin placement. It imports and executes the shared Web Crypto authority in an
 actual browser with a deferred save, and holds session renewal while new input
 arrives to check the next envelope's sequence and epoch.
 
+The solo/cloud hosting runner owns disposable copies, servers, Chromium profile
+and databases. Give it the raw build directory containing both packages:
+
+```sh
+node tests/applications/hosting.mjs "$PWD/build/application-tests/siegework"
+```
+
+It defaults to private ports 4182/4183 and DevTools 9346; override
+`TEST_SOLO_PORT`, `TEST_CLOUD_PORT`, `TEST_CDP_PORT` or `CHROMIUM` as needed. Its
+real-browser checks cover IndexedDB close/reopen, receipts/reset epochs, abort
+after successful `put`, concurrent CAS, unsupported versions and incompatible
+save contracts; tab ownership, retry after failure, static hot reload, actual
+browser restart, moved subpaths and absence of application-server requests;
+and a paused cloud save resumed by independent clients after server restart.
+It compares package Wasm bytes and rejects changing a cloud output to solo
+without touching a sentinel database. GPU setup uses the software-adapter flags
+below. With `DISPLAY` set it uses a headed browser; otherwise it tries headless
+Chromium. The tested Chromium 152 installation required a headed browser under
+Xvfb for WebGPU. Start a private Xvfb display and pass its `DISPLAY` when needed.
+The runner refuses occupied ports. Test artifacts and process logs stay in the
+printed temporary directory.
+
 The focused input checks use real keyboard/pointer/focus events and injected
 Gamepad samples; they do not claim physical-controller coverage:
 
@@ -79,10 +101,11 @@ form checks exercise native submission, I32 parsing, accessible errors, and
 gameplay cancellation even when focus enters and leaves between frames. It does
 not change the game match.
 
-The isolated Linux software-adapter invocation used during development was:
+The isolated Linux software-adapter invocation used during development, with an
+owned Xvfb display on `:99`, was:
 
 ```sh
-chromium --headless=new --no-sandbox --enable-unsafe-webgpu \
+DISPLAY=:99 chromium --no-sandbox --enable-unsafe-webgpu \
   --enable-features=Vulkan --use-angle=vulkan --use-vulkan=swiftshader \
   --use-webgpu-adapter=swiftshader --disable-vulkan-surface \
   --remote-debugging-port=9336 --user-data-dir=/tmp/siegework-browser-test about:blank
