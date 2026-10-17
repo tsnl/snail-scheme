@@ -4,6 +4,11 @@ The active goal is a complete, understandable Lofi compiler and benchmark suite.
 [The language contract](lofi.md) defines the target; [the tour](../TOUR.md)
 describes the implementation. Chibi continues to host the compiler.
 
+The separate [native self-hosting investigation](self-hosting.md) proposes
+`snail run` and `snail build`, with reproducible Siegework measurements,
+compiler compatibility blockers and staged bootstrap acceptance criteria.
+The compiler port and command are not implemented yet.
+
 ## Align with the Lofi book
 
 [PR #226](https://github.com/tsnl/snail-scheme/pull/226) replaces the initial
