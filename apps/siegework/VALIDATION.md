@@ -1,6 +1,46 @@
 # Siegework validation
 
-## Outpost logistics candidate
+## Derived colony and hosting integration
+
+The final 2026-10-17 integration combines asynchronous execution, outpost
+logistics and separate solo/cloud packages with derived world/client schema 6.
+Both packages use generation `66be352c533caec8b1bfdf14` and the exact same game
+Wasm (SHA-256 `bca27ee9c78e1e1cf54462728f2648e5a2be952b69a4d3f80682b35760fd0390`).
+The game compiled from the final Scheme sources; the two hosts package those
+artifacts without a second game compilation.
+
+All 66 application integration checks pass on the cloud package. These include
+33 colony/encounter/logistics scenarios, malformed derived records and marker
+headers, rejection of schemas 4 and 5, code replacement and rollback, durable
+restart receipts, persistence failures and the ten tiny-Wasm async boundary
+checks. The game-wrapper fixtures were rebuilt against the schema-6 sources;
+three invalid application declarations also fail compilation as expected.
+
+All 13 generic browser input/form/layout checks and the complete two-client
+WebGPU/reload runner pass on the final cloud package. The latter reaches combat
+with ore in transit, freezes both through shared pause and visibility changes,
+and activates changed Wasm while preserving the paused colony, overscrolled
+camera, selection and pending command. Incompatible schemas, marker offsets and
+WGSL candidates retain the running package.
+
+All 14 hosting checks pass in actual Chromium: separate packages share exact
+Wasm; real IndexedDB transactions retain state, epochs and receipts through
+abort/retry and competing commits; one tab owns a solo save; slow persistence
+admits one pending tick; visibility resumes without catch-up; compatible reload
+retains both owners; incompatible startup/update retains the save; browser
+restart and a moved static subpath reopen it without application-server
+requests; leaving during open closes GPU/lock resources; cloud server restart
+and independent clients resume the saved SQLite match. The private browser
+runner waits for a real WebGPU adapter before opening the application.
+
+`make check`, JavaScript syntax and whitespace checks pass. All packages,
+profiles, ports and databases used here are isolated test outputs. Chromium 152
+uses the SwiftShader Vulkan adapter; this is correctness evidence, not hardware
+coverage or a timing measurement. Older saves are rejected, not migrated.
+Upstream profiling code, measurement JSON and the earlier checkpoint evidence
+below retain their original scope. Unified GitHub CI is tracked separately.
+
+## Earlier schema-5 outpost candidate
 
 The 2026-10-17 outpost candidate uses generation `d1105da2b285bc57b308159b`,
 world/client schema 5 and a 10,240-word world snapshot. It is tested in a separate
@@ -67,7 +107,24 @@ Removing the reservation or empty return leg would lose the required ownership
 or throughput behavior. Codec rows and exhaustive job/cargo transitions remain
 cohesive exceptions to the ten-line function target.
 
-## Staffed colony checkpoint
+## Earlier derived staffed-colony integration
+
+The cleanup integration preserves the landed colony behavior while replacing the
+fixed-layout schema-4 codec with derived schema-6 snapshots. The world retains a
+host-visible restart counter; decoding checks it against the typed record before
+applying the original bounds, path, ownership and conservation checks. Prior save
+formats are rejected rather than converted implicitly.
+
+Local integration checks pass for the compiled colony startup, `make test`,
+`make check`, real Chromium input contracts and the two-client WebGPU/reload
+runner. The browser checks include seed restarts, shared purchases, pause,
+overscrolled camera retention, pending command preservation, incompatible marker
+offsets, invalid shaders and schema rejection. This uses Chromium 152 with the
+SwiftShader Vulkan adapter and is correctness evidence, not a clean timing run.
+The application fixture suite and required GitHub correctness run are tracked
+separately in the pull request.
+
+## Earlier schema-4 colony
 
 The 2026-10-17 staffed-colony package uses generation
 `e11ebb903197e057398944d0`, world/client schema 4, Node 24.19.0 and Chromium

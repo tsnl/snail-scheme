@@ -4,7 +4,9 @@
   (export parse-extern extern? extern-name extern-module extern-symbol extern-type
           extern-argument-types extern-result-type extern-physical-signature
           extern-wasm-import extern-wasm-call native-scalar-signature)
-  (import (scheme base) (scheme cxr))
+  (import
+   (scheme base)
+   (scheme cxr))
   (begin
 
     ;; ---- Complete foreign declarations ----
@@ -12,8 +14,12 @@
     (define-record-type <extern>
       (make-extern name module symbol type arguments result)
       extern?
-      (name extern-name) (module extern-module) (symbol extern-symbol)
-      (type extern-type) (arguments extern-argument-types) (result extern-result-type))
+      (name extern-name)
+      (module extern-module)
+      (symbol extern-symbol)
+      (type extern-type)
+      (arguments extern-argument-types)
+      (result extern-result-type))
 
     (define (parse-extern form)
       (unless (and (list? form) (= (length form) 5) (eq? (car form) 'define-extern)

@@ -16,7 +16,7 @@ export async function checkIndexedDB(base) {
     const runtime = new ReducerRuntime(), store = await openStore(manifest), notices = [];
     await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
     const authority = await Authority.open(runtime, {saved: await store.load(),
-      commit: (state, expected) => store.commit(state, expected), publish: value => notices.push(value), runMarker: 23});
+      commit: (state, expected) => store.commit(state, expected), publish: value => notices.push(value), runMarker: manifest.settings.runMarker});
     const command = (binding, args = []) => authority.submit({client: 'solo', command: runtime.command('match', binding, args)}, {internal: true});
     return {runtime, store, authority, command, notices, close: async () => { await runtime.close(); store.close(); }};
   }
@@ -49,7 +49,7 @@ export async function checkIndexedDB(base) {
   const beforeReset = await active.store.load(); await active.command('new-run');
   const reset = await active.store.load();
   check(reset.epoch !== beforeReset.epoch && reset.revision === beforeReset.revision + 1, 'reset did not atomically advance epoch/revision');
-  check(reset.clients.solo.receipt.epoch === reset.epoch && reset.state[23] === beforeReset.state[23] + 1, 'reset record split metadata/state');
+  check(reset.clients.solo.receipt.epoch === reset.epoch && reset.state[manifest.settings.runMarker] === beforeReset.state[manifest.settings.runMarker] + 1, 'reset record split metadata/state');
   await active.close();
   const restored = await open();
   check(restored.authority.epoch === reset.epoch && equal(restored.runtime.snapshot(1), reset.state), 'reset did not survive restart');

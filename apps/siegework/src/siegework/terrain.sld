@@ -6,10 +6,12 @@
           Survey make-survey survey-x survey-y survey-radius surveyed?
           next-map-seed northern-x northern-y eastern-x eastern-y
           walking-path avoiding-path escape-path)
-  (import (scheme base)
-          (scheme immutable)
-          (only (lofi core) I32)
-          (only (lofi base) i32->i64))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (lofi serialization)
+   (only (lofi core) I32 deriving)
+   (only (lofi base) i32->i64))
   (begin
 
     ;; ---- Map coordinates ----
@@ -82,7 +84,8 @@
     (define-immutable-record Survey make-survey
       (x I32 survey-x survey-x-set)
       (y I32 survey-y survey-y-set)
-      (radius I32 survey-radius survey-radius-set))
+      (radius I32 survey-radius survey-radius-set)
+      (deriving derive-serialize derive-deserialize))
     (define (surveyed? surveys x y)
       (and (not (null? surveys))
            (or (within? x y (survey-x (car surveys)) (survey-y (car surveys))

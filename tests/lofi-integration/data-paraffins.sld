@@ -2,11 +2,23 @@
 ;; r7rs-benchmarks 85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1. Tagged H/C and
 ;; BCP/CCP vectors become closed immutable variants; numeric partition vectors
 ;; and the two-list result retain their original homogeneous representation.
-(import (lofi base))
-(def Radical (datatype () (H) (C (first Radical) (second Radical) (third Radical))))
+(import
+ (lofi base))
+(def Radical (datatype ()
+               (H)
+               (C
+                (first Radical)
+                (second Radical)
+                (third Radical))))
 (def Paraffin (datatype ()
-                        (BCP (first Radical) (second Radical))
-                        (CCP (first Radical) (second Radical) (third Radical) (fourth Radical))))
+                (BCP
+                 (first Radical)
+                 (second Radical))
+                (CCP
+                 (first Radical)
+                 (second Radical)
+                 (third Radical)
+                 (fourth Radical))))
 (def max
      (lambda (a b) (if (> a b) a b)))
 (def list-length

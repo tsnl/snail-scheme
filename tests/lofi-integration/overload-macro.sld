@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 ;; The historical fixture now authors both members explicitly. The separate
 ;; macro-overload-extension case checks expansion across an imported family.
 (define-overload select (-> I64 I64) (lambda (value) value))

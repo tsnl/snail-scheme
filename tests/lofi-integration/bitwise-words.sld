@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; ---- First-class operations retain the complete word contract ----
 

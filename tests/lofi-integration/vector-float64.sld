@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def values
      (vector 1.25 2.5))
 (def copy

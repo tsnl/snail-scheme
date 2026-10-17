@@ -1,4 +1,7 @@
-(import (lofi core) (lofi base) (lofi io))
+(import
+ (lofi core)
+ (lofi base)
+ (lofi io))
 
 (def fibonacci (-> I64 I64)
      (lambda (n)

@@ -1,5 +1,8 @@
-(import (lofi base))
-(def Cell (datatype ( T) (cell (value (Ref T) cell-ref))))
+(import
+ (lofi base))
+(def Cell (datatype ( T)
+            (cell
+             (value (Ref T) cell-ref))))
 (def original
      (cell (ref (ann 5 I64))))
 (def alias

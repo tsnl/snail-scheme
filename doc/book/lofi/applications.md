@@ -255,71 +255,73 @@ edit of the source file. This is Chibi build support; the public reducer API is
 shared by product Scheme and Lofi. Arbitrary generated application declarations
 are not currently inspected.
 The `application` macro itself expands through `(lofi core)`'s `library-begin`
-declaration splice; ordinary `begin` retains lexical scope. Export handlers that
+declaration splice; library-level `begin` also splices into the surrounding scope,
+while expression `begin` creates a block. Export handlers that
 another library must call, just as with other library bindings.
 
 ## Assembling a browser application
 
-The initial host is intentionally a two-owner adapter: one authoritative match
-and one local client. Declare both with `application`, then compose a program:
+The initial host is a two-owner adapter: one authoritative match and one local
+client. Declare both with `application`, derive `Serialize` and `Deserialize`
+for their state records, then import `(application serialization)` and compose:
 
 ```scheme
-(program world-app client-app world-word-count client-word-count
-         decode-world encode-world decode-client encode-client
-         view status)
+(serialized-program world-app client-app validate-world validate-client view status)
 ```
 
 | Argument | Contract |
 | --- | --- |
 | `world-app`, `client-app` | Different typed applications; their initial expressions create absent owners. |
-| Word counts | Positive `I32` lengths of the portable snapshots. |
-| `decode-*` | `(Vector I32) -> State`; reject invalid schema/values by trapping. |
-| `encode-*` | `State -> (Vector I32)`; allocate an owned vector of exactly the declared length. |
+| `validate-*` | `State -> State`; check application-specific invariants after typed deserialization and reject invalid values by trapping. |
 | `view` | `(-> World Client (List Quad))`, a two-argument procedure with no mutation or effects. |
 | `status` | Two arguments, `World` and `Client`, returning `String`. |
 
-Word zero is the positive schema version; an all-zero host buffer means absent
-state. Other fields belong to the application's codec. Construct quads with
-`(quad x y width height packed-rgb opacity)`, using `I32` logical pixels and opacity
-0–255. Export an entry annotated `(-> I32 I32 I32 I32 I32)` that forwards its four
-arguments to `(run-program program operation a b c)`. Applications do not call the
-raw bridge imports themselves.
+The adapter serializes through the shared S-expression representation and its
+compact binary encoding. Its envelope carries schema version, byte length and
+four bytes per `I32` word, with checked final zero padding. Snapshots may grow or
+shrink within the host's 65,536-word bound. Schema zero marks an absent owner only
+inside the host; restoring a committed snapshot requires its declared positive
+schema. Neither derive implements migration between incompatible schemas.
 
-### Immutable records and snapshot codecs
+The browser host supplies scalar diagnostic services for malformed snapshots.
+`Symbol` fields also need the interning services supplied by the linked Rust
+runtime; adding those services to this browser host remains future work.
+
+Construct quads with `(quad x y width height packed-rgb opacity)`, using `I32`
+logical pixels and opacity 0–255. Export an entry annotated
+`(-> I32 I32 I32 I32 I32)` that forwards its four arguments to
+`(run-program program operation a b c)`. Applications do not call raw bridge
+imports themselves.
+
+### Immutable records and derived snapshots
 
 `(scheme immutable)` provides `list`, `append`, `reverse` and
-`define-immutable-record`. These are separate imports from the initial
-`(scheme base)` subset. A record declaration names its constructor, accessors and
-pure replacements:
+`define-immutable-record`, separately from `(scheme base)`. A record names its
+constructor, accessors and pure replacements. Replacement names follow the
+accessor with `-set`, without `!`; every replacement preserves the prior value.
+Import `(lofi serialization)` to opt a record into independent capabilities:
 
 ```scheme
 (define-immutable-record Stock stock
-  (ore I32 stock-ore with-stock-ore))
+  (ore I32 stock-ore stock-ore-set)
+  (deriving derive-serialize derive-deserialize))
 (define before (stock 40))
-(define after (with-stock-ore before 42)) ; before still contains 40
+(define after (stock-ore-set before 42)) ; before still contains 40
 ```
 
-Application word counts and snapshot contents are `I32`. The current Scheme
-vector API takes **`I64` lengths and indices**, so use an explicit annotation for
-a literal or `i32->i64` for a computed index. An encoder may mutate a newly
-allocated, owned vector; it must not mutate an earlier application state or
-snapshot. For example:
+The macro forwards the complete generated `data` declaration to each derive.
+Its ordinary checked instances transport the declaration's type, constructor
+and fields without an application-specific field codec. See the
+[serialization contract](types.md#data-graph-serialization) for supported
+containers, graph identities and initialization evidence.
 
-```scheme
-(define (encode-stock value)
-  (let ((words (ann (make-vector (ann 2 I64) 0) (Vector I32))))
-    (vector-set! words (ann 0 I64) 1) ; schema
-    (vector-set! words (ann 1 I64) (stock-ore value))
-    words))
-```
-
-The complete runnable
+The lower-level `(application bridge)` still provides `program` for explicit
+`State -> (Vector I32)` encoders and reverse decoders. Positive word counts
+require exactly that fixed length; zero requests variable size. The runnable
 [`examples/applications/state.sld`](../../../examples/applications/state.sld)
-includes imports, schema checking and a retained prior record. Compile it with
-the same `tests/applications/build.scm` command used for the counter, substituting
-`state.sld` and `state.wasm`; invoking its `answer` prints `42`. Import
-`(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-text`, and
-`(application bridge)` for `program` and `run-program`.
+retains a small explicit adapter example. Vector lengths and indices use `I64`.
+Import `(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-text`,
+and `(application bridge)` for `run-program`.
 
 ### Packaging the compiled application
 
@@ -537,15 +539,13 @@ commit or a single fenced writer with explicit revision retry. Authority transfe
 replication and distributed effects are future work.
 
 A replacement Wasm module has a fresh managed heap. No WasmGC object pointer is
-transferred between instances. App codecs copy the current bounded snapshot into
-fresh immutable values, execute one transition, and encode a candidate snapshot.
-The host's private bridge stages words and effect descriptions in a transaction.
-It never exposes a mutable global map as the application interface. The bounded
-snapshot codec favors an inspectable boundary over zero-copy performance.
-The host may reuse a Wasm instance between calls; fresh decoding and the stated
-application discipline protect snapshots without recreating a module per message.
-Persistent trees, owned buffers and richer serialization may improve copying
-later without changing the handler contract.
+transferred between instances. Derived deserialization constructs a fresh typed
+graph, then the application establishes its semantic invariants. One transition
+produces a candidate snapshot and materialized effect descriptions. Validation
+reads that candidate through its own read-only map while queries retain the
+committed snapshots. A successful durable save publishes the replacement.
+The host may reuse a Wasm instance between calls; fresh decoding and application
+discipline protect snapshots without recreating a module per message.
 
 ## Reload boundary
 
@@ -618,7 +618,8 @@ typed ASTs, specialization and code generation; it does not change hardware
 capabilities. The dialect's public name remains provisional.
 
 `(browser application)` supplies immutable quad values and text conversion.
-`(application bridge)` composes typed applications, codecs, a pure quad view and
+`(application serialization)` provides derived state transport; `(application bridge)`
+composes typed applications, a pure quad view and
 status text into a scalar entry. The browser adapter forwards input, performs
 local or network submission, copies quad data and calls WebGPU. Game rules live
 entirely in Scheme. Solo commits through the browser authority. Cloud runs the

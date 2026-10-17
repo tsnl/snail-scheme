@@ -1,7 +1,7 @@
 // Compiled Scheme owns every transition. Snapshot edits establish bounded
 // encounter and cargo fixtures; there is no alternate routing or simulation.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, setBuilding, setRail, restoreColony} from './colony-state.mjs';
 
 export async function checkLogistics(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -25,9 +25,9 @@ export async function checkLogistics(test, fresh, call) {
     return state(r).buildings.find(b => b.x === x && b.y === y);
   }
   async function loadedWorker(r) {
-    const words = r.snapshot(1); words[14] = 16;
-    setWorker(words, 0, {x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});
-    await r.restore(1, words);
+    const world = state(r); world.produced = 16;
+    setWorker(world, 0, {x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});
+    await restoreColony(r, world);
   }
 
   await test('cancel releases an uncollected reservation and refunds exactly once while paused', async () => {
@@ -40,7 +40,7 @@ export async function checkLogistics(test, fresh, call) {
     assert.equal(state(r).rails.length, 0); assert.equal(state(r).buildings.length, 0);
     assert.ok(state(r).bots.every(bot => bot.order === 0));
     await call(r, 'cancel-building', [12,21]); assert.equal(state(r).ore, 160);
-    assert.equal(state(r).notice, 19); assert.equal(prior[3], 160); assert.equal(prior[7], 0);
+    assert.equal(state(r).notice, 19); assert.equal(colony(prior).ore, 160); assert.equal(colony(prior).buildings.length, 0);
     await r.close();
   });
 
@@ -69,8 +69,8 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('builder proximity follows a usable route rather than distance across a wall', async () => {
     const r = await fresh(); await tower(r, 12,14); await tower(r, 12,8);
-    const words = r.snapshot(1); setWorker(words, 0, {x:6,y:11});
-    setWorker(words, 1, {x:10,y:9}); setWorker(words, 2); await r.restore(1, words);
+    const world = state(r); setWorker(world, 0, {x:6,y:11});
+    setWorker(world, 1, {x:10,y:9}); setWorker(world, 2); await restoreColony(r, world);
     await call(r, 'fortify', [6,9]); const project = state(r).buildings.find(b => b.x === 6 && b.y === 9);
     assert.ok(project); assert.equal(state(r).bots.find(bot => bot.order === project.id).id, 2);
     balanced(r); await r.close();
@@ -96,9 +96,9 @@ export async function checkLogistics(test, fresh, call) {
   });
 
   await test('a preempted repairer returns its paid supplies before taking a construction kit', async () => {
-    const r = await fresh(), words = r.snapshot(1); words[3] = 156; words[15] = 4;
-    setWorker(words, 0, {x:12,y:20,job:4,cargo:4,path:[971,970,969,968,1016,1064]});
-    await r.restore(1, words); await call(r, 'observe', [13,20]);
+    const r = await fresh(), world = state(r); world.ore = 156; world.spent = 4;
+    setWorker(world, 0, {x:12,y:20,job:4,cargo:4,path:[971,970,969,968,1016,1064]});
+    await restoreColony(r, world); await call(r, 'observe', [13,20]);
     const bot = state(r).bots[0]; assert.equal(bot.job, 5); assert.equal(bot.cargo, 4);
     assert.equal(bot.order, state(r).buildings[0].id); assert.equal(state(r).spent, 29);
     await until(r, world => world.buildings[0].stage === 2);
@@ -107,14 +107,14 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('death releases an uncollected kit but loses a cancelled carried kit without refund', async () => {
     const r = await fresh(); await loadedWorker(r); await call(r, 'observe', [13,20]);
-    const words = r.snapshot(1); words[1] = 9; words[416 + 136] = 7; await r.restore(1, words);
+    const world = state(r); world.tick = 9; world.bots[0].hp = 7; await restoreColony(r, world);
     await addEnemy(r, {x:12,y:20}); await advance(r);
     assert.equal(state(r).casualties, 1); assert.equal(state(r).lostOre, 16);
     assert.equal(state(r).buildings[0].stage, 0); assert.equal(state(r).spent, 25);
     await call(r, 'cancel-building', [13,20]); assert.equal(state(r).ore, 160);
     await call(r, 'new-run-seed', [1]); await call(r, 'observe', [12,21]); await advance(r);
-    await call(r, 'cancel-building', [12,21]); const cancelled = r.snapshot(1); cancelled[1] = 9;
-    setWorker(cancelled, 0, {x:12,y:21,job:7,cargo:25,timer:5,hp:7}); await r.restore(1, cancelled);
+    await call(r, 'cancel-building', [12,21]); const cancelled = state(r); cancelled.tick = 9;
+    setWorker(cancelled, 0, {x:12,y:21,job:7,cargo:25,timer:5,hp:7}); await restoreColony(r, cancelled);
     await addEnemy(r, {x:12,y:21}); await advance(r);
     assert.equal(state(r).casualties, 1); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     await advance(r, 20); assert.equal(state(r).ore, 135); await r.close();
@@ -137,7 +137,7 @@ export async function checkLogistics(test, fresh, call) {
   await test('tower placement fixes an upstream tree and freight traverses each link before credit', async () => {
     const r = await fresh(), parent = await tower(r, 12,21), child = await tower(r, 16,21);
     const links = state(r).rails; assert.equal(links.find(link => link.source === child.id).parent, parent.id);
-    const words = r.snapshot(1); words[14] = 32; setBuilding(words, 1, {stock:32}); await r.restore(1, words);
+    const world = state(r); world.produced = 32; setBuilding(world, 1, {stock:32}); await restoreColony(r, world);
     await advance(r); assert.equal(state(r).delivered, 0);
     const loaded = state(r).rails.find(link => link.source === child.id);
     assert.equal(loaded.cargo, 32); assert.equal(loaded.progress, 0);
@@ -157,8 +157,8 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('arming retains tower sight, depot stock and route while firing without kill income', async () => {
     const r = await fresh(), towerSite = await tower(r, 12,21);
-    await call(r, 'upgrade', [12,21]); const words = r.snapshot(1); words[14] = 16;
-    setBuilding(words, 0, {stock:16}); await r.restore(1, words);
+    await call(r, 'upgrade', [12,21]); const world = state(r); world.produced = 16;
+    setBuilding(world, 0, {stock:16}); await restoreColony(r, world);
     const before = state(r); await call(r, 'arm-tower', [12,21]); const armed = state(r);
     assert.equal(armed.buildings[0].id, towerSite.id); assert.equal(armed.buildings[0].armed, 1);
     assert.equal(armed.buildings[0].kind, 3); assert.equal(armed.buildings[0].level, 2);
@@ -171,10 +171,10 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('destroyed rail endpoints lose each in-flight load once and reconnect surviving depots', async () => {
     const r = await fresh(); await tower(r, 12,21); const child = await tower(r, 16,21);
-    const words = r.snapshot(1); words[1] = 9; words[14] = 48;
-    for (let i = 0; i < 3; i++) setWorker(words, i, {id:i+1});
-    setBuilding(words, 0, {hp:7}); setRail(words, 0, {cargo:16}); setRail(words, 1, {cargo:32});
-    await r.restore(1, words); await addEnemy(r, {x:12,y:21}); await advance(r);
+    const world = state(r); world.tick = 9; world.produced = 48;
+    for (let i = 0; i < 3; i++) setWorker(world, i, {id:i+1});
+    setBuilding(world, 0, {hp:7}); setRail(world, 0, {cargo:16}); setRail(world, 1, {cargo:32});
+    await restoreColony(r, world); await addEnemy(r, {x:12,y:21}); await advance(r);
     const destroyed = state(r); assert.equal(destroyed.lost, 1); assert.equal(destroyed.lostOre, 48);
     assert.equal(destroyed.rails.length, 1); assert.equal(destroyed.rails[0].source, child.id);
     assert.equal(destroyed.rails[0].parent, 0); assert.equal(destroyed.rails[0].cargo, 0);
@@ -184,14 +184,14 @@ export async function checkLogistics(test, fresh, call) {
 
   await test('decoder rejects duplicate kit reservations and malformed rail ownership', async () => {
     const r = await fresh(); await call(r, 'observe', [12,21]); const reserved = r.snapshot(1);
-    const duplicate = reserved.slice(); duplicate[416 + 140 + 137] = state(r).buildings[0].id;
-    await assert.rejects(async () => await r.restore(1, duplicate), WebAssembly.RuntimeError);
+    const duplicate = colony(reserved); duplicate.bots[1].order = state(r).buildings[0].id;
+    await assert.rejects(() => restoreColony(r, duplicate), WebAssembly.RuntimeError);
     assert.deepEqual(r.snapshot(1), reserved);
     await until(r, world => world.buildings[0].stage === 2); const valid = r.snapshot(1);
-    const cycle = valid.slice(); setRail(cycle, 0, {parent:state(r).buildings[0].id});
-    await assert.rejects(async () => await r.restore(1, cycle), WebAssembly.RuntimeError);
-    const phantom = valid.slice(); setRail(phantom, 0, {returning:1,cargo:16,progress:16}); phantom[14] += 16;
-    await assert.rejects(async () => await r.restore(1, phantom), WebAssembly.RuntimeError);
+    const cycle = colony(valid); setRail(cycle, 0, {parent:state(r).buildings[0].id});
+    await assert.rejects(() => restoreColony(r, cycle), WebAssembly.RuntimeError);
+    const phantom = colony(valid); setRail(phantom, 0, {returning:1,cargo:16,progress:16}); phantom.produced += 16;
+    await assert.rejects(() => restoreColony(r, phantom), WebAssembly.RuntimeError);
     assert.deepEqual(r.snapshot(1), valid); await r.close();
   });
 }

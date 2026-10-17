@@ -60,11 +60,12 @@ authority restart. Solo skips ticks while its own page is hidden; neither host
 replays elapsed ticks on return. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 5**. Older prototype and colony
-matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
-fresh colony, retaining the old package and `match.sqlite` together. For example,
-build to `"$PWD/build/siegework-colony"` and run its `cloud/lib/browser/server.mjs`
-with `"$PWD/build/siegework-colony/cloud"` on another port.
+This version uses **world and client schema 6**. Derived snapshots retain the
+logistics rules and use a new incompatible transport. Older prototype and colony
+matches cannot be loaded or hot-reloaded into it implicitly. Use a new output
+directory for a fresh colony, retaining the old package and `match.sqlite`
+together. For example, build to `"$PWD/build/siegework-colony"` and run its
+`cloud/lib/browser/server.mjs` with `"$PWD/build/siegework-colony/cloud"` on another port.
 Do not delete or replace a database while its authority is running. There is no
 automatic schema migration. Solo likewise retains incompatible saves and refuses
 to start; reopen the previous compatible package. A different output path on the
@@ -220,7 +221,7 @@ The [application chapter](../../doc/book/lofi/applications.md) explains typed
 handlers, state lifetimes, reload and the shader dialect. Shared code stays under
 `src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
 This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
-`codec.sld` (portable schema), `view.sld` (quads/status), `game.sld` (typed commands
+`state.sld` (derived transport and colony invariants), `view.sld` (quads/status), `game.sld` (typed commands
 and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
 declare controls and layout; generic `src/browser/input.mjs` maps physical input
 and typed integer forms to Scheme handlers. Seed range and restart rules stay in

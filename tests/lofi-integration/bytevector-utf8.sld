@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 (def scalars
      "\x0;\x7f;\x80;\x7ff;\x800;\xd7ff;\xe000;\xfeff;\xffff;\x10000;\x10ffff;")
 (def encoded

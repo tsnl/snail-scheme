@@ -1,0 +1,338 @@
+{
+  "purpose": "Ordinary Siegework build wall times before and after the conservative overload filter; no additional instrumentation",
+  "baselineFirst": {
+    "command": [
+      "chibi-scheme",
+      "-I",
+      "$REPO/bootstrap",
+      "-I",
+      "$REPO/wasm-native/scheme",
+      "$REPO/apps/siegework/build.scm",
+      "$REPO",
+      "$REPO/build/self-hosting-baseline"
+    ],
+    "commit": "62f4e0d66a79e881f4837f6fb398e3b717de819d",
+    "binaryen_cores": "1",
+    "load_before": [
+      4.1357421875,
+      3.7109375,
+      3.63720703125
+    ],
+    "kind": "unprofiled wall-time sample; build trace remains enabled by product driver",
+    "status": 0,
+    "seconds": 152.967560760997,
+    "load_after": [
+      5.36376953125,
+      4.42431640625,
+      3.921875
+    ]
+  },
+  "baselineSecond": {
+    "input": {
+      "mode": "baseline",
+      "source": {
+        "commit": "a1c8ec375406ca6d32d6b17bf5644bf7d86a259c",
+        "status": "",
+        "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runnerSha256": "b21897589df9e65fac6c9a196a9edb4eefe348dde86631f622a554b635617761"
+      },
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/self-hosting-baseline-3/app"
+      ],
+      "tools": {
+        "chibi": {
+          "command": "chibi-scheme",
+          "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+        },
+        "wasmAs": {
+          "command": "wasm-as",
+          "version": "wasm-as version 132"
+        },
+        "wasmOpt": {
+          "command": "wasm-opt",
+          "version": "wasm-opt version 132"
+        },
+        "node": {
+          "command": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "version": "v24.19.0"
+        }
+      },
+      "environment": {
+        "BINARYEN_CORES": "1",
+        "CHIBI": null,
+        "WASM_AS": null,
+        "WASM_OPT": null,
+        "WASM_DIS": null,
+        "WASM_MERGE": null,
+        "SNAIL_PROFILE_DIRECTORY": null
+      },
+      "host": {
+        "platform": "linux",
+        "release": "7.2.3",
+        "architecture": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+        "logicalCPUs": 24,
+        "memoryBytes": 33340952576
+      }
+    },
+    "execution": {
+      "before": {
+        "time": "2026-10-17T11:09:21.304Z",
+        "load": [
+          5.03,
+          5.02,
+          4.38
+        ]
+      },
+      "seconds": 149.22627300399998,
+      "status": 0,
+      "signal": null,
+      "after": {
+        "time": "2026-10-17T11:11:50.532Z",
+        "load": [
+          5.17,
+          5.38,
+          4.64
+        ]
+      }
+    }
+  },
+  "optimizedSamples": [
+    {
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/overload-prefilter-clean/app"
+      ],
+      "commit": "c84d62ad6e50a511e53b22b6a810a51a865b8297",
+      "binaryen_cores": "1",
+      "load_before": [
+        1.2490234375,
+        2.30322265625,
+        3.39453125
+      ],
+      "compiler_overloads_sha256": "bc692d36a05b4aa0be36f5aaf98c399f7a8c880dd58e68bbfbf2a63540617622",
+      "status": 0,
+      "seconds": 34.36772678299894,
+      "load_after": [
+        1.8369140625,
+        2.33349609375,
+        3.361328125
+      ]
+    },
+    {
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/overload-prefilter-clean-2/app"
+      ],
+      "commit": "c84d62ad6e50a511e53b22b6a810a51a865b8297",
+      "binaryen_cores": "1",
+      "load_before": [
+        1.82080078125,
+        2.294921875,
+        3.32666015625
+      ],
+      "compiler_overloads_sha256": "bc692d36a05b4aa0be36f5aaf98c399f7a8c880dd58e68bbfbf2a63540617622",
+      "status": 0,
+      "seconds": 35.20194997199724,
+      "load_after": [
+        2.0546875,
+        2.29443359375,
+        3.2861328125
+      ]
+    }
+  ],
+  "matchingArtifacts": {
+    "shader.wasm": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef",
+    "simulation.wasm": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+  },
+  "limits": [
+    "Single machine; two samples each",
+    "Cache state and other host load uncontrolled",
+    "Prototype plus derived serialization; excludes colony PR #302",
+    "No managed concurrent compile/profile jobs during wall-time samples",
+    "Runtime 57-workload evidence unchanged"
+  ],
+  "validation": {
+    "compilerOverloadsSha256": "bc692d36a05b4aa0be36f5aaf98c399f7a8c880dd58e68bbfbf2a63540617622",
+    "hostChecks": [
+      "make test",
+      "make check"
+    ],
+    "differentialComparisons": 722,
+    "integrationSelection": {
+      "manifest_sha256": "1e4564ddcefe382e9b40f3cb037edc63f25482fcb1c823cb996d77c97a9d34a1",
+      "cases": [
+        "typeclass",
+        "inferred-typeclass",
+        "typeclass-method-value",
+        "typeclass-phantom",
+        "typeclass-result-selection",
+        "typeclass-member-initializer",
+        "typeclass-rest",
+        "reject-rigid-all",
+        "reject-occurs",
+        "vector-typeclass",
+        "numeric-classes",
+        "reject-overload-round-integer",
+        "reject-overload-round-view",
+        "reject-overload-round-arity",
+        "overload-promotion",
+        "overload-generic",
+        "overload-first-class",
+        "overload-import-extension",
+        "overload-initializer",
+        "overload-forward-read",
+        "overload-lambda-readiness",
+        "reject-overload-duplicate",
+        "reject-overload-result-ambiguity",
+        "reject-overload-missing",
+        "reject-overload-result-conflict",
+        "reject-overload-first-class-result",
+        "reject-overload-rigid",
+        "reject-overload-rest",
+        "reject-overload-unused-body",
+        "reject-overload-local",
+        "reject-overload-value-name",
+        "overload-semantic-types",
+        "overload-explicit-view",
+        "overload-macro",
+        "overload-local-generalization",
+        "typeclass-multiple-parameters",
+        "reject-overload-short-constraint",
+        "reject-overload-instance-form",
+        "reject-overload-class-method",
+        "reject-overload-explicit-result",
+        "overload-result-context",
+        "overload-arities",
+        "overload-generic-row",
+        "overload-generic-named",
+        "overload-qualified-results",
+        "reject-overload-overlap",
+        "overload-overlap-unused",
+        "reject-overload-generic-duplicate",
+        "reject-overload-generic-obligation",
+        "reject-overload-detached-signature",
+        "reject-overload-no-class-guess",
+        "overload-returned-closure",
+        "reject-overload-ambiguous-givens",
+        "reject-overload-prerequisite-ranking",
+        "reject-overload-generic-reordered",
+        "overload-truncate",
+        "reject-overload-late-overlap",
+        "overload-late-overlap",
+        "overload-abstract-premise",
+        "overload-sibling-prerequisites",
+        "reject-overload-abstract-premise-use",
+        "overload-proof-sharing",
+        "reject-overload-unsigned-lambda",
+        "reject-overload-unsigned-named",
+        "reject-overload-unsigned-mixed",
+        "reject-overload-unsigned-unused",
+        "reject-overload-unsigned-extension",
+        "overload-declared-concrete",
+        "overload-declared-generic",
+        "overload-declared-dependencies",
+        "overload-declared-arities",
+        "overload-declared-cycle-unused",
+        "overload-declared-dependencies-reversed",
+        "overload-declared-result-context",
+        "overload-declared-cycle-annotation",
+        "overload-declared-initializer",
+        "overload-declared-forward-read",
+        "overload-declared-import-extension",
+        "overload-declared-qualified",
+        "reject-overload-declared-duplicate",
+        "reject-overload-declared-generic-duplicate",
+        "reject-overload-declared-overlap",
+        "reject-overload-declared-unused",
+        "reject-overload-declared-arity",
+        "reject-overload-declared-rest",
+        "reject-overload-declared-nonfunction",
+        "reject-overload-declared-method",
+        "reject-overload-declared-capture",
+        "reject-overload-declared-body",
+        "reject-overload-declared-prerequisite-ranking",
+        "reject-overload-declared-result-ambiguity",
+        "overload-declared-storage-before",
+        "overload-declared-storage-after",
+        "overload-declared-expression-before",
+        "overload-declared-expression-after",
+        "overload-declared-storage-annotation",
+        "overload-declared-prerequisite-dependency",
+        "reject-overload-declared-rigid",
+        "reject-data-constructor-overload",
+        "scheme-bindings",
+        "scheme-recursion",
+        "scheme-control",
+        "scheme-mixed",
+        "reject-scheme-truthiness",
+        "macro-overload-extension"
+      ]
+    },
+    "integrationCompletion": {
+      "completed": 105,
+      "failed": []
+    },
+    "contractCompletion": {
+      "completed": 20,
+      "failed": []
+    },
+    "forcedGcNative": [
+      {
+        "case": "overload-generic-row",
+        "command": [
+          "scripts/build-native",
+          "$REPO/tests/lofi-integration/overload-generic-row.sld",
+          "$REPO/build/overload-prefilter-native/overload-generic-row"
+        ],
+        "status": 42,
+        "stdout": "",
+        "stderr": "",
+        "forced_gc": true
+      },
+      {
+        "case": "overload-returned-closure",
+        "command": [
+          "scripts/build-native",
+          "$REPO/tests/lofi-integration/overload-returned-closure.sld",
+          "$REPO/build/overload-prefilter-native/overload-returned-closure"
+        ],
+        "status": 42,
+        "stdout": "",
+        "stderr": "",
+        "forced_gc": true
+      },
+      {
+        "case": "overload-declared-qualified",
+        "command": [
+          "scripts/build-native",
+          "$REPO/tests/lofi-integration/overload-declared-qualified.sld",
+          "$REPO/build/overload-prefilter-native/overload-declared-qualified"
+        ],
+        "status": 42,
+        "stdout": "",
+        "stderr": "",
+        "forced_gc": true
+      }
+    ]
+  }
+}

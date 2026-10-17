@@ -1,4 +1,6 @@
-(import (lofi base) (lofi integer))
+(import
+ (lofi base)
+ (lofi integer))
 
 ;; ---- Scalar test transport; numbers remain in Lofi ----
 

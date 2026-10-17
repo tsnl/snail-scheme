@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def value
      (ann 42 I64))
 (define-overload invalid (-> I64 I64) value)

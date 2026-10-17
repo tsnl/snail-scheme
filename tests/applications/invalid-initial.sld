@@ -1,6 +1,9 @@
 (define-library (tests invalid-initial)
   (export answer)
-  (import (scheme base) (siegework game) (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (siegework game)
+   (only (lofi core) ann -> I32))
   (begin
     (define answer
       (ann (lambda (operation a b c)

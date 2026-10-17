@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def cell (Ref I64)
      (ref (ann 40 I64)))

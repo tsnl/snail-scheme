@@ -11,7 +11,8 @@
    <import-declaration> make-import-declaration import-declaration? import-declaration-libraries
    import-declaration-bindings import-declaration-source import-declaration-loc
    <named-binding> make-named-binding named-binding? named-binding-name named-binding-definition)
-  (import (scheme base))
+  (import
+   (scheme base))
   (begin
 
     ;; ---- Library ----
@@ -71,7 +72,8 @@
   (cond-expand
    (snail-tests
     (export test-library)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-dependency-order)
         (define (unit name imports)

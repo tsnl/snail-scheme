@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload promote (-> I64 F64) i64->f64)
 
 (def combine (All (A B R) (=> ((+ (-> A B R))) (-> A B R)))

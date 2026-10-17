@@ -5,18 +5,23 @@
           rust-bindings runtime-bindings check-provider-bindings
           native-cargo-environment native-system-environment ensure-native-supervisor
           rust-source-inputs source-hashes check-stable-inputs native-evidence)
-  (import (scheme base) (chibi filesystem)
-          (wasm-native native) (wasm-native native-build)
-          (only (wasm-native llvm) current-native-imports)
-          (only (wasm-native chromium-trace) with-chromium-trace-to))
+  (import
+   (scheme base)
+   (chibi filesystem)
+   (wasm-native native)
+   (wasm-native native-build)
+   (only (wasm-native llvm) current-native-imports)
+   (only (wasm-native chromium-trace) with-chromium-trace-to))
   (begin
 
     ;; ---- Checked physical import declarations ----
 
     (define-record-type <native-import>
       (new-native-import key symbol parameters results) native-import?
-      (key native-import-key) (symbol native-import-symbol)
-      (parameters native-import-parameters) (results native-import-results))
+      (key native-import-key)
+      (symbol native-import-symbol)
+      (parameters native-import-parameters)
+      (results native-import-results))
     (define (physical-scalars? types)
       (and (list? types)
            (let visit ((types types))
@@ -58,7 +63,8 @@
   (cond-expand
    (snail-tests
     (export test-wasm-native)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (import-error thunk)
         (guard (failure (else (and (error-object? failure) (error-object-message failure))))

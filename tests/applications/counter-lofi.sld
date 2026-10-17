@@ -1,6 +1,9 @@
 (define-library (tests counter-lofi)
   (export answer)
-  (import (lofi core) (lofi base) (application reducer))
+  (import
+   (lofi core)
+   (lofi base)
+   (application reducer))
   (begin
     ;; Declaring handlers, constructing requests and dispatching explicit state
     ;; must never force the initializer. Reusing a request must not capture state.

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def maker (-> I64 (All (T) (-> T T)))
      (lambda (ignored) (lambda (value) value)))

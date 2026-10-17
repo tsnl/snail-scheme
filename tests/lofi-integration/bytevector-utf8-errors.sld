@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 
 (def isolated-tail (-> I64)
      (lambda () (string-length (utf8->string #u8(128)))))

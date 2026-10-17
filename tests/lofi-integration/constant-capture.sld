@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; Constants and mutable aliases share a recursive scope. Escaping closures
 ;; must preserve separate activations while all aliases observe one Ref.

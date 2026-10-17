@@ -2,12 +2,13 @@
 ;; the browser's persistent camera, while its minimap stays in screen space.
 (define-library (siegework view)
   (export colony-view colony-status)
-  (import (scheme base)
-          (scheme immutable)
-          (browser application)
-          (siegework model)
-          (siegework terrain)
-          (only (lofi base) string-append i32->i64))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (browser application)
+   (siegework model)
+   (siegework terrain)
+   (only (lofi base) string-append i32->i64))
   (begin
 
     ;; ---- Field tiles, remembered terrain and active observation ----

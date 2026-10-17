@@ -1,7 +1,8 @@
 ;; Self calls retain the environment of their own captured activation.
 ;; Alias and nested-closure calls still select the called closure environment.
 
-(import (lofi base))
+(import
+ (lofi base))
 
 (def make-probe
      (lambda (seed)

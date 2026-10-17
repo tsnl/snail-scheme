@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; Literal payload knowledge must not initialize the source binding early.
 (def read-later

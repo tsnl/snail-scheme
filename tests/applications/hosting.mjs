@@ -1,5 +1,6 @@
 // Owns private servers, Chromium profile and SQLite copy. Never targets a live game.
 import assert from 'node:assert/strict';
+import {colony} from './colony-state.mjs';
 import {createServer} from 'node:http';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -82,11 +83,15 @@ async function ready(page) {
     return state.ready;
   }, 'application did not start');
 }
+async function gpuReady(page) {
+  await until(() => page.evaluate('navigator.gpu.requestAdapter().then(adapter => !!adapter)'),
+    'private Chromium WebGPU adapter did not become available');
+}
 async function paused(page) {
   await page.evaluate("snailApp.local('suspend',[1])");
-  await until(() => page.evaluate('snailApp.pending.length === 0 && snailApp.runtime.snapshot(1)[18] === 1'), 'pause not committed');
+  await until(async () => await page.evaluate('snailApp.pending.length === 0') && (await state(page)).paused === 1, 'pause not committed');
 }
-const state = page => page.evaluate('snailApp.runtime.snapshot(1)');
+const state = async page => colony(await page.evaluate('snailApp.runtime.snapshot(1)'));
 let browser, server;
 const staticServer = createServer(serve);
 try {
@@ -112,6 +117,7 @@ try {
   const storage = await page(`${origin}/fixture.html`);
   const checks = await storage.evaluate(`import('/test/indexeddb-browser.mjs').then(m => m.checkIndexedDB(${JSON.stringify(base)}))`);
   for (const check of checks) console.log(`ok - ${check}`);
+  await gpuReady(storage);
   await storage.close();
 
   const start = requests.length, a = await page(base); await ready(a); await paused(a);
@@ -156,13 +162,13 @@ try {
   const revision = await b.evaluate('snailApp.revision'); await delay(250);
   assert.equal(await b.evaluate('snailApp.revision'), revision);
   await b.evaluate("snailApp.local('suspend',[0])");
-  await until(() => b.evaluate(`snailApp.runtime.snapshot(1)[1] > ${saved[1]}`), 'successful retry did not resume clock');
+  await until(async () => (await state(b)).tick > saved.tick, 'successful retry did not resume clock');
   const cover = await page(`${origin}/fixture.html`); await delay(200);
   assert.equal(await b.evaluate('document.hidden'), true);
-  const hiddenTick = (await state(b))[1]; await delay(500); assert.equal((await state(b))[1], hiddenTick);
+  const hiddenTick = (await state(b)).tick; await delay(500); assert.equal((await state(b)).tick, hiddenTick);
   await b.call('Page.bringToFront');
-  await until(() => b.evaluate(`snailApp.runtime.snapshot(1)[1] > ${hiddenTick}`), 'visible solo did not resume');
-  assert.ok((await state(b))[1] <= hiddenTick + 2); await cover.close();
+  await until(async () => (await state(b)).tick > hiddenTick, 'visible solo did not resume');
+  assert.ok((await state(b)).tick <= hiddenTick + 2); await cover.close();
   await paused(b);
   console.log('ok - aborted solo write stops clock; retry and visibility resume without catch-up');
 
@@ -178,6 +184,7 @@ try {
 
   const restartedState = await state(b); await stop(browser); browser = undefined;
   browser = chromium(); await until(() => reachable(`${devtools}/json/version`), 'Chromium restart failed');
+  const warmup = await page(`${origin}/fixture.html`); await gpuReady(warmup); await warmup.close();
   const reopened = await page(`${origin}/moved/siegework/`); await ready(reopened);
   assert.deepEqual(await state(reopened), restartedState);
   assert.equal(await reopened.evaluate('snailApp.session.authority.epoch'), epoch);
@@ -229,7 +236,7 @@ try {
   assert.deepEqual(await state(cloudB), cloudState);
   const cloudC = await page(cloud); await ready(cloudC); assert.deepEqual(await state(cloudC), cloudState);
   await cloudB.evaluate("snailApp.local('suspend',[0])");
-  await until(() => cloudC.evaluate(`snailApp.runtime.snapshot(1)[1] > ${cloudState[1]} && snailApp.runtime.snapshot(1)[18] === 0`), 'independent cloud client did not resume saved match');
+  await until(async () => { const world = await state(cloudC); return world.tick > cloudState.tick && world.paused === 0; }, 'independent cloud client did not resume saved match');
   await paused(cloudB);
   console.log('ok - cloud solo save survives server restart; independent clients resume the same hosted match');
   console.log(JSON.stringify({work, browser: (await (await fetch(`${devtools}/json/version`)).json()).Browser, checks: checks.length + 8}));
