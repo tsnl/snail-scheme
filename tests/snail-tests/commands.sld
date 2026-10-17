@@ -296,15 +296,27 @@
 
     ;; ---- Ordered complete backend execution ----
 
+    (define (backend-command suite)
+      (append (if (field suite 'script)
+                  (list (path "scripts" (field suite 'script)))
+                  (chibi (path "tests/run.scm") (root) (field suite 'suite)))
+              (strings (field suite 'arguments #()))))
+    (define (selected-backend-suites)
+      (let* ((suites (rows (read-json (path "tests/backend-suites.json"))))
+             (names (map (lambda (suite) (field suite 'name)) suites))
+             (selected (argument-positionals)))
+        (assert-that (pair? suites) "backend suite inventory is empty")
+        (assert-equal (length names) (length (delete-duplicates names)) "duplicate backend suites")
+        (assert-equal (length selected) (length (delete-duplicates selected)) "duplicate selected suites")
+        (for-each (lambda (name) (assert-that (member name names) "unknown backend suite" name)) selected)
+        (filter (lambda (suite) (or (null? selected) (member (field suite 'name) selected))) suites)))
     (define (run-backend)
-      (for-each (lambda (suite) (checked suite (list (path "scripts" (string-append "test-" suite))) '((timeout . 7200))))
-                '("lofi" "lofi-integration" "lofi-entry" "lofi-execution" "lofi-native-loading" "lofi-builder"
-                  "lofi-book" "lofi-generation" "lofi-compiler-service" "lofi-parsed-library" "lofi-narrowing"
-                  "lofi-arithmetic" "lofi-extern" "lofi-bytes" "lofi-integer" "lofi-io" "lofi-input-packets"
-                  "lofi-math" "lofi-numbers" "lofi-reader" "lofi-text" "lofi-write" "binaryen" "package-isolation"))
-      (checked "numbers-domain" (list (path "scripts/test-lofi-numbers") "--domain" "--output" (path "build/lofi-number-domain")))
-      (for-each (lambda (suite) (checked suite (chibi (path "tests/run.scm") (root) suite)))
-                '("lofi-scalars" "lofi-recursion" "lofi-conformance-audit" "lofi-literal-widths")))
+      (let* ((suites (selected-backend-suites))
+             (names (list->vector (map (lambda (suite) (field suite 'name)) suites))))
+        (write-json (build-path "selection.json") `((suites . ,names)))
+        (for-each (lambda (suite)
+                    (checked (field suite 'name) (backend-command suite) '((timeout . 7200)))) suites)
+        (complete! "backend suites" `((suites . ,names)))))
     (define (run-command-suite suite)
       (cond ((string=? suite "build") (run-public-command)) ((string=? suite "backend") (run-backend))
             ((string=? suite "binaryen") (run-binaryen)) ((string=? suite "lofi-entry") (run-entry))

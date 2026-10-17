@@ -3,6 +3,7 @@
   (export run-native-loading native-loading-lost-host)
   (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
           (srfi 1) (srfi 18) (chibi bytevector) (only (chibi ast) gc)
+          (only (chibi filesystem) rename-file)
           (only (chibi string) call-with-output-string string-split)
           (chibi regexp) (chibi regexp pcre)
           (wasm-native execute) (only (snail-tests commands) optimizer-scope) (snail-tests harness))
@@ -135,7 +136,9 @@
         (fails (lambda () (invoke-entry owned '())) "closed")))
     (define (native-loading-lost-host)
       (let ((owned (instance (linked "lifetime") "host-loss-live")))
-        (write-json (build-path "host-ready") (read-json (path-join (instance-directory owned) "process.json")))
+        ;; The controller treats existence as readiness: publish a closed record.
+        (write-json (build-path "host-ready.pending") (read-json (path-join (instance-directory owned) "process.json")))
+        (assert-that (rename-file (build-path "host-ready.pending") (build-path "host-ready")) "cannot publish host readiness")
         (thread-sleep! 60) (close-instance owned)))
     (define (run-native-loading)
       (let ((optimizations (optimizer-scope (lambda ()

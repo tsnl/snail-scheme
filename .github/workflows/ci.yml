@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUSTUP_TOOLCHAIN: 1.95.0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: node tests/ci.test.mjs
+      - id: plan
+        name: Check complete coverage and create matrix
+        run: |
+          ci_matrix="$(node tests/ci.mjs matrix)"
+          printf 'matrix=%s\n' "$ci_matrix" >> "$GITHUB_OUTPUT"
+
+  tests:
+    name: ${{ matrix.suite }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Initialize benchmark input corpus
+        run: git submodule update --init benchmarks/r7rs-benchmarks
+      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
+        with:
+          nix_path: nixpkgs=https://github.com/NixOS/nixpkgs/archive/dc5d91f840324650bac8c379428c7037a416959a.tar.gz
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('shell.nix', '.github/workflows/ci.yml') }}
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-${{ runner.os }}-1.95.0-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install pinned Rust and fetch locked dependencies
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: |
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --target wasm32-wasip1
+          cargo fetch --locked --manifest-path wasm-native/Cargo.toml
+          cargo fetch --locked --manifest-path tests/Cargo.toml
+          cargo fetch --locked --manifest-path tools/host/Cargo.toml
+      - name: Run checks
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          case "$SUITE" in
+            host)
+              make test
+              make check
+              cargo test --manifest-path wasm-native/Cargo.toml --offline
+              cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check
+              ;;
+            native) scripts/test-native ;;
+            applications)
+              scripts/test-build
+              scripts/test-applications
+              ;;
+            *) node tests/ci.mjs run "$SUITE" ;;
+          esac
+      - name: Retain test evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: evidence-${{ matrix.suite }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            build/**/commands/**
+            build/**/*.json
+            build/**/*.jsonl
+            build/**/*.log
+            build/**/*.wat
+            build/**/*.ll
+            build/**/*.wasm
+            !build/native-runtime/**
+            !build/wasm-runtime/**
+
+  complete:
+    name: Complete correctness checks
+    if: always()
+    needs: [plan, tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every planned job to succeed
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+        run: test "$PLAN_RESULT" = success && test "$TEST_RESULT" = success
