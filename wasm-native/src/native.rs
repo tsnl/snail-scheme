@@ -28,6 +28,28 @@ pub struct NativeRoots {
     pub values: [u64; 0],
 }
 
+// A helper's by-value reference is independent of the caller's published copy.
+// Keep this record in place between enter/leave, and read value after allocation.
+#[repr(C)]
+struct ArrayInitializer {
+    roots: NativeRoots,
+    value: u64,
+}
+
+impl ArrayInitializer {
+    fn new(value: u64) -> Self {
+        Self {
+            roots: NativeRoots {
+                previous: ptr::null_mut(),
+                capacity: 0,
+                count: 0,
+                values: [],
+            },
+            value,
+        }
+    }
+}
+
 #[repr(C)]
 pub struct NativeTable {
     pub values: *mut u64,
@@ -44,6 +66,7 @@ struct NativeLayout {
 
 #[cfg(not(test))]
 unsafe extern "C" {
+    static native_gc_relocatable_roots: u64;
     static native_gc_layouts: NativeLayout;
     static native_gc_layouts_count: u64;
     static native_gc_globals: *const u64;
@@ -87,6 +110,9 @@ unsafe fn foreign_slice<T>(pointer: *const T, count: u64) -> &'static [T] {
 
 #[cfg(not(test))]
 unsafe fn linked_metadata() -> (Metadata, Vec<u64>) {
+    // Linking an old nonmoving guest must fail, not silently retain stale SSA
+    // references. This witness is emitted only by relocation-aware lowering.
+    assert_eq!(unsafe { native_gc_relocatable_roots }, 1);
     let layouts = unsafe { foreign_slice(&raw const native_gc_layouts, native_gc_layouts_count) }
         .iter()
         .map(|layout| match layout.kind {
@@ -232,6 +258,18 @@ pub unsafe extern "C" fn native_gc_collect() {
     unsafe { runtime().collector.collect(native_roots) };
 }
 
+// Pinning prevents movement, not collection. A foreign owner must separately
+// keep a root alive, and unpin only when every raw pointer lease has ended.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn native_gc_pin(reference: u64) {
+    unsafe { runtime().collector.pin(reference, true) };
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn native_gc_unpin(reference: u64) {
+    unsafe { runtime().collector.pin(reference, false) };
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn native_gc_collections() -> usize {
     unsafe { runtime().collector.collections() }
@@ -350,15 +388,22 @@ pub unsafe extern "C" fn native_array_new(
     initial: u64,
     stride: u32,
 ) -> u64 {
+    let mut initial = ArrayInitializer::new(initial);
+    let reference_elements = unsafe { runtime().collector.reference_array(kind) };
+    unsafe {
+        native_roots_enter(&mut initial.roots, u64::from(reference_elements));
+        initial.roots.count = u64::from(reference_elements);
+    }
     let reference = unsafe { native_alloc(16 + length as u64 * stride as u64) };
+    unsafe { native_roots_leave(&mut initial.roots) };
     let words = object_words(reference);
     unsafe {
         words.write(kind);
         words.add(1).write(length as u64);
         // Allocation clears fresh and recycled payloads. Test the complete bit
         // pattern so floating-point negative zero still receives its fill.
-        if initial != 0 {
-            array_fill(words.add(2).cast(), length, initial, stride);
+        if initial.value != 0 {
+            array_fill(words.add(2).cast(), length, initial.value, stride);
         }
     }
     reference

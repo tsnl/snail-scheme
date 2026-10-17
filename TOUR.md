@@ -100,5 +100,12 @@ composition for a native build.
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
 | [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 
+Within the native package, `scheme/wasm-native/llvm.sld` publishes live references
+and reloads them after collecting calls. `src/native_gc.rs` owns the Immix block
+allocator, tracing, opportunistic evacuation and weak cleanup. `src/native.rs`
+defines writable roots and the scalar/runtime ABI; allocating helpers protect
+their own reference arguments. Following the product compiler does not require
+following these native lifetime rules. See [the native contract](doc/native.md).
+
 Use the [detailed compiler reference](doc/compiler.md) for pass contracts and
 execution APIs, and the [language book](doc/book/lofi/index.md) for semantics.

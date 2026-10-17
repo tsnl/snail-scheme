@@ -45,13 +45,16 @@
     (expect (and (string-contains text "call i64 @\"example_hide\"(") #t) #t)))
 
 (define (check-execution program)
-  (let* ((options `((environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")))
+  (let* ((options `((environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")
+                                    ("SNAIL_GC_EVACUATION" . "always") ("SNAIL_GC_INITIAL_BYTES" . "1048576")))
                     (log-directory . ,directory)))
          (success (run-command/capture (list program) options))
          (trap (run-command/capture (list program "trap") options)))
     (expect (option-ref success 'status #f) 0)
     (expect (option-ref success 'stdout #f) "42\n")
     (expect (and (string-contains (option-ref success 'stderr "") "collections=") #t) #t)
+    (expect (and (string-contains (option-ref success 'stderr "") "moved_objects=")
+                 (not (string-contains (option-ref success 'stderr "") "moved_objects=0 "))) #t)
     (expect (option-ref trap 'status #f) 1)
     (expect (and (string-contains (option-ref trap 'stderr "") "WebAssembly trap") #t) #t)))
 
