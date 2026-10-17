@@ -15,7 +15,7 @@
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 3) (initial-world)
+    (application match-app (state World 4) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
@@ -24,8 +24,9 @@
                  (fabricate-worker (state) (no-effects (fabricate-world state)))
                  (prioritize-building (state (x I32) (y I32)) (no-effects (prioritize-world state x y)))
                  (repair (state) (no-effects (repair-world state)))
-                 (new-run (state) (no-effects (initial-world)))
-                 (pause-colony (state (value I32)) (no-effects (pause-world state value))))
+                 (new-run (state) (no-effects (restart-world state)))
+                 (pause-colony (state (value I32)) (no-effects (pause-world state value)))
+                 (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed))))
     (define match-target (destination match-owner match-app))
 
     ;; ---- Camera and cursor belong to each browser, including across reload ----
@@ -82,7 +83,8 @@
                  (prioritize (state) (transition state (list (enqueue match-target (prioritize-building (client-x state) (client-y state))))))
                  (home (state) (no-effects (make-client (client-tool state) 340 340 0 560000)))
                  (suspend (state (value I32)) (transition state (list (enqueue match-target (pause-colony value)))))
-                 (drift (state (dx I32) (dy I32)) (no-effects (drift-client state dx dy))))
+                 (drift (state (dx I32) (dy I32)) (no-effects (drift-client state dx dy)))
+                 (restart-seed (state (seed I32)) (transition state (list (enqueue match-target (new-run-seed seed))))))
 
     ;; ---- Client schema and pure presentation ----
 

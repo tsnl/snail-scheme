@@ -56,6 +56,9 @@ function checkInitialProgram(bytes, manifest) {
   try {
     runtime.replace(runtime.prepare(bytes, manifest));
     runtime.initialize(1); runtime.initialize(2); runtime.view();
+    const marker = manifest.settings.runMarker;
+    if (marker !== undefined && (!Number.isInteger(marker) || marker < 1 || marker >= runtime.snapshot(1).length))
+      throw new Error('invalid run marker snapshot offset');
   } catch (error) { throw new Error(`application startup check failed: ${error.message}`, {cause: error}); }
   finally { runtime.close(); }
 }
