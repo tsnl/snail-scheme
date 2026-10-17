@@ -238,6 +238,8 @@ try {
   assert.deepEqual(await take(), [['confirm']]);
   await read('pads=[];input.frame(time=20000);pad.axes=[1,-1];pads=[pad];input.frame(time=30000);input.frame(time+=16)');
   assert.deepEqual(await take(), []);
+  await read('pad.axes=[-1,1];input.frame(time+=16)');
+  assert.deepEqual(await take(), [['drift', -16, 0], ['drift', 0, 16]]);
   await read('pad.axes=[0,0];pad.buttons[0].pressed=false;input.frame(time+=16);pad.axes=[1,-1];pad.buttons[0].pressed=true;input.frame(time+=16)');
   assert.deepEqual(await take(), [['confirm'], ['drift', 16, 0], ['drift', 0, -16]]);
   await read('replaceSettings({...continuous});input.frame(time+=10000);input.frame(time+=16)'); assert.deepEqual(await take(), []);
@@ -249,6 +251,8 @@ try {
   assert.deepEqual(await take(), [['drift', 16, 0]]);
   await read('pad.axes=[0.5,-0.5];input.frame(time+=3)');
   assert.deepEqual(await take(), [['drift', 2, 0], ['drift', 0, -2]]);
+  await read('pad.axes=[0.4,-0.4];input.frame(time+=1);input.frame(time)');
+  assert.deepEqual(await take(), [['drift', 0, 0], ['drift', 0, 0]]);
   await read('pads=[];input.frame(time+=16)');
   console.log('ok - continuous joystick axes preserve magnitude and negative/diagonal directions; release/reconnect/reload/focus gate motion');
 

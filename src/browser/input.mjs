@@ -107,8 +107,9 @@ export class BrowserInput {
     }
   }
   sendContinuous(command, elapsed) {
+    if (elapsed <= 0) return;
     const values = command.slice(1).map(value => scaledI32(value, elapsed));
-    if (values.some(value => value !== 0)) this.send([command[0], ...values]);
+    this.send([command[0], ...values]);
   }
 
   // ---- Keyboard and pointer ----
@@ -167,11 +168,9 @@ export class BrowserInput {
   pollContinuous(key, command, magnitude, elapsed) {
     if (!magnitude) { this.controls.delete(key); return; }
     // A stick held across a device/focus/settings change must release before
-    // moving again, just like a held button. Zero marks an active continuous input.
+    // moving again, just like a held button. Only blocked directions need state.
     if (this.baseline) this.controls.set(key, Infinity);
-    else if (this.controls.get(key) !== Infinity) {
-      this.controls.set(key, 0); this.sendContinuous(command, elapsed * magnitude);
-    }
+    else if (this.controls.get(key) !== Infinity) this.sendContinuous(command, elapsed * magnitude);
   }
   pollControl(key, command, active, repeating, time) {
     if (!active) { this.controls.delete(key); return; }
