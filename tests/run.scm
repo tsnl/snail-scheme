@@ -11,6 +11,7 @@
  (snail-tests native-loading)
  (snail-tests chez-bridge)
  (snail-tests view-traces)
+ (snail-tests serialization)
  (snail-tests package-isolation))
 (define arguments (cdr (command-line)))
 (define repository (car arguments))
@@ -29,4 +30,5 @@
                                 ((string=? suite "lofi-chez-bridge") (run-chez-bridge))
                                 ((string=? suite "view-traces") (run-view-traces))
                                 ((string=? suite "package-isolation") (run-package-isolation))
+                                ((string=? suite "lofi-serialization") (run-serialization-suite))
                                 (else (run-command-suite suite)))) finalize-records!)

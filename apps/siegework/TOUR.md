@@ -14,15 +14,14 @@ game vision; the [compiler tour](../../TOUR.md) follows Scheme into Wasm.
 
 | File | What to follow |
 | --- | --- |
-| [`game.sld`](src/siegework/game.sld) | `match-app` and `client-app` declare commands; `game` joins their codecs and presentation; `application-entry` exposes the scalar entry point. |
+| [`game.sld`](src/siegework/game.sld) | `match-app` and `client-app` declare commands; `game` joins derived serialization, state validation and presentation; `application-entry` exposes the scalar entry point. |
 | [`model.sld`](src/siegework/model.sld) | Named map, economy, combat and outcome constants explain the rules; `World`, command functions and `advance-world` explain the state and its changes. |
-| [`codec.sld`](src/siegework/codec.sld) | `encode-world` and `decode-world` translate between records and the fixed snapshot layout. |
 | [`shaders.sld`](src/siegework/shaders.sld) | Scheme macros compose shader expressions, and `shader-entry` exposes the generated text. |
 | [`settings.json`](settings.json) | Handler names connect to keyboard, pointer, controller and authority clock inputs. |
 | [`build.scm`](build.scm) | Chibi compiles the two exported entry points and invokes the shared packager. |
 | [`index.html`](index.html), [`style.css`](style.css) | The page owns the canvas, controls and surrounding interface. |
 
-The four app libraries import reusable code from the repository's `src/`.
+The three app libraries import reusable code from the repository's `src/`.
 Those shared libraries know about applications, snapshots and quads; Siegework
 supplies the mines, hauler, enemies and rules.
 
@@ -83,33 +82,30 @@ and effects are staged. This makes rollback and code replacement independent
 of the old Wasm heap. Immutable application code remains a programming contract;
 the current compiler does not prove whole-program purity.
 
-The app owns the meaning of those integers. `codec.sld` declares a 192-word
-`I32` world snapshot:
+Each record opts into `(deriving derive-serialize derive-deserialize)`.
+[`(lofi serialization)`](../../src/lofi/serialization.sld) generates ordinary
+checked instances from its fields. World and client snapshots share the same
+[`S-expression format`](../../src/lofi/sexp.sld): nominal type names,
+constructors and field names accompany typed scalar values. Text and compact
+binary encode the same representation. Supported mutable storage retains
+sharing and cycles through explicit object definitions and references; no
+process addresses or Wasm references cross the boundary. Procedures, closures
+and live resource handles have no supplied instances.
 
-| Word indices | Meaning |
-| --- | --- |
-| `0` | Schema version, currently `1`. |
-| `1`–`6` | Tick, outcome, credits, hull, kills and next enemy ID. |
-| `7`–`10` | Mine position, level and stock. |
-| `11`–`14` | Bot position, cargo and direction flag. |
-| `15`–`16` | Turret and enemy counts. |
-| `24`–`47` | Up to eight turrets, three words each. |
-| `48`–`127` | Up to sixteen enemies, five words each. |
-| Remaining words | Reserved; the encoder initializes them to zero. |
+[`serialized-program`](../../src/application/serialization.sld) connects those
+instances to the bridge. Its transport envelope contains the application schema
+version, binary byte length and four packed bytes per `I32` word. A final partial
+word has checked zero padding. Snapshot size grows or shrinks with the data;
+the host bounds a snapshot at 65,536 words and stages its new size atomically.
+Fixed-size programs still have their declared size checked.
 
-The client codec lives beside `Client` in `game.sld`: four words hold schema,
-tool, x and y. Vector indices use `I64`, so the codecs explicitly widen their
-`I32` indices. `decode-world` currently checks schema, list counts, tick range
-and nonnegative credits; `decode-client` checks schema, tool and cell bounds.
-Snapshot words contain values, with no Wasm references or GPU handles.
-
-This handwritten codec is a workaround for the current scalar bridge. The
-intended language facility attaches derive transformers to data declarations,
-generating `Serialize` and `Deserialize` instances for opted-in state types. Their common
-S-expression representation has readable text and compact binary encodings
-that preserve type information, sharing and cycles. Procedures and closures
-have no instances. That facility is not implemented yet; the word layout above
-describes the current application.
+Checked deserialization establishes the field types and exact declaration
+shape. `validate-world` separately checks tick range, nonnegative credits and
+combatant limits. `validate-client` checks tool and cell bounds. Those checks run
+before a replacement can become committed or durable state. Derived instances
+do not implement application invariants or migration from incompatible schemas.
+The previous handwritten world and client codecs have been removed; old fixed
+layout snapshots require an explicit migration or a new run.
 
 ## Follow one simulation tick
 
@@ -188,7 +184,7 @@ the replacement path covers compiled Scheme modules and shader pipelines.
   and dimensions/tick settings in `settings.json` still need matching edits.
 - Add a command in `game.sld`, then connect its input and remote exposure in
   `settings.json`; add a page button in `index.html` when appropriate.
-- Change stored fields in the record and its codec together. Field meaning is
+- Change stored fields in the record and update its state schema when incompatible. Field meaning is
   part of the schema, even if the word count stays the same.
 - Change scene composition in `view` and `status`, or GPU expressions in
   `shaders.sld`.

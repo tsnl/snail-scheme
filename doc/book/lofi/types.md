@@ -359,7 +359,10 @@ for a struct, several for a union. Fields are immutable; a field of type
 
 <!-- ANCHOR: data -->
 ```text
-data_definition ::= "(" "data" name "(" name … ")" constructor_clause constructor_clause … ")"
+data_definition ::= "(" "data" name "(" name … ")"
+                    constructor_clause constructor_clause … [deriving_clause] ")"
+
+deriving_clause ::= "(" "deriving" name … ")"
 
 constructor_clause ::= "(" name field_clause … ")"
 
@@ -450,60 +453,108 @@ the availability of an implementation's prerequisites do not rank candidates.
 Numeric promotion, where offered, is an explicitly provided operation. Selected
 implementations retain their normal initialization and effect ordering.
 
-## Data graph serialization (planned)
+## Data graph serialization
 
-Serialization and deserialization should use separate `Serialize` and
-`Deserialize` typeclasses. The supported set consists of types with explicit or
-derived instances. Derive transformers should generate ordinary instances from a
-datatype declaration, with field requirements checked by the type checker.
-Applications can opt their state types into these classes without maintaining
-field-by-field codecs. Deriving either class does not require deriving the other.
+`(lofi serialization)` provides separate `Serialize` and `Deserialize`
+typeclasses. A type opts into either capability with an explicit instance or a
+[derive transformer](macros.md#deriving-typeclass-instances). Procedures,
+closures, live external resources and arbitrary `Any` values have no supplied
+instances. Unsupported fields produce ordinary missing-class-evidence errors.
 
-Instances for scalar values, collections and explicit references supply the
-building blocks for user-defined records and variants. Sharing and cycles are
-part of the graph being transported. One graph context must flow through the
-generated field operations so aliases across fields and recursive structures
-retain their identities.
+`serialize` converts a supported typed value to `Sexp`; `deserialize` checks an
+`Sexp` and reconstructs the requested type. The result type must be determined
+by its use or an annotation. These entry points create private traversal
+contexts. Instance methods `serialize-with` and `deserialize-with` receive that
+context explicitly, while `serialize-type` and `deserialize-type` identify the
+wire type using a `(Witness T)` argument.
 
-The common representation is a graph-capable S-expression format:
+```scheme
+(import
+ (lofi core)
+ (lofi serialization))
+
+(data Stock ()
+  (stock
+   (ore I32 stock-ore))
+  (deriving derive-serialize derive-deserialize))
+
+(def saved (sexp->binary (serialize (stock 42))))
+(def restored Stock (deserialize (binary->sexp saved)))
+(stock-ore restored) ; 42
+```
+
+### One value representation, two encodings
 
 ```text
 data with class instances ↔ S-expression graph ↔ readable text
                                               ↔ compact binary
 ```
 
-Text and binary encode the same S-expression representation, including type
-tags and object definitions/references. Binary encodes those values directly
-using a MessagePack-style compact representation. Every binary message must
-have an equivalent readable S-expression form, and converting between the two
-must preserve the information needed to reconstruct the typed graph. Symbols
-and strings remain distinct; numeric representations and graph identities must
-not be lost through an intervening text conversion.
+The finite `Sexp` representation contains signed integers, strings, symbols,
+bytevectors and lists. Symbols and strings are distinct. `sexp->text` and
+`text->sexp` provide its readable representation; `sexp->binary` and
+`binary->sexp` encode and decode the same values using a MessagePack-style
+binary representation. Binary is encoded directly from the S-expression value,
+without a text conversion. It is not a promise that generic MessagePack readers
+understand Lofi's symbol representation.
 
-Derived instances should traverse the constructors and fields in their datatype
-declaration. Deserialization must check type identities, fields and graph
-references before returning the reconstructed value. Object identities belong
-to the serialized graph; process addresses, Wasm heap references and compiler
-layout offsets are not portable identities. Compatible readers must reconstruct
-sharing and cycles independently of the emitting backend's object layout.
+A derived record or union value carries its type, selected constructor, and
+named fields. Its schematic readable form is:
 
-The scope excludes procedures, closures and live external resources. These types
-have no serialization instances; deriving a containing type requires instances
-for its fields and reports an unsatisfied class requirement for an unsupported
-field. There is no blanket serialization instance for arbitrary types or `Any`.
-Deserialization must report malformed or incompatible data without exposing a
-partially constructed graph. Derived deserialization does not by itself define
-migration between incompatible state types or establish application-specific
-invariants; opting into that class is an explicit choice.
+```text
+(data |(demo inventory):Stock| stock (ore (I32 42)))
+```
 
-This is a target contract, not an implemented general facility. The current
-`(lofi write)` works on `Datum` and can emit labels for cyclic graphs, but
-`(lofi read)` rejects datum labels. Neither automatically transports arbitrary
-user-defined typed graphs. The classes and deriving support are also planned.
-The [macro chapter](macros.md#deriving-typeclass-instances-planned) describes the
-proposed expansion boundary. Exact text syntax, binary tags and public API
-remain to be specified. The [roadmap](../../roadmap.md#data-graph-serialization)
-tracks the implementation work.
+The type tag combines the declaring library and original type name. Independent
+named libraries can define `Stock` without confusing their wire types; import
+aliases retain the original instance and tag. A local collision between distinct
+type bindings with the same portable name is a compile-time error. Constructor
+and field names are checked along with field types and order. These tags are
+portable schema names, not process addresses, Wasm references or compiler layout
+offsets.
+
+Supplied scalar instances cover `I32`, `I64`, `F32`, `F64`, `Bool`, `Char`,
+`Unit`, `String`, `Bytevector`, and `Symbol`. Import `Symbol` and its text
+operations directly from `(lofi scalar-text)`, or through `(lofi datum)`, which
+reexports the same type. The direct import avoids the dynamic datum and numeric
+libraries. Numeric width is explicit in each value's tag. Floats store their
+exact IEEE bits as integers, preserving negative zero, infinities and NaN
+payloads. The public `f32->bits`,
+`bits->f32`, `f64->bits` and `bits->f64` operations expose those representations
+without numeric conversion.
+
+### Object graphs and checked reconstruction
+
+One context flows through every generated field operation. Shared strings,
+bytevectors, references and vectors receive object numbers. The first encounter
+emits `(object id type payload)`; later encounters emit `(link id type)`.
+Reference and vector storage is registered before recursively decoding its
+contents, so references back to that storage reconstruct cycles. Object numbers
+belong to this traversal and have no connection to addresses in the source heap.
+Immutable record and list structure is encoded by value; the current language
+provides no identity operation for that structure.
+
+The field macros `serialize-field` and `deserialize-field` handle nested `List`,
+`Ref` and `Vector` types using typed callbacks and the same context. Every leaf
+still requires its class instance. These helpers do not supply blanket generic
+container instances: a direct top-level container needs an explicit instance or
+use of the corresponding field macro with a context. Reference/vector decoding
+requires `Default` evidence for the element type, providing valid initial storage
+before its contents are filled. A type without such evidence cannot use that
+decoding path.
+
+Decoding rejects malformed shapes, mismatched tags, missing or extra fields,
+out-of-range scalar values, duplicate object numbers, unknown or forward links,
+and links whose declared type disagrees with their target. Partially filled
+storage stays within the private traversal until the complete root succeeds.
+Errors use the runtime's checked failure path. Application-specific invariants
+still need checking after reconstruction; deriving a decoder does not establish
+that a decoded world is a valid game state.
+
+This facility is separate from the existing `(lofi read)`/`(lofi write)` datum
+format. It does not add datum-label reading to `(lofi read)`, derive constrained
+generic instances, serialize arbitrary values, or migrate incompatible schemas.
+The [roadmap](../../roadmap.md#data-graph-serialization) tracks remaining work.
 
 ## Any, Never and subtyping
 

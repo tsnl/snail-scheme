@@ -1,7 +1,7 @@
 ;; Siegework's complete simulation. Every operation returns a new World; no
 ;; simulation state lives in a module global, browser object, or GPU resource.
 (define-library (siegework model)
-  (export World initial-world world-tick world-outcome world-credits world-hull
+  (export World initial-world validate-world world-tick world-outcome world-credits world-hull
           world-kills world-mine world-bot world-turrets world-enemies world-next-id
           make-world Mine make-mine mine-x mine-y mine-level mine-stock
           Bot make-bot bot-x bot-y bot-cargo bot-homeward
@@ -17,7 +17,9 @@
   (import
    (scheme base)
    (scheme immutable)
-   (only (lofi core) ann I32))
+   (lofi serialization)
+   (only (lofi core) ann I32 deriving)
+   (only (lofi base) unreachable))
   (begin
 
     ;; ---- Map geometry ----
@@ -97,22 +99,26 @@
       (x I32 mine-x mine-x-set)
       (y I32 mine-y mine-y-set)
       (level I32 mine-level mine-level-set)
-      (stock I32 mine-stock mine-stock-set))
+      (stock I32 mine-stock mine-stock-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Bot make-bot
       (x I32 bot-x bot-x-set)
       (y I32 bot-y bot-y-set)
       (cargo I32 bot-cargo bot-cargo-set)
-      (homeward I32 bot-homeward bot-homeward-set))
+      (homeward I32 bot-homeward bot-homeward-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Turret make-turret
       (x I32 turret-x turret-x-set)
       (y I32 turret-y turret-y-set)
-      (cooldown I32 turret-cooldown turret-cooldown-set))
+      (cooldown I32 turret-cooldown turret-cooldown-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Enemy make-enemy
       (id I32 enemy-id enemy-id-set)
       (x I32 enemy-x enemy-x-set)
       (y I32 enemy-y enemy-y-set)
       (hp I32 enemy-hp enemy-hp-set)
-      (boss I32 enemy-boss enemy-boss-set))
+      (boss I32 enemy-boss enemy-boss-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record World make-world
       (tick I32 world-tick world-tick-set)
       (outcome I32 world-outcome world-outcome-set)
@@ -123,7 +129,16 @@
       (bot Bot world-bot world-bot-set)
       (turrets (List Turret) world-turrets world-turrets-set)
       (enemies (List Enemy) world-enemies world-enemies-set)
-      (next-id I32 world-next-id world-next-id-set))
+      (next-id I32 world-next-id world-next-id-set)
+      (deriving derive-serialize derive-deserialize))
+    ;; Serialization proves the field types. Restore also checks the app's
+    ;; bounds before any state reaches a handler or becomes a committed snapshot.
+    (define (validate-world world)
+      (when (or (< (world-tick world) 0) (> (world-tick world) run-end-tick)
+                (< (world-credits world) 0)
+                (> (list-size (world-turrets world)) max-turrets)
+                (> (list-size (world-enemies world)) 16)) (unreachable))
+      world)
     (define (initial-world)
       (make-world 0 outcome-active initial-credits max-hull 0 (make-mine 0 0 0 0)
                   (make-bot hub-x hub-y 0 0) (empty-list) (empty-list) 1))

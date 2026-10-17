@@ -1,7 +1,7 @@
 ;; Private scalar ABI adapter. Application code sees immutable typed values;
 ;; only this codec stages a replacement snapshot in a host-owned transaction.
 (define-library (application bridge)
-  (export Program program run-program)
+  (export Program program run-program read-snapshot)
   (import
    (scheme base)
    (application reducer)
@@ -32,13 +32,13 @@
 
     ;; ---- Copy a snapshot into the replacement module's managed heap ----
 
-    (define (read-words owner)
+    (define (read-snapshot owner)
       (let ((words (make-vector (i32->i64 (snapshot-length owner)) 0)))
         (let loop ((index 0))
           (when (< index (snapshot-length owner))
             (vector-set! words (i32->i64 index) (snapshot-read owner index)) (loop (+ index 1)))) words))
     (define (write-words owner words)
-      (when (not (= (vector-length words) (i32->i64 (snapshot-length owner)))) (unreachable))
+      (stage-word owner -1 (i64->i32 (vector-length words)))
       (let loop ((index 0))
         (when (< (i32->i64 index) (vector-length words))
           (stage-word owner index (vector-ref words (i32->i64 index))) (loop (+ index 1)))))
@@ -83,13 +83,13 @@
             (write-words 2 ((program-encode-local app) ((application-initial (program-local app)))))) 1)
        ((= operation 2)
         (commit-transition 1 (program-encode-world app)
-                           (dispatch-wire (program-world app) ((program-decode-world app) (read-words 1)) a b c)))
+                           (dispatch-wire (program-world app) ((program-decode-world app) (read-snapshot 1)) a b c)))
        ((= operation 3)
         (commit-transition 2 (program-encode-local app)
-                           (dispatch-wire (program-local app) ((program-decode-local app) (read-words 2)) a b c)))
+                           (dispatch-wire (program-local app) ((program-decode-local app) (read-snapshot 2)) a b c)))
        ((= operation 4)
-        (let ((world ((program-decode-world app) (read-words 1)))
-              (local ((program-decode-local app) (read-words 2))))
+        (let ((world ((program-decode-world app) (read-snapshot 1)))
+              (local ((program-decode-local app) (read-snapshot 2))))
           (draw-quads ((program-view app) world local))
           (draw-label ((program-status app) world local)) 1))
        ((= operation 10)
@@ -98,6 +98,6 @@
                  (or (= (snapshot-read 2 0) 0)
                      (= (snapshot-read 2 0) (application-schema (program-local app)))))
             (begin
-              (when (> (snapshot-read 1 0) 0) ((program-decode-world app) (read-words 1)))
-              (when (> (snapshot-read 2 0) 0) ((program-decode-local app) (read-words 2))) 1) 0))
+              (when (> (snapshot-read 1 0) 0) ((program-decode-world app) (read-snapshot 1)))
+              (when (> (snapshot-read 2 0) 0) ((program-decode-local app) (read-snapshot 2))) 1) 0))
        (else (unreachable))))))

@@ -164,7 +164,7 @@
           (make-lofi-library name (scope-imports scope) imports exports items
                              (scope-bindings environment) (syntax-loc source)))))
     (define (expand-library name forms source scope imports resolved)
-      (let-values (((expanded macros environment) (expand-library-body forms resolved)))
+      (let-values (((expanded macros environment) (expand-library-body forms resolved name)))
         (let ((library (parse-expanded-body name expanded source scope imports macros)))
           (finish-expansion! environment (lofi-library-bindings library)) library)))
     (define (parse-core-library name forms source scope imports)
@@ -515,7 +515,7 @@
         (when (and definition (not (and (value-definition? definition)
                                         (memq (binding-kind definition) '(typeclass overload)))))
           (fail form "constraint requires a typeclass or overload family"))
-        (or definition (import-reference form scope 'constraint))))
+        (or (atom-syntax-reference form) definition (import-reference form scope 'constraint))))
     (define (parse-qualified form environment)
       (let ((items (arguments form 2)))
         (list '=> (map (lambda (constraint) (parse-constraint constraint environment)) (parts (car items)))

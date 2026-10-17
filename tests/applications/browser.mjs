@@ -1,6 +1,7 @@
 // Real Chromium CDP integration; no browser automation package is required.
 // Start the packaged server and Chromium with a local DevTools port first.
 import assert from 'node:assert/strict';
+import {snapshotValue} from './snapshots.mjs';
 import {readFileSync, writeFileSync, renameSync, copyFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 const directory = resolve(process.argv[2]), origin = process.argv[3] ?? 'http://127.0.0.1:4173';
@@ -52,8 +53,8 @@ try {
   for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
   await pause(250);
   const worlds = await Promise.all(pages.map(p => p.evaluate('snailApp.runtime.snapshot(1)')));
-  assert.deepEqual(worlds[0], worlds[1]); assert.equal(worlds[0][9], 1); assert.equal(worlds[0][15], 1);
-  assert.equal(worlds[0][3], 35);
+  assert.deepEqual(worlds[0], worlds[1]); assert.equal(snapshotValue(worlds[0]).mine.level, 1); assert.equal(snapshotValue(worlds[0]).turrets.length, 1);
+  assert.equal(snapshotValue(worlds[0]).credits, 35);
   const pixels = await a.evaluate(`(async()=>{
     const frame=snailApp.runtime.view(), image=await snailApp.renderer.readPixels(frame.quads,960,560);
     const sample=(x,y)=>Array.from(image.bytes.slice(y*image.bytesPerRow+x*4,y*image.bytesPerRow+x*4+4));
@@ -71,18 +72,18 @@ try {
   console.log('ok - two browsers execute Scheme and converge on one purchased world');
   assert.equal(await a.evaluate(`(()=>{
     const before=JSON.stringify(snailApp.runtime.snapshot(1)), local=JSON.stringify(snailApp.runtime.snapshot(2));
-    const stale=snailApp.runtime.snapshot(1);stale[3]=9999;
+    const stale=snailApp.runtime.snapshot(1);stale[1]=-1;
     snailApp.acceptSnapshot({revision:snailApp.revision-1,epoch:'old',state:stale});
     return JSON.stringify(snailApp.runtime.snapshot(1))===before && JSON.stringify(snailApp.runtime.snapshot(2))===local;
   })()`),true);
   console.log('ok - stale authoritative snapshots cannot rewind the world or local selection');
 
   await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client:clients[0],visible:true})});
-  await until(() => a.evaluate('snailApp.runtime.snapshot(1)[1]>=430'), 'match did not reach combat', 60000);
+  await until(async () => snapshotValue(await a.evaluate('snailApp.runtime.snapshot(1)')).tick >= 430, 'match did not reach combat', 60000);
   for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
   await pause(250);
   const combat = await a.evaluate('snailApp.runtime.snapshot(1)');
-  assert.ok(combat[5] > 0); assert.ok(combat[13] > 0); assert.ok(combat[16] > 0);
+  assert.ok(snapshotValue(combat).kills > 0); assert.ok(snapshotValue(combat).bot.cargo > 0); assert.ok(snapshotValue(combat).enemies.length > 0);
   console.log('ok - reload checkpoint contains combat, defeated attackers and cargo in transit');
   await a.evaluate("snailApp.local('choose',[2]);snailApp.local('move',[13,7]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('confirm')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
@@ -93,7 +94,7 @@ try {
   const after = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.deepEqual(after, before);
   await a.evaluate("snailApp.local('choose',[1])");
-  assert.equal(await a.evaluate('snailApp.runtime.snapshot(2)[1]'), 2);
+  assert.equal(snapshotValue(await a.evaluate('snailApp.runtime.snapshot(2)')).tool, 2);
   await a.evaluate('globalThis.fetch=realFetch;releaseCommand()');
   await until(() => a.evaluate('snailApp.pending.length===0'), 'preserved request not acknowledged');
   console.log('ok - changed Wasm behavior activates while world, cursor, tool and pending envelope survive');

@@ -18,6 +18,7 @@
    (lofi integer)
    (lofi rational)
    (lofi math)
+   (only (lofi scalar-text) i64->string)
    (only (lofi primitive) f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
 
   ;; ---- Concrete numeric values and canonical exact packing ----
@@ -386,36 +387,6 @@
                           #f)))))))
 
     ;; ---- Canonical decimal formatting and scalar-only Rust text handles ----
-
-    ;; Work with a nonpositive magnitude so the minimum I64 needs no positive
-    ;; counterpart. Each remainder lies in [-9,0]; negating that digit is safe.
-
-    (def decimal-digits (-> I64 I64)
-         (lambda (value)
-           (begin
-             (def loop
-                  (lambda (value count)
-                    (if (> value (ann -10 I64)) count (loop (quotient value (ann 10 I64)) (+ count (ann 1 I64))))))
-             (loop value (ann 1 I64)))))
-
-    (def i64->string (-> I64 String)
-         (lambda (value)
-           (begin (let negative (< value (ann 0 I64)))
-                  (begin (let magnitude (if negative value (- (ann 0 I64) value)))
-                         (begin (let count (+ (decimal-digits magnitude) (if negative (ann 1 I64) (ann 0 I64))))
-                                (begin (let text (make-string count))
-                                       (begin
-                                         (if negative
-                                             (begin (string-set! text (ann 0 I64) #\-)
-                                                    (unit))
-                                             (unit))
-                                         (begin
-                                           (def loop
-                                                (lambda (remaining index)
-                                                  (begin
-                                                    (string-set! text index (integer->char (- (ann 48 I64) (remainder remaining (ann 10 I64)))))
-                                                    (if (> remaining (ann -10 I64)) text (loop (quotient remaining (ann 10 I64)) (- index (ann 1 I64)))))))
-                                           (loop magnitude (- count (ann 1 I64)))))))))))
 
     (define-extern real-text "snail.library" "snail:datum/real-text" (-> F64 I32))
     (define-extern text-length "snail.library" "snail:datum/token-text-length" (-> I32 I32))

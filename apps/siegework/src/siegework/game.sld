@@ -5,10 +5,11 @@
    (scheme immutable)
    (application reducer)
    (application bridge)
+   (application serialization)
+   (lofi serialization)
    (browser application)
    (siegework model)
-   (siegework codec)
-   (only (lofi core) ann -> I32)
+   (only (lofi core) ann -> I32 deriving)
    (only (lofi base) string-append i32->i64 unreachable))
   (begin
 
@@ -18,8 +19,6 @@
     (define tool-artillery (ann 2 I32))
     (define last-column (- board-columns 1))
     (define last-row (- board-rows 1))
-    (define client-schema-version (ann 1 I32))
-    (define client-words (ann 4 I32))
 
     (define color-background (ann 1055781 I32))
     (define color-grid (ann 2373432 I32))
@@ -62,7 +61,7 @@
     ;; ---- Commands are lexical bindings; all reducers return Transition World ----
 
     ;; Manifest generation requires literal schema versions in declarations.
-    ;; Codec schema words must match these literals.
+    ;; Generic snapshot headers carry these declared schema versions.
     (application match-app (state World 1) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
@@ -78,7 +77,8 @@
     (define-immutable-record Client make-client
       (tool I32 client-tool client-tool-set)
       (x I32 client-x client-x-set)
-      (y I32 client-y client-y-set))
+      (y I32 client-y client-y-set)
+      (deriving derive-serialize derive-deserialize))
     (application client-app (state Client 1) (make-client tool-extractor near-deposit-x near-deposit-y)
                  (move (state (x I32) (y I32))
                        (no-effects (if (and (>= x 0) (< x board-columns) (>= y 0) (< y board-rows))
@@ -98,21 +98,11 @@
                  (mend (state) (transition state (list (enqueue match-target (repair)))))
                  (restart (state) (transition state (list (enqueue match-target (new-run))))))
     (define (clamp value low high) (if (< value low) low (if (> value high) high value)))
-    (define (encode-client client)
-      (vector client-schema-version (client-tool client) (client-x client) (client-y client)))
-    (define decode-client
-      (ann (lambda (words)
-             (when (or (not (= (vector-ref words (i32->i64 0)) client-schema-version))
-                       (< (vector-ref words (i32->i64 1)) tool-extractor)
-                       (> (vector-ref words (i32->i64 1)) tool-artillery)
-                       (< (vector-ref words (i32->i64 2)) 0)
-                       (> (vector-ref words (i32->i64 2)) last-column)
-                       (< (vector-ref words (i32->i64 3)) 0)
-                       (> (vector-ref words (i32->i64 3)) last-row)) (unreachable))
-             (make-client (vector-ref words (i32->i64 1))
-                          (vector-ref words (i32->i64 2))
-                          (vector-ref words (i32->i64 3))))
-           (-> (Vector I32) Client)))
+    (define (validate-client client)
+      (when (or (< (client-tool client) tool-extractor) (> (client-tool client) tool-artillery)
+                (< (client-x client) 0) (> (client-x client) last-column)
+                (< (client-y client) 0) (> (client-y client) last-row)) (unreachable))
+      client)
 
     ;; ---- Pure presentation: quads and a status string ----
 
@@ -184,10 +174,9 @@
            (string-append "ARTILLERY · " (integer-text artillery-cost) " ore · protect the hub and eastern approach"))
        "   [" (integer-text (client-x client)) ", " (integer-text (client-y client)) "]"))
 
-    ;; ---- App-owned schema codecs compose with the shared scalar driver ----
+    ;; ---- Derived data transport composes with application invariants ----
 
     (define game
-      (program match-app client-app world-words client-words decode-world encode-world
-               decode-client encode-client view status))
+      (serialized-program match-app client-app validate-world validate-client view status))
     (define application-entry (ann (lambda (operation a b c) (run-program game operation a b c))
                                    (-> I32 I32 I32 I32 I32)))))

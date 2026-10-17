@@ -17,6 +17,8 @@
   (import
    (lofi base)
    (lofi bytes)
+   (only (lofi scalar-text) Symbol string->symbol symbol->string symbol=? datum-fail
+         stage-text token-close token->symbol)
    (lofi integer)
    (lofi rational)
    (lofi number)
@@ -25,13 +27,9 @@
   ;; ---- Explicit scalar service ownership ----
 
   (begin
-    (define-extern token-open "snail.library" "snail:datum/token-open" (-> I32))
-    (define-extern token-character "snail.library" "snail:datum/token-character" (-> I32 Char Unit))
-    (define-extern token-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
     (define-extern token-parse "snail.library" "snail:datum/token-parse" (-> I32 I32))
     (define-extern token-parse-radix "snail.library" "snail:datum/token-parse-radix" (-> I32 I32 I32))
     (define-extern token-identifier "snail.library" "snail:datum/token-identifier" (-> I32 I32))
-    (define-extern token-intern "snail.library" "snail:datum/token-intern" (-> I32 I32))
     (define-extern raw-number-kind "snail.library" "snail:datum/number-kind" (-> I32 I32 I32))
     (define-extern raw-number-integer "snail.library" "snail:datum/number-integer" (-> I32 I32 I64))
     (define-extern raw-number-real "snail.library" "snail:datum/number-real" (-> I32 I32 F64))
@@ -41,30 +39,6 @@
     (define-extern raw-number-text-character "snail.library" "snail:datum/number-text-character" (-> I32 I32 I32 I32 Char))
     (define-extern error-length "snail.library" "snail:datum/error-length" (-> I32 I32))
     (define-extern error-character "snail.library" "snail:datum/error-character" (-> I32 I32 Char))
-    (define-extern raw-fail "snail.library" "snail:datum/fail" (-> I32 Unit))
-    (define-extern symbol-length "snail.library" "snail:datum/symbol-length" (-> I32 I64))
-    (define-extern symbol-character "snail.library" "snail:datum/symbol-character" (-> I32 I32 Char))
-
-    ;; The caller owns this ID until close or intern consumes it. These loops
-    ;; invoke no user callbacks. Rust trap cleanup releases outstanding tokens.
-
-    (def stage-text (-> String I32)
-         (lambda (text)
-           (begin (let lofi-migration-let-1 (token-open)) (let lofi-migration-let-2 (string-length text))
-                  (let handle lofi-migration-let-1)
-                  (let count lofi-migration-let-2)
-                  (begin
-                    (def loop
-                         (lambda (index)
-                           (if (= index count)
-                               handle
-                               (begin (token-character handle (string-ref text index))
-                                      (loop (+ index (ann 1 I64)))))))
-                    (loop (ann 0 I64))))))
-
-    (def datum-fail (-> String Never)
-         (lambda (message)
-           (begin (raw-fail (stage-text message)) (unreachable))))
 
     (def identifier? (-> String Bool)
          (lambda (text)
@@ -72,32 +46,6 @@
                   (begin (let valid (token-identifier handle))
                          (begin
                            (token-close handle) (i32-eq valid (ann 1 I32)))))))
-
-    ;; ---- Interned symbols, independent of the legacy literal domain ----
-
-    (def Symbol (datatype ()
-                  (symbol
-                   (id I32 symbol-id))))
-
-    (def string->symbol (-> String Symbol)
-         (lambda (text) (symbol (token-intern (stage-text text)))))
-
-    (def symbol=? (-> Symbol Symbol Bool)
-         (lambda (left right) (i32-eq (symbol-id left) (symbol-id right))))
-
-    (def symbol->string (-> Symbol String)
-         (lambda (value)
-           (begin (let id (symbol-id value))
-                  (begin (let count (symbol-length id))
-                         (begin (let result (make-string count))
-                                (begin
-                                  (def loop
-                                       (lambda (index)
-                                         (if (= index count)
-                                             result
-                                             (begin (string-set! result index (symbol-character id (i64->i32 index)))
-                                                    (loop (+ index (ann 1 I64)))))))
-                                  (loop (ann 0 I64))))))))
 
     ;; ---- Exact lexical fields become Lofi-owned numeric values ----
 
@@ -255,7 +203,7 @@
                   (begin (let kind (token-parse handle))
                          (if (i32-eq kind (ann 0 I32))
                              (if (i32-eq (token-identifier handle) (ann 1 I32))
-                                 (read-value (datum-symbol (symbol (token-intern handle))))
+                                 (read-value (datum-symbol (token->symbol handle)))
                                  (begin (token-close handle)
                                         (read-error "invalid numeric token or identifier")))
                              (token-number-datum handle kind))))))

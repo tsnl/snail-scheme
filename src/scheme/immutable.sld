@@ -3,7 +3,7 @@
   (export define-immutable-record list append reverse)
   (import
    (scheme base)
-   (only (lofi core) data))
+   (only (lofi core) data deriving))
   (begin
     (define-syntax record-updaters
       (syntax-rules ()
@@ -16,7 +16,14 @@
            (record-updaters constructor (before ... getter)
                             ((rest-field rest-type rest-getter rest-replace) ...))))))
     (define-syntax define-immutable-record
-      (syntax-rules ()
+      (syntax-rules (deriving)
+        ((_ name constructor (field type getter replace) ... (deriving transformer ...))
+         (begin
+           (data name ()
+             (constructor
+              (field type getter) ...)
+             (deriving transformer ...))
+           (record-updaters constructor () ((field type getter replace) ...))))
         ((_ name constructor (field type getter replace) ...)
          (begin
            (data name ()

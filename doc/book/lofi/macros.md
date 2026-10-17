@@ -114,38 +114,78 @@ macros remain outside the supported surface. Kernel syntax remains
 intrinsic for existing direct and constructed-library APIs; `(lofi core)` also
 exports named syntax bindings so libraries can explicitly import or rename it.
 
-## Deriving typeclass instances (planned)
+## Deriving typeclass instances
 
-Derive transformers should opt a datatype into selected typeclasses by generating
-ordinary instance declarations. For serialization, `Serialize` and `Deserialize`
-are independent choices. Generated methods use the corresponding operations on
-their fields, so ordinary class checking establishes the required instances.
-There are no instances for procedures, closures or live external resources.
-
-The planned interface attaches derivation to the complete `data` declaration:
+A `data` declaration can end with one `deriving` clause naming macro
+transformers. `(lofi serialization)` exports two independent transformers:
+`derive-serialize` generates a `Serialize` instance, and `derive-deserialize`
+generates a `Deserialize` instance.
 
 ```scheme
-;; Proposed deriving clause; serialization classes and derivation are not implemented.
+(import
+ (lofi core)
+ (lofi serialization))
+
 (data Stock ()
   (stock
    (ore I32 stock-ore))
   (deriving derive-serialize derive-deserialize))
 ```
 
-Each named derive transformer would receive the complete declaration, including
-its type name, parameters, constructors and fields, with the deriving clause
-removed. Expansion would retain the type declaration once and splice generated
-instances alongside it using `begin`. Generated operations remain subject to
-ordinary type checking. A form that receives only an already-defined type name
-would need additional compile-time access to its declaration; `syntax-rules`
-does not currently provide that inspection.
+The expander removes the clause and passes the complete remaining declaration
+to each transformer as its single argument. For example, `derive-serialize`
+receives `(data Stock () (stock (ore I32 stock-ore)))`. It can inspect the type
+name, parameters, constructors and fields through ordinary `syntax-rules`
+patterns. The type declaration is retained once; each transformer's output is
+spliced alongside it in the same library scope. A transformer produces only its
+additional declarations, without repeating the original type.
 
-The transformer protocol remains to be specified. Derivation for parameterized
-datatypes also needs a decision about constrained generic instances: the current instance
-heads are concrete. Graph serialization additionally needs shared runtime
-encode/decode contexts to preserve aliases and cycles across generated methods.
-These are separate requirements from generating per-field syntax. See the
-[planned serialization contract](types.md#data-graph-serialization-planned).
+Targets are macro bindings, so ordinary import, rename, definition-site capture
+and hygiene rules apply. They may be defined later in the same library when
+normal definition discovery permits it. An empty `(deriving)` is a no-op.
+Duplicate clauses, a clause before a constructor, nonidentifier targets, and
+targets that are runtime values or unbound names are errors. Deriving requires a
+library-level `data` declaration; it does not give expression blocks local types.
+
+Derived methods are ordinary checked code. They call field operations with one
+shared traversal context, so nested fields participate in the same object graph.
+A missing field capability is a class requirement error; there is no fallback
+through `Any`. Deriving either class does not require deriving the other.
+
+The protocol accepts parameterized declarations, and a user transformer can
+inspect their parameters. The two serialization derives currently match an empty
+type-parameter list: they generate concrete instances. Their field macros handle
+`List`, `Ref` and `Vector` recursively without inventing generic instances.
+Deserializing reference or vector storage also requires `Default` evidence for
+its element type, to allocate valid storage before decoding a cycle. Constrained
+generic instances and derivation for parameterized transport types remain future
+work.
+
+### Literal declaration metadata
+
+Three bounded core forms supply literal strings during expansion:
+
+- `(identifier-name identifier)` returns that syntax identifier's source name,
+  before generated binder names replace it.
+- `(library-name)` returns the printed name of the library being expanded.
+  Anonymous scripts use the marker `"#f"`.
+- `(type-name identifier)` resolves a datatype declared in the current library
+  and returns its library-qualified source name. Distinct local datatype
+  bindings cannot claim the same portable name.
+
+The derives use `type-name` for their portable tag and retain constructor and
+field names in the wire value.
+Renaming an imported type does not regenerate its instance or change its tag.
+Use named libraries for stable transport schemas; unrelated anonymous scripts
+with the same type spelling share a tag. Within a library, two hygienically
+private types with the same spelling cannot both claim that portable name;
+serialization derivation reports a collision instead of conflating their types.
+
+These forms do not provide general compile-time evaluation or lookup of an
+already-defined type's schema. The full declaration reaches the transformer
+because the deriving protocol supplies it explicitly. See
+[Data graph serialization](types.md#data-graph-serialization) for the value and
+encoding contracts.
 
 ## Initial Scheme base
 
