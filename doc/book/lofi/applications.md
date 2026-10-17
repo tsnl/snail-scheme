@@ -17,6 +17,11 @@ application helpers can use comparisons. `remainder` is useful for nonnegative
 tick cycles, but is not a general replacement for Scheme's `modulo` on negative
 inputs.
 
+Arithmetic procedures currently take two operands: nest additions, and write
+`(- 0 value)` for negation. Use `(empty-list)` for an empty list. Import
+`string-append` from `(lofi base)` when assembling text; it is not yet re-exported
+by `(scheme base)`.
+
 ```scheme
 (import (scheme base) (application reducer) (only (lofi core) I32))
 
@@ -33,7 +38,9 @@ does not run the reducer or close over a live state. `dispatch` supplies the
 state. The macro checks every handler against the same state/result type and
 introduces a private nominal owner type, so commands from two applications that
 both use `I32` state cannot be mixed. There is no manually maintained message
-enum. The complete executable example is
+enum. Generated constructors occupy ordinary lexical names: a helper named
+`add` in the same scope would collide with this handler, so give it a distinct
+name. The complete executable example is
 [`examples/applications/counter.sld`](../../../examples/applications/counter.sld).
 Build and execute it from the repository root:
 
@@ -76,7 +83,9 @@ cannot await a network response while holding the state owner.
 
 Each owner commits one message at a time. The handler sees the previous committed
 value; readers retain that value even after a replacement. A trap or failed
-durable commit discards the candidate state and staged effects. Independent
+durable commit discards the candidate state and staged effects. Before commit,
+the runtime checks the replacement schema and runs the application's decoder in
+an isolated read-only scope over the encoded candidate. Independent
 owners need no shared global message order.
 
 Siegework's local server assigns a revision to each accepted command, including
@@ -180,7 +189,11 @@ package already-built `simulation.wasm`, `shader.wasm`, and the
 `application.syntax.json` emitted by that host helper from the selected parsed
 library. Build outputs must stay
 outside source directories. The shader entry signals a diagnostic by returning a
-negative length; the build refuses to publish it.
+negative length; the build refuses to publish it. Packaging also executes isolated
+initial states and the pure view before publishing the manifest. Vector lengths
+are not statically indexed types: a declared/encoded word-count mismatch is
+caught by this executable startup check, while current-state validation still
+runs at each live replacement boundary.
 
 An app supplies `index.html` (a canvas and elements with `data-status` and
 `data-connection`), `style.css`, and `settings.json`. The Scheme build recipe

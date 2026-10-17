@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import {readFileSync, mkdtempSync, rmSync} from 'node:fs';
+import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {Authority} from '../../src/application/authority.mjs';
 import {openStore} from '../../src/application/sqlite.mjs';
+import {packageApplication} from '../../src/browser/build.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
 
 const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
@@ -66,6 +67,21 @@ await test('trap after staged writes/effects rolls back and restores previous co
   assert.throws(() => call(r, 'extract', [8, 3]), WebAssembly.RuntimeError);
   assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous);
   call(r, 'extract', [8, 3]); assert.equal(r.snapshot(1)[3], 80); r.close();
+});
+await test('an invalid encoded replacement cannot become committed or durable state', () => {
+  const r = fresh(), world = r.snapshot(1), previous = r.instance; let committed = false;
+  r.replace(r.prepare(fixture('invalid-state'), manifest));
+  assert.throws(() => r.dispatch(1, r.command('match', 'extract', [8, 3]), {persist: () => committed = true}), WebAssembly.RuntimeError);
+  assert.equal(committed, false); assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous); r.close();
+});
+await test('packaging catches a declared/encoded size mismatch before publishing a manifest', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'snail-preflight-')), root = resolve(import.meta.dirname, '../..');
+  for (const name of ['shader.wasm', 'application.syntax.json']) copyFileSync(join(output, name), join(directory, name));
+  writeFileSync(join(directory, 'simulation.wasm'), fixture('invalid-initial'));
+  writeFileSync(join(directory, 'manifest.json'), 'previous manifest');
+  assert.throws(() => packageApplication(root, join(root, 'apps/siegework'), directory), /application startup check failed/);
+  assert.equal(readFileSync(join(directory, 'manifest.json'), 'utf8'), 'previous manifest');
+  rmSync(directory, {recursive: true});
 });
 await test('serial concurrent submissions, consumed retries and after-commit observation', async () => {
   const r = fresh(); const authority = new Authority(r, {publish: value => {

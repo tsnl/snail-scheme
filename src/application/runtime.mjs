@@ -111,6 +111,7 @@ export class ReducerRuntime {
     let phase = "reduce";
     try {
       const result = invokeEntry(instance, args), tx = this.active;
+      this.validateReplacement(instance, tx);
       const next = tx.next ?? this.stores.get(owner);
       phase = "persist";
       if (persist) persist(next, tx.effects); // A failed durable commit publishes nothing.
@@ -119,6 +120,20 @@ export class ReducerRuntime {
         label: tx.label ? String.fromCodePoint(...tx.label) : ''};
     } catch (error) { error.transitionPhase = phase; throw error; }
     finally { this.active = undefined; }
+  }
+  validateReplacement(instance, tx) {
+    if (!tx.next) return;
+    const ownerName = tx.owner === 1 ? 'match' : 'client';
+    const schema = this.manifest.applications.find(app => app.owner === ownerName).schema;
+    if (tx.next[0] !== schema) throw new Error('replacement snapshot has an invalid schema');
+    const previous = this.stores.get(tx.owner);
+    // Validation sees the proposed snapshot in an isolated read-only scope.
+    // Neither durable storage nor observers can see it before this returns.
+    this.stores.set(tx.owner, tx.next);
+    this.active = {readOnly: true, effects: [], output: {quads: []}};
+    try {
+      if (!invokeEntry(instance, [10, 0, 0, 0])) throw new Error('invalid replacement snapshot');
+    } finally { this.stores.set(tx.owner, previous); this.active = tx; }
   }
   metadata(instance, index) { return this.transaction(instance, [0, index, 0, 0], {readOnly: true}).result; }
   prepare(bytes, manifest) {

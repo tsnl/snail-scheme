@@ -5,6 +5,7 @@ import {readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync} from '
 import {join, dirname, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/execute.mjs';
+import {ReducerRuntime} from '../application/runtime.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex').slice(0, 24);
 export function applicationManifest(source, settings) {
@@ -48,6 +49,14 @@ function shaderSource(path) {
     if (length < 0) throw new Error(source); return source;
   } finally { closeInstance(instance); }
 }
+function checkInitialProgram(bytes, manifest) {
+  const runtime = new ReducerRuntime();
+  try {
+    runtime.replace(runtime.prepare(bytes, manifest));
+    runtime.initialize(1); runtime.initialize(2); runtime.view();
+  } catch (error) { throw new Error(`application startup check failed: ${error.message}`, {cause: error}); }
+  finally { runtime.close(); }
+}
 export function packageApplication(root, app, output) {
   const settings = JSON.parse(readFileSync(join(app, 'settings.json'), 'utf8'));
   const protocol = applicationManifest(JSON.parse(readFileSync(join(output, 'application.syntax.json'), 'utf8')), settings);
@@ -55,13 +64,14 @@ export function packageApplication(root, app, output) {
   const wasm = readFileSync(join(output, 'simulation.wasm')), shader = shaderSource(join(output, 'shader.wasm'));
   const generation = hash(Buffer.concat([wasm, Buffer.from(shader + JSON.stringify(protocol) + JSON.stringify(settings))]));
   const moduleName = `simulation.${generation}.wasm`, shaderName = `shader.${generation}.wgsl`;
+  const manifest = {...protocol, generation, module: moduleName, shader: shaderName, settings};
+  checkInitialProgram(wasm, manifest);
   writeFileSync(join(output, moduleName), wasm); writeFileSync(join(output, shaderName), shader);
   for (const path of ['lofi/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
     'application/sqlite.mjs', 'webgpu/quads.mjs', 'browser/client.mjs', 'browser/server.mjs']) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
   for (const asset of ['index.html', 'style.css']) copyFileSync(join(app, asset), join(output, asset));
-  const manifest = {...protocol, generation, module: moduleName, shader: shaderName, settings};
   // Versioned artifacts become reachable only after complete successful packaging.
   writeFileSync(join(output, 'manifest.next.json'), JSON.stringify(manifest, null, 2));
   renameSync(join(output, 'manifest.next.json'), join(output, 'manifest.json'));

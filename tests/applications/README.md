@@ -5,7 +5,8 @@ artifacts plus small public-API fixtures, checks compile-negative state/payload/
 owner errors, then executes the Wasm in Node. It exercises immutable records and
 retained snapshots, automatic hauling, a losing and winning run, pure view,
 effect staging, compatible reload, hostile candidates, trap rollback, serial
-submissions, durability failure and restart with an unacknowledged request.
+submissions, invalid encoded replacements, packaging startup checks, durability
+failure and restart with an unacknowledged request.
 This is correctness testing, not a performance comparison.
 
 For real browser checks, start the packaged server:
