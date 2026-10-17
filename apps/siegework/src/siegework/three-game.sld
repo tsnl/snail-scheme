@@ -18,7 +18,7 @@
    (draw3d)
    (ui browser)
    (only (lofi core) ann -> I32 deriving)
-   (only (lofi base) i32->i64 unreachable))
+   (only (lofi base) i32->i64 i64->i32 f64->i64 round unreachable))
   (begin
 
     ;; ---- The match owns colony orders and one deterministic clock ----
@@ -71,9 +71,21 @@
     (define (nudge-client state dx dy)
       (client-y-set (client-x-set state (clamp (+ (client-x state) dx) 0 47))
                     (clamp (+ (client-y state) dy) 0 35)))
+    (define (camera-coordinate value) (i64->i32 (f64->i64 (round value))))
+    (define (bound-fraction position delta low high)
+      (let ((fraction (cond ((> delta 0.0) (/ (- high position) delta))
+                            ((< delta 0.0) (/ (- low position) delta)) (else 1.0))))
+        (if (< fraction 1.0) fraction 1.0)))
+    ;; Stop at the first bound along this ray; independent X/Y clamping would
+    ;; turn a straight screen pan into a diagonal slide along the world edge.
     (define (shift-camera state dx dy)
-      (client-camera-y-set (client-camera-x-set state (clamp (+ (client-camera-x state) dx) -3000 50000))
-                           (clamp (+ (client-camera-y state) dy) -3000 38000)))
+      (let* ((offset (camera-pan (client-camera state) dx dy))
+             (x (scalar (client-camera-x state))) (y (scalar (client-camera-y state)))
+             (mx (vec3-x offset)) (my (- 0.0 (vec3-y offset)))
+             (fx (bound-fraction x mx -3000.0 50000.0)) (fy (bound-fraction y my -3000.0 38000.0))
+             (fraction (if (< fx fy) fx fy)))
+        (client-camera-y-set (client-camera-x-set state (camera-coordinate (+ x (* mx fraction))))
+                             (camera-coordinate (+ y (* my fraction))))))
     (define (clear-choice state)
       (client-origin-y-set (client-origin-x-set (client-chooser-set state #f) -1) -1))
     (define (choose-site state)

@@ -59,3 +59,41 @@ This is an initial reusable scene library. It does not claim complete Three.js
 compatibility, arbitrary mesh picking, shadows, textures, asset loading,
 instancing, physically based materials or a path tracer. Existing colony rules
 and 2D saves remain separate from the `siegework-3d` application identity.
+
+## Screen-relative camera and bright palette follow-up
+
+Generation `0d0f127f99d15fe87859b053` contains the follow-up (426,054-byte Wasm,
+SHA-256 `eecac89c9369edcb4ad8daf30fa1cc3fdc02600a7e9cc1338bfd61d44f6d3abb`).
+Its recorded Scheme hashes match the checked sources.
+
+The follow-up maps screen-right/down movement through the actual fixed camera
+basis onto the ground, compensating for both yaw and pitch. It shortens a pan
+uniformly at the first world bound and rounds the final target to the existing
+integer thousandths. No client schema or shared input semantics changed.
+Independent held directions still compose separately, including their existing
+boundary sliding; no hidden camera state or input aggregation was introduced.
+
+The focused source-free simplify explanation verified this projection and
+first-bound clipping. We retained existing fixed-point quantization instead of
+adding unsaved fractional state: real held-input checks bound its visible error.
+Sunny grass, blue sea backdrop, turquoise minerals, warm roofs, vivid machinery
+and workers, plus cream/navy HUD styling change presentation and lighting only.
+
+`tests/draw3d/pan-browser.mjs` samples projected hub displacement under actual
+held Chromium W/S/A/D and open-space diagonals, then checks cardinal movement
+at camera bounds. It also exercises injected analog axes/diagonals/bounds and
+native text-input focus gating while proving the paused match is unchanged.
+The test reproduced the old W defect with roughly 81px horizontal movement
+alongside 86px vertical movement. The corrected sustained cardinal holds moved
+268–275px along their intended axes with less than 0.4px perpendicular drift.
+Both isolated browser hosts retained exact match/client snapshots and the same
+GPU renderer through the old-to-new generation publication. All destructive setup belongs to isolated
+4201/4202 test packages; publication to the live previews sends no gameplay
+commands and preserves their current pause states. HUD CSS changes require a
+page refresh; Scheme palette and camera changes hot reload in place.
+
+Final live publication preserved the already-paused cloud match's exact
+snapshot, including its pause state, and both live preview manifests accepted
+the new generation. The existing solo IndexedDB and cloud SQLite were not
+replaced. The bright combined scene passed the contextual desktop/portrait/
+landscape browser checks and an independent UI visual review.

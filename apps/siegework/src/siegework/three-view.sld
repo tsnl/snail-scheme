@@ -1,11 +1,12 @@
 ;; A diorama of the existing flat grid. Heights belong only to illustrations;
 ;; movement, visibility, mining, construction and combat remain the colony model.
 (define-library (siegework three-view)
-  (export colony-scene colony-camera ground-cell pick-cell)
+  (export colony-scene colony-camera camera-pan ground-cell pick-cell)
   (import
    (scheme base)
    (scheme immutable)
    (draw3d)
+   (only (draw3d math) camera-right camera-up camera-forward)
    (siegework model)
    (siegework terrain)
    (only (lofi base) floor f64->i64 i64->i32)
@@ -19,6 +20,13 @@
       (let ((target (vec3 (/ (scalar cx) 1000.0) (- 0.0 (/ (scalar cy) 1000.0)) 0.0)))
         (orthographic-camera (v+ target (vec3 12.0 -18.0 22.0)) target (vec3 0.0 0.0 1.0)
                              18.0 (/ (scalar width) (scalar height)) 0.1 120.0)))
+    ;; Move in screen-right/down units, then project parallel to the viewing
+    ;; direction onto Z=0. Keeping that projection compensates for camera pitch.
+    (define (camera-pan camera dx dy)
+      (let ((offset (v+ (v* (camera-right camera) (scalar dx))
+                        (v* (camera-up camera) (- 0.0 (scalar dy)))))
+            (forward (camera-forward camera)))
+        (v- offset (v* forward (/ (vec3-z offset) (vec3-z forward))))))
     (define (pointer-ray camera px py width height)
       (camera-ray camera (- (/ (* (scalar px) 2.0) (scalar width)) 1.0)
                   (- 1.0 (/ (* (scalar py) 2.0) (scalar height)))))
@@ -51,14 +59,17 @@
     (define (moving-position x y z)
       (vec3 (- (/ (scalar x) 40.0) 0.5) (- 0.5 (/ (scalar y) 40.0)) z))
     (define (rgb r g b) (+ (+ (* r 65536) (* g 256)) b))
-    (define steel (material (rgb 55 73 75) 0.0))
-    (define cream (material (rgb 204 216 190) 0.0))
-    (define brass (material (rgb 214 164 83) 0.0))
-    (define cyan (material (rgb 85 209 180) 0.2))
-    (define blue (material (rgb 110 176 212) 0.1))
-    (define rust (material (rgb 211 109 70) 0.0))
-    (define warning (material (rgb 245 112 86) 0.6))
-    (define lamp (material (rgb 238 222 151) 0.9))
+    ;; Deep blue outlines keep the warm roofs and jewel-colored machinery
+    ;; distinct against sunny grass. Mineral turquoise is greener than the sea.
+    (define steel (material (rgb 28 62 91) 0.0))
+    (define cream (material (rgb 255 244 203) 0.0))
+    (define brass (material (rgb 255 185 49) 0.05))
+    (define cyan (material (rgb 35 242 195) 0.25))
+    (define blue (material (rgb 54 126 238) 0.1))
+    (define rust (material (rgb 245 99 66) 0.05))
+    (define warning (material (rgb 255 78 96) 0.35))
+    (define violet (material (rgb 187 109 244) 0.1))
+    (define lamp (material (rgb 255 244 142) 0.9))
     (define (shape geometry surface x y z w d h)
       (mesh geometry surface (compose (translation (vec3 x y z)) (scaling w d h))))
     (define (block surface x y z w d h) (shape box-geometry surface x y z w d h))
@@ -68,10 +79,10 @@
     ;; ---- Surveyed ground, rocks and readable mineral clusters ----
 
     (define (ground-material world x y)
-      (cond ((not (visible? world x y)) (material (rgb 41 58 56) 0.0))
-            ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (material (rgb 89 105 76) 0.0))
-            ((= (remainder (+ x (* y 3)) 3) 0) (material (rgb 76 94 72) 0.0))
-            (else (material (rgb 80 99 76) 0.0))))
+      (cond ((not (visible? world x y)) (material (rgb 67 144 113) 0.0))
+            ((= (remainder (+ (* x 13) (* y 7)) 5) 0) (material (rgb 154 224 74) 0.0))
+            ((= (remainder (+ x (* y 3)) 3) 0) (material (rgb 95 190 70) 0.0))
+            (else (material (rgb 121 211 78) 0.0))))
     (define (mineral-cluster)
       (list (shape pyramid-geometry cyan -0.2 0.0 0.32 0.36 0.36 0.64)
             (shape pyramid-geometry cyan 0.2 0.12 0.22 0.3 0.3 0.44)
@@ -81,7 +92,7 @@
         (at-cell x y
                  (cons (flat surface 0.0 0.0 0.0 0.985 0.985)
                        (cond ((not (ground? (world-seed world) x y))
-                              (list (shape pyramid-geometry (material (rgb 111 118 102) 0.0)
+                              (list (shape pyramid-geometry (material (rgb 196 204 179) 0.0)
                                            0.0 0.0 0.42 1.0 0.94 0.85)))
                              ((> (deposit-rate (world-seed world) x y) 0) (mineral-cluster))
                              (else (empty-list)))))))
@@ -178,7 +189,7 @@
 
     (define (worker-surface bot)
       (cond ((= (bot-job bot) 7) warning) ((or (= (bot-job bot) 8) (= (bot-job bot) 9)) cyan)
-            ((> (bot-cargo bot) 0) brass) (else cream)))
+            ((> (bot-cargo bot) 0) brass) (else violet)))
     (define (worker-node bot)
       (let* ((parked (and (= (bot-x bot) (cell-x hub-x)) (= (bot-y bot) (cell-y hub-y))))
              (offset (if parked (vec3 (- (* (scalar (remainder (bot-id bot) 5)) 0.36) 0.72) -1.1 0.0)
@@ -229,7 +240,7 @@
                                  (block surface 0.0 0.49 0.055 1.0 0.045 0.05)))))))
     (define (colony-scene world camera x y chooser)
       (scene camera
-             (list (block (material (rgb 24 39 39) 0.0) 23.5 -17.5 -0.4 48.0 36.0 0.7)
+             (list (block (material (rgb 19 113 185) 0.7) 23.5 -17.5 -0.4 48.0 36.0 0.7)
                    (group identity-transform (terrain-nodes world 0 0))
                    (group identity-transform (rail-nodes (world-rails world)))
                    (group identity-transform (hub-nodes))
@@ -241,4 +252,4 @@
                    (group identity-transform
                           (if (and chooser (= (placement-reason world 3 x y) 0))
                               (rail-path-nodes (rail-preview world x y) blue) (empty-list))))
-             (directional-light (vec3 -0.5 -0.6 1.0) 0.75) (vec3 0.38 0.42 0.48) (rgb 12 22 26)))))
+             (directional-light (vec3 -0.5 -0.6 1.0) 0.65) (vec3 0.5 0.5 0.46) (rgb 28 151 223)))))

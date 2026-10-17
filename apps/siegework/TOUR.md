@@ -16,7 +16,7 @@ Scheme owns the game rules and presentation executed by both browser and server.
 | [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
 | [`shaders.sld`](src/siegework/shaders.sld) | Scheme-authored shader generation for the shared WebGPU quad adapter. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and separate solo/cloud packages. |
-| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera and nearest-building/ground picking over the existing grid. |
+| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan and nearest-building/ground picking over the existing grid. |
 | [`three-game.sld`](src/siegework/three-game.sld) | Separate 3D client state, contextual placement, typed HUD actions and the unchanged match reducer endpoints. |
 | [`hud.sld`](src/siegework/hud.sld) | Compact contextual controls and status through the reusable top-down Scheme UI library. |
 | [`three/build.scm`](three/build.scm) | Separate 3D solo/cloud packages using the shared Scheme scene shader. |

@@ -28,6 +28,17 @@ function node(key, value = runtime.view().ui) {
 try {
   const snapshot = runtime.snapshot(1); const frame = runtime.view();
   assert.ok(frame.scene.vertices.length > 1000); assert.ok(frame.ui); assert.deepEqual(runtime.snapshot(1), snapshot);
+  for (const direction of [[1,0],[-1,0],[0,1],[0,-1],[1,-1]]) {
+    await command('home'); const before = project(8,22); await command('pan', direction);
+    const after = project(8,22), dx = after[0] - before[0], dy = after[1] - before[1];
+    assert.ok(dx * direction[0] + dy * direction[1] < -20);
+    assert.ok(Math.abs(dx * direction[1] - dy * direction[0]) <= 1);
+    await command('pan', direction.map(value => value * 100)); const bounded = local();
+    await command('pan', direction);
+    assert.equal(local().cameraX, bounded.cameraX); assert.equal(local().cameraY, bounded.cameraY);
+  }
+  await command('home'); assert.deepEqual(runtime.snapshot(1), snapshot);
+  console.log('ok - projected camera axes and diagonal agree with input; first-bound clipping preserves the direction');
   await point(12, 20); assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20);
   assert.match(node('context-title').text, /BUILD EXTRACTOR/);
   await command('confirm'); assert.equal(world().buildings[0].kind, 1); assert.equal(world().ore, 120);

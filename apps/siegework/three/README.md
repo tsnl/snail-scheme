@@ -28,7 +28,10 @@ Compatible code and shader reloads retain the world, client selection and camera
 - Click empty ground to lock a site and choose Tower or Artillery. Press `1`
   or `2`, controller X or Y, or the corresponding touch control. Moving the
   pointer while choosing does not move the locked site. Escape/B cancels.
-- WASD or the left stick pans; arrows or the d-pad moves the selected cell;
+- WASD or the left stick pans in screen directions, with pitch compensation
+  keeping vertical and horizontal travel consistent. Each pan stops at the
+  first camera bound; independent held directions can still slide along it.
+  Arrows or the d-pad moves the selected cell;
   Enter/Space/controller A activates it. H or controller Back returns home.
 - P, controller Start, or the always-visible Pause control pauses/resumes.
   Context controls expose moving, arming, cancellation and worker fabrication.
@@ -61,6 +64,8 @@ node tests/draw3d/colony.mjs build/siegework-3d/solo
 # With a separately launched Chromium CDP browser:
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4200 http://127.0.0.1:9452
+# Movement checks pause a test match: use an isolated package/save.
+node tests/draw3d/pan-browser.mjs http://127.0.0.1:4201 http://127.0.0.1:9452
 ```
 
 The fixture executes the actual Scheme math, geometry, shader and scene bridge
