@@ -169,7 +169,8 @@
                          "Return reserved materials" (alive? world) #f (action-cancel actions)))
           (append (list (row "structure-actions" 46 (completed-controls world building actions)))
                   (if (and (tower? building) (not (armed? building)))
-                      (list (control "arm-tower" "Add artillery · 50 ore" "T · keep this tower's sight and depot"
+                      (list (control "arm-tower" "Add artillery · 50 ore"
+                                     (if (< (world-credits world) 50) "Need 50 delivered ore" "T · keep this tower's sight and depot")
                                      (and (alive? world) (>= (world-credits world) 50)) #f (action-arm actions)))
                       (empty-list)))))
     (define (completed-controls world building actions)
@@ -178,7 +179,8 @@
                                  (if (= (building-level building) 2) "Maximum level" "U · more capacity or sight")
                                  (upgrade-enabled? world building) #f (action-improve actions))))
               (if (= (building-kind building) 1) (empty-list)
-                  (list (control "move-structure" "Move · 5 ore" "M · then choose nearby ground"
+                  (list (control "move-structure" "Move · 5 ore"
+                                 (if (< (world-credits world) 5) "Need 5 delivered ore" "M · then choose nearby ground")
                                  (and (alive? world) (>= (world-credits world) 5)) #f (action-relocate actions))))))
     (define (context-controls world context actions)
       (let ((found (selected-building world context)))
@@ -202,14 +204,28 @@
                      (integer-text (count-job (world-bots world) 0)) " idle"))
     (define (support-controls world actions)
       (row "support" 46
-           (list (control "worker" "+ Worker · 25" (worker-summary world)
+           (list (control "worker" "+ Worker · 25" (worker-help world)
                           (and (alive? world) (< (list-size (world-bots world)) 12) (>= (world-credits world) 25)) #f (action-fabricate actions))
                  (control "home" "Find hub" "H · return camera" #t #f (action-home actions)))))
+    (define (worker-help world)
+      (cond ((>= (list-size (world-bots world)) 12) "Worker limit: 12")
+            ((< (world-credits world) 25) "Need 25 delivered ore")
+            (else (worker-summary world))))
+    (define (order-feedback world)
+      (let ((notice (world-notice world)))
+        (if (or (= notice 6) (= notice 26))
+            (list (line "order-feedback" 36
+                        (if (= notice 6) "Last order: no safe route or available material pickup."
+                            "Last order: move route changed; 5 ore returned.") 3))
+            (empty-list))))
+    (define (context-heading world context)
+      (append (list (line "context-title" 22 (hover-title world context) 2)
+                    (line "context-description" 42 (hover-description world context) 0))
+              (order-feedback world)))
     (define (context-card world context actions)
       (ui-panel "context" (px (if (< (hud-width context) 434) (- (hud-width context) 24) 410))
                 (px (context-height context)) 12 8
-                (append (list (line "context-title" 22 (hover-title world context) 2)
-                              (line "context-description" 42 (hover-description world context) 0))
+                (append (context-heading world context)
                         (list (ui-scroll "context-actions" (grow 1) (grow 1) 220 8
                                          (append (context-controls world context actions)
                                                  (list (support-controls world actions) (mode-row world actions))))))))
