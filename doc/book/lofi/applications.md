@@ -276,6 +276,36 @@ bindings and typed payloads both when packaging and in the browser. After focus,
 device or generation changes, held controls must be released before activating
 again. Native controls and editable elements retain their keyboard behavior.
 
+The current UI shell is ordinary HTML/CSS, with application state and behavior
+in Scheme; there is no Scheme widget DSL. A form can bind one or two text fields
+to a typed client handler. Put `data-handler` on the form, `data-i32` on each
+input, and a `data-input-error` element in the form. Fields become I32 arguments
+in document order. The submit button uses ordinary native form behavior:
+
+```html
+<form data-handler="restart-seed" novalidate>
+  <label for="seed">Next run seed</label>
+  <input id="seed" type="text" inputmode="numeric" data-i32
+         aria-describedby="seed-error" placeholder="1–65535">
+  <button type="submit">Start this seed</button>
+  <p id="seed-error" data-input-error role="alert"></p>
+</form>
+```
+
+This follows the existing public path: HTML form submission → generic browser
+I32 parsing → typed Scheme client handler → authoritative Scheme transition.
+The browser trims surrounding whitespace and accepts signed decimal integer
+text. Blank, fractional, non-decimal, or out-of-I32 input produces an accessible
+field error without dispatching. A successful submit dispatches once; merely
+editing the text dispatches nothing. Gameplay keys and controller input pause
+while focus is inside the form.
+
+In Siegework, `restart-seed(seed)` forwards `new-run-seed(seed)` to the match
+owner. Scheme accepts seeds 1 through 65535 and preserves the colony with a
+notice for other I32 values. The input is a local draft for the next run; the
+Scheme status displays the active seed. Ordinary New run still advances the
+persisted seed. These seed rules belong to Scheme, not the generic form adapter.
+
 A minimal page loads the packaged shared adapter:
 
 ```html
