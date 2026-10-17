@@ -3,7 +3,8 @@
 html, body, main { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #101d1b; color: var(--ui-text); font: 13px/1.4 system-ui, sans-serif; }
 canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
-[data-ui] { position: absolute; inset: 12px 12px 28px; pointer-events: none; }
+/* 32px vertical inset plus the 88px header and 24px gaps fit the HUD's explicit budget. */
+[data-ui] { position: absolute; inset: 12px 12px 20px; pointer-events: none; }
 .snail-ui-node[data-panel="1"] { pointer-events: auto; box-shadow: 0 8px 28px #03100c55; backdrop-filter: blur(16px); }
 .snail-ui-button, .snail-ui-number { pointer-events: auto; }
 .snail-ui-kind-1 { letter-spacing: .015em; }
