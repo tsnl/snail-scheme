@@ -1,4 +1,6 @@
-(import (lofi base) (lofi io))
+(import
+ (lofi base)
+ (lofi io))
 (def port
      (open-input-file "λ😀.txt"))
 (read-line port)

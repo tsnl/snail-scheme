@@ -17,8 +17,9 @@
           char=? char<? char<=? char>? char>=? char->integer integer->char
           make-string string-length string-ref string-set! string-eq? string-copy!
           string string-copy substring string-append string=? string->list list->string)
-  (import (rename (lofi primitive)
-                  (make-vector make-filled-vector) (make-string make-filled-string)))
+  (import
+   (rename (lofi primitive)
+           (make-vector make-filled-vector) (make-string make-filled-string)))
 
   ;; ---- Static numeric operators ----
 

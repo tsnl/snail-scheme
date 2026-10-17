@@ -2,9 +2,12 @@
 ;; only this codec stages a replacement snapshot in a host-owned transaction.
 (define-library (application bridge)
   (export Program program run-program)
-  (import (scheme base) (application reducer) (browser application)
-          (only (lofi base) i32->i64 i64->i32 unreachable)
-          (only (lofi core) datatype define-extern -> I32))
+  (import
+   (scheme base)
+   (application reducer)
+   (browser application)
+   (only (lofi base) i32->i64 i64->i32 unreachable)
+   (only (lofi core) datatype define-extern -> I32))
   (begin
     (define-extern snapshot-length "snail.reducer" "length" (-> I32 I32))
     (define-extern snapshot-read "snail.reducer" "read" (-> I32 I32 I32))
@@ -15,14 +18,17 @@
     (define-extern stage-label "snail.reducer" "label" (-> I32 I32 Unit))
     (define Program
       (datatype (WorldOwner State LocalOwner Local)
-                (program (world (Application WorldOwner State) program-world) (local (Application LocalOwner Local) program-local)
-                         (world-size I32 program-world-size) (local-size I32 program-local-size)
-                         (decode-world (-> (Vector I32) State) program-decode-world)
-                         (encode-world (-> State (Vector I32)) program-encode-world)
-                         (decode-local (-> (Vector I32) Local) program-decode-local)
-                         (encode-local (-> Local (Vector I32)) program-encode-local)
-                         (view (-> State Local (List Quad)) program-view)
-                         (status (-> State Local String) program-status))))
+        (program
+         (world (Application WorldOwner State) program-world)
+         (local (Application LocalOwner Local) program-local)
+         (world-size I32 program-world-size)
+         (local-size I32 program-local-size)
+         (decode-world (-> (Vector I32) State) program-decode-world)
+         (encode-world (-> State (Vector I32)) program-encode-world)
+         (decode-local (-> (Vector I32) Local) program-decode-local)
+         (encode-local (-> Local (Vector I32)) program-encode-local)
+         (view (-> State Local (List Quad)) program-view)
+         (status (-> State Local String) program-status))))
 
     ;; ---- Copy a snapshot into the replacement module's managed heap ----
 

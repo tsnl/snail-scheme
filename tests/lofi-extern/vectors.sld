@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern collect "probe" "callback" (-> Unit))
 (def data
      (vector (ann 0 I64) (ann 1 I64) (ann 2 I64) (ann 3 I64) (ann 4 I64) (ann 5 I64)))

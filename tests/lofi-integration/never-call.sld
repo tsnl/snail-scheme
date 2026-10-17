@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def stop
      (lambda () (unreachable)))
 (if #t (ann 42 I64) (stop))

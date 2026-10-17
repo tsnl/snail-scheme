@@ -10,11 +10,13 @@ library, not a different meaning of that public name.
 ## Defining and using transformers
 
 ```scheme
-(import (lofi core) (lofi base))
+(import
+ (lofi core)
+ (lofi base))
 (def twice
-  (syntax-rules ()
-    ((_ expression)
-     (begin (let value expression) (+ value value)))))
+     (syntax-rules ()
+       ((_ expression)
+        (begin (let value expression) (+ value value)))))
 (let value 100)
 (twice 21) ; 42
 ```
@@ -69,14 +71,18 @@ It creates no lexical scope or runtime value. An imported macro can use it to
 define a nominal type, its operations, and an application registry together:
 
 ```scheme
-(import (lofi core) (lofi base))
+(import
+ (lofi core)
+ (lofi base))
 (def define-counter
-  (syntax-rules ()
-    ((_ State make-state state-value advance)
-     (library-begin
-       (def State (datatype () (make-state (value I32 state-value))))
-       (def advance (-> State State)
-         (lambda (state) (make-state (+ (state-value state) 1))))))))
+     (syntax-rules ()
+       ((_ State make-state state-value advance)
+        (library-begin
+         (def State (datatype ()
+                      (make-state
+                       (value I32 state-value))))
+         (def advance (-> State State)
+              (lambda (state) (make-state (+ (state-value state) 1))))))))
 
 (define-counter Counter make-counter counter-value advance)
 (counter-value (advance (make-counter 41))) ; 42
@@ -111,7 +117,8 @@ exports named syntax bindings so libraries can explicitly import or rename it.
 ## Initial Scheme base
 
 ```scheme
-(import (scheme base))
+(import
+ (scheme base))
 (define (fib n)
   (let loop ((n n) (previous 0) (current 1))
     (if (= n 0) previous

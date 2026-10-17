@@ -2,26 +2,35 @@
 ;; a general WAT parser or validator: unsupported module shapes fail explicitly.
 (define-library (wasm-native wasm-resolve)
   (export resolve-wasm lower-wasm-body)
-  (import (scheme base) (scheme cxr) (scheme hash-table))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme hash-table))
   (begin
 
     ;; ---- Module names and canonical types ----
 
     (define-record-type <space>
       (make-space names count) space?
-      (names space-names) (count space-count set-space-count!))
+      (names space-names)
+      (count space-count set-space-count!))
 
     (define-record-type <context>
       (make-context types groups aliases functions globals tables indices) context?
       (types context-types set-context-types!)
       (groups context-groups set-context-groups!)
       (aliases context-aliases set-context-aliases!)
-      (functions context-functions) (globals context-globals) (tables context-tables)
+      (functions context-functions)
+      (globals context-globals)
+      (tables context-tables)
       (indices context-indices))
 
     (define-record-type <body>
       (make-body forms context locals name) body?
-      (forms body-forms) (context body-context) (locals body-locals) (name body-name))
+      (forms body-forms)
+      (context body-context)
+      (locals body-locals)
+      (name body-name))
 
     (define (identifier? value)
       (and (symbol? value)
@@ -428,7 +437,8 @@
   (cond-expand
    (snail-tests
     (export test-wasm-resolve)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-canonical-types)
         (expect

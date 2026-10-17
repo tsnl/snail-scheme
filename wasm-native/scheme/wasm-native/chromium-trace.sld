@@ -2,7 +2,11 @@
 ;; metadata event lets every span start with a comma.
 (define-library (wasm-native chromium-trace)
   (export chromium-trace with-chromium-trace-to)
-  (import (scheme base) (scheme file) (scheme time) (scheme write))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme time)
+   (scheme write))
   (begin
 
     ;; ---- File scopes and procedure decoration ----
@@ -89,7 +93,10 @@
 
   (cond-expand
    (snail-tests
-    (import (wasm-native json) (chibi temp-file) (wasm-native test-utils))
+    (import
+     (wasm-native json)
+     (chibi temp-file)
+     (wasm-native test-utils))
     (export test-chromium-trace)
     (begin
       (define (trace-test-path directory name)

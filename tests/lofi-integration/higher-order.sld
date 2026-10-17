@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def increment
      (lambda (x) (+ x (ann 1 I64))))
 (def twice

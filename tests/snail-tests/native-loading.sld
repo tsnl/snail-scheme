@@ -1,12 +1,23 @@
 ;; Opaque Scheme handles exercise real independently owned native processes.
 (define-library (snail-tests native-loading)
   (export run-native-loading native-loading-lost-host)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
-          (srfi 1) (srfi 18) (chibi bytevector) (only (chibi ast) gc)
-          (only (chibi filesystem) rename-file)
-          (only (chibi string) call-with-output-string string-split)
-          (chibi regexp) (chibi regexp pcre)
-          (wasm-native execute) (only (snail-tests commands) optimizer-scope) (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (scheme inexact)
+   (scheme write)
+   (srfi 1)
+   (srfi 18)
+   (chibi bytevector)
+   (only (chibi ast) gc)
+   (only (chibi filesystem) rename-file)
+   (only (chibi string) call-with-output-string string-split)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (wasm-native execute)
+   (only (snail-tests commands) optimizer-scope)
+   (snail-tests harness))
   (begin
 
     ;; ---- Explicit linking and retained owned-instance evidence ----

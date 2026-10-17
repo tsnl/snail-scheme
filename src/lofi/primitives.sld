@@ -2,7 +2,10 @@
 ;; Numeric widths are siblings: selecting an opcode never inserts a coercion.
 (define-library (lofi primitives)
   (export primitive-names primitive-scheme primitive-opcode)
-  (import (scheme base) (scheme cxr) (lofi types))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi types))
   (begin
 
     ;; ---- Concrete native operations ----

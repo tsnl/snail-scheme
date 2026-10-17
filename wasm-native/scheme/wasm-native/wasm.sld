@@ -2,7 +2,11 @@
 ;; This module has no source-language analysis or compilation dependencies.
 (define-library (wasm-native wasm)
   (export write-wasm)
-  (import (scheme base) (scheme cxr) (scheme write) (wasm-native chromium-trace))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme write)
+   (wasm-native chromium-trace))
   (begin
 
     ;; ---- Wasm text ----
@@ -66,7 +70,8 @@
   (cond-expand
    (snail-tests
     (export test-wasm)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-wat-leaves)
         (let ((port (open-output-string)))

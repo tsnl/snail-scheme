@@ -1,10 +1,20 @@
 ;; Complete stream observations expose values, failure order and resource lifetimes.
 (define-library (snail-tests streams)
   (export run-stream-suite io-exports input-exports)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
-          (srfi 1) (srfi 69) (only (chibi string) string-suffix? string-split)
-          (snail-tests harness)
-          (wasm-native json) (chibi regexp) (chibi regexp pcre) (only (chibi string) call-with-input-string))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (srfi 1)
+   (srfi 69)
+   (only (chibi string) string-suffix? string-split)
+   (snail-tests harness)
+   (wasm-native json)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (only (chibi string) call-with-input-string))
   (begin
 
     ;; ---- One source, linked Wasm forms and a real native executable ----

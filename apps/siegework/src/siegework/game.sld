@@ -1,9 +1,15 @@
 (define-library (siegework game)
   (export application-entry)
-  (import (scheme base) (scheme immutable) (application reducer) (application bridge)
-          (browser application) (siegework model) (siegework codec)
-          (only (lofi core) ann -> I32)
-          (only (lofi base) string-append i32->i64 unreachable))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (application reducer)
+   (application bridge)
+   (browser application)
+   (siegework model)
+   (siegework codec)
+   (only (lofi core) ann -> I32)
+   (only (lofi base) string-append i32->i64 unreachable))
   (begin
 
     ;; ---- Commands are lexical bindings; all reducers return Transition World ----
@@ -21,8 +27,9 @@
     ;; ---- The client has a separate persistent owner ----
 
     (define-immutable-record Client make-client
-      (tool I32 client-tool with-client-tool) (x I32 client-x with-client-x)
-      (y I32 client-y with-client-y))
+      (tool I32 client-tool client-tool-set)
+      (x I32 client-x client-x-set)
+      (y I32 client-y client-y-set))
     (application client-app (state Client 1) (make-client 1 8 3)
                  (move (state (x I32) (y I32))
                        (no-effects (if (and (>= x 0) (< x 24) (>= y 0) (< y 14))
@@ -31,7 +38,7 @@
                         (no-effects (make-client (client-tool state)
                                                  (clamp (+ (client-x state) dx) 0 23) (clamp (+ (client-y state) dy) 0 13))))
                  (choose (state (tool I32))
-                         (no-effects (if (and (>= tool 1) (<= tool 2)) (with-client-tool state tool) state)))
+                         (no-effects (if (and (>= tool 1) (<= tool 2)) (client-tool-set state tool) state)))
                  (confirm (state)
                           (transition state (list (enqueue match-target
                                                            (if (= (client-tool state) 1) (extract (client-x state) (client-y state))

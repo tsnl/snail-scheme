@@ -1,4 +1,5 @@
-(import (chezscheme))
+(import
+ (chezscheme))
 
 ;; ---- Independent host reader emits every semantic field in source order ----
 

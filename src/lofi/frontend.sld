@@ -5,10 +5,17 @@
 (define-library (lofi frontend)
   (export parse-library syntax-list->lofi-library collect-library-map lofi-binding-name?
           syntax-list->ir-library syntax->ir-library make-primitive-library)
-  (import (scheme base) (scheme cxr)
-          (lofi syntax) (lofi source) (lofi resolved-library)
-          (lofi ir) (lofi signatures) (lofi library) (lofi macros)
-          (only (lofi primitives) primitive-names))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi syntax)
+   (lofi source)
+   (lofi resolved-library)
+   (lofi ir)
+   (lofi signatures)
+   (lofi library)
+   (lofi macros)
+   (only (lofi primitives) primitive-names))
   (begin
 
     ;; ---- Located syntax and grammar ----
@@ -58,7 +65,9 @@
     (define (lookup name environment) (let ((entry (assq name environment))) (and entry (cdr entry))))
     (define-record-type <source-scope>
       (make-source-scope bindings types imports) source-scope?
-      (bindings scope-bindings) (types scope-types) (imports scope-imports))
+      (bindings scope-bindings)
+      (types scope-types)
+      (imports scope-imports))
     (define (static-binding? definition)
       (memq (binding-kind definition) '(datatype typeclass instance syntax syntax-form)))
     (define (type-bindings bindings)
@@ -613,9 +622,10 @@
   (cond-expand
    (snail-tests
     (export test-frontend)
-    (import (wasm-native test-utils)
-            (only (lofi reader) string->reader)
-            (only (lofi syntax-parser) reader->syntax-list))
+    (import
+     (wasm-native test-utils)
+     (only (lofi reader) string->reader)
+     (only (lofi syntax-parser) reader->syntax-list))
     (begin
       (define (test-source text . libraries)
         (syntax-list->ir-library (reader->syntax-list (string->reader "frontend-test.sld" text))

@@ -3,8 +3,10 @@
 (define-library (webgpu shader)
   (export gpu ShaderExpression shader-zero shader-one shader-position shader-color
           shader-vec4 shader-product compile-shader shader-valid? shader-text)
-  (import (scheme base) (only (lofi base) string-append)
-          (only (lofi core) datatype match))
+  (import
+   (scheme base)
+   (only (lofi base) string-append)
+   (only (lofi core) datatype match))
   (begin
 
     ;; ---- Shader syntax ----
@@ -13,11 +15,23 @@
     ;; injected through a string. The initial vertex layout is position:vec2f
     ;; and color:vec4f; the fragment stage receives the interpolated color.
     (define ShaderExpression
-      (datatype () (shader-zero) (shader-one) (shader-position) (shader-color)
-                (shader-vec4 (xy ShaderExpression) (z ShaderExpression) (w ShaderExpression))
-                (shader-product (left ShaderExpression) (right ShaderExpression))))
+      (datatype ()
+        (shader-zero)
+        (shader-one)
+        (shader-position)
+        (shader-color)
+        (shader-vec4
+         (xy ShaderExpression)
+         (z ShaderExpression)
+         (w ShaderExpression))
+        (shader-product
+         (left ShaderExpression)
+         (right ShaderExpression))))
     (define ShaderResult
-      (datatype () (compiled-shader (valid Bool shader-valid?) (text String shader-text))))
+      (datatype ()
+        (compiled-shader
+         (valid Bool shader-valid?)
+         (text String shader-text))))
     (define-syntax gpu
       (syntax-rules (zero one position color vec4 *)
         ((_ zero) (shader-zero))

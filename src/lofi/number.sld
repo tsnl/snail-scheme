@@ -13,17 +13,33 @@
           number=? number<? number<=? number>? number>=? number-equivalent?
           + - * / = < <= > >= truncate
           test-number)
-  (import (lofi base) (lofi integer) (lofi rational) (lofi math)
-          (only (lofi primitive) f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
+  (import
+   (lofi base)
+   (lofi integer)
+   (lofi rational)
+   (lofi math)
+   (only (lofi primitive) f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
 
   ;; ---- Concrete numeric values and canonical exact packing ----
 
   (begin
     (def Scalar (datatype ()
-                          (exact-scalar (value I64)) (rational-scalar (value Rational)) (inexact-scalar (value F64))))
+                  (exact-scalar
+                   (value I64))
+                  (rational-scalar
+                   (value Rational))
+                  (inexact-scalar
+                   (value F64))))
     (def Number (datatype ()
-                          (exact-number (value I64)) (rational-number (value Rational)) (inexact-number (value F64))
-                          (complex-number (real Scalar) (imaginary Scalar))))
+                  (exact-number
+                   (value I64))
+                  (rational-number
+                   (value Rational))
+                  (inexact-number
+                   (value F64))
+                  (complex-number
+                   (real Scalar)
+                   (imaginary Scalar))))
 
     (def scalar-from-rational (-> Rational Scalar)
          (lambda (value)

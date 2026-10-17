@@ -2,7 +2,9 @@
 ;; a module must be able to use these helpers without creating an import cycle.
 (define-library (wasm-native test-utils)
   (export expect run-test)
-  (import (scheme base) (scheme write))
+  (import
+   (scheme base)
+   (scheme write))
   (begin
     (define (display-error value) (display value (current-error-port)))
 

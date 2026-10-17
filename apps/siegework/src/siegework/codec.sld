@@ -2,8 +2,11 @@
 ;; Schema 1 is a bounded integer encoding, not a general Scheme serialization ABI.
 (define-library (siegework codec)
   (export encode-world decode-world world-words)
-  (import (scheme base) (siegework model) (only (lofi core) ann -> I32)
-          (only (lofi base) i32->i64 unreachable))
+  (import
+   (scheme base)
+   (siegework model)
+   (only (lofi core) ann -> I32)
+   (only (lofi base) i32->i64 unreachable))
   (begin
     (define world-words 192)
     (define (word words index) (vector-ref words (i32->i64 index)))

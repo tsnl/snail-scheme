@@ -21,16 +21,19 @@ Its import clauses state which bindings the body can use; its export clauses
 state which bindings other libraries can use.
 
 ```scheme
-; demo/math.sld
+                                        ; demo/math.sld
 (define-library (demo math)
-  (import (lofi base))
+  (import
+   (lofi base))
   (export increment)
   (begin
     (def increment (-> I32 I32) (lambda (value) (+ value 1)))))
 
-; demo/app.sld
+                                        ; demo/app.sld
 (define-library (demo app)
-  (import (lofi base) (only (demo math) increment))
+  (import
+   (lofi base)
+   (only (demo math) increment))
   (export main)
   (begin
     (def main (-> I32) (lambda () (increment 41)))))
@@ -146,10 +149,13 @@ A file may describe how to produce a library instead of spelling out its
 declarations. The driver recognizes this second file-level form:
 
 ```scheme
-; demo/legacy.sld
+                                        ; demo/legacy.sld
 (generate-library (demo legacy)
-  (import (lofi base) (lofi compiler) (frontend scheme))
-  (scheme->lofi (read-source "legacy.scm")))
+                  (import
+                   (lofi base)
+                   (lofi compiler)
+                   (frontend scheme))
+                  (scheme->lofi (read-source "legacy.scm")))
 ```
 
 The imports belong to the generator. Its body is an ordinary Lofi expression
@@ -183,28 +189,42 @@ local binding identity or a name together with the scope in which to resolve it.
 
 ```scheme
 (def ImportRename
-  (datatype ()
-    (import-rename (original Name) (local Name))))
+     (datatype ()
+       (import-rename
+        (original Name)
+        (local Name))))
 (def ImportSelection
-  (datatype ()
-    (all-imports)
-    (only-imports (from ImportSelection) (names (List Name)))
-    (rename-imports (from ImportSelection) (names (List ImportRename)))))
+     (datatype ()
+       (all-imports)
+       (only-imports
+        (from ImportSelection)
+        (names (List Name)))
+       (rename-imports
+        (from ImportSelection)
+        (names (List ImportRename)))))
 (def Import
-  (datatype ()
-    (library-import (provider LibraryKey) (selection ImportSelection) (scope ScopeId))))
+     (datatype ()
+       (library-import
+        (provider LibraryKey)
+        (selection ImportSelection)
+        (scope ScopeId))))
 (def Export
-  (datatype ()
-    (library-export (public Name) (binding BindingReference))))
+     (datatype ()
+       (library-export
+        (public Name)
+        (binding BindingReference))))
 (def LocatedDeclaration
-  (datatype ()
-    (located-declaration (location SourceSpan) (declaration Declaration))))
+     (datatype ()
+       (located-declaration
+        (location SourceSpan)
+        (declaration Declaration))))
 (def LofiLibrary
-  (datatype ()
-    (lofi-library (id LibraryId)
-                  (imports (List Import))
-                  (exports (List Export))
-                  (declarations (List LocatedDeclaration)))))
+     (datatype ()
+       (lofi-library
+        (id LibraryId)
+        (imports (List Import))
+        (exports (List Export))
+        (declarations (List LocatedDeclaration)))))
 ```
 
 Import selections remain descriptive until the provider's exports are available.

@@ -17,13 +17,15 @@ does not search directories or invoke a language frontend.
 
 ```scheme
 (def Entry
-  (datatype ()
-    (entry (library LibraryKey) (export Name))))
+     (datatype ()
+       (entry
+        (library LibraryKey)
+        (export Name))))
 
 (let math (parse-library (read-source "demo/math.sld")))
 (let app (parse-library (read-source "demo/app.sld")))
 (let libraries
-  (map-insert (map-insert base-libraries math-key math) app-key app))
+    (map-insert (map-insert base-libraries math-key math) app-key app))
 (let artifact (compile libraries (entry app-key main-name)))
 ```
 

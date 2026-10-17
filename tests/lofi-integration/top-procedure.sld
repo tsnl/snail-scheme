@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def increment (-> I64 I64)
      (lambda (x) (+ x (ann 1 I64))))

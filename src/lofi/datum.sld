@@ -14,8 +14,13 @@
           datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
           datum-list datum-length datum-append datum-assq datum-map
           test-datum)
-  (import (lofi base) (lofi bytes) (lofi integer) (lofi rational) (lofi number)
-          (only (lofi primitive) i64-wrapping-add i64-wrapping-mul))
+  (import
+   (lofi base)
+   (lofi bytes)
+   (lofi integer)
+   (lofi rational)
+   (lofi number)
+   (only (lofi primitive) i64-wrapping-add i64-wrapping-mul))
 
   ;; ---- Explicit scalar service ownership ----
 
@@ -70,7 +75,9 @@
 
     ;; ---- Interned symbols, independent of the legacy literal domain ----
 
-    (def Symbol (datatype () (symbol (id I32 symbol-id))))
+    (def Symbol (datatype ()
+                  (symbol
+                   (id I32 symbol-id))))
 
     (def string->symbol (-> String Symbol)
          (lambda (text) (symbol (token-intern (stage-text text)))))
@@ -94,9 +101,12 @@
 
     ;; ---- Exact lexical fields become Lofi-owned numeric values ----
 
-    (def NumberResult (datatype () (not-a-number)
-                                (parsed-number (value Number parsed-number-value))
-                                (number-error (message String number-error-text))))
+    (def NumberResult (datatype ()
+                        (not-a-number)
+                        (parsed-number
+                         (value Number parsed-number-value))
+                        (number-error
+                         (message String number-error-text))))
 
     (def token-exact-text (-> I32 I32 I32 String)
          (lambda (handle part term)
@@ -197,21 +207,35 @@
     ;; ---- Recursive datums and explicit mutable pair fields ----
 
     (def Datum (datatype ()
-                         (datum-null) (datum-boolean (value Bool datum-boolean-value))
-                         (datum-character (value Char datum-character-value))
-                         (datum-string (value String datum-string-value))
-                         (datum-symbol (value Symbol datum-symbol-value))
-                         (datum-number (value Number datum-number-value))
-                         (pair-datum (first (Ref Datum) datum-first) (rest (Ref Datum) datum-rest)
-                                     (identity I64 pair-datum-identity))
-                         (vector-datum (values (Vector Datum) datum-vector-values) (identity I64 vector-datum-identity))
-                         (datum-bytevector (values Bytevector datum-bytevector-values))))
+                 (datum-null)
+                 (datum-boolean
+                  (value Bool datum-boolean-value))
+                 (datum-character
+                  (value Char datum-character-value))
+                 (datum-string
+                  (value String datum-string-value))
+                 (datum-symbol
+                  (value Symbol datum-symbol-value))
+                 (datum-number
+                  (value Number datum-number-value))
+                 (pair-datum
+                  (first (Ref Datum) datum-first)
+                  (rest (Ref Datum) datum-rest)
+                  (identity I64 pair-datum-identity))
+                 (vector-datum
+                  (values (Vector Datum) datum-vector-values)
+                  (identity I64 vector-datum-identity))
+                 (datum-bytevector
+                  (values Bytevector datum-bytevector-values))))
 
     ;; ---- A shared result for atom interpretation and incremental input ----
 
-    (def ReadResult (datatype () (read-end)
-                              (read-value (datum Datum read-value-datum))
-                              (read-error (message String read-error-message))))
+    (def ReadResult (datatype ()
+                      (read-end)
+                      (read-value
+                       (datum Datum read-value-datum))
+                      (read-error
+                       (message String read-error-message))))
 
     (def token-number-datum (-> I32 I32 ReadResult)
          (lambda (handle kind)
@@ -370,9 +394,10 @@
     ;; hashes, not necessarily to input nodes: coprime cycle lengths can visit
     ;; their product. Hash collisions can add linear probing work.
     (def EqualityHistory (datatype ()
-                                   (equality-history (left (Ref (Vector I64)) history-left)
-                                                     (right (Ref (Vector I64)) history-right)
-                                                     (size (Ref I64) history-size))))
+                           (equality-history
+                            (left (Ref (Vector I64)) history-left)
+                            (right (Ref (Vector I64)) history-right)
+                            (size (Ref I64) history-size))))
 
     (def make-equality-history (-> EqualityHistory)
          (lambda ()
@@ -473,10 +498,16 @@
     ;; No input is mutated, no user procedure is called, and every call starts
     ;; with fresh history, so later pair/vector mutation is visible immediately.
     (def EqualityWork (datatype ()
-                                (equality-done)
-                                (equality-values (left Datum) (right Datum) (pending EqualityWork))
-                                (equality-elements (left (Vector Datum)) (right (Vector Datum))
-                                                   (index I64) (pending EqualityWork))))
+                        (equality-done)
+                        (equality-values
+                         (left Datum)
+                         (right Datum)
+                         (pending EqualityWork))
+                        (equality-elements
+                         (left (Vector Datum))
+                         (right (Vector Datum))
+                         (index I64)
+                         (pending EqualityWork))))
 
     (def datum=? (-> Datum Datum Bool)
          (lambda (left right)

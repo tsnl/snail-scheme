@@ -1,5 +1,7 @@
 (define-library (builder scalars)
-  (import (lofi compiler-builder) (only (lofi primitive) cons empty-list))
+  (import
+   (lofi compiler-builder)
+   (only (lofi primitive) cons empty-list))
   (export build-i64 build-f32 build-f64 build-bool build-char)
   (begin
     (def span (source-span (builder-name "generated-scalar.sld") (ann 1 I32) (ann 1 I32)))

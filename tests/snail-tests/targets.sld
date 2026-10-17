@@ -1,9 +1,17 @@
 ;; Exact independent answers are shared by raw Wasm, optimized Wasm and native.
 (define-library (snail-tests targets)
   (export run-target-suite numeric-corpus)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme inexact) (scheme write)
-          (srfi 1) (only (chibi string) string-split string-prefix? string-suffix?)
-          (chibi regexp) (chibi regexp pcre) (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme inexact)
+   (scheme write)
+   (srfi 1)
+   (only (chibi string) string-split string-prefix? string-suffix?)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (snail-tests harness))
   (begin
 
     ;; ---- Complete decimal strings and binary64 observations ----

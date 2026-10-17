@@ -1,7 +1,10 @@
 ;; Candidate decoding accepts the initial economy but rejects a later purchase.
 (define-library (tests current-state)
   (export answer)
-  (import (scheme base) (siegework game) (only (lofi core) ann -> I32 define-extern))
+  (import
+   (scheme base)
+   (siegework game)
+   (only (lofi core) ann -> I32 define-extern))
   (begin
     (define-extern snapshot-read "snail.reducer" "read" (-> I32 I32 I32))
     (define answer

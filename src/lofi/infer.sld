@@ -8,28 +8,39 @@
           checked-scope binding-summary binding-checking-scope source-initializer
           call-signature concrete-scope infer-literal conform typing-pass
           apply-typing-rule checked-function-type type-judgment)
-  (import (scheme base) (scheme cxr) (lofi types)
-          (lofi checked) (lofi overloads) (lofi primitives)
-          (lofi data) (lofi pass)
-          (lofi hashmap) (only (srfi 128) make-eq-comparator)
-          (lofi numeric-literals)
-          (only (srfi 69) make-hash-table hash-table-ref hash-table-ref/default hash-table-set! hash-table-exists?)
-          (lofi wasm-extern)
-          (only (lofi ir)
-                make-node node? node-kind node-loc node-data
-                prepare-binding! binding-scheme set-binding-scheme!
-                binding-initializer set-binding-initializer! binding-kind binding-payload
-                binding-declaration set-binding-declaration! children copy-ir-graph)
-          (prefix (lofi ir) ir:)
-          (prefix (lofi signatures) source:))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi types)
+   (lofi checked)
+   (lofi overloads)
+   (lofi primitives)
+   (lofi data)
+   (lofi pass)
+   (lofi hashmap)
+   (only (srfi 128) make-eq-comparator)
+   (lofi numeric-literals)
+   (only (srfi 69) make-hash-table hash-table-ref hash-table-ref/default hash-table-set! hash-table-exists?)
+   (lofi wasm-extern)
+   (only (lofi ir)
+         make-node node? node-kind node-loc node-data
+         prepare-binding! binding-scheme set-binding-scheme!
+         binding-initializer set-binding-initializer! binding-kind binding-payload
+         binding-declaration set-binding-declaration! children copy-ir-graph)
+   (prefix (lofi ir) ir:)
+   (prefix (lofi signatures) source:))
   (begin
 
     ;; ---- Lexical checking scopes ----
 
     (define-record-type <scope>
       (new-scope bindings types assumptions classes instances recursive function) scope?
-      (bindings scope-bindings) (types scope-types) (assumptions scope-assumptions)
-      (classes scope-classes) (instances scope-instances) (recursive scope-recursive)
+      (bindings scope-bindings)
+      (types scope-types)
+      (assumptions scope-assumptions)
+      (classes scope-classes)
+      (instances scope-instances)
+      (recursive scope-recursive)
       (function scope-function))
     (define (make-scope bindings types assumptions classes instances recursive)
       (new-scope bindings types assumptions classes instances recursive #f))
@@ -64,8 +75,10 @@
     ;; judgment contains this arm's result, not judgments for its subexpressions.
     (define-record-type <judgment>
       (make-judgment type constraints source detail nonexpansive?) judgment?
-      (type judgment-type) (constraints judgment-constraints)
-      (source judgment-source) (detail judgment-detail)
+      (type judgment-type)
+      (constraints judgment-constraints)
+      (source judgment-source)
+      (detail judgment-detail)
       (nonexpansive? judgment-nonexpansive?))
     (define (judgment-loc result) (node-loc (judgment-source result)))
     (define (constraints results) (proof-set (apply append (map judgment-constraints results))))
@@ -74,7 +87,8 @@
     (define (type-judgment source type) (result source type #f #t))
     (define-record-type <binding-summary>
       (make-binding-summary result scope) binding-summary?
-      (result summary-result) (scope summary-scope))
+      (result summary-result)
+      (scope summary-scope))
     ;; Only lexical scope owners and bindings are retained. The parameter is
     ;; private solver state; the completed persistent map is in the program.
     ;; Persistent map lookup and update use explicit tail loops, independent
@@ -251,7 +265,8 @@
       (and (pair? assumptions) (or (type-equal? constraint (car assumptions)) (assumed? constraint (cdr assumptions)))))
     (define-record-type <declaration-check>
       (make-declaration-check binding scope) declaration-check?
-      (binding declaration-binding) (scope declaration-scope))
+      (binding declaration-binding)
+      (scope declaration-scope))
     ;; Each owned compilation discharges its own sites after inference settles.
     (define pending-declarations (make-parameter '()))
     (define (check-obligations obligations scope loc declared? . enclosing)
@@ -416,7 +431,8 @@
     ;; refines the source nodes. Binding identity, never spelling, keys its edges.
     (define-record-type <binding-plan>
       (make-binding-plan edges groups) binding-plan?
-      (edges plan-edges) (groups plan-groups))
+      (edges plan-edges)
+      (groups plan-groups))
     (define-record-type <binding-group>
       (make-binding-group members) binding-group?
       (members group-members set-group-members!))
@@ -589,10 +605,14 @@
     ;; recursion whose arrow happens not to mention its changing argument.
     (define-record-type <recursive-view>
       (make-recursive-view type constraints substitutions) recursive-view?
-      (type view-type) (constraints view-constraints) (substitutions view-substitutions))
+      (type view-type)
+      (constraints view-constraints)
+      (substitutions view-substitutions))
     (define-record-type <recursive-template>
       (make-recursive-template bindings slots views) recursive-template?
-      (bindings template-bindings) (slots template-slots) (views template-views))
+      (bindings template-bindings)
+      (slots template-slots)
+      (views template-views))
     (define (recursive-scope scope bindings views)
       (make-scope bindings (scope-types scope) (scope-assumptions scope)
                   (scope-classes scope) (scope-instances scope) (append views (scope-recursive scope))))
@@ -991,11 +1011,12 @@
   (cond-expand
    (snail-tests
     (export test-infer)
-    (import (wasm-native test-utils)
-            (only (lofi frontend) syntax->ir-library syntax-list->ir-library)
-            (only (lofi reader) string->reader)
-            (only (lofi syntax-parser) reader->syntax-list)
-            (prefix (lofi resolved-library) library:))
+    (import
+     (wasm-native test-utils)
+     (only (lofi frontend) syntax->ir-library syntax-list->ir-library)
+     (only (lofi reader) string->reader)
+     (only (lofi syntax-parser) reader->syntax-list)
+     (prefix (lofi resolved-library) library:))
     (begin
       (define (test-dependencies! binding dependencies)
         (let ((references (map (lambda (dependency) (ir:make-name dependency #f)) dependencies)))

@@ -4,19 +4,24 @@
   (export make-entry entry? entry-library entry-export
           artifact? artifact-entry artifact-parameters artifact-result artifact-bytes
           emit-artifact entry-description)
-  (import (scheme base) (scheme file) (scheme write)
-          (only (chibi temp-file) call-with-temp-dir)
-          (only (wasm-native json) json->string)
-          (wasm-native build-host) (wasm-native chromium-trace)
-          (wasm-native wasm-optimize)
-          (only (wasm-native wasm) write-wasm))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme write)
+   (only (chibi temp-file) call-with-temp-dir)
+   (only (wasm-native json) json->string)
+   (wasm-native build-host)
+   (wasm-native chromium-trace)
+   (wasm-native wasm-optimize)
+   (only (wasm-native wasm) write-wasm))
   (begin
 
     ;; ---- Public entry identity ----
 
     (define-record-type <entry>
       (new-entry library export) entry?
-      (library entry-library) (export entry-export))
+      (library entry-library)
+      (export entry-export))
     (define (make-entry library export)
       (unless (and (list? library) (pair? library) (symbol? export))
         (error "entry requires a nonempty library key and an export name"))
@@ -30,7 +35,9 @@
     (define-record-type <artifact>
       (make-artifact entry parameters result bytes) artifact?
       (entry artifact-entry)
-      (parameters artifact-parameters) (result artifact-result) (bytes artifact-bytes))
+      (parameters artifact-parameters)
+      (result artifact-result)
+      (bytes artifact-bytes))
     (define (file-bytes path)
       (call-with-port (open-binary-input-file path)
         (lambda (input)
@@ -96,7 +103,8 @@
   (cond-expand
    (snail-tests
     (export test-artifact)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-wasm-section-lengths)
         (let ((port (open-output-bytevector)))

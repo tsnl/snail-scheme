@@ -4,11 +4,21 @@
 (define-library (lofi library-transfer)
   (export read-library-transfer write-library-transfer library-transfer?
           make-library-transfer-context receive-library-transfer)
-  (import (scheme base) (scheme cxr) (scheme write) (only (wasm-native json) json-read json->string)
-          (lofi source) (lofi ir) (lofi syntax) (lofi reader) (lofi syntax-parser)
-          (only (lofi resolved-library) make-named-binding named-binding-name named-binding-definition)
-          (lofi library) (lofi signatures) (lofi numeric-literals)
-          (only (lofi frontend) lofi-binding-name? parse-library))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme write)
+   (only (wasm-native json) json-read json->string)
+   (lofi source)
+   (lofi ir)
+   (lofi syntax)
+   (lofi reader)
+   (lofi syntax-parser)
+   (only (lofi resolved-library) make-named-binding named-binding-name named-binding-definition)
+   (lofi library)
+   (lofi signatures)
+   (lofi numeric-literals)
+   (only (lofi frontend) lofi-binding-name? parse-library))
   (begin
 
     ;; ---- A closed, versioned syntax packet ----
@@ -17,10 +27,12 @@
     ;; raw bytes again creates another origin, even when every local ID matches.
     (define-record-type <library-transfer>
       (make-library-transfer nodes root) library-transfer?
-      (nodes transfer-nodes) (root transfer-root))
+      (nodes transfer-nodes)
+      (root transfer-root))
     (define-record-type <transfer-node>
       (make-transfer-node kind fields) transfer-node?
-      (kind transfer-kind) (fields transfer-fields))
+      (kind transfer-kind)
+      (fields transfer-fields))
     (define (field node index) (list-ref (transfer-fields node) index))
     (define schemas
       '((syntax-token text span) (syntax-list sequence syntax-tail span) (syntax-vector sequence span)
@@ -155,8 +167,11 @@
               (set-context-libraries! context (cons (cons transfer library) (context-libraries context))) library))))
     (define-record-type <decoding>
       (make-decoding nodes bindings scopes root import-scope) decoding?
-      (nodes decoding-nodes) (bindings decoding-bindings) (scopes decoding-scopes)
-      (root decoding-root) (import-scope decoding-import-scope))
+      (nodes decoding-nodes)
+      (bindings decoding-bindings)
+      (scopes decoding-scopes)
+      (root decoding-root)
+      (import-scope decoding-import-scope))
     (define (get-node state id) (vector-ref (decoding-nodes state) id))
     (define (get-name state id) (string->symbol (field (get-node state id) 0)))
     (define (get-binding-name state id location)
@@ -200,7 +215,9 @@
         (unique-names (map value-definition-name bindings) location) bindings))
     (define-record-type <lexical-context>
       (make-lexical-context scope values variables) lexical-context?
-      (scope lexical-scope) (values lexical-values) (variables lexical-variables))
+      (scope lexical-scope)
+      (values lexical-values)
+      (variables lexical-variables))
     (define (extend-values context ids)
       (make-lexical-context (lexical-scope context) (append ids (lexical-values context)) (lexical-variables context)))
     (define (nested-context context scope ids)
@@ -623,9 +640,11 @@
     ;; are the keys: equal spellings never identify two declarations.
     (define-record-type <encoding>
       (make-encoding rows count bindings variables root) encoding?
-      (rows encoding-rows set-encoding-rows!) (count encoding-count set-encoding-count!)
+      (rows encoding-rows set-encoding-rows!)
+      (count encoding-count set-encoding-count!)
       (bindings encoding-bindings set-encoding-bindings!)
-      (variables encoding-variables set-encoding-variables!) (root encoding-root))
+      (variables encoding-variables set-encoding-variables!)
+      (root encoding-root))
     (define (emit-node state tag . fields)
       (let ((id (encoding-count state)))
         (set-encoding-count! state (+ id 1))
@@ -910,16 +929,17 @@
   (cond-expand
    (snail-tests
     (export test-library-transfer)
-    (import (wasm-native test-utils)
-            (only (lofi macros) core-syntax-names)
-            (only (lofi primitives) primitive-names)
-            (only (chibi temp-file) call-with-temp-dir)
-            (only (wasm-native chromium-trace) with-chromium-trace-to)
-            (only (lofi frontend) parse-library)
-            (only (lofi reader) string->reader)
-            (only (lofi syntax-parser) reader->syntax-list)
-            (only (scheme bytevector) bytevector-ieee-single-native-set! bytevector-ieee-double-native-set!
-                  bytevector-u32-native-ref bytevector-u64-native-ref))
+    (import
+     (wasm-native test-utils)
+     (only (lofi macros) core-syntax-names)
+     (only (lofi primitives) primitive-names)
+     (only (chibi temp-file) call-with-temp-dir)
+     (only (wasm-native chromium-trace) with-chromium-trace-to)
+     (only (lofi frontend) parse-library)
+     (only (lofi reader) string->reader)
+     (only (lofi syntax-parser) reader->syntax-list)
+     (only (scheme bytevector) bytevector-ieee-single-native-set! bytevector-ieee-double-native-set!
+           bytevector-u32-native-ref bytevector-u64-native-ref))
     (begin
       (define (read-test-packet text) (read-library-transfer (open-input-string text)))
       (define (test-packet-nodes)

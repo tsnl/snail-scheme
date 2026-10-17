@@ -1,7 +1,9 @@
 ;; Functional record replacement over the common typed kernel.
 (define-library (scheme immutable)
   (export define-immutable-record list append reverse)
-  (import (scheme base) (only (lofi core) datatype library-begin))
+  (import
+   (scheme base)
+   (only (lofi core) datatype library-begin))
   (begin
     (define-syntax record-updaters
       (syntax-rules ()
@@ -17,7 +19,9 @@
       (syntax-rules ()
         ((_ name constructor (field type getter replace) ...)
          (library-begin
-          (define name (datatype () (constructor (field type getter) ...)))
+          (define name (datatype ()
+                         (constructor
+                          (field type getter) ...)))
           (record-updaters constructor () ((field type getter replace) ...))))))
     (define-syntax list
       (syntax-rules () ((_) (empty-list)) ((_ first rest ...) (cons first (list rest ...)))))

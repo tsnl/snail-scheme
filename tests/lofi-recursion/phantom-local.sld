@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def recur (All (T) (-> I64 I64))
      (lambda (n)
        (begin

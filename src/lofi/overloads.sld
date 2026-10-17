@@ -3,14 +3,18 @@
 (define-library (lofi overloads)
   (export overload-class select-overload-view improve-overloads! require-overloads!
           overload-view-instance overload-view-constraints duplicate-overload?)
-  (import (scheme base) (lofi types) (lofi checked))
+  (import
+   (scheme base)
+   (lofi types)
+   (lofi checked))
   (begin
 
     ;; ---- Fresh row views and isolated compatibility trials ----
 
     (define-record-type <overload-view>
       (make-overload-view instance type constraints) overload-view?
-      (instance overload-view-instance) (type overload-view-type)
+      (instance overload-view-instance)
+      (type overload-view-type)
       (constraints overload-view-constraints))
     (define (overload-class definition classes)
       (cond ((null? classes) #f)

@@ -9,19 +9,27 @@
           call-with-input-file read-line open-output-file close-output-port
           call-with-output-file current-output-port output-port=?
           write-char write-string write-i64 newline)
-  (import (lofi base))
+  (import
+   (lofi base))
 
   ;; ---- Scalar resource boundary ----
 
   (begin
     (def OutputPort (datatype ()
-                              (output-port (handle (Ref I32) output-handle))))
+                      (output-port
+                       (handle (Ref I32) output-handle))))
     (def InputPort (datatype ()
-                             (input-port (handle (Ref I32) input-handle)
-                                         (packet (Ref I64) input-packet))))
-    (def LineResult (datatype () (end-of-file) (line (text String line-text))))
+                     (input-port
+                      (handle (Ref I32) input-handle)
+                      (packet (Ref I64) input-packet))))
+    (def LineResult (datatype ()
+                      (end-of-file)
+                      (line
+                       (text String line-text))))
     (def CharacterResult (datatype ()
-                                   (character-end) (character-value (text Char character-text))))
+                           (character-end)
+                           (character-value
+                            (text Char character-text))))
     (define-extern path-begin "snail.library" "snail:io/path-begin" (-> Unit))
     (define-extern path-character "snail.library" "snail:io/path-character" (-> Char Unit))
     (define-extern path-exists "snail.library" "snail:io/file-exists" (-> I32))

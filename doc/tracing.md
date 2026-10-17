@@ -34,10 +34,12 @@ There are no portable collector or per-instruction measurements in these traces.
 ## Host API
 
 ```scheme
-(import (scheme base) (wasm-native chromium-trace))
+(import
+ (scheme base)
+ (wasm-native chromium-trace))
 (define timed-add (chromium-trace "add" (lambda (x y) (+ x y))))
 (with-chromium-trace-to "operations.json"
-  (lambda () (timed-add 20 22)))
+                        (lambda () (timed-add 20 22)))
 ```
 
 This is compiler implementation code executed by Chibi, not Lofi product input.

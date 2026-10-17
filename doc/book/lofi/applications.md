@@ -24,12 +24,15 @@ Arithmetic procedures currently take two operands: nest additions, and write
 by `(scheme base)`.
 
 ```scheme
-(import (scheme base) (application reducer) (only (lofi core) I32))
+(import
+ (scheme base)
+ (application reducer)
+ (only (lofi core) I32))
 
 ;; Inside a define-library's ordinary (begin ...):
 (application counter (state I32 1) 0
-  (add (state (amount I32)) (no-effects (+ state amount)))
-  (reset (state) (no-effects 0)))
+             (add (state (amount I32)) (no-effects (+ state amount)))
+             (reset (state) (no-effects 0)))
 
 (transition-state (dispatch counter 40 (add 2))) ; 42
 ```
@@ -67,7 +70,8 @@ For cross-owner dispatch, attach an application to an explicit destination and
 return a send description:
 
 ```scheme
-(import (scheme immutable)) ; supplies immutable list construction
+(import
+ (scheme immutable)) ; supplies immutable list construction
 (define counter-target (destination match-owner counter))
 ;; From a handler returning its own next state:
 (transition next-client (list (enqueue counter-target (add 2))))
@@ -181,13 +185,16 @@ raw bridge imports themselves.
 `(scheme immutable)` provides `list`, `append`, `reverse` and
 `define-immutable-record`. These are separate imports from the initial
 `(scheme base)` subset. A record declaration names its constructor, accessors and
-pure replacements:
+pure replacements.
+
+Replacement names follow the accessor with `-set`, without the mutation suffix
+`!`. Each replacement returns a new record and preserves the prior value:
 
 ```scheme
 (define-immutable-record Stock stock
-  (ore I32 stock-ore with-stock-ore))
+  (ore I32 stock-ore stock-ore-set))
 (define before (stock 40))
-(define after (with-stock-ore before 42)) ; before still contains 40
+(define after (stock-ore-set before 42)) ; before still contains 40
 ```
 
 Application word counts and snapshot contents are `I32`. The current Scheme

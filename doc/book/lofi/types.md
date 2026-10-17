@@ -289,11 +289,13 @@ including a permutation of binders.
 just as a function definition uses `lambda`:
 
 ```scheme
-(def Flag (datatype () (off) (on)))
+(def Flag (datatype ()
+            (off)
+            (on)))
 (def Display (typeclass (T) (: display-text (-> T String))))
 (def flag-display
-  (instance (Display Flag)
-    (display-text (lambda (flag) (match flag ((off) "off") ((on) "on"))))))
+     (instance (Display Flag)
+               (display-text (lambda (flag) (match flag ((off) "off") ((on) "on"))))))
 ```
 
 A *kind* classifies these static definitions. `Flag` has kind `Type`: it is a
@@ -372,15 +374,18 @@ its type and an optional accessor name.
 
 ```scheme
 (def Tree
-  (datatype (T)
-    (leaf (value T))
-    (branch (left (Tree T)) (right (Tree T)))))
+     (datatype (T)
+       (leaf
+        (value T))
+       (branch
+        (left (Tree T))
+        (right (Tree T)))))
 
 (def leftmost (All (T) (-> (Tree T) T))
-  (lambda (tree)
-    (match tree
-      ((leaf value) value)
-      ((branch left right) (leftmost left)))))
+     (lambda (tree)
+       (match tree
+         ((leaf value) value)
+         ((branch left right) (leftmost left)))))
 ```
 
 Constructor arguments follow field order. `match` evaluates the subject once

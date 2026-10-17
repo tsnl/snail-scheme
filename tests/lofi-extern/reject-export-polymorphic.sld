@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def worker (All (T) (-> T T))
      (lambda (x) x))

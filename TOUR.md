@@ -84,6 +84,7 @@ composition for a native build.
 | [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement and small immutable list operations. |
 | [`wasm-native/`](wasm-native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. |
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
+| [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
 | [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 

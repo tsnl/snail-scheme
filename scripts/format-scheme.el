@@ -2,10 +2,66 @@
 
 (require 'scheme)
 
+(put 'datatype 'scheme-indent-function 1)
+
+(defun snail-format-entries (header-length)
+  "Put each list entry after HEADER-LENGTH elements on its own line."
+  (save-excursion
+    (forward-char)
+    (dotimes (_ header-length)
+      (forward-comment (point-max))
+      (forward-sexp))
+    (forward-comment (point-max))
+    (while (eq (char-after) ?\()
+      (unless (save-excursion (skip-chars-backward " \t") (bolp))
+        (delete-horizontal-space)
+        (insert "\n"))
+      (forward-sexp)
+      (forward-comment (point-max)))))
+
+(defun snail-format-datatype ()
+  "Put each datatype constructor's fields on their own lines."
+  (save-excursion
+    (snail-format-entries 2)
+    (down-list)
+    (forward-sexp 2)
+    (forward-comment (point-max))
+    (while (eq (char-after) ?\()
+      (snail-format-entries 1)
+      (forward-sexp)
+      (forward-comment (point-max)))))
+
+(defun snail-format-declarations ()
+  "Separate import specifications and record fields, preserving comments."
+  (goto-char (point-min))
+  (while (re-search-forward
+          "(\\(import\\|define-record-type\\|define-immutable-record\\|datatype\\)\\_>"
+          nil t)
+    (let ((form (match-string 1))
+          (start (match-beginning 0))
+          (state (save-excursion (syntax-ppss (match-beginning 0)))))
+      (unless (or (nth 3 state) (nth 4 state))
+        (condition-case nil
+            (progn
+              (save-excursion
+                (goto-char start)
+                (cond
+                 ((equal form "import") (snail-format-entries 1))
+                 ((equal form "define-record-type") (snail-format-entries 4))
+                 ((equal form "define-immutable-record") (snail-format-entries 3))
+                 ((equal form "datatype") (snail-format-datatype))))
+              ;; Import specs are data: (define-record-type alias) is a rename.
+              (when (equal form "import")
+                (goto-char start)
+                (forward-sexp)))
+          ;; An unfinished import owns the remaining buffer, including renames.
+          (scan-error (when (equal form "import") (goto-char (point-max)))))))))
+
 (defun snail-format-buffer ()
-  "Indent Scheme using spaces and Emacs's built-in form rules."
+  "Separate declarations and indent Scheme using spaces and built-in rules."
   (scheme-mode)
   (setq-local indent-tabs-mode nil)
+  (snail-format-declarations)
   (let ((inhibit-message t))
     (indent-region (point-min) (point-max))))
 
@@ -14,7 +70,9 @@
   (with-temp-buffer
     (insert-file-contents file)
     (let ((original (buffer-string)))
-      (snail-format-buffer)
+      (condition-case err
+          (snail-format-buffer)
+        (error (error "%s: %s" file (error-message-string err))))
       (unless (equal original (buffer-string))
         (if check
             (princ (format "%s: needs formatting\n" file)

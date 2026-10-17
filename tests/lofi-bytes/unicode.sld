@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 
 (def encode-scalar (-> I64 I64)
      (lambda (scalar)

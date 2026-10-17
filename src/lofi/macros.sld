@@ -4,8 +4,12 @@
 (define-library (lofi macros)
   (export expand-library-body expansion-required? finish-expansion! rebase-transformers!
           protected-reference? resolve-protected-reference core-syntax-names make-core-definition)
-  (import (scheme base) (scheme cxr) (lofi syntax) (lofi ir)
-          (lofi resolved-library))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi syntax)
+   (lofi ir)
+   (lofi resolved-library))
   (begin
 
     ;; ---- Identifier identity and definition-site references ----
@@ -14,19 +18,24 @@
     ;; its bodies expand; transformer definition contexts retain this frame.
     (define-record-type <expansion-scope>
       (make-expansion-scope bindings parent) expansion-scope?
-      (bindings expansion-bindings set-expansion-bindings!) (parent expansion-parent set-expansion-parent!))
+      (bindings expansion-bindings set-expansion-bindings!)
+      (parent expansion-parent set-expansion-parent!))
     (define (extend-environment bindings parent) (make-expansion-scope bindings parent))
     (define (environment-bindings environment)
       (if environment (append (expansion-bindings environment) (environment-bindings (expansion-parent environment))) '()))
     (define-record-type <introduction>
       (make-introduction parent environment) introduction?
-      (parent introduction-parent) (environment introduction-environment))
+      (parent introduction-parent)
+      (environment introduction-environment))
     (define-record-type <lexical-binding>
       (new-lexical-binding name context emitted definition transformer space loc) lexical-binding?
-      (name lexical-name) (context lexical-context) (emitted lexical-emitted set-lexical-emitted!)
+      (name lexical-name)
+      (context lexical-context)
+      (emitted lexical-emitted set-lexical-emitted!)
       (definition lexical-definition set-lexical-definition!)
       (transformer lexical-transformer set-lexical-transformer!)
-      (space lexical-space set-lexical-space!) (loc lexical-loc))
+      (space lexical-space set-lexical-space!)
+      (loc lexical-loc))
     (define (make-lexical-binding name context emitted definition transformer)
       (new-lexical-binding name context emitted definition transformer 'term #f))
     (define current-namespace (make-parameter 'term))
@@ -37,13 +46,16 @@
                    (memq (binding-kind (lexical-definition binding)) '(datatype typeclass instance overload syntax syntax-form))))))
     (define-record-type <protected-reference>
       (make-protected-reference definition name loc) protected-reference?
-      (definition protected-definition) (name protected-name) (loc protected-loc))
+      (definition protected-definition)
+      (name protected-name)
+      (loc protected-loc))
     (define (resolve-protected-reference reference)
       (or (protected-definition reference)
           (error "unbound definition-site identifier" (protected-loc reference) (protected-name reference))))
     (define-record-type <transformer>
       (make-transformer rules environment) transformer?
-      (rules transformer-rules) (environment transformer-environment))
+      (rules transformer-rules)
+      (environment transformer-environment))
     (define core-syntax-names
       '(def lambda if let begin library-begin ann inst match datatype typeclass instance
             define-overload define-extern syntax-rules define-syntax
@@ -136,7 +148,9 @@
     ;; retains its variable list so zero matches still produces empty captures.
     (define-record-type <rule>
       (make-rule pattern variables template) rule?
-      (pattern rule-pattern) (variables rule-variables) (template rule-template))
+      (pattern rule-pattern)
+      (variables rule-variables)
+      (template rule-template))
     (define (pattern-variables pattern)
       (case (car pattern)
         ((variable) (list (cadr pattern)))
@@ -649,7 +663,10 @@
   (cond-expand
    (snail-tests
     (export test-macros)
-    (import (wasm-native test-utils) (lofi reader) (lofi syntax-parser))
+    (import
+     (wasm-native test-utils)
+     (lofi reader)
+     (lofi syntax-parser))
     (begin
       (define (expanded-datum text)
         (let-values (((forms macros scope)
