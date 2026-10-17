@@ -53,6 +53,62 @@
                       (rect (- x 24) (+ y 27) (quotient (* (world-hull world) 48) 300) 4 6619039))
                 (outline (- x 25) (- y 25) 50 50 6642313))))
 
+    ;; ---- Planned rail paths and one physical shuttle per completed link ----
+
+    (define (horizontal-rails x y color opacity)
+      (list (quad x (- y 4) cell-size 2 color opacity)
+            (quad x (+ y 3) cell-size 2 color opacity)
+            (quad (+ x 8) (- y 6) 2 12 color opacity)
+            (quad (+ x 28) (- y 6) 2 12 color opacity)))
+    (define (vertical-rails x y color opacity)
+      (list (quad (- x 4) y 2 cell-size color opacity)
+            (quad (+ x 3) y 2 cell-size color opacity)
+            (quad (- x 6) (+ y 8) 12 2 color opacity)
+            (quad (- x 6) (+ y 28) 12 2 color opacity)))
+    ;; The model supplies adjacent cardinal cells, including both endpoints.
+    ;; Display never chooses a new parent or a replacement route.
+    (define (rail-segment from to cx cy color opacity)
+      (let ((x (screen-x (cell-x (index-x from)) cx))
+            (y (screen-y (cell-y (index-y from)) cy))
+            (tx (screen-x (cell-x (index-x to)) cx))
+            (ty (screen-y (cell-y (index-y to)) cy)))
+        (if (= y ty) (horizontal-rails (if (< x tx) x tx) y color opacity)
+            (vertical-rails x (if (< y ty) y ty) color opacity))))
+    (define (rail-path-quads path cx cy color opacity)
+      (if (or (null? path) (null? (cdr path))) (empty-list)
+          (let ((from (car path)) (to (car (cdr path))))
+            (append (if (or (on-screen? (index-x from) (index-y from) cx cy)
+                            (on-screen? (index-x to) (index-y to) cx cy))
+                        (rail-segment from to cx cy color opacity) (empty-list))
+                    (rail-path-quads (cdr path) cx cy color opacity)))))
+    (define (rail-active? world rail)
+      (let ((source (find-building (world-buildings world) (rail-source rail))))
+        (and (not (null? source)) (ready? (car source)))))
+    (define (rail-quads world rails cx cy)
+      (if (null? rails) (empty-list)
+          (append (rail-path-quads (rail-path (car rails)) cx cy 9352916
+                                   (if (rail-active? world (car rails)) 200 65))
+                  (rail-quads world (cdr rails) cx cy))))
+    (define (shuttle-body rail x y)
+      (append (list (rect (- x 7) (- y 6) 14 12 1053471)
+                    (rect (- x 10) (- y 4) 3 8 5733241)
+                    (rect (+ x 7) (- y 4) 3 8 5733241))
+              (append (outline (- x 7) (- y 6) 14 12 12565489)
+                      (if (> (rail-cargo rail) 0)
+                          (list (rect (- x 4) (- y 3) 8 6 15641955)) (empty-list)))))
+    (define (one-shuttle rail cx cy)
+      (let ((x (screen-x (rail-x rail) cx)) (y (screen-y (rail-y rail) cy)))
+        (if (and (> x -12) (< x 972) (> y -12) (< y 652))
+            (shuttle-body rail x y) (empty-list))))
+    (define (shuttle-quads world rails cx cy)
+      (if (null? rails) (empty-list)
+          (append (if (rail-active? world (car rails))
+                      (one-shuttle (car rails) cx cy) (empty-list))
+                  (shuttle-quads world (cdr rails) cx cy))))
+    (define (rail-preview-quads world tool x y cx cy)
+      (if (and (= tool 3) (= (placement-reason world tool x y) 0))
+          (rail-path-quads (rail-preview world x y) cx cy 6619039 120) (empty-list)))
+
     ;; ---- Distinct building silhouettes and persistent artillery aim ----
 
     (define (building-color kind)
@@ -77,10 +133,17 @@
              (append (list (rect (- x 14) (- y 10) 28 20 15448892)
                            (rect (- x 9) (- y 15) 18 30 15448892)
                            (rect (- x 6) (- y 6) 12 12 7434023)) (barrel building x y)))
-            (else (list (rect (- x 12) (+ y 9) 24 6 9352916)
-                        (rect (- x 3) (- y 14) 6 29 9352916)
-                        (rect (- x 13) (- y 15) 26 5 12565489)
-                        (rect (- x 7) (- y 22) 14 4 12565489)))))
+            (else (tower-symbol building x y))))
+    (define (tower-symbol building x y)
+      (append (list (rect (- x 12) (+ y 9) 24 6 9352916)
+                    (rect (- x 3) (- y 14) 6 29 9352916)
+                    (rect (- x 13) (- y 15) 26 5 12565489)
+                    (rect (- x 7) (- y 22) 14 4 12565489))
+              (append (if (> (building-stock building) 0)
+                          (list (rect (+ x 7) (+ y 3) 9 8 6619039)) (empty-list))
+                      (if (= (building-armed building) 1)
+                          (cons (rect (- x 6) (- y 6) 12 12 15448892) (barrel building x y))
+                          (empty-list)))))
     (define (building-quads world buildings cx cy)
       (if (null? buildings) (empty-list)
           (let* ((building (car buildings)) (x (screen-x (cell-x (building-x building)) cx))
@@ -103,10 +166,14 @@
                   (if (= (building-level building) 2)
                       (mine-slot-quads building (world-bots world) 1 x y) (empty-list)))
           (empty-list)))
+    (define (construction-symbol building x y)
+      (append (outline (- x 14) (- y 14) 28 28 (building-color (building-kind building)))
+              (list (rect (- x 6) (- y 5)
+                          (if (= (building-stage building) 0) 4
+                              (if (= (building-stage building) 3) 8 12)) 10 15641955))))
     (define (one-building world building x y)
       (append (if (ready? building) (building-symbol building x y)
-                  (append (outline (- x 14) (- y 14) 28 28 (building-color (building-kind building)))
-                          (list (rect (- x 6) (- y 5) (if (= (building-stage building) 0) 4 12) 10 15641955))))
+                  (construction-symbol building x y))
               (append (mine-slots world building x y)
                       (append (list (rect (- x 14) (+ y 24)
                                           (quotient (* (building-hp building) 28) (building-health (building-kind building))) 2 9352916))
@@ -133,7 +200,7 @@
     (define (shots-quads buildings cx cy)
       (if (null? buildings) (empty-list)
           (let ((building (car buildings)))
-            (append (if (and (ready? building) (= (building-kind building) 2) (>= (building-cooldown building) 5))
+            (append (if (and (ready? building) (armed? building) (>= (building-cooldown building) 5))
                         (shot-quads building cx cy) (empty-list))
                     (shots-quads (cdr buildings) cx cy)))))
 
@@ -143,7 +210,7 @@
       (let ((job (bot-job bot)))
         (cond ((= job 7) 15766888) ((= job 10) 15448892)
               ((or (= job 8) (= job 9)) 6619039)
-              ((and (>= job 3) (<= job 6)) 15641955)
+              ((or (= job 11) (and (>= job 3) (<= job 6))) 15641955)
               ((or (= job 1) (= job 2)) 15058886)
               (else 9352916))))
     (define (at-hub? bot)
@@ -192,6 +259,9 @@
             (rect (- x 2) (+ y 7) 4 4 (worker-color bot))
             (rect (- x 5) (- y 12) (if (> (bot-cargo bot) 0) 10 0) 3 (worker-color bot))))
     (define (worker-mark bot x y)
+      (append (if (> (bot-order bot) 0) (outline (- x 4) (- y 21) 8 6 15641955) (empty-list))
+              (worker-job-mark bot x y)))
+    (define (worker-job-mark bot x y)
       (cond ((or (= (bot-job bot) 8) (= (bot-job bot) 9))
              (list (rect (+ x 6) (- y 9) 2 14 6619039) (rect (+ x 3) (- y 10) 7 3 6619039)))
             ((= (bot-job bot) 7)
@@ -269,16 +339,23 @@
       (outline (+ (- (* x cell-size) cx) 1) (+ (- (* y cell-size) cy) 1) 38 38
                (if (= (placement-reason world tool x y) 0) 9352916
                    (if (null? (building-at (world-buildings world) x y)) 15766888 15641955))))
+    (define (ground-quads world tool x y cx cy)
+      (append (field-quads world 0 cx cy)
+              (append (outline (- 0 cx) (- 0 cy) 1920 1440 9352916)
+                      (append (rail-quads world (world-rails world) cx cy)
+                              (rail-preview-quads world tool x y cx cy)))))
+    (define (settlement-quads world cx cy)
+      (append (hub-quads world cx cy)
+              (append (building-quads world (world-buildings world) cx cy)
+                      (append (shuttle-quads world (world-rails world) cx cy)
+                              (bot-quads world (world-bots world) cx cy 0)))))
     (define (colony-view world tool x y cx cy)
       (append (list (rect 0 0 960 640 727577))
-              (append (field-quads world 0 cx cy)
-                      (append (outline (- 0 cx) (- 0 cy) 1920 1440 9352916)
-                              (append (hub-quads world cx cy)
-                                      (append (building-quads world (world-buildings world) cx cy)
-                                              (append (bot-quads world (world-bots world) cx cy 0)
-                                                      (append (enemy-quads world (world-enemies world) cx cy)
-                                                              (append (shots-quads (world-buildings world) cx cy)
-                                                                      (append (cursor world tool x y cx cy) (minimap world cx cy)))))))))))
+              (append (ground-quads world tool x y cx cy)
+                      (append (settlement-quads world cx cy)
+                              (append (enemy-quads world (world-enemies world) cx cy)
+                                      (append (shots-quads (world-buildings world) cx cy)
+                                              (append (cursor world tool x y cx cy) (minimap world cx cy))))))))
 
     ;; ---- Worker roles, actual damage and scheduled threats ----
 
@@ -286,8 +363,12 @@
       (if (null? bots) 0 (+ (if (= (bot-job (car bots)) job) 1 0) (count-job (cdr bots) job))))
     (define (count-at-hub bots)
       (if (null? bots) 0 (+ (if (at-hub? (car bots)) 1 0) (count-at-hub (cdr bots)))))
-    (define (waiting-ore buildings)
-      (if (null? buildings) 0 (+ (building-stock (car buildings)) (waiting-ore (cdr buildings)))))
+    (define (stock-total buildings kind)
+      (if (null? buildings) 0
+          (+ (if (= (building-kind (car buildings)) kind) (building-stock (car buildings)) 0)
+             (stock-total (cdr buildings) kind))))
+    (define (rail-cargo-total rails)
+      (if (null? rails) 0 (+ (rail-cargo (car rails)) (rail-cargo-total (cdr rails)))))
     (define (clock-text tick)
       (string-append (integer-text (quotient tick 600)) ":"
                      (if (< (remainder (quotient tick 10) 60) 10) "0" "")
@@ -319,20 +400,24 @@
     (define (reason-text reason)
       (cond ((= reason 1) "Outside active observation · extend a tower first")
             ((= reason 2) "Rock or water · choose traversable ground")
-            ((= reason 3) "Occupied · select U to upgrade or P to prioritize")
+            ((= reason 3) "Occupied · U: upgrade · P: priority · C: cancel build · T: arm tower")
             ((= reason 4) "Extractor needs a turquoise deposit")
             ((= reason 5) "Keep this deposit available for an extractor")
             ((= reason 6) "No surveyed walking route from the hub")
             ((= reason 7) "Not enough delivered ore")
             ((= reason 8) "Colony capacity reached")
             ((= reason 9) "Run finished · start a new colony")
-            ((= reason 10) "Construction ordered · a worker will deliver the kit")
-            ((= reason 11) "Select an operational mine or tower with an available upgrade")
+            ((= reason 10) "Construction ordered · kit paid at hub")
+            ((= reason 11) "Selected site cannot use that upgrade · check its available actions")
             ((= reason 12) "Upgrade installed")
             ((= reason 13) "Worker assembling at the hub · ready in three seconds")
             ((= reason 14) "Site prioritized · construction, mine staffing and collection")
             ((= reason 15) "Outside map boundary · move the cursor onto the field")
             ((= reason 16) "Seed must be 1–65535; colony unchanged")
+            ((= reason 17) "Build cancelled · refunded")
+            ((= reason 18) "Build cancelled · materials returning to hub")
+            ((= reason 19) "Select an unfinished build")
+            ((= reason 20) "Tower artillery installed · sight and depot remain active")
             (else "Ready to place · workers build, mine, haul and repair")))
     (define (building-name kind)
       (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") (else "OBSERVATION TOWER")))
@@ -353,19 +438,64 @@
                        (if (= (building-level building) 2) " · two mining slots installed"
                            (if (ready? building) " · U: +1 mining slot / 40 ore; needs another worker"
                                " · upgrade after construction")))))
-    (define (tower-detail building)
+    (define (tower-sight-text building)
       (string-append " · sight " (integer-text (building-radius building)) " cells"
                      (if (= (building-level building) 2) " · range upgrade installed"
                          (if (ready? building) " · U: sight 10 / 35 ore" " · upgrade after construction"))))
+    (define (tower-artillery-text building)
+      (if (= (building-armed building) 1) " · artillery installed · 8-cell range · visible threats"
+          (if (ready? building) " · T: add artillery / 50 ore" " · artillery after construction")))
+    (define (selected-rail rails id)
+      (if (null? rails) (empty-list)
+          (if (= (rail-source (car rails)) id) (list (car rails)) (selected-rail (cdr rails) id))))
+    (define (rail-destination world rail)
+      (if (= (rail-parent rail) 0) "hub"
+          (let ((found (find-building (world-buildings world) (rail-parent rail))))
+            (if (null? found) "missing tower"
+                (string-append "tower [" (integer-text (building-x (car found))) ","
+                               (integer-text (building-y (car found))) "]")))))
+    (define (shuttle-text rail)
+      (string-append " · shuttle " (integer-text (rail-cargo rail)) "/32 ore · "
+                     (if (= (rail-returning rail) 1) "returning empty"
+                         (if (> (rail-cargo rail) 0) "travelling upstream" "empty at depot"))))
+    (define (tower-rail-text world building)
+      (let ((found (selected-rail (world-rails world) (building-id building))))
+        (if (null? found) "no connected rail · stock held"
+            (string-append (if (ready? building) "rail to " "planned rail to ")
+                           (rail-destination world (car found))
+                           (if (ready? building) (shuttle-text (car found)) " · opens after construction")))))
+    (define (tower-detail world building)
+      (string-append (tower-sight-text building) (tower-artillery-text building)
+                     "\nDepot stock " (integer-text (building-stock building)) " raw ore · "
+                     (tower-rail-text world building)))
+    (define (project-worker bots id)
+      (if (null? bots) (empty-list)
+          (if (= (bot-order (car bots)) id) (list (car bots)) (project-worker (cdr bots) id))))
+    (define (reserved-worker-text bot)
+      (cond ((= (bot-job bot) 11) "worker collecting kit at hub")
+            ((= (bot-job bot) 10) "worker reserved · waiting for a safe route")
+            ((= (bot-job bot) 7) "reserved worker retreating · kit remains at hub")
+            ((and (= (bot-job bot) 2) (> (bot-cargo bot) 0)) "worker delivering existing ore before kit pickup")
+            ((and (= (bot-job bot) 5) (> (bot-cargo bot) 0)) "worker returning existing kit before pickup")
+            (else "worker reserved · finishing current work before kit pickup")))
+    (define (reserved-kit-text world building)
+      (let ((found (project-worker (world-bots world) (building-id building))))
+        (string-append " · kit at hub · "
+                       (if (null? found) "awaiting worker" (reserved-worker-text (car found)))
+                       " · C: cancel + refund")))
+    (define (construction-text world building)
+      (cond ((ready? building) " · operational")
+            ((= (building-stage building) 1) " · kit in transit · C: cancel; refund on hub return")
+            ((= (building-stage building) 3) (reserved-kit-text world building))
+            (else " · kit waiting at hub · C: cancel + refund")))
     (define (building-detail world building)
       (string-append (building-name (building-kind building))
-                     (if (= (building-stage building) 0) " · kit waiting at hub"
-                         (if (= (building-stage building) 1) " · worker delivering construction kit" " · operational"))
+                     (construction-text world building)
                      " · " (integer-text (building-hp building)) " health"
                      (if (= (building-kind building) 1)
                          (mine-detail world building)
                          (if (= (building-kind building) 3)
-                             (tower-detail building)
+                             (tower-detail world building)
                              " · automatic aim · 8-cell range · visible threats"))))
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
@@ -380,9 +510,23 @@
       (string-append "Mining " (integer-text (count-job bots 8)) " (+" (integer-text (count-job bots 9)) " incoming) · "
                      "hauling " (integer-text (+ (count-job bots 1) (count-job bots 2))) " · "
                      "building/repair " (integer-text (+ (count-job bots 3) (count-job bots 4))) " · "
+                     "kit pickup " (integer-text (count-job bots 11)) " · "
                      "kit return " (integer-text (count-job bots 5)) "\n"
                      "Retreating " (integer-text (count-job bots 7)) " · blocked by danger " (integer-text (count-job bots 10)) " · "
                      "idle " (integer-text (count-job bots 0)) " · assembling " (integer-text (count-job bots 6))))
+    (define (reserved-worker-count bots)
+      (if (null? bots) 0
+          (+ (if (> (bot-order (car bots)) 0) 1 0) (reserved-worker-count (cdr bots)))))
+    (define (refund-pending? bot)
+      (and (= (bot-target bot) 0) (> (bot-cargo bot) 4)
+           (or (= (bot-job bot) 5) (and (= (bot-job bot) 7) (= (bot-timer bot) 5)))))
+    (define (refund-pending-count bots)
+      (if (null? bots) 0
+          (+ (if (refund-pending? (car bots)) 1 0) (refund-pending-count (cdr bots)))))
+    (define (worker-orders-text bots)
+      (string-append "Reserved for next build " (integer-text (reserved-worker-count bots))
+                     " (included in roles above) · cancelled kits awaiting refund "
+                     (integer-text (refund-pending-count bots)) "\n"))
     (define (sheltering-count bots)
       (if (null? bots) 0
           (+ (if (and (at-hub? (car bots)) (= (bot-job (car bots)) 10)) 1 0)
@@ -395,11 +539,14 @@
       (string-append "COLONY " (integer-text (list-size (world-bots world))) "/12 · "
                      "AT HUB " (integer-text (count-at-hub (world-bots world))) " · lost "
                      (integer-text (world-casualties world)) " workers / " (integer-text (world-lost-ore world)) " ore\n"
-                     (worker-work-text (world-bots world)) "\n" (shelter-text world)))
+                     (worker-work-text (world-bots world)) "\n"
+                     (worker-orders-text (world-bots world)) (shelter-text world)))
     (define (economy-text world)
-      (string-append (integer-text (world-credits world)) " ORE · HUB " (integer-text (world-hull world)) "/300 · "
+      (string-append (integer-text (world-credits world)) " SPENDABLE ORE · HUB " (integer-text (world-hull world)) "/300 · "
                      (clock-text (world-tick world)) "/8:00 · seed " (integer-text (world-seed world)) "\n"
-                     "Mine stock " (integer-text (waiting-ore (world-buildings world))) " · delivered "
+                     "Mine stock " (integer-text (stock-total (world-buildings world) 1))
+                     " · depot stock " (integer-text (stock-total (world-buildings world) 3))
+                     " · rail cargo " (integer-text (rail-cargo-total (world-rails world))) " raw ore · delivered "
                      (integer-text (world-delivered world)) " · defeated " (integer-text (world-kills world)) "\n"))
     (define (order-text world)
       (string-append "Last order: " (reason-text (world-notice world)) " · Auto repair "
@@ -410,5 +557,6 @@
                      (warning-text world) "\n"
                      (damage-status world) (economy-text world) (population-text world)
                      "Ants: teal mining · pale hauling · gold kits · coral retreat · amber wait · gray idle\n"
+                     "Gold marker above worker = reserved for a new build · shuttles: gold load / hollow empty\n"
                      "Mine slots: filled = mining · amber outline = incoming · gray = empty\n"
                      (selection-text world tool x y) "\n" (order-text world)))))

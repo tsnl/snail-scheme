@@ -1,4 +1,73 @@
-# Staffed colony validation
+# Siegework validation
+
+## Outpost logistics candidate
+
+The 2026-10-17 outpost candidate uses generation `d1105da2b285bc57b308159b`,
+world/client schema 5 and a 10,240-word world snapshot. It is tested in a separate
+package on port 4181; the live schema-4 checkpoint on 4175 is unchanged.
+
+All 33 game scenarios pass against the compiled Scheme/Wasm: the previous 20
+colony and encounter scenarios plus 13 logistics cases. The new cases exercise
+uncollected and carried cancellation refunds, pause/restore during a return,
+nearest-worker preemption including a miner, loaded hauler and repairer, usable
+route distance across a wall, cancellation without losing unrelated cargo,
+reservation release on worker death, actual depot unloading, two-hop freight,
+empty returns without duplicate income, tower arming with zero kill income,
+endpoint-loss accounting/reconnection, and rejected malformed ownership.
+A separate compiled defended run exterminates the siege at tick 4488 with the
+hub at 300 health and 26 kills. Resource conservation is checked through the run;
+this is a possible winning layout, not a difficulty or balance claim.
+
+After rebasing the outpost commits onto asynchronous runtime `67ad1ca2`, all 33
+game scenarios and the ten tiny-Wasm async boundary checks pass together. The
+merge retains awaited mutations and schema-5 assertions. Game Scheme sources and
+compiler dependencies are unchanged, so this run reuses the verified game and
+async fixture artifacts without recompilation. Evidence is in
+`build/playtest/logistics-async-rebase.log`; this does not claim that the older
+schema-4 failure wrappers were rerun against the schema-5 game.
+
+Actual Chromium 152 keyboard and pointer input on isolated DevTools port 9345
+placed a paused build, cancelled it with C and observed the refund in two clients.
+T armed a completed tower without replacing its identity, depot or rail service.
+Workers then unloaded ore nearby and rail freight reached the hub. Real WebGPU
+readback and `build/siegework-logistics/logistics.png` show the resulting colony,
+with exact status and scene provenance in `logistics-browser.json`. This scene
+was built through controls, not loaded from a simulation fixture. The adapter
+is isolated SwiftShader Vulkan; it is not hardware or Firefox stability evidence.
+
+The full two-client browser suite also passes on this package. It reaches combat
+with ore in transit, preserves the shared manual pause through visibility changes,
+and activates changed compatible Wasm while preserving the entire colony,
+overscrolled camera and pending request. Incompatible run-marker offsets, shaders
+and schemas are rejected; a valid package recovers. GPU boundary pixels, rejected
+margin placement and resumed simulation are checked. The freight scenario
+separately pauses and restores a loaded shuttle and verifies its frozen frame.
+
+`make test`, `make check`, `scripts/test-build`, app Scheme formatting, JavaScript
+syntax and whitespace checks pass. The main candidate compiled in 15 minutes
+13.82 seconds, using 913.12 seconds of user CPU; the separate compatible-game
+fixture took 15 minutes 46.34 seconds and 946.03 seconds of user CPU. These are
+measured development costs, not compiler profiling. The checkpoint's full hosted
+CI passed, with its serial application job taking 49 minutes 55 seconds; the
+outpost follow-up has not yet run hosted CI.
+
+A read-only upgrade preflight validated the latest checkpoint save with both
+codecs. It retained revision 63842, epoch, seed 2, tick 4620, 644 ore, 13 buildings
+and 12 workers. The candidate changes the schema word, clears the obsolete source
+mine IDs on seven ore-returning workers, and appends zero-initialized new storage.
+No live state was written and no package was switched. Evidence is recorded in
+`build/playtest/outpost-upgrade-preflight.json`; this is not an automatic migration.
+
+Fresh source-free Astra Max explanation/debate passes covered logistics ownership
+and presentation. One current cargo and one next-build reservation per worker
+represent preemption directly; there is no separate courier/builder protocol.
+Fixed links to older connected towers make the network acyclic, with one bounded
+shuttle per link. Casualties settle before broken links lose cargo and reconnect.
+Removing the reservation or empty return leg would lose the required ownership
+or throughput behavior. Codec rows and exhaustive job/cargo transitions remain
+cohesive exceptions to the ten-line function target.
+
+## Staffed colony checkpoint
 
 The 2026-10-17 staffed-colony package uses generation
 `e11ebb903197e057398944d0`, world/client schema 4, Node 24.19.0 and Chromium

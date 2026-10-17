@@ -6,6 +6,7 @@ import {colony} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
+import {checkLogistics} from './colony-logistics.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {Authority} from '../../src/application/authority.mjs';
 import {openStore} from '../../src/application/sqlite.mjs';
@@ -218,5 +219,6 @@ await test('Scheme run markers atomically bind accepted restarts, epochs and ret
 });
 await checkColony(test, fresh, call);
 await checkEncounters(test, fresh, call);
+await checkLogistics(test, fresh, call);
 await checkAsyncRuntime(test, fixture);
 console.log(`${passed} application integration checks passed`);

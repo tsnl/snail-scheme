@@ -32,7 +32,7 @@ players. Manual pause survives visibility changes, compatible code reload and
 authority restart. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 4**. Older prototype and colony
+This version uses **world and client schema 5**. Older prototype and colony
 matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
 fresh colony, retaining the old package and `match.sqlite` together. For example,
 build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
@@ -57,6 +57,9 @@ are workers, with turquoise cargo when hauling ore.
    finish construction. Blueprints require currently visible ground and a walking
    route through surveyed terrain. Remembered, shaded terrain stays on the map
    after a tower falls, but it does not show current enemies or permit new orders.
+   Completed towers also accept ore. Placement chooses an automatic railway to
+   a nearby connected tower or the hub; its preview shows the proposed route.
+   Ore becomes spendable only when freight reaches the hub.
 4. Choose what the next delivery buys: another worker, a richer distant mine,
    an extra mining slot, wider observation, or another gun. More extraction can
    pile up at a mine when the same workers are busy building or travel is long.
@@ -69,10 +72,11 @@ first step: the workers still need a known route to build and service it.
 | --- | --- |
 | Extractor | 40 ore; one worker slot, producing 2, 3 or 6 ore/sec when occupied; 120-ore buffer. |
 | Artillery | 50 ore; automatic visible-target fire within eight cells. |
-| Observation tower | 25 ore; seven-cell sight radius when completed. |
+| Observation tower | 25 ore; seven-cell sight, ore depot and automatic upstream railway when completed. |
 | Assemble worker | 25 ore; ready at the hub after three seconds, up to 12 workers. |
 | Upgrade extractor | 40 ore; adds a second worker slot, once. Empty slots produce nothing. |
 | Upgrade tower | 35 ore; increases its sight radius from seven to ten cells, once. |
+| Arm tower | 50 ore; adds artillery while retaining its sight, depot and railway. |
 | Automatic repair | 4 ore per 25 health; keeps 40 ore in reserve, one kit at a time. |
 
 Three workers and 160 ore start each run. A worker parked in a mine produces its
@@ -83,10 +87,27 @@ and low stock at fully occupied mines calls for more extraction. A lone survivin
 worker alternates mining and hauling so recovery can continue.
 
 Workers take nearby reachable work from their actual position. Prioritizing a
-site favors its construction, staffing and collection. Kits still require a hub
-pickup and ore must reach the hub before spending. Construction and repairs keep
-hauling capacity when possible. Repairs cover the hub and structures with one
-paid kit at a time and a 40-ore reserve.
+site favors its construction, staffing and collection. A new build order immediately
+reserves the closest eligible worker by safe walking distance, including a busy
+miner or hauler. The worker delivers carried ore or returns a repair kit before
+collecting the construction kit at the hub. Workers already building, assembling
+or fleeing keep their commitments; an order waits if nobody is available.
+Repairs cover the hub and structures with one paid kit at a time and a 40-ore reserve.
+
+**Cancel build** removes the unfinished site. A kit still at the hub is refunded
+immediately. A kit already being carried returns physically to the hub before its
+refund; losing that carrier also loses the refund. Cancellation releases a reserved
+worker without discarding unrelated ore or repair supplies. Completed sites cannot
+be cancelled or demolished.
+
+Haulers choose the nearest reachable connected depot or hub. Each automatic rail
+has one shuttle carrying up to **32 ore**, with a visible empty return journey.
+Freight may pass through several towers; depot stock and rail cargo are not
+spendable. A route remains fixed while its endpoints survive. When a tower falls,
+freight on its broken links is lost and surviving depots seek a new upstream
+connection. The rails themselves do not block walking or take damage. Arming a
+tower keeps all its logistics roles and uses the same eight-cell fire range as
+standalone artillery.
 
 Workers flee nearby attackers and wait when no safe route exists. Defend supply
 lines with artillery to make them usable again. Workers and completed buildings
@@ -119,6 +140,8 @@ seed. Invalid input keeps the current colony. Seed 1 is the original layout.
 | Assemble worker | F | Left trigger |
 | Prioritize site under cursor | P | Right trigger |
 | Upgrade site under cursor | U | Left bumper |
+| Cancel unfinished site under cursor | C | Left stick click |
+| Arm tower under cursor | T | Right stick click |
 | Toggle automatic repairs | R | Right bumper |
 | Return camera and cursor home | H | View |
 | Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
@@ -130,10 +153,12 @@ perimeter show where the playable field ends; the minimap separates that boundar
 from the visible camera area. Hovering the margin is allowed, but placing there
 is rejected without moving the order onto a neighboring cell.
 
-To upgrade or prioritize, **hover or move the cursor onto an existing site, then
-use U/P or its button**. Clicking is a placement command, not a selection mode.
+To upgrade, prioritize, cancel or arm, **hover or move the cursor onto an existing
+site, then use U/P/C/T or its button**. Clicking is a placement command, not a selection mode.
 Field status names the site, its buffer, workers collecting from it and any
-remaining upgrade. It also explains placement failures and labels the last order
+remaining upgrade. Reserved workers retain their current job marker, with a gold
+construction commitment mark. The status separates mine stock, depot stock,
+freight and refunds still returning to the hub. It also explains placement failures and labels the last order
 separately from the current placement preview.
 
 Eastern waves arrive each minute. An announced raid at 3:30 targets an outer
