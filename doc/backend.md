@@ -2,7 +2,7 @@
 
 The compiler implementation runs in Chibi and emits Wasm from `.sld` inputs.
 Ordinary Scheme build scripts import that compiler and the separate
-[Wasm-to-native package](../wasm-native/README.md) to compose native builds.
+[Wasm-to-native package](../src/native/README.md) to compose native builds.
 Hygienic macros and the initial Scheme base forms expand to the same typed core.
 Full Scheme support and self-hosting remain deferred.
 
@@ -20,15 +20,18 @@ Binaryen is mandatory for both execution routes. The preflight checks `wasm-as`,
 `wasm-opt`, `wasm-dis` and `wasm-merge`. Tool overrides are `CHIBI`, `NODE`,
 `CARGO`, `WASM_AS`, `WASM_OPT`, `WASM_DIS` and `WASM_MERGE`; native builds also
 use `LLVM_OPT`, `LLC` and `RUSTC`. An invalid override fails explicitly. Cargo
-builds the single runtime crate at `wasm-native/Cargo.toml` offline, so dependencies must
-already be available locally. Rust `cfg` selects the Wasm or native runtime
-implementation; filesystem and other scalar services share the same sources.
+builds offline, so dependencies must already be available locally.
+`src/native/runtime/Cargo.toml` supplies the scalar services for both Wasm and
+native, using Rust `cfg` for platform behavior. The separate native crate at
+`src/native/Cargo.toml` adds the collector and execution support. Wasm builds
+select the scalar crate explicitly and do not compile the native crate.
 
 Repository Scheme scripts use explicit search roots:
-`chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" SCRIPT ...`.
-The standalone package needs only `-I "$package/scheme"` and installed Chibi/SRFI
-libraries; its tests additionally use `-I "$package/tests"`.
-`(wasm-native runtime-wasm)` builds and links the runtime's Wasm form without
+`chibi-scheme -I "$repo/bootstrap" SCRIPT ...`.
+The same loader view exposes the standalone `(native)` package and its own
+dependencies, alongside installed Chibi/SRFI libraries. Package tests additionally
+use `-I "$repo/src/native/tests"`. Absolute paths work outside the repository root.
+`(native runtime-wasm)` builds and links the runtime's Wasm form without
 importing native lowering. The compiler likewise imports only the neutral Wasm,
 optimization and host utilities it needs from the package.
 
@@ -56,18 +59,18 @@ unsupported names. Ordinary builds may use `native`, whose meaning depends on
 the build host. Host build scripts and the supervisor retain their existing
 flags. A saved ELF object retains its original instructions when linked later;
 its guest CPU stays unknown in build evidence, separately from the new Rust CPU
-selection. See the [package build API](../wasm-native/README.md#scheme-build-api).
+selection. See the [package build API](../src/native/README.md#scheme-build-api).
 
 Native array length and element accesses emit checked LLVM header loads and
 address calculations with the validated storage width. Allocation and bulk copy
-stay in Rust; the [package representation contract](../wasm-native/README.md#native-array-representation)
+stay in Rust; the [package representation contract](../src/native/README.md#native-array-representation)
 describes the layout, traps and compatibility exports.
 
-The Nix shell sets `RUSTC_WRAPPER` to `wasm-native/scripts/rustc-native`. This
+The Nix shell sets `RUSTC_WRAPPER` to `src/native/scripts/rustc-native`. This
 small Scheme wrapper also supplies the native linker for Cargo's host build scripts during
 Wasm builds. It preserves Cargo's selected compiler, explicit target and linker.
 On x86-64 Linux outside the Nix shell, enable it from the checkout with
-`export RUSTC_WRAPPER="$PWD/wasm-native/scripts/rustc-native"` before running Cargo directly.
+`export RUSTC_WRAPPER="$PWD/src/native/scripts/rustc-native"` before running Cargo directly.
 Native executable builds configure their linker and default to this wrapper,
 preserving an explicit override. They pass a native Cargo target so shared-LTO
 flags reach only target crates, leaving host build scripts to the wrapper.
@@ -76,7 +79,7 @@ flags reach only target crates, leaving host build scripts to the wrapper.
 working directory, with `repo` set to the checkout's absolute path:
 
 ```sh
-chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
+chibi-scheme -I "$repo/bootstrap" "$repo/build.scm" \
   "$repo" "$repo/examples/native/answer.sld" answer \
   "$repo/examples/native/entry.rs" /tmp/lofi-answer
 /tmp/lofi-answer
@@ -96,8 +99,8 @@ Initialize it before running the aggregate checks:
 git submodule update --init benchmarks/r7rs-benchmarks
 make test
 make check
-cargo test --manifest-path wasm-native/Cargo.toml --offline
-cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check
+cargo test --manifest-path src/native/Cargo.toml --offline
+cargo fmt --manifest-path src/native/Cargo.toml --all -- --check
 scripts/test-build
 scripts/test-backend
 scripts/test-native
@@ -158,7 +161,7 @@ For compiler depth diagnostics, run
 checkout's module roots:
 
 ```sh
-chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" \
+chibi-scheme -I "$repo/bootstrap" \
   tests/lofi-generation/compile-cost.scm 64 128 256 512
 ```
 

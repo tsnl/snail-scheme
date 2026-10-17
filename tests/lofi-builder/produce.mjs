@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {loadWasm, InitializationError} from '../../src/lofi/execute.mjs';
-import {openLibraryBuilder, invokeLibraryGenerator, libraryTransferJSON} from '../../src/lofi/library-builder.mjs';
+import {loadWasm, InitializationError} from '../../src/lofi/compiler/execute.mjs';
+import {openLibraryBuilder, invokeLibraryGenerator, libraryTransferJSON} from '../../src/lofi/compiler/builder.mjs';
 import {scalars} from './scalars.mjs';
 
 const directory = process.argv[2];

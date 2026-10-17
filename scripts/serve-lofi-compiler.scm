@@ -6,15 +6,15 @@
  (scheme read)
  (scheme write)
  (scheme process-context)
- (wasm-native json)
- (lofi frontend)
+ (native json)
+ (lofi compiler frontend)
  (lofi compiler bootstrap)
- (lofi library-transfer)
- (lofi reader)
- (lofi syntax-parser)
- (lofi source)
- (lofi primitives)
- (wasm-native chromium-trace))
+ (lofi compiler library-transfer)
+ (lofi compiler reader)
+ (lofi compiler syntax-parser)
+ (lofi compiler source)
+ (lofi compiler primitives)
+ (native chromium-trace))
 
 ;; ---- Session-owned parsed values and immutable maps ----
 

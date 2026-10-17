@@ -1,20 +1,20 @@
 ;; A concrete build recipe: compile a public Lofi entry to Wasm, then pass
 ;; those bytes to the independently imported native backend and Cargo linker.
 ;; From any working directory, using absolute paths:
-;;   chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
+;;   chibi-scheme -I "$repo/bootstrap" "$repo/build.scm" \
 ;;     "$repo" "$repo/examples/native/answer.sld" answer \
 ;;     "$repo/examples/native/entry.rs" /tmp/lofi-answer
 (import
  (scheme base)
  (scheme process-context)
  (chibi filesystem)
- (wasm-native)
- (wasm-native process)
- (wasm-native chromium-trace)
+ (native)
+ (native process)
+ (native chromium-trace)
  (lofi compiler bootstrap)
- (lofi source-driver)
- (only (lofi frontend) make-primitive-library)
- (only (lofi primitives) primitive-names))
+ (lofi compiler source-driver)
+ (only (lofi compiler frontend) make-primitive-library)
+ (only (lofi compiler primitives) primitive-names))
 
 ;; ---- Explicit build inputs ----
 
@@ -26,7 +26,7 @@
 (define selected (string->symbol (list-ref arguments 2)))
 (define rust-entry (absolute-path (list-ref arguments 3)))
 (define output (absolute-path (list-ref arguments 4)))
-(define runtime-root (path-join root "wasm-native"))
+(define runtime-root (path-join root "src/native"))
 (when (or (paths-alias? output source) (paths-alias? output rust-entry))
   (error "build output must not replace an input"))
 (define directory (make-build-directory (path-directory output) "lofi-build-"))

@@ -2,7 +2,7 @@
 ;; It rebuilds syntax and copied literal payloads while keeping binder identities.
 (define-library (builder rebuild)
   (import
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (only (lofi primitive) empty-list cons car cdr null?))
   (export rebuild-library)
   (begin

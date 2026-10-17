@@ -118,7 +118,7 @@
   (cond-expand
    (snail-tests
     (export test-reference-audits)
-    (import (wasm-native test-utils) (srfi 130))
+    (import (native test-utils) (srfi 130))
     (begin
       (define (replace-audit text before after)
         (let ((offset (string-cursor->index text (string-contains text before))))

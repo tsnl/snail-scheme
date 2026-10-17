@@ -11,13 +11,13 @@
           (srfi 1) (srfi 95) (except (chibi filesystem) file-exists?)
           (only (srfi 130) string-contains)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (wasm-native json) (wasm-native process) (wasm-native native-build) (lofi support))
+          (native json) (native process) (native native-build) (lofi support))
   (begin
 
     ;; ---- Corpus and explicit configuration ----
 
     (define benchmark-root (make-parameter (current-directory)))
-    (define (runtime-project-directory root) (path-join root "wasm-native"))
+    (define (runtime-project-directory root) (path-join root "src/native"))
     (define (trim text) (string-trim text char-whitespace?))
     (define tools
       '((CHIBI . "chibi-scheme") (WASM_OPT . "wasm-opt") (WASM_AS . "wasm-as")
@@ -28,7 +28,7 @@
         (CP . "cp") (SHA256SUM . "sha256sum")))
     (define execution-variables
       '(BINARYEN_CORES RUSTUP_TOOLCHAIN RUSTUP_HOME CARGO_HOME NODE_OPTIONS NODE_V8_COVERAGE
-                       LD_PRELOAD SNAIL_NATIVE_GC_INTERVAL SNAIL_GC_STATS SNAIL_GC_HEAP_BYTES SNAIL_GC_MIN_BYTES
+                       LD_PRELOAD
                        RUSTFLAGS RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_ENCODED_RUSTFLAGS CARGO_BUILD_TARGET
                        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER
                        CARGO_TARGET_WASM32_WASIP1_RUSTFLAGS CARGO_TARGET_WASM32_WASIP1_LINKER LD_LIBRARY_PATH LIBRARY_PATH
@@ -68,7 +68,7 @@
               (string-split (run-command! (list "git" "-C" root "ls-files" "-z")) #\null)))
 
     (define (compiler-file? name)
-      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "wasm-native/" "scripts/"))
+      (or (any (lambda (prefix) (string-prefix? prefix name)) '("src/" "scripts/"))
           (member name '("Cargo.toml" "Cargo.lock" "rust-toolchain.toml" "build.rs"))))
 
     (define (campaign-file? name)
@@ -78,12 +78,28 @@
           (string-prefix? "benchmarks/wasm-reference/" name)))
 
     (define (campaign-paths root)
-      (let ((files (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
-                           (relative-files root))))
-        ;; Materialize the bootstrap loader view as ordinary frozen files.
-        ;; Its repository symlink cannot escape into a campaign's live checkout.
-        (sort (append files (map (lambda (path) (string-append "bootstrap/" (substring path 4)))
-                                 (filter (lambda (path) (string-prefix? "src/lofi/" path)) files))) string<?)))
+      (sort (filter (lambda (path) (and (campaign-file? path) (file-regular? (path-join root path))))
+                    (relative-files root)) string<?))
+
+    (define (bootstrap-source? path)
+      (or (string-prefix? "src/lofi/" path) (string-prefix? "src/native/" path)
+          (string=? "src/native.sld" path)))
+
+    (define (freeze-bootstrap-file directory file)
+      (let* ((source (symbol->string (car file)))
+             (relative (string-append "bootstrap/" (substring source 4))))
+        (copy-file (path-join directory source) (path-join directory relative))
+        (cons (string->symbol relative) (cdr file))))
+
+    (define (freeze-campaign-files root destination paths)
+      ;; Build the loader view from the frozen sources, never from live symlinks.
+      (let* ((files (freeze-files root destination paths))
+             (loaded (filter (lambda (file) (bootstrap-source? (symbol->string (car file)))) files)))
+        (append files (map (lambda (file) (freeze-bootstrap-file destination file)) loaded))))
+
+    (define (verify-live-campaign root files)
+      (verify-source-files root
+        (filter (lambda (file) (campaign-file? (symbol->string (car file)))) files)))
 
     (define (freeze-files root destination paths)
       (map
@@ -137,11 +153,11 @@
       (let ((wrapper (field environment 'RUSTC_WRAPPER 'null))
             (workspace (field environment 'RUSTC_WORKSPACE_WRAPPER 'null)))
         (unless (or (not (string? wrapper)) (string=? wrapper "")
-                    (paths-alias? wrapper (path-join root "wasm-native/scripts/rustc-native")))
+                    (paths-alias? wrapper (path-join root "src/native/scripts/rustc-native")))
           (error "benchmark freeze requires the repository Rust compiler wrapper; unset RUSTC_WRAPPER" wrapper))
         (when (and (string? workspace) (not (string=? workspace "")))
           (error "benchmark freeze requires no workspace wrapper; unset RUSTC_WORKSPACE_WRAPPER" workspace))
-        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/wasm-native/scripts/rustc-native"))
+        (fields-with environment (cons 'RUSTC_WRAPPER (path-join directory "source/src/native/scripts/rustc-native"))
                      (cons 'RUSTC_WORKSPACE_WRAPPER 'null))))
 
     (define (check-frozen-native-cpu environment)
@@ -189,7 +205,7 @@
                                                        (path-join (get-environment-variable "HOME") ".cargo")))
                                 (filter (lambda (entry) (not (string=? (car entry) "CARGO_HOME"))) (frozen-environment manifest))))
              (result (record-command directory "vendor-locked-crates"
-                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "wasm-native/Cargo.toml")
+                                     (list (tool manifest 'CARGO) "vendor" "--offline" "--locked" "--manifest-path" (path-join source "src/native/Cargo.toml")
                                            "--sync" (path-join source "benchmarks/wasm-reference/Cargo.toml") destination)
                                      environment source (compile-timeout manifest))))
         (unless (succeeded? result) (error "cannot freeze locked Cargo dependencies" result))
@@ -213,7 +229,7 @@
         (let* ((paths (campaign-paths root))
                (manifest `((format . 2) (kind . "lofi-preparation")
                            (config . ((compile_timeout . ,(timeout-value compile-seconds)) (run_timeout . ,(timeout-value run-seconds))))
-                           (files . ,(freeze-files root (source-directory destination) paths))
+                           (files . ,(freeze-campaign-files root (source-directory destination) paths))
                            (inputs . ,(canonical-data root (path-join destination "data") corpus))
                            (tools . ,(tool-identities)) (cases . ,(list->vector cases)) (measurement . "not-measured")
                            (source_revision . ,(trim (run-command! (list "git" "-C" root "rev-parse" "HEAD"))))
@@ -226,7 +242,7 @@
                                       (cons 'build_dependencies (cons (cons 'toolchain/snail-native-supervisor (file-sha256 supervisor)) (field manifest 'build_dependencies)))
                                       (cons 'execution_environment (fields-with (field manifest 'execution_environment) (cons 'SNAIL_NATIVE_SUPERVISOR supervisor)))))
           (unless (equal? paths (campaign-paths root)) (error "source inventory changed during preparation"))
-          (verify-source-files root (field manifest 'files))
+          (verify-live-campaign root (field manifest 'files))
           (write-json (path-join destination "manifest.json") manifest)
           manifest)))
 
@@ -315,7 +331,7 @@
 
     (define (chibi-command directory manifest script)
       (list (tool manifest 'CHIBI) "-I" (path-join directory "source/bootstrap")
-            "-I" (path-join directory "source/wasm-native/scheme")
+            "-I" (path-join directory "source/bootstrap")
             "-I" (path-join directory "source/benchmarks") (path-join directory "source" script)))
 
     (define (lofi-build directory case source target manifest environment)
@@ -337,7 +353,7 @@
       (let* ((runtime-target (path-join directory "runtime-target"))
              (build (record-command target "runtime-build"
                                     (list (tool manifest 'CARGO) "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--locked"
-                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/wasm-native/Cargo.toml")
+                                          "--release" "--target" "wasm32-wasip1" "--manifest-path" (path-join directory "source/src/native/runtime/Cargo.toml")
                                           "--target-dir" runtime-target) environment (source-directory directory) (compile-timeout manifest))))
         (unless (succeeded? build) (error "Rust scalar runtime build failed" build))
         (copy-file (path-join runtime-target "wasm32-wasip1/release/snail_runtime.wasm") (path-join target "runtime.wasm"))
@@ -569,10 +585,9 @@
 
     (define (native-execution directory case source target manifest environment)
       (let* ((spec (read-json (path-join source "spec.json"))) (working (workload-directory directory source target "lofi-native"))
-             (active (if (assq 'native_heap_bytes spec) (environment-with environment (list (cons "SNAIL_GC_HEAP_BYTES" (number->string (field spec 'native_heap_bytes))))) environment))
              (command (append (list (path-join target "program.native"))
                               (if (string=? (field case 'host) "integer") (list (path-join target "native-input.txt")) '())))
-             (result (record-command target "lofi-native" command active working (run-timeout manifest))))
+             (result (record-command target "lofi-native" command environment working (run-timeout manifest))))
         (cond ((not (and (succeeded? result) (output-files-match? source working target "lofi-native"))) "failed")
               ((string=? (field case 'host) "integer") (if (string=? (field result 'stdout) (field spec 'output)) "passed" "failed"))
               ((string=? (field case 'host) "compiler")
@@ -747,7 +762,7 @@
   (cond-expand
    (snail-tests
     (export test-lofi-runner)
-    (import (wasm-native test-utils) (chibi temp-file))
+    (import (native test-utils) (chibi temp-file))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
@@ -772,6 +787,24 @@
                               (for-each (lambda (name) (expect (rejected? (lambda () (freeze-files root (path-join root "frozen") (list name)))) #t))
                                         '("alias" "../mutable" "/absolute")))))
 
+      (define (test-frozen-loader-view)
+        (call-with-temp-dir "lofi-loader"
+          (lambda (root preserve)
+            (let ((frozen (path-join root "frozen"))
+                  (paths '("src/native.sld" "src/native/process.sld" "src/lofi/compiler.sld")))
+              (for-each (lambda (path)
+                          (create-directory* (path-directory (path-join root path)))
+                          (write-text (path-join root path) path)) paths)
+              (create-directory* (path-join root "bootstrap"))
+              (symbolic-link-file "../src/native.sld" (path-join root "bootstrap/native.sld"))
+              (let ((files (freeze-campaign-files root frozen paths)))
+                (expect (length files) 6)
+                (expect (file-link? (path-join frozen "bootstrap/native.sld")) #f)
+                (verify-live-campaign root files)
+                (write-text (path-join root "src/native.sld") "changed live source")
+                (expect (rejected? (lambda () (verify-live-campaign root files))) #t)
+                (verify-source-files frozen files))))))
+
       (define (test-timeout-contract)
         (for-each (lambda (value) (expect (rejected? (lambda () (timeout-value value))) #t))
                   (list 0 -1 #t (string->number "+nan.0") (string->number "+inf.0")))
@@ -779,7 +812,7 @@
 
       (define (test-frozen-wrapper)
         (let ((environment (frozen-wrapper-environment "/checkout" "/frozen" '())))
-          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/wasm-native/scripts/rustc-native")
+          (expect (field environment 'RUSTC_WRAPPER) "/frozen/source/src/native/scripts/rustc-native")
           (expect (field environment 'RUSTC_WORKSPACE_WRAPPER) 'null))
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WRAPPER . "/unrecorded/wrapper"))))) #t)
         (expect (rejected? (lambda () (frozen-wrapper-environment "/checkout" "/frozen" '((RUSTC_WORKSPACE_WRAPPER . "sccache"))))) #t))
@@ -864,7 +897,7 @@
       (define (validation-fixture directory)
         (for-each (lambda (path) (create-directory* (path-join directory path))) '("source" "data" "toolchain"))
         (let* ((supervisor (path-join directory "toolchain/snail-native-supervisor"))
-               (paths '("benchmarks/lofi/runner.scm" "wasm-native/scheme/wasm-native/process.sld" "wasm-native/scheme/wasm-native/json.sld")))
+               (paths '("benchmarks/lofi/runner.scm" "src/native/process.sld" "src/native/json.sld")))
           (copy-file (path-join (benchmark-root) "tests/lofi-benchmarks/validation-child.scm")
                      (path-join directory "source/benchmarks/lofi/runner.scm"))
           (for-each (lambda (path) (copy-file (path-join (benchmark-root) path) (path-join directory "source" path))) (cdr paths))
@@ -943,7 +976,7 @@
            (validation-fixture directory)
            (let* ((root (benchmark-root))
                   (command (list (find-executable 'CHIBI "chibi-scheme") "-I" (path-join root "bootstrap")
-                                 "-I" (path-join root "wasm-native/scheme") "-I" (path-join root "benchmarks")
+                                 "-I" (path-join root "bootstrap") "-I" (path-join root "benchmarks")
                                  (path-join root "benchmarks/lofi/runner.scm")
                                  "validate-case" "--output" directory "--benchmarks" "signal"))
                   (result (record-command directory "outer-driver-test" command '() root 10))
@@ -1000,6 +1033,7 @@
       (define (test-lofi-runner . execute?)
         (run-test test-frozen-source)
         (run-test test-path-containment)
+        (run-test test-frozen-loader-view)
         (run-test test-timeout-contract)
         (run-test test-frozen-wrapper)
         (run-test test-frozen-native-cpu)

@@ -4,7 +4,7 @@
 import {readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/execute.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
 import {ReducerRuntime} from '../application/runtime.mjs';
 import {parseInputSettings} from './input.mjs';
 import {saveName} from '../application/indexeddb.mjs';
@@ -90,7 +90,7 @@ function checkOutput(output, target) {
 function copyLibraries(root, output, target) {
   const host = target === 'solo' ? ['application/indexeddb.mjs', 'browser/solo.mjs']
     : ['application/sqlite.mjs', 'browser/cloud.mjs', 'browser/server.mjs'];
-  for (const path of ['lofi/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
+  for (const path of ['lofi/compiler/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
     'webgpu/quads.mjs', 'browser/application.mjs', 'browser/input.mjs', ...host]) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
