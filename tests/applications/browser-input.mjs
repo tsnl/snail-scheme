@@ -31,6 +31,15 @@ const page = `<!doctype html><html><body style="margin:0;min-height:3000px">
 <button data-handler="choose" data-args="[3]"><span>Observation tower</span></button>
 <input id="text"><textarea></textarea><select><option>One</option><option>Two</option></select>
 <div contenteditable="true" id="editor"></div><details><summary>Help</summary>Field guide</details>
+<form id="integer-form" data-handler="restart-seed" novalidate>
+  <label for="integer">Next run seed</label><input id="integer" type="text" inputmode="numeric" data-i32 aria-describedby="integer-error">
+  <button id="integer-submit" type="submit">Start this seed</button><p id="integer-error" data-input-error role="alert"></p>
+</form>
+<form id="pair-form" data-handler="position" novalidate>
+  <label for="left">Left</label><input id="left" data-i32 aria-describedby="pair-error">
+  <label for="top">Top</label><input id="top" data-i32 aria-describedby="pair-error">
+  <button type="submit">Set position</button><p id="pair-error" data-input-error role="alert"></p>
+</form>
 <script type="module">
 import {BrowserInput,parseInputSettings} from '/input.mjs';
 globalThis.settings=${JSON.stringify(settings)};
@@ -271,15 +280,70 @@ try {
   assert.deepEqual(await take(), [['move', 0, 0], ['move', 959, 639]]);
   console.log('ok - continuous payloads stay I32; opt-in pointer pixels scale, floor, coalesce, clamp, and precede confirmation');
 
+  await read("document.querySelector('#integer').focus()");
+  for (const value of ['', ' ', '1.5', '1e2', '0x2a', '1_000', 'NaN', 'Infinity', '2147483648', '-2147483649']) {
+    await read(`document.querySelector('#integer').value=${JSON.stringify(value)}`);
+    await press('Enter', 'Enter', 13, {text: '\r'});
+    assert.deepEqual(await take(), [], `invalid integer dispatched: ${value}`);
+    assert.equal(await read("document.querySelector('#integer').getAttribute('aria-invalid')==='true' && document.activeElement.id==='integer' && document.querySelector('#integer-error').textContent.length>0"), true);
+  }
+  const accessibility = await call('Accessibility.getFullAXTree');
+  const integerField = accessibility.nodes.find(node => node.role?.value === 'textbox' && node.name?.value === 'Next run seed');
+  assert.equal(integerField?.properties.some(property => property.name === 'invalid' && property.value.value === 'true'), true);
+  assert.match(integerField?.description?.value ?? '', /whole number/);
+  await read("document.querySelector('#integer').value='';document.querySelector('#integer').dispatchEvent(new Event('input',{bubbles:true}))");
+  await call('Input.insertText', {text: '12345'});
+  assert.deepEqual(await take(), []);
+  assert.equal(await read("document.querySelector('#integer-error').textContent==='' && !document.querySelector('#integer').hasAttribute('aria-invalid')"), true);
+  await press('Enter', 'Enter', 13, {text: '\r'}); assert.deepEqual(await take(), [['restart-seed', 12345]]);
+  for (const [text, value] of [['-2147483648', -2147483648], ['2147483647', 2147483647], ['0', 0], ['65536', 65536], ['+00042', 42], ['  42  ', 42]]) {
+    await read(`document.querySelector('#integer').value=${JSON.stringify(text)}`);
+    await press('Enter', 'Enter', 13, {text: '\r'}); assert.deepEqual(await take(), [['restart-seed', value]]);
+  }
+  await read("document.querySelector('#integer-submit').focus()");
+  await press('Enter', 'Enter', 13, {text: '\r'}); await press(' ', 'Space', 32, {text: ' '});
+  assert.deepEqual(await take(), [['restart-seed', 42], ['restart-seed', 42]]);
+  await read("document.querySelector('#integer-submit').click()"); assert.deepEqual(await take(), [['restart-seed', 42]]);
+  await read("document.querySelector('#left').value='7';document.querySelector('#top').value='1.5';document.querySelector('#pair-form').requestSubmit()");
+  assert.deepEqual(await take(), []); assert.equal(await read('document.activeElement.id'), 'top');
+  await read("document.querySelector('#left').value='-2147483648';document.querySelector('#top').value='2147483647';document.querySelector('#pair-form').requestSubmit()");
+  assert.deepEqual(await take(), [['position', -2147483648, 2147483647]]);
+  console.log('ok - integer forms reject malformed/I32-overflow text accessibly; editing is local; Enter, Space, click and ordered fields dispatch once');
+
+  await read("document.querySelector('canvas').focus();replaceSettings({...continuous});pad.axes=[0,0];pad.buttons.forEach(button=>button.pressed=false);pads=[pad];input.frame(time=0)");
+  await down('d', 'KeyD', 68); await read('pad.axes=[1,0];input.frame(time=16)');
+  assert.deepEqual(await take(), [['drift', 16, 0], ['drift', 16, 0]]);
+  await read("document.querySelector('#integer').focus();pad.buttons[0].pressed=true;input.frame(time=32)");
+  await press('w', 'KeyW', 87, {text: 'w'}); await read('input.frame(time=48)'); assert.deepEqual(await take(), []);
+  await read("document.querySelector('#integer').value='37';document.querySelector('#integer-submit').focus();input.frame(time=64)");
+  await press('w', 'KeyW', 87); assert.deepEqual(await take(), []);
+  await press('Enter', 'Enter', 13, {text: '\r'}); assert.deepEqual(await take(), [['restart-seed', 37]]);
+  await read("document.querySelector('canvas').focus();input.frame(time=80)");
+  await down('d', 'KeyD', 68, {autoRepeat: true}); await read('input.frame(time=96)'); assert.deepEqual(await take(), []);
+  await up('d', 'KeyD', 68); await down('d', 'KeyD', 68); await read('input.frame(time=112)');
+  assert.deepEqual(await take(), [['drift', 16, 0]]); await up('d', 'KeyD', 68);
+  await read('pad.axes=[0,0];pad.buttons[0].pressed=false;input.frame(time=128);pad.axes=[1,0];input.frame(time=144)');
+  assert.deepEqual(await take(), [['drift', 16, 0]]);
+  await read("document.querySelector('#integer').focus();document.querySelector('canvas').focus();input.frame(time=160);input.frame(time=176)");
+  assert.deepEqual(await take(), []);
+  await read('pad.axes=[0,0];input.frame(time=192);pad.axes=[1,0];input.frame(time=208)');
+  assert.deepEqual(await take(), [['drift', 16, 0]]);
+  await read("document.querySelector('#integer').focus();pad.axes=[0,0];input.frame(time=224);pad.axes=[1,0];input.frame(time=240);document.querySelector('canvas').focus();input.frame(time=256);input.frame(time=272)");
+  assert.deepEqual(await take(), []);
+  await read('pad.axes=[0,0];input.frame(time=288);pad.axes=[1,0];input.frame(time=304)');
+  assert.deepEqual(await take(), [['drift', 16, 0]]);
+  console.log('ok - form fields and submit-button focus suspend gameplay, including edits between frames, and require fresh input afterward');
+
   await call('Page.navigate', {url: `${origin}/shell`});
   await until(() => read("document.querySelector('.commands') !== null"), 'Siegework shell did not load');
   for (const width of [360, 680, 900, 1280]) {
     await call('Emulation.setDeviceMetricsOverride', {width, height: 1000, deviceScaleFactor: 1, mobile: false});
-    const layout = await read("(()=>{const c=document.querySelector('canvas').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,ratio:c.width/c.height,targets:[...document.querySelectorAll('button')].every(b=>{const r=b.getBoundingClientRect();return r.width>=40&&r.height>=44})}})()");
+    const layout = await read("(()=>{const c=document.querySelector('canvas').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,ratio:c.width/c.height,targets:[...document.querySelectorAll('button, input')].every(b=>{const r=b.getBoundingClientRect();return r.width>=40&&r.height>=44})}})()");
     assert.equal(layout.overflow, false, `horizontal overflow at ${width}px`);
     assert.ok(Math.abs(layout.ratio - 1.5) < 0.01, `distorted map at ${width}px`);
     assert.equal(layout.targets, true, `small control target at ${width}px`);
   }
+  assert.equal(await read("document.querySelector('form[data-handler=\"restart-seed\"] input[data-i32]').labels[0].textContent"), 'Next run seed');
   const browser = await (await fetch(`${devtools}/json/version`)).json();
   console.log(`ok - Siegework shell fits 360/680/900/1280px with readable control targets (${browser.Browser}); no physical controller tested`);
 } finally {

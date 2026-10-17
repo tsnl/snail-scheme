@@ -82,11 +82,17 @@ export class BrowserInput {
     document.addEventListener('keydown', event => this.pressKey(event));
     document.addEventListener('keyup', event => this.keys.delete(event.code || event.key));
     document.addEventListener('compositionstart', () => this.keys.clear());
-    document.addEventListener('focusin', () => this.keys.clear());
+    // Editing can begin and end between frames; discard held input immediately.
+    document.addEventListener('focusin', event => editable(event.target) ? this.reset() : this.keys.clear());
     document.addEventListener('visibilitychange', () => this.reset());
     window.addEventListener('blur', () => this.reset());
-    for (const button of document.querySelectorAll('[data-handler]'))
-      button.addEventListener('click', () => this.send(command([button.dataset.handler, ...JSON.parse(button.dataset.args ?? '[]')])));
+    this.installControls();
+  }
+  installControls() {
+    for (const element of document.querySelectorAll('[data-handler]')) {
+      if (element instanceof HTMLFormElement) this.installForm(element);
+      else element.addEventListener('click', () => this.send(command([element.dataset.handler, ...JSON.parse(element.dataset.args ?? '[]')])));
+    }
   }
   frame(time) {
     this.syncSettings();
@@ -143,6 +149,26 @@ export class BrowserInput {
     this.movePointer(event, true); this.send([this.settings.pointer.confirm]);
   }
 
+  // ---- Integer forms ----
+
+  installForm(form) {
+    const fields = [...form.querySelectorAll('input[data-i32]')], feedback = form.querySelector('[data-input-error]');
+    if (fields.length < 1 || fields.length > 2 || !feedback)
+      throw new Error('input form requires one or two I32 fields and a data-input-error element');
+    const [binding] = command([form.dataset.handler]);
+    form.addEventListener('submit', event => { event.preventDefault(); this.submitForm(binding, fields, feedback); });
+    form.addEventListener('input', () => clearFormError(fields, feedback));
+  }
+  submitForm(binding, fields, feedback) {
+    this.syncSettings(); this.reset(); clearFormError(fields, feedback);
+    const result = integerFields(fields);
+    if (result.error) {
+      feedback.textContent = result.error; result.field.setAttribute('aria-invalid', 'true');
+      result.field.focus(); return;
+    }
+    this.send([binding, ...result.values]);
+  }
+
   // ---- Controller polling ----
 
   pollController(time, elapsed) {
@@ -184,7 +210,7 @@ export class BrowserInput {
   }
 }
 function editable(element) {
-  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"]'));
+  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"], form[data-handler]'));
 }
 function nativeActivation(event) {
   return (event.key === 'Enter' || event.key === ' ') && Boolean(event.target?.closest('button, a[href], summary, [role="button"]'));
@@ -196,4 +222,19 @@ function scaledI32(value, scale) {
   // Equal magnitudes round symmetrically; saturation preserves the I32 ABI.
   const rounded = Math.sign(value) * Math.round(Math.abs(value) * scale);
   return Math.max(-2147483648, Math.min(2147483647, rounded)) || 0;
+}
+function integerFields(fields) {
+  const values = [];
+  for (const field of fields) {
+    const text = field.value.trim(), value = Number(text);
+    if (!/^[+-]?\d+$/.test(text)) return {field, error: 'Enter a whole number.'};
+    if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647)
+      return {field, error: 'Enter a whole number from -2147483648 to 2147483647.'};
+    values.push(value);
+  }
+  return {values};
+}
+function clearFormError(fields, feedback) {
+  feedback.textContent = '';
+  for (const field of fields) field.removeAttribute('aria-invalid');
 }

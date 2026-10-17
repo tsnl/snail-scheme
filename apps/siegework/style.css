@@ -38,7 +38,7 @@ button {
 }
 button:hover { background: #2a4055; border-color: #80c9c5; }
 button:active { background: #365269; }
-button:focus-visible, summary:focus-visible { outline: 3px solid #9ce2da; outline-offset: 3px; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #9ce2da; outline-offset: 3px; }
 button.primary { background: #234641; border-color: #4d8c82; }
 button.primary:hover { background: #2d5850; }
 kbd { font: 10px ui-monospace, monospace; color: #adc1d2; display: block; margin-bottom: 4px; }
@@ -53,6 +53,15 @@ small { display: block; color: #e0bc7a; font-size: 10px; margin-top: 4px; line-h
 .new-run { margin-top: 10px; width: 100%; background: #151f2c; }
 .run-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
 .new-run kbd { display: inline; margin-right: 12px; }
+.seed-form { display: grid; gap: 7px; margin-top: 16px; border-top: 1px solid #293b4d; padding-top: 14px; }
+.seed-form label { font-size: 12px; font-weight: 600; }
+.seed-form input { min-width: 0; width: 100%; min-height: 44px; border: 1px solid #3e536a; border-radius: 5px; background: #111c2b; color: #edf3f8; padding: 10px 11px; font: 14px ui-monospace, monospace; }
+.seed-form input::placeholder { color: #9aafc3; opacity: 1; }
+.seed-form input[aria-invalid="true"] { border-color: #f0aaa3; }
+.input-help, .input-error { margin: 0; font-size: 11px; line-height: 1.6; }
+.input-help { color: #9aafc3; }
+.input-error { color: #f0aaa3; overflow-wrap: anywhere; }
+.input-error:empty { display: none; }
 footer { display: flex; justify-content: space-between; gap: 24px; color: #9aafc3; font-size: 11px; line-height: 1.8; margin-top: 16px; }
 footer p { margin: 0; }
 footer strong { font-weight: 600; color: #c3d3e1; }
