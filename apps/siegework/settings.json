@@ -19,7 +19,8 @@
     "fabricate-worker",
     "prioritize-building",
     "repair",
-    "new-run"
+    "new-run",
+    "pause-colony"
   ],
   "pointer": {
     "move": "move",
