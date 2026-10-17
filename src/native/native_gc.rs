@@ -107,26 +107,6 @@ pub(crate) struct Config {
     pub maximum: usize,
 }
 
-#[derive(Default)]
-struct Statistics {
-    collections: usize,
-    live_bytes: usize,
-    live_objects: usize,
-    occupied_bytes: usize,
-    allocated_bytes: usize,
-    allocated_objects: usize,
-    peak_live: usize,
-    root_visits: usize,
-    field_visits: usize,
-    reused_holes: usize,
-    large_objects: usize,
-    evacuations: usize,
-    moved_objects: usize,
-    moved_bytes: usize,
-    recovered_blocks: usize,
-    overflow_objects: usize,
-}
-
 pub(crate) struct Collector {
     regions: Vec<Region>,
     // A small bump range retains its owner when a large allocation uses another
@@ -141,13 +121,17 @@ pub(crate) struct Collector {
     needs_defragmentation: bool,
     allocation_order: Vec<usize>,
     heap_bytes: usize,
+    occupied_bytes: usize,
+    collections: usize,
+    moved_objects: usize,
     config: Config,
     work: Vec<*mut u64>,
     watches: Vec<Watch>,
     metadata: Metadata,
-    stats: Statistics,
     #[cfg(feature = "gc-trace")]
     trace: Option<GcTrace>,
+    #[cfg(test)]
+    stats: Statistics,
     #[cfg(test)]
     allocation_failures: AllocationFailures,
     #[cfg(test)]
@@ -172,13 +156,17 @@ impl Collector {
             needs_defragmentation: false,
             allocation_order: Vec::new(),
             heap_bytes: 0,
+            occupied_bytes: 0,
+            collections: 0,
+            moved_objects: 0,
             config,
             work: Vec::new(),
             watches: Vec::new(),
             metadata,
-            stats: Statistics::default(),
             #[cfg(feature = "gc-trace")]
             trace: None,
+            #[cfg(test)]
+            stats: Statistics::default(),
             #[cfg(test)]
             allocation_failures: AllocationFailures::default(),
             #[cfg(test)]
@@ -283,7 +271,6 @@ impl Collector {
         if block.span == 0 {
             self.free_blocks -= 1;
         }
-        self.stats.reused_holes += usize::from(block.live_lines != 0);
         block.lines[first..end].fill(1);
         block.span = 1;
         block.available_lines -= end - first;
@@ -418,7 +405,6 @@ impl Collector {
         }
         owner.used_blocks = owner.used_blocks.max(end);
         owner.search_large = end;
-        self.stats.large_objects += 1;
         let header = unsafe { owner.arena.add(first * BLOCK_SIZE).cast() };
         self.record_start(region, header);
         header
@@ -492,7 +478,10 @@ impl Collector {
         let header = self.overflow.cursor.cast();
         self.overflow.cursor = unsafe { self.overflow.cursor.add(bytes) };
         self.record_start(self.overflow.region, header);
-        self.stats.overflow_objects += 1;
+        #[cfg(test)]
+        {
+            self.stats.overflow_objects += 1;
+        }
         Some(header)
     }
 
@@ -522,7 +511,7 @@ impl Collector {
         unsafe { self.collect(roots) };
         // Headroom uses occupied space, including unusable large-object tails.
         // Optional growth failure must still permit reuse of reclaimed holes.
-        let crowded = self.stats.occupied_bytes > self.heap_bytes - self.heap_bytes / 4;
+        let crowded = self.occupied_bytes > self.heap_bytes - self.heap_bytes / 4;
         if crowded {
             self.grow_heap(bytes);
         }
@@ -557,8 +546,10 @@ impl Collector {
             );
             ptr::write_bytes(header.add(1).cast::<u8>(), 0, bytes);
         }
-        self.stats.allocated_bytes += bytes;
-        self.stats.allocated_objects += 1;
+        #[cfg(test)]
+        {
+            self.stats.allocated_bytes += bytes;
+        }
         unsafe { header.add(1) }
     }
 
@@ -643,7 +634,6 @@ impl Collector {
         let force = self.evacuate_all;
         let enabled = force || unused || self.needs_defragmentation;
         let threshold = self.evacuation_threshold();
-        let mut candidates = 0;
         for block in self
             .regions
             .iter_mut()
@@ -652,7 +642,6 @@ impl Collector {
             block.marks.fill(0);
             block.evacuate =
                 enabled && block.span == 1 && !block.large && (force || block.holes >= threshold);
-            candidates += usize::from(block.evacuate);
         }
         self.discard_candidate_cursors();
         for region in &mut self.regions {
@@ -667,7 +656,6 @@ impl Collector {
                 })
                 .count();
         }
-        self.stats.evacuations += usize::from(candidates != 0);
         self.evacuation_exhausted = false;
         self.collecting = true;
     }
@@ -716,8 +704,7 @@ impl Collector {
             );
             header.write(destination as u64 | ALLOCATED | FORWARDED);
         }
-        self.stats.moved_objects += 1;
-        self.stats.moved_bytes += bytes;
+        self.moved_objects += 1;
         destination
     }
 
@@ -777,7 +764,6 @@ impl Collector {
         while !frame.is_null() {
             let count = unsafe { (*frame).count };
             assert!(count <= unsafe { (*frame).capacity });
-            self.stats.root_visits += count as usize;
             // The ABI frame extends beyond its zero-length array declaration.
             // Preserve the enclosing allocation's raw provenance; borrowing
             // that empty Rust array would only authorize its zero-byte extent.
@@ -787,13 +773,11 @@ impl Collector {
             }
             frame = unsafe { (*frame).previous };
         }
-        self.stats.root_visits += self.metadata.globals.len();
         for index in 0..self.metadata.globals.len() {
             unsafe { self.mark(self.metadata.globals[index].cast_mut()) };
         }
         for index in 0..self.metadata.tables.len() {
             let table = unsafe { &*self.metadata.tables[index] };
-            self.stats.root_visits += table.length as usize;
             for cell in 0..table.length as usize {
                 unsafe { self.mark(table.values.add(cell)) };
             }
@@ -816,7 +800,10 @@ impl Collector {
                 assert!(count >= 2);
                 let length = unsafe { *words.add(1) } as usize;
                 assert!(length <= count - 2);
-                self.stats.field_visits += length;
+                #[cfg(test)]
+                {
+                    self.stats.field_visits += length;
+                }
                 for index in 0..length {
                     unsafe { self.mark(words.add(index + 2)) };
                 }
@@ -827,7 +814,10 @@ impl Collector {
                 // mark neither mutates nor mutably borrows layouts or offsets,
                 // so this owned storage stays valid while the worklist grows.
                 let offsets = fields.as_ptr();
-                self.stats.field_visits += length;
+                #[cfg(test)]
+                {
+                    self.stats.field_visits += length;
+                }
                 for index in 0..length {
                     let offset = unsafe { *offsets.add(index) } as usize;
                     assert!(offset < count);
@@ -902,8 +892,10 @@ impl Collector {
                     unsafe {
                         *header &= !MARKED;
                     }
-                    self.stats.live_bytes += (unsafe { *header } >> HEADER_SHIFT) as usize;
-                    self.stats.live_objects += 1;
+                    #[cfg(test)]
+                    {
+                        self.stats.live_objects += 1;
+                    }
                 } else {
                     block.starts[word] &= !(1 << bit);
                     unsafe {
@@ -940,13 +932,16 @@ impl Collector {
             block.live_lines = live_lines;
             block.marked_lines = block.marks.iter().filter(|&&line| line != 0).count();
             if live_lines == 0 {
-                self.stats.recovered_blocks += usize::from(block.evacuate);
+                #[cfg(test)]
+                {
+                    self.stats.recovered_blocks += usize::from(block.evacuate);
+                }
                 block.span = 0;
                 block.large = false;
                 self.free_blocks += 1;
             }
             // Live large continuation and tail blocks stay entirely reserved.
-            self.stats.occupied_bytes += if block.large && live_lines != 0 {
+            self.occupied_bytes += if block.large && live_lines != 0 {
                 BLOCK_SIZE
             } else {
                 block.live_lines * LINE_SIZE
@@ -971,9 +966,11 @@ impl Collector {
     }
 
     unsafe fn sweep(&mut self) {
-        self.stats.live_bytes = 0;
-        self.stats.live_objects = 0;
-        self.stats.occupied_bytes = 0;
+        #[cfg(test)]
+        {
+            self.stats.live_objects = 0;
+        }
+        self.occupied_bytes = 0;
         self.free_blocks = self
             .regions
             .iter()
@@ -999,11 +996,9 @@ impl Collector {
             self.queue_finalizers();
             self.sweep();
         }
-        self.stats.collections += 1;
-        self.stats.peak_live = self.stats.peak_live.max(self.stats.live_bytes);
+        self.collections += 1;
         self.collecting = false;
-        self.needs_defragmentation =
-            self.stats.occupied_bytes > self.heap_bytes - self.heap_bytes / 4;
+        self.needs_defragmentation = self.occupied_bytes > self.heap_bytes - self.heap_bytes / 4;
         #[cfg(feature = "gc-trace")]
         if let (Some(start), Some(trace)) = (start, self.trace.as_mut()) {
             trace.record(start, Instant::now());
@@ -1011,11 +1006,11 @@ impl Collector {
     }
 
     pub fn collections(&self) -> usize {
-        self.stats.collections
+        self.collections
     }
 
     pub fn moved_objects(&self) -> usize {
-        self.stats.moved_objects
+        self.moved_objects
     }
 
     #[cfg(feature = "gc-trace")]
@@ -1148,6 +1143,16 @@ impl Default for Config {
 }
 
 // ---- Tests ----
+
+#[cfg(test)]
+#[derive(Default)]
+struct Statistics {
+    allocated_bytes: usize,
+    field_visits: usize,
+    live_objects: usize,
+    recovered_blocks: usize,
+    overflow_objects: usize,
+}
 
 #[cfg(test)]
 struct AllocationFailures {
@@ -1439,9 +1444,9 @@ mod tests {
             }
         }
         heap.collect(); // Establish the fragmentation/mark histogram.
-        assert_eq!(heap.collector.stats.moved_objects, 0);
+        assert_eq!(heap.collector.moved_objects(), 0);
         heap.collect(); // Unused recyclable space triggers ordinary Auto policy.
-        assert_eq!(heap.collector.stats.moved_objects, 128);
+        assert_eq!(heap.collector.moved_objects(), 128);
         assert_eq!(heap.collector.stats.recovered_blocks, 2);
         for (index, &value) in heap.frame.values[..128].iter().enumerate() {
             assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 4) as u64);
@@ -1468,7 +1473,7 @@ mod tests {
         // blocks fit into the remaining empty block despite zero usable holes.
         heap.collector.needs_defragmentation = true;
         heap.collect();
-        assert_eq!(heap.collector.stats.moved_objects, 256);
+        assert_eq!(heap.collector.moved_objects(), 256);
         assert_eq!(heap.collector.stats.recovered_blocks, 2);
         for (index, &value) in heap.frame.values.iter().enumerate() {
             assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 2) as u64);
@@ -1491,7 +1496,7 @@ mod tests {
         assert_eq!(heap.collector.evacuation_threshold(), 64);
         heap.collect();
         assert!(heap.collector.evacuation_exhausted);
-        assert_eq!(heap.collector.stats.moved_objects, 128);
+        assert_eq!(heap.collector.moved_objects(), 128);
         assert_eq!(heap.collector.stats.recovered_blocks, 2);
         assert_eq!(heap.collector.free_blocks, 2);
         for (index, &value) in heap.frame.values[..192].iter().enumerate() {
