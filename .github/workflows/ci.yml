@@ -78,6 +78,7 @@ jobs:
               make test
               make check
               cargo test --manifest-path src/native/Cargo.toml --offline
+              cargo test --manifest-path src/native/Cargo.toml --offline --all-features
               cargo fmt --manifest-path src/native/Cargo.toml --all -- --check
               ;;
             native) scripts/test-native ;;

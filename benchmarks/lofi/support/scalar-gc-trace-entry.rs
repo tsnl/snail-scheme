@@ -2,6 +2,7 @@
 //! Build with native-runtime/gc-trace; pass the output trace path explicitly.
 
 use native_runtime::native;
+use std::{ffi::OsString, time::Instant};
 
 include!("case-config.rs");
 
@@ -13,7 +14,7 @@ unsafe extern "C" {
     fn guest_bench(count: i64) -> BenchResult;
 }
 
-// ---- Setup and trace serialization stay outside the collection recording ----
+// ---- Setup and serialization stay outside the instrumented workload clock ----
 
 fn main() {
     assert!(
@@ -24,29 +25,34 @@ fn main() {
         .nth(1)
         .expect("expected trace output path");
     native::initialize_host();
-    let (result, trace) = unsafe { run() };
-    trace
-        .write_chromium_json(std::fs::File::create(path).unwrap())
-        .unwrap();
-    let summary = trace.summary();
-    println!(
-        "{{\"result\":\"{result}\",\"collections\":{},\"dropped_events\":{},\"total_pause_us\":{},\"maximum_pause_us\":{}}}",
-        summary.collections,
-        summary.dropped_events,
-        summary.total_pause.as_micros(),
-        summary.maximum_pause.as_micros()
-    );
-    std::process::exit(native::native_finish(i32::from(result != EXPECTED_RESULT)));
+    let status = unsafe { run(path) };
+    std::process::exit(status);
 }
 
-unsafe fn run() -> (BenchResult, native::GcTrace) {
+unsafe fn run(path: OsString) -> i32 {
     unsafe {
         native_module_init();
         guest_main();
         assert_configured_count();
         native::gc_trace_start(16384).unwrap();
+
+        let start = Instant::now();
         let result = guest_bench(CONFIGURED_COUNT);
+        let passed = result == EXPECTED_RESULT;
+        let seconds = start.elapsed().as_secs_f64();
+
         let trace = native::gc_trace_take().unwrap();
-        (result, trace)
+        trace
+            .write_chromium_json(std::fs::File::create(path).unwrap())
+            .unwrap();
+        let summary = trace.summary();
+        println!(
+            "{{\"result\":\"{result}\",\"instrumented_seconds\":{seconds:.9},\"collections\":{},\"dropped_events\":{},\"total_pause_us\":{},\"maximum_pause_us\":{}}}",
+            summary.collections,
+            summary.dropped_events,
+            summary.total_pause.as_micros(),
+            summary.maximum_pause.as_micros()
+        );
+        native::native_finish(i32::from(!passed))
     }
 }

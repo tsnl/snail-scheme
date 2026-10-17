@@ -66,8 +66,9 @@ for the host decorator.
 ## Native collection pauses
 
 The nondefault `native-runtime/gc-trace` Cargo feature enables explicit Rust
-host recordings. Normal builds omit the recorder and its clock reads. This
-feature changes no collection policy and introduces no GC environment options.
+host recordings. Normal builds omit the recorder and its clock reads. Enabling
+the feature reads no clocks until the host starts a recording. This feature
+changes no collection policy and introduces no GC environment options.
 Only the single owning host may start or take a recording, after runtime
 initialization and outside guest code or finalizers:
 
@@ -102,6 +103,10 @@ transfers its host-owned data for inspection or serialization.
 [`scalar-gc-trace-entry.rs`](../benchmarks/lofi/support/scalar-gc-trace-entry.rs)
 records only the configured benchmark work, using the same final predicate as
 the ordinary timing entry. Build it with `native-runtime/gc-trace` and pass its
-trace output path as the first argument. Keep these pause distributions separate
-from uninstrumented total-runtime samples: instrumentation changes execution,
-and maximum pause is an observed value for that run, not a bound.
+trace output path as the first argument. Its JSON result reports
+`instrumented_seconds` for guest work and its result check, plus collection count,
+dropped events, total pause and maximum pause. Setup, recorder reservation, trace
+serialization and final host cleanup stay outside that clock. Keep these times
+and pause distributions separate from uninstrumented total-runtime samples:
+instrumentation changes execution, and maximum pause is an observed value for
+that run, not a bound.
