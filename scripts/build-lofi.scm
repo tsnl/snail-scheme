@@ -1,8 +1,16 @@
 ;; Chibi hosts the compiler; Lofi is its sole product input language.
-(import (scheme base) (scheme cxr) (scheme file) (scheme process-context)
-        (chibi filesystem) (chibi string) (srfi 1)
-        (wasm-native process) (lofi source-driver)
-        (wasm-native chromium-trace) (wasm-native wasm-optimize))
+(import
+ (scheme base)
+ (scheme cxr)
+ (scheme file)
+ (scheme process-context)
+ (chibi filesystem)
+ (chibi string)
+ (srfi 1)
+ (wasm-native process)
+ (lofi source-driver)
+ (wasm-native chromium-trace)
+ (wasm-native wasm-optimize))
 
 ;; ---- Command request ----
 

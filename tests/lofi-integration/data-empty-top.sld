@@ -1,7 +1,11 @@
-(import (lofi base))
-(def First (datatype () (first)))
-(def Second (datatype () (second)))
-(def Marker (datatype ( T) (marker)))
+(import
+ (lofi base))
+(def First (datatype ()
+             (first)))
+(def Second (datatype ()
+              (second)))
+(def Marker (datatype ( T)
+              (marker)))
 
 (def nominal (-> I64)
      (lambda ()

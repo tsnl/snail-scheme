@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def add (All (A B) (=> ((+ A A)) (-> A B)))
      (lambda (value) (+ value value)))

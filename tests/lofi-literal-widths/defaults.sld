@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 (record (ann 1 I64))
 (def integer 2147483647)

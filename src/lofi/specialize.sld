@@ -14,11 +14,19 @@
           function-index function-type* function-parameters function-rest-binding function-body
           function-captures function-source function-environment
           site-environment sites-for-source)
-  (import (scheme base) (scheme cxr) (lofi hashmap)
-          (only (srfi 128) make-default-comparator make-eq-comparator make-comparator comparator-hash-function number-hash)
-          (lofi types) (lofi checked) (lofi infer)
-          (lofi overloads) (lofi data) (lofi pass)
-          (lofi ir) (only (lofi wasm-extern) native-scalar-signature))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi hashmap)
+   (only (srfi 128) make-default-comparator make-eq-comparator make-comparator comparator-hash-function number-hash)
+   (lofi types)
+   (lofi checked)
+   (lofi infer)
+   (lofi overloads)
+   (lofi data)
+   (lofi pass)
+   (lofi ir)
+   (only (lofi wasm-extern) native-scalar-signature))
   (begin
 
     ;; ---- Persistent compilation requests ----
@@ -38,9 +46,12 @@
     (define request-key-comparator (make-comparator (lambda (key) #t) request-key=? #f request-key-hash))
     (define-record-type <compilation>
       (make-compilation cache entities pending definitions next program) compilation?
-      (cache compilation-cache) (entities compilation-entities)
-      (pending compilation-pending) (definitions compilation-definitions)
-      (next compilation-next) (program compilation-program))
+      (cache compilation-cache)
+      (entities compilation-entities)
+      (pending compilation-pending)
+      (definitions compilation-definitions)
+      (next compilation-next)
+      (program compilation-program))
     (define (context-entity context id) (hashmap-ref (compilation-entities context) id))
     (define (context-put context id entity)
       (make-compilation (compilation-cache context) (hashmap-set (compilation-entities context) id entity)
@@ -66,29 +77,52 @@
 
     (define-record-type <environment>
       (make-environment scope substitutions sites owner instance) environment?
-      (scope environment-scope) (substitutions environment-substitutions)
-      (sites environment-sites) (owner environment-owner) (instance environment-instance))
+      (scope environment-scope)
+      (substitutions environment-substitutions)
+      (sites environment-sites)
+      (owner environment-owner)
+      (instance environment-instance))
     (define-record-type <site>
       (make-site id source environment global? instances token check) site?
-      (id site-id) (source site-source) (environment site-environment)
-      (global? site-global?) (instances site-instances) (token site-token) (check site-check))
+      (id site-id)
+      (source site-source)
+      (environment site-environment)
+      (global? site-global?)
+      (instances site-instances)
+      (token site-token)
+      (check site-check))
     (define-record-type <value>
       (make-value id source type site environment parameter? function) value-binding?
-      (id value-id) (source value-source) (type value-type) (site value-site)
-      (environment value-environment) (parameter? value-parameter?) (function value-function))
+      (id value-id)
+      (source value-source)
+      (type value-type)
+      (site value-site)
+      (environment value-environment)
+      (parameter? value-parameter?)
+      (function value-function))
     (define value-index value-id)
     (define (value-initializer value) (binding-initializer (value-source value)))
     (define (value-ready-at-capture? value) (value-parameter? value))
     (define-record-type <function>
       (make-function id source type environment parameters rest reads closures captures) function?
-      (id function-index) (source function-source) (type function-type*)
-      (environment function-environment) (parameters function-parameters) (rest function-rest-binding)
-      (reads function-reads) (closures function-closures) (captures function-captures))
+      (id function-index)
+      (source function-source)
+      (type function-type*)
+      (environment function-environment)
+      (parameters function-parameters)
+      (rest function-rest-binding)
+      (reads function-reads)
+      (closures function-closures)
+      (captures function-captures))
     (define (function-body function) (lambda-body (function-source function)))
     (define-record-type <program>
       (make-prepared-program body functions globals exports context environment) prepared-program?
-      (body prepared-body) (functions prepared-functions) (globals prepared-globals)
-      (exports prepared-exports) (context prepared-context) (environment prepared-environment))
+      (body prepared-body)
+      (functions prepared-functions)
+      (globals prepared-globals)
+      (exports prepared-exports)
+      (context prepared-context)
+      (environment prepared-environment))
     (define (concrete type environment loc)
       (require-concrete (substitute type (environment-substitutions environment)) loc))
     (define (lookup-site binding environment context)
@@ -255,8 +289,12 @@
 
     (define-record-type <generation>
       (make-generation source type detail children environment tail?) generation?
-      (source generation-source) (type generation-type) (detail generation-detail)
-      (children generation-children) (environment generation-environment) (tail? generation-tail?))
+      (source generation-source)
+      (type generation-type)
+      (detail generation-detail)
+      (children generation-children)
+      (environment generation-environment)
+      (tail? generation-tail?))
     (define (finish-arm pass source result detail children environment tail? context)
       (visit-pass pass source
                   (make-generation source (require-concrete (judgment-type result) (node-loc source))
@@ -612,11 +650,12 @@
   (cond-expand
    (snail-tests
     (export test-specialize)
-    (import (wasm-native test-utils)
-            (only (lofi frontend) syntax-list->ir-library)
-            (only (lofi reader) string->reader)
-            (only (lofi syntax-parser) reader->syntax-list)
-            (prefix (lofi resolved-library) library:))
+    (import
+     (wasm-native test-utils)
+     (only (lofi frontend) syntax-list->ir-library)
+     (only (lofi reader) string->reader)
+     (only (lofi syntax-parser) reader->syntax-list)
+     (prefix (lofi resolved-library) library:))
     (begin
       (define (test-program text)
         (let ((library (syntax-list->ir-library (reader->syntax-list (string->reader "demand.sld" text))

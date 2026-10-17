@@ -1,7 +1,15 @@
 ;; The public command compiles privately before publishing or invoking an artifact.
-(import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
-        (chibi filesystem) (chibi string) (srfi 1) (wasm-native process)
-        (only (wasm-native build-host) process-status))
+(import
+ (scheme base)
+ (scheme cxr)
+ (scheme file)
+ (scheme process-context)
+ (scheme write)
+ (chibi filesystem)
+ (chibi string)
+ (srfi 1)
+ (wasm-native process)
+ (only (wasm-native build-host) process-status))
 
 ;; ---- Command requests ----
 

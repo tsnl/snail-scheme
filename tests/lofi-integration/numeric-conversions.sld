@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def invoke
      (lambda (operation value) (operation value)))
 (if (if (= (i64->f64 (ann -9223372036854775808 I64)) -9223372036854775808.0)

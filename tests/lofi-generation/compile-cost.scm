@@ -1,10 +1,14 @@
 ;; Diagnostic phase timings for source depth, without Wasm execution or timing
 ;; assertions. Select the compiler revision with -I; optional arguments are depths.
-(import (scheme base) (scheme write) (scheme time) (scheme process-context)
-        (prefix (lofi ir) ir:)
-        (only (lofi infer) infer-program)
-        (only (lofi specialize) prepare-generation)
-        (only (lofi emit-wasm) strict-core->wasm))
+(import
+ (scheme base)
+ (scheme write)
+ (scheme time)
+ (scheme process-context)
+ (prefix (lofi ir) ir:)
+ (only (lofi infer) infer-program)
+ (only (lofi specialize) prepare-generation)
+ (only (lofi emit-wasm) strict-core->wasm))
 
 ;; ---- Source shapes ----
 

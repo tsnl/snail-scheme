@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def saved
      (ref (ann (lambda () (ann 0 I64)) (-> I64))))

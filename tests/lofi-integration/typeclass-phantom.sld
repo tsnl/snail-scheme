@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Marker (typeclass ( T) (: mark (-> I64))))
 (def lofi-migration-instance-1 (instance (Marker I32) (mark (lambda () (ann 20 I64)))))
 (def lofi-migration-instance-2 (instance (Marker F64) (mark (lambda () (ann 22 I64)))))

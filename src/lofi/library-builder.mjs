@@ -254,7 +254,7 @@ function constructors(arena) {
     const node = arena.get(handle, ['definition', 'local-binding', 'overload']);
     return node[5] ?? node[4];
   });
-  add('with-signature-location', ['i64', 'i64'], (handle, span) => {
+  add('signature-location-set', ['i64', 'i64'], (handle, span) => {
     const node = arena.get(handle, ['definition', 'local-binding', 'overload']);
     arena.get(span, ['span']);
     return arena.put(node[0], [...node.slice(1, 5), span], [1, 2, 3, 4, 5]);

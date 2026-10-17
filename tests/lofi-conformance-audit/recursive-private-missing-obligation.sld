@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 ((lambda (limit)
    (begin
      (def first (All (A) (-> I64 A Bool))

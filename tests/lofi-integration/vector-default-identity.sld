@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def calls
      (ref (ann 0 I64)))
 (def lofi-migration-instance-1 (instance (Default (Ref I64))

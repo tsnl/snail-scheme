@@ -1,4 +1,11 @@
-(import (lofi integer) (lofi rational) (lofi base) (lofi datum) (lofi read) (lofi io) (lofi bytes))
+(import
+ (lofi integer)
+ (lofi rational)
+ (lofi base)
+ (lofi datum)
+ (lofi read)
+ (lofi io)
+ (lofi bytes))
 
 ;; ---- Exactness, stable symbols and observable mutable datum fields ----
 

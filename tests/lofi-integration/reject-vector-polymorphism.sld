@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def value
      (empty-vector))
 (def read-as-int

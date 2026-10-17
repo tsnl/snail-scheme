@@ -1,10 +1,14 @@
-(import (lofi base))
+(import
+ (lofi base))
 ;; Gcbench's top-down writes and bottom-up construction with explicit Ref
 ;; child slots. One shared Nil replaces the original numeric zero sentinel.
 (def Tree (datatype ()
-                    (Nil)
-                    (Node (left (Ref Tree) node-left) (right (Ref Tree) node-right)
-                          (i I64) (j I64))))
+            (Nil)
+            (Node
+             (left (Ref Tree) node-left)
+             (right (Ref Tree) node-right)
+             (i I64)
+             (j I64))))
 (def empty
      (Nil))
 (def make-empty-node

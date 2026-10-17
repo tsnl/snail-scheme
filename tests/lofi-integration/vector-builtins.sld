@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def copy-values
      (lambda (source) (vector-append (empty-vector) (vector-copy source))))
 (def integers

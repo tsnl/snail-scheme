@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def truncates
      (lambda (operation input expected) (= (operation input) expected)))
 (def nan32

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def count
      (ref (ann 0 I64)))
 (def shared

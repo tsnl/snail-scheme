@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def identity
      (lambda (x) x))
 (f32-add (identity (ann 1.5 F32)) (identity (ann 2.25 F32)))

@@ -41,6 +41,9 @@ button:active { background: #365269; }
 button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #9ce2da; outline-offset: 3px; }
 button.primary { background: #234641; border-color: #4d8c82; }
 button.primary:hover { background: #2d5850; }
+button.cancel-build { border-color: #85615d; }
+button.cancel-build:hover { background: #493638; border-color: #d6a19a; }
+.command-help { margin: 10px 0 0; color: #9aafc3; font-size: 11px; line-height: 1.6; }
 kbd { font: 10px ui-monospace, monospace; color: #adc1d2; display: block; margin-bottom: 4px; }
 small { display: block; color: #e0bc7a; font-size: 10px; margin-top: 4px; line-height: 1.4; }
 .camera-controls { display: grid; grid-template-columns: repeat(3, 44px) 1fr; grid-template-rows: repeat(2, 44px); gap: 6px; }
@@ -70,7 +73,7 @@ footer strong { font-weight: 600; color: #c3d3e1; }
 .field-key { font-size: 11px; line-height: 1.8; color: #9aafc3; margin: 14px 0 0; }
 .field-key strong { color: #d1dfea; font-weight: 600; }
 summary { cursor: pointer; color: #c3d3e1; width: fit-content; }
-.guide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.guide-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 24px; }
 .guide-grid strong { color: #d1dfea; }
 @media (max-width: 1000px) {
   .field-layout { grid-template-columns: minmax(0, 1fr); }

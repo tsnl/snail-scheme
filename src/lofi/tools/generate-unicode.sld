@@ -1,19 +1,30 @@
 ;; Unicode 16 mappings are compared with the installed Rust casing baseline.
 (define-library (lofi tools generate-unicode)
   (export generate-unicode-main)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
-          (scheme process-context) (srfi 1) (srfi 69)
-          (only (srfi 132) list-sort)
-          (only (chibi string) string-split string-trim string-prefix? string-contains string-join substring-cursor)
-          (wasm-native process) (lofi tools host-tools))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (srfi 1)
+   (srfi 69)
+   (only (srfi 132) list-sort)
+   (only (chibi string) string-split string-trim string-prefix? string-contains string-join substring-cursor)
+   (wasm-native process)
+   (lofi tools host-tools))
   (begin
 
     ;; ---- Structured Unicode mappings ----
 
     (define-record-type <mappings>
       (make-mappings upper lower simple full digits) mappings?
-      (upper mappings-upper) (lower mappings-lower) (simple mappings-simple)
-      (full mappings-full) (digits mappings-digits set-mappings-digits!))
+      (upper mappings-upper)
+      (lower mappings-lower)
+      (simple mappings-simple)
+      (full mappings-full)
+      (digits mappings-digits set-mappings-digits!))
     (define (lines text)
       (filter (lambda (line) (not (string=? line ""))) (string-split text #\newline)))
     (define (hex-number text)

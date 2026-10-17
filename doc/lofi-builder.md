@@ -95,7 +95,7 @@ selection remain the ordinary resolver and checker's responsibility.
 `SourceSpan` records a source name and one-based line and column, matching the
 compiler's existing located nodes. Annotated value declarations can also retain
 the attached signature's distinct source span. `signature-location` queries it;
-`with-signature-location` returns a copied declaration with a replacement span.
+`signature-location-set` returns a copied declaration with a replacement span.
 Both operations require an annotated definition, local binding or overload.
 Constructed declarations without that optional field use their declaration span.
 

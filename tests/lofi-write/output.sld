@@ -1,4 +1,10 @@
-(import (lofi base) (lofi io) (lofi datum) (lofi read) (lofi write) (lofi bytes))
+(import
+ (lofi base)
+ (lofi io)
+ (lofi datum)
+ (lofi read)
+ (lofi write)
+ (lofi bytes))
 
 ;; ---- Complete readable and displayed streams preserve the input data ----
 

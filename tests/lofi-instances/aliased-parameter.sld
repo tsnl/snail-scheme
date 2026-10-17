@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 
 ;; A sequential alias cannot generalize variables in the parameter's type.
 ((lambda (function)

@@ -6,17 +6,22 @@
   (export make-entry entry? entry-library entry-export compile
           artifact? artifact-entry artifact-parameters artifact-result artifact-bytes
           library-map->core)
-  (import (scheme base) (lofi library)
-          (lofi infer) (lofi primitives) (lofi artifact)
-          (lofi specialize) (lofi emit-wasm)
-          (only (lofi types) strict-error resolve scheme-variables scheme-type
-                function-type? function-domains function-result)
-          (only (lofi checked) program-globals program-type)
-          (only (lofi ir) node-loc node-data binding-kind binding-payload
-                binding-origin binding-scheme binding-initializer value-definition-loc
-                make-value-definition make-value-binding make-name)
-          (only (lofi source) loc?)
-          (prefix (lofi resolved-library) library:))
+  (import
+   (scheme base)
+   (lofi library)
+   (lofi infer)
+   (lofi primitives)
+   (lofi artifact)
+   (lofi specialize)
+   (lofi emit-wasm)
+   (only (lofi types) strict-error resolve scheme-variables scheme-type
+         function-type? function-domains function-result)
+   (only (lofi checked) program-globals program-type)
+   (only (lofi ir) node-loc node-data binding-kind binding-payload
+         binding-origin binding-scheme binding-initializer value-definition-loc
+         make-value-definition make-value-binding make-name)
+   (only (lofi source) loc?)
+   (prefix (lofi resolved-library) library:))
   (begin
 
     ;; ---- Resolution and checking ----
@@ -93,12 +98,16 @@
   (cond-expand
    (snail-tests
     (export test-compiler)
-    (import (wasm-native test-utils) (lofi frontend)
-            (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-            (only (lofi checked) program-body)
-            (only (chibi temp-file) call-with-temp-dir)
-            (only (srfi 130) string-contains)
-            (only (lofi ir) name-definition application-operator lambda-body value-binding-initializer))
+    (import
+     (wasm-native test-utils)
+     (lofi frontend)
+     (lofi reader)
+     (lofi syntax-parser)
+     (wasm-native chromium-trace)
+     (only (lofi checked) program-body)
+     (only (chibi temp-file) call-with-temp-dir)
+     (only (srfi 130) string-contains)
+     (only (lofi ir) name-definition application-operator lambda-body value-binding-initializer))
     (begin
       (define (test-parsed text)
         (call-with-temp-dir

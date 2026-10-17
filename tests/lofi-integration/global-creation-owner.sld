@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; Both concrete factories own their nested creation at this first event.
 ;; A later demand must not lend its initialized globals to the earlier code.

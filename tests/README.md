@@ -19,7 +19,7 @@ The initial scheduling baseline on 2026-10-17 was a successful 29-suite run with
 3,432.268 seconds of summed constituent command duration, including 1,632.856
 seconds in integration. That is 57.20 minutes of recorded command time, not a
 measured GitHub Actions wall time. That historical integration attempt passed 356
-cases; the current manifest contains 367. Sharding preserves the current cases,
+cases; the current manifest contains 396. Sharding preserves the current cases,
 including expected compile rejections and both Wasm forms for executable cases.
 The separate 57-workload benchmark comparison remains unchanged.
 
@@ -42,6 +42,16 @@ original four-group assignment. That calculation excludes setup and is a
 scheduling estimate, not an observed speedup. Nine backend, eight integration
 and three host/public jobs fit 20 simultaneous runners without another scheduling
 algorithm.
+
+`scripts/test-lofi-serialization` checks the complete fixture inventory in
+`serialization/cases.json`: derived graphs, nominal type tags, malformed input,
+unsupported types, S-expression text/binary boundaries and packed snapshots.
+It executes raw and optimized Wasm linked to the Rust WASI runtime, then native
+code from the identical optimized guest. Rejection probes check initialization,
+failure status and diagnostic text. Supply fixture names to select cases, or
+use `--only wasm` and then `--only native --reuse-artifacts DIRECTORY` to split
+the execution routes. Small native cases collect on every allocation; the large
+boundary case uses an interval of 4,096 allocations.
 
 Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
 validation and oracle-provenance records retain the SFIR names and paths from

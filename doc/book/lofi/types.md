@@ -285,15 +285,17 @@ including a permutation of binders.
 
 ## Kinds and static definitions
 
-`def` also names a type, a typeclass or an instance. The body uses a former,
-just as a function definition uses `lambda`:
+`data`, `typeclass` and `instance` are library-level declarations. Each names
+its subject and can introduce related bindings, such as constructors, accessors
+or class methods:
 
 ```scheme
-(def Flag (datatype () (off) (on)))
-(def Display (typeclass (T) (: display-text (-> T String))))
-(def flag-display
-  (instance (Display Flag)
-    (display-text (lambda (flag) (match flag ((off) "off") ((on) "on"))))))
+(data Flag ()
+  (off)
+  (on))
+(typeclass Display (T) (: display-text (-> T String)))
+(instance flag-display (Display Flag)
+          (display-text (lambda (flag) (match flag ((off) "off") ((on) "on")))))
 ```
 
 A *kind* classifies these static definitions. `Flag` has kind `Type`: it is a
@@ -302,8 +304,7 @@ it to a type forms a class requirement. `flag-display` has kind
 `(Evidence (Display Flag))`: it supplies an implementation of that requirement.
 A generic datatype such as Vec3 has kind `(Kind-> Type Type)`.
 
-These kinds are inferred from the formers. An optional annotation on a static
-`def` states its kind, for example `(def Flag Type (datatype () (off) (on)))`.
+These kinds are inferred from the declarations.
 Ordinary value definitions have types rather than kinds. `Type`, `Constraint`
 and `Evidence` are not runtime value types and cannot be stored in Any.
 
@@ -314,20 +315,20 @@ kind ::= "Type"
        | "(" "Kind->" kind kind … ")"
        | "(" "Evidence" obligation ")"
 
-static_definition ::= "(" "def" name [kind] static_former ")"
-
-static_former ::= datatype
-                | typeclass
-                | instance
+static_definition ::= data_definition
+                    | typeclass_definition
+                    | instance_definition
 ```
 <!-- ANCHOR_END: kinds -->
 
-For the MVP, these three formers appear only as the outermost body of a
-library-level `def`. Their parameters have kind Type, instance heads are
-concrete, and they cannot be returned from functions or selected by a runtime
-`if`. This is a simple kind discipline, not yet dependent typing. A later
-language can make more computations available in types without reserving
-separate definition keywords now.
+These declarations require library scope. Their parameters have kind Type,
+instance heads are concrete, and they cannot be returned from functions or
+selected by a runtime `if`. This is a simple kind discipline, not dependent typing.
+
+The compiler still accepts the earlier `(def name [kind] static_former)` syntax
+for compatibility, including `(datatype (...) ...)` bodies. Expansion normalizes
+the new declarations to that internal representation before ordinary checking.
+New source should use the explicit declaration forms.
 
 Kind checking verifies that fields and method parameters are types, class
 applications form requirements, and instances implement the requirement named
@@ -352,13 +353,16 @@ a kind annotation alone cannot assert that an implementation is correct.
 ## Struct and union types
 
 A struct groups named fields into one value. A closed union selects one of a
-fixed set of cases. `datatype` describes both using constructors: one constructor
+fixed set of cases. `data` describes both using constructors: one constructor
 for a struct, several for a union. Fields are immutable; a field of type
 `(Ref T)` can hold an explicitly mutable cell.
 
 <!-- ANCHOR: data -->
 ```text
-datatype ::= "(" "datatype" "(" name … ")" constructor_clause constructor_clause … ")"
+data_definition ::= "(" "data" name "(" name … ")"
+                    constructor_clause constructor_clause … [deriving_clause] ")"
+
+deriving_clause ::= "(" "deriving" name … ")"
 
 constructor_clause ::= "(" name field_clause … ")"
 
@@ -371,16 +375,18 @@ A constructor clause names a constructor; a field clause gives a field name,
 its type and an optional accessor name.
 
 ```scheme
-(def Tree
-  (datatype (T)
-    (leaf (value T))
-    (branch (left (Tree T)) (right (Tree T)))))
+(data Tree (T)
+  (leaf
+   (value T))
+  (branch
+   (left (Tree T))
+   (right (Tree T))))
 
 (def leftmost (All (T) (-> (Tree T) T))
-  (lambda (tree)
-    (match tree
-      ((leaf value) value)
-      ((branch left right) (leftmost left)))))
+     (lambda (tree)
+       (match tree
+         ((leaf value) value)
+         ((branch left right) (leftmost left)))))
 ```
 
 Constructor arguments follow field order. `match` evaluates the subject once
@@ -390,7 +396,7 @@ arms. Arm results must have compatible types, just as for `if`.
 
 ## Type definitions and identity
 
-Every `def` with a `datatype` body creates a distinct nominal type identity.
+Every `data` declaration creates a distinct nominal type identity.
 Two definitions with the same fields still describe different types. Recursive
 and mutually recursive datatype definitions may refer to one another.
 Constructors and optional accessors are ordinary function values with signatures
@@ -414,11 +420,11 @@ generic body.
 
 <!-- ANCHOR: classes -->
 ```text
-typeclass ::= "(" "typeclass" "(" name … ")" method_signature … ")"
+typeclass_definition ::= "(" "typeclass" name "(" name … ")" method_signature … ")"
 
 method_signature ::= "(" ":" name function_type ")"
 
-instance ::= "(" "instance" obligation method_implementation … ")"
+instance_definition ::= "(" "instance" name obligation method_implementation … ")"
 
 method_implementation ::= "(" name expression ")"
 ```
@@ -426,7 +432,7 @@ method_implementation ::= "(" name expression ")"
 
 A typeclass's parameters scope its method signatures. An instance supplies every
 method exactly once; its head has no free type variables. Instance selection
-uses the resolved class identity and complete type tuple. The instance's `def`
+uses the resolved class identity and complete type tuple. The instance's
 name identifies the implementation evidence; it is not an ordinary runtime
 function binding. Duplicate instances for the same class and type tuple are
 errors even if named differently. Importing the same instance through several
@@ -446,6 +452,109 @@ Exactly one compatible complete signature must remain. Declaration order and
 the availability of an implementation's prerequisites do not rank candidates.
 Numeric promotion, where offered, is an explicitly provided operation. Selected
 implementations retain their normal initialization and effect ordering.
+
+## Data graph serialization
+
+`(lofi serialization)` provides separate `Serialize` and `Deserialize`
+typeclasses. A type opts into either capability with an explicit instance or a
+[derive transformer](macros.md#deriving-typeclass-instances). Procedures,
+closures, live external resources and arbitrary `Any` values have no supplied
+instances. Unsupported fields produce ordinary missing-class-evidence errors.
+
+`serialize` converts a supported typed value to `Sexp`; `deserialize` checks an
+`Sexp` and reconstructs the requested type. The result type must be determined
+by its use or an annotation. These entry points create private traversal
+contexts. Instance methods `serialize-with` and `deserialize-with` receive that
+context explicitly, while `serialize-type` and `deserialize-type` identify the
+wire type using a `(Witness T)` argument.
+
+```scheme
+(import
+ (lofi core)
+ (lofi serialization))
+
+(data Stock ()
+  (stock
+   (ore I32 stock-ore))
+  (deriving derive-serialize derive-deserialize))
+
+(def saved (sexp->binary (serialize (stock 42))))
+(def restored Stock (deserialize (binary->sexp saved)))
+(stock-ore restored) ; 42
+```
+
+### One value representation, two encodings
+
+```text
+data with class instances ↔ S-expression graph ↔ readable text
+                                              ↔ compact binary
+```
+
+The finite `Sexp` representation contains signed integers, strings, symbols,
+bytevectors and lists. Symbols and strings are distinct. `sexp->text` and
+`text->sexp` provide its readable representation; `sexp->binary` and
+`binary->sexp` encode and decode the same values using a MessagePack-style
+binary representation. Binary is encoded directly from the S-expression value,
+without a text conversion. It is not a promise that generic MessagePack readers
+understand Lofi's symbol representation.
+
+A derived record or union value carries its type, selected constructor, and
+named fields. Its schematic readable form is:
+
+```text
+(data |(demo inventory):Stock| stock (ore (I32 42)))
+```
+
+The type tag combines the declaring library and original type name. Independent
+named libraries can define `Stock` without confusing their wire types; import
+aliases retain the original instance and tag. A local collision between distinct
+type bindings with the same portable name is a compile-time error. Constructor
+and field names are checked along with field types and order. These tags are
+portable schema names, not process addresses, Wasm references or compiler layout
+offsets.
+
+Supplied scalar instances cover `I32`, `I64`, `F32`, `F64`, `Bool`, `Char`,
+`Unit`, `String`, `Bytevector`, and `Symbol`. Import `Symbol` and its text
+operations directly from `(lofi scalar-text)`, or through `(lofi datum)`, which
+reexports the same type. The direct import avoids the dynamic datum and numeric
+libraries. Numeric width is explicit in each value's tag. Floats store their
+exact IEEE bits as integers, preserving negative zero, infinities and NaN
+payloads. The public `f32->bits`,
+`bits->f32`, `f64->bits` and `bits->f64` operations expose those representations
+without numeric conversion.
+
+### Object graphs and checked reconstruction
+
+One context flows through every generated field operation. Shared strings,
+bytevectors, references and vectors receive object numbers. The first encounter
+emits `(object id type payload)`; later encounters emit `(link id type)`.
+Reference and vector storage is registered before recursively decoding its
+contents, so references back to that storage reconstruct cycles. Object numbers
+belong to this traversal and have no connection to addresses in the source heap.
+Immutable record and list structure is encoded by value; the current language
+provides no identity operation for that structure.
+
+The field macros `serialize-field` and `deserialize-field` handle nested `List`,
+`Ref` and `Vector` types using typed callbacks and the same context. Every leaf
+still requires its class instance. These helpers do not supply blanket generic
+container instances: a direct top-level container needs an explicit instance or
+use of the corresponding field macro with a context. Reference/vector decoding
+requires `Default` evidence for the element type, providing valid initial storage
+before its contents are filled. A type without such evidence cannot use that
+decoding path.
+
+Decoding rejects malformed shapes, mismatched tags, missing or extra fields,
+out-of-range scalar values, duplicate object numbers, unknown or forward links,
+and links whose declared type disagrees with their target. Partially filled
+storage stays within the private traversal until the complete root succeeds.
+Errors use the runtime's checked failure path. Application-specific invariants
+still need checking after reconstruction; deriving a decoder does not establish
+that a decoded world is a valid game state.
+
+This facility is separate from the existing `(lofi read)`/`(lofi write)` datum
+format. It does not add datum-label reading to `(lofi read)`, derive constrained
+generic instances, serialize arbitrary values, or migrate incompatible schemas.
+The [roadmap](../../roadmap.md#data-graph-serialization) tracks remaining work.
 
 ## Any, Never and subtyping
 

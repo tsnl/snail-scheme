@@ -8,6 +8,7 @@
           f32-floor f32-ceiling f64-add f64-sub f64-mul f64-eq f64-lt f64-le f64-gt f64-ge f64-div
           f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div f64-sqrt f64-truncate f64-round
           f64-floor f64-ceiling i64->f64 i32->i64 i64->i32 f32->f64 f32->i32 f64->f32 f64->i64
+          f32->bits bits->f32 f64->bits bits->f64
           char=? char<? char<=? char>? char>=? char->integer integer->char make-string string-
           length string-ref string-set! string-eq? string-copy! substring string=? utf8->string
           string->utf8 make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!

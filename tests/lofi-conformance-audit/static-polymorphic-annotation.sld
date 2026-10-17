@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def identity (All (T) (-> T T))
      (ann (lambda (value) value) (-> T T)))
 (def alias (All (T) (-> T T)) (ann identity (-> T T)))

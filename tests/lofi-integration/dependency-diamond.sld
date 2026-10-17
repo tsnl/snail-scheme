@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; ---- Shared dependency paths are visited once per reachability query ----
 

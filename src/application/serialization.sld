@@ -1,0 +1,78 @@
+;; Generic typed snapshots for the private scalar bridge. The host carries
+;; schema, byte length and packed binary bytes; only checked instances see data.
+(define-library (application serialization)
+  (export serialized-program encode-snapshot decode-snapshot snapshot->sexp)
+  (import
+   (scheme base)
+   (application reducer)
+   (application bridge)
+   (browser application)
+   (lofi serialization)
+   (only (lofi core) def ann All => -> I32 I64 Vector)
+   (only (lofi base) i32->i64 i64->i32 i32-bitwise-and i32-shift-right/logical unreachable)
+   (only (lofi bytes) make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!))
+  (begin
+
+    ;; ---- Four bytes per scalar word, with a checked final partial word ----
+
+    (define (packed-word bytes offset remaining factor)
+      (if (or (= remaining (ann 0 I64)) (= offset (bytevector-length bytes))) (ann 0 I64)
+          (+ (* (bytevector-u8-ref bytes offset) factor)
+             (packed-word bytes (+ offset (ann 1 I64)) (- remaining (ann 1 I64))
+                          (* factor (ann 256 I64))))))
+    (define (signed-word value)
+      (i64->i32 (if (> value (ann 2147483647 I64)) (- value (ann 4294967296 I64)) value)))
+    (define (binary-snapshot schema bytes)
+      (let ((count (bytevector-length bytes)))
+        (when (> count (ann 262136 I64)) (unreachable))
+        (pack-snapshot schema bytes count)))
+    (define (pack-snapshot schema bytes count)
+      (let ((words (make-vector (+ (ann 2 I64) (quotient (+ count (ann 3 I64)) (ann 4 I64))) (ann 0 I32))))
+        (vector-set! words (ann 0 I64) schema)
+        (vector-set! words (ann 1 I64) (i64->i32 count))
+        (let loop ((offset (ann 0 I64)))
+          (when (< offset count)
+            (vector-set! words (+ (ann 2 I64) (quotient offset (ann 4 I64)))
+                         (signed-word (packed-word bytes offset (ann 4 I64) (ann 1 I64))))
+            (loop (+ offset (ann 4 I64))))) words))
+    (define (snapshot-binary words)
+      (when (< (vector-length words) (ann 2 I64)) (unreachable))
+      (let* ((count (i32->i64 (vector-ref words (ann 1 I64))))
+             (expected (+ (ann 2 I64) (quotient (+ count (ann 3 I64)) (ann 4 I64)))))
+        (when (or (< count (ann 0 I64)) (not (= expected (vector-length words)))) (unreachable))
+        (unpack-snapshot words count)))
+    (define (snapshot-byte words index)
+      (i32->i64
+       (i32-bitwise-and
+        (i32-shift-right/logical (vector-ref words (+ (ann 2 I64) (quotient index (ann 4 I64))))
+                                 (i64->i32 (* (remainder index (ann 4 I64)) (ann 8 I64)))) (ann 255 I32))))
+    (define (unpack-snapshot words count)
+      (let ((bytes (make-bytevector count)))
+        (let loop ((index (ann 0 I64)))
+          (when (< index count)
+            (bytevector-u8-set! bytes index (snapshot-byte words index))
+            (loop (+ index (ann 1 I64)))))
+        (let padding ((index count))
+          (when (< index (* (- (vector-length words) (ann 2 I64)) (ann 4 I64)))
+            (unless (= (snapshot-byte words index) (ann 0 I64)) (unreachable))
+            (padding (+ index (ann 1 I64))))) bytes))
+    (define (snapshot->sexp words) (binary->sexp (snapshot-binary words)))
+    (def encode-snapshot (All (T) (=> ((Serialize T)) (-> I32 T (Vector I32))))
+         (lambda (schema value) (binary-snapshot schema (sexp->binary (serialize value)))))
+    (def decode-snapshot (All (T) (=> ((Deserialize T)) (-> (Vector I32) T)))
+         (lambda (words) (deserialize (snapshot->sexp words))))
+
+    ;; ---- Applications retain semantic validation after checked construction ----
+
+    (def serialized-program
+         (All (WorldOwner State LocalOwner Local)
+              (=> ((Serialize State) (Deserialize State) (Serialize Local) (Deserialize Local))
+                  (-> (Application WorldOwner State) (Application LocalOwner Local)
+                      (-> State State) (-> Local Local) (-> State Local (List Quad)) (-> State Local String)
+                      (Program WorldOwner State LocalOwner Local))))
+         (lambda (world local validate-world validate-local view status)
+           (program world local 0 0
+                    (lambda (words) (validate-world (decode-snapshot words)))
+                    (lambda (state) (encode-snapshot (application-schema world) state))
+                    (lambda (words) (validate-local (decode-snapshot words)))
+                    (lambda (state) (encode-snapshot (application-schema local) state)) view status)))))

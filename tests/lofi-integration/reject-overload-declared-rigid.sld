@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload identity (All (T) (-> T T)) (lambda (value) value))
 
 (def impossible (All (T) (-> T Bool))

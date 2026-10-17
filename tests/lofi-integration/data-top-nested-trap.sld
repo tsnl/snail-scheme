@@ -1,5 +1,8 @@
-(import (lofi base))
-(def Box (datatype ( T) (box (value T unbox))))
+(import
+ (lofi base))
+(def Box (datatype ( T)
+           (box
+            (value T unbox))))
 (def original
      (ref (box (ann 65 I32))))
 (def erased

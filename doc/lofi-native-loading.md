@@ -14,7 +14,10 @@ Loading an existing object needs only `-I "$package/scheme"`. Supply the
 package directory explicitly as `runtime-root`:
 
 ```scheme
-(import (scheme base) (wasm-native process) (wasm-native execute))
+(import
+ (scheme base)
+ (wasm-native process)
+ (wasm-native execute))
 
 (define runtime-root "/absolute/path/to/checkout/wasm-native")
 (define code (load-native (read-bytes "counter.o")))
@@ -22,9 +25,9 @@ package directory explicitly as `runtime-root`:
   (link-native code (list (runtime-provider)) "build/counter-loading" runtime-root))
 (define first (instantiate linked))
 (dynamic-wind
-  (lambda () #f)
-  (lambda () (invoke-entry first '(10)))
-  (lambda () (close-instance first)))
+    (lambda () #f)
+    (lambda () (invoke-entry first '(10)))
+    (lambda () (close-instance first)))
 ```
 
 Here `counter.o` is the object written by

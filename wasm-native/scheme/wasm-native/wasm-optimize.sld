@@ -2,8 +2,11 @@
 ;; Importing this library performs no tool checks or compilation.
 (define-library (wasm-native wasm-optimize)
   (export wasm-features check-binaryen-tools assemble-wasm optimize-wasm)
-  (import (scheme base) (scheme file) (scheme write)
-          (wasm-native build-host))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme write)
+   (wasm-native build-host))
   (begin
 
     ;; ---- Explicit dependency preflight ----

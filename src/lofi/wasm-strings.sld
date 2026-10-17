@@ -2,7 +2,9 @@
 (define-library (lofi wasm-strings)
   (export utf8-string-layout utf8-string-operation utf8-string-runtime
           utf8-string-literal utf8-string-initializers)
-  (import (scheme base) (scheme cxr))
+  (import
+   (scheme base)
+   (scheme cxr))
   (begin
 
     ;; ---- Ownership and representation ----

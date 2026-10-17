@@ -1,9 +1,20 @@
 ;; One explicitly owned compiler session. Requests supply source or owned syntax;
 ;; compilation sees only the resulting map and never discovers dependencies.
-(import (scheme base) (scheme file) (scheme read) (scheme write) (scheme process-context)
-        (wasm-native json) (lofi frontend) (lofi compiler bootstrap)
-        (lofi library-transfer) (lofi reader) (lofi syntax-parser)
-        (lofi source) (lofi primitives) (wasm-native chromium-trace))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme read)
+ (scheme write)
+ (scheme process-context)
+ (wasm-native json)
+ (lofi frontend)
+ (lofi compiler bootstrap)
+ (lofi library-transfer)
+ (lofi reader)
+ (lofi syntax-parser)
+ (lofi source)
+ (lofi primitives)
+ (wasm-native chromium-trace))
 
 ;; ---- Session-owned parsed values and immutable maps ----
 

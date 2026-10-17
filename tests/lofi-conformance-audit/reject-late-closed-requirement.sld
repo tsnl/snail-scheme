@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def Equal (typeclass (T) (: same? (-> T T Bool))))
 ((lambda (value)
    (begin

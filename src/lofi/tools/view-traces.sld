@@ -1,13 +1,26 @@
 ;; One selected trace and contained Perfetto UI assets, served on loopback.
 (define-library (lofi tools view-traces)
   (export view-traces-main)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write) (scheme process-context)
-          (chibi filesystem) (chibi pathname) (wasm-native json) (chibi net) (chibi net server)
-          (only (chibi) port-fileno) (only (chibi mime) mime-type-from-extension)
-          (only (chibi process) execute set-signal-action! signal/pipe signal/interrupt)
-          (only (chibi string) string-prefix? string-contains string-split string-trim string-trim-left
-                string-cursor-start substring-cursor)
-          (srfi 1) (wasm-native process) (lofi tools host-tools))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (chibi filesystem)
+   (chibi pathname)
+   (wasm-native json)
+   (chibi net)
+   (chibi net server)
+   (only (chibi) port-fileno)
+   (only (chibi mime) mime-type-from-extension)
+   (only (chibi process) execute set-signal-action! signal/pipe signal/interrupt)
+   (only (chibi string) string-prefix? string-contains string-split string-trim string-trim-left
+         string-cursor-start substring-cursor)
+   (srfi 1)
+   (wasm-native process)
+   (lofi tools host-tools))
   (begin
 
     ;; ---- Command-line inputs and contained files ----

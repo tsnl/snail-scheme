@@ -1,6 +1,9 @@
 ;; CLI policy stays outside the reusable runtime Wasm library.
-(import (scheme base) (chibi string)
-        (wasm-native process) (wasm-native runtime-wasm))
+(import
+ (scheme base)
+ (chibi string)
+ (wasm-native process)
+ (wasm-native runtime-wasm))
 
 (define (request arguments)
   (let loop ((arguments arguments) (options '()) (paths '()))

@@ -1,7 +1,8 @@
 ;; The Lofi book's small formatting dependency. The caller supplies one byte.
 (define-library (example hex)
   (export byte->hex)
-  (import (lofi base))
+  (import
+   (lofi base))
   (begin
     (def byte->hex (-> I32 String)
          (lambda (value)

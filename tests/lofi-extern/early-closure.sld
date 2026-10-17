@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (define-extern mark "probe" "mark" (-> I32 Unit))
 (def base

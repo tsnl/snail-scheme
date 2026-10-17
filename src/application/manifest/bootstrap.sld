@@ -3,9 +3,12 @@
 ;; typed product API imported by Scheme and Lofi programs.
 (define-library (application manifest bootstrap)
   (export application-source-manifest)
-  (import (scheme base) (scheme cxr) (scheme write)
-          (only (lofi library) lofi-library-syntax)
-          (only (lofi syntax) syntax->datum))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme write)
+   (only (lofi library) lofi-library-syntax)
+   (only (lofi syntax) syntax->datum))
   (begin
     (define (printed value)
       (let ((output (open-output-string))) (write value output) (get-output-string output)))

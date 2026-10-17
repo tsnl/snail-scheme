@@ -4,11 +4,17 @@
 ;;   chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
 ;;     "$repo" "$repo/examples/native/answer.sld" answer \
 ;;     "$repo/examples/native/entry.rs" /tmp/lofi-answer
-(import (scheme base) (scheme process-context) (chibi filesystem)
-        (wasm-native) (wasm-native process) (wasm-native chromium-trace)
-        (lofi compiler bootstrap) (lofi source-driver)
-        (only (lofi frontend) make-primitive-library)
-        (only (lofi primitives) primitive-names))
+(import
+ (scheme base)
+ (scheme process-context)
+ (chibi filesystem)
+ (wasm-native)
+ (wasm-native process)
+ (wasm-native chromium-trace)
+ (lofi compiler bootstrap)
+ (lofi source-driver)
+ (only (lofi frontend) make-primitive-library)
+ (only (lofi primitives) primitive-names))
 
 ;; ---- Explicit build inputs ----
 

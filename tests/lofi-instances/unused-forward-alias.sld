@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 
 ;; The unused method must read later now; later's effect must not run.

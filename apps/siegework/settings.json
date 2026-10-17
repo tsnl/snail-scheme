@@ -1,4 +1,5 @@
 {
+  "id": "siegework",
   "title": "Siegework",
   "width": 960,
   "height": 640,
@@ -21,7 +22,9 @@
     "repair",
     "new-run",
     "pause-colony",
-    "new-run-seed"
+    "new-run-seed",
+    "cancel-building",
+    "arm-tower"
   ],
   "pointer": {
     "move": "move",
@@ -49,6 +52,12 @@
     ],
     "u": [
       "improve"
+    ],
+    "c": [
+      "cancel"
+    ],
+    "t": [
+      "arm"
     ],
     "f": [
       "fabricate"
@@ -147,6 +156,12 @@
     "9": [
       "restart"
     ],
+    "10": [
+      "cancel"
+    ],
+    "11": [
+      "arm"
+    ],
     "12": [
       "nudge",
       0,
@@ -212,5 +227,5 @@
     "s",
     "d"
   ],
-  "runMarker": 23
+  "runMarker": 1
 }

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 
 ;; Arguments escape the guest in source order, including before a trap.

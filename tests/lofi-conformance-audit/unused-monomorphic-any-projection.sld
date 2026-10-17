@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def hidden Any (ann 0 I64))
 (def projected (Ref I64) (ann hidden (Ref I64)))
 (ann 42 I64)

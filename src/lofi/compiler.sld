@@ -6,24 +6,52 @@
           scalar-i32 scalar-i64 scalar-f32 scalar-f64 scalar-bool scalar-char scalar-unit
           parse-library empty-library-map library-map-primitives library-map-parse library-map-insert
           library-map-alias compile load instantiate invoke-entry close-instance write-artifact)
-  (import (only (lofi primitive) null? car cdr string-length string-ref make-string string-set!
-                i64-eq i64-add i32-eq unit)
-          (only (lofi compiler-builder) LofiLibrary library-token checked-library))
+  (import
+   (only (lofi primitive) null? car cdr string-length string-ref make-string string-set!
+         i64-eq i64-add i32-eq unit)
+   (only (lofi compiler-builder) LofiLibrary library-token checked-library))
   (begin
 
     ;; ---- Nominal resources and ordinary success or failure values ----
 
-    (def CompilerResult (datatype (T) (compiler-success (value T)) (compiler-failure (message String))))
-    (def LibraryMap (datatype () (wrap-map (token I64 map-token))))
-    (def Artifact (datatype () (wrap-artifact (token I64 artifact-token))))
-    (def Code (datatype () (wrap-code (token I64 code-token))))
-    (def Instance (datatype () (wrap-instance (token I64 instance-token))))
-    (def Entry (datatype () (entry (library (List String) entry-library) (export String entry-export))))
-    (def Providers (datatype () (provider-set (name String provider-set-name))))
+    (def CompilerResult (datatype (T)
+                          (compiler-success
+                           (value T))
+                          (compiler-failure
+                           (message String))))
+    (def LibraryMap (datatype ()
+                      (wrap-map
+                       (token I64 map-token))))
+    (def Artifact (datatype ()
+                    (wrap-artifact
+                     (token I64 artifact-token))))
+    (def Code (datatype ()
+                (wrap-code
+                 (token I64 code-token))))
+    (def Instance (datatype ()
+                    (wrap-instance
+                     (token I64 instance-token))))
+    (def Entry (datatype ()
+                 (entry
+                  (library (List String) entry-library)
+                  (export String entry-export))))
+    (def Providers (datatype ()
+                     (provider-set
+                      (name String provider-set-name))))
     (def ScalarValue (datatype ()
-                               (scalar-i32 (value I32)) (scalar-i64 (value I64))
-                               (scalar-f32 (value F32)) (scalar-f64 (value F64))
-                               (scalar-bool (value Bool)) (scalar-char (value Char)) (scalar-unit)))
+                       (scalar-i32
+                        (value I32))
+                       (scalar-i64
+                        (value I64))
+                       (scalar-f32
+                        (value F32))
+                       (scalar-f64
+                        (value F64))
+                       (scalar-bool
+                        (value Bool))
+                       (scalar-char
+                        (value Char))
+                       (scalar-unit)))
 
     ;; ---- Scalar-only transport into the explicitly supplied service ----
 

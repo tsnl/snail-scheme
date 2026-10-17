@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def bridge (-> I64 I64)
      (lambda (value) (i64-add (countdown value) #t)))

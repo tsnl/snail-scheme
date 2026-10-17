@@ -1,11 +1,19 @@
 ;; From any directory:
 ;; chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" \
 ;;   "$repo/apps/siegework/build.scm" "$repo" "$repo/build/siegework"
-(import (scheme base) (scheme process-context) (scheme write) (chibi filesystem) (chibi string)
-        (wasm-native process) (wasm-native chromium-trace)
-        (lofi compiler bootstrap) (lofi source-driver) (application manifest bootstrap)
-        (only (lofi frontend) make-primitive-library)
-        (only (lofi primitives) primitive-names))
+(import
+ (scheme base)
+ (scheme process-context)
+ (scheme write)
+ (chibi filesystem)
+ (chibi string)
+ (wasm-native process)
+ (wasm-native chromium-trace)
+ (lofi compiler bootstrap)
+ (lofi source-driver)
+ (application manifest bootstrap)
+ (only (lofi frontend) make-primitive-library)
+ (only (lofi primitives) primitive-names))
 
 ;; ---- Explicit inputs and product source roots ----
 

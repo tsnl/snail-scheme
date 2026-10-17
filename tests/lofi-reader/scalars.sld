@@ -1,4 +1,6 @@
-(import (lofi base) (lofi datum))
+(import
+ (lofi base)
+ (lofi datum))
 
 ;; ---- Exactness, stable symbols and observable mutable datum fields ----
 

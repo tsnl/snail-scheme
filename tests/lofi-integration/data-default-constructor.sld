@@ -1,5 +1,9 @@
-(import (lofi base))
-(def Choice (datatype () (empty) (full (value I64))))
+(import
+ (lofi base))
+(def Choice (datatype ()
+              (empty)
+              (full
+               (value I64))))
 (def lofi-migration-instance-1 (instance (Default Choice) (default empty)))
 (def choices
      (ann (make-vector (ann 2 I64)) (Vector Choice)))

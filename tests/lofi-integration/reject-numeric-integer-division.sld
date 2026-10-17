@@ -1,2 +1,3 @@
-(import (lofi base))
+(import
+ (lofi base))
 (/ (ann 6 I64) (ann 2 I64))

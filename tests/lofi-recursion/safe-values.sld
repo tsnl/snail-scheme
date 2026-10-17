@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 (def history (ref (ann 0 I64)))
 (def mark (lambda (digit) (begin (ref-set! history (i64-add (i64-mul (ref-get history) (ann 10 I64)) digit)) (record digit))))

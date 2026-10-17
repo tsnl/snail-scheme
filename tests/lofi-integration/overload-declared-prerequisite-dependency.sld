@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload wrapper (All (T) (-> T T)) (lambda (value) (via value)))
 (define-overload wrapper (-> I64 Bool) (lambda (value) #t))
 (define-overload via

@@ -1,10 +1,12 @@
 ;; Preserve control-character meanings at bounded JSON message boundaries.
 (define-library (wasm-native json)
   (export json-read json-write string->json json->string)
-  (import (scheme base) (scheme write)
-          (rename (only (chibi json) json-read json->string)
-                  (json-read host-json-read) (json->string host-json->string))
-          (only (chibi io) port->string))
+  (import
+   (scheme base)
+   (scheme write)
+   (rename (only (chibi json) json-read json->string)
+           (json-read host-json-read) (json->string host-json->string))
+   (only (chibi io) port->string))
   (begin
 
     ;; ---- Preserve all standard escapes before the pinned host parser ----
@@ -67,7 +69,8 @@
   (cond-expand
    (snail-tests
     (export test-json)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-standard-escapes)
         (expect (map char->integer (string->list (string->json "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\\u0000\"")))

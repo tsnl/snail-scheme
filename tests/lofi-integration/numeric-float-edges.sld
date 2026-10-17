@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def unordered
      (lambda (nan zero)
        (if (not (= nan nan))

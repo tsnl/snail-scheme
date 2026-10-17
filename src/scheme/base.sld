@@ -1,9 +1,10 @@
 ;; An initial Scheme surface over the typed Lofi kernel. Conditions are Bool;
 ;; branches and collection elements obey Lofi's types. This is not R7RS base.
 (define-library (scheme base)
-  (import (lofi base)
-          (rename (lofi core) (def core-def) (lambda core-lambda) (let core-let)
-                  (begin core-begin) (if core-if)))
+  (import
+   (lofi base)
+   (rename (lofi core) (def core-def) (lambda core-lambda) (let core-let)
+           (begin core-begin) (if core-if)))
   (export define define-syntax syntax-rules lambda let let* letrec letrec*
           begin if and or when unless cond else
           + - * / = < <= > >= quotient remainder not unit

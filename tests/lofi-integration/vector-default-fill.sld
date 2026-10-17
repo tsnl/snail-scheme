@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def cell
      (ref (ann 42 I64)))
 (def filled

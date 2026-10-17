@@ -1,6 +1,7 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern collect "probe" "callback" (-> Unit))
-(def data
+(def samples
      (vector (ann 0 I64) (ann 1 I64) (ann 2 I64) (ann 3 I64) (ann 4 I64) (ann 5 I64)))
 (def trace
      (ref (ann 0 I64)))
@@ -11,7 +12,7 @@
      (lambda (x) x))
 
 (def read (-> I64 I64)
-     (lambda (index) (vector-ref data index)))
+     (lambda (index) (vector-ref samples index)))
 
 (def marks (-> I64)
      (lambda () (ref-get trace)))
@@ -26,7 +27,7 @@
                   (if (= index (ann 6 I64))
                       (unit)
                       (begin
-                        (vector-set! data index index)
+                        (vector-set! samples index index)
                         (loop (+ index (ann 1 I64)))
                         (unit)))))
            (loop (ann 0 I64))))))
@@ -34,7 +35,7 @@
 (def write (-> I64 Unit)
      (lambda (index)
        ((begin (mark (ann 4 I64)) vector-set!)
-        (begin (mark (ann 1 I64)) data)
+        (begin (mark (ann 1 I64)) samples)
         (begin (mark (ann 2 I64)) index)
         (begin (mark (ann 3 I64)) (ann 99 I64)))))
 
@@ -45,8 +46,8 @@
 (def copy (-> I64 I64 I64 Unit)
      (lambda (at start end)
        ((begin (mark (ann 6 I64)) vector-copy!)
-        (begin (mark (ann 1 I64)) data) (begin (mark (ann 2 I64)) at)
-        (begin (mark (ann 3 I64)) data) (begin (mark (ann 4 I64)) start) (begin (mark (ann 5 I64)) end))))
+        (begin (mark (ann 1 I64)) samples) (begin (mark (ann 2 I64)) at)
+        (begin (mark (ann 3 I64)) samples) (begin (mark (ann 4 I64)) start) (begin (mark (ann 5 I64)) end))))
 
 (def gc-check (-> I64)
      (lambda ()

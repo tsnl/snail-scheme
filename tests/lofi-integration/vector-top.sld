@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def original
      (make-vector (ann 2 I64) (ann 0 I64)))
 (def hidden

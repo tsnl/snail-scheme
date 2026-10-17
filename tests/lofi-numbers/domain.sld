@@ -1,4 +1,9 @@
-(import (lofi base) (lofi integer) (lofi rational) (lofi number) (lofi datum))
+(import
+ (lofi base)
+ (lofi integer)
+ (lofi rational)
+ (lofi number)
+ (lofi datum))
 
 ;; ---- Scalar test transport and a checked complete token ----
 

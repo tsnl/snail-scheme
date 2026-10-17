@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 
 ;; A later failure preserves earlier effects and stops the following row.

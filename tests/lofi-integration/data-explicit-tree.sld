@@ -1,5 +1,11 @@
-(import (lofi base))
-(def Tree (datatype ( T) (leaf (value T)) (branch (left (Tree T)) (right (Tree T)))))
+(import
+ (lofi base))
+(def Tree (datatype ( T)
+            (leaf
+             (value T))
+            (branch
+             (left (Tree T))
+             (right (Tree T)))))
 
 (def first (All (A) (-> (Tree A) A))
      (lambda (tree) (match tree ((leaf value) value) ((branch left right) (first left)))))

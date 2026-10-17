@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def forget
      (lambda (x) (ann x Any)))
 (ann (forget (ann 4294967296 I64)) I64)

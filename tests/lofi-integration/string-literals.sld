@@ -1,5 +1,6 @@
 ;; String is fixed type syntax, so the former imported alias is spelled directly.
-(import (lofi base))
+(import
+ (lofi base))
 
 (def literal (-> String)
      (lambda () "A\x0;é😀"))

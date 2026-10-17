@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 ;; The declared unary row cannot compete with binary views in its body.
 (define-overload add (-> I64 I64)
   (lambda (value)

@@ -21,6 +21,7 @@
   {"name": "lofi-reader", "script": "test-lofi-reader"},
   {"name": "lofi-text", "script": "test-lofi-text"},
   {"name": "lofi-write", "script": "test-lofi-write"},
+  {"name": "lofi-serialization", "script": "test-lofi-serialization"},
   {"name": "binaryen", "script": "test-binaryen"},
   {"name": "package-isolation", "script": "test-package-isolation"},
   {"name": "numbers-domain", "script": "test-lofi-numbers", "arguments": ["--domain", "--output", "build/lofi-number-domain"]},

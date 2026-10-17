@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload source (-> I64) (lambda () (ann 42 I64)))
 (define-overload source (-> Bool) (lambda () #t))
 (define-overload destination (-> I64 F64) i64->f64)

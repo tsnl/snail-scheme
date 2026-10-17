@@ -14,7 +14,9 @@
           integer-sqrt integer-sqrt/remainder root-value root-remainder
           + - * = < <= > >= quotient remainder
           test-integer)
-  (import (lofi base) (only (lofi primitive) f64-ieee-mul))
+  (import
+   (lofi base)
+   (only (lofi primitive) f64-ieee-mul))
 
   ;; ---- Canonical magnitude and private ownership ----
 
@@ -28,11 +30,17 @@
     (def limb-bits
          (ann 2 I64))
     (def Integer (datatype ()
-                           (integer (negative Bool integer-negative?) (limbs (Vector I32) integer-limbs))))
+                   (integer
+                    (negative Bool integer-negative?)
+                    (limbs (Vector I32) integer-limbs))))
     (def IntegerDivision (datatype ()
-                                   (division (quotient Integer division-quotient) (remainder Integer division-remainder))))
+                           (division
+                            (quotient Integer division-quotient)
+                            (remainder Integer division-remainder))))
     (def IntegerRoot (datatype ()
-                               (root (value Integer root-value) (remainder Integer root-remainder))))
+                       (root
+                           (value Integer root-value)
+                         (remainder Integer root-remainder))))
     (def zero
          (integer #f (ann (empty-vector) (Vector I32))))
 

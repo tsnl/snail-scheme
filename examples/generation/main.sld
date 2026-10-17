@@ -1,2 +1,3 @@
-(import (demo answer))
+(import
+ (demo answer))
 (main)

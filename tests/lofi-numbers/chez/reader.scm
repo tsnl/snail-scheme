@@ -1,4 +1,5 @@
-(import (chezscheme))
+(import
+ (chezscheme))
 (define-syntax : (syntax-rules () ((_ . signature) (begin))))
 (define-syntax ann (syntax-rules () ((_ value type) value)))
 (define-syntax define-overload (syntax-rules () ((_ . declaration) (begin))))

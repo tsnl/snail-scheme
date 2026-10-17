@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def bind (syntax-rules () ((_ name value) (def name value))))
 (make-def answer (lambda () 42))
 (bind make-def (syntax-rules () ((_ name value) (def name value))))

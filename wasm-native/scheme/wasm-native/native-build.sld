@@ -4,12 +4,25 @@
           llvm-bitcode llvm-object link-native-object native-cargo-environment native-system-environment
           ensure-native-supervisor native-rustc-main
           rust-source-inputs source-hashes check-stable-inputs native-evidence)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme read)
-          (scheme write) (scheme process-context) (chibi filesystem) (chibi pathname)
-          (only (chibi process) current-process-id execute)
-          (only (chibi crypto sha2) sha-256)
-          (chibi string) (chibi regexp) (wasm-native json) (srfi 1) (srfi 95) (srfi 151)
-          (wasm-native process))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme read)
+   (scheme write)
+   (scheme process-context)
+   (chibi filesystem)
+   (chibi pathname)
+   (only (chibi process) current-process-id execute)
+   (only (chibi crypto sha2) sha-256)
+   (chibi string)
+   (chibi regexp)
+   (wasm-native json)
+   (srfi 1)
+   (srfi 95)
+   (srfi 151)
+   (wasm-native process))
   (begin
 
     ;; ---- Scalar declarations read from the compiled Rust sources ----
@@ -353,7 +366,8 @@
   (cond-expand
    (snail-tests
     (export test-native-build)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-build-error thunk)
         (guard (failure (else (and (error-object? failure) (error-object-message failure)))) (thunk) #f))

@@ -17,25 +17,26 @@ Parentheses enclose an operation and its arguments. `def` introduces a binding;
 `lambda` constructs a function. Here are two ways to compute Fibonacci numbers:
 
 ```scheme
-(import (lofi base))
+(import
+ (lofi base))
 
 (def fibonacci (-> I32 I32)
-  (lambda (n)
-    (if (<= n 1)
-        n
-        (+ (fibonacci (- n 2)) (fibonacci (- n 1))))))
+     (lambda (n)
+       (if (<= n 1)
+           n
+           (+ (fibonacci (- n 2)) (fibonacci (- n 1))))))
 
 (def fast-fibonacci (-> I32 I32)
-  (lambda (n)
-    (begin
-      (def inner (-> I32 I32 I32 I32)
-        (lambda (i previous current)
-          (begin
-            (let next (+ previous current))
-            (if (= i n)
-                next
-                (inner (+ i 1) current next)))))
-      (if (<= n 1) n (inner 2 0 1)))))
+     (lambda (n)
+       (begin
+         (def inner (-> I32 I32 I32 I32)
+              (lambda (i previous current)
+                (begin
+                  (let next (+ previous current))
+                  (if (= i n)
+                      next
+                      (inner (+ i 1) current next)))))
+         (if (<= n 1) n (inner 2 0 1)))))
 
 (fast-fibonacci 10) ; 55
 ```
@@ -51,49 +52,53 @@ a color is either a primary color or three floating-point components. A class
 declares an operation; instances provide implementations for particular types.
 
 ```scheme
-(import (lofi base) (example hex))
+(import
+ (lofi base)
+ (example hex))
 
-(def Vec3
-  (datatype (T)
-    (vec3 (x T vec3-x) (y T vec3-y) (z T vec3-z))))
-(def PrimaryColor (datatype () (red) (green) (blue)))
-(def Color
-  (datatype ()
-    (primary (value PrimaryColor))
-    (rgb (value (Vec3 F32)))))
+(data Vec3 (T)
+  (vec3
+   (x T vec3-x)
+   (y T vec3-y)
+   (z T vec3-z)))
+(data PrimaryColor ()
+  (red)
+  (green)
+  (blue))
+(data Color ()
+  (primary
+   (value PrimaryColor))
+  (rgb
+   (value (Vec3 F32))))
 
-(def ToHexString
-  (typeclass (T)
-    (: to-hex-string (-> T String))))
+(typeclass ToHexString (T)
+           (: to-hex-string (-> T String)))
 
 (def channel-hex (-> F32 String)
-  (lambda (component)
-    (byte->hex (f32->i32 (* component (ann 255.0 F32))))))
+     (lambda (component)
+       (byte->hex (f32->i32 (* component (ann 255.0 F32))))))
 
-(def primary-color-to-hex
-  (instance (ToHexString PrimaryColor)
-    (to-hex-string
-      (lambda (color)
-        (match color
-          ((red) "#ff0000ff")
-          ((green) "#00ff00ff")
-          ((blue) "#0000ffff"))))))
+(instance primary-color-to-hex (ToHexString PrimaryColor)
+          (to-hex-string
+           (lambda (color)
+             (match color
+               ((red) "#ff0000ff")
+               ((green) "#00ff00ff")
+               ((blue) "#0000ffff")))))
 
-(def vec3f-to-hex
-  (instance (ToHexString (Vec3 F32))
-    (to-hex-string
-      (lambda (v)
-        (string-append "#" (channel-hex (vec3-x v))
-                           (channel-hex (vec3-y v))
-                           (channel-hex (vec3-z v)) "ff")))))
+(instance vec3f-to-hex (ToHexString (Vec3 F32))
+          (to-hex-string
+           (lambda (v)
+             (string-append "#" (channel-hex (vec3-x v))
+                            (channel-hex (vec3-y v))
+                            (channel-hex (vec3-z v)) "ff"))))
 
-(def color-to-hex
-  (instance (ToHexString Color)
-    (to-hex-string
-      (lambda (color)
-        (match color
-          ((primary value) (to-hex-string value))
-          ((rgb value) (to-hex-string value)))))))
+(instance color-to-hex (ToHexString Color)
+          (to-hex-string
+           (lambda (color)
+             (match color
+               ((primary value) (to-hex-string value))
+               ((rgb value) (to-hex-string value))))))
 
 (to-hex-string (primary (red))) ; "#ff0000ff"
 ```
@@ -108,13 +113,13 @@ The repository checks both examples directly from this chapter with
 `scripts/test-lofi-book`, using `-I examples` to find the formatting library.
 The checks execute raw and optimized Wasm and the native target.
 
-`datatype` covers both structs and closed unions: one constructor makes a
+`data` covers both structs and closed unions: one constructor makes a
 struct, and several constructors make a union. `primary` and `rgb` explicitly
 wrap their payloads. This preserves the distinction between the union and its
 component types. The class instance for vectors is specifically for F32;
-generic instance heads would require an additional language feature. The same
-`def` names values, datatypes, typeclasses and instances; their bodies determine
-the type or kind of binding being introduced.
+generic instance heads would require an additional language feature. `def` binds
+one value. The `data`, `typeclass` and `instance` declarations name their subject
+and introduce its associated bindings.
 
 ## Why a common language?
 

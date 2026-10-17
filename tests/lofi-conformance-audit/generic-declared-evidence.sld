@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def Equal (typeclass (T) (: same? (-> T T Bool))))
 (def unused (All (T) (=> ((Equal T)) (-> T Bool))) (lambda (x) (same? x x)))
 (ann 42 I64)

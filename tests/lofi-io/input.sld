@@ -1,4 +1,6 @@
-(import (lofi base) (lofi io))
+(import
+ (lofi base)
+ (lofi io))
 
 ;; ---- Observable line values, storage and normal resource lifetimes ----
 

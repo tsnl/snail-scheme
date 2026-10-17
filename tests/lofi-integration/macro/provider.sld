@@ -1,5 +1,6 @@
 (define-library (macro provider)
-  (import (lofi primitive))
+  (import
+   (lofi primitive))
   (export add-one recognize marker)
   (begin
     (def helper (lambda (x) (i32-add x 1)))

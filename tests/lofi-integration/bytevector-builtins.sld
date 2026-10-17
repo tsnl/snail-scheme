@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 (def same-bytes?
      (lambda (left right)
        (if (= (bytevector-length left) (bytevector-length right))

@@ -1,4 +1,6 @@
-(import (lofi base) (lofi io))
+(import
+ (lofi base)
+ (lofi io))
 
 (def input (current-input-port))
 (def alias (current-input-port))

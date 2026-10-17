@@ -3,13 +3,19 @@
 ;; representation fallback. References in locals, environments and cells are GC roots.
 (define-library (lofi emit-wasm)
   (export strict-core->wasm)
-  (import (scheme base) (scheme cxr)
-          (only (lofi ir) node-loc)
-          (lofi types) (lofi checked) (lofi pass)
-          (lofi data)
-          (only (lofi ir) data-schema-cases)
-          (lofi specialize) (lofi primitives)
-          (lofi wasm-extern) (lofi wasm-strings))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (only (lofi ir) node-loc)
+   (lofi types)
+   (lofi checked)
+   (lofi pass)
+   (lofi data)
+   (only (lofi ir) data-schema-cases)
+   (lofi specialize)
+   (lofi primitives)
+   (lofi wasm-extern)
+   (lofi wasm-strings))
   (begin
 
     ;; ---- Concrete layout registry ----
@@ -17,13 +23,16 @@
     (define-record-type <state>
       (make-state layouts workers cells imports strings bytes compilation) state?
       (layouts state-layouts set-state-layouts!)
-      (workers state-workers set-state-workers!) (cells state-cells)
+      (workers state-workers set-state-workers!)
+      (cells state-cells)
       (imports state-imports set-state-imports!)
       (strings state-strings set-state-strings!)
-      (bytes state-bytes set-state-bytes!) (compilation state-compilation))
+      (bytes state-bytes set-state-bytes!)
+      (compilation state-compilation))
     (define-record-type <context>
       (make-context state slots locals) context?
-      (state context-state) (slots context-slots set-context-slots!)
+      (state context-state)
+      (slots context-slots set-context-slots!)
       (locals context-locals set-context-locals!))
     (define (identifier prefix index)
       (string->symbol (string-append "$" prefix (number->string index))))
@@ -529,8 +538,11 @@
 
     (define-record-type <emitted>
       (new-emitted type code function operation self?) emitted?
-      (type emitted-type) (code raw-emitted-code) (function emitted-function)
-      (operation emitted-operation) (self? emitted-self?))
+      (type emitted-type)
+      (code raw-emitted-code)
+      (function emitted-function)
+      (operation emitted-operation)
+      (self? emitted-self?))
     (define (make-emitted type code function) (new-emitted type code function #f #f))
     (define (emitted-code value context)
       (or (raw-emitted-code value)

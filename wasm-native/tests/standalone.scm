@@ -1,9 +1,17 @@
 ;; This script needs only this package's scheme/ and tests/ include paths.
-(import (scheme base) (scheme file) (scheme write) (scheme process-context) (chibi filesystem)
-        (only (chibi string) string-contains string-split) (only (srfi 1) filter)
-        (wasm-native) (wasm-native process) (wasm-native test-utils)
-        (only (wasm-native wasm-optimize) assemble-wasm)
-        (only (wasm-native chromium-trace) with-chromium-trace-to))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme write)
+ (scheme process-context)
+ (chibi filesystem)
+ (only (chibi string) string-contains string-split)
+ (only (srfi 1) filter)
+ (wasm-native)
+ (wasm-native process)
+ (wasm-native test-utils)
+ (only (wasm-native wasm-optimize) assemble-wasm)
+ (only (wasm-native chromium-trace) with-chromium-trace-to))
 
 (define root (absolute-path (current-directory)))
 (define directory (make-build-directory (path-join root "build") "standalone-"))

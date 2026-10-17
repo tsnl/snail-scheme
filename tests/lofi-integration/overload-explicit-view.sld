@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def mixed
      (inst + (-> I64 F64 F64)))
 (if (if (= (mixed (ann 20 I64) 22.0) 42.0) (= ((ann + (-> I32 I32 I32)) 20 22) (ann 42 I32)) #f)

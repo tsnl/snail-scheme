@@ -1,7 +1,10 @@
 ;; Construct the source-equivalent library in complete-source.sld. Every
 ;; reference below names an identity or an explicitly imported binding.
 (define-library (builder complete)
-  (import (lofi compiler-builder) (lofi primitive) (builder rebuild))
+  (import
+   (lofi compiler-builder)
+   (lofi primitive)
+   (builder rebuild))
   (export build)
   (begin
     (def items (All (T) (-> (Rest T) (List T))) (lambda values values))

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def flip (-> Bool Bool)
      (lambda (x) (not x)))

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (begin (let x0 (ann 1 I64))
        (begin (let x1 (+ x0 x0))
               (begin (let x2 (+ x1 x1))

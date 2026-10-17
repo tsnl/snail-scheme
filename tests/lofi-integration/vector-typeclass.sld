@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Copy (typeclass ( T) (: copy-value (-> T T))))
 (def lofi-migration-instance-1 (instance (Copy (Vector I64)) (copy-value vector-copy)))
 (def lofi-migration-instance-2 (instance (Copy (Vector Bool)) (copy-value vector-copy)))

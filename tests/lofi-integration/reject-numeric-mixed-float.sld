@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def x
      (ann 1.0 F32))
 (def y

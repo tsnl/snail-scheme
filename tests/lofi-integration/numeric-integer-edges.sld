@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 ;; Signed boundaries and division; the arithmetic suite also checks wrapping.
 (if (if (= (+ (ann 9223372036854775806 I64) (ann 1 I64)) (ann 9223372036854775807 I64))
         (if (= (+ (ann 2147483646 I32) (ann 1 I32)) (ann 2147483647 I32))

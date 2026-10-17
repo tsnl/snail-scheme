@@ -2,7 +2,10 @@
 ;; Numeric widths are siblings: selecting an opcode never inserts a coercion.
 (define-library (lofi primitives)
   (export primitive-names primitive-scheme primitive-opcode)
-  (import (scheme base) (scheme cxr) (lofi types))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi types))
   (begin
 
     ;; ---- Concrete native operations ----
@@ -80,6 +83,10 @@
         (f32->i32 (F32) I32 i32.trunc_f32_s)
         (f64->f32 (F64) F32 f32.demote_f64)
         (f64->i64 (F64) I64 i64.trunc_f64_s)
+        (f32->bits (F32) I32 i32.reinterpret_f32)
+        (bits->f32 (I32) F32 f32.reinterpret_i32)
+        (f64->bits (F64) I64 i64.reinterpret_f64)
+        (bits->f64 (I64) F64 f64.reinterpret_i64)
         (char=? (Char Char) Bool i32.eq)
         (char<? (Char Char) Bool i32.lt_u)
         (char<=? (Char Char) Bool i32.le_u)

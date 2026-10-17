@@ -1,5 +1,7 @@
-(import (lofi base))
-(def Empty (datatype () (empty)))
+(import
+ (lofi base))
+(def Empty (datatype ()
+             (empty)))
 (def calls
      (ref (ann 0 I64)))
 

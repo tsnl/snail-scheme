@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def combine
      (lambda (left right) (+ left right)))
 (if (if (= (combine (ann 20 I64) 22.0) 42.0)

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 ;; Ordinary helper inference uses declared family signatures regardless of source order.
 (define-overload g (All (T) (-> T T)) (lambda (value) (bridge value)))
 (define-overload g (-> I64 Bool) (lambda (value) #t))

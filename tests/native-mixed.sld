@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern mixed "fixture" "mixed_scalar" (-> I32 I64 F32 F64 I64))
 (define-extern narrow "fixture" "scalar_f32" (-> F32 F32))
 (define-extern wide "fixture" "scalar_f64" (-> I64 F64 F64))

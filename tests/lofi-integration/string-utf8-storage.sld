@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 
 ;; ---- Scalar boundaries survive replacement and spare capacity ----
 

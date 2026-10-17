@@ -1,6 +1,14 @@
-(import (scheme base) (scheme file) (scheme process-context)
-        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler bootstrap) (lofi library-transfer))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme process-context)
+ (lofi reader)
+ (lofi syntax-parser)
+ (wasm-native chromium-trace)
+ (lofi primitives)
+ (lofi frontend)
+ (lofi compiler bootstrap)
+ (lofi library-transfer))
 (define directory (cadr (command-line)))
 (define (parsed path) (parse-library (car (reader->syntax-list (file->reader path)))))
 (with-chromium-trace-to

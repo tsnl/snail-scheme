@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload convert (-> I64 I64) (lambda (value) value))
 (define-overload convert (-> I64 F64) i64->f64)
 (def integer-view

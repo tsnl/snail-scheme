@@ -1,10 +1,19 @@
 ;; Actual native artifacts exercise the compiler API and checked bridge.
-(import (scheme base) (scheme file) (scheme process-context) (chibi filesystem)
-        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler bootstrap)
-        (lofi native) (only (wasm-native) make-native-import)
-        (only (lofi artifact) emit-artifact)
-        (only (srfi 130) string-contains))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme process-context)
+ (chibi filesystem)
+ (lofi reader)
+ (lofi syntax-parser)
+ (wasm-native chromium-trace)
+ (lofi primitives)
+ (lofi frontend)
+ (lofi compiler bootstrap)
+ (lofi native)
+ (only (wasm-native) make-native-import)
+ (only (lofi artifact) emit-artifact)
+ (only (srfi 130) string-contains))
 
 ;; ---- Fixture libraries ----
 

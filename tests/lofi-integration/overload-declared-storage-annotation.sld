@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def first (Ref (Vector I64))
      (ref (empty-vector)))

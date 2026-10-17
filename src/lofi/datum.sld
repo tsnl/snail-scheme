@@ -14,19 +14,22 @@
           datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
           datum-list datum-length datum-append datum-assq datum-map
           test-datum)
-  (import (lofi base) (lofi bytes) (lofi integer) (lofi rational) (lofi number)
-          (only (lofi primitive) i64-wrapping-add i64-wrapping-mul))
+  (import
+   (lofi base)
+   (lofi bytes)
+   (only (lofi scalar-text) Symbol string->symbol symbol->string symbol=? datum-fail
+         stage-text token-close token->symbol)
+   (lofi integer)
+   (lofi rational)
+   (lofi number)
+   (only (lofi primitive) i64-wrapping-add i64-wrapping-mul))
 
   ;; ---- Explicit scalar service ownership ----
 
   (begin
-    (define-extern token-open "snail.library" "snail:datum/token-open" (-> I32))
-    (define-extern token-character "snail.library" "snail:datum/token-character" (-> I32 Char Unit))
-    (define-extern token-close "snail.library" "snail:datum/token-close" (-> I32 Unit))
     (define-extern token-parse "snail.library" "snail:datum/token-parse" (-> I32 I32))
     (define-extern token-parse-radix "snail.library" "snail:datum/token-parse-radix" (-> I32 I32 I32))
     (define-extern token-identifier "snail.library" "snail:datum/token-identifier" (-> I32 I32))
-    (define-extern token-intern "snail.library" "snail:datum/token-intern" (-> I32 I32))
     (define-extern raw-number-kind "snail.library" "snail:datum/number-kind" (-> I32 I32 I32))
     (define-extern raw-number-integer "snail.library" "snail:datum/number-integer" (-> I32 I32 I64))
     (define-extern raw-number-real "snail.library" "snail:datum/number-real" (-> I32 I32 F64))
@@ -36,30 +39,6 @@
     (define-extern raw-number-text-character "snail.library" "snail:datum/number-text-character" (-> I32 I32 I32 I32 Char))
     (define-extern error-length "snail.library" "snail:datum/error-length" (-> I32 I32))
     (define-extern error-character "snail.library" "snail:datum/error-character" (-> I32 I32 Char))
-    (define-extern raw-fail "snail.library" "snail:datum/fail" (-> I32 Unit))
-    (define-extern symbol-length "snail.library" "snail:datum/symbol-length" (-> I32 I64))
-    (define-extern symbol-character "snail.library" "snail:datum/symbol-character" (-> I32 I32 Char))
-
-    ;; The caller owns this ID until close or intern consumes it. These loops
-    ;; invoke no user callbacks. Rust trap cleanup releases outstanding tokens.
-
-    (def stage-text (-> String I32)
-         (lambda (text)
-           (begin (let lofi-migration-let-1 (token-open)) (let lofi-migration-let-2 (string-length text))
-                  (let handle lofi-migration-let-1)
-                  (let count lofi-migration-let-2)
-                  (begin
-                    (def loop
-                         (lambda (index)
-                           (if (= index count)
-                               handle
-                               (begin (token-character handle (string-ref text index))
-                                      (loop (+ index (ann 1 I64)))))))
-                    (loop (ann 0 I64))))))
-
-    (def datum-fail (-> String Never)
-         (lambda (message)
-           (begin (raw-fail (stage-text message)) (unreachable))))
 
     (def identifier? (-> String Bool)
          (lambda (text)
@@ -68,35 +47,14 @@
                          (begin
                            (token-close handle) (i32-eq valid (ann 1 I32)))))))
 
-    ;; ---- Interned symbols, independent of the legacy literal domain ----
-
-    (def Symbol (datatype () (symbol (id I32 symbol-id))))
-
-    (def string->symbol (-> String Symbol)
-         (lambda (text) (symbol (token-intern (stage-text text)))))
-
-    (def symbol=? (-> Symbol Symbol Bool)
-         (lambda (left right) (i32-eq (symbol-id left) (symbol-id right))))
-
-    (def symbol->string (-> Symbol String)
-         (lambda (value)
-           (begin (let id (symbol-id value))
-                  (begin (let count (symbol-length id))
-                         (begin (let result (make-string count))
-                                (begin
-                                  (def loop
-                                       (lambda (index)
-                                         (if (= index count)
-                                             result
-                                             (begin (string-set! result index (symbol-character id (i64->i32 index)))
-                                                    (loop (+ index (ann 1 I64)))))))
-                                  (loop (ann 0 I64))))))))
-
     ;; ---- Exact lexical fields become Lofi-owned numeric values ----
 
-    (def NumberResult (datatype () (not-a-number)
-                                (parsed-number (value Number parsed-number-value))
-                                (number-error (message String number-error-text))))
+    (def NumberResult (datatype ()
+                        (not-a-number)
+                        (parsed-number
+                         (value Number parsed-number-value))
+                        (number-error
+                         (message String number-error-text))))
 
     (def token-exact-text (-> I32 I32 I32 String)
          (lambda (handle part term)
@@ -197,21 +155,35 @@
     ;; ---- Recursive datums and explicit mutable pair fields ----
 
     (def Datum (datatype ()
-                         (datum-null) (datum-boolean (value Bool datum-boolean-value))
-                         (datum-character (value Char datum-character-value))
-                         (datum-string (value String datum-string-value))
-                         (datum-symbol (value Symbol datum-symbol-value))
-                         (datum-number (value Number datum-number-value))
-                         (pair-datum (first (Ref Datum) datum-first) (rest (Ref Datum) datum-rest)
-                                     (identity I64 pair-datum-identity))
-                         (vector-datum (values (Vector Datum) datum-vector-values) (identity I64 vector-datum-identity))
-                         (datum-bytevector (values Bytevector datum-bytevector-values))))
+                 (datum-null)
+                 (datum-boolean
+                  (value Bool datum-boolean-value))
+                 (datum-character
+                  (value Char datum-character-value))
+                 (datum-string
+                  (value String datum-string-value))
+                 (datum-symbol
+                  (value Symbol datum-symbol-value))
+                 (datum-number
+                  (value Number datum-number-value))
+                 (pair-datum
+                  (first (Ref Datum) datum-first)
+                  (rest (Ref Datum) datum-rest)
+                  (identity I64 pair-datum-identity))
+                 (vector-datum
+                  (values (Vector Datum) datum-vector-values)
+                  (identity I64 vector-datum-identity))
+                 (datum-bytevector
+                  (values Bytevector datum-bytevector-values))))
 
     ;; ---- A shared result for atom interpretation and incremental input ----
 
-    (def ReadResult (datatype () (read-end)
-                              (read-value (datum Datum read-value-datum))
-                              (read-error (message String read-error-message))))
+    (def ReadResult (datatype ()
+                      (read-end)
+                      (read-value
+                       (datum Datum read-value-datum))
+                      (read-error
+                       (message String read-error-message))))
 
     (def token-number-datum (-> I32 I32 ReadResult)
          (lambda (handle kind)
@@ -231,7 +203,7 @@
                   (begin (let kind (token-parse handle))
                          (if (i32-eq kind (ann 0 I32))
                              (if (i32-eq (token-identifier handle) (ann 1 I32))
-                                 (read-value (datum-symbol (symbol (token-intern handle))))
+                                 (read-value (datum-symbol (token->symbol handle)))
                                  (begin (token-close handle)
                                         (read-error "invalid numeric token or identifier")))
                              (token-number-datum handle kind))))))
@@ -370,9 +342,10 @@
     ;; hashes, not necessarily to input nodes: coprime cycle lengths can visit
     ;; their product. Hash collisions can add linear probing work.
     (def EqualityHistory (datatype ()
-                                   (equality-history (left (Ref (Vector I64)) history-left)
-                                                     (right (Ref (Vector I64)) history-right)
-                                                     (size (Ref I64) history-size))))
+                           (equality-history
+                            (left (Ref (Vector I64)) history-left)
+                            (right (Ref (Vector I64)) history-right)
+                            (size (Ref I64) history-size))))
 
     (def make-equality-history (-> EqualityHistory)
          (lambda ()
@@ -473,10 +446,16 @@
     ;; No input is mutated, no user procedure is called, and every call starts
     ;; with fresh history, so later pair/vector mutation is visible immediately.
     (def EqualityWork (datatype ()
-                                (equality-done)
-                                (equality-values (left Datum) (right Datum) (pending EqualityWork))
-                                (equality-elements (left (Vector Datum)) (right (Vector Datum))
-                                                   (index I64) (pending EqualityWork))))
+                        (equality-done)
+                        (equality-values
+                         (left Datum)
+                         (right Datum)
+                         (pending EqualityWork))
+                        (equality-elements
+                         (left (Vector Datum))
+                         (right (Vector Datum))
+                         (index I64)
+                         (pending EqualityWork))))
 
     (def datum=? (-> Datum Datum Bool)
          (lambda (left right)

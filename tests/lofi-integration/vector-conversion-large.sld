@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def values
      (list->vector
       (begin

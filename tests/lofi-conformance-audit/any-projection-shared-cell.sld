@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def cell (ref (ann 1 I64)))
 (def hidden Any cell)
 (def alias (ann hidden (Ref I64)))

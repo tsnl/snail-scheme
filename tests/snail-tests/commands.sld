@@ -1,10 +1,20 @@
 ;; Public commands and compiled build programs execute their existing fixtures.
 (define-library (snail-tests commands)
   (export run-command-suite optimizer-scope)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme process-context) (scheme write)
-          (srfi 1) (only (chibi ast) setenv unsetenv) (wasm-native json) (chibi pathname) (chibi regexp) (chibi regexp pcre)
-          (only (chibi string) string-split string-suffix? call-with-input-string)
-          (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (scheme process-context)
+   (scheme write)
+   (srfi 1)
+   (only (chibi ast) setenv unsetenv)
+   (wasm-native json)
+   (chibi pathname)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (only (chibi string) string-split string-suffix? call-with-input-string)
+   (snail-tests harness))
   (begin
 
     ;; ---- Explicit fixture programs and provider objects ----

@@ -1,6 +1,11 @@
 ;; Ordinary compiled Lofi owns and transforms the result of ordinary parsing.
 (define-library (parsed program)
-  (import (only (scheme base) define) (lofi base) (lofi compiler) (lofi compiler-builder) (builder rebuild))
+  (import
+   (only (scheme base) define)
+   (lofi base)
+   (lofi compiler)
+   (lofi compiler-builder)
+   (builder rebuild))
   (export main)
   (begin
 

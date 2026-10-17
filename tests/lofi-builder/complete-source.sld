@@ -1,8 +1,12 @@
 (define-library (complete source)
-  (import (lofi primitive) (rename (complete provider) (operation choose)))
+  (import
+   (lofi primitive)
+   (rename (complete provider) (operation choose)))
   (export run literals Box box)
   (begin
-    (def Box (Kind-> Type Type) (datatype (T) (box (value T box-value))))
+    (def Box (Kind-> Type Type) (datatype (T)
+                                  (box
+                                   (value T box-value))))
     (def Value (Kind-> Type Constraint) (typeclass (T) (: value (-> T I32))))
     (def int-value (Evidence (Value I32)) (instance (Value I32) (value (lambda (value) value))))
     (def identity (All (T) (-> T T)) (lambda (value) value))

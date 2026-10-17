@@ -9,13 +9,17 @@
           rational-truncate rational-floor
           + - * / = < <= > >= truncate
           test-rational)
-  (import (lofi base) (lofi integer))
+  (import
+   (lofi base)
+   (lofi integer))
 
   ;; ---- Normalization establishes the representation contract ----
 
   (begin
     (def Rational (datatype ()
-                            (rational (numerator Integer rational-numerator) (denominator Integer rational-denominator))))
+                    (rational
+                     (numerator Integer rational-numerator)
+                     (denominator Integer rational-denominator))))
     (def one
          (integer-from-i64 (ann 1 I64)))
 

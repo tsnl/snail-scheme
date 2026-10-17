@@ -1,3 +1,7 @@
-(import (lofi base))
-(def Choice (datatype () (live) (dead (impossible Never dead-value))))
+(import
+ (lofi base))
+(def Choice (datatype ()
+              (live)
+              (dead
+               (impossible Never dead-value))))
 (dead-value (live))

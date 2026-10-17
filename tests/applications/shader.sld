@@ -1,7 +1,10 @@
 (define-library (tests shader)
   (export answer)
-  (import (scheme base) (webgpu shader) (only (lofi core) ann -> I32)
-          (only (lofi base) string=?))
+  (import
+   (scheme base)
+   (webgpu shader)
+   (only (lofi core) ann -> I32)
+   (only (lofi base) string=?))
   (begin
     (define-syntax clip (syntax-rules () ((_) (gpu (vec4 position zero one)))))
     (define (valid-compositions?)

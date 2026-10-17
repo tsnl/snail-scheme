@@ -2,8 +2,12 @@
 ;; Name/type resolution stays in wasm-resolve; this is not a general WAT parser.
 (define-library (wasm-native wasm-read)
   (export read-binaryen-module)
-  (import (scheme base) (scheme file) (scheme char) (scheme write)
-          (rename (only (chibi) read) (read read-wasm-datum)))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme char)
+   (scheme write)
+   (rename (only (chibi) read) (read read-wasm-datum)))
   (begin
 
     ;; ---- Buffered bytes ----
@@ -12,7 +16,8 @@
     ;; a whole UTF-8 string repeatedly would traverse its prefix for every byte.
     (define-record-type <wat-input>
       (make-wat-input port bytes offset) wat-input?
-      (port wat-port) (bytes wat-bytes set-wat-bytes!)
+      (port wat-port)
+      (bytes wat-bytes set-wat-bytes!)
       (offset wat-offset set-wat-offset!))
 
     (define (fill-wat-input input)
@@ -174,7 +179,9 @@
   (cond-expand
    (snail-tests
     (export test-wasm-read)
-    (import (scheme inexact) (wasm-native test-utils))
+    (import
+     (scheme inexact)
+     (wasm-native test-utils))
     (begin
       (define (read-text text)
         (let ((output (open-output-string)))

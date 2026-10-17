@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def target
      (string-copy "abc"))
 (def source

@@ -1,7 +1,12 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Node (datatype ()
-                    (node (children (Ref (List Edge)) node-children) (cache (Vector Edge) node-cache))))
-(def Edge (datatype () (edge (target Node edge-target))))
+            (node
+             (children (Ref (List Edge)) node-children)
+             (cache (Vector Edge) node-cache))))
+(def Edge (datatype ()
+            (edge
+             (target Node edge-target))))
 (def root
      (node (ref (empty-list )) (empty-vector)))
 (def link

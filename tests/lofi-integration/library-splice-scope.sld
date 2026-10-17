@@ -1,4 +1,6 @@
-(import (lofi core) (only (lofi primitive) i32-add))
+(import
+ (lofi core)
+ (only (lofi primitive) i32-add))
 (emit answer)
 (library-begin
  (def emit (syntax-rules () ((_ name) (def name 40))))

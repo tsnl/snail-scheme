@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def source
      (string #\A #\null #\é #\x1f600))
 (def copied

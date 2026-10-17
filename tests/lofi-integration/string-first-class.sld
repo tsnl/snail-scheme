@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def allocate
      (lambda (maker) (maker (ann 2 I64) #\λ)))
 (def edit

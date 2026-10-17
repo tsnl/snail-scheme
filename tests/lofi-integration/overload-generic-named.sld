@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload select (All (T) (-> T T)) identity)
 (def identity
      (lambda (x) x))

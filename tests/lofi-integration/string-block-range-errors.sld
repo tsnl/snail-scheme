@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; ---- Complete range rejection before the first block write ----
 

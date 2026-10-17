@@ -1,3 +1,6 @@
-(import (lofi base))
-(def Choice (datatype () (yes) (no)))
+(import
+ (lofi base))
+(def Choice (datatype ()
+              (yes)
+              (no)))
 (match (yes) ((yes) 1))

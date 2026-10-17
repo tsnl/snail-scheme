@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def worker (-> F64 F64)
      (lambda (value) (round value)))

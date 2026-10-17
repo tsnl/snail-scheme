@@ -1,2 +1,3 @@
-(import (lofi base))
+(import
+ (lofi base))
 (+ #t #f)

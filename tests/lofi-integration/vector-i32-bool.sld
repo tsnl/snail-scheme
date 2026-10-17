@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def ints
      (make-vector (ann 2 I64) (ann 42 I32)))
 (def flags

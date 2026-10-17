@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 
 ;; Conversion operands have an observable effect before either return or trap.

@@ -12,8 +12,13 @@
           make-lofi-import lofi-import? lofi-import-provider lofi-import-selection
           lofi-import-scope lofi-import-loc
           resolve-library-map resolve-source-library)
-  (import (scheme base) (scheme cxr) (lofi resolved-library) (lofi ir) (lofi macros)
-          (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi resolved-library)
+   (lofi ir)
+   (lofi macros)
+   (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
   (begin
 
     ;; ---- Parsed library values ----
@@ -24,24 +29,33 @@
     ;; denote an import in this scope; a later local let cannot capture it.
     (define-record-type <scoped-reference>
       (make-scoped-reference name scope role loc) scoped-reference?
-      (name reference-name) (scope reference-scope)
-      (role reference-role) (loc reference-loc))
+      (name reference-name)
+      (scope reference-scope)
+      (role reference-role)
+      (loc reference-loc))
     (define-record-type <import-selection>
       (make-import-selection kind from names) import-selection?
-      (kind selection-kind) (from selection-from) (names selection-names))
+      (kind selection-kind)
+      (from selection-from)
+      (names selection-names))
     (define-record-type <lofi-import>
       (make-lofi-import provider selection scope loc) lofi-import?
-      (provider lofi-import-provider) (selection lofi-import-selection)
-      (scope lofi-import-scope) (loc lofi-import-loc))
+      (provider lofi-import-provider)
+      (selection lofi-import-selection)
+      (scope lofi-import-scope)
+      (loc lofi-import-loc))
     (define-record-type <lofi-library>
       (new-lofi-library id name scope imports exports declarations bindings loc expander syntax) lofi-library?
-      (id lofi-library-id) (name lofi-library-name) (scope lofi-library-scope)
+      (id lofi-library-id)
+      (name lofi-library-name)
+      (scope lofi-library-scope)
       (imports lofi-library-imports) ; descriptive selections in source order
       (exports lofi-library-exports) ; public names with local or scoped references
       (declarations lofi-library-declarations) ; source nodes retain locations and lexical structure
       (bindings lofi-library-bindings) ; local names for import-conflict and family resolution
       (loc lofi-library-loc)
-      (expander library-expander) (syntax lofi-library-syntax))
+      (expander library-expander)
+      (syntax lofi-library-syntax))
     (define (make-lofi-library name scope imports exports declarations bindings loc)
       (new-lofi-library (make-library-id) name scope imports exports declarations bindings loc #f #f))
     (define (make-expanding-library source expander syntax)
@@ -98,7 +112,8 @@
 
     (define-record-type <resolution>
       (make-resolution libraries completed) resolution?
-      (libraries resolution-libraries) (completed resolution-completed set-resolution-completed!))
+      (libraries resolution-libraries)
+      (completed resolution-completed set-resolution-completed!))
     (define (library-key? key)
       (and (list? key) (pair? key)
            (let loop ((names key))

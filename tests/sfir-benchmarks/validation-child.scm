@@ -1,8 +1,11 @@
 ;; Synthetic scheduler children never compile or measure a workload.
-(import (scheme base) (scheme process-context) (scheme write)
-        (only (chibi filesystem) create-directory*)
-        (only (chibi process) kill current-process-id signal/term)
-        (wasm-native process))
+(import
+ (scheme base)
+ (scheme process-context)
+ (scheme write)
+ (only (chibi filesystem) create-directory*)
+ (only (chibi process) kill current-process-id signal/term)
+ (wasm-native process))
 
 (define arguments (cdr (command-line)))
 (define directory (cadr (member "--output" arguments)))

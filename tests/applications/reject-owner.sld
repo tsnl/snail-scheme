@@ -1,6 +1,9 @@
 (define-library (tests reject-owner)
   (export answer)
-  (import (scheme base) (application reducer) (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (application reducer)
+   (only (lofi core) ann -> I32))
   (begin
     (application first (state I32 1) 0
                  (add (state (amount I32)) (no-effects (+ state amount))))

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def cell
      (ref (empty-vector)))
 (define-overload stored (-> (Vector I64)) (lambda () (ref-get cell)))

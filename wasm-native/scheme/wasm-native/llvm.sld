@@ -1,8 +1,13 @@
 (define-library (wasm-native llvm)
   (export wasm->llvm wasm->llvm-file current-native-imports current-native-gc-stress)
-  (import (scheme base) (scheme char) (scheme cxr)
-          (scheme file) (scheme write)
-          (wasm-native wasm-resolve) (wasm-native llvmlite))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme write)
+   (wasm-native wasm-resolve)
+   (wasm-native llvmlite))
   (begin
 
     ;; ---- LLVM operands and native types ----
@@ -97,15 +102,23 @@
     (define-record-type <module>
       (make-module types functions globals constants output)
       module?
-      (types module-types) (functions module-functions)
-      (globals module-globals) (constants module-constants) (output module-output))
+      (types module-types)
+      (functions module-functions)
+      (globals module-globals)
+      (constants module-constants)
+      (output module-output))
 
     (define-record-type <function>
       (make-function name params result locals body import type attributes calls collects?)
       function?
-      (name function-name) (params function-params) (result function-result)
-      (locals function-locals) (body function-body) (import function-import)
-      (type function-wasm-type) (attributes function-attributes set-function-attributes!)
+      (name function-name)
+      (params function-params)
+      (result function-result)
+      (locals function-locals)
+      (body function-body)
+      (import function-import)
+      (type function-wasm-type)
+      (attributes function-attributes set-function-attributes!)
       (calls function-calls set-function-calls!)
       (collects? function-collects? set-function-collects!))
 
@@ -227,9 +240,11 @@
       (locals emitter-locals set-emitter-locals!)
       (targets emitter-targets set-emitter-targets!)
       (serial emitter-serial set-emitter-serial!)
-      (live? emitter-live? set-emitter-live!) (port emitter-port)
+      (live? emitter-live? set-emitter-live!)
+      (port emitter-port)
       (slots emitter-slots set-emitter-slots!)
-      (stack emitter-stack set-emitter-stack!) (result emitter-result set-emitter-result!)
+      (stack emitter-stack set-emitter-stack!)
+      (result emitter-result set-emitter-result!)
       (roots emitter-roots set-emitter-roots!)
       (local-roots emitter-local-roots set-emitter-local-roots!))
 
@@ -369,7 +384,9 @@
 
     (define-record-type <target>
       (new-target label slot reached?) target?
-      (label target-label) (slot target-slot) (reached? target-reached? set-target-reached!))
+      (label target-label)
+      (slot target-slot)
+      (reached? target-reached? set-target-reached!))
 
     (define (target depth) (list-ref (emitter-targets (current-emitter)) depth))
 
@@ -879,7 +896,8 @@
     (define current-native-imports (make-parameter '()))
 
     (define (import-name function)
-      (let* ((import (function-import function))
+      (let* ((import
+              (function-import function))
              (entry (assoc import (current-native-imports)))
              (signature (type-definition (function-wasm-type function))))
         (unless entry (error "native import has no provider declaration" import))
@@ -1219,7 +1237,8 @@
   (cond-expand
    (snail-tests
     (export test-llvm)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-llvm-floats)
         (expect (float-spelling "1e-300") "1.0e-300")

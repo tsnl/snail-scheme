@@ -1,7 +1,8 @@
 (define-library (builder producer)
-  (import (lofi compiler-builder)
-          (only (lofi primitive) empty-list cons i32-lt unreachable)
-          (output arithmetic))
+  (import
+   (lofi compiler-builder)
+   (only (lofi primitive) empty-list cons i32-lt unreachable)
+   (output arithmetic))
   (export build fail wrong-token wrong-kind bad-location)
   (begin
     ;; Producer execution and generated imports may overlap, but are supplied

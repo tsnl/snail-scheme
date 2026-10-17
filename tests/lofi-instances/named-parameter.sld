@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 
 ;; Naming the same lambda must not change its parameter's typing rule.
 (def invoke

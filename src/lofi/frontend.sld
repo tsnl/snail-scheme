@@ -5,17 +5,24 @@
 (define-library (lofi frontend)
   (export parse-library syntax-list->lofi-library collect-library-map lofi-binding-name?
           syntax-list->ir-library syntax->ir-library make-primitive-library)
-  (import (scheme base) (scheme cxr)
-          (lofi syntax) (lofi source) (lofi resolved-library)
-          (lofi ir) (lofi signatures) (lofi library) (lofi macros)
-          (only (lofi primitives) primitive-names))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi syntax)
+   (lofi source)
+   (lofi resolved-library)
+   (lofi ir)
+   (lofi signatures)
+   (lofi library)
+   (lofi macros)
+   (only (lofi primitives) primitive-names))
   (begin
 
     ;; ---- Located syntax and grammar ----
 
     (define keywords
       '(def lambda if let begin library-begin ann inst match import export define-library
-            datatype typeclass instance define-overload define-extern
+            data datatype typeclass instance define-overload define-extern
             : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define unsupported-keywords
@@ -58,7 +65,9 @@
     (define (lookup name environment) (let ((entry (assq name environment))) (and entry (cdr entry))))
     (define-record-type <source-scope>
       (make-source-scope bindings types imports) source-scope?
-      (bindings scope-bindings) (types scope-types) (imports scope-imports))
+      (bindings scope-bindings)
+      (types scope-types)
+      (imports scope-imports))
     (define (static-binding? definition)
       (memq (binding-kind definition) '(datatype typeclass instance syntax syntax-form)))
     (define (type-bindings bindings)
@@ -155,7 +164,7 @@
           (make-lofi-library name (scope-imports scope) imports exports items
                              (scope-bindings environment) (syntax-loc source)))))
     (define (expand-library name forms source scope imports resolved)
-      (let-values (((expanded macros environment) (expand-library-body forms resolved)))
+      (let-values (((expanded macros environment) (expand-library-body forms resolved name)))
         (let ((library (parse-expanded-body name expanded source scope imports macros)))
           (finish-expansion! environment (lofi-library-bindings library)) library)))
     (define (parse-core-library name forms source scope imports)
@@ -418,7 +427,9 @@
     (define (parse-list-expression form environment)
       (when (memq (head form) unsupported-keywords) (fail form "unsupported Lofi form" (head form)))
       (case (head form)
-        ((def let datatype typeclass instance define-extern define-overload import export define-library :)
+        ((library-begin) (fail form "library-begin is only allowed in a library body"))
+        ((data typeclass instance) (fail form "declarations require library scope"))
+        ((def let datatype define-extern define-overload import export define-library :)
          (fail form "declaration is not an expression"))
         ((lambda) (parse-lambda form environment))
         ((begin) (parse-block (cdr (parts form)) form environment))
@@ -506,7 +517,7 @@
         (when (and definition (not (and (value-definition? definition)
                                         (memq (binding-kind definition) '(typeclass overload)))))
           (fail form "constraint requires a typeclass or overload family"))
-        (or definition (import-reference form scope 'constraint))))
+        (or (atom-syntax-reference form) definition (import-reference form scope 'constraint))))
     (define (parse-qualified form environment)
       (let ((items (arguments form 2)))
         (list '=> (map (lambda (constraint) (parse-constraint constraint environment)) (parts (car items)))
@@ -613,9 +624,10 @@
   (cond-expand
    (snail-tests
     (export test-frontend)
-    (import (wasm-native test-utils)
-            (only (lofi reader) string->reader)
-            (only (lofi syntax-parser) reader->syntax-list))
+    (import
+     (wasm-native test-utils)
+     (only (lofi reader) string->reader)
+     (only (lofi syntax-parser) reader->syntax-list))
     (begin
       (define (test-source text . libraries)
         (syntax-list->ir-library (reader->syntax-list (string->reader "frontend-test.sld" text))
@@ -649,6 +661,15 @@
           (expect (eq? (name-definition (car (application-operands call))) (car (lambda-parameters function))) #t)
           (expect (eq? (binding-origin (value-binding-definition definition))
                        (binding-origin (value-binding-definition (car (lofi-library-declarations other))))) #f)))
+      (define (test-immediate-kernel-parse)
+        (let* ((library (test-parsed
+                         "(def Flag (datatype () (flag)))
+                          (def C (typeclass (T) (: method (-> T T))))
+                          (def evidence (instance (C Flag) (method (lambda (value) value))))
+                          (def run (-> I32) (lambda () (begin (let value 42) value)))"))
+               (items (lofi-library-declarations library)))
+          (expect (map node-kind items) '(data-schema class-declaration instance-declaration bind))
+          (expect (node-kind (lambda-body (value-binding-initializer (list-ref items 3)))) 'block)))
       (define (test-map-aliases-and-reexports)
         (let* ((provider (test-parsed "(define-library (test original) (export public)
                                        (begin (def private 42) (def public (lambda () private))))"))
@@ -726,6 +747,19 @@
           (expect (eq? (cadr (annotation-type annotation)) type) #t)
           (expect (eq? (name-definition (annotation-expression annotation)) (car (lambda-parameters function))) #t)
           (expect (eq? (cadar (instance-declaration-types (cadr items))) type) #t)))
+      (define (test-explicit-declarations)
+        (let ((library (test-source "(define-library (test declarations)
+                        (export Box box unbox Identity identity identity-i32 answer)
+                        (begin
+                          (begin (data Box (T) (box (value T unbox))))
+                          (typeclass Identity (T) (: identity (-> T T)))
+                          (instance identity-i32 (Identity I32) (identity (lambda (value) value)))
+                          (def answer (lambda () (identity (unbox (box 42)))))))")))
+          (expect (binding-kind (test-export library 'Box)) 'datatype)
+          (expect (binding-kind (test-export library 'Identity)) 'typeclass)
+          (expect (binding-kind (test-export library 'identity-i32)) 'instance)
+          (for-each (lambda (name) (expect (value-definition? (test-export library name)) #t))
+                    '(box unbox identity answer))))
       (define (test-imported-overload-aliases)
         (let* ((provider (test-parsed "(define-library (test family) (export choose)
                                        (begin (define-overload choose (-> I32 I32) (lambda (x) x))))"))
@@ -836,12 +870,24 @@
                                       (define-overload choose (-> Bool Bool) (lambda (x) x))" provider)))
           (expect (eq? (overload-declaration-definition (car (library-body consumer)))
                        (named-binding-definition (car (library-exports provider)))) #t)))
+      (define (test-local-named-declaration-diagnostics)
+        (for-each
+         (lambda (declaration)
+           (expect (guard (failure (else (error-object-message failure)))
+                     (test-parsed (string-append "(lambda () " declaration ")")) #f)
+                   "declarations require library scope"))
+         '("(data Flag () (flag))"
+           "(typeclass C (T) (: method (-> T T)))"
+           "(instance evidence (C I32) (method (lambda (value) value)))")))
       (define (test-invalid-forms)
         (for-each test-rejected
                   '("(def x 1) (def x 2)" "(let x 1) (def x 2)" "(def x 1) (let x 2)"
                     "(def read (lambda () later)) (let later 42) (read)"
-                    "(begin (let x 42))" "(let x x)" "(lambda (x . x) x)"
-                    "(begin (def Flag (datatype () (flag))) 0)"
+                    "(lambda () (begin (let x 42)))" "(let x x)" "(lambda (x . x) x)"
+                    "(lambda () (begin (def Flag (datatype () (flag))) 0))"
+                    "(lambda () (data Flag () (flag)))"
+                    "(lambda () (typeclass C (T) (: method (-> T T))))"
+                    "(lambda () (instance c (C I32) (method (lambda (x) x))))"
                     "(def Flag Constraint (datatype () (flag)))"
                     "(let Flag (datatype () (flag)))" "(def Flag (datatype () (flag))) Flag"
                     "(define x 1)" "(library (test old))" "(quote ())" "#()" "#(1 2)"
@@ -861,11 +907,13 @@
            "(define-library (unused) (export) (begin (define-overload unused (lambda (value) value))))")))
       (define (test-frontend)
         (run-test test-independent-library-parse)
+        (run-test test-immediate-kernel-parse)
         (run-test test-map-aliases-and-reexports)
         (run-test test-library-reuse)
         (run-test test-imported-macro-maps)
         (run-test test-simultaneous-import-renames)
         (run-test test-imported-static-scopes)
+        (run-test test-explicit-declarations)
         (run-test test-imported-overload-aliases)
         (run-test test-empty-import-dependency)
         (run-test test-library-map-errors)
@@ -878,5 +926,6 @@
         (run-test test-static-kinds)
         (run-test test-cached-overload-identity)
         (run-test test-explicit-overload-signatures)
+        (run-test test-local-named-declaration-diagnostics)
         (run-test test-invalid-forms))))
    (else)))

@@ -12,11 +12,24 @@
           path-join path-directory absolute-path make-build-directory directory-files-recursive
           create-directory* directory-files file-exists? file-regular? delete-file
           option-ref tool-name)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write)
-          (scheme process-context) (scheme time) (scheme inexact)
-          (wasm-native json) (chibi filesystem) (chibi pathname) (chibi regexp)
-          (srfi 1) (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string) (srfi 95) (wasm-native process)
-          (only (wasm-native native-build) ensure-native-supervisor native-cargo-environment))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (scheme time)
+   (scheme inexact)
+   (wasm-native json)
+   (chibi filesystem)
+   (chibi pathname)
+   (chibi regexp)
+   (srfi 1)
+   (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string)
+   (srfi 95)
+   (wasm-native process)
+   (only (wasm-native native-build) ensure-native-supervisor native-cargo-environment))
   (begin
 
     ;; ---- Concrete paths, options and structured evidence ----

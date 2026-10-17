@@ -4,7 +4,8 @@
   (export char-downcase char-upcase char-foldcase char-lower-case?
           char-alphabetic? char-numeric? char-whitespace? string<? string-foldcase
           test-text)
-  (import (lofi base))
+  (import
+   (lofi base))
 
   ;; ---- Existing Unicode properties through the scalar ABI ----
 

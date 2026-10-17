@@ -1,7 +1,10 @@
 ;; This is the build program: compilation and every execution operation below
 ;; are ordinary Lofi calls, including recoverable errors and explicit closure.
 (define-library (service test)
-  (import (lofi base) (lofi compiler) (lofi compiler-builder))
+  (import
+   (lofi base)
+   (lofi compiler)
+   (lofi compiler-builder))
   (export main)
   (begin
 

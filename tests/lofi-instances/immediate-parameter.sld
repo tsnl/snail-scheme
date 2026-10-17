@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 
 ;; Immediate application cannot generalize the receiving parameter.
 ((lambda (function)

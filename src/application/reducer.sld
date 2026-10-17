@@ -5,29 +5,47 @@
           Request request-slot request-a request-b Transition transition transition-state
           transition-effects no-effects Destination destination Effect enqueue notice effect-owner effect-slot
           effect-a effect-b effect-text effect-send? effect-notice? effect-kind match-owner client-owner)
-  (import (scheme base) (scheme immutable)
-          (only (lofi core) datatype match ann -> I32 library-begin)
-          (only (lofi base) unreachable)
-          (rename (only (lofi core) def) (def define-typed)))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (only (lofi core) datatype match ann -> I32 library-begin)
+   (only (lofi base) unreachable)
+   (rename (only (lofi core) def) (def define-typed)))
   (begin
 
     ;; ---- Values crossing one committed transition ----
 
     (define Request
-      (datatype (Owner State) (request (slot I32 request-slot) (a I32 request-a) (b I32 request-b))))
+      (datatype (Owner State)
+        (request
+         (slot I32 request-slot)
+         (a I32 request-a)
+         (b I32 request-b))))
     (define Effect
-      (datatype () (send (owner I32 effect-owner) (slot I32 effect-slot)
-                         (a I32 effect-a) (b I32 effect-b)) (notice (text String effect-text))))
+      (datatype ()
+        (send
+         (owner I32 effect-owner)
+         (slot I32 effect-slot)
+         (a I32 effect-a)
+         (b I32 effect-b))
+        (notice
+         (text String effect-text))))
     (define Transition
-      (datatype (State) (transition (state State transition-state)
-                                    (effects (List Effect) transition-effects))))
+      (datatype (State)
+        (transition
+         (state State transition-state)
+         (effects (List Effect) transition-effects))))
     (define Application
-      (datatype (Owner State) (application-value (schema I32 application-schema)
-                                                 (initial (-> State) application-initial)
-                                                 (handlers (List (-> State I32 I32 (Transition State))) application-handlers))))
+      (datatype (Owner State)
+        (application-value
+         (schema I32 application-schema)
+         (initial (-> State) application-initial)
+         (handlers (List (-> State I32 I32 (Transition State))) application-handlers))))
     (define Destination
-      (datatype (Owner State) (destination (owner I32 destination-owner)
-                                           (app (Application Owner State) destination-app))))
+      (datatype (Owner State)
+        (destination
+         (owner I32 destination-owner)
+         (app (Application Owner State) destination-app))))
     (define match-owner 1)
     (define client-owner 2)
     (define (no-effects state) (transition state (empty-list)))
@@ -90,5 +108,6 @@
       (syntax-rules (state)
         ((_ name (state State schema) initial handlers ...)
          (library-begin
-          (define owner-tag (datatype () (owner-token)))
+          (define owner-tag (datatype ()
+                              (owner-token)))
           (application-handlers-declare name owner-tag State schema initial 0 () handlers ...)))))))

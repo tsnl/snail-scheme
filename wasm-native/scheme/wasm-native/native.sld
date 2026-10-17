@@ -2,9 +2,15 @@
 ;; Native links the shared Rust crate; Wasm links that crate's Wasm artifact.
 (define-library (wasm-native native)
   (export native-wasm->llvm native-binary->llvm)
-  (import (scheme base) (scheme cxr) (scheme file)
-          (wasm-native wasm) (wasm-native wasm-read) (wasm-native wasm-optimize)
-          (wasm-native llvm) (wasm-native build-host))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (wasm-native wasm)
+   (wasm-native wasm-read)
+   (wasm-native wasm-optimize)
+   (wasm-native llvm)
+   (wasm-native build-host))
   (begin
 
     ;; ---- Shared Wasm optimization ----
