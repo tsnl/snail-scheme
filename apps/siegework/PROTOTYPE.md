@@ -87,7 +87,7 @@ epoch before acknowledgment/publication. Repeating a request cannot spend twice.
 A stale-run command cannot affect a new run. External effects still need explicit
 idempotency; do not claim universal exactly-once execution.
 
-The colony uses world/client schema 4 and a 6,144-word world snapshot. Earlier
+The colony uses world/client schema 6 with variable-length derived binary snapshots. Earlier
 prototype saves require a separate retained package; start this version with a
 fresh database. Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU

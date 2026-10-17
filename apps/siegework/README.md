@@ -36,12 +36,13 @@ players. Manual pause survives visibility changes, compatible code reload and
 authority restart. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 4**. Older prototype and colony
+This version uses **world and client schema 6**. Older prototype and colony
 matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
 fresh colony, retaining the old package and `match.sqlite` together. For example,
 build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
 Do not delete or replace a database while its authority is running. There is no
-automatic schema migration.
+automatic schema migration. Records derive serialization through the shared
+S-expression text/binary format; the [code tour](TOUR.md) follows the complete path.
 
 ## Your first colony
 
@@ -163,7 +164,7 @@ The [application chapter](../../doc/book/lofi/applications.md) explains typed
 handlers, state lifetimes, reload and the shader dialect. Shared code stays under
 `src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
 This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
-`codec.sld` (portable schema), `view.sld` (quads/status), `game.sld` (typed commands
+`state.sld` (gameplay validation and derived snapshot envelope), `view.sld` (quads/status), `game.sld` (typed commands
 and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
 declare controls and layout; generic `src/browser/input.mjs` maps physical input
 and typed integer forms to Scheme handlers. Seed range and restart rules stay in

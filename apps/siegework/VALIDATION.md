@@ -1,5 +1,25 @@
 # Staffed colony validation
 
+## Derived snapshot integration
+
+The cleanup integration preserves the landed colony behavior while replacing the
+fixed-layout schema-4 codec with derived schema-6 snapshots. The world retains a
+host-visible restart counter; decoding checks it against the typed record before
+applying the original bounds, path, ownership and conservation checks. Prior save
+formats are rejected rather than converted implicitly.
+
+Local integration checks pass for the compiled colony startup, `make test`,
+`make check`, real Chromium input contracts and the two-client WebGPU/reload
+runner. The browser checks include seed restarts, shared purchases, pause,
+overscrolled camera retention, pending command preservation, incompatible marker
+offsets, invalid shaders and schema rejection. This uses Chromium 152 with the
+SwiftShader Vulkan adapter and is correctness evidence, not a clean timing run.
+The application fixture suite and required GitHub correctness run are tracked
+separately in the pull request.
+
+## Earlier schema-4 colony
+
+
 The 2026-10-17 staffed-colony package uses generation
 `e11ebb903197e057398944d0`, world/client schema 4, Node 24.19.0 and Chromium
 152 with real WebGPU on the isolated SwiftShader software Vulkan adapter.
