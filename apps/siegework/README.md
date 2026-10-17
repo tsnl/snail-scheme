@@ -5,10 +5,48 @@ self-contained runs. Drop into a hostile place, establish an automated economy,
 and turn the material it delivers into fortifications that can withstand a siege.
 Each run starts fresh and ends within an hour.
 
-**Status: design draft.** This directory establishes the app's ownership and
-direction. There is no playable build yet. The
-[minimal prototype plan](PROTOTYPE.md) defines the first implementation and its
-acceptance criteria; the broader vision below is not a feature checklist for it.
+The implementation is a deliberately small, two-minute fixed-map demo. Game
+rules, client reducers and shader expressions are Scheme libraries. The world is
+rendered with real WebGPU; a local Node authority runs the same generated Wasm,
+commits to SQLite and serves cooperating browser clients. The
+[prototype contract](PROTOTYPE.md) keeps the acceptance criteria and deferred work
+separate from the broader vision below.
+
+## Build and play
+
+From the repository root, with Chibi, Binaryen and Node 24 available:
+
+```sh
+chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+node build/siegework/lib/browser/server.mjs "$PWD/build/siegework"
+```
+
+Open `http://127.0.0.1:4173` in a browser with WebGPU and WasmGC. A second browser
+tab joins the same match. The server binds localhost; internet hosting,
+authentication and matchmaking are outside this prototype. Use `PORT=4175` before
+the server command to choose a different local port.
+
+Place an extractor on a turquoise deposit, then place artillery along the eastern
+approach. The bot carries ore home automatically. `1`/`2` select extractor or
+artillery; arrows move the snapped cursor; Enter/Space places it. `U` upgrades the
+mine, `R` repairs the hub, and `N` starts a new run. Pointer controls and gamepad
+D-pad/A/X/Y/LB/RB/Start are mapped in [settings.json](settings.json). The siege beast
+arrives at 85 seconds. Survive to 120 seconds or destroy all final threats.
+
+Run the build command again while playing to replace compatible Scheme code and
+shader pipelines. The match, client selection and pending requests stay in the
+stable host. Invalid builds do not publish a new manifest; failed candidates or
+pipelines keep the previous generation running. A schema change is rejected;
+automatic migrations are not implemented. Changes to HTML/CSS/host JavaScript
+currently require a page/server restart. A page restart creates a new local UI
+model, while the authoritative match is restored from `build/siegework/match.sqlite`.
+Stop the server before removing that file if you want to discard its saved match.
+
+The [application chapter](../../doc/book/lofi/applications.md) explains the typed
+handler API, state lifetimes, reload contract and small shader dialect. Shared
+code remains under top-level `src/application/`, `src/browser/`, `src/webgpu/`
+and `src/scheme/immutable.sld`; this directory owns game rules, codecs, view,
+shader composition, settings and its real [build recipe](build.scm).
 
 ## The run
 

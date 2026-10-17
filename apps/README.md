@@ -6,20 +6,20 @@ top-level [`src/`](../src/). An app demonstrates how those tools compose.
 
 | Application | Purpose | Status |
 | --- | --- | --- |
-| [Siegework](siegework/README.md) | Short cooperative runs of automated extraction, logistics and siege defense. | Design and minimal WebGPU prototype plan; no executable yet. |
+| [Siegework](siegework/README.md) | Short cooperative runs of automated extraction, logistics and siege defense. | Scheme/WebGPU prototype with a local authority and state-preserving module reload. |
 
 ## Ownership and layout
 
 Each app owns its `build.scm`, entry points, rules, assets, settings and tests.
 App-owned libraries may live under `apps/<app>/src/` and use the app's namespace;
-for example, `(siegework game)` would resolve to
+for example, `(siegework game)` resolves to
 `apps/siegework/src/siegework/game.sld`. The build explicitly supplies that source
 root alongside the repository's `src/`. App libraries must not shadow shared
 library identities.
 
 Shared shader syntax, GPU ASTs and compilers, browser/WebGPU bindings, server and
 network transports, serialization, and stream utilities belong under top-level
-`src/` when implemented. They should not need to import `(siegework ...)` or know
+`src/`. They should not need to import `(siegework ...)` or know
 about mines, monsters or matches. Siegework owns its shader programs, resource
 rules, message schema and use of those libraries. Build only the shared surface
 needed for the next working example; this is a placement rule, not a request to
@@ -45,9 +45,10 @@ can be run independently of the build process. The repository's existing
 [`build.scm`](../build.scm) is a working native composition example, not a browser
 app build command.
 
-Siegework's [proposed recipe](siegework/PROTOTYPE.md#the-app-build-recipe) is part
-of its first implementation milestone. There is no placeholder `build.scm` that
-claims to build a game before its browser and shader dependencies exist.
+Siegework has a real [build recipe](siegework/build.scm) and
+[run instructions](siegework/README.md#build-and-play). Its browser host and shader
+compiler are reusable libraries under `src/`. The
+[application chapter](../doc/book/lofi/applications.md) explains their public API.
 
 The goal is an app whose composition is understandable in a few files. That
 counts the app-specific work, not all the shared tools underneath it, and never

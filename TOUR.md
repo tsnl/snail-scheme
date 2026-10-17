@@ -77,7 +77,11 @@ composition for a native build.
 | [`src/lofi/tools/`](src/lofi/tools/) | Trace viewing and Unicode generation libraries. |
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
 | [`examples/`](examples/) | Programs and explicit build/generation examples. |
-| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; [Siegework](apps/siegework/README.md) currently contains its design and WebGPU prototype plan. |
+| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; [Siegework](apps/siegework/README.md) composes Scheme simulation, typed reducers, shaders and a browser build. |
+| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, scalar snapshot bridge, serialized owner and single-authority durability. |
+| [`src/browser/`](src/browser/application.sld) | Immutable view data, browser input/transport, artifact packaging and the local development server. |
+| [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler and the real WebGPU quad adapter. |
+| [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement and small immutable list operations. |
 | [`wasm-native/`](wasm-native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. |
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners and shared assertions. |
