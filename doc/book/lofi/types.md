@@ -452,6 +452,49 @@ the availability of an implementation's prerequisites do not rank candidates.
 Numeric promotion, where offered, is an explicitly provided operation. Selected
 implementations retain their normal initialization and effect ordering.
 
+## Data graph serialization (planned)
+
+Lofi should automatically serialize and deserialize data graphs, including
+user-defined records and variants, collections, scalar values and explicit
+references. Sharing and cycles are part of the value being transported.
+Applications should not maintain field-by-field codecs for ordinary state.
+
+The common representation is a graph-capable S-expression format:
+
+```text
+typed data graph ↔ S-expression graph ↔ readable text
+                                    ↔ compact binary
+```
+
+Text and binary encode the same S-expression representation, including type
+tags and object definitions/references. Binary encodes those values directly
+using a MessagePack-style compact representation. Every binary message must
+have an equivalent readable S-expression form, and converting between the two
+must preserve the information needed to reconstruct the typed graph. Symbols
+and strings remain distinct; numeric representations and graph identities must
+not be lost through an intervening text conversion.
+
+Serialization should derive the traversal of records and variants from their
+type definitions. Deserialization must check type identities, fields and graph
+references before returning the reconstructed value. Object identities belong
+to the serialized graph; process addresses, Wasm heap references and compiler
+layout offsets are not portable identities. Compatible readers must reconstruct
+sharing and cycles independently of the emitting backend's object layout.
+
+The initial scope is data. Procedures, closures and live external resources are
+excluded, including when reached through a field or collection element.
+Encountering an unsupported value must produce an explicit error. Deserialization
+must also report malformed or incompatible data without exposing a partially
+constructed graph. Automatic serialization does not by itself define migration
+between incompatible state types or establish application-specific invariants.
+
+This is a target contract, not an implemented general facility. The current
+`(lofi write)` works on `Datum` and can emit labels for cyclic graphs, but
+`(lofi read)` rejects datum labels. Neither automatically transports arbitrary
+user-defined typed graphs. Exact text syntax, binary tags and public API remain
+to be specified. The [roadmap](../../roadmap.md#data-graph-serialization) tracks
+the implementation work.
+
 ## Any, Never and subtyping
 
 `Any` holds a value together with enough type information to check what it is.

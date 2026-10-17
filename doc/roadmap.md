@@ -82,6 +82,23 @@ externs and fixed-arity ad-hoc overload declarations alongside named wrapping
 and IEEE operations. Implementation restrictions and future adapters remain
 distinct from the core language contract.
 
+## Data graph serialization
+
+The [planned data graph contract](book/lofi/types.md#data-graph-serialization-planned)
+uses one S-expression graph representation with readable text and a compact
+MessagePack-style binary encoding. Procedures and closures are outside the
+initial scope. This work is not implemented by the existing datum reader/writer.
+
+- [ ] Specify portable type tags, object definitions/references, scalar encodings
+  and errors for the common S-expression representation and its two encodings.
+- [ ] Derive serialization and checked reconstruction for user-defined data
+  types, preserving sharing and cycles and rejecting unsupported values.
+- [ ] Execute cross-encoding and Wasm/native round trips, including malformed
+  input, aliases, cycles, numeric representation edges and nested unsupported
+  values. Verify graph identity as well as structural equality.
+- [ ] Replace application-specific field codecs with the language facility,
+  retaining explicit state compatibility, validation and durable commit rules.
+
 ## Current Lofi migration
 
 - [x] Land the Lofi language design before implementation (PR #225).
