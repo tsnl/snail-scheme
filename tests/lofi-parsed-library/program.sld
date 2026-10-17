@@ -112,6 +112,7 @@
     (def delayed-checking (-> LibraryMap Unit)
          (lambda (base)
            (begin
+             (reject (parse-library "unclosed.sld" "(define-library (unclosed)\n"))
              (let missing (require (parse-library "missing.sld"
                                                   "(define-library (missing) (import (absent)) (export run) (begin (def run (lambda () remote))))")))
              (let imports (require (library-map-insert base (key "missing") missing)))

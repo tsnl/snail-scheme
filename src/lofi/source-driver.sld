@@ -270,6 +270,16 @@
          '("(generate-library () (import) 42)" "(generate-library (test a) (export) 42)"
            "(generate-library (test a) (import) 1 2)" "(generate-library (test a) (import))"
            "(generate-library (test a) (import) (def x 42))" "(generate-library (test a) (import) 42 . tail)")))
+      (define (test-source-read-diagnostic)
+        (let ((path "tests/lofi/unclosed-library.sld.txt"))
+          (for-each
+           (lambda (read-source)
+             (expect (guard (failure ((error-object? failure) (error-object-message failure)))
+                       (read-source) #f)
+                     (string-append path ":4:1: cannot parse Lofi source: expected closing delimiter ')'")))
+           (list (lambda () (collect-source-file path '() '() (make-generation-context "unused" #f)))
+                 (lambda () (source-file->core "." path))))))
       (define (test-source-driver)
-        (run-test test-recipe-grammar))))
+        (run-test test-recipe-grammar)
+        (run-test test-source-read-diagnostic))))
    (else)))

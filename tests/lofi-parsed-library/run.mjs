@@ -21,7 +21,8 @@ try {
     new Map([...service.providers, ['tests', observer]]));
   assert.equal(invokeEntry(instance, []), 42);
   assert.equal(probe.exports.trace.value, 555, 'same parsed value inserted twice initializes once');
-  assert.equal(messages.length, 7);
+  assert.equal(messages.length, 8);
+  assert(messages.includes("unclosed.sld:2:1: cannot parse Lofi source: expected closing delimiter ')'"));
   for (const expected of ['run', 'missing.sld', 'wide-error.sld', 'rest-error.sld', 'vector-error.sld', 'grammar-error.sld', 'multiple.sld'])
     assert(messages.some(message => message.includes(expected)), `${expected}: ${messages}`);
 } finally {

@@ -17,9 +17,35 @@
    (lofi reader)
    (lofi parser)
    (lofi syntax)
+   (only (lofi types) strict-error)
    (only (lofi numeric-literals) literal-number-value))
 
   (begin
+
+    ;; ---- Failure-only diagnostic replay ----
+
+    ;; Backtracking keeps its existing remainder contract. After a failed file
+    ;; parse, replay the same reader and retain the furthest closing expectation.
+    ;; The pair holds (reader . message); #f means the ordinary parse's fallback.
+    (define source-failure (make-parameter #f))
+    (define (later-reader? left right)
+      (or (> (reader-line left) (reader-line right))
+          (and (= (reader-line left) (reader-line right))
+               (> (reader-column left) (reader-column right)))))
+    (define (remember-closing reader delimiter)
+      (let ((best (source-failure)))
+        (when (and best
+                   (or (later-reader? reader (car best))
+                       (and (not (cdr best)) (not (later-reader? (car best) reader)))))
+          ;; The first explicit expectation wins ties; it replaces a fallback.
+          (set-car! best reader)
+          (set-cdr! best (string-append "expected closing delimiter '" delimiter "'")))))
+    (define (expect-closing parser delimiter)
+      (lambda (reader)
+        (let ((result (parser reader)))
+          (when (parse-result-err? result)
+            (remember-closing (parse-result-input result) delimiter))
+          result)))
 
     ;; ---- Literal predicates ----
 
@@ -265,7 +291,7 @@
                          (choice
                           escaped-character
                           (char-if char-string-literal?))))
-        `(_ . ,(char #\")))
+        `(_ . ,(expect-closing (char #\") "\"")))
        (lambda (fields) (list->string (cdr (assq 'characters fields))))))
 
     ;; ---- Whitespace and comments ----
@@ -290,7 +316,7 @@
         (lambda (_)
           (tuple
            (repeat block-comment-element)
-           (tag "|#"))))))
+           (expect-closing (tag "|#") "|#"))))))
 
     (define block-comment-element
       (choice
@@ -325,7 +351,7 @@
         `(_ . ,(char open))
         `(elements . ,(repeat element))
         `(_ . ,(optional intertoken-space))
-        `(_ . ,(char close)))
+        `(_ . ,(expect-closing (char close) (string close))))
        (lambda (fields) (cdr (assq 'elements fields)))))
 
     ;; ---- Atomic literals ----
@@ -339,7 +365,7 @@
                          (choice
                           escaped-character
                           (char-if char-quoted-identifier?))))
-        `(_ . ,(char #\|)))
+        `(_ . ,(expect-closing (char #\|) "|")))
        (lambda (fields)
          (make-atom-syntax (string->symbol (list->string (cdr (assq 'characters fields))))
                            (cdr (assq 'loc fields))))))
@@ -474,7 +500,7 @@
         `(elements . ,(repeat-at-least-once s-expr))
         `(tail . ,improper-tail)
         `(_ . ,(optional intertoken-space))
-        `(_ . ,(char close)))
+        `(_ . ,(expect-closing (char close) (string close))))
        (lambda (fields)
          (make-list-syntax (cdr (assq 'elements fields)) (cdr (assq 'tail fields))
                            (cdr (assq 'loc fields))))))
@@ -521,14 +547,20 @@
        (lambda (fields) (cdr (assq 'forms fields)))))
 
     ;; A complete source reader becomes located syntax, or raises a located error.
+    (define (raise-read-diagnostic reader result)
+      (let ((best (cons (parse-result-input result) #f)))
+        (parameterize ((source-failure best)) (s-file reader))
+        (strict-error (reader-loc (car best))
+                      (string-append "cannot parse Lofi source: " (or (cdr best) "expected an expression")))))
     (define reader->syntax-list
       (chromium-trace
        "reader->syntax-list"
        (lambda (reader)
-         (let ((result (s-file reader)))
-           (if (parse-result-err? result)
-               (error "cannot parse Lofi source" (reader-loc (parse-result-input result))))
-           (parse-result-value result)))))
+         ;; A nested read must not contribute failures to its caller's replay.
+         (parameterize ((source-failure #f))
+           (let ((result (s-file reader)))
+             (if (parse-result-err? result) (raise-read-diagnostic reader result))
+             (parse-result-value result))))))
     )
 
   ;; ---- Tests ----
@@ -941,6 +973,34 @@
           (expect (parse-result-err? result) #t)
           (expect (reader-filename (parse-result-input result)) "broken.scm")))
 
+      (define (check-read-error text position cause)
+        (expect
+         (guard (failure ((error-object? failure)
+                          (list (error-object-message failure) (error-object-irritants failure))))
+           (reader->syntax-list (string->reader "broken.sld" text)) #f)
+         (list (string-append "broken.sld:" position ": cannot parse Lofi source: " cause) '())))
+      (define (test-read-diagnostics)
+        (for-each
+         (lambda (case) (apply check-read-error case))
+         '(("(" "1:2" "expected closing delimiter ')'")
+           ("(outer\n  [inner\n" "3:1" "expected closing delimiter ']'")
+           ("(outer\n  [inner))" "2:9" "expected closing delimiter ']'")
+           ("#u8(1 2" "1:8" "expected closing delimiter ')'")
+           ("\"missing" "1:9" "expected closing delimiter '\"'")
+           ("(\"missing" "1:10" "expected closing delimiter '\"'")
+           ("(\"(\"" "1:5" "expected closing delimiter ')'")
+           ("|missing" "1:9" "expected closing delimiter '|'")
+           ("#| missing\n" "2:1" "expected closing delimiter '|#'")
+           ("(#| ) |#" "1:9" "expected closing delimiter ')'")
+           ("(#| missing" "1:12" "expected closing delimiter '|#'")
+           ("(a . b" "1:7" "expected closing delimiter ')'")
+           ("(f . x y)" "1:8" "expected closing delimiter ')'")
+           ("(a . b)\n)" "2:1" "expected an expression")
+           ("(\r\n" "2:1" "expected closing delimiter ')'")
+           ("  )" "1:3" "expected an expression")))
+        (expect (map syntax->datum (reader->syntax-list (string->reader "next.sld" "(ok . 42)")))
+                '((ok . 42))))
+
       (define (test-syntax-parser)
         (run-test test-shared-rule-inputs)
         (run-test test-whitespace)
@@ -964,5 +1024,6 @@
         (run-test test-improper-tail)
         (run-test test-reader-abbreviations)
         (run-test test-expr-and-file)
-        (run-test test-s-file-result))
+        (run-test test-s-file-result)
+        (run-test test-read-diagnostics))
       ))))
