@@ -63,6 +63,8 @@ All constructors start with a stable, unique string key, width and height:
 Tones are 0 normal, 1 subdued, 2 accent, 3 warning, 4 danger. `layout-ui` takes a
 width, height and tree and returns a `Placement` tree for other renderers to consume.
 The browser backend uses the allotted `[data-ui]` element's current dimensions.
+Child rectangles are relative to their group's padded content origin. The browser
+applies that already-known offset when it creates the group's content element.
 
 ## Editing and replacement
 
@@ -71,6 +73,12 @@ replacement. Keyboard focus, a number field's unsubmitted text and scroll positi
 are browser-local transient state. Changing a key or control kind replaces that
 control deliberately. Duplicate or missing keys reject the complete presentation
 before it is published.
+
+Typing and submission advance one local edit revision. Completion clears a draft
+only when the request committed and no later edit or submission replaced that
+revision. The next accepted presentation then supplies the current application
+value. Failed requests retain the text for retry. Moving a retained element also
+restores its native focus and text selection if DOM movement disturbed them.
 
 `ui-number` accepts a typed request template such as `(set-value 0)`. On submission
 the browser replaces its first I32 argument with the parsed integer. That endpoint
@@ -94,8 +102,12 @@ Open `http://localhost:4195`. This example selects the DOM renderer and needs no
 WebGPU device. Its complete Scheme UI and reducers are in
 `apps/ui-lab/src/ui-lab/game.sld`.
 
+Run `scripts/test-ui` for linked Wasm layout, typed request ownership, host boundary
+parsing and compatible replacement checks.
+
 Browser checks use an isolated Chromium DevTools port and exercise real pointer,
-keyboard, validation, focus preservation and compatible Wasm replacement:
+keyboard, touch, validation, delayed submission, focus preservation and compatible
+Wasm replacement:
 
 ```sh
 node tests/ui/browser.mjs http://localhost:4195 http://localhost:9451 screenshot.png

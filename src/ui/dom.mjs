@@ -8,13 +8,23 @@ function element(tag, className) {
 function bounds(element, [x, y, width, height]) {
   Object.assign(element.style, {left: `${x}px`, top: `${y}px`, width: `${width}px`, height: `${height}px`});
 }
+function retainedFocus(root) {
+  const node = document.activeElement;
+  return root.contains(node) ? {node, start: node.selectionStart, end: node.selectionEnd} : undefined;
+}
+function restoreFocus(focus) {
+  if (!focus?.node.isConnected || document.activeElement === focus.node) return;
+  focus.node.focus({preventScroll: true});
+  if (typeof focus.start === 'number') focus.node.setSelectionRange(focus.start, focus.end);
+}
 export class DomUi {
   nodes = new Map();
   constructor(root, dispatch) { this.root = root; this.dispatch = dispatch; }
   render(tree) {
-    const seen = new Set();
+    const seen = new Set(), focus = retainedFocus(this.root);
     if (tree) this.patch(tree, this.root, 0, seen);
     for (const [key, element] of this.nodes) if (!seen.has(key)) { element.remove(); this.nodes.delete(key); }
+    restoreFocus(focus);
   }
   patch(model, parent, index, seen) {
     let node = this.nodes.get(model.key);
@@ -42,18 +52,20 @@ export class DomUi {
   }
   number() {
     const node = element('form', 'snail-ui-node snail-ui-number');
-    node.dataset.uiForm = '';
+    node.dataset.uiForm = ''; node.revision = 0;
     node.label = element('label', 'snail-ui-number-label'); node.input = element('input', 'snail-ui-number-input');
     node.input.type = 'text'; node.input.inputMode = 'numeric'; node.label.append(node.input);
     node.submit = element('button', 'snail-ui-number-submit'); node.submit.type = 'submit'; node.submit.textContent = 'Apply';
     node.error = element('span', 'snail-ui-number-error'); node.error.setAttribute('role', 'status');
     node.error.id = `snail-ui-error-${++nextField}`; node.input.setAttribute('aria-describedby', node.error.id);
-    node.append(node.label, node.submit, node.error); node.addEventListener('input', () => { node.draft = true; this.clearError(node); });
+    node.append(node.label, node.submit, node.error);
+    node.addEventListener('input', () => { node.draft = true; node.revision++; this.clearError(node); });
     node.addEventListener('submit', event => { event.preventDefault(); this.submitNumber(node); });
     return node;
   }
   clearError(node) { node.error.textContent = ''; node.input.removeAttribute('aria-invalid'); }
   submitNumber(node) {
+    const revision = ++node.revision; node.draft = true;
     const text = node.input.value.trim(), value = Number(text), properties = node.model.properties;
     if (!/^[+-]?\d+$/.test(text) || !Number.isInteger(value) || value < properties[4] || value > properties[5]) {
       node.error.textContent = `Enter a whole number from ${properties[4]} to ${properties[5]}.`;
@@ -61,7 +73,9 @@ export class DomUi {
     }
     this.clearError(node);
     const action = {...node.model.action, command: {...node.model.action.command, args: [value]}};
-    Promise.resolve(this.dispatch(action)).then(() => { node.draft = false; });
+    Promise.resolve(this.dispatch(action)).then(committed => {
+      if (committed && revision === node.revision) node.draft = false;
+    });
   }
   update(node, model) {
     const p = model.properties; node.dataset.tone = p[0] ?? 0;
@@ -83,7 +97,8 @@ export class DomUi {
   updateNumber(node, model) {
     node.input.setAttribute('aria-label', model.text); node.input.title = model.help;
     node.input.placeholder = model.text;
-    if (!node.draft && document.activeElement !== node.input) node.input.value = String(model.properties[3]);
+    const value = String(model.properties[3]);
+    if (!node.draft && node.input.value !== value) node.input.value = value;
     node.submit.setAttribute('aria-label', `Apply ${model.text}`);
   }
   updateGroup(node, model) {

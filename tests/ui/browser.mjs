@@ -70,6 +70,24 @@ try {
   await click('[data-ui-key="more"]'); await key('Enter', 'Enter'); await until('!snailApp.localWork && !snailApp.dirty');
   await until('document.querySelector("[data-status]").textContent === "Value 39"');
   console.log('ok - integer errors, native form Enter, and focused button activation');
+  await evaluate(`globalThis.normalDispatch = snailApp.ui.dispatch; globalThis.queued = [];
+    snailApp.ui.dispatch = action => new Promise(resolve => queued.push(async () => resolve(await normalDispatch(action))));`);
+  await enter('41'); await key('Enter', 'Enter'); await enter('42');
+  await evaluate('queued.shift()()'); await until('!snailApp.localWork && !snailApp.dirty');
+  assert.equal(await evaluate('originalInput.value'), '42');
+  await enter('45'); await key('Enter', 'Enter'); await key('Enter', 'Enter');
+  await evaluate('queued.shift()()'); await evaluate('snailApp.local("increment")'); await until('!snailApp.localWork && !snailApp.dirty');
+  assert.equal(await evaluate('originalInput.value'), '45');
+  await evaluate('queued.shift()()'); await until('!snailApp.localWork && !snailApp.dirty');
+  await evaluate('snailApp.ui.dispatch = () => Promise.resolve(false)');
+  await enter('47'); await key('Enter', 'Enter'); await evaluate('snailApp.dirty = true'); await until('!snailApp.dirty');
+  assert.equal(await evaluate('originalInput.value'), '47');
+  await evaluate(`originalInput.setSelectionRange(0, 1); const tree = structuredClone(snailApp.runtime.view().ui);
+    tree.children.reverse(); snailApp.ui.render(tree);`);
+  assert.equal(await evaluate('document.activeElement === originalInput && originalInput.selectionStart === 0 && originalInput.selectionEnd === 1'), true);
+  await evaluate('snailApp.ui.dispatch = normalDispatch; snailApp.dirty = true'); await until('!snailApp.dirty');
+  await enter('39'); await key('Enter', 'Enter'); await until('!snailApp.localWork && !snailApp.dirty');
+  console.log('ok - later typing and submissions survive older completion; failed submits and keyed movement retain draft/focus');
   if (process.argv[4]) {
     const screenshot = await call('Page.captureScreenshot', {format: 'png', captureBeyondViewport: true});
     writeFileSync(process.argv[4], Buffer.from(screenshot.data, 'base64'));

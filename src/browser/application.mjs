@@ -78,7 +78,8 @@ export class BrowserApplication {
   uiCommand({owner, command}) {
     this.localWork++;
     return this.update(() => owner === 2 ? this.localTransition(command) : this.session.submit(command))
-      .then(() => { this.dirty = true; }).catch(error => this.report(error)).finally(() => this.localWork--);
+      .then(() => { this.dirty = true; return true; })
+      .catch(error => { this.report(error); return false; }).finally(() => this.localWork--);
   }
   resizeViewport() {
     const rect = this.canvas.getBoundingClientRect();
