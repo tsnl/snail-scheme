@@ -2,11 +2,12 @@
 // and all game transitions; the authority owns accepted world revisions.
 import {ReducerRuntime} from '../application/runtime.mjs';
 import {createRenderer} from '../webgpu/quads.mjs';
+import {BrowserInput, parseInputSettings} from './input.mjs';
 
 const canvas = document.querySelector('canvas'), status = document.querySelector('[data-status]');
 const connection = document.querySelector('[data-connection]');
 const runtime = new ReducerRuntime(), pending = [];
-let manifest, renderer, session, revision = -1, epoch, sequence = 1, sending = false, generation = '', dirty = true, reloadTicket = 0;
+let manifest, renderer, session, input, inputSettings, revision = -1, epoch, sequence = 1, sending = false, generation = '', dirty = true, reloadTicket = 0;
 const post = async (path, value) => {
   const response = await fetch(path, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(value)});
   const body = await response.json(); if (!response.ok) throw Object.assign(new Error(body.error), {body}); return body;
@@ -16,6 +17,7 @@ async function loadGeneration() {
   const ticket = ++reloadTicket;
   const next = await (await fetch('/manifest.json', {cache: 'no-store'})).json();
   if (next.generation === generation) return;
+  const nextInput = parseInputSettings(next.settings);
   const [bytes, source] = await Promise.all([fetch(`/${next.module}`).then(r => r.arrayBuffer()), fetch(`/${next.shader}`).then(r => r.text())]);
   const candidate = runtime.prepare(new Uint8Array(bytes), next);
   let pipeline;
@@ -25,7 +27,7 @@ async function loadGeneration() {
     runtime.replace(candidate);
   }
   catch (error) { runtime.discard(candidate); throw error; }
-  renderer.replace(pipeline); manifest = next; generation = next.generation;
+  renderer.replace(pipeline); manifest = next; generation = next.generation; inputSettings = nextInput;
   runtime.initialize(1); runtime.initialize(2); dirty = true;
   note(`LIVE · ${pending.length ? `${pending.length} pending` : 'state preserved'} · ${generation.slice(0, 7)}`);
 }
@@ -51,6 +53,7 @@ function local(binding, args = []) {
 function reportTransitionFailure(error) {
   if (generation !== runtime.manifest.generation) {
     manifest = runtime.manifest; generation = manifest.generation; renderer.rollback();
+    inputSettings = parseInputSettings(manifest.settings);
   }
   dirty = true; note(`Transition rejected; committed state retained: ${error.message}`);
 }
@@ -68,34 +71,9 @@ async function flush() {
   } finally { sending = false; }
   if (pending.length) setTimeout(flush, 300);
 }
-function point(event) {
-  const rect = canvas.getBoundingClientRect(), {width, height, cellSize, pointer} = manifest.settings;
-  local(pointer.move, [Math.floor((event.clientX - rect.left) / rect.width * width / cellSize),
-    Math.floor((event.clientY - rect.top) / rect.height * height / cellSize)]);
-}
-function installInput() {
-  canvas.addEventListener('pointermove', point);
-  canvas.addEventListener('pointerdown', event => {
-    event.preventDefault(); canvas.focus(); point(event); local(manifest.settings.pointer.confirm);
-  });
-  document.addEventListener('keydown', event => {
-    const command = manifest.settings.keys[event.key]; if (command) { event.preventDefault(); local(command[0], command.slice(1)); }
-  });
-  for (const button of document.querySelectorAll('[data-handler]')) button.addEventListener('click', () =>
-    local(button.dataset.handler, button.dataset.args ? JSON.parse(button.dataset.args) : []));
-  document.addEventListener('visibilitychange', () => void post('/presence', {client: session.client, visible: !document.hidden}));
-}
-let buttons = [], lastPad = 0;
 function frame(time) {
+  input?.frame(time);
   if (manifest && session && !document.hidden) {
-    const pad = navigator.getGamepads?.()[0];
-    if (pad) {
-      for (const [index, command] of Object.entries(manifest.settings.controller ?? {})) {
-        const down = pad.buttons[index]?.pressed;
-        if (down && (!buttons[index] || (Number(index) >= 12 && time - lastPad > 160))) { local(command[0], command.slice(1)); lastPad = time; }
-      }
-      buttons = pad.buttons.map(button => button.pressed);
-    }
     if (dirty) {
       try {
         const presentation = runtime.view(); renderer.draw(presentation.quads, manifest.settings.width, manifest.settings.height);
@@ -117,7 +95,9 @@ async function start() {
     else if (value.type === 'reload-error' || value.type === 'error') note(`Previous code stays live: ${value.error}`);
   };
   events.onerror = () => note('Reconnecting · local selection and pending commands retained');
-  installInput(); requestAnimationFrame(frame);
+  input = new BrowserInput(canvas, () => inputSettings, local);
+  document.addEventListener('visibilitychange', () => void post('/presence', {client: session.client, visible: !document.hidden}));
+  requestAnimationFrame(frame);
   // Deliberately exposed diagnostics for executable browser integration checks.
   globalThis.snailApp = {runtime, local, pending, reload: loadGeneration, acceptSnapshot: applySnapshot, renderer,
     get revision() { return revision; }, get generation() { return generation; }, get session() { return session; }};

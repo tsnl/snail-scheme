@@ -1,22 +1,37 @@
 # Siegework prototype contract
 
-Build one tiny, complete logistics-and-siege game. Keep the map fixed and the art
-raw so language, compiler, state and browser problems become visible early. The
-broader [game vision](README.md#the-run) is not a feature checklist for this demo.
+Build one complete eight-minute colony experiment on a seeded 48×36 map. Keep the
+art simple so discovery, logistics and defensive choices can be playtested.
+The [player guide](README.md) describes the implemented controls and costs.
 
-## Minimum playable loop
+## Playable loop
 
-- One fixed overhead grid, one hub, two candidate deposits, one extractor and one
-  automatic hauler. Distance changes delivery time; the far deposit can justify
-  the extra travel with a larger load.
-- A small starting stock. Extractors, artillery, one economy upgrade and repairs
-  compete for it. The authority checks affordability, bounds and occupancy.
-- Timed, escalating attackers, followed by a warned siege beast. Defenses fire
-  automatically. Lose when the hub falls, repel by surviving the deadline, or
-  exterminate by killing the final attackers. An attempt lasts about two minutes.
-- Snapped placement using pointer or controller/keyboard. Workers need no repeated
-  orders. A single action starts a fresh run. Full radial menus, 3D art,
-  pathfinding, procedural maps and randomized final events can wait.
+- A hub, three pooled workers, one visible starter deposit and two hidden expansion
+  choices. North offers a modest nearby resource; east offers richer ore beyond a
+  ridge crossing. Routes follow traversable surveyed ground.
+- Completed observation towers extend active sight. Remembered geography survives
+  lost coverage; current enemies require active sight. Placement requires visible,
+  reachable ground, and a paid kit must physically arrive before a site operates.
+- Occupied mining slots produce into bounded buffers; upgrades add slots, not
+  free production. Workers mine, collect ore, deliver it to
+  the hub, build projects and perform bounded automatic repairs. No individual
+  orders are needed. Additional workers, extraction upgrades and observation
+  upgrades compete with artillery for delivered ore. Kills award no resources.
+- Workers choose nearby reachable tasks and carry ore or kits while fleeing.
+  Encountered workers and buildings can be damaged; actual hits produce bounded
+  location alerts. Lost cargo is not refunded. A sole worker alternates mining
+  and hauling; a surviving hub can assemble one emergency replacement.
+  An announced outpost raid at 3:30 can destroy outer structures; the final beast
+  arrives at 7:00. Lose the hub, hold to 8:00, or exterminate all final threats.
+- Shared explicit Pause/Resume freezes simulation while allowing inspection and
+  paid planning. It survives durable restart and compatible reload.
+- Top-down 2D, continuous WASD/left-stick camera pan with a three-cell exterior margin,
+  pointer/arrow/D-pad cursor and snapped
+  construction. Guns visibly aim automatically at eligible visible enemies; bounded shot traces
+  show each actual firing without changing immediate damage.
+  The status shows rejected orders, occupied/incoming slots, mine buffers,
+  deliveries, worker roles and actual hub occupancy. A numeric seed form starts
+  a reproducible new shared run only when explicitly submitted.
 
 The world must use **real WebGPU** and shaders compiled from Scheme expressions.
 Colored quads and DOM status text are sufficient. No Canvas2D substitute and no
@@ -72,7 +87,9 @@ epoch before acknowledgment/publication. Repeating a request cannot spend twice.
 A stale-run command cannot affect a new run. External effects still need explicit
 idempotency; do not claim universal exactly-once execution.
 
-Schema versions cover field meaning as well as shape. Reject incompatible schemas
+The colony uses world/client schema 4 and a 6,144-word world snapshot. Earlier
+prototype saves require a separate retained package; start this version with a
+fresh database. Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
 handles or WasmGC references. Copying a bounded record into a fresh module heap is
 acceptable initially; document its cost and keep it behind the typed state API.
@@ -82,10 +99,10 @@ acceptable initially; document its cost and keep it behind the typed state API.
 | Check | Required evidence |
 | --- | --- |
 | Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits quads. |
-| Small game | Automatic cargo deliveries, resource/placement validation, a deterministic losing run and a surviving layout; clock independent of render rate. |
+| Colony game | Multiple mine deliveries; construction and repair conservation; discovery and known-route rules; danger retreat/recovery; deterministic loss, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
 | Two clients early | Distinct identified players act on one authoritative world; concurrent purchases serialize; both converge to the same accepted revision. |
 | Immutable transitions | Retained prior snapshots stay unchanged; concurrent submissions have no lost updates; trap and failed durability commit publish no partial state/effects. |
-| Compatible reload | Reload during hauling and combat, with a selected tool/cell and pending input; preserve state and consume no simulation tick. |
+| Compatible reload | Reload during hauling and combat, with a selected tool/cell, overscrolled camera, manual pause and pending input; preserve state and consume no simulation tick. |
 | Failure isolation | Invalid candidate, incompatible schema and invalid WGSL leave the old application/pipeline usable. |
 | Durable restart | Restart after a commit before acknowledgment, retry it, recover the accepted state and avoid a second purchase. |
 | Typed API | Compile-negative wrong handler payload, wrong state result and wrong application owner. Scheme and Lofi both import the same shader/application libraries. |
@@ -95,8 +112,15 @@ limitations with the checks. Compilation alone does not pass a runtime gate.
 
 ## Explicit future work
 
-Random/fairly telegraphed finales, richer routes, radial menus, 3D art, matchmaking,
-large worlds and additional resources are game questions after this loop works.
+Walls with deliberate breach behavior, randomized/fairly telegraphed finales, a
+larger tech tree, 3D/elevation, unbounded terrain generation, matchmaking and
+additional resources remain deferred. The map uses a bounded seeded family.
+Ordinary enemies retain their hub route and raiders their outpost route while
+attacking encountered workers or structures. Observation is circular rather than
+line-of-sight occlusion. Buildings do not block walking routes. Worker routes
+avoid known or locally sensed threats, with local escape when already in danger.
+The selected site priority is shared by the colony. These are experiment limits,
+not claims of a general strategy-game simulation.
 Richer payload codecs, migrations, broader shader syntax, browser device recovery,
 structural sharing and a server database with fencing are library milestones.
 GPU tensors/PyTorch integration is a possible future motivating use case, not a

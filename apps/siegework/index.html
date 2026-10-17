@@ -1,16 +1,86 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Siegework — a short cooperative siege</title><link rel="stylesheet" href="/style.css"></head>
-<body><main>
-<header><div><p class="eyebrow">A TWO-MINUTE FIELD EXPERIMENT</p><h1>SIEGEWORK<span>01</span></h1></div><p class="tagline">Land. Extract. Fortify.<br>Hold against what comes.</p></header>
-<section class="board"><canvas width="960" height="560" tabindex="0" aria-label="Siegework battlefield. Use arrow keys to move the build cursor; 1 selects extractor, 2 artillery, Enter places it."></canvas>
-<div class="map-label west">HUB / DROP ZONE</div><div class="map-label east">THREATS APPROACH ←</div></section>
-<section class="console"><p data-status>Establishing the field link…</p><div class="controls">
-<button data-handler="choose" data-args="[1]"><kbd>1 / X</kbd> Extractor <small>30 ore</small></button>
-<button data-handler="choose" data-args="[2]"><kbd>2 / Y</kbd> Artillery <small>45 ore</small></button>
-<button data-handler="improve"><kbd>U / LB</kbd> Upgrade mine <small>55 ore</small></button>
-<button data-handler="mend"><kbd>R / RB</kbd> Repair hub <small>30 ore</small></button>
-<button data-handler="restart"><kbd>N / START</kbd> New run</button></div></section>
-<footer><p>Choose a turquoise deposit, then place artillery along the eastern approach. The bot hauls automatically.<br>Point + click, or arrows / D-pad + Enter / A. Share this server with a second browser tab to cooperate.</p><p data-connection>CONNECTING</p></footer>
-<details><summary>About this prototype</summary><p>Game rules, client state, and shader expressions are Scheme libraries. Real WebGPU draws the field. A single local authority runs Scheme-generated Wasm, commits to SQLite, and streams accepted snapshots. Rebuilding swaps compatible code and shaders without resetting your match or selection. This tiny fixed map is an experiment, not the full game.</p></details>
-</main><script type="module" src="/lib/browser/client.mjs"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Siegework — an eight-minute colony defense</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div><p class="eyebrow">AN EIGHT-MINUTE COLONY DEFENSE</p><h1>SIEGEWORK<span>02</span></h1></div>
+    <p class="tagline">Survey. Supply. Hold.<br>Keep the hub alive.</p>
+  </header>
+
+  <div class="field-layout">
+    <section class="field" aria-label="Colony field">
+      <div class="board">
+        <canvas width="960" height="640" tabindex="0" aria-label="Siegework battlefield" aria-describedby="navigation-help">
+          Siegework needs a browser with WebGPU. Field status and controls appear below.
+        </canvas>
+      </div>
+      <div class="console" aria-label="Colony status"><p data-status>Establishing the field link…</p></div>
+    </section>
+
+    <aside class="commands" aria-label="Colony commands">
+      <section class="command-group" aria-labelledby="build-heading">
+        <h2 id="build-heading">Build <span>Choose, then place</span></h2>
+        <div class="controls">
+          <button data-handler="choose" data-args="[1]" title="Select an extractor. Place it on a visible, reachable mineral deposit. One worker can staff it; other workers haul its ore."><kbd>1 / X</kbd>Extractor<small>40 ore · 1 mining slot</small></button>
+          <button data-handler="choose" data-args="[2]" title="Select artillery. Workers build it, then it automatically fires at visible enemies within eight cells."><kbd>2 / Y</kbd>Artillery<small>50 ore</small></button>
+          <button data-handler="choose" data-args="[3]" title="Select an observation tower. Its vision begins when workers finish construction."><kbd>3 / B</kbd>Observation tower<small>25 ore</small></button>
+          <button class="primary" data-handler="confirm" title="Place the selected building at the cursor. The field status explains any blocked placement."><kbd>ENTER / A</kbd>Place building<small>At the cursor</small></button>
+        </div>
+      </section>
+      <section class="command-group" aria-labelledby="colony-heading">
+        <h2 id="colony-heading">Colony <span>Workers act on their own</span></h2>
+        <div class="controls">
+          <button data-handler="fabricate" title="Queue a new colony worker: 25 ore and three seconds to assemble. Haulers carry up to 16 ore per trip."><kbd>F / LT</kbd>Assemble worker<small>25 ore · 3 sec</small></button>
+          <button data-handler="prioritize" title="Give the selected site's construction or mine deliveries priority."><kbd>P / RT</kbd>Prioritize selected<small>Give this site priority</small></button>
+          <button data-handler="improve" title="Add a second mining slot for 40 ore, or extend the selected observation tower's range. Field status shows cost and availability."><kbd>U / LB</kbd>Upgrade selected<small>Mine staffing / tower range</small></button>
+          <button data-handler="mend" title="Toggle automatic hub and structure repairs. Repair spends ore while retaining a construction reserve; field status shows whether it is on."><kbd>R / RB</kbd>Toggle auto repair<small>Current state in field status</small></button>
+        </div>
+      </section>
+      <section class="command-group" aria-labelledby="view-heading">
+        <h2 id="view-heading">View <span>WASD / left stick</span></h2>
+        <div class="camera-controls" aria-label="Pan the camera">
+          <button class="pan north" data-handler="pan" data-args="[0,-1]" aria-label="Pan north" title="Pan north (W / left stick)">↑</button>
+          <button class="pan west" data-handler="pan" data-args="[-1,0]" aria-label="Pan west" title="Pan west (A / left stick)">←</button>
+          <button class="pan south" data-handler="pan" data-args="[0,1]" aria-label="Pan south" title="Pan south (S / left stick)">↓</button>
+          <button class="pan east" data-handler="pan" data-args="[1,0]" aria-label="Pan east" title="Pan east (D / left stick)">→</button>
+          <button class="home" data-handler="home" title="Return the camera and cursor to the colony hub."><kbd>H / VIEW</kbd>Home</button>
+        </div>
+        <div class="run-controls">
+          <button data-handler="suspend" data-args="[1]" title="Pause the shared colony. Camera and planning remain available; workers and combat wait.">Pause colony</button>
+          <button data-handler="suspend" data-args="[0]" title="Resume the shared colony for every player.">Resume</button>
+        </div>
+        <button class="new-run" data-handler="restart" title="Start a fresh eight-minute run for everyone in this colony."><kbd>N / START</kbd>New run · next seed</button>
+        <form class="seed-form" data-handler="restart-seed" novalidate>
+          <label for="next-run-seed">Next run seed</label>
+          <input id="next-run-seed" name="seed" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-i32 aria-describedby="seed-help seed-error" placeholder="1–65535">
+          <p id="seed-help" class="input-help">Editing leaves this colony unchanged. Start this seed restarts the shared colony for everyone; New run uses the next seed instead. Field status shows the active seed.</p>
+          <button type="submit">Start this seed</button>
+          <p id="seed-error" class="input-error" data-input-error role="alert"></p>
+        </form>
+      </section>
+    </aside>
+  </div>
+
+  <footer>
+    <p id="navigation-help"><strong>Move view:</strong> WASD / left stick. <strong>Move cursor:</strong> arrows / D-pad.<br><strong>Place:</strong> point + click, or Enter / Space / A. <strong>Return home:</strong> H / View.</p>
+    <p data-connection role="status">CONNECTING</p>
+  </footer>
+  <p class="field-key"><strong>First order:</strong> place an extractor on the turquoise diamond at the starting cursor. <strong>Pale cross:</strong> hub. <strong>Blue mast:</strong> observation tower. <strong>Outlined sites:</strong> construction pending.</p>
+  <details class="field-guide">
+    <summary>Field guide</summary>
+    <div class="guide-grid">
+      <p><strong>Staff a supply line.</strong> Put extractors on deposits. Workers automatically staff each mine's one mining slot; a 40-ore upgrade adds a second slot. Each occupied slot produces at the deposit's rate. Empty slots produce nothing. Other workers haul up to 16 ore per trip to the hub; stored mine ore is not spendable, and a mine holds at most 120. Growing stock means hauling is behind production. Workers can take damage and flee danger automatically.</p>
+      <p><strong>Survey before expanding.</strong> Build on currently visible ground with a surveyed route from the hub. Completed towers reveal more terrain; upgrade their range to reach farther. Shaded terrain is remembered; bright terrain is in view.</p>
+      <p><strong>Select a site.</strong> Hover or move the cursor onto it, then use Upgrade or Prioritize; no click is needed. Artillery automatically attacks visible threats within eight cells. Automatic repairs cover the hub and structures, keeping 40 ore in reserve. Defeated enemies give no ore. Pause stops the shared simulation while allowing camera movement and planning; construction waits for Resume.</p>
+    </div>
+  </details>
+</main>
+<script type="module" src="/lib/browser/client.mjs"></script>
+</body>
+</html>

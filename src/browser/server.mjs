@@ -17,7 +17,7 @@ const rejectedGenerations = new Set();
 const store = openStore(join(directory, 'match.sqlite')), streams = new Map(), sessions = new Set();
 const broadcast = value => { for (const {response} of streams.values()) response.write(`data: ${JSON.stringify(value)}\n\n`); };
 const authority = new Authority(runtime, {saved: store.load(), commit: (snapshot, expected) => store.commit(snapshot, expected),
-  publish: broadcast, resetHandler: endpoint(manifest, 'match', manifest.settings.reset).id});
+  publish: broadcast, resetHandler: endpoint(manifest, 'match', manifest.settings.reset).id, runMarker: manifest.settings.runMarker});
 const clockClient = '__clock';
 function send(response, status, value) {
   response.writeHead(status, {'content-type': 'application/json', 'cache-control': 'no-store'}); response.end(JSON.stringify(value));
@@ -85,6 +85,7 @@ const reloading = setInterval(() => {
   try {
     const next = JSON.parse(readFileSync(join(directory, 'manifest.json')));
     if (next.generation === manifest.generation || rejectedGenerations.has(next.generation)) return;
+    if (next.settings.runMarker !== manifest.settings.runMarker) throw new Error('incompatible run marker offset');
     runtime.replace(runtime.prepare(readFileSync(join(directory, next.module)), next));
     manifest = next; authority.resetHandler = endpoint(manifest, 'match', manifest.settings.reset).id;
     broadcast({type: 'reload', generation: manifest.generation});

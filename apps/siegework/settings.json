@@ -1,7 +1,7 @@
 {
   "title": "Siegework",
   "width": 960,
-  "height": 560,
+  "height": 640,
   "cellSize": 40,
   "tickMilliseconds": 100,
   "source": "src/siegework/game.sld",
@@ -14,13 +14,19 @@
   "remoteHandlers": [
     "extract",
     "fortify",
+    "observe",
     "upgrade",
+    "fabricate-worker",
+    "prioritize-building",
     "repair",
-    "new-run"
+    "new-run",
+    "pause-colony",
+    "new-run-seed"
   ],
   "pointer": {
     "move": "move",
-    "confirm": "confirm"
+    "confirm": "confirm",
+    "coordinates": "pixels"
   },
   "keys": {
     "1": [
@@ -31,6 +37,10 @@
       "choose",
       2
     ],
+    "3": [
+      "choose",
+      3
+    ],
     " ": [
       "confirm"
     ],
@@ -40,11 +50,40 @@
     "u": [
       "improve"
     ],
+    "f": [
+      "fabricate"
+    ],
+    "p": [
+      "prioritize"
+    ],
     "r": [
       "mend"
     ],
     "n": [
       "restart"
+    ],
+    "h": [
+      "home"
+    ],
+    "w": [
+      "drift",
+      0,
+      -1
+    ],
+    "a": [
+      "drift",
+      -1,
+      0
+    ],
+    "s": [
+      "drift",
+      0,
+      1
+    ],
+    "d": [
+      "drift",
+      1,
+      0
     ],
     "ArrowLeft": [
       "nudge",
@@ -67,9 +106,20 @@
       1
     ]
   },
+  "inputRepeatMilliseconds": 140,
+  "repeatKeys": [
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown"
+  ],
   "controller": {
     "0": [
       "confirm"
+    ],
+    "1": [
+      "choose",
+      3
     ],
     "2": [
       "choose",
@@ -84,6 +134,15 @@
     ],
     "5": [
       "mend"
+    ],
+    "6": [
+      "fabricate"
+    ],
+    "7": [
+      "prioritize"
+    ],
+    "8": [
+      "home"
     ],
     "9": [
       "restart"
@@ -108,5 +167,50 @@
       1,
       0
     ]
-  }
+  },
+  "repeatButtons": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "controllerAxes": [
+    {
+      "axis": 0,
+      "negative": [
+        "drift",
+        -1,
+        0
+      ],
+      "positive": [
+        "drift",
+        1,
+        0
+      ],
+      "deadzone": 0.35,
+      "continuous": true
+    },
+    {
+      "axis": 1,
+      "negative": [
+        "drift",
+        0,
+        -1
+      ],
+      "positive": [
+        "drift",
+        0,
+        1
+      ],
+      "deadzone": 0.35,
+      "continuous": true
+    }
+  ],
+  "continuousKeys": [
+    "w",
+    "a",
+    "s",
+    "d"
+  ],
+  "runMarker": 23
 }
