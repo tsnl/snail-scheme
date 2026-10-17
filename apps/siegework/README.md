@@ -12,6 +12,10 @@ commits to SQLite and serves cooperating browser clients. The
 [prototype contract](PROTOTYPE.md) keeps the acceptance criteria and deferred work
 separate from the broader vision below.
 
+The [code tour](TOUR.md) follows a purchase through client input, immutable game
+state, durable authority, snapshots and WebGPU rendering, then explains the build
+and reload paths.
+
 ## Build and play
 
 From the repository root, with Chibi, Binaryen and Node 24 available:
