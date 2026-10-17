@@ -427,7 +427,8 @@
     (define (parse-list-expression form environment)
       (when (memq (head form) unsupported-keywords) (fail form "unsupported Lofi form" (head form)))
       (case (head form)
-        ((def let datatype typeclass instance define-extern define-overload import export define-library :)
+        ((data typeclass instance) (fail form "declarations require library scope"))
+        ((def let datatype define-extern define-overload import export define-library :)
          (fail form "declaration is not an expression"))
         ((lambda) (parse-lambda form environment))
         ((begin) (parse-block (cdr (parts form)) form environment))
@@ -659,6 +660,15 @@
           (expect (eq? (name-definition (car (application-operands call))) (car (lambda-parameters function))) #t)
           (expect (eq? (binding-origin (value-binding-definition definition))
                        (binding-origin (value-binding-definition (car (lofi-library-declarations other))))) #f)))
+      (define (test-immediate-kernel-parse)
+        (let* ((library (test-parsed
+                         "(def Flag (datatype () (flag)))
+                          (def C (typeclass (T) (: method (-> T T))))
+                          (def evidence (instance (C Flag) (method (lambda (value) value))))
+                          (def run (-> I32) (lambda () (begin (let value 42) value)))"))
+               (items (lofi-library-declarations library)))
+          (expect (map node-kind items) '(data-schema class-declaration instance-declaration bind))
+          (expect (node-kind (lambda-body (value-binding-initializer (list-ref items 3)))) 'block)))
       (define (test-map-aliases-and-reexports)
         (let* ((provider (test-parsed "(define-library (test original) (export public)
                                        (begin (def private 42) (def public (lambda () private))))"))
@@ -859,6 +869,15 @@
                                       (define-overload choose (-> Bool Bool) (lambda (x) x))" provider)))
           (expect (eq? (overload-declaration-definition (car (library-body consumer)))
                        (named-binding-definition (car (library-exports provider)))) #t)))
+      (define (test-local-named-declaration-diagnostics)
+        (for-each
+         (lambda (declaration)
+           (expect (guard (failure (else (error-object-message failure)))
+                     (test-parsed (string-append "(lambda () " declaration ")")) #f)
+                   "declarations require library scope"))
+         '("(data Flag () (flag))"
+           "(typeclass C (T) (: method (-> T T)))"
+           "(instance evidence (C I32) (method (lambda (value) value)))")))
       (define (test-invalid-forms)
         (for-each test-rejected
                   '("(def x 1) (def x 2)" "(let x 1) (def x 2)" "(def x 1) (let x 2)"
@@ -887,6 +906,7 @@
            "(define-library (unused) (export) (begin (define-overload unused (lambda (value) value))))")))
       (define (test-frontend)
         (run-test test-independent-library-parse)
+        (run-test test-immediate-kernel-parse)
         (run-test test-map-aliases-and-reexports)
         (run-test test-library-reuse)
         (run-test test-imported-macro-maps)
@@ -905,5 +925,6 @@
         (run-test test-static-kinds)
         (run-test test-cached-overload-identity)
         (run-test test-explicit-overload-signatures)
+        (run-test test-local-named-declaration-diagnostics)
         (run-test test-invalid-forms))))
    (else)))

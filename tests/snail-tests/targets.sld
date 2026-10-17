@@ -153,7 +153,7 @@
         (build-native wasm native #f '())
         (checked "literal-native" (list native) '((status . 42) (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))
         (checked "literal-rejected" (list (path "scripts/build-lofi") (fixture "lofi-bytes" "literal-10001.sld") (build-path "too-large.wasm"))
-                 '((status . error) (error . "literal-10001.sld:2:20: bytevector literal exceeds Wasm array.new_fixed limit")))))
+                 '((status . error) (error . "literal-10001.sld:4:20: bytevector literal exceeds Wasm array.new_fixed limit")))))
 
     ;; ---- Independent floating answers include nonfinite values and zero signs ----
 
