@@ -35,6 +35,7 @@ function recordValue(value) {
   if (tag === 'data') return Object.fromEntries(value.slice(3).map(([field, contents]) => [field.symbol, recordValue(contents)]));
   if (tag.startsWith('(List ')) return value[1].map(recordValue);
   if (tag === 'I32') return value[1];
+  if (tag === 'Bool') { assert.ok(['true', 'false'].includes(value[1].symbol)); return value[1].symbol === 'true'; }
   throw new Error(`unexpected application value type ${tag}`);
 }
 

@@ -93,7 +93,8 @@ function copyLibraries(root, output, target) {
   const host = target === 'solo' ? ['application/indexeddb.mjs', 'browser/solo.mjs']
     : ['application/sqlite.mjs', 'browser/cloud.mjs', 'browser/server.mjs'];
   for (const path of ['lofi/compiler/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
-    'webgpu/quads.mjs', 'browser/application.mjs', 'browser/input.mjs', 'ui/bridge.mjs', 'ui/dom.mjs', 'ui/style.css', ...host]) {
+    'webgpu/quads.mjs', 'webgpu/scene.mjs', 'draw3d/bridge.mjs', 'browser/application.mjs', 'browser/input.mjs',
+    'ui/bridge.mjs', 'ui/dom.mjs', 'ui/style.css', ...host]) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
 }

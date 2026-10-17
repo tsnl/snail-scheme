@@ -2,6 +2,7 @@
 // the concrete authoritative submission: local durable commit or cloud request.
 import {ReducerRuntime} from '../application/runtime.mjs';
 import {createRenderer} from '../webgpu/quads.mjs';
+import {createSceneRenderer} from '../webgpu/scene.mjs';
 import {BrowserInput, parseInputSettings} from './input.mjs';
 import {DomUi} from '../ui/dom.mjs';
 
@@ -39,8 +40,13 @@ export class BrowserApplication {
     if (next.target !== this.target) throw new Error(`Expected a ${this.target} package`);
     if (next.generation === this.generation) return;
     this.session?.checkManifest(next);
-    if (!this.renderer && next.settings.renderer !== 'dom')
-      this.renderer = await createRenderer(this.canvas, error => this.note(error.message));
+    if (this.rendererKind && this.rendererKind !== (next.settings.renderer ?? 'quads'))
+      throw new Error('renderer changes require a page reload');
+    if (!this.renderer && next.settings.renderer !== 'dom') {
+      const create = next.settings.renderer === 'scene3d' ? createSceneRenderer : createRenderer;
+      this.renderer = await create(this.canvas, error => this.note(error.message));
+      this.rendererKind = next.settings.renderer ?? 'quads';
+    }
     await this.prepareGeneration(next, ticket);
   }
   async prepareGeneration(next, ticket) {
@@ -86,6 +92,8 @@ export class BrowserApplication {
     const width = Math.max(1, Math.floor(rect.width)), height = Math.max(1, Math.floor(rect.height));
     if (this.viewport?.[0] === width && this.viewport?.[1] === height) return;
     this.viewport = [width, height]; this.inputSettings = {...this.inputSettings, width, height};
+    const scale = Math.min(devicePixelRatio || 1, 2);
+    this.canvas.width = Math.round(width * scale); this.canvas.height = Math.round(height * scale);
     void this.local(this.manifest.settings.viewportHandler, [width, height]);
   }
   async localTransition(command) {
@@ -121,7 +129,7 @@ export class BrowserApplication {
   }
   draw() {
     const presentation = this.runtime.view();
-    this.renderer?.draw(presentation.quads, this.inputSettings.width, this.inputSettings.height);
+    this.renderer?.draw(presentation.scene ?? presentation.quads, this.inputSettings.width, this.inputSettings.height);
     this.ui?.render(presentation.ui);
     this.status.textContent = presentation.label; this.dirty = false;
   }
@@ -131,6 +139,6 @@ export class BrowserApplication {
     this.viewportResize?.disconnect();
     await this.updates; // UI work already accepted may still submit to the runtime.
     await this.runtime.close();
-    this.renderer?.close();
+    await this.renderer?.close();
   }
 }

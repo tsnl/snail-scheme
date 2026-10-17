@@ -24,9 +24,12 @@ class CloudSession {
     this.events = new EventSource(url);
     this.events.onmessage = event => this.receive(JSON.parse(event.data));
     this.events.onerror = () => this.app.note('Reconnecting · local selection and pending commands retained');
-    document.addEventListener('visibilitychange', () => void this.post('presence', {client: this.client, visible: !document.hidden}).catch(error => this.app.note(error.message)));
+    document.addEventListener('visibilitychange', () => {
+      if (!this.app.closing) void this.post('presence', {client: this.client, visible: !document.hidden}).catch(error => this.app.note(error.message));
+    });
   }
   receive(value) {
+    if (this.app.closing) return;
     if (value.type === 'snapshot') void this.acceptSnapshot(value).catch(error => this.app.report(error));
     else if (value.type === 'reload') void this.app.reload().catch(error => this.app.note(`Reload rejected; previous code stays live: ${error.message}`));
     else if (value.type === 'reload-error' || value.type === 'error') this.app.note(`Previous code stays live: ${value.error}`);
@@ -64,8 +67,17 @@ class CloudSession {
     if (this.pending.length) setTimeout(() => void this.flush().catch(error => this.app.note(error.message)), 300);
   }
 }
-const app = new BrowserApplication();
-try {
-  await app.open('cloud'); const session = new CloudSession(app); await session.open(); app.start(session);
-  app.note(`CLOUD · player ${session.client.slice(0, 6)} · server save · WebGPU`);
-} catch (error) { app.note(`Cannot start: ${error.message}`); console.error(error); await app.close(); }
+const app = new BrowserApplication(), session = new CloudSession(app);
+async function start() {
+  try {
+    await app.open('cloud'); await session.open();
+    if (app.closing) return;
+    app.start(session); app.note(`CLOUD · player ${session.client.slice(0, 6)} · server save · WebGPU`);
+  } catch (error) { app.note(`Cannot start: ${error.message}`); console.error(error); await app.close(); }
+}
+const startup = start();
+addEventListener('pagehide', () => {
+  app.closing = true; session.events?.close();
+  void startup.then(() => { session.events?.close(); return app.close(); });
+});
+addEventListener('pageshow', event => { if (event.persisted) location.reload(); });

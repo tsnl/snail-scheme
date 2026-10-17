@@ -16,9 +16,15 @@ Scheme owns the game rules and presentation executed by both browser and server.
 | [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
 | [`shaders.sld`](src/siegework/shaders.sld) | Scheme-authored shader generation for the shared WebGPU quad adapter. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and separate solo/cloud packages. |
+| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera and nearest-building/ground picking over the existing grid. |
+| [`three-game.sld`](src/siegework/three-game.sld) | Separate 3D client state, contextual placement, typed HUD actions and the unchanged match reducer endpoints. |
+| [`hud.sld`](src/siegework/hud.sld) | Compact contextual controls and status through the reusable top-down Scheme UI library. |
+| [`three/build.scm`](three/build.scm) | Separate 3D solo/cloud packages using the shared Scheme scene shader. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
+The [3D prototype guide](three/README.md) describes its separate build, save
+identity, contextual controls and currently implemented drawing API.
 
 The `solo/` package runs from static hosting and stores one authority record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership of
@@ -64,7 +70,8 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-Both owners declare schema 7. Their sizes grow and shrink with the records,
+The original 2D owners declare schema 7. The 3D prototype shares world schema 7
+and has a separate client schema 1 and application ID. Record sizes grow and shrink,
 within the runtime's 65,536-word limit. Schemas 4, 5 and 6 have different layouts and
 are rejected; neither derivation nor this integration migrates existing saves.
 Existing packages and databases are left intact. Cloud packages need a separate
