@@ -8,8 +8,9 @@ Scheme owns the game rules and presentation executed by both browser and server.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, remembered surveys and bounded adjacent-cell pathfinding. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; construction reservations, physical deliveries, combat and restart rules. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, remembered surveys and bounded adjacent-cell pathfinding and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; worker/source completion estimates, exclusive kits, queued relocations, deliveries and combat. |
+| [`planning.sld`](src/siegework/planning.sld) | Optional Manual/Auto Explore/Defend investment policy using observed opportunities and a bounded reserve. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
 | [`view.sld`](src/siegework/view.sld) | Pure quads and status text for the colony, camera, minimap, reservations and freight. |
 | [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
@@ -63,8 +64,8 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-Both owners declare schema 6. Their sizes grow and shrink with the records,
-within the runtime's 65,536-word limit. Schemas 4 and 5 have different layouts and
+Both owners declare schema 7. Their sizes grow and shrink with the records,
+within the runtime's 65,536-word limit. Schemas 4, 5 and 6 have different layouts and
 are rejected; neither derivation nor this integration migrates existing saves.
 Existing packages and databases are left intact. Cloud packages need a separate
 database unless an explicit migration is implemented and validated. Solo retains
@@ -76,6 +77,14 @@ bounds, distinct IDs, legal bounded routes, construction carriers and
 reservations, worker job/cargo relationships, mining occupancy, rail endpoints
 and cargo, and the ore ledger. Rails point to older tower IDs or the hub, keeping
 the upstream graph acyclic. These checks remain in Scheme for every host.
+
+Construction reserves one entire kit from one source. The source's loose stock
+excludes the reservation, while extractor capacity includes it. `local-spent`
+records locally consumed construction ore, including paid kits later lost. The
+bank is `160 + delivered + local-spent - spent`; produced ore equals deliveries,
+local spending, raw losses and all remaining loose stock/cargo/freight. Returning
+a local paid kit to the hub transfers its cost from local spending to delivered
+ore before refunding or retaining the project's hub-backed reservation.
 
 Accepted restarts increment a bounded run marker, including replaying the same
 seed; the maximum wraps to zero. Rejected seed input retains it. The authority

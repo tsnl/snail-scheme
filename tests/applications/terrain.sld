@@ -111,6 +111,14 @@
            (null? (walking-path 1 8 22 48 20 all-surveys #t))
            (null? (walking-path 1 8 22 23 0 all-surveys #t))
            (null? (walking-path 1 23 0 8 22 all-surveys #t))))
+    (define (direct-fire?)
+      (and (clear-shot? 1 (cell-x 12) (cell-y 9) (cell-x 12) (cell-y 11))
+           (not (clear-shot? 1 (cell-x 6) (cell-y 9) (cell-x 6) (cell-y 11)))
+           (not (clear-shot? 1 (cell-x 9) (cell-y 9) (cell-x 10) (cell-y 10)))
+           (not (clear-shot? 1 (cell-x 10) (cell-y 10) (cell-x 9) (cell-y 9)))
+           (clear-shot? 1 (cell-x 12) (cell-y 9) (cell-x 12) (cell-y 9))
+           (observed-shot? 1 all-surveys (cell-x 12) (cell-y 9) (cell-x 12) (cell-y 11))
+           (not (observed-shot? 1 (list (make-survey 12 9 0)) (cell-x 12) (cell-y 9) (cell-x 12) (cell-y 11)))))
 
     ;; ---- Tests ----
 
@@ -125,5 +133,6 @@
                    ((not (respects-surveys?)) -7)
                    ((not (respects-hazards?)) -8)
                    ((not (rejects-endpoints?)) -9)
+                   ((not (direct-fire?)) -10)
                    (else 1)))
            (-> I32)))))

@@ -1,5 +1,98 @@
 # Siegework validation
 
+## Optional colony direction, physical supply and harder attacks
+
+The 2026-10-17 schema-7 playtest uses generation `043f83cfb8e5b3e3dbb6e578`.
+Solo and cloud package the identical newly compiled game Wasm, SHA-256
+`94712804d2678e50cca9e7c55b872b7222ac3c1f6bffd2c58aceba033a41959a`.
+All app Scheme source hashes were captured before compilation and checked again
+before serving. Existing schema-4, schema-6 and earlier schema-7 playtests and
+saves remain separate. Cloud uses port 4187 and solo uses 4188 for this checkpoint.
+
+All 52 focused compiled-Wasm gameplay checks pass: 30 prior colony, encounter
+and logistics cases plus 22 direction/supply/movement/schedule cases. They cover
+joint worker/source completion estimates, prompt retry, local-only payment,
+whole-kit exclusivity against hauling/trains, reserved mine capacity, cancellation,
+source and carrier destruction, both carried and uncollected retreat, destroyed
+hauler destinations, and bank/raw-material conservation. A naturally filled
+construction cache supplies a local project without hub payment and releases its
+ore when the bank is low. Sole-worker recovery remains covered. Loaded chains of
+three moving towers drain in either request order across pause/restore, preserving
+identity and parents; a parent can move while its child still has stock. Invalid
+moves, cancellation refunds, destination conflicts and outside-map input are checked.
+
+Actual Chromium 152 pointer and keyboard input builds a mine and tower, observes
+a loaded rail shuttle, reads real WebGPU pixels, queues a move, pauses and reopens
+the durable save, resumes the move and switches Auto/Manual on both hosts. The
+screenshots show a visible rail to the moved tower. The browser helper scrolls
+real targets into view and waits for accepted cloud state to finish restoring;
+these are executable UI checks, not simulated clicks on hidden DOM controls.
+SwiftShader Vulkan supplies the adapter; this is not hardware performance evidence.
+
+A changed-code replacement from the earlier schema-7 artifact
+`a3e8f35c98ab89884ba60cae` retains a paused world with loaded freight, a queued move,
+and an overscrolled client camera/tool, then resumes with conservation intact.
+The separately compiled terrain fixture still checks eight map fingerprints and
+970 routes, adding blocked direct fire, diagonal rock corners, same-position
+shots and observed-versus-unknown planning rays. A 50-enemy boundary fixture
+survives save/reload and presentation; 51 is rejected. The ceiling is derived
+from the finite schedule, and rendering grows its buffer from actual quad count.
+
+`make test`, `make check`, changed JavaScript syntax and whitespace checks pass.
+This iteration did not repeat all generic runtime adversarial wrappers or the
+full hosting regression runner; the shared host/compiler implementation is unchanged.
+The focused gameplay, changed-code reload and both real browser ownership paths
+were executed against newly compiled gameplay code.
+
+### Same-seed strategy observations
+
+`colony-strategies.mjs` compares fixed Manual orders with Explore and Defend,
+checking conservation on every tick. The softer comparison artifact is
+`78ac39a9fd615c1fa3313b9a`; the harder artifact is the checkpoint above. Both include
+the same cache and colony policy. The harder finite schedule spawns 50 attackers
+versus 26: the opening remains at 1:00, ordinary follow-ups use 45-second spacing,
+raids replace the nearby ordinary slots, and the unchanged 1,800-health finale
+gets six ordinary escorts. Warnings identify spawn time, size and kind; these are
+not arrival-time promises.
+
+| Seed / policy | Outcome / finish before → after | Hub HP | Buildings lost | First actual damage | Peak live threats | Local kits after |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 manual-baseline | win 7:28.8 → win 7:39.4 | 300 → 279 | 0 → 2 | 7:26.0 → 7:21.0 | 5 → 7 | 1 |
+| 1 explore | win 7:33.8 → loss 7:42.0 | 300 → 0 | 5 → 8 | 1:08.0 → 1:08.0 | 8 → 11 | 8 |
+| 1 defend | win 7:27.2 → win 7:31.1 | 300 → 300 | 1 → 2 | 7:23.0 → 6:39.0 | 5 → 7 | 15 |
+| 7 manual-baseline | win 7:28.8 → win 7:39.2 | 300 → 272 | 0 → 2 | 7:26.0 → 6:37.0 | 5 → 7 | 1 |
+| 7 explore | loss 4:53.0 → win 7:48.4 | 0 → 181 | 5 → 10 | 2:04.0 → 1:24.0 | 8 → 10 | 13 |
+| 7 defend | win 7:25.6 → win 7:29.6 | 300 → 300 | 0 → 2 | 6:22.0 → 1:24.0 | 5 → 7 | 15 |
+| 43 manual-baseline | win 7:28.8 → win 7:39.4 | 300 → 279 | 0 → 2 | 7:26.0 → 7:21.0 | 5 → 7 | 1 |
+| 43 explore | win 7:30.4 → loss 3:21.0 | 300 → 0 | 6 → 2 | 2:04.0 → 1:33.0 | 5 → 6 | 4 |
+| 43 defend | win 7:25.6 → win 7:28.4 | 300 → 300 | 0 → 1 | 7:24.0 → 7:24.0 | 5 → 7 | 15 |
+
+Minimum hub reserve stayed at 1 for the fixed Manual orders, 40 for Explore and
+42 for Defend; Auto never spent its 40-ore reserve. The Manual opening is identical
+across these three maps and gives limited balance coverage. It still survives
+all three harder runs, now losing two buildings and some hub health; its final
+bank remains comfortable (439–441 ore). Defend also survives all three with full
+hub health, while Explore is unstable and loses two. These measurements show
+additional pressure and policy tradeoffs, not calibrated difficulty, player skill
+or evidence that automation is more enjoyable. Human playtesting should guide
+further tuning instead of forcing a scripted layout to lose.
+
+Before the bounded cache, the same whole-kit rule produced zero local pickups
+in nine seeded runs because small hauling batches emptied the buffers. The cache
+makes them occur in routine play: one local kit per fixed Manual run and 4–15 per
+harder Auto run. It retains at most 50 loose ore at one extractor, with no extra
+ledger or control, and releases it below 40 hub ore or three workers. This trades
+some bank delivery latency for nearby construction supply; it is not multi-source
+planning or a globally optimal online schedule.
+
+Two fresh source-free Astra Max explanation/debate passes covered the new model
+and supply/relocation rules. They supported derived reservation ownership, explicit
+local-to-hub accounting, final-route cancellation/refund, and parent-before-child
+drain liveness. The resulting codec separates source ownership from relocation
+checks. Existing atomic purchase/ETA transitions, exhaustive rule dispatch and
+whole-world invariant checks remain deliberate exceptions to the ten-line target.
+No generic planning framework or compiler cleanup was introduced.
+
 ## Derived colony and hosting integration
 
 The final 2026-10-17 integration combines asynchronous execution, outpost

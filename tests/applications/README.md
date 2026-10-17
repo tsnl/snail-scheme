@@ -13,6 +13,34 @@ observer failure after commit retains its retry receipt. The runnable pure
 handler example checks initial values and named effect variants without a host.
 This is correctness testing, not a performance comparison.
 
+For a focused Siegework gameplay iteration, compile a fresh package and run:
+
+```sh
+node tests/applications/colony-focus.mjs build/siegework/cloud --regression
+node tests/applications/colony-strategies.mjs build/siegework/cloud build/siegework/strategies.json
+```
+
+The first checks actual Wasm construction ETA, local material ownership,
+cancellation/retreat/loss, source capacity, queued freight-draining moves,
+rock-blocked fire and optional Auto/Manual behavior, alongside prior colony and
+logistics scenarios. The second runs fixed Manual orders and both Auto focuses
+on seeds 1, 7 and 43, checking conservation every tick and reporting local-kit use,
+extraction and survival. It compares policies, not player skill or enjoyment.
+
+`colony-focus-browser.mjs ORIGIN DEVTOOLS_URL [SCREENSHOT_PATH]` exercises real
+pointer/keyboard construction, visible rails, WebGPU readback, queued relocation,
+pause, durable page reopen and mode controls in either solo or cloud. Use a fresh
+origin and save; it intentionally builds a small colony and leaves it paused.
+`--restart` explicitly resets a disposable fixture to seed 1 before that check.
+Cloud input waits through restoration of its accepted snapshot, including the
+interval after its pending envelope leaves the queue.
+
+`colony-focus-reload.mjs OLD_CLOUD_DIRECTORY NEW_CLOUD_DIRECTORY` requires two
+genuinely different schema-7 game artifacts. It replaces compiled code during a
+paused queued move with loaded freight, retaining world and client snapshots,
+then resumes and checks material conservation. It does not change either package
+or its on-disk save.
+
 `scripts/test-applications-async` builds only two tiny Wasm fixtures and runs the
 focused async boundary checks. The full application runner includes these checks
 too. Deferred persistence covers committed query visibility, both owners' FIFO

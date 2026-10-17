@@ -4,7 +4,7 @@ Siegework is a colony defense game built around short, fresh runs, with browser-
 solo saves and a shared server authority for cloud solo or cooperative play.
 Place infrastructure, let autonomous workers supply it, and protect the economy
 that pays for your defenses. The current experiment is an **eight-minute run on a seeded
-48×36 map** in top-down 2D. Three workers share mining, construction, hauling and repairs;
+48×36 map** in top-down 2D. Three workers share mining, construction and hauling;
 observation towers reveal opportunities for expansion. There is no player avatar
 or individual worker control.
 
@@ -53,8 +53,7 @@ authority restart. Solo skips ticks while its own page is hidden; neither host
 replays elapsed ticks on return. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 6**. Derived snapshots retain the
-logistics rules and use a new incompatible transport. Older prototype and colony
+This version uses **world and client schema 7**. Source-aware kits, queued moves and colony focus use new derived record fields. Older prototype and schema-6 colony
 matches cannot be loaded or hot-reloaded into it implicitly. Use a new output
 directory for a fresh colony, retaining the old package and `match.sqlite`
 together. For example, build to `"$PWD/build/siegework-colony"` and run its
@@ -74,9 +73,10 @@ are workers, with turquoise cargo when hauling ore.
 1. Place an **extractor** on the visible turquoise deposit northeast of the hub
    (the starting cursor is already there). A worker carries its kit from the hub.
    Once built, one worker occupies its mining slot and produces ore into a local
-   buffer. Other workers haul it; only deliveries increase the ore you can spend.
+   buffer. Other workers haul it; deliveries increase your hub budget, while
+   complete construction kits can also use local stock directly.
 2. Place **artillery** along the eastern approach. It automatically aims at visible
-   enemies within eight cells. A brief muzzle flash, traveling shot and impact mark
+   enemies within eight cells with a clear line past rocks. A brief muzzle flash, traveling shot and impact mark
    show each actual firing event; damage is immediate, not a ballistics model.
    Towers can reveal threats beyond a gun's own sight.
 3. Extend **observation towers** north or east. Their sight starts when workers
@@ -103,7 +103,7 @@ first step: the workers still need a known route to build and service it.
 | Upgrade extractor | 40 ore; adds a second worker slot, once. Empty slots produce nothing. |
 | Upgrade tower | 35 ore; increases its sight radius from seven to ten cells, once. |
 | Arm tower | 50 ore; adds artillery while retaining its sight, depot and railway. |
-| Automatic repair | 4 ore per 25 health; keeps 40 ore in reserve, one kit at a time. |
+| Move completed tower / artillery | 5 hub ore; up to two cardinal cells; waits for supplies to drain and preserves damage/upgrades. |
 
 Three workers and 160 ore start each run. A worker parked in a mine produces its
 deposit's rate; a worker walking to an empty slot does not. Upgrading adds capacity,
@@ -112,24 +112,64 @@ Growing mine stock means delivery is the bottleneck; empty slots need workers,
 and low stock at fully occupied mines calls for more extraction. A lone surviving
 worker alternates mining and hauling so recovery can continue.
 
-Workers take nearby reachable work from their actual position. Prioritizing a
-site favors its construction, staffing and collection. A new build order immediately
-reserves the closest eligible worker by safe walking distance, including a busy
-miner or hauler. The worker delivers carried ore or returns a repair kit before
-collecting the construction kit at the hub. Workers already building, assembling
-or fleeing keep their commitments; an order waits if nobody is available.
-Repairs cover the hub and structures with one paid kit at a time and a 40-ore reserve.
+Workers compare complete construction trips: finish carried ore delivery, pick up
+materials, then reach the site. They jointly choose a worker and a source: the
+hub, an extractor buffer, or a connected tower stockpile. One source must contain
+the whole 25/40/50-ore kit; split-source pickups are not implemented. The reserved
+kit stays at its source until collected, and cannot also go to haulers or trains.
+Local materials pay the construction cost directly without also charging the hub.
+After the first 16 ore arrives, one highest-rate extractor keeps up to 50 loose
+ore for nearby construction. Haulers collect the excess. This cache needs at least
+three workers and 40 hub ore; falling below either releases it for ordinary hauling.
+It delays some hub income in exchange for local pickup opportunities. The hub may
+still provide the fastest complete trip. Existing builders keep their
+commitments. Waiting orders are reconsidered each tick; with enough workers,
+two remain available for mining and hauling.
 
-**Cancel build** removes the unfinished site. A kit still at the hub is refunded
-immediately. A kit already being carried returns physically to the hub before its
-refund; losing that carrier also loses the refund. Cancellation releases a reserved
-worker without discarding unrelated ore or repair supplies. Completed sites cannot
-be cancelled or demolished.
+**Cancel build** returns an uncollected kit to its source. Carried kits return
+physically to the hub before a refund. A locally funded returned kit becomes
+newly delivered hub ore; a hub-funded kit reverses its original charge. Losing a
+source loses its uncollected reserved kits; carried kits survive source loss.
+Cancelling a build switches to Manual so automation does not recreate it.
+There is no automatic repair: damage persists, and destroyed structures can be rebuilt.
+
+**Move** is a small correction for completed towers and guns. Hover the source,
+press M, then click a visible destination at most two cardinal cells away.
+The 5-ore fee reserves the move. The old structure keeps operating while existing
+stock, kit pickups and loaded incident rails drain. New deliveries reroute; child
+shuttles wait before loading another trip. The move then preserves identity,
+health and upgrades and recomputes the affected empty links. You need not wait and
+click again. C cancels a queued move and refunds its fee exactly once. If an
+affected route becomes invalid, the move cancels and refunds automatically;
+destruction consumes the fee. Extractors remain on their deposits. Pause,
+save/reopen and compatible reload preserve the queue.
+
+## Try optional automation
+
+New runs start in **Manual**. **Auto · Explore** and **Auto · Defend** are a gameplay
+experiment: do you enjoy choosing expansion sites, or choosing a colony direction?
+Opening **Manual mode** exposes placement, staffing and upgrade controls and stops
+future automatic purchases. Existing commitments continue in either mode.
+
+Auto develops visible, safely reachable deposits first, assembling workers when
+needed. It opens one construction project at a time and keeps 40 hub ore in reserve.
+Both focuses maintain a growing defense floor as the siege advances. Explore greedily chooses tower sites
+that reveal the most new area and serve already observed deposits. Defend chooses
+clear firing coverage over known approaches to the hub and existing operations,
+expanding sight when no useful firing site is known.
+It uses the same prices, observations, routes and worker rules as Manual. The
+status gives one current action or reason for waiting. Manual moves remain available.
+
+This is a deterministic greedy policy, not globally optimal play under fog and
+changing combat. To compare, start the same seed in Manual, play a run, then start
+that seed again and select an Auto focus. Compare the decisions you enjoyed,
+extraction and delivery delays, exposure and survival—not just build count. Auto
+may make a poor strategic choice; Manual is an equally supported way to play.
 
 Haulers choose the nearest reachable connected depot or hub. Each automatic rail
 has one shuttle carrying up to **32 ore**, with a visible empty return journey.
-Freight may pass through several towers; depot stock and rail cargo are not
-spendable. A route remains fixed while its endpoints survive. When a tower falls,
+Freight may pass through several towers; depot stock can supply whole construction
+kits, while rail cargo stays committed until arrival. A route remains fixed while its endpoints survive. When a tower falls,
 freight on its broken links is lost and surviving depots seek a new upstream
 connection. The rails themselves do not block walking or take damage. Arming a
 tower keeps all its logistics roles and uses the same eight-cell fire range as
@@ -141,9 +181,9 @@ can be destroyed; lost ore or kits are not refunded. A living hub assembles one
 free emergency replacement in six seconds if every worker is lost. Arrival at a
 living hub shelters and heals workers; it does not replace lost mines
 or grant ore. **Defeating enemies gives no ore.** Combat protects production and
-routes. The field status separates mining, hauling, kit work, retreat, danger
-waits, idle workers and assembly. Workers physically at the hub are spread out
-visually and counted; they are not all labelled as hiding.
+routes. The compact field status gives the colony mode, current plan and economy;
+hover a structure for its supplies, staffing or freight. Workers physically at
+the hub are spread out visually.
 
 ## Choosing a map
 
@@ -164,11 +204,11 @@ seed. Invalid input keeps the current colony. Seed 1 is the original layout.
 | Choose extractor / artillery / tower | 1 / 2 / 3 or buttons | X / Y / B |
 | Place at cursor | Click, Enter or Space | A |
 | Assemble worker | F | Left trigger |
-| Prioritize site under cursor | P | Right trigger |
+| Switch to Manual | Open Manual mode | Right trigger |
 | Upgrade site under cursor | U | Left bumper |
 | Cancel unfinished site under cursor | C | Left stick click |
 | Arm tower under cursor | T | Right stick click |
-| Toggle automatic repairs | R | Right bumper |
+| Move completed tower / gun | M, then destination click | Right bumper, then A |
 | Return camera and cursor home | H | View |
 | Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
 | New run for everyone | N | Start |
@@ -179,17 +219,21 @@ perimeter show where the playable field ends; the minimap separates that boundar
 from the visible camera area. Hovering the margin is allowed, but placing there
 is rejected without moving the order onto a neighboring cell.
 
-To upgrade, prioritize, cancel or arm, **hover or move the cursor onto an existing
-site, then use U/P/C/T or its button**. Clicking is a placement command, not a selection mode.
+To upgrade, move, cancel or arm, **hover or move the cursor onto an existing
+site, then use U/M/C/T or its button**. Clicking is a placement command, not a selection mode.
 Field status names the site, its buffer, workers collecting from it and any
 remaining upgrade. Reserved workers retain their current job marker, with a gold
 construction commitment mark. The status separates mine stock, depot stock,
 freight and refunds still returning to the hub. It also explains placement failures and labels the last order
 separately from the current placement preview.
 
-Eastern waves arrive each minute. An announced raid at 3:30 targets an outer
-operation when one exists; otherwise it attacks the hub. The siege beast arrives
-at 7:00. Broad warnings are global even when enemies are outside active sight. Actual
+The first eastern group spawns at 1:00, then ordinary follow-ups use 45-second
+spacing with groups growing from four to seven. Outpost raids at 3:30 and 5:30
+target an outer operation when one exists; otherwise they attack the hub. The
+first raid replaces the nearby 3:15 wave, and the second replaces its ordinary
+wave. At 7:00 the unchanged siege beast spawns with six ordinary escorts. The
+forecast shows the next spawn's time, kind and size; arrival depends on walking
+distance and encounters. These warnings are global even outside active sight. Actual
 hits create named damage alerts and pulsing minimap markers, including at your
 own out-of-view assets. Nearby hits coalesce; markers retain the hit location
 when a worker or structure dies.
@@ -213,7 +257,8 @@ it cannot guarantee that an unfinished command was saved.
 The [application chapter](../../doc/book/lofi/applications.md) explains typed
 handlers, state lifetimes, reload and the shader dialect. Shared code stays under
 `src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
-This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
+This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions and physical kit ownership),
+`planning.sld` (optional colony investment policy),
 `state.sld` (derived transport and colony invariants), `view.sld` (quads/status), `game.sld` (typed commands
 and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
 declare controls and layout; generic `src/browser/input.mjs` maps physical input

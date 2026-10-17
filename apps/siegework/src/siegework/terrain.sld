@@ -5,7 +5,7 @@
           index-x index-y inside? ground? deposit-rate distance within?
           Survey make-survey survey-x survey-y survey-radius surveyed?
           next-map-seed northern-x northern-y eastern-x eastern-y
-          walking-path avoiding-path escape-path)
+          walking-path avoiding-path escape-path clear-shot? observed-shot?)
   (import
    (scheme base)
    (scheme immutable)
@@ -78,6 +78,35 @@
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)
             (else 0)))
+
+    ;; ---- Direct fire crosses every touched grid cell ----
+
+    ;; Integer cross-products order the next vertical and horizontal boundary.
+    ;; An exact corner touches both neighboring cells, so rocks cannot be shot
+    ;; through diagonally. Planning treats unknown cells as blocked; actual fire
+    ;; tests physical rock along the same segment.
+    (define (shot-cell? seed surveys known x y)
+      (and (or (not known) (surveyed? surveys x y)) (ground? seed x y)))
+    (define (shot-cells? seed surveys known x y tx ty sx sy nx ny dx dy)
+      (and (shot-cell? seed surveys known x y)
+           (or (and (= x tx) (= y ty))
+               (cond ((or (= dx 0) (and (> dy 0) (< (* ny dx) (* nx dy))))
+                      (shot-cells? seed surveys known x (+ y sy) tx ty sx sy nx (+ ny cell-size) dx dy))
+                     ((or (= dy 0) (< (* nx dy) (* ny dx)))
+                      (shot-cells? seed surveys known (+ x sx) y tx ty sx sy (+ nx cell-size) ny dx dy))
+                     (else (and (shot-cell? seed surveys known (+ x sx) y)
+                                (shot-cell? seed surveys known x (+ y sy))
+                                (shot-cells? seed surveys known (+ x sx) (+ y sy) tx ty sx sy
+                                             (+ nx cell-size) (+ ny cell-size) dx dy)))))))
+    (define (shot-segment? seed surveys known x y a b)
+      (let ((cx (quotient x cell-size)) (cy (quotient y cell-size))
+            (dx (absolute (- a x))) (dy (absolute (- b y)))
+            (sx (if (< x a) 1 -1)) (sy (if (< y b) 1 -1)))
+        (shot-cells? seed surveys known cx cy (quotient a cell-size) (quotient b cell-size) sx sy
+                     (if (> sx 0) (- (* (+ cx 1) cell-size) x) (- x (* cx cell-size)))
+                     (if (> sy 0) (- (* (+ cy 1) cell-size) y) (- y (* cy cell-size))) dx dy)))
+    (define (clear-shot? seed x y a b) (shot-segment? seed (empty-list) #f x y a b))
+    (define (observed-shot? seed surveys x y a b) (shot-segment? seed surveys #t x y a b))
 
     ;; ---- Geography remains known after observation is lost ----
 

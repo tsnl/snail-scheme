@@ -27,6 +27,7 @@ export async function checkLogistics(test, fresh, call) {
   async function loadedWorker(r) {
     const world = state(r); world.produced = 16;
     setWorker(world, 0, {x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});
+    setWorker(world, 1, {job:6,timer:30}); setWorker(world, 2, {job:6,timer:30});
     await restoreColony(r, world);
   }
 
@@ -56,23 +57,23 @@ export async function checkLogistics(test, fresh, call) {
     await r.close();
   });
 
-  await test('new construction preempts the closest occupied miner and keeps one kit owner', async () => {
+  await test('construction keeps one kit owner and chooses completion time over proximity', async () => {
     const r = await fresh(); await call(r, 'extract', [12,20]); await advance(r, 100);
     const miner = state(r).bots.find(bot => bot.job === 8); assert.ok(miner);
     await call(r, 'observe', [13,20]); const project = state(r).buildings.find(b => b.kind === 3);
     const reserved = state(r).bots.find(bot => bot.order === project.id);
-    assert.equal(reserved.id, miner.id); assert.equal(reserved.job, 11); assert.equal(reserved.cargo, 0);
+    assert.notEqual(reserved.id, miner.id); assert.ok([2,11].includes(reserved.job));
     assert.equal(project.stage, 3); balanced(r);
     await until(r, world => world.buildings.find(b => b.id === project.id).stage === 2);
     assert.ok(state(r).bots.every(bot => bot.order !== project.id)); await r.close();
   });
 
-  await test('builder proximity follows a usable route rather than distance across a wall', async () => {
+  await test('hub pickup makes the hub worker fastest even when another worker is near the site', async () => {
     const r = await fresh(); await tower(r, 12,14); await tower(r, 12,8);
     const world = state(r); setWorker(world, 0, {x:6,y:11});
     setWorker(world, 1, {x:10,y:9}); setWorker(world, 2); await restoreColony(r, world);
     await call(r, 'fortify', [6,9]); const project = state(r).buildings.find(b => b.x === 6 && b.y === 9);
-    assert.ok(project); assert.equal(state(r).bots.find(bot => bot.order === project.id).id, 2);
+    assert.ok(project); assert.equal(state(r).bots.find(bot => bot.order === project.id).id, 3);
     balanced(r); await r.close();
   });
 
@@ -93,16 +94,6 @@ export async function checkLogistics(test, fresh, call) {
     assert.deepEqual({...after, order:before.order}, before); assert.equal(state(r).ore, 160);
     await until(r, world => world.delivered === 16);
     assert.equal(state(r).ore, 176); assert.equal(state(r).spent, 0); await r.close();
-  });
-
-  await test('a preempted repairer returns its paid supplies before taking a construction kit', async () => {
-    const r = await fresh(), world = state(r); world.ore = 156; world.spent = 4;
-    setWorker(world, 0, {x:12,y:20,job:4,cargo:4,path:[971,970,969,968,1016,1064]});
-    await restoreColony(r, world); await call(r, 'observe', [13,20]);
-    const bot = state(r).bots[0]; assert.equal(bot.job, 5); assert.equal(bot.cargo, 4);
-    assert.equal(bot.order, state(r).buildings[0].id); assert.equal(state(r).spent, 29);
-    await until(r, world => world.buildings[0].stage === 2);
-    assert.equal(state(r).spent, 25); assert.equal(state(r).ore, 135); await r.close();
   });
 
   await test('death releases an uncollected kit but loses a cancelled carried kit without refund', async () => {

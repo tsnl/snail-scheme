@@ -87,7 +87,7 @@ composition for a native build.
 | [`src/lofi/compiler/tools/`](src/lofi/compiler/tools/) | Trace viewing and Unicode generation libraries. |
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
 | [`examples/`](examples/) | Programs and explicit build/generation examples. |
-| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, typed reducers, shaders and browser packages. |
+| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, optional colony planning, typed reducers, shaders and browser packages. |
 | [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived binary snapshots, one async message lane, durable authority receipts, SQLite and [IndexedDB saves with tab ownership](src/application/indexeddb.mjs). |
 | [`src/browser/`](src/browser/application.sld) | Immutable view data, [continuous input and typed forms](src/browser/input.mjs), shared presentation/reload, separate [solo](src/browser/solo.mjs) and [cloud](src/browser/cloud.mjs) sessions, two-target packaging and the Node authority server. |
 | [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler and the real WebGPU quad adapter. |
