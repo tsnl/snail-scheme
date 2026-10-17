@@ -7,6 +7,16 @@ ordering and delivery. This is a library programming model, not a compiler proof
 of purity: use immutable records and lists, and do not mutate values reachable
 from an earlier state.
 
+Start with the [documented Scheme subset](macros.md#initial-scheme-base), rather
+than assuming Chibi's complete standard library is compiled into the application.
+The product exports are listed in
+[`(scheme base)`](../../../src/scheme/base.sld) and
+[`(lofi base)`](../../../src/lofi/base.sld). The current arithmetic surface includes
+`quotient` and `remainder`; `min`, `max` and `modulo` are not provided. Small
+application helpers can use comparisons. `remainder` is useful for nonnegative
+tick cycles, but is not a general replacement for Scheme's `modulo` on negative
+inputs.
+
 ```scheme
 (import (scheme base) (application reducer) (only (lofi core) I32))
 
@@ -294,7 +304,11 @@ Scheme. The same generated simulation runs on the authority and in the browser
 for speculative command feedback; server validation determines accepted state.
 
 See the [Siegework build instructions](../../../apps/siegework/README.md) and
-[prototype contract](../../../apps/siegework/PROTOTYPE.md). The host APIs used here
+[prototype contract](../../../apps/siegework/PROTOTYPE.md). The
+[browser validation guide](../../../tests/applications/README.md) records the
+tested Chromium/SwiftShader setup, GPU pixel readback and headless screenshot
+limitations. Its flags are for an isolated software-GPU test process, not normal
+hardware-WebGPU browser use. The host APIs used here
 are the [WebGPU specification](https://www.w3.org/TR/webgpu/) and Node's
 [`node:sqlite` API](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).
 

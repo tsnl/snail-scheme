@@ -40,7 +40,10 @@ chromium --headless=new --no-sandbox --enable-unsafe-webgpu \
 ```
 
 These are local test-process flags, not application dependencies. Hardware
-WebGPU browsers need no special application flags. Some headless Chromium
+WebGPU browsers need no special application flags. Concurrent test runs need
+different DevTools ports and user-data directories; pass the chosen port to the
+runner. Restart the owned browser process when changing its GPU flags.
+Some headless Chromium
 compositors leave WebGPU canvases blank in screenshots even when rendering
 succeeds; the pixel-readback assertion verifies the actual render target. A
 Chromium window on an isolated Xvfb display was also used for visual inspection.
