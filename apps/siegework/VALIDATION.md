@@ -1,8 +1,8 @@
 # Playable prototype validation
 
-Verified on 2026-10-16 against compiler base `0f5fd391`. The simulation and shader
-source checkpoint is `228076e5`; the packaged artifact generation is
-`1d46c0ecf3d3af647b07f42f`. Host/runtime follow-up checks live beside this record.
+Verified on 2026-10-16 against compiler base `4525dda7`. The packaged artifact
+generation is `8c6d44d9733225ec5c8b9da4`. Host/runtime follow-up checks live beside
+this record.
 These are correctness checks, with no performance or hardware-GPU claims.
 
 | Environment | Observed |
@@ -62,8 +62,9 @@ A fresh, no-history **gpt-6-astra at low effort** understanding check started fr
 test as actual Wasm; both returned `42`. It found no functional reducer defect.
 Its need to inspect source for initializers and effect tags led to the runnable
 `testing.sld` example and named `effect-send?`/`effect-notice?` predicates. Its
-missing-parenthesis typo also exposed an opaque parse diagnostic, routed to the
-parent compiler PR. This check did not exercise the browser, durability or reload.
+missing-parenthesis typo also exposed an opaque parse diagnostic. Parent commit
+`4525dda7` now reports its filename, line/column and expected closing delimiter.
+This check did not exercise the browser, durability or reload.
 
 A separate fresh, no-history **gpt-6-astra at max effort** explained the state
 commit, reload and packaging contract without repository access, then debated
