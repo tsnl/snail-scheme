@@ -183,6 +183,12 @@ The allocation policy follows [Immix, sections 3.1–3.3](https://www.mmtk.io/as
   copy movable survivors once, leave forwarding headers, and repair every edge.
   If target space runs out, retain the remaining objects in place.
 
+The histogram follows the [MMTk block sweep](https://github.com/JikesRVM/JikesRVM/blob/400b7978e4c94efb7d2c352c01c11aa54cb465dd/MMTk/src/org/mmtk/policy/immix/Block.java#L120):
+count transitions from marked to unmarked lines before reserving the conservative
+following line. Estimate copy volume from marked lines,
+separately from retained allocation capacity. Otherwise alternating live/dead
+lines would look unfragmented after guard lines consume every available hole.
+
 Allocation occupancy and current collection marks are separate maps. Evacuation
 uses only previously free storage and never allocates into selected source blocks.
 An unmarked line during tracing is not necessarily free: its objects may simply

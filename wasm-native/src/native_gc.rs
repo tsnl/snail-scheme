@@ -32,6 +32,7 @@ struct Block {
     large: bool,
     evacuate: bool,
     holes: usize,
+    marked_lines: usize,
     allocated_lines: usize,
     live_lines: usize,
     available_lines: usize,
@@ -48,6 +49,7 @@ impl Default for Block {
             large: false,
             evacuate: false,
             holes: 0,
+            marked_lines: 0,
             allocated_lines: 0,
             live_lines: 0,
             available_lines: 0,
@@ -629,7 +631,7 @@ impl Collector {
         {
             if block.span == 1 && !block.large {
                 space += block.available_lines;
-                marked[block.holes] += (block.live_lines + block.allocated_lines).min(LINES);
+                marked[block.holes] += (block.marked_lines + block.allocated_lines).min(LINES);
                 available[block.holes] += block.available_lines;
             }
         }
@@ -791,13 +793,17 @@ impl Collector {
 
     unsafe fn mark_roots(&mut self, mut frame: *mut NativeRoots) {
         while !frame.is_null() {
-            let roots = unsafe { &mut *frame };
-            assert!(roots.count <= roots.capacity);
-            self.stats.root_visits += roots.count as usize;
-            for index in 0..roots.count as usize {
-                unsafe { self.mark(roots.values.as_mut_ptr().add(index)) };
+            let count = unsafe { (*frame).count };
+            assert!(count <= unsafe { (*frame).capacity });
+            self.stats.root_visits += count as usize;
+            // The ABI frame extends beyond its zero-length array declaration.
+            // Preserve the enclosing allocation's raw provenance; borrowing
+            // that empty Rust array would only authorize its zero-byte extent.
+            let values = unsafe { (&raw mut (*frame).values).cast::<u64>() };
+            for index in 0..count as usize {
+                unsafe { self.mark(values.add(index)) };
             }
-            frame = roots.previous;
+            frame = unsafe { (*frame).previous };
         }
         self.stats.root_visits += self.metadata.globals.len();
         for index in 0..self.metadata.globals.len() {
@@ -950,6 +956,7 @@ impl Collector {
             }
             let block = &mut self.regions[region].blocks[index];
             block.live_lines = live_lines;
+            block.marked_lines = block.marks.iter().filter(|&&line| line != 0).count();
             if live_lines == 0 {
                 self.stats.recovered_blocks += usize::from(block.evacuate);
                 block.span = 0;
@@ -965,13 +972,14 @@ impl Collector {
             block.available_lines = LINES - block.live_lines;
             block.next_line = 0;
             block.allocated_lines = 0;
+            // Count marked-to-unmarked transitions before adding guard lines,
+            // as Immix's conservative spill count does. Alternating live/dead
+            // lines can leave no allocatable hole yet be highly fragmented.
             block.holes = block
-                .lines
-                .iter()
-                .fold((0, false), |(holes, free), &line| {
-                    (holes + usize::from(line == 0 && !free), line == 0)
-                })
-                .0;
+                .marks
+                .windows(2)
+                .filter(|lines| lines[0] != 0 && lines[1] == 0)
+                .count();
             block.evacuate = false;
             let recyclable = block.span == 1 && !block.large && block.available_lines != 0;
             self.regions[region].recyclable_blocks += usize::from(recyclable);
@@ -1355,6 +1363,37 @@ mod tests {
     }
 
     #[test]
+    fn pinned_parent_repairs_a_moved_child_on_the_same_line() {
+        let mut heap = Heap::new(3, 3);
+        let parent = heap.object(16, 6, 0);
+        let child = heap.object(16, 10, 42);
+        assert_eq!(parent as usize / LINE_SIZE, child as usize / LINE_SIZE);
+        unsafe {
+            parent.add(1).write(child as u64);
+            heap.collector.pin(parent as u64, true);
+        }
+        heap.frame.values[0] = parent as u64;
+        heap.watch(parent, 0);
+        heap.watch(child, 1);
+        heap.collector.config.evacuation = Evacuation::Always;
+        heap.collect();
+        let moved_child = unsafe { *parent.add(1) };
+        assert_eq!(heap.frame.values[0], parent as u64);
+        assert_ne!(moved_child, child as u64);
+        let region = heap.collector.containing_region(child as u64).unwrap();
+        assert!(unsafe { heap.collector.candidate(region, child as u64) }.is_none());
+        unsafe { heap.collector.pin(parent as u64, false) };
+        heap.collect();
+        let moved_parent = heap.frame.values[0] as *mut u64;
+        assert_ne!(moved_parent, parent);
+        assert_eq!(unsafe { *((*moved_parent.add(1) as *mut u64).add(1)) }, 42);
+        assert_eq!(&heap.finalized[..2], &[0, 0]);
+        heap.frame.values.fill(0);
+        heap.collect();
+        assert_eq!(&heap.finalized[..2], &[1, 1]);
+    }
+
+    #[test]
     fn recycled_blocks_precede_empty_blocks_and_medium_overflow_preserves_holes() {
         let mut heap = Heap::new(4, 4);
         for _ in 0..256 {
@@ -1416,6 +1455,33 @@ mod tests {
         assert_eq!(heap.collector.stats.recovered_blocks, 2);
         for (index, &value) in heap.frame.values[..128].iter().enumerate() {
             assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 4) as u64);
+        }
+    }
+
+    #[test]
+    fn evacuation_histogram_counts_holes_hidden_by_conservative_guards() {
+        let mut heap = Heap::new(3, 3);
+        for line in 0..512 {
+            let object = heap.object(120, 10, line as u64);
+            if line % 2 == 0 {
+                heap.frame.values[line / 2] = object as u64;
+            }
+        }
+        heap.collect();
+        let block = &heap.collector.regions[0].blocks[0];
+        assert_eq!(
+            (block.live_lines, block.marked_lines, block.available_lines),
+            (256, 128, 0)
+        );
+        assert_eq!(block.holes, 128);
+        // A crowded previous collection requests evacuation. Both source
+        // blocks fit into the remaining empty block despite zero usable holes.
+        heap.collector.needs_defragmentation = true;
+        heap.collect();
+        assert_eq!(heap.collector.stats.moved_objects, 256);
+        assert_eq!(heap.collector.stats.recovered_blocks, 2);
+        for (index, &value) in heap.frame.values.iter().enumerate() {
+            assert_eq!(unsafe { *(value as *mut u64).add(1) }, (index * 2) as u64);
         }
     }
 
