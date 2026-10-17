@@ -114,6 +114,39 @@ macros remain outside the supported surface. Kernel syntax remains
 intrinsic for existing direct and constructed-library APIs; `(lofi core)` also
 exports named syntax bindings so libraries can explicitly import or rename it.
 
+## Deriving typeclass instances (planned)
+
+A `derive` macro should opt a datatype into selected typeclasses by generating
+ordinary instance declarations. For serialization, `Serialize` and `Deserialize`
+are independent choices. Generated methods use the corresponding operations on
+their fields, so ordinary class checking establishes the required instances.
+There are no instances for procedures, closures or live external resources.
+
+One possible declaration-wrapping syntax is:
+
+```scheme
+;; Proposed syntax; derive and these classes are not implemented.
+(derive (Serialize Deserialize)
+  (def Stock
+    (datatype ()
+      (stock
+       (ore I32 stock-ore)))))
+```
+
+The macro receives the constructor and field syntax directly and can expand to
+a `library-begin` containing the datatype and its instances. This approach fits
+the existing declarative macro model and keeps generated operations subject to
+ordinary type checking. A form that receives only an already-defined type name
+would need additional compile-time access to its declaration; `syntax-rules`
+does not currently provide that inspection.
+
+The exact derive interface remains open. Derivation for parameterized datatypes
+also needs a decision about constrained generic instances: the current instance
+heads are concrete. Graph serialization additionally needs shared runtime
+encode/decode contexts to preserve aliases and cycles across generated methods.
+These are separate requirements from generating per-field syntax. See the
+[planned serialization contract](types.md#data-graph-serialization-planned).
+
 ## Initial Scheme base
 
 ```scheme

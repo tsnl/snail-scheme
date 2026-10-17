@@ -104,10 +104,12 @@ and nonnegative credits; `decode-client` checks schema, tool and cell bounds.
 Snapshot words contain values, with no Wasm references or GPU handles.
 
 This handwritten codec is a workaround for the current scalar bridge. The
-intended language facility is automatic value-graph serialization through a
-common S-expression representation, with readable text and compact binary
-encodings that preserve type information, sharing and cycles. That facility is
-not implemented yet; the word layout above describes the current application.
+intended language facility uses an explicit `derive` macro to generate
+`Serialize` and `Deserialize` instances for opted-in state types. Their common
+S-expression representation has readable text and compact binary encodings
+that preserve type information, sharing and cycles. Procedures and closures
+have no instances. That facility is not implemented yet; the word layout above
+describes the current application.
 
 ## Follow one simulation tick
 

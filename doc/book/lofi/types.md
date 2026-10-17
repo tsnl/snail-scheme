@@ -454,16 +454,24 @@ implementations retain their normal initialization and effect ordering.
 
 ## Data graph serialization (planned)
 
-Lofi should automatically serialize and deserialize data graphs, including
-user-defined records and variants, collections, scalar values and explicit
-references. Sharing and cycles are part of the value being transported.
-Applications should not maintain field-by-field codecs for ordinary state.
+Serialization and deserialization should use separate `Serialize` and
+`Deserialize` typeclasses. The supported set consists of types with explicit or
+derived instances. A `derive` macro should generate ordinary instances from a
+datatype declaration, with field requirements checked by the type checker.
+Applications can opt their state types into these classes without maintaining
+field-by-field codecs. Deriving either class does not require deriving the other.
+
+Instances for scalar values, collections and explicit references supply the
+building blocks for user-defined records and variants. Sharing and cycles are
+part of the graph being transported. One graph context must flow through the
+generated field operations so aliases across fields and recursive structures
+retain their identities.
 
 The common representation is a graph-capable S-expression format:
 
 ```text
-typed data graph ↔ S-expression graph ↔ readable text
-                                    ↔ compact binary
+data with class instances ↔ S-expression graph ↔ readable text
+                                              ↔ compact binary
 ```
 
 Text and binary encode the same S-expression representation, including type
@@ -474,26 +482,30 @@ must preserve the information needed to reconstruct the typed graph. Symbols
 and strings remain distinct; numeric representations and graph identities must
 not be lost through an intervening text conversion.
 
-Serialization should derive the traversal of records and variants from their
-type definitions. Deserialization must check type identities, fields and graph
+Derived instances should traverse the constructors and fields in their datatype
+declaration. Deserialization must check type identities, fields and graph
 references before returning the reconstructed value. Object identities belong
 to the serialized graph; process addresses, Wasm heap references and compiler
 layout offsets are not portable identities. Compatible readers must reconstruct
 sharing and cycles independently of the emitting backend's object layout.
 
-The initial scope is data. Procedures, closures and live external resources are
-excluded, including when reached through a field or collection element.
-Encountering an unsupported value must produce an explicit error. Deserialization
-must also report malformed or incompatible data without exposing a partially
-constructed graph. Automatic serialization does not by itself define migration
-between incompatible state types or establish application-specific invariants.
+The scope excludes procedures, closures and live external resources. These types
+have no serialization instances; deriving a containing type requires instances
+for its fields and reports an unsatisfied class requirement for an unsupported
+field. There is no blanket serialization instance for arbitrary types or `Any`.
+Deserialization must report malformed or incompatible data without exposing a
+partially constructed graph. Derived deserialization does not by itself define
+migration between incompatible state types or establish application-specific
+invariants; opting into that class is an explicit choice.
 
 This is a target contract, not an implemented general facility. The current
 `(lofi write)` works on `Datum` and can emit labels for cyclic graphs, but
 `(lofi read)` rejects datum labels. Neither automatically transports arbitrary
-user-defined typed graphs. Exact text syntax, binary tags and public API remain
-to be specified. The [roadmap](../../roadmap.md#data-graph-serialization) tracks
-the implementation work.
+user-defined typed graphs. The classes and `derive` macro are also planned.
+The [macro chapter](macros.md#deriving-typeclass-instances-planned) describes the
+proposed expansion boundary. Exact text syntax, binary tags and public API
+remain to be specified. The [roadmap](../../roadmap.md#data-graph-serialization)
+tracks the implementation work.
 
 ## Any, Never and subtyping
 
