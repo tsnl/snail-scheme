@@ -1,6 +1,6 @@
 ;; The browser receives copied rectangles, text and typed endpoint descriptors.
 (define-library (ui browser)
-  (export present-ui!)
+  (export ui-viewport present-ui!)
   (import
    (scheme base)
    (scheme immutable)
@@ -15,6 +15,7 @@
     (define-extern node-text "snail.ui" "text" (-> I32 I32 I32 Unit))
     (define-extern node-action "snail.ui" "action" (-> I32 I32 I32 I32 Unit))
     (define-extern end-node "snail.ui" "end" (-> Unit))
+    (define (ui-viewport) (rect 0 0 (viewport 0) (viewport 1)))
 
     ;; ---- Scalar encoding is private to this backend ----
 

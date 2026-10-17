@@ -32,4 +32,6 @@ assert.throws(() => bridge.finish(tx, manifest), /number input payload/);
 start(); node(2, 'button'); host.action(2, 99, 0, 0); host.end();
 assert.throws(() => bridge.finish(tx, manifest), /invalid UI endpoint/);
 tx = {readOnly: false}; assert.throws(() => host.begin(1, 0, 0, 0, 0), /presentation query/);
+assert.throws(() => host.viewport(0), /presentation query/);
+start(); bridge.resize(640, 480); assert.equal(host.viewport(0), 640); assert.equal(host.viewport(1), 480);
 console.log('ok - invalid endpoints, input arity and writes outside presentation are rejected');

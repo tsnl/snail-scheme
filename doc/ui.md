@@ -44,7 +44,8 @@ feedback, cross-tree constraint, or ancestor relayout.
 When fixed children and gaps exceed the parent, fixed sizes retain their declared
 extent and growing sizes become zero. Rectangles never have negative dimensions.
 Ordinary groups clip overflow. `ui-scroll` exposes a declared content extent in a
-scroll region; keep essential controls outside that region. Text wraps inside its
+scroll region and reserves a fixed 16-pixel strip for its vertical scrollbar; keep
+essential controls outside that region. Text wraps inside its
 allocated rectangle and clips excess lines. Applications choose a compact tree
 for narrow screens; text does not implicitly enlarge it.
 
@@ -63,6 +64,10 @@ All constructors start with a stable, unique string key, width and height:
 Tones are 0 normal, 1 subdued, 2 accent, 3 warning, 4 danger. `layout-ui` takes a
 width, height and tree and returns a `Placement` tree for other renderers to consume.
 The browser backend uses the allotted `[data-ui]` element's current dimensions.
+During presentation, `(ui-viewport)` returns that region as a `Rect`. Pass its
+width and height to a pure tree-building function to select a compact layout.
+Viewport queries are rejected in state transitions: environment-dependent layout
+must not change durable application state.
 Child rectangles are relative to their group's padded content origin. The browser
 applies that already-known offset when it creates the group's content element.
 
@@ -85,9 +90,14 @@ the browser replaces its first I32 argument with the parsed integer. That endpoi
 must have exactly one I32 payload; the host checks this against the generated
 manifest. Invalid or out-of-range text displays an accessible error and sends no
 command. Other controls carry the supplied request unchanged.
+These bounds constrain form submissions, not other application handlers; durable
+state bounds belong in the reducer. The example enforces 0–100 in all its handlers.
+The number's label supplies its accessible name and placeholder; add `ui-label`
+when the setting's name must remain visible above the populated field. Number help
+is available as a hover title and accessible description.
 
 Buttons support native Tab focus, Enter/Space activation, pointer and touch clicks.
-Help is visible in a second line, available through native hover titles, and exposed
+Button help is visible in a second line, available through native hover titles, and exposed
 as an accessible description. This slice does not implement text editing beyond
 integer forms, dropdowns, sliders, menus, drag/drop, or GPU-drawn widgets.
 

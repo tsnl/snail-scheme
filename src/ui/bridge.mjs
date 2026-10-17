@@ -48,7 +48,10 @@ export function createUiBridge(provider, transaction) {
     return stack.at(-1);
   }
   const host = {
-    viewport: axis => axis === 0 ? width : height,
+    viewport(axis) {
+      if (!transaction()?.readOnly) throw new Error('UI viewport requires a presentation query');
+      return axis === 0 ? width : height;
+    },
     begin(kind, x, y, width, height) {
       const value = frame();
       if (kind < 1 || kind > 5 || width < 0 || height < 0 || ++value.count > 4096 || value.stack.length > 64)

@@ -127,7 +127,8 @@
                                   (if (> (weight-size size) 0) (- free extent) free)
                                   (- weights (weight-size size)))))))
     (define (group-placements children axis gap padding extent bounds)
-      (let* ((width (max 0 (- (rect-width bounds) (* 2 padding))))
+      ;; A scroll region reserves its known scrollbar strip before descending.
+      (let* ((width (max 0 (- (- (rect-width bounds) (* 2 padding)) (if (> extent 0) 16 0))))
              (height (max 0 (- (max extent (rect-height bounds)) (* 2 padding))))
              (available (if (= axis 0) width height)) (cross (if (= axis 0) height width)))
         (place-children children axis cross gap 0

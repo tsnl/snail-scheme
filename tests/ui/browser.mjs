@@ -48,6 +48,8 @@ try {
   await call('Page.bringToFront'); await until('!!globalThis.snailApp && !!document.querySelector("[data-ui-key=more]")');
   await evaluate('snailApp.local("set-value", [10])'); await until('!snailApp.localWork && !snailApp.dirty');
   await evaluate('globalThis.originalInput = document.querySelector("[data-ui-key=amount] input")');
+  const initialAccessibility = await call('Accessibility.getFullAXTree');
+  assert.match(initialAccessibility.nodes.find(node => node.role?.value === 'textbox' && node.name?.value === 'Value')?.description?.value ?? '', /unfinished edit/);
   await click('[data-ui-key="more"]');
   assert.match(await evaluate('document.querySelector("[data-status]").textContent'), /11/);
   await key('Tab', 'Tab'); assert.equal(await evaluate('document.activeElement === originalInput'), true);
@@ -96,6 +98,7 @@ try {
   await until('document.querySelector("[data-ui]").getBoundingClientRect().width < 400');
   await until('Math.abs(document.querySelector("[data-ui-key=controls]").getBoundingClientRect().width - document.querySelector("[data-ui]").getBoundingClientRect().width) < 1');
   assert.ok(await evaluate('Array.from(document.querySelectorAll("[data-ui-key]")).every(node => { const r = node.getBoundingClientRect(); return r.width >= 0 && r.height >= 0; })'));
+  assert.ok(await evaluate('Array.from(document.querySelectorAll("[data-ui-key]")).filter(node => node.style.overflowY === "auto").every(node => node.scrollWidth <= node.clientWidth)'));
   await call('Emulation.setTouchEmulationEnabled', {enabled: true});
   const touch = await evaluate(`(() => { const node = document.querySelector('[data-ui-key="more"]'); node.scrollIntoView({block:'center'});
     const r = node.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);

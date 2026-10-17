@@ -57,19 +57,22 @@ export class DomUi {
     node.input.type = 'text'; node.input.inputMode = 'numeric'; node.label.append(node.input);
     node.submit = element('button', 'snail-ui-number-submit'); node.submit.type = 'submit'; node.submit.textContent = 'Apply';
     node.error = element('span', 'snail-ui-number-error'); node.error.setAttribute('role', 'status');
-    node.error.id = `snail-ui-error-${++nextField}`; node.input.setAttribute('aria-describedby', node.error.id);
+    node.error.id = `snail-ui-error-${++nextField}`;
     node.append(node.label, node.submit, node.error);
     node.addEventListener('input', () => { node.draft = true; node.revision++; this.clearError(node); });
     node.addEventListener('submit', event => { event.preventDefault(); this.submitNumber(node); });
     return node;
   }
-  clearError(node) { node.error.textContent = ''; node.input.removeAttribute('aria-invalid'); }
+  clearError(node) {
+    node.error.textContent = ''; node.input.removeAttribute('aria-invalid'); node.input.removeAttribute('aria-describedby');
+  }
   submitNumber(node) {
     const revision = ++node.revision; node.draft = true;
     const text = node.input.value.trim(), value = Number(text), properties = node.model.properties;
     if (!/^[+-]?\d+$/.test(text) || !Number.isInteger(value) || value < properties[4] || value > properties[5]) {
       node.error.textContent = `Enter a whole number from ${properties[4]} to ${properties[5]}.`;
-      node.input.setAttribute('aria-invalid', 'true'); node.input.focus(); return;
+      node.input.setAttribute('aria-invalid', 'true'); node.input.setAttribute('aria-describedby', node.error.id);
+      node.input.focus(); return;
     }
     this.clearError(node);
     const action = {...node.model.action, command: {...node.model.action.command, args: [value]}};
@@ -96,6 +99,7 @@ export class DomUi {
   }
   updateNumber(node, model) {
     node.input.setAttribute('aria-label', model.text); node.input.title = model.help;
+    node.input.setAttribute('aria-description', model.help);
     node.input.placeholder = model.text;
     const value = String(model.properties[3]);
     if (!node.draft && node.input.value !== value) node.input.value = value;
@@ -103,8 +107,9 @@ export class DomUi {
   }
   updateGroup(node, model) {
     const padding = model.properties[6], extent = model.properties[8];
-    node.dataset.panel = model.properties[7]; node.style.overflow = extent > 0 ? 'auto' : 'hidden';
-    bounds(node.content, [padding, padding, Math.max(0, model.rect[2] - 2 * padding),
+    node.dataset.panel = model.properties[7]; node.style.overflowX = 'hidden';
+    node.style.overflowY = extent > 0 ? 'auto' : 'hidden'; node.style.scrollbarWidth = 'thin';
+    bounds(node.content, [padding, padding, Math.max(0, model.rect[2] - 2 * padding - (extent > 0 ? 16 : 0)),
       Math.max(0, Math.max(extent, model.rect[3]) - 2 * padding)]);
   }
 }

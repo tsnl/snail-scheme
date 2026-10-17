@@ -1,7 +1,7 @@
 ;; Compact contextual presentation. The model owns prices, eligibility and time;
 ;; the client supplies lexical requests and the currently inspected ground cell.
 (define-library (siegework hud)
-  (export HudContext hud-context hud-x hud-y hud-chooser hud-width hud-height
+  (export HudContext hud-context hud-move-context hud-x hud-y hud-chooser hud-width hud-height
           HudActions hud-actions colony-hud)
   (import
    (scheme base)
@@ -19,12 +19,19 @@
 
     (define HudContext
       (datatype ()
-        (hud-context
+        (make-context
          (x I32 hud-x)
          (y I32 hud-y)
          (chooser Bool hud-chooser)
          (width I32 hud-width)
-         (height I32 hud-height))))
+         (height I32 hud-height)
+         (origin-x I32 hud-origin-x)
+         (origin-y I32 hud-origin-y))))
+    (define (hud-context x y chooser width height)
+      (make-context x y chooser width height -1 -1))
+    (define (hud-move-context x y width height origin-x origin-y)
+      (make-context x y #f width height origin-x origin-y))
+    (define (moving-context? context) (>= (hud-origin-x context) 0))
     (define HudActions
       (datatype (Owner State)
         (hud-actions
@@ -56,14 +63,16 @@
 
     (define (threat-text world)
       (let ((next (next-attack-tick (world-tick world))))
-        (if (= (attack-size next) 0) "FINAL WAVE IN PROGRESS"
-            (string-append "NEXT " (integer-text (quotient (+ (- next (world-tick world)) 9) 10))
-                           "s · " (integer-text (attack-size next))
-                           (if (= (attack-kind next) 2) " heavy" " raiders")))))
+        (cond ((= (world-outcome world) 1) "COLONY LOST")
+              ((> (world-outcome world) 1) "SIEGE SURVIVED")
+              ((= (attack-size next) 0) "FINAL WAVE IN PROGRESS")
+              (else (string-append "NEXT " (integer-text (quotient (+ (- next (world-tick world)) 9) 10))
+                                   "s · " (integer-text (attack-size next))
+                                   (if (= (attack-kind next) 2) " heavy" " raiders"))))))
     (define (pause-control world actions)
-      (control "pause" (if (= (world-paused world) 1) "Resume" "Pause")
-               "Plan at your own pace" #t (= (world-paused world) 1)
-               ((action-suspend actions) (if (= (world-paused world) 1) 0 1))))
+      (ui-button "pause" (px 96) (px 46) (if (= (world-paused world) 1) "Resume" "Pause")
+                 "P / Start" #t (= (world-paused world) 1)
+                 ((action-suspend actions) (if (= (world-paused world) 1) 0 1))))
     (define (critical-row world actions)
       (row "critical" 46
            (list (line "ore" 44 (string-append (integer-text (world-credits world)) " ORE") 2)
@@ -78,7 +87,7 @@
                  (control "explore" "Auto · Explore" "Experimental planner" #t (= (world-focus world) 1) ((action-focus actions) 1))
                  (control "defend" "Auto · Defend" "Experimental planner" #t (= (world-focus world) 2) ((action-focus actions) 2)))))
     (define (header world context actions)
-      (ui-panel "header" (grow 1) (px 80) 12 4
+      (ui-panel "header" (grow 1) (px 88) 10 4
                 (list (critical-row world actions)
                       (line "forecast" 16
                             (string-append (if (= (world-paused world) 1) "PAUSED  ·  " "")
@@ -100,9 +109,14 @@
             ((= reason 8) "Colony capacity reached.")
             ((= reason 9) "Colony finished. Start another run.")
             ((= reason 15) "Move the cursor onto the field.")
+            ((= reason 24) "Move a completed tower or artillery with no move already pending.")
+            ((= reason 25) "Choose nearby ground, one or two walking cells away.")
             (else "Inspect the selected site.")))
     (define (selected-building world context)
       (building-at (world-buildings world) (hud-x context) (hud-y context)))
+    (define (pending-move-reason world context)
+      (let ((found (building-at (world-buildings world) (hud-origin-x context) (hud-origin-y context))))
+        (if (null? found) 24 (move-reason world (car found) (hud-x context) (hud-y context)))))
     (define (deposit? world context)
       (and (inside? (hud-x context) (hud-y context))
            (surveyed? (world-surveys world) (hud-x context) (hud-y context))
@@ -115,7 +129,8 @@
             (else "Click to upgrade · 40 ore · adds a second mining slot.")))
     (define (hover-title world context)
       (let ((found (selected-building world context)))
-        (cond ((hud-chooser context) "CHOOSE A STRUCTURE")
+        (cond ((moving-context? context) "MOVE STRUCTURE · 5 ORE")
+              ((hud-chooser context) "CHOOSE A STRUCTURE")
               ((not (null? found))
                (cond ((= (building-kind (car found)) 1) "EXTRACTOR")
                      ((= (building-kind (car found)) 2) "ARTILLERY") (else "OBSERVATION TOWER")))
@@ -123,10 +138,15 @@
               (else "BUILD ON THIS GROUND"))))
     (define (hover-description world context)
       (let ((found (selected-building world context)))
-        (cond ((hud-chooser context) "Choose below, press 1 / 2, or controller X / Y. Escape cancels.")
+        (cond ((moving-context? context)
+               (if (= (pending-move-reason world context) 0)
+                   "Click to queue this move. Deliveries drain before the structure relocates."
+                   (reason-text (pending-move-reason world context))))
+              ((hud-chooser context) "Choose below, press 1 / 2, or controller X / Y. Escape cancels.")
               ((not (null? found))
                (if (= (building-kind (car found)) 1) (upgrade-message world (car found))
-                   "Inspect this structure. Actions appear below."))
+                   (if (moving? (car found)) "Move queued. Current deliveries drain before relocation."
+                       "Inspect this structure. Actions appear below.")))
               ((deposit? world context) (reason-text (placement-reason world 1 (hud-x context) (hud-y context))))
               ((= (placement-reason world 3 (hud-x context) (hud-y context)) 0)
                "Click to choose: observation tower · 25 ore, or artillery · 50 ore.")
@@ -144,8 +164,9 @@
            (not (= (building-kind building) 2))
            (>= (world-credits world) (if (tower? building) 35 40))))
     (define (building-controls world building actions)
-      (if (not (ready? building))
-          (list (control "cancel-build" "Cancel construction" "Return reserved materials" (alive? world) #f (action-cancel actions)))
+      (if (or (not (ready? building)) (moving? building))
+          (list (control "cancel-build" (if (moving? building) "Cancel move" "Cancel construction")
+                         "Return reserved materials" (alive? world) #f (action-cancel actions)))
           (append (list (row "structure-actions" 46 (completed-controls world building actions)))
                   (if (and (tower? building) (not (armed? building)))
                       (list (control "arm-tower" "Add artillery · 50 ore" "T · keep this tower's sight and depot"
@@ -161,7 +182,12 @@
                                  (and (alive? world) (>= (world-credits world) 5)) #f (action-relocate actions))))))
     (define (context-controls world context actions)
       (let ((found (selected-building world context)))
-        (cond ((hud-chooser context) (chooser-controls world context actions))
+        (cond ((not (alive? world)) (list (control "restart" "Start a new colony" "N · begin another run" #t #f (action-restart actions))))
+              ((moving-context? context)
+               (list (control "confirm-move" "Move here · 5 ore" "Enter / controller A"
+                              (= (pending-move-reason world context) 0) #f (action-confirm actions))
+                     (control "cancel-move" "Cancel move" "Escape / controller B" #t #f (action-cancel actions))))
+              ((hud-chooser context) (chooser-controls world context actions))
               ((not (null? found)) (building-controls world (car found) actions))
               (else (list (control "confirm-site" (if (deposit? world context) "Build extractor · 40 ore" "Choose structure")
                                    "Click ground / Enter / controller A"
