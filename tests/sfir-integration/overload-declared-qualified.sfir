@@ -1,9 +1,0 @@
-(import (sfir base))
-(def Identity (typeclass ( T) (: identity (-> T T))))
-(def sfir-migration-instance-1 (instance (Identity I64) (identity (lambda (value) value))))
-(def sfir-migration-instance-2 (instance (Identity Bool) (identity (lambda (value) value))))
-(define-overload choose (All (T) (=> ((Identity T)) (-> T T))) (lambda (value) (identity value)))
-
-(def wrapper (All (T) (=> ((Identity T)) (-> T T)))
-     (lambda (value) (choose value)))
-(if (wrapper #t) (wrapper (ann 42 I64)) (unreachable))

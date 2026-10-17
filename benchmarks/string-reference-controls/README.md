@@ -63,12 +63,12 @@ panics. Preparation and validation are separate from clean measurements.
 cargo build --offline --release --target wasm32-wasip1 \
   --manifest-path benchmarks/string-reference-controls/Cargo.toml
 cargo test --offline --manifest-path benchmarks/string-reference-controls/Cargo.toml
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/string-reference-controls/tests/check-controls.scm \
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/string-reference-controls/tests/check-controls.scm \
   --artifact benchmarks/string-reference-controls/target/wasm32-wasip1/release/string-reference-controls.wasm \
   --output build/string-controls-check
 ```
 
-`checks.sld` copies the retained original Chez source and input from the SFIR
+`checks.sld` copies the retained original Chez source and input from the Lofi
 corpus, compiles that source with the selected Chez, and records their identities.
 Historical binary bundles remain in [Git history](../history.md).
 Actual Node/Wasm and original Chez pass

@@ -1,0 +1,5 @@
+(import (scheme base) (scheme process-context) (lofi runner) (lofi timing) (lofi support) (string-reference-controls checks))
+(test-lofi-support)
+(test-lofi-runner (member "--execute" (cdr (command-line))))
+(test-lofi-timing (member "--execute" (cdr (command-line))))
+(test-string-controls)

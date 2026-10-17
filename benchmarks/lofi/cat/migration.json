@@ -1,0 +1,73 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/cat.scm",
+  "upstream_sha256": "63835925d09ce503e795005dd75c2a662ebb81bfe0ea15e427c2f4f401c11c9b",
+  "canonical_input_sha256": "20353709d6ebe74b20ccd6742bab60cc4f56797289011ad8909e1f42afe4f04a",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "Direct bare SFIR port of the complete pinned character loop and file lifecycle; no migration compiler.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target and identically adapted Chez validation pending.",
+  "controls": {
+    "chez-original.scm": "078f9320ffe84cfda7a9202527e4da8911f406219c48fc6fb0c56a3dc86a1f05",
+    "chez-adapted.scm": "adf2a5ae1fa50d8f5b098f5999275a1e925fefcd3b05c3bfc95cba1068e32125"
+  },
+  "sfir_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
+  "adapted_control": "Identical authored SFIR bodies with attached type signatures erased once; same concrete io/number/datum/read/write library bodies with external scalar Chez services.",
+  "adapted_control_import_correction": {
+    "before_sha256": "30362c947cae1454210cc43d48700e9418e7146b66057b97cec344936c163fa2",
+    "change": "Exclude Chez string-copy! and vector-copy! imports because the identical typed-library control defines both operations; benchmark and library bodies unchanged."
+  },
+  "adapted_control_timing_wrapper": {
+    "before_sha256": "b9cccc87d8374f57c83f861195c6b7f9a2b52a81e9aea3f30fe4b12a397c1158",
+    "change": "Add monotonic nanosecond clock around the unchanged canonical bench call and full predicate. Setup precedes the clock; report formatting and final port cleanup follow it. Benchmark and library bodies unchanged.",
+    "edits": [
+      {
+        "before": "(define report-string display)\n",
+        "after": "(define report-string display)\n;; The clock and formatter are captured outside the typed library bindings.\n(define (benchmark-clock)\n  (let ((now (current-time 'time-monotonic)))\n    (+ (* (time-second now) 1000000000) (time-nanosecond now))))\n(define (benchmark-seconds start finish)\n  (number->string (/ (- finish start) 1000000000.0)))\n"
+      },
+      {
+        "before": "(if (= (bench (configured-count)) 1) (report-string \"+!CSVLINE!+typed-control,passed\\n\") (error 'benchmark \"INCORRECT result\"))",
+        "after": "(let ((start (benchmark-clock)))\n  (if (= (bench (configured-count)) 1)\n      (let ((finish (benchmark-clock)))\n        (report-string \"+!CSVLINE!+typed-control,cat:50,\")\n        (report-string (benchmark-seconds start finish))\n        (report-string \"\\n\"))\n      (error 'benchmark \"INCORRECT result\")))"
+      }
+    ],
+    "exact_reverse_verified": true
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "038301757c7247e5d77eef45150f8c6064105d184449fbcb0bdaa0847fb113e0",
+    "migrated_unformatted_sha256": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+    "after_sha256": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source."
+  },
+  "literal_width_migration": {
+    "before_sha256": "eac102668917e7c72f53bda5851645189df0458ce15070f86efcfdc8e6162104",
+    "after_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
+    "annotations_added": 3,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
+  },
+  "lofi_sha256": "edea6bf93256980e25e201e7959b8d686dd8f54b5d010bdbcfbe73773cf887a0",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "f7760d834cc68ad51cb0d86a8737dac51b007b87d2dac718259daeebcb2e4125",
+    "after_sha256": "edea6bf93256980e25e201e7959b8d686dd8f54b5d010bdbcfbe73773cf887a0",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "cat/main.lofi",
+    "after_path": "cat/main.sld",
+    "before_sha256": "edea6bf93256980e25e201e7959b8d686dd8f54b5d010bdbcfbe73773cf887a0",
+    "after_sha256": "edea6bf93256980e25e201e7959b8d686dd8f54b5d010bdbcfbe73773cf887a0",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  }
+}

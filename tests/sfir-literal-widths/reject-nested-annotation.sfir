@@ -1,2 +1,0 @@
-(import (sfir primitive))
-(ann (ann 1 I32) I64)

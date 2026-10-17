@@ -1,0 +1,3 @@
+(import (lofi primitive))
+(def cell (Ref I64) (ref 1))
+(ref-get cell)

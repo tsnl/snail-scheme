@@ -1,0 +1,69 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/peval.scm",
+  "upstream_sha256": "4a29c25654fc85ab8ed76a039cb56a16ccb9c9928c234395ea6b4a2a134eab43",
+  "canonical_input_sha256": "28e8a5fcdd67e7cd48bcebcff0a05677c3fb5a1ff20b796c80a2f5998a508810",
+  "historical_port_revision": "0cda43f",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+  "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1",
+  "equivalence_status": "Target validation pending; migration provenance is not an equivalence proof.",
+  "reviewed_port_sha256": "eb11d439f1e62f11120eb67ad58033e02e5b625f5bc0ad2dde4e8cab4d60b5fc",
+  "sfir_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
+  "controls": {
+    "chez-adapted.scm": "da0b6fe87c1fca25ef8ff30e76be149743eae7acb5bc4e005ff784b187357c11",
+    "chez-original.scm": "0f0af24d3980b2dfb69476f8be750abea84f7f0f568a8740d36ab59c2dcfd920"
+  },
+  "observer": {
+    "sfir_sha256": "d2bc10c293ef256cc9beae21def5abb7b5722e7b91628fd77960840f636e75b9",
+    "reviewed_port_sha256": "35df83e632d7da849b55cc313e68426a9c252c569ecd77c30408f4a9902b82f8",
+    "status": "SFIR execution pending; earlier strict observation inference timed out at 1800 seconds."
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "556c9ab0e9d154e9977fc8152dad9f42975ac7b6f8ded0220d4554dc21160657",
+    "migrated_unformatted_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "after_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "Current surface target validation pending. Existing execution evidence describes the preceding source.",
+    "observer": {
+      "before_sha256": "dc5ec49febfbbffe8e48e0ddf3f20573ab6a14352ad5bf2e3a79a565e380b5ff",
+      "migrated_unformatted_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+      "after_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c"
+    }
+  },
+  "literal_width_migration": {
+    "before_sha256": "ba474a25265bd4868abebeaa339a61900ae4b90a9408fd85b1668f24550de79b",
+    "after_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
+    "annotations_added": 67,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources.",
+    "observer": {
+      "before_sha256": "e9297a8a148f7a3942aba5d31704dd1241d6f29a9a6a469f28395600495c833c",
+      "after_sha256": "d2bc10c293ef256cc9beae21def5abb7b5722e7b91628fd77960840f636e75b9",
+      "annotations_added": 197
+    }
+  },
+  "lofi_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
+    "after_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "peval/main.lofi",
+    "after_path": "peval/main.sld",
+    "before_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+    "after_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  }
+}

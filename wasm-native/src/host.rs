@@ -1,4 +1,4 @@
-//! Buffered text streams for scalar SFIR I/O. The owning file registry closes
+//! Buffered text streams for scalar Lofi I/O. The owning file registry closes
 //! them explicitly; borrowed stdin/stdout remain open after invocation cleanup.
 
 use std::{

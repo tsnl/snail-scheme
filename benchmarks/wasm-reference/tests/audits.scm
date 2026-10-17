@@ -1,4 +1,4 @@
-;; Run with -D snail-tests -I src -I tests -I benchmarks.
+;; Run with -D snail-tests -I bootstrap -I tests -I benchmarks.
 (import (scheme base) (wasm-native process) (wasm-reference audit) (wasm-reference suite))
 (command-line-main
  (lambda (arguments)

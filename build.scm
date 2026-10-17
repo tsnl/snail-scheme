@@ -1,14 +1,14 @@
-;; A concrete build recipe: compile a public Sphere entry to Wasm, then pass
+;; A concrete build recipe: compile a public Lofi entry to Wasm, then pass
 ;; those bytes to the independently imported native backend and Cargo linker.
 ;; From any working directory, using absolute paths:
-;;   chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
-;;     "$repo" "$repo/examples/native/answer.sfir" answer \
-;;     "$repo/examples/native/entry.rs" /tmp/sphere-answer
+;;   chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
+;;     "$repo" "$repo/examples/native/answer.sld" answer \
+;;     "$repo/examples/native/entry.rs" /tmp/lofi-answer
 (import (scheme base) (scheme process-context) (chibi filesystem)
         (wasm-native) (wasm-native process) (wasm-native chromium-trace)
-        (snail-sfir compiler) (snail-sfir source-driver)
-        (only (snail-sfir frontend) make-primitive-library)
-        (only (snail-scheme strict-primitives) primitive-names))
+        (lofi compiler bootstrap) (lofi source-driver)
+        (only (lofi frontend) make-primitive-library)
+        (only (lofi primitives) primitive-names))
 
 ;; ---- Explicit build inputs ----
 
@@ -23,7 +23,7 @@
 (define runtime-root (path-join root "wasm-native"))
 (when (or (paths-alias? output source) (paths-alias? output rust-entry))
   (error "build output must not replace an input"))
-(define directory (make-build-directory (path-directory output) "sphere-build-"))
+(define directory (make-build-directory (path-directory output) "lofi-build-"))
 (define binary (path-join directory "program.wasm"))
 (define llvm (path-join directory "program.ll"))
 (define bitcode (path-join directory "program.bc"))
@@ -40,9 +40,9 @@
  (path-join directory "build.trace.json")
  (lambda ()
    (let-values (((key libraries)
-                 (collect-source-file source (list (path-directory source) (path-join root "lib"))
-                                      (list (cons '(sfir primitive) (make-primitive-library primitive-names)))
-                                      (make-generation-context (path-join root "scripts/run-sfir-generator.mjs") #f))))
+                 (collect-source-file source (list (path-directory source) (path-join root "src"))
+                                      (list (cons '(lofi primitive) (make-primitive-library primitive-names)))
+                                      (make-generation-context (path-join root "scripts/run-lofi-generator.mjs") #f))))
      (write-bytes binary (artifact-bytes (compile libraries (make-entry key selected)))))
    (wasm-binary->llvm binary imports directory llvm)
    (llvm-bitcode llvm bitcode)

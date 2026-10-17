@@ -1,5 +1,0 @@
-(import (sfir base))
-
-(def worker (-> Unit)
-     (lambda () (unit)))
-(unit)

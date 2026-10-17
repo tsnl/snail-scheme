@@ -1,0 +1,3 @@
+(import (lofi base))
+(define-overload unused (-> I64 I64) (lambda (value) (i64-add value #t)))
+42

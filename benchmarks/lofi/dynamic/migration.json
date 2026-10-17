@@ -1,0 +1,86 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/dynamic.scm",
+  "upstream_sha256": "0eeea6384253fcb915180b18f0743260f2faa7aa1422be72f6bf7bb927e9cec7",
+  "canonical_input_sha256": "f6b5cc925c2716f0d60d53d16ec87ca21d1f8560e316cc9e24a24b4efbf2ecb6",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "conversion": "One-off expansion and binding resolution followed by concrete Value/Procedure authoring and token-preserving SFIR formatting; no conversion is used by the build or runner.",
+  "equivalence_status": "The unchanged current SFIR source passes all 500 canonical iterations on Wasm and native with byte-identical optimized guest programs, original/adapted Chez, and Rust Wasm/native. Wasm checks every file byte/EOF cycle; native checks setup/worker/cleanup port releases 1/0/500. Concurrent correctness evidence; not measured.",
+  "controls": {
+    "chez-original.scm": "6cd7fe3e9026934b03a2353d4da28f1abb0bf1dd474a02d24dc6c451b761da73",
+    "chez-adapted.scm": "3c29eb6764f06dbe71e1e488d2c8f447ba3ba0ae1e59195e2a692785692ecb24"
+  },
+  "representation": "Closed benchmark-local Value with explicit mutable pair cells, fixed element types, concrete closure signatures, arbitrary Integer/Rational/Number arithmetic and typed scalar I/O. Original and adapted Chez remain separate controls.",
+  "sfir_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+  "source_coverage_sha256": "44241b205ae28f168bd5a0d7a20b33fffdd4513ba3da5d29eb2e193a3937f8f8",
+  "lifecycle_sha256": "74efc12fd008e2dd169d4b3086eaf01595c0096d2730be9cab73fca1ef13b2c6",
+  "authoring_tools": {
+    "translate.scm": "8bfd0bfe48dea98d88ed19dd5ed243249eb7e95cee3cd6b10f61f8d6aba3d6f8",
+    "values.py": "b8c92404442024f491acdcb7ef78eb871ddf8572a7d23ac33b8d54418c58eb71",
+    "graphs.py": "3da45569930255c0496e4247bae3a24e0a40706990e4ec9a134e4f82e881fe3f",
+    "numeric.py": "e2f17d1c9f95b1bec50f2ef95fb8b73d0f2778ed5895958efdcace2b8a896890",
+    "annotate.py": "d9e01e1c2451341e6c86f58746f419672e4cfd20fa88386ee800b63880e2b485",
+    "adapt.py": "252d3d1ff5c48b9d58b52376276761f7767fa931f6f7179d02bf907e4d021d01"
+  },
+  "clarity_review": "Independent no-files explanation and focused debate of shared Value identity, conversion, equality, list recognition and procedure boundaries; local implementation comparison.",
+  "validation": {
+    "artifact_directory": "/tmp/snail-sfir-large-ports-20261015/dynamic-attempt4",
+    "target_source_sha256": "7a42df7945f83e4a7aa8346feaff32354ea134ffa62e189b20694d30dc27b11a",
+    "target_source_token_identity": true,
+    "program_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+    "native_optimized_wasm_sha256": "d3546373ac9ff79c0b4d0fc44994ebf35e2a759198e6f9df9a0a3cc094ba6d27",
+    "v8_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-v8-4/run.stdout",
+    "native_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-canonical-native-4/run.stdout",
+    "original_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-original-final/run.stdout",
+    "adapted_chez_result": "/tmp/snail-sfir-large-ports-20261015/dynamic-chez-adapted-final/run.stdout"
+  },
+  "surface_migration": {
+    "source_revision": "f3810a10a6e261b294ffd74633160274105b9e60",
+    "syntax_migration_commit": "cdfe0efa",
+    "before_sha256": "4fd9820e59da1406e3b1b5e23440f378d8faee997173012991e01d855e823e20",
+    "migrated_unformatted_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+    "after_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+    "manifest": "tests/sfir/surface-migration.json",
+    "manifest_sha256": "cfd6571de1f19afaa21ab568e1136b88d528a8a55c15e9986766a1b2662ba458",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "numeric_policy": "unchanged",
+    "validation": "The current source after literal-width migration passes canonical execution on both SFIR targets; see evidence/20261015-dynamic-scheme.json. Earlier source hashes and evidence are retained."
+  },
+  "literal_width_migration": {
+    "before_sha256": "1c94f6d4d5522eec7ac73e8587fa7cd4a3568c2dfa05d221ae8cc68c6a00d784",
+    "after_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+    "annotations_added": 311,
+    "manifest": "tests/sfir-literal-widths/migration.json",
+    "manifest_sha256": "e31f5e0561aeb70f7277a8f7edc1b3e84c50b9d9bef298a66d5d319ef60d0b9b",
+    "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
+    "validation": "Fresh canonical Wasm/native execution and all four external control routes pass; main.sfir bytes are unchanged from the landed base. Timing is not established; see evidence/20261015-dynamic-scheme.json."
+  },
+  "prior_equivalence_status": "Full canonical500 passed optimized V8 and native64 with byte-identical optimized program modules, plus original/adapted Chez. Rust/frozen-corpus validation pending. No clean timing claim.",
+  "current_source_validation": {
+    "evidence": "evidence/20261015-dynamic-scheme.json",
+    "runner_revision": "7ab1af2a9ff313ebef8a9d7854c428fbe3384095",
+    "compiler_revision": "552545ae0d87a13a711cc4357f3d826795e10c12",
+    "sfir_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+    "all_six_canonical_routes": "passed",
+    "native_optimized_program_parity": "passed",
+    "measurement": "not-measured"
+  },
+  "verification_harness_sha256": "8c26d5968ac7e2be92b72a3de50131095554c437baf015d8f2ba36a5eda0d5e3",
+  "native_entry_sha256": "bac3bc778dc4c7ce81de3201f346a21bcbc001d6c04e2dd07d109b1ee9149023",
+  "lofi_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "2886b4de9214707294b354a95a3e802c9ab76f16cd6f33a1276396c17747c456",
+    "after_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "dynamic/main.lofi",
+    "after_path": "dynamic/main.sld",
+    "before_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+    "after_sha256": "d9ebe8aa5458f78ccba208f4348793bb7725f9721aeb84a449f7177019e8224b",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
+  "upstream_source": "src/slatex.scm",
+  "upstream_sha256": "712ab7e3b6d89f4ceb3b1b23f813229d6be43a9bdc1252f48457c9dc4dcabd2b",
+  "canonical_input_sha256": "f4e3ad8af0fa20edc5f2ef9e12039f0c03de7265931b1336745ee72a99e1874e",
+  "source_preparation": "Static authored SFIR; no compiler or elaborator runs during preparation.",
+  "equivalence_status": "Full canonical 500 passed optimized V8, native64, original Chez and adapted Chez. Every target/control produced all 28,500 exact output files. Optimized guest Wasm parity passed; no performance measurement.",
+  "controls": {
+    "chez-original.scm": "9f560eb645e234604b28a3cfa1a07b3476dafd13d34b85e488f632a8379805ee",
+    "chez-adapted.scm": "8273b06498f17465b9d0bd79b9fbf6c87e097e5b04a56202968537be408b8869"
+  },
+  "historical_placeholder": {
+    "historical_port_revision": "0cda43f",
+    "conversion": "One-off old frontend expansion to resolved IR, preserving names by binding identity, followed by SFIR serialization and token-preserving formatting.",
+    "temporary_converter_sha256": "735314c0eb6897f6f49909c93a4425afa11d1a9a7221adf00f9b621f5986a4d1"
+  },
+  "conversion": "Retained full-source Value/Procedure port, followed by one-off syntax-only def/let/base migration and checked source-location numeric annotations. Preparation copies this static source.",
+  "sfir_sha256": "929f04cf2b8c998b72d143b93f45d5a26ae5eb440233199cf5638b5259c87f26",
+  "source_coverage_sha256": "c6de2ff757574a532c75ba2f761eef249ecd90f8ef6122a080e4509bc0ff3347",
+  "representation": "Closed benchmark-local Value with explicit mutable pair cells, typed vectors, concrete closure cases, and shared Integer/Rational/Number/I/O services.",
+  "surface_migration": {
+    "case": "slatex",
+    "counts": {
+      "base-imports": 1,
+      "static-definitions": 7,
+      "value-definitions": 927,
+      "parallel-lets": 44,
+      "empty-list-values": 9,
+      "simultaneous-initializers": 16
+    },
+    "before_sha256": "257326c6da38dfd0b87a460f0703fc0ea29e4a3db24b38e98fa0d950e24a5d5b",
+    "after_sha256": "4ddeb04fa6314c731a0fed0c0cfada4a82c6e8006c7f5e037e6f2d85497ec29a",
+    "tool": "scripts/migrate-sfir-surface",
+    "tool_sha256": "95e1a9338cfa6ec56bcb28e5d1ed9d9e9b6937d022c3cbec4ee3e15d418d41e8",
+    "literal_spellings_preserved": true
+  },
+  "literal_width_migration": {
+    "manifest": "literal-migration.json",
+    "sha256": "3110e8f4e7ddab80c5eb61c0abaa2dabdd5f33732f5352f9b8375fb4eecac200",
+    "literals_checked": 373,
+    "annotations_added": 338,
+    "representations_and_target_values_preserved": true
+  },
+  "validation": "validation.json",
+  "lofi_sha256": "e21a552dbad25da5a180a9e2630ef35d2825e799ed53d97eff73d366e5d6d3cf",
+  "language_rename": {
+    "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
+    "before_sha256": "929f04cf2b8c998b72d143b93f45d5a26ae5eb440233199cf5638b5259c87f26",
+    "after_sha256": "e21a552dbad25da5a180a9e2630ef35d2825e799ed53d97eff73d366e5d6d3cf",
+    "change": "SFIR language and library identifiers renamed to Lofi; algorithms, canonical inputs and external controls unchanged."
+  },
+  "source_layout": {
+    "source_revision": "767ab8f3713932d5d7809f85827cd41cefabed9b",
+    "before_path": "slatex/main.lofi",
+    "after_path": "slatex/main.sld",
+    "before_sha256": "e21a552dbad25da5a180a9e2630ef35d2825e799ed53d97eff73d366e5d6d3cf",
+    "after_sha256": "e21a552dbad25da5a180a9e2630ef35d2825e799ed53d97eff73d366e5d6d3cf",
+    "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  }
+}

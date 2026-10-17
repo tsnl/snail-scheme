@@ -1,0 +1,11 @@
+(import (lofi base))
+;; The declared unary row cannot compete with binary views in its body.
+(define-overload add (-> I64 I64)
+  (lambda (value)
+    (begin (let lofi-migration-let-1 (ann add (-> I64 I64 I64)))
+           (let lofi-migration-let-2 (inst add (-> I64 I64 I64)))
+           (let first lofi-migration-let-1)
+           (let second lofi-migration-let-2)
+           (second (first value (ann 1 I64)) (ann 1 I64)))))
+(define-overload add (-> I64 I64 I64) i64-add)
+(add (ann 40 I64))
