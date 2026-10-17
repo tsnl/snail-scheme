@@ -51,7 +51,10 @@ Native entries and scalar providers are Rust sources. The build driver creates
 Cargo packages that link the generated guest object with the same `snail-runtime`
 library used by the product. `tests/Cargo.toml` owns independent transport-data,
 optimizer, adversarial compiler-process and host-loss probes; it does not define
-another runtime.
+another runtime. The host-loss probe publishes its readiness record by writing
+and closing a sibling temporary file, then renaming it. Seeing `host-ready`
+therefore guarantees complete JSON before the controller kills the host and
+checks that its native processes disappear.
 
 Numeric, reader, writer and Unicode expectations are committed data, with source
 revision and independent oracle provenance in `oracle-provenance.json`. The
