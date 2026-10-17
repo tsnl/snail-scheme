@@ -210,5 +210,156 @@
         "shapeFilterSeconds": 0.0
       }
     ]
+  },
+  "granularRecorderValidation": {
+    "input": {
+      "mode": "hotspots",
+      "source": {
+        "commit": "1d86722af356228f65eadbf8c7de2640ab4cc473",
+        "status": "",
+        "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runnerSha256": "2ce7cd378e0be665850a7ccd25ecd2bbf5c844640feac93b0337e9b82699df16"
+      },
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "-I",
+        "$REPO/build/siegework-granular-validation/overlay",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/siegework-granular-validation/app"
+      ],
+      "tools": {
+        "chibi": {
+          "command": "chibi-scheme",
+          "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+        },
+        "wasmAs": {
+          "command": "wasm-as",
+          "version": "wasm-as version 132"
+        },
+        "wasmOpt": {
+          "command": "wasm-opt",
+          "version": "wasm-opt version 132"
+        },
+        "node": {
+          "command": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "version": "v24.19.0"
+        }
+      },
+      "environment": {
+        "BINARYEN_CORES": "1",
+        "CHIBI": null,
+        "WASM_AS": null,
+        "WASM_OPT": null,
+        "WASM_DIS": null,
+        "WASM_MERGE": null,
+        "SNAIL_PROFILE_DIRECTORY": "$REPO/build/siegework-granular-validation",
+        "SNAIL_PROFILE_HELPERS": "1"
+      },
+      "host": {
+        "platform": "linux",
+        "release": "7.2.3",
+        "architecture": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+        "logicalCPUs": 24,
+        "memoryBytes": 33340952576
+      }
+    },
+    "execution": {
+      "before": {
+        "time": "2026-10-17T11:30:07.298Z",
+        "load": [
+          2.24,
+          3.38,
+          3.97
+        ]
+      },
+      "seconds": 107.564217164,
+      "status": 0,
+      "signal": null,
+      "after": {
+        "time": "2026-10-17T11:31:54.863Z",
+        "load": [
+          2.33,
+          3.08,
+          3.79
+        ]
+      }
+    },
+    "artifacts": {
+      "shader.wasm": {
+        "bytes": 7465,
+        "sha256": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef"
+      },
+      "simulation.wasm": {
+        "bytes": 92192,
+        "sha256": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+      }
+    },
+    "sourceUnitSpanCounts": {
+      "emit-function ": 535,
+      "check-initializer! ": 711,
+      "generalize-group! ": 705,
+      "prepare-activation": 537
+    },
+    "largestSpans": [
+      {
+        "operation": "lofi.emit",
+        "seconds": 47.634
+      },
+      {
+        "operation": "lofi.check",
+        "seconds": 35.239
+      },
+      {
+        "operation": "emit-entry $REPO/apps/siegework/src/siegework/game.sld:1:1",
+        "seconds": 34.585
+      },
+      {
+        "operation": "lofi.specialize",
+        "seconds": 11.728
+      },
+      {
+        "operation": "check-initializer! $REPO/src/scheme/base.sld:22:28",
+        "seconds": 2.109
+      },
+      {
+        "operation": "reader->syntax-list",
+        "seconds": 1.974
+      },
+      {
+        "operation": "lofi.resolve",
+        "seconds": 1.915
+      },
+      {
+        "operation": "check-initializer! $REPO/src/scheme/base.sld:22:28",
+        "seconds": 1.904
+      }
+    ],
+    "compatibilityTotals": [
+      {
+        "operation": "lofi.emit:compatible?",
+        "calls": 185706,
+        "inclusive_seconds": 40.868,
+        "self_seconds": 40.868
+      },
+      {
+        "operation": "lofi.specialize:compatible?",
+        "calls": 185706,
+        "inclusive_seconds": 7.969,
+        "self_seconds": 7.969
+      },
+      {
+        "operation": "lofi.check:compatible?",
+        "calls": 136363,
+        "inclusive_seconds": 25.272,
+        "self_seconds": 25.272
+      }
+    ],
+    "traceSha256": "ea50e2df34cbc35eb61218b6a289ee01e91d227442956611809e63ce0b221a9a"
   }
 }

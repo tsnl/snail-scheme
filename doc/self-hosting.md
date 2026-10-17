@@ -80,6 +80,7 @@ node scripts/measure-siegework.mjs baseline build/siegework-baseline-1
 node scripts/measure-siegework.mjs baseline build/siegework-baseline-2
 node scripts/measure-siegework.mjs profile build/siegework-profile-1
 node scripts/measure-siegework.mjs hotspots build/siegework-hotspots-1
+scripts/view-traces build/siegework-hotspots-1/app/build.trace.json
 ```
 
 Run these sequentially without other compilation or profiling jobs. Keep sources
@@ -158,6 +159,10 @@ exceptions depends on the surrounding compiler stack. A small probe performing
 2,000 scalar mismatch trials took 0.009 seconds at depth zero, 0.064 at depth 500
 and 0.241 at depth 5,000. The same obviously incompatible comparison returned
 without raising in 0.000–0.001 seconds at all three depths.
+
+The final recorder was validated on a complete build at `1d86722a`: 535 emitted
+function spans and 711 initializer-check spans were recorded, with identical
+shader and simulation Wasm. It again counted the same compatibility trials.
 
 A private overlay experiment added a conservative type-shape filter before the
 existing trial. Variables still pass through to the original unifier; only
