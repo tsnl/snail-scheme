@@ -427,6 +427,7 @@
     (define (parse-list-expression form environment)
       (when (memq (head form) unsupported-keywords) (fail form "unsupported Lofi form" (head form)))
       (case (head form)
+        ((library-begin) (fail form "library-begin is only allowed in a library body"))
         ((data typeclass instance) (fail form "declarations require library scope"))
         ((def let datatype define-extern define-overload import export define-library :)
          (fail form "declaration is not an expression"))
