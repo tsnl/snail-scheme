@@ -285,17 +285,17 @@ including a permutation of binders.
 
 ## Kinds and static definitions
 
-`def` also names a type, a typeclass or an instance. The body uses a former,
-just as a function definition uses `lambda`:
+`data`, `typeclass` and `instance` are library-level declarations. Each names
+its subject and can introduce related bindings, such as constructors, accessors
+or class methods:
 
 ```scheme
-(def Flag (datatype ()
-            (off)
-            (on)))
-(def Display (typeclass (T) (: display-text (-> T String))))
-(def flag-display
-     (instance (Display Flag)
-               (display-text (lambda (flag) (match flag ((off) "off") ((on) "on"))))))
+(data Flag ()
+  (off)
+  (on))
+(typeclass Display (T) (: display-text (-> T String)))
+(instance flag-display (Display Flag)
+          (display-text (lambda (flag) (match flag ((off) "off") ((on) "on")))))
 ```
 
 A *kind* classifies these static definitions. `Flag` has kind `Type`: it is a
@@ -304,8 +304,7 @@ it to a type forms a class requirement. `flag-display` has kind
 `(Evidence (Display Flag))`: it supplies an implementation of that requirement.
 A generic datatype such as Vec3 has kind `(Kind-> Type Type)`.
 
-These kinds are inferred from the formers. An optional annotation on a static
-`def` states its kind, for example `(def Flag Type (datatype () (off) (on)))`.
+These kinds are inferred from the declarations.
 Ordinary value definitions have types rather than kinds. `Type`, `Constraint`
 and `Evidence` are not runtime value types and cannot be stored in Any.
 
@@ -316,20 +315,20 @@ kind ::= "Type"
        | "(" "Kind->" kind kind … ")"
        | "(" "Evidence" obligation ")"
 
-static_definition ::= "(" "def" name [kind] static_former ")"
-
-static_former ::= datatype
-                | typeclass
-                | instance
+static_definition ::= data_definition
+                    | typeclass_definition
+                    | instance_definition
 ```
 <!-- ANCHOR_END: kinds -->
 
-For the MVP, these three formers appear only as the outermost body of a
-library-level `def`. Their parameters have kind Type, instance heads are
-concrete, and they cannot be returned from functions or selected by a runtime
-`if`. This is a simple kind discipline, not yet dependent typing. A later
-language can make more computations available in types without reserving
-separate definition keywords now.
+These declarations require library scope. Their parameters have kind Type,
+instance heads are concrete, and they cannot be returned from functions or
+selected by a runtime `if`. This is a simple kind discipline, not dependent typing.
+
+The compiler still accepts the earlier `(def name [kind] static_former)` syntax
+for compatibility, including `(datatype (...) ...)` bodies. Expansion normalizes
+the new declarations to that internal representation before ordinary checking.
+New source should use the explicit declaration forms.
 
 Kind checking verifies that fields and method parameters are types, class
 applications form requirements, and instances implement the requirement named
@@ -354,13 +353,13 @@ a kind annotation alone cannot assert that an implementation is correct.
 ## Struct and union types
 
 A struct groups named fields into one value. A closed union selects one of a
-fixed set of cases. `datatype` describes both using constructors: one constructor
+fixed set of cases. `data` describes both using constructors: one constructor
 for a struct, several for a union. Fields are immutable; a field of type
 `(Ref T)` can hold an explicitly mutable cell.
 
 <!-- ANCHOR: data -->
 ```text
-datatype ::= "(" "datatype" "(" name … ")" constructor_clause constructor_clause … ")"
+data_definition ::= "(" "data" name "(" name … ")" constructor_clause constructor_clause … ")"
 
 constructor_clause ::= "(" name field_clause … ")"
 
@@ -373,13 +372,12 @@ A constructor clause names a constructor; a field clause gives a field name,
 its type and an optional accessor name.
 
 ```scheme
-(def Tree
-     (datatype (T)
-       (leaf
-        (value T))
-       (branch
-        (left (Tree T))
-        (right (Tree T)))))
+(data Tree (T)
+  (leaf
+   (value T))
+  (branch
+   (left (Tree T))
+   (right (Tree T))))
 
 (def leftmost (All (T) (-> (Tree T) T))
      (lambda (tree)
@@ -395,7 +393,7 @@ arms. Arm results must have compatible types, just as for `if`.
 
 ## Type definitions and identity
 
-Every `def` with a `datatype` body creates a distinct nominal type identity.
+Every `data` declaration creates a distinct nominal type identity.
 Two definitions with the same fields still describe different types. Recursive
 and mutually recursive datatype definitions may refer to one another.
 Constructors and optional accessors are ordinary function values with signatures
@@ -419,11 +417,11 @@ generic body.
 
 <!-- ANCHOR: classes -->
 ```text
-typeclass ::= "(" "typeclass" "(" name … ")" method_signature … ")"
+typeclass_definition ::= "(" "typeclass" name "(" name … ")" method_signature … ")"
 
 method_signature ::= "(" ":" name function_type ")"
 
-instance ::= "(" "instance" obligation method_implementation … ")"
+instance_definition ::= "(" "instance" name obligation method_implementation … ")"
 
 method_implementation ::= "(" name expression ")"
 ```
@@ -431,7 +429,7 @@ method_implementation ::= "(" name expression ")"
 
 A typeclass's parameters scope its method signatures. An instance supplies every
 method exactly once; its head has no free type variables. Instance selection
-uses the resolved class identity and complete type tuple. The instance's `def`
+uses the resolved class identity and complete type tuple. The instance's
 name identifies the implementation evidence; it is not an ordinary runtime
 function binding. Duplicate instances for the same class and type tuple are
 errors even if named differently. Importing the same instance through several
@@ -456,7 +454,7 @@ implementations retain their normal initialization and effect ordering.
 
 Serialization and deserialization should use separate `Serialize` and
 `Deserialize` typeclasses. The supported set consists of types with explicit or
-derived instances. A `derive` macro should generate ordinary instances from a
+derived instances. Derive transformers should generate ordinary instances from a
 datatype declaration, with field requirements checked by the type checker.
 Applications can opt their state types into these classes without maintaining
 field-by-field codecs. Deriving either class does not require deriving the other.
@@ -501,7 +499,7 @@ invariants; opting into that class is an explicit choice.
 This is a target contract, not an implemented general facility. The current
 `(lofi write)` works on `Datum` and can emit labels for cyclic graphs, but
 `(lofi read)` rejects datum labels. Neither automatically transports arbitrary
-user-defined typed graphs. The classes and `derive` macro are also planned.
+user-defined typed graphs. The classes and deriving support are also planned.
 The [macro chapter](macros.md#deriving-typeclass-instances-planned) describes the
 proposed expansion boundary. Exact text syntax, binary tags and public API
 remain to be specified. The [roadmap](../../roadmap.md#data-graph-serialization)

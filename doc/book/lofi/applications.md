@@ -150,7 +150,8 @@ edit of the source file. This is Chibi build support; the public reducer API is
 shared by product Scheme and Lofi. Arbitrary generated application declarations
 are not currently inspected.
 The `application` macro itself expands through `(lofi core)`'s `library-begin`
-declaration splice; ordinary `begin` retains lexical scope. Export handlers that
+declaration splice; library-level `begin` also splices into the surrounding scope,
+while expression `begin` creates a block. Export handlers that
 another library must call, just as with other library bindings.
 
 ## Assembling a browser application

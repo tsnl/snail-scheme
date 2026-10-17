@@ -1,4 +1,10 @@
 [
+  {"name": "declarations-direct", "result": "42"},
+  {"name": "declarations-generated", "result": "42"},
+  {"name": "declarations-renamed", "result": "42"},
+  {"name": "declarations-initialization", "result": "12"},
+  {"name": "declarations-expression-scope", "result": "42"},
+  {"name": "reject-declaration-expression", "error": "declarations require library scope"},
   {"name": "scalar", "result": "42"},
   {"name": "inferred-polymorphism", "result": "42"},
   {"name": "let-polymorphism", "result": "42"},

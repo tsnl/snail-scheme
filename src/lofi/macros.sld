@@ -57,7 +57,7 @@
       (rules transformer-rules)
       (environment transformer-environment))
     (define core-syntax-names
-      '(def lambda if let begin library-begin ann inst match datatype typeclass instance
+      '(def lambda if let begin library-begin ann inst match data datatype typeclass instance
             define-overload define-extern syntax-rules define-syntax
             : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
@@ -141,6 +141,26 @@
       (let* ((operator (head form)) (binding (and operator (syntax-identifier? operator) (lookup operator environment)))
              (definition (and binding (lexical-definition binding))))
         (and definition (eq? (binding-kind definition) 'syntax-form) (binding-payload definition))))
+
+    ;; ---- Library declarations introduce complete binding groups ----
+
+    (define (library-declaration? form environment)
+      (let ((kind (form-kind form environment)) (items (and (list-syntax? form) (parts form))))
+        (or (eq? kind 'data)
+            (and (memq kind '(typeclass instance)) (pair? (cdr items))
+                 (syntax-identifier? (cadr items))))))
+    (define (intrinsic-identifier name source)
+      (let ((scope (extend-environment (core-environment) #f)))
+        (make-identifier-syntax name (syntax-loc source) (make-introduction #f scope) #f)))
+    ;; Normalize only declarations; never reinterpret an expression as a group.
+    ;; Protected intrinsic heads cannot capture a use-site alias or local name.
+    (define (normalize-declaration form environment)
+      (if (not (library-declaration? form environment)) form
+          (let* ((items (parts form)) (kind (form-kind form environment))
+                 (former (if (eq? kind 'data) 'datatype kind)))
+            (when (< (length items) 3) (fail form "declaration requires a name and parameter list or instance head"))
+            (rebuild form (list (intrinsic-identifier 'def form) (cadr items)
+                                (rebuild form (cons (intrinsic-identifier former form) (cddr items))))))))
 
     ;; ---- Patterns establish variable depths before matching ----
 
@@ -356,7 +376,8 @@
                  (if (null? environments) (headed? (caddr (parts form)) 'syntax-rules)
                      (eq? (form-kind (caddr (parts form)) (car environments)) 'syntax-rules))))))
     (define (contains-expansion-form? form)
-      (or (macro-definition? form) (headed? form 'library-begin)
+      (or (macro-definition? form) (memq (and (head form) (atom-syntax? (head form)) (atom-syntax-value (head form)))
+                                         '(begin library-begin data typeclass instance))
           (and (list-syntax? form) (let scan ((forms (list-syntax-elements form)))
                                      (and (pair? forms) (or (contains-expansion-form? (car forms)) (scan (cdr forms))))))))
     (define (expansion-required? forms imports)
@@ -367,24 +388,26 @@
                                            (eq? (binding-kind (lexical-definition (car bindings))) 'syntax-form)
                                            (not (eq? (lexical-name (car bindings)) (binding-payload (lexical-definition (car bindings))))))
                                       (scan (cdr bindings)))))))
-    (define (definition-names form environment)
-      (case (form-kind form environment)
-        ((define-syntax) (list (cadr (parts form))))
-        ((def define-extern define-overload)
-         (let* ((items (parts form)) (body (car (reverse items))))
-           (cond ((eq? (form-kind body environment) 'datatype)
-                  (cons (cadr items) (apply append (map (lambda (row)
-                                                          (cons (car (parts row)) (apply append (map (lambda (field)
-                                                                                                       (if (= (length (parts field)) 3) (list (caddr (parts field))) '()))
-                                                                                                     (cdr (parts row)))))) (cddr (parts body))))))
-                 ((eq? (form-kind body environment) 'typeclass) (cons (cadr items) (map (lambda (row) (cadr (parts row))) (cddr (parts body)))))
-                 (else (list (cadr items))))))
-        (else '())))
+    (define (definition-names source environment)
+      (let ((form (normalize-declaration source environment)))
+        (case (form-kind form environment)
+          ((define-syntax) (list (cadr (parts form))))
+          ((def define-extern define-overload)
+           (let* ((items (parts form)) (body (car (reverse items))))
+             (cond ((eq? (form-kind body environment) 'datatype)
+                    (cons (cadr items) (apply append (map (lambda (row)
+                                                            (cons (car (parts row)) (apply append (map (lambda (field)
+                                                                                                         (if (= (length (parts field)) 3) (list (caddr (parts field))) '()))
+                                                                                                       (cdr (parts row)))))) (cddr (parts body))))))
+                   ((eq? (form-kind body environment) 'typeclass) (cons (cadr items) (map (lambda (row) (cadr (parts row))) (cddr (parts body)))))
+                   (else (list (cadr items))))))
+          (else '()))))
     (define (reserve-declaration name form environment primary?)
       (let* ((binding (reserve name)) (kind (form-kind form environment))
              (imported (and (eq? kind 'define-overload) (lookup name environment))))
         (when (or (eq? kind 'define-overload)
-                  (and primary? (memq (form-kind (car (reverse (parts form))) environment) '(datatype typeclass instance))))
+                  (and primary? (or (library-declaration? form environment)
+                                    (memq (form-kind (car (reverse (parts form))) environment) '(datatype typeclass instance)))))
           (set-lexical-space! binding 'static))
         ;; Preserve the imported family name so ordinary resolution joins the
         ;; extension to its canonical overload binding after expansion.
@@ -430,6 +453,7 @@
       (let ((form (expand-head form environment)))
         (cond ((syntax-identifier? form) (emit-identifier form environment))
               ((not (list-syntax? form)) form)
+              ((library-declaration? form environment) (fail form "declarations require library scope"))
               (else (case (form-kind form environment)
                       ((lambda) (expand-lambda form environment))
                       ((begin) (let-values (((body scope) (expand-body (cdr (parts form)) environment #f)))
@@ -548,7 +572,7 @@
           (set-expansion-bindings! scope (append additions (expansion-bindings scope)))
           (check-discovery-reads (car (discovery-reads))))))
     (define (library-splice-contents form scope)
-      (and (eq? (form-kind form scope) 'library-begin)
+      (and (memq (form-kind form scope) '(begin library-begin))
            (begin (observe-identifier (head form) scope) (cdr (parts form)))))
     ;; Expose one layer, preserving the children's syntax identities. The next
     ;; discovery pass reserves those siblings before interpreting their heads.
@@ -558,11 +582,20 @@
             (let-values (((rest spliced?) (expose-library-splices (cdr forms) scope)))
               (values (if children (append children rest) (cons (car forms) rest))
                       (if children #t spliced?))))))
-    (define (discover-statement-heads forms scope)
+    (define (same-form-sequence? before after)
+      (or (null? before) (and (eq? (car before) (car after)) (same-form-sequence? (cdr before) (cdr after)))))
+    (define (expand-statement-head form scope library?)
+      (if (macro-definition? form scope) form
+          (let ((expanded (expand-head form scope)))
+            (when (and library? (library-declaration? expanded scope))
+              (observe-identifier (head expanded) scope))
+            (if library? (normalize-declaration expanded scope) expanded))))
+    (define (discover-statement-heads forms scope library?)
       (let ((before (expansion-budget)))
-        (let ((heads (map (lambda (form) (if (macro-definition? form scope) form (expand-head form scope))) forms)))
-          ;; Actual applications establish progress even if syntax repeats.
-          (values heads (< (expansion-budget) before)))))
+        (let ((heads (map (lambda (form) (expand-statement-head form scope library?)) forms)))
+          ;; Normalization changes syntax identity; macro applications can
+          ;; establish progress even when their resulting syntax repeats.
+          (values heads (or (< (expansion-budget) before) (not (same-form-sequence? forms heads)))))))
     (define (discover-definitions forms scope library?)
       (let discover ((forms forms))
         (add-discovered-definitions! forms scope)
@@ -570,7 +603,7 @@
           (if spliced? (discover body)
               (begin
                 (install-transformers! body scope)
-                (let-values (((heads applied?) (discover-statement-heads body scope)))
+                (let-values (((heads applied?) (discover-statement-heads body scope library?)))
                   (if applied? (discover heads) heads)))))))
     (define (expand-body forms environment library?)
       (let* ((scope (extend-environment (reserve-definitions forms environment) environment))
@@ -689,20 +722,32 @@
            "(def m (syntax-rules () ((_ x) x))) (m)"
            "(def m (syntax-rules () ((_ (x ...) (y ...)) #((x y) ...)))) (m (1 2) (3))")))
       (define (test-library-splices)
-        (let-values (((forms macros scope)
-                      (expand-library-body
-                       (reader->syntax-list (string->reader "splice-unit.sld" "(library-begin 1 (library-begin 2) 3) (library-begin) 4")) '())))
-          (expect (map syntax->datum forms) '(1 2 3 4)))
+        (for-each
+         (lambda (text)
+           (let-values (((forms macros scope)
+                         (expand-library-body (reader->syntax-list (string->reader "splice-unit.sld" text)) '())))
+             (expect (map syntax->datum forms) '(1 2 3 4))))
+         '("(library-begin 1 (library-begin 2) 3) (library-begin) 4"
+           "(begin 1 (begin 2) 3) (begin) 4"
+           "(def m (syntax-rules () ((_) (begin 1 (library-begin 2) 3)))) (m) 4"))
         (for-each
          (lambda (text) (expect (guard (failure (else #t)) (expanded-datum text) #f) #t))
-         '("(begin (library-begin 1))"
-           "(def m (syntax-rules () ((_) (library-begin 1)))) (lambda () (m))"
+         '("(def m (syntax-rules () ((_) (library-begin 1)))) (lambda () (m))"
            "(def m (syntax-rules () ((_) (import (missing))))) (m)"
            "(library-begin (export))"
            "(library-begin (library-begin (define-library (nested))))"
            "(library-begin (def library-begin (lambda (x) x))) 0")))
+      (define (test-declaration-discovery)
+        (expect
+         (guard (failure (else (error-object-message failure)))
+           (expanded-datum "(data Flag () (flag))
+                            (def m (syntax-rules () ((_ name) (def name (lambda (x) x)))))
+                            (m data)")
+           #f)
+         "generated binding changes an earlier macro decision; use a direct definition"))
       (define (test-macros)
         (run-test test-pattern-shapes)
         (run-test test-transformer-rejections)
-        (run-test test-library-splices))))
+        (run-test test-library-splices)
+        (run-test test-declaration-discovery))))
    (else)))

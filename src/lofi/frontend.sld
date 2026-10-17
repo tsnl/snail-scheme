@@ -22,7 +22,7 @@
 
     (define keywords
       '(def lambda if let begin library-begin ann inst match import export define-library
-            datatype typeclass instance define-overload define-extern
+            data datatype typeclass instance define-overload define-extern
             : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define unsupported-keywords
@@ -736,6 +736,19 @@
           (expect (eq? (cadr (annotation-type annotation)) type) #t)
           (expect (eq? (name-definition (annotation-expression annotation)) (car (lambda-parameters function))) #t)
           (expect (eq? (cadar (instance-declaration-types (cadr items))) type) #t)))
+      (define (test-explicit-declarations)
+        (let ((library (test-source "(define-library (test declarations)
+                        (export Box box unbox Identity identity identity-i32 answer)
+                        (begin
+                          (begin (data Box (T) (box (value T unbox))))
+                          (typeclass Identity (T) (: identity (-> T T)))
+                          (instance identity-i32 (Identity I32) (identity (lambda (value) value)))
+                          (def answer (lambda () (identity (unbox (box 42)))))))")))
+          (expect (binding-kind (test-export library 'Box)) 'datatype)
+          (expect (binding-kind (test-export library 'Identity)) 'typeclass)
+          (expect (binding-kind (test-export library 'identity-i32)) 'instance)
+          (for-each (lambda (name) (expect (value-definition? (test-export library name)) #t))
+                    '(box unbox identity answer))))
       (define (test-imported-overload-aliases)
         (let* ((provider (test-parsed "(define-library (test family) (export choose)
                                        (begin (define-overload choose (-> I32 I32) (lambda (x) x))))"))
@@ -850,8 +863,11 @@
         (for-each test-rejected
                   '("(def x 1) (def x 2)" "(let x 1) (def x 2)" "(def x 1) (let x 2)"
                     "(def read (lambda () later)) (let later 42) (read)"
-                    "(begin (let x 42))" "(let x x)" "(lambda (x . x) x)"
-                    "(begin (def Flag (datatype () (flag))) 0)"
+                    "(lambda () (begin (let x 42)))" "(let x x)" "(lambda (x . x) x)"
+                    "(lambda () (begin (def Flag (datatype () (flag))) 0))"
+                    "(lambda () (data Flag () (flag)))"
+                    "(lambda () (typeclass C (T) (: method (-> T T))))"
+                    "(lambda () (instance c (C I32) (method (lambda (x) x))))"
                     "(def Flag Constraint (datatype () (flag)))"
                     "(let Flag (datatype () (flag)))" "(def Flag (datatype () (flag))) Flag"
                     "(define x 1)" "(library (test old))" "(quote ())" "#()" "#(1 2)"
@@ -876,6 +892,7 @@
         (run-test test-imported-macro-maps)
         (run-test test-simultaneous-import-renames)
         (run-test test-imported-static-scopes)
+        (run-test test-explicit-declarations)
         (run-test test-imported-overload-aliases)
         (run-test test-empty-import-dependency)
         (run-test test-library-map-errors)

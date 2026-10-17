@@ -3,6 +3,7 @@
 (require 'scheme)
 
 (put 'datatype 'scheme-indent-function 1)
+(put 'data 'scheme-indent-function 2)
 
 (defun snail-format-entries (header-length)
   "Put each list entry after HEADER-LENGTH elements on its own line."
@@ -19,12 +20,12 @@
       (forward-sexp)
       (forward-comment (point-max)))))
 
-(defun snail-format-datatype ()
+(defun snail-format-datatype (header-length)
   "Put each datatype constructor's fields on their own lines."
   (save-excursion
-    (snail-format-entries 2)
+    (snail-format-entries header-length)
     (down-list)
-    (forward-sexp 2)
+    (forward-sexp header-length)
     (forward-comment (point-max))
     (while (eq (char-after) ?\()
       (snail-format-entries 1)
@@ -35,7 +36,7 @@
   "Separate import specifications and record fields, preserving comments."
   (goto-char (point-min))
   (while (re-search-forward
-          "(\\(import\\|define-record-type\\|define-immutable-record\\|datatype\\)\\_>"
+          "(\\(import\\|define-record-type\\|define-immutable-record\\|datatype\\|data\\)\\_>"
           nil t)
     (let ((form (match-string 1))
           (start (match-beginning 0))
@@ -49,7 +50,8 @@
                  ((equal form "import") (snail-format-entries 1))
                  ((equal form "define-record-type") (snail-format-entries 4))
                  ((equal form "define-immutable-record") (snail-format-entries 3))
-                 ((equal form "datatype") (snail-format-datatype))))
+                 ((equal form "datatype") (snail-format-datatype 2))
+                 ((equal form "data") (snail-format-datatype 3))))
               ;; Import specs are data: (define-record-type alias) is a rename.
               (when (equal form "import")
                 (goto-char start)

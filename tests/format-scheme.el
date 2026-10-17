@@ -20,6 +20,7 @@
   (pair a b) pair? (a pair-a) (b pair-b))
 (define-immutable-record Pair pair (a I32 pair-a pair-a-set) (b I32 pair-b pair-b-set))
 (datatype () (some (value I32 some-value) (flag Bool some-flag)) (none))
+(data Pair () (pair (a I32 pair-a) (b I32 pair-b)))
 ")
         (expected "(import
  (scheme base)
@@ -36,6 +37,10 @@
    (value I32 some-value)
    (flag Bool some-flag))
   (none))
+(data Pair ()
+  (pair
+   (a I32 pair-a)
+   (b I32 pair-b)))
 "))
     (should (equal expected (snail-test-format source)))
     (should (equal expected (snail-test-format expected)))))

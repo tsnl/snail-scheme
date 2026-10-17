@@ -16,11 +16,10 @@ an exported function. A missing dependency is an error; the compiler itself
 does not search directories or invoke a language frontend.
 
 ```scheme
-(def Entry
-     (datatype ()
-       (entry
-        (library LibraryKey)
-        (export Name))))
+(data Entry ()
+  (entry
+   (library LibraryKey)
+   (export Name)))
 
 (let math (parse-library (read-source "demo/math.sld")))
 (let app (parse-library (read-source "demo/app.sld")))
@@ -96,7 +95,7 @@ an instance, and invokes the function.
 
 ```scheme
 (let producer-code
-  (load (compile producer-libraries producer-entry)))
+    (load (compile producer-libraries producer-entry)))
 (let producer (instantiate producer-code build-providers))
 (let generated (invoke-generator producer inputs))
 (let application-libraries (map-insert dependencies generated-key generated))
