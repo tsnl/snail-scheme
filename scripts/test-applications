@@ -1,0 +1,30 @@
+#!/bin/sh
+# Compiler/runtime regressions for the new shared libraries, not a benchmark.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+output="$root/build/application-tests"
+mkdir -p "$output"
+chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
+  "$root/apps/siegework/build.scm" "$root" "$root/build/siegework"
+for fixture in counter state testing counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
+  case "$fixture" in
+    counter|state|testing) source="$root/examples/applications/$fixture.sld" ;;
+    *) source="$root/tests/applications/$fixture.sld" ;;
+  esac
+  chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
+    "$root/tests/applications/build.scm" "$root" "$source" "$output/$fixture.wasm" "$root/apps/siegework/src"
+done
+for fixture in reject-state reject-payload reject-owner; do
+  if chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
+    "$root/tests/applications/build.scm" "$root" "$root/tests/applications/$fixture.sld" \
+    "$output/$fixture.wasm" "$root/apps/siegework/src" >"$output/$fixture.log" 2>&1; then
+    printf 'Expected compile rejection: %s\n' "$fixture" >&2
+    exit 1
+  fi
+  if ! rg -q 'type mismatch|cannot unify' "$output/$fixture.log"; then
+    cat "$output/$fixture.log" >&2
+    exit 1
+  fi
+  printf 'ok - compile rejects %s\n' "$fixture"
+done
+node "$root/tests/applications/runtime.mjs" "$root/build/siegework" "$output"

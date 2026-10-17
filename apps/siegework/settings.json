@@ -1,0 +1,112 @@
+{
+  "title": "Siegework",
+  "width": 960,
+  "height": 560,
+  "cellSize": 40,
+  "tickMilliseconds": 100,
+  "source": "src/siegework/game.sld",
+  "owners": {
+    "match-app": "match",
+    "client-app": "client"
+  },
+  "tick": "advance",
+  "reset": "new-run",
+  "remoteHandlers": [
+    "extract",
+    "fortify",
+    "upgrade",
+    "repair",
+    "new-run"
+  ],
+  "pointer": {
+    "move": "move",
+    "confirm": "confirm"
+  },
+  "keys": {
+    "1": [
+      "choose",
+      1
+    ],
+    "2": [
+      "choose",
+      2
+    ],
+    " ": [
+      "confirm"
+    ],
+    "Enter": [
+      "confirm"
+    ],
+    "u": [
+      "improve"
+    ],
+    "r": [
+      "mend"
+    ],
+    "n": [
+      "restart"
+    ],
+    "ArrowLeft": [
+      "nudge",
+      -1,
+      0
+    ],
+    "ArrowRight": [
+      "nudge",
+      1,
+      0
+    ],
+    "ArrowUp": [
+      "nudge",
+      0,
+      -1
+    ],
+    "ArrowDown": [
+      "nudge",
+      0,
+      1
+    ]
+  },
+  "controller": {
+    "0": [
+      "confirm"
+    ],
+    "2": [
+      "choose",
+      1
+    ],
+    "3": [
+      "choose",
+      2
+    ],
+    "4": [
+      "improve"
+    ],
+    "5": [
+      "mend"
+    ],
+    "9": [
+      "restart"
+    ],
+    "12": [
+      "nudge",
+      0,
+      -1
+    ],
+    "13": [
+      "nudge",
+      0,
+      1
+    ],
+    "14": [
+      "nudge",
+      -1,
+      0
+    ],
+    "15": [
+      "nudge",
+      1,
+      0
+    ]
+  }
+}
