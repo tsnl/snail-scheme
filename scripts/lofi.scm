@@ -8,8 +8,8 @@
  (chibi filesystem)
  (chibi string)
  (srfi 1)
- (wasm-native process)
- (only (wasm-native build-host) process-status))
+ (native process)
+ (only (native build-host) process-status))
 
 ;; ---- Command requests ----
 
@@ -31,10 +31,10 @@
   (reverse (map cdr (filter (lambda (item) (eq? (car item) 'library)) options))))
 (define (compiler-inputs root options)
   (append (map (lambda (name) (path-join root name))
-               '("lofi" "wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml"))
-          (append-map directory-files-recursive
+               '("lofi" "src/native/Cargo.toml" "src/native/Cargo.lock" "src/native/rust-toolchain.toml"))
+          (append-map directory-source-files
                       (append (map (lambda (name) (path-join root name))
-                                   '("src" "bootstrap" "scripts" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts"))
+                                   '("src" "bootstrap" "scripts"))
                               (libraries options)))))
 (define (check-request root options)
   (when (string=? (option-ref options 'action "") "compile")
@@ -44,7 +44,7 @@
                      (append (list (option-ref options 'source #f) (option-ref options 'provider #f))
                              (compiler-inputs root options)))
                 (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-                     (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts" "wasm-native")) (libraries options))))
+                     (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts")) (libraries options))))
         (error "compile output must not replace compiler or library inputs"))
       (unless (null? (option-ref options 'arguments '())) (error "compile accepts one source")))))
 

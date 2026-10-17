@@ -1,6 +1,6 @@
 # Source recipes and dependency preparation
 
-The Chibi [`source-driver.sld`](../src/lofi/source-driver.sld) reads Lofi
+The Chibi [`source-driver.sld`](../src/lofi/compiler/source-driver.sld) reads Lofi
 source and assembles an explicit map for the compiler. It accepts ordinary
 `define-library` files and the book's exact recipe grammar:
 

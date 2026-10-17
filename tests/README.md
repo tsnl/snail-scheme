@@ -6,6 +6,12 @@ diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm,
 mandatory Binaryen output, and native execution with forced collection where the
 contract calls for it.
 
+`native-root-publication/` keeps operand references across repeated publication,
+moving collection in imports, branches, loops, and a tail transfer. Its shared
+array elements also exercise a moving initializer and an operand-only array.
+The native suite runs normal and forced-moving executables plus raw and
+Binaryen-optimized Wasm in V8.
+
 `backend-suites.json` is shared by the serial backend umbrella and `ci.mjs`.
 The latter creates deterministic CI partitions and invokes the existing runners;
 it does not compile or interpret fixtures. Run `node tests/ci.test.mjs` to check

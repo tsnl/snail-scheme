@@ -5,9 +5,9 @@
    (scheme base)
    (scheme file)
    (scheme write)
-   (only (chibi filesystem) chmod)
+   (only (chibi filesystem) chmod symbolic-link-file)
    (snail-tests harness)
-   (only (wasm-native json) string->json))
+   (only (native json) string->json))
   (begin
 
     ;; ---- A compiler copy containing only neutral package libraries ----
@@ -15,13 +15,17 @@
     (define neutral-libraries
       '("wasm" "wasm-optimize" "build-host" "chromium-trace" "process" "json" "runtime-wasm"))
     (define (copy-wasm-compiler outside)
-      (let* ((copy (path-join outside "wasm-only")) (modules (path-join copy "wasm-native/scheme/wasm-native")))
+      (let* ((copy (path-join outside "wasm-only")) (modules (path-join copy "bootstrap/native")))
         (create-directory* modules)
-        (checked "copy-compiler" (list "cp" "-a" "--" (path "src") (path "bootstrap") (path "scripts") (path "lofi") copy))
+        (create-directory* (path-join copy "src"))
+        (checked "copy-compiler" (list "cp" "-a" "--" (path "src/lofi") (path "src/scheme") (path-join copy "src")))
+        (checked "copy-commands" (list "cp" "-a" "--" (path "scripts") (path "lofi") copy))
+        (assert-that (symbolic-link-file "../src/lofi" (path-join copy "bootstrap/lofi")))
         (for-each (lambda (name)
                     (write-bytes (path-join modules (string-append name ".sld"))
-                                 (read-bytes (path "wasm-native/scheme/wasm-native" (string-append name ".sld"))))) neutral-libraries)
-        (assert-that (not (file-exists? (path-join copy "wasm-native/scheme/wasm-native.sld"))))
+                                 (read-bytes (path "src/native" (string-append name ".sld"))))) neutral-libraries)
+        (assert-that (not (file-exists? (path-join copy "src/native"))))
+        (assert-that (not (file-exists? (path-join copy "bootstrap/native.sld"))))
         copy))
     (define (forbidden-tool)
       (let ((file (build-path "forbidden-native-tool")))
@@ -34,7 +38,7 @@
     (define (isolated-chibi copy script . arguments)
       (append (list "env" "-u" "SNAIL_NATIVE_SUPERVISOR" "-u" "CHIBI_MODULE_PATH"
                     (tool-name "CHIBI" "chibi-scheme") "-I" (path-join copy "bootstrap")
-                    "-I" (path-join copy "wasm-native/scheme") (path-join copy script)) arguments))
+                    (path-join copy script)) arguments))
 
     ;; ---- Real Wasm generation and supplied-runtime linking ----
 
@@ -67,7 +71,7 @@
         (assert-equal (map string->json (lines (read-text (path-join session "responses"))))
                       '(#(#t "ready") #(#t 1) #(#t 2) #(#t 3) #(#t #t) #(#t "closed")))
         (write-text runner
-                    "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/lofi/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
+                    "import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs';\nimport {loadWasm,instantiate,invokeEntry,closeInstance} from './src/lofi/compiler/execute.mjs';\nconst instance=instantiate(loadWasm(readFileSync(process.argv[2])));\ntry { assert.equal(invokeEntry(instance, []), 42); } finally { closeInstance(instance); }\n")
         (checked "isolated-service-execute" (node runner (path-join session "artifact.wasm")) options)))
 
     ;; ---- A root recipe explicitly composes the independent libraries ----

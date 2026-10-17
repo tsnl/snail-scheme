@@ -1,25 +1,25 @@
 # Native loading and independent instances
 
 The optional Scheme protocol in
-[`(wasm-native execute)`](../wasm-native/scheme/wasm-native/execute.sld) loads
+[`(native execute)`](../src/native/execute.sld) loads
 x86-64 Linux objects carrying the fixed scalar bridge, links explicit foreign
 providers, and creates independent instances. The separate
-[`(lofi native)`](../src/lofi/native.sld) adapter converts a compiler
+[`(lofi compiler native)`](../src/lofi/compiler/native.sld) adapter converts a compiler
 Wasm artifact into such an object. Chibi still hosts compilation, and the compiler
 always emits Wasm. The native package imports no compiler modules.
 
 Repository host scripts use
-`chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" SCRIPT`.
+`chibi-scheme -I "$repo/bootstrap" SCRIPT`.
 Loading an existing object needs only `-I "$package/scheme"`. Supply the
 package directory explicitly as `runtime-root`:
 
 ```scheme
 (import
  (scheme base)
- (wasm-native process)
- (wasm-native execute))
+ (native process)
+ (native execute))
 
-(define runtime-root "/absolute/path/to/checkout/wasm-native")
+(define runtime-root "/absolute/path/to/checkout/src/native")
 (define code (load-native (read-bytes "counter.o")))
 (define linked
   (link-native code (list (runtime-provider)) "build/counter-loading" runtime-root))
@@ -35,7 +35,7 @@ Here `counter.o` is the object written by
 public `(-> I32 I32)` export. Its `artifact` comes from
 `(compile libraries (make-entry library-key public-name))`; `imports` explicitly
 declares the program's physical Rust scalar imports with `make-native-import`
-from `(wasm-native)`. The caller creates the build `directory` and supplies the
+from `(native)`. The caller creates the build `directory` and supplies the
 object `output` path. The adapter preserves the Wasm artifact's semantic scalar
 signature and origin description while separately invoking native lowering.
 Loading snapshots bytes and returns immutable `library`, `export`, `parameters`,
@@ -60,7 +60,7 @@ trusted executable inputs. This adapter is not a native-code verifier or sandbox
 
 ## Entry evidence and transport
 
-[`scalar-entry.sld`](../wasm-native/scheme/wasm-native/scalar-entry.sld) resolves the actual
+[`scalar-entry.sld`](../src/native/scalar-entry.sld) resolves the actual
 Binaryen-optimized Wasm module and checks that `main` has `() -> Unit` and
 `entry` has the recorded physical signature. Automatic start functions are
 rejected. It adds a fixed `i64 (ptr)` LLVM bridge to the same module. The bridge
@@ -114,7 +114,7 @@ acknowledges successful initialization. Failure raises a Scheme error,
 returns no instance, and preserves external effects already performed. Ordinary
 native terminal cleanup still closes Rust-owned resources on a guest trap.
 
-[`native_worker.rs`](../wasm-native/src/native_worker.rs) supports two executables:
+[`native_worker.rs`](../src/native/native_worker.rs) supports two executables:
 a supervisor with no guest/provider linkage, and a guest worker. Before executing
 the guest image, the supervisor establishes an owned process group. Thus foreign
 provider constructors execute inside that ownership too. The supervisor becomes

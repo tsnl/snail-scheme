@@ -1,7 +1,7 @@
 # Resolved Lofi IR
 
-The direct [frontend](../src/lofi/frontend.sld) turns located s-expressions
-into the expression and binding records in [ir.sld](../src/lofi/ir.sld).
+The direct [frontend](../src/lofi/compiler/frontend.sld) turns located s-expressions
+into the expression and binding records in [ir.sld](../src/lofi/compiler/ir.sld).
 It resolves names and attaches binding declarations. Expressions have no inferred
 type or constraint fields. The frontend does not
 expand macros, infer types or optimize expressions.

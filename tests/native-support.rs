@@ -10,18 +10,21 @@ unsafe extern "C" {
 
 pub fn initialize() -> Vec<String> {
     let arguments: Vec<String> = std::env::args().collect();
-    snail_runtime::native::initialize_host();
+    native_runtime::native::initialize_host();
+    if arguments.get(1).is_some_and(|mode| mode == "exhaust") {
+        unsafe { native_runtime::native::gc_test_limit_heap() };
+    }
     unsafe { native_module_init() };
     arguments
 }
 
 pub fn finish(status: i32) -> ! {
-    std::process::exit(snail_runtime::native::native_finish(status));
+    std::process::exit(native_runtime::native::native_finish(status));
 }
 
 extern "C" fn observe_cleanup() {
     if let Ok(path) = std::env::var("SNAIL_NATIVE_CLEANUP_LOG") {
-        let count = snail_runtime::native::native_resource_release_count();
+        let count = native_runtime::native::native_resource_release_count();
         std::fs::write(path, format!("{count}\n")).unwrap();
     }
 }

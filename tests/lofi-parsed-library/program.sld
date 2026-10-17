@@ -4,7 +4,7 @@
    (only (scheme base) define)
    (lofi base)
    (lofi compiler)
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (builder rebuild))
   (export main)
   (begin

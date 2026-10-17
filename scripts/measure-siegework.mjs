@@ -18,23 +18,23 @@ function replaceOnce(source, before, after) {
   return source.replace(before, after);
 }
 
-function decorate(source, expression, name) {
+function decorate(source, expression, constructor, name) {
   const opening = expression.indexOf(' ');
-  const call = `((chromium-trace "${name}" ${expression.slice(1, opening)})`;
+  const call = `((${constructor} "${name}" ${expression.slice(1, opening)})`;
   return replaceOnce(source, expression, call + expression.slice(opening));
 }
 
 function compilerOverlay(source) {
-  source = replaceOnce(source, '   (lofi artifact)',
-    '   (lofi artifact)\n   (lofi compiler profile)');
+  source = replaceOnce(source, '   (lofi compiler artifact)',
+    '   (lofi compiler artifact)\n   (lofi compiler profile)');
   for (const [call, name] of [
     ['(resolve-library-map libraries)', 'lofi.resolve'],
     ['(infer-program (append items trailing-items)', 'lofi.check'],
     ['(prepare-entry-generation core checked)', 'lofi.specialize'],
     ['(emit-artifact (strict-core->wasm program)', 'lofi.artifact'],
     ['(strict-core->wasm program)', 'lofi.emit'],
-  ]) source = decorate(source, call, name);
-  return source.replaceAll('(chromium-trace "lofi.', '(profile-phase "lofi.');
+  ]) source = decorate(source, call, 'profile-phase', name);
+  return source;
 }
 
 function artifactOverlay(source) {
@@ -44,12 +44,12 @@ function artifactOverlay(source) {
     '(string-append (get-environment-variable "SNAIL_PROFILE_DIRECTORY")\n' +
     '                         "/artifact-" (symbol->string (entry-export entry)) ".trace.json")');
   // write-wasm and Binaryen already trace their work inside the retained scope.
-  return decorate(source, '(file-bytes output)', 'lofi.read-artifact');
+  return decorate(source, '(file-bytes output)', 'chromium-trace', 'lofi.read-artifact');
 }
 
 function instrumentUnits(overlay, environment) {
   capture(environment.CHIBI ?? 'chibi-scheme', ['-I', join(repository, 'bootstrap'),
-    '-I', join(repository, 'wasm-native/scheme'), join(repository, 'scripts/instrument-compiler.scm'),
+    join(repository, 'scripts/instrument-compiler.scm'),
     repository, overlay]);
   return Object.fromEntries(JSON.parse(readFileSync(join(overlay, 'sites.json'), 'utf8')).map(site =>
     [site.path, {original: hash(readFileSync(join(repository, 'src', site.path))),
@@ -61,7 +61,7 @@ function prepareOverlay(directory, environment) {
   const sources = {};
   for (const [file, instrument] of [
     ['lofi/compiler/bootstrap.sld', compilerOverlay],
-    ['lofi/artifact.sld', artifactOverlay],
+    ['lofi/compiler/artifact.sld', artifactOverlay],
   ]) {
     const original = readFileSync(join(repository, 'src', file), 'utf8');
     const modified = instrument(original);
@@ -112,7 +112,7 @@ function tools(environment) {
 
 function buildCommand(overlay, directory, environment) {
   return [environment.CHIBI ?? 'chibi-scheme',
-    '-I', join(repository, 'bootstrap'), '-I', join(repository, 'wasm-native/scheme'),
+    '-I', join(repository, 'bootstrap'),
     // Chibi searches the last -I directory first.
     ...(overlay ? ['-I', overlay] : []),
     join(repository, 'apps/siegework/build.scm'), repository, join(directory, 'app')];

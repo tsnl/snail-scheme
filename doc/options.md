@@ -44,7 +44,7 @@ may expose other concrete signatures for custom hosts.
 optimizes the complete Wasm reactor. `scripts/run-lofi.mjs` executes that reactor.
 
 `scripts/build-native [OPTIONS] SOURCE OUTPUT` is an ordinary Scheme composition
-script. It compiles Lofi to Wasm, passes that Wasm to `(wasm-native)`, and links
+script. It compiles Lofi to Wasm, passes that Wasm to `(native)`, and links
 the resulting object with Cargo. `--wasm` consumes an existing Wasm module and
 still runs Binaryen before mechanical LLVM lowering. `--llvm` and `--object`
 resume from an existing LLVM module or native object. `--rust-provider MODULE
@@ -56,4 +56,4 @@ control the source-compilation step.
 The compiler has no target argument, and `lofi` has no `--target` option.
 [`build.scm`](../build.scm) shows the direct library calls with explicit
 `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` arguments. See
-[native execution](native.md) for the physical ABI and retained build evidence.
+[native execution](book/native/index.md) for the physical ABI and retained build evidence.

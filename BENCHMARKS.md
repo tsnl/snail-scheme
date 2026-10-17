@@ -6,10 +6,10 @@ and [the manifest](benchmarks/lofi/corpus.json) for each workload's source,
 correctness and measurement status.
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm inventory
+chibi-scheme -I bootstrap -I benchmarks \
   benchmarks/lofi/runner.scm prepare --output /tmp/lofi-suite
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks \
+chibi-scheme -I bootstrap -I benchmarks \
   benchmarks/lofi/runner.scm validate --output /tmp/lofi-suite
 ```
 

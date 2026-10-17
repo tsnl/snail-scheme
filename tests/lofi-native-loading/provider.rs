@@ -5,6 +5,8 @@ unsafe extern "C" {
     fn fork() -> i32;
     fn pause() -> i32;
     fn signal(signal: i32, handler: usize) -> usize;
+    fn native_gc_collect();
+    fn native_gc_collections() -> usize;
     #[link_name = "snail:io/path-begin"]
     fn pathname_start();
     #[link_name = "snail:io/path-character"]
@@ -37,6 +39,8 @@ pub extern "C" fn hang() -> i32 {
 }
 #[unsafe(export_name = "mark")]
 pub extern "C" fn mark(value: i32) {
+    unsafe { native_gc_collect() };
+    assert!(unsafe { native_gc_collections() } > 0);
     let mut file = std::fs::OpenOptions::new()
         .append(true)
         .create(true)

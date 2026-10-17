@@ -11,7 +11,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {Authority} from '../../src/application/authority.mjs';
 import {openStore} from '../../src/application/sqlite.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
 
 const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
 const artifacts = resolve(process.argv[4] ?? output);

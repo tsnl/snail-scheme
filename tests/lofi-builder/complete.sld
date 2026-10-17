@@ -2,7 +2,7 @@
 ;; reference below names an identity or an explicitly imported binding.
 (define-library (builder complete)
   (import
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (lofi primitive)
    (builder rebuild))
   (export build)

@@ -1,3 +1,0 @@
-#!/bin/sh
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "${CHIBI:-chibi-scheme}" -I "$root/scheme" "$root/scripts/rustc-native.scm" "$root" "$@"

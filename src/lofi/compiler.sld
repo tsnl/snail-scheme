@@ -9,7 +9,7 @@
   (import
    (only (lofi primitive) null? car cdr string-length string-ref make-string string-set!
          i64-eq i64-add i32-eq unit)
-   (only (lofi compiler-builder) LofiLibrary library-token checked-library))
+   (only (lofi compiler builder) LofiLibrary library-token checked-library))
   (begin
 
     ;; ---- Nominal resources and ordinary success or failure values ----

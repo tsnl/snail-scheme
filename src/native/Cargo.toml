@@ -1,0 +1,29 @@
+[package]
+name = "native-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[features]
+# Test executables collect and attempt evacuation before every allocation.
+gc-stress = []
+# Explicit host scopes record bounded collection pauses; normal builds omit it.
+gc-trace = []
+
+[dependencies]
+libc = "0.2.186"
+snail-runtime = { path = "runtime" }
+
+[[bin]]
+name = "snail-native-supervisor"
+path = "native-worker.rs"
+
+[workspace]
+members = ["runtime"]
+default-members = [".", "runtime"]
+resolver = "3"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1

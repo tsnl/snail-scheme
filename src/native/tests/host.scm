@@ -1,0 +1,35 @@
+;; Run with -D snail-tests -I ../../bootstrap -I tests from this package directory.
+(import
+ (scheme base)
+ (scheme write)
+ (chibi temp-file)
+ (only (native) test-native)
+ (only (native chromium-trace) test-chromium-trace with-chromium-trace-to)
+ (only (native llvm) test-llvm)
+ (only (native llvmlite) test-llvmlite)
+ (only (native wasm-read) test-wasm-read)
+ (only (native wasm-resolve) test-wasm-resolve)
+ (only (native wasm) test-wasm)
+ (only (native native-build) test-native-build)
+ (only (native execute) test-native-execution)
+ (only (native json) test-json)
+ (only (native process) test-process))
+
+(test-native)
+(test-chromium-trace)
+(test-native-build)
+(test-native-execution)
+(test-json)
+(test-process)
+(call-with-temp-dir
+ "native-unit-traces"
+ (lambda (directory preserve)
+   (with-chromium-trace-to
+    (string-append directory "/tests.json")
+    (lambda ()
+      (test-llvm)
+      (test-llvmlite)
+      (test-wasm-read)
+      (test-wasm-resolve)
+      (test-wasm)))))
+(display "All native host tests passed\n")

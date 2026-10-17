@@ -20,7 +20,7 @@ The compiler implementation uses Chibi's considerably larger Scheme environment.
 [`bootstrap/`](../bootstrap/README.md) deliberately keeps that environment separate
 from the product Scheme libraries. The public
 [`(lofi compiler)`](../src/lofi/compiler.sld) is a scalar service interface;
-[`CompilerHost`](../src/lofi/compiler-service.mjs) starts Chibi to implement it.
+[`CompilerHost`](../src/lofi/compiler/service.mjs) starts Chibi to implement it.
 A native provider for that service is not currently supplied. Making that
 provider start Chibi would provide a useful adapter, but would not move checking,
 specialization or emission into native code.
@@ -108,6 +108,11 @@ also decorates artifact reading and retains the normally deleted WAT-writing and
 Binaryen traces as `artifact-*.trace.json`. `instrumentation.json` hashes the
 original and copied sources. Inspect `result.json` for phase totals and load the
 raw trace files in the existing trace viewer.
+
+The current recorder follows the `src/lofi/compiler/` layout and imports native
+trace utilities through `bootstrap/`. That include root also exposes `src/native/`;
+no separate legacy package search path is needed. The retained observations above
+belong to their recorded revisions before this layout change.
 
 The [profiling helper](../src/lofi/compiler/profile.sld) now also instruments
 individual binding checks and generalization groups, emitted functions and module

@@ -18,21 +18,14 @@ the same generated Wasm on Node and commits to SQLite. The
 From the repository root, with Chibi, Binaryen and Node 24 available:
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
 ```
 
 One compilation produces two independent packages with identical simulation
 bytes. Free solo saves on this browser; serve `build/siegework/solo` as static
-files, including under a subpath:
-
-```sh
-python3 -m http.server 4174 --directory build/siegework/solo
-```
-
-The local preview command uses Python 3; any ordinary static host can serve the
-same directory. Open `http://127.0.0.1:4174` with WebGPU, WasmGC, IndexedDB,
-Web Crypto and Web Locks. HTTPS
-or localhost is required. One tab owns the solo save; another tab explains how
+files over HTTPS or localhost, including under a subpath. Open the hosted URL
+with WebGPU, WasmGC, IndexedDB, Web Crypto and Web Locks.
+One tab owns the solo save; another tab explains how
 to release it. Reopening restores the colony and manual pause. Camera, tool,
 cursor and pending input restart with the page. Saves belong to this origin and
 the stable `siegework` application ID, and can be lost if browser data is cleared

@@ -8,20 +8,20 @@
           library-map->core)
   (import
    (scheme base)
-   (lofi library)
-   (lofi infer)
-   (lofi primitives)
-   (lofi artifact)
-   (lofi specialize)
-   (lofi emit-wasm)
-   (only (lofi types) strict-error resolve scheme-variables scheme-type
+   (lofi compiler library)
+   (lofi compiler infer)
+   (lofi compiler primitives)
+   (lofi compiler artifact)
+   (lofi compiler specialize)
+   (lofi compiler emit-wasm)
+   (only (lofi compiler types) strict-error resolve scheme-variables scheme-type
          function-type? function-domains function-result)
-   (only (lofi checked) program-globals program-type)
-   (only (lofi ir) node-loc node-data binding-kind binding-payload
+   (only (lofi compiler checked) program-globals program-type)
+   (only (lofi compiler ir) node-loc node-data binding-kind binding-payload
          binding-origin binding-scheme binding-initializer value-definition-loc
          make-value-definition make-value-binding make-name)
-   (only (lofi source) loc?)
-   (prefix (lofi resolved-library) library:))
+   (only (lofi compiler source) loc?)
+   (prefix (lofi compiler resolved-library) library:))
   (begin
 
     ;; ---- Resolution and checking ----
@@ -99,15 +99,15 @@
    (snail-tests
     (export test-compiler)
     (import
-     (wasm-native test-utils)
-     (lofi frontend)
-     (lofi reader)
-     (lofi syntax-parser)
-     (wasm-native chromium-trace)
-     (only (lofi checked) program-body)
+     (native test-utils)
+     (lofi compiler frontend)
+     (lofi compiler reader)
+     (lofi compiler syntax-parser)
+     (native chromium-trace)
+     (only (lofi compiler checked) program-body)
      (only (chibi temp-file) call-with-temp-dir)
      (only (srfi 130) string-contains)
-     (only (lofi ir) name-definition application-operator lambda-body value-binding-initializer))
+     (only (lofi compiler ir) name-definition application-operator lambda-body value-binding-initializer))
     (begin
       (define (test-parsed text)
         (call-with-temp-dir

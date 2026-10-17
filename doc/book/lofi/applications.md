@@ -47,9 +47,9 @@ Build and execute it from the repository root:
 
 ```sh
 mkdir -p build/examples
-chibi-scheme -I bootstrap -I wasm-native/scheme tests/applications/build.scm \
+chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/counter.sld" "$PWD/build/examples/counter.wasm"
-node --input-type=module -e 'import {readFileSync} from "node:fs"; import {loadWasm, instantiate, invokeEntry} from "./src/lofi/execute.mjs"; console.log(invokeEntry(instantiate(loadWasm(readFileSync("build/examples/counter.wasm"))), []));'
+node --input-type=module -e 'import {readFileSync} from "node:fs"; import {loadWasm, instantiate, invokeEntry} from "./src/lofi/compiler/execute.mjs"; console.log(invokeEntry(instantiate(loadWasm(readFileSync("build/examples/counter.wasm"))), []));'
 ```
 
 It prints `42`. The small build helper selects the exported `answer` procedure;
@@ -454,9 +454,8 @@ Internet deployment needs separate routing and access control.
 
 ```sh
 # Compile once; both directories are produced.
-chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
-# Free solo: upload build/siegework/solo to a static host, or preview locally.
-python3 -m http.server 4174 --directory build/siegework/solo
+chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+# Free solo: serve build/siegework/solo from a static HTTPS or localhost server.
 # Cloud: one persistent hosted match, usable by one or multiple clients.
 node build/siegework/cloud/lib/browser/server.mjs "$PWD/build/siegework/cloud"
 ```

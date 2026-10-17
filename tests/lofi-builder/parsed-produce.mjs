@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
-import {openLibraryBuilder, libraryTransferJSON} from '../../src/lofi/library-builder.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
+import {openLibraryBuilder, libraryTransferJSON} from '../../src/lofi/compiler/builder.mjs';
 
 const directory = process.argv[2], builder = openLibraryBuilder();
 const text = readFileSync(join(directory, 'parsed-source.json'), 'utf8');

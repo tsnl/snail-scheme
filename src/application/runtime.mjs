@@ -1,6 +1,6 @@
 // Stable owner, replaceable code. Only this private scalar bridge handles
 // mutable buffers; application handlers receive explicit immutable values.
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/execute.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
 
 // ---- Typed Wasm forwarding for host scalar functions ----
 

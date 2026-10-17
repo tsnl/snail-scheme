@@ -1,5 +1,5 @@
 (import
  (scheme base)
  (scheme process-context)
- (lofi tools generate-unicode))
+ (lofi compiler tools generate-unicode))
 (exit (generate-unicode-main (cadr (command-line)) (cddr (command-line))))

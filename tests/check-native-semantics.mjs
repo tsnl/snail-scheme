@@ -2,6 +2,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 const { instance } = await WebAssembly.instantiate(await readFile(process.argv[2]));
 const wasm = instance.exports;
+if (wasm['gc-control'](0) !== 42n || wasm['gc-control'](1) !== 42n)
+  throw new Error('Wasm reference across structured control differs');
 if (wasm.check() !== 0 || wasm.tail(2000000) !== 42n || wasm.root(500) !== 99n || wasm['gc-effects']() !== 42n)
   throw new Error('Wasm reference result differs');
 if (wasm['storage-identity']() !== 1 || wasm['storage-roots']() !== 77n || wasm['storage-check'](0x12345) !== 1)

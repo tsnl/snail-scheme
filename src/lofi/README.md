@@ -1,7 +1,8 @@
 # Lofi libraries
 
 This namespace contains the [Lofi language](../../doc/lofi.md), runtime libraries,
-the public compiler API and its current bootstrap implementation. All library
+and the public compiler API. The implementation is under
+[`compiler/`](compiler/README.md), separate from the standard library. All library
 sources use `.sld`. Import `(lofi core)` for named kernel syntax and `(lofi base)`
 for scalar operators and homogeneous collections. The sibling `(scheme base)`
 library adds Scheme forms through hygienic macros.
@@ -29,7 +30,10 @@ overload families.
 | `datum` | Interned symbols, numeric token interpretation, explicit heterogeneous data and finite graph equality. |
 | `read` | Incremental datum input with explicit token, container and error results. |
 | `write` | Datum write/display, finite graph analysis, labels and explicit output continuations. |
-| `compiler-builder` | Complete library syntax, typed inspection and owned transfer handles. |
+| `scalar-text` | Scalar text tokens, interned symbols and diagnostics. |
+| `serialization` | Checked serialization capabilities and derived concrete data instances. |
+| `sexp` | Shared S-expression graph and text/binary wire encodings. |
+| `compiler builder` | Complete library syntax, typed inspection and owned transfer handles. |
 | `compiler` | Explicit maps, parsing, compilation and checked Wasm execution services. |
 
 ## Source and representation contracts
@@ -39,8 +43,8 @@ at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 `core`, subsequently renamed `base`; the other module names stay the same. All 393 value definitions, 24
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations were retained by the initial extraction. It preserved foreign
-module/provider strings and scalar signatures. The single Rust runtime crate in
-[`wasm-native/`](../../wasm-native/README.md) serves both Wasm and native execution;
+module/provider strings and scalar signatures. The scalar-services crate in
+[`src/native/runtime/`](../native/runtime/Cargo.toml) serves both Wasm and native execution;
 the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
@@ -191,7 +195,7 @@ retaining native bulk copies, initialized vector storage, CR/LF/CRLF behavior,
 empty-write lifetime checks and the existing minimum-I64 formatting algorithm.
 
 The former `artifacts.sld` belonged to the removed Scheme build machinery.
-`compiler-builder.sld` constructs and inspects complete Lofi library syntax.
+`compiler/builder.sld` constructs and inspects complete Lofi library syntax.
 Compiled producers transfer owned values into Chibi through the checked
 [builder protocol](../../doc/lofi-builder.md). The
 [source driver](../../doc/lofi-generation.md) executes explicit `generate-library`

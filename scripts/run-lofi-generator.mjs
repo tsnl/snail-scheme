@@ -3,8 +3,8 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {loadWasm} from '../src/lofi/execute.mjs';
-import {invokeLibraryGenerator, libraryTransferJSON} from '../src/lofi/library-builder.mjs';
+import {loadWasm} from '../src/lofi/compiler/execute.mjs';
+import {invokeLibraryGenerator, libraryTransferJSON} from '../src/lofi/compiler/builder.mjs';
 
 // ---- Provider ownership and the descriptor's source context ----
 

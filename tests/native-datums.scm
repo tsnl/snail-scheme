@@ -177,6 +177,23 @@
 
     ;; ---- Containers, branch values and numeric edges ----
 
+    ;; Only an operand below the if/loop bodies retains this object. Its local
+    ;; is cleared, so reloading a local or repairing one SSA name is insufficient.
+    (func (export "gc-control") (param $condition i32) (result i64)
+          (local $keep eqref) (local $n i32)
+          (local.set $keep (struct.new $box (i64.const 42) (ref.null eq)))
+          (struct.get $box 0
+                      (ref.cast (ref $box)
+                                (block (result eqref)
+                                       (local.get $keep)
+                                       (local.set $keep (ref.null eq))
+                                       (if (local.get $condition)
+                                           (then (drop (call $collect-even (i32.const 2) (ref.null eq)))))
+                                       (loop $again
+                                             (drop (call $collect-even (i32.const 2) (ref.null eq)))
+                                             (local.set $n (i32.add (local.get $n) (i32.const 1)))
+                                             (br_if $again (i32.lt_u (local.get $n) (i32.const 3))))))))
+
     (func $cold.increment (type $integer) (param $n i32) (result i32)
           (i32.add (local.get $n) (i32.const 1)))
     (func $identity64 (type $different) (param $n i64) (result i64) (local.get $n))

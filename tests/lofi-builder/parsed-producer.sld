@@ -1,6 +1,6 @@
 (define-library (builder parsed)
   (import
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (builder rebuild))
   (export build)
   (begin

@@ -5,10 +5,10 @@
  (scheme write)
  (scheme time)
  (scheme process-context)
- (prefix (lofi ir) ir:)
- (only (lofi infer) infer-program)
- (only (lofi specialize) prepare-generation)
- (only (lofi emit-wasm) strict-core->wasm))
+ (prefix (lofi compiler ir) ir:)
+ (only (lofi compiler infer) infer-program)
+ (only (lofi compiler specialize) prepare-generation)
+ (only (lofi compiler emit-wasm) strict-core->wasm))
 
 ;; ---- Source shapes ----
 

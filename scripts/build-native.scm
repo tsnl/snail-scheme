@@ -10,11 +10,11 @@
  (chibi string)
  (chibi regexp)
  (srfi 1)
- (wasm-native)
- (wasm-native process)
- (wasm-native wasm-optimize)
- (wasm-native chromium-trace)
- (lofi source-driver))
+ (native)
+ (native process)
+ (native wasm-optimize)
+ (native chromium-trace)
+ (lofi compiler source-driver))
 
 ;; ---- Source selection and protected outputs ----
 
@@ -44,7 +44,7 @@
 (define (protected-output? root output inputs libraries)
   (or (any (lambda (input) (paths-alias? output input)) inputs)
       (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-           (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts" "wasm-native")) libraries))))
+           (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts")) libraries))))
 
 ;; ---- Command entry policy ----
 
@@ -55,10 +55,10 @@
       (write-text path
                   (string-append "unsafe extern \"C\" { fn native_module_init(); #[link_name = \"wasm.main\"] fn guest_main()"
                                  (if (string=? result "void") "" (string-append " -> " result)) "; }\n"
-                                 "fn main() {\n    snail_runtime::native::initialize_host();\n    unsafe { native_module_init(); }\n"
+                                 "fn main() {\n    native_runtime::native::initialize_host();\n    unsafe { native_module_init(); }\n"
                                  (if (string=? result "void") "    unsafe { guest_main(); }\n    let status = 0;\n"
                                      "    let value = unsafe { guest_main() } as i64;\n    let status = if (0..=255).contains(&value) { value as i32 } else { 1 };\n")
-                                 "    std::process::exit(snail_runtime::native::native_finish(status));\n}\n"))
+                                 "    std::process::exit(native_runtime::native::native_finish(status));\n}\n"))
       path)))
 
 ;; ---- Ordinary Wasm and native library calls ----
@@ -87,7 +87,7 @@
              (else (wasm-binary->llvm (if (eq? mode 'wasm) source (source-wasm root options directory))
                                       (map import-record bindings) directory llvm)
                    (llvm-bitcode llvm guest)))))
-    (link-native-object (path-join root "wasm-native") guest
+    (link-native-object (path-join root "src/native") guest
                         (or (option-ref options 'entry #f) (command-entry llvm directory))
                         (all-options options 'provider) directory)))
 
@@ -101,12 +101,9 @@
                          (append-map rust-source-inputs (append (map cadr providers)
                                                                 (if (option-ref options 'entry #f)
                                                                     (list (option-ref options 'entry #f)) '())))
-                         (directory-files-recursive (path-join root "src"))
-                         (directory-files-recursive (path-join root "scripts"))
-                         (append-map directory-files-recursive (cons (path-join root "src") libraries))
-                         (append-map (lambda (part) (directory-files-recursive (path-join root "wasm-native" part)))
-                                     '("src" "scheme" "scripts"))
-                         (list (path-join root "wasm-native/Cargo.toml") (path-join root "wasm-native/Cargo.lock")))))
+                         (append-map directory-source-files
+                                     (append (map (lambda (name) (path-join root name)) '("src" "scripts"))
+                                             libraries)))))
     (when (protected-output? root output inputs libraries) (error "native output must not replace an input" output))
     (let ((directory (make-build-directory (path-directory output) (string-append (path-strip-directory output) ".native-")))
           (before (source-hashes inputs)))
@@ -114,7 +111,7 @@
         (dynamic-wind
             (lambda () #f)
             (lambda ()
-              (let ((bindings (append (runtime-bindings (path-join root "wasm-native"))
+              (let ((bindings (append (runtime-bindings (path-join root "src/native"))
                                       (append-map (lambda (provider) (apply rust-bindings provider)) providers))))
                 (check-provider-bindings '() bindings)
                 (let ((program (compile-native root options directory bindings)))
