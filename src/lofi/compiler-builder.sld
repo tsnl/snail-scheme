@@ -11,7 +11,7 @@
           all-imports only-imports import-rename rename-imports library-import
           library-export lofi-library library-token checked-library
           literal-number view-number-literal rest-type view-rest-type
-          signature-location with-signature-location)
+          signature-location signature-location-set)
   (export
    DataField Signature MatchArm KindSyntax MethodImplementation
    DataCase ClassMethod ConstraintSyntax TypeVariableId type-variable
@@ -49,41 +49,86 @@
    inspect-data-constructor ClassMethodView view-class-method inspect-class-method MethodImplementationView
    view-method-implementation inspect-method-implementation
    )
-  (import (only (lofi primitive) null? car cdr cons empty-list string-length string-ref
-                make-string string-set! make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
-                i32-eq i64-eq i64-add i64-sub unreachable))
+  (import
+   (only (lofi primitive) null? car cdr cons empty-list string-length string-ref
+         make-string string-set! make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!
+         i32-eq i64-eq i64-add i64-sub unreachable))
   (begin
 
     ;; ---- Nominal handles keep the constructor categories distinct ----
 
-    (def Name (datatype () (wrap-name (token I64 name-token))))
-    (def SourceSpan (datatype () (wrap-span (token I64 span-token))))
-    (def ScopeId (datatype () (wrap-scope (token I64 scope-token))))
-    (def BindingId (datatype () (wrap-binding (token I64 binding-token))))
-    (def BindingReference (datatype () (wrap-reference (token I64 reference-token))))
-    (def TypeSyntax (datatype () (wrap-type (token I64 type-token))))
-    (def Expression (datatype () (wrap-expression (token I64 expression-token))))
-    (def Declaration (datatype () (wrap-declaration (token I64 declaration-token))))
-    (def ImportRename (datatype () (wrap-rename (token I64 rename-token))))
-    (def ImportSelection (datatype () (wrap-selection (token I64 selection-token))))
-    (def Import (datatype () (wrap-import (token I64 import-token))))
-    (def Export (datatype () (wrap-export (token I64 export-token))))
-    (def LofiLibrary (datatype () (wrap-library (token I64 library-token))))
+    (def Name (datatype ()
+                (wrap-name
+                 (token I64 name-token))))
+    (def SourceSpan (datatype ()
+                      (wrap-span
+                       (token I64 span-token))))
+    (def ScopeId (datatype ()
+                   (wrap-scope
+                    (token I64 scope-token))))
+    (def BindingId (datatype ()
+                     (wrap-binding
+                      (token I64 binding-token))))
+    (def BindingReference (datatype ()
+                            (wrap-reference
+                             (token I64 reference-token))))
+    (def TypeSyntax (datatype ()
+                      (wrap-type
+                       (token I64 type-token))))
+    (def Expression (datatype ()
+                      (wrap-expression
+                       (token I64 expression-token))))
+    (def Declaration (datatype ()
+                       (wrap-declaration
+                        (token I64 declaration-token))))
+    (def ImportRename (datatype ()
+                        (wrap-rename
+                         (token I64 rename-token))))
+    (def ImportSelection (datatype ()
+                           (wrap-selection
+                            (token I64 selection-token))))
+    (def Import (datatype ()
+                  (wrap-import
+                   (token I64 import-token))))
+    (def Export (datatype ()
+                  (wrap-export
+                   (token I64 export-token))))
+    (def LofiLibrary (datatype ()
+                       (wrap-library
+                        (token I64 library-token))))
 
-    (def TypeVariableId (datatype () (wrap-variable (token I64 variable-token))))
-    (def ConstraintSyntax (datatype () (wrap-constraint (token I64 constraint-token))))
-    (def Signature (datatype () (wrap-signature (token I64 signature-token))))
-    (def KindSyntax (datatype () (wrap-kind (token I64 kind-token))))
-    (def MatchArm (datatype () (wrap-arm (token I64 arm-token))))
-    (def DataField (datatype () (wrap-field (token I64 field-token))))
-    (def DataCase (datatype () (wrap-case (token I64 case-token))))
-    (def ClassMethod (datatype () (wrap-method (token I64 method-token))))
-    (def MethodImplementation (datatype () (wrap-implementation (token I64 implementation-token))))
+    (def TypeVariableId (datatype ()
+                          (wrap-variable
+                           (token I64 variable-token))))
+    (def ConstraintSyntax (datatype ()
+                            (wrap-constraint
+                             (token I64 constraint-token))))
+    (def Signature (datatype ()
+                     (wrap-signature
+                      (token I64 signature-token))))
+    (def KindSyntax (datatype ()
+                      (wrap-kind
+                       (token I64 kind-token))))
+    (def MatchArm (datatype ()
+                    (wrap-arm
+                     (token I64 arm-token))))
+    (def DataField (datatype ()
+                     (wrap-field
+                      (token I64 field-token))))
+    (def DataCase (datatype ()
+                    (wrap-case
+                     (token I64 case-token))))
+    (def ClassMethod (datatype ()
+                       (wrap-method
+                        (token I64 method-token))))
+    (def MethodImplementation (datatype ()
+                                (wrap-implementation
+                                 (token I64 implementation-token))))
 
     ;; ---- Only scalar tokens and values cross the provider boundary ----
 
     (define-extern raw-signature-location "lofi.builder" "signature-location" (-> I64 I64))
-    (define-extern raw-with-signature-location "lofi.builder" "with-signature-location" (-> I64 I64 I64))
+    (define-extern raw-signature-location-set "lofi.builder" "signature-location-set" (-> I64 I64 I64))
     (define-extern raw-checked-library "lofi.builder" "checked-library" (-> I64 I64))
     (define-extern raw-number-literal "lofi.builder" "number-literal" (-> I64 I64 I64))
     (define-extern raw-rest-type "lofi.builder" "rest-type" (-> I64 I64))
@@ -414,9 +459,9 @@
     ;; The provider checks origin and syntax category before wrapping transport.
     (def signature-location (-> Declaration SourceSpan)
          (lambda (declaration) (wrap-span (raw-signature-location (declaration-token declaration)))))
-    (def with-signature-location (-> Declaration SourceSpan Declaration)
+    (def signature-location-set (-> Declaration SourceSpan Declaration)
          (lambda (declaration span)
-           (wrap-declaration (raw-with-signature-location (declaration-token declaration) (span-token span)))))
+           (wrap-declaration (raw-signature-location-set (declaration-token declaration) (span-token span)))))
     (def checked-library (-> I64 LofiLibrary)
          (lambda (token) (wrap-library (raw-checked-library token))))
     (def literal-number (-> String SourceSpan Expression)
@@ -684,7 +729,10 @@
 
     (def SourceSpanView
          (datatype ()
-                   (view-span (source Name) (line I32) (column I32)) ))
+           (view-span
+            (source Name)
+            (line I32)
+            (column I32)) ))
     (def inspect-span (-> SourceSpan SourceSpanView)
          (lambda (value)
            (begin (let token (span-token value))
@@ -694,8 +742,9 @@
                       (unreachable)))))
     (def ScopeIdView
          (datatype ()
-                   (view-scope)
-                   (view-child-scope (parent ScopeId)) ))
+           (view-scope)
+           (view-child-scope
+            (parent ScopeId)) ))
     (def inspect-scope (-> ScopeId ScopeIdView)
          (lambda (value)
            (begin (let token (scope-token value))
@@ -707,7 +756,10 @@
                           (unreachable))))))
     (def BindingIdView
          (datatype ()
-                   (view-binding (scope ScopeId) (name Name) (span SourceSpan)) ))
+           (view-binding
+            (scope ScopeId)
+            (name Name)
+            (span SourceSpan)) ))
     (def inspect-binding (-> BindingId BindingIdView)
          (lambda (value)
            (begin (let token (binding-token value))
@@ -720,8 +772,13 @@
                       (unreachable)))))
     (def BindingReferenceView
          (datatype ()
-                   (view-local-reference (binding BindingId) (span SourceSpan))
-                   (view-import-reference (scope ScopeId) (name Name) (span SourceSpan)) ))
+           (view-local-reference
+            (binding BindingId)
+            (span SourceSpan))
+           (view-import-reference
+            (scope ScopeId)
+            (name Name)
+            (span SourceSpan)) ))
     (def inspect-reference (-> BindingReference BindingReferenceView)
          (lambda (value)
            (begin (let token (reference-token value))
@@ -736,25 +793,37 @@
                           (unreachable))))))
     (def TypeSyntaxView
          (datatype ()
-                   (view-type-i32)
-                   (view-type-i64)
-                   (view-type-f32)
-                   (view-type-f64)
-                   (view-type-bool)
-                   (view-type-char)
-                   (view-type-unit)
-                   (view-type-string)
-                   (view-type-bytevector)
-                   (view-type-never)
-                   (view-type-any)
-                   (view-function-type (parameters (List TypeSyntax)) (result TypeSyntax))
-                   (view-rest-type (element TypeSyntax))
-                   (view-variable-type (variable TypeVariableId))
-                   (view-reference-type (element TypeSyntax))
-                   (view-list-type (element TypeSyntax))
-                   (view-vector-type (element TypeSyntax))
-                   (view-rest-function-type (parameters (List TypeSyntax)) (rest TypeSyntax) (result TypeSyntax))
-                   (view-nominal-type (reference BindingReference) (arguments (List TypeSyntax))) ))
+           (view-type-i32)
+           (view-type-i64)
+           (view-type-f32)
+           (view-type-f64)
+           (view-type-bool)
+           (view-type-char)
+           (view-type-unit)
+           (view-type-string)
+           (view-type-bytevector)
+           (view-type-never)
+           (view-type-any)
+           (view-function-type
+            (parameters (List TypeSyntax))
+            (result TypeSyntax))
+           (view-rest-type
+            (element TypeSyntax))
+           (view-variable-type
+            (variable TypeVariableId))
+           (view-reference-type
+            (element TypeSyntax))
+           (view-list-type
+            (element TypeSyntax))
+           (view-vector-type
+            (element TypeSyntax))
+           (view-rest-function-type
+            (parameters (List TypeSyntax))
+            (rest TypeSyntax)
+            (result TypeSyntax))
+           (view-nominal-type
+            (reference BindingReference)
+            (arguments (List TypeSyntax))) ))
     (def inspect-scalar-type (-> I32 TypeSyntaxView)
          (lambda (index)
            (if (i32-eq index 0)
@@ -808,24 +877,72 @@
                                                       (unreachable)))))))))))))
     (def ExpressionView
          (datatype ()
-                   (view-number-literal (spelling String) (span SourceSpan))
-                   (view-literal-i32 (value I32) (span SourceSpan))
-                   (view-literal-i64 (value I64) (span SourceSpan))
-                   (view-literal-f32 (value F32) (span SourceSpan))
-                   (view-literal-f64 (value F64) (span SourceSpan))
-                   (view-literal-bool (value Bool) (span SourceSpan))
-                   (view-literal-char (value Char) (span SourceSpan))
-                   (view-reference (reference BindingReference))
-                   (view-lambda (scope ScopeId) (parameters (List BindingId)) (body Expression) (span SourceSpan))
-                   (view-application (operator Expression) (arguments (List Expression)) (span SourceSpan))
-                   (view-conditional (test Expression) (yes Expression) (no Expression) (span SourceSpan))
-                   (view-string-literal (value String) (span SourceSpan))
-                   (view-bytevector-literal (value Bytevector) (span SourceSpan))
-                   (view-rest-lambda (scope ScopeId) (parameters (List BindingId)) (rest BindingId) (body Expression) (span SourceSpan))
-                   (view-block (scope ScopeId) (statements (List Declaration)) (result Expression) (span SourceSpan))
-                   (view-annotation (expression Expression) (type TypeSyntax) (span SourceSpan))
-                   (view-instantiation (reference BindingReference) (arguments (List TypeSyntax)) (span SourceSpan))
-                   (view-match (subject Expression) (arms (List MatchArm)) (span SourceSpan)) ))
+           (view-number-literal
+            (spelling String)
+            (span SourceSpan))
+           (view-literal-i32
+            (value I32)
+            (span SourceSpan))
+           (view-literal-i64
+            (value I64)
+            (span SourceSpan))
+           (view-literal-f32
+            (value F32)
+            (span SourceSpan))
+           (view-literal-f64
+            (value F64)
+            (span SourceSpan))
+           (view-literal-bool
+            (value Bool)
+            (span SourceSpan))
+           (view-literal-char
+            (value Char)
+            (span SourceSpan))
+           (view-reference
+            (reference BindingReference))
+           (view-lambda
+            (scope ScopeId)
+            (parameters (List BindingId))
+            (body Expression)
+            (span SourceSpan))
+           (view-application
+            (operator Expression)
+            (arguments (List Expression))
+            (span SourceSpan))
+           (view-conditional
+            (test Expression)
+            (yes Expression)
+            (no Expression)
+            (span SourceSpan))
+           (view-string-literal
+            (value String)
+            (span SourceSpan))
+           (view-bytevector-literal
+            (value Bytevector)
+            (span SourceSpan))
+           (view-rest-lambda
+            (scope ScopeId)
+            (parameters (List BindingId))
+            (rest BindingId)
+            (body Expression)
+            (span SourceSpan))
+           (view-block
+            (scope ScopeId)
+            (statements (List Declaration))
+            (result Expression)
+            (span SourceSpan))
+           (view-annotation
+            (expression Expression)
+            (type TypeSyntax)
+            (span SourceSpan))
+           (view-instantiation
+            (reference BindingReference)
+            (arguments (List TypeSyntax))
+            (span SourceSpan))
+           (view-match
+            (subject Expression)
+            (arms (List MatchArm))
+            (span SourceSpan)) ))
     (def inspect-scalar-literal (-> I64 I32 ExpressionView)
          (lambda (token index)
            (if (i32-eq index 0)
@@ -912,27 +1029,58 @@
                                                                       (unreachable)))))))))))))))))
     (def DeclarationView
          (datatype ()
-                   (view-definition (binding BindingId) (signature Signature) (value Expression) (span SourceSpan))
-                   (view-inferred-definition (binding BindingId) (value Expression) (span SourceSpan))
-                   (view-local-binding (binding BindingId) (signature Signature) (value Expression) (span SourceSpan))
-                   (view-inferred-local-binding (binding BindingId) (value Expression) (span SourceSpan))
-                   (view-expression-statement (expression Expression))
-                   (view-datatype
-                    (binding BindingId)
-                    (scope ScopeId)
-                    (parameters (List TypeVariableId))
-                    (cases (List DataCase))
-                    (span SourceSpan))
-                   (view-typeclass
-                    (binding BindingId)
-                    (scope ScopeId)
-                    (parameters (List TypeVariableId))
-                    (methods (List ClassMethod))
-                    (span SourceSpan))
-                   (view-instance (binding BindingId) (head ConstraintSyntax) (methods (List MethodImplementation)) (span SourceSpan))
-                   (view-kind-annotation (kind KindSyntax) (declaration Declaration) (span SourceSpan))
-                   (view-extern (binding BindingId) (module String) (symbol String) (type TypeSyntax) (span SourceSpan))
-                   (view-overload (binding BindingId) (signature Signature) (value Expression) (span SourceSpan)) ))
+           (view-definition
+            (binding BindingId)
+            (signature Signature)
+            (value Expression)
+            (span SourceSpan))
+           (view-inferred-definition
+            (binding BindingId)
+            (value Expression)
+            (span SourceSpan))
+           (view-local-binding
+            (binding BindingId)
+            (signature Signature)
+            (value Expression)
+            (span SourceSpan))
+           (view-inferred-local-binding
+            (binding BindingId)
+            (value Expression)
+            (span SourceSpan))
+           (view-expression-statement
+            (expression Expression))
+           (view-datatype
+            (binding BindingId)
+            (scope ScopeId)
+            (parameters (List TypeVariableId))
+            (cases (List DataCase))
+            (span SourceSpan))
+           (view-typeclass
+            (binding BindingId)
+            (scope ScopeId)
+            (parameters (List TypeVariableId))
+            (methods (List ClassMethod))
+            (span SourceSpan))
+           (view-instance
+            (binding BindingId)
+            (head ConstraintSyntax)
+            (methods (List MethodImplementation))
+            (span SourceSpan))
+           (view-kind-annotation
+            (kind KindSyntax)
+            (declaration Declaration)
+            (span SourceSpan))
+           (view-extern
+            (binding BindingId)
+            (module String)
+            (symbol String)
+            (type TypeSyntax)
+            (span SourceSpan))
+           (view-overload
+            (binding BindingId)
+            (signature Signature)
+            (value Expression)
+            (span SourceSpan)) ))
     (def inspect-declaration (-> Declaration DeclarationView)
          (lambda (value)
            (begin (let token (declaration-token value))
@@ -1004,7 +1152,9 @@
                                                               (unreachable)))))))))))))))
     (def ImportRenameView
          (datatype ()
-                   (view-rename-pair (from Name) (to Name)) ))
+           (view-rename-pair
+            (from Name)
+            (to Name)) ))
     (def inspect-import-rename (-> ImportRename ImportRenameView)
          (lambda (value)
            (begin (let token (rename-token value))
@@ -1014,9 +1164,13 @@
                       (unreachable)))))
     (def ImportSelectionView
          (datatype ()
-                   (view-all)
-                   (view-only (selection ImportSelection) (names (List Name)))
-                   (view-rename (selection ImportSelection) (renames (List ImportRename))) ))
+           (view-all)
+           (view-only
+            (selection ImportSelection)
+            (names (List Name)))
+           (view-rename
+            (selection ImportSelection)
+            (renames (List ImportRename))) ))
     (def inspect-import-selection (-> ImportSelection ImportSelectionView)
          (lambda (value)
            (begin (let token (selection-token value))
@@ -1030,7 +1184,11 @@
                               (unreachable)))))))
     (def ImportView
          (datatype ()
-                   (view-import (key (List Name)) (selection ImportSelection) (scope ScopeId) (span SourceSpan)) ))
+           (view-import
+            (key (List Name))
+            (selection ImportSelection)
+            (scope ScopeId)
+            (span SourceSpan)) ))
     (def inspect-import (-> Import ImportView)
          (lambda (value)
            (begin (let token (import-token value))
@@ -1044,7 +1202,9 @@
                       (unreachable)))))
     (def ExportView
          (datatype ()
-                   (view-export (name Name) (reference BindingReference)) ))
+           (view-export
+            (name Name)
+            (reference BindingReference)) ))
     (def inspect-export (-> Export ExportView)
          (lambda (value)
            (begin (let token (export-token value))
@@ -1054,13 +1214,13 @@
                       (unreachable)))))
     (def LofiLibraryView
          (datatype ()
-                   (view-library
-                    (key (List Name))
-                    (scope ScopeId)
-                    (imports (List Import))
-                    (exports (List Export))
-                    (declarations (List Declaration))
-                    (span SourceSpan)) ))
+           (view-library
+            (key (List Name))
+            (scope ScopeId)
+            (imports (List Import))
+            (exports (List Export))
+            (declarations (List Declaration))
+            (span SourceSpan)) ))
     (def inspect-library (-> LofiLibrary LofiLibraryView)
          (lambda (value)
            (begin (let token (library-token value))
@@ -1076,7 +1236,10 @@
                       (unreachable)))))
     (def TypeVariableIdView
          (datatype ()
-                   (view-variable-id (scope ScopeId) (name Name) (span SourceSpan)) ))
+           (view-variable-id
+            (scope ScopeId)
+            (name Name)
+            (span SourceSpan)) ))
     (def inspect-type-variable (-> TypeVariableId TypeVariableIdView)
          (lambda (value)
            (begin (let token (variable-token value))
@@ -1089,7 +1252,10 @@
                       (unreachable)))))
     (def ConstraintSyntaxView
          (datatype ()
-                   (view-constraint (reference BindingReference) (arguments (List TypeSyntax)) (span SourceSpan)) ))
+           (view-constraint
+            (reference BindingReference)
+            (arguments (List TypeSyntax))
+            (span SourceSpan)) ))
     (def inspect-constraint (-> ConstraintSyntax ConstraintSyntaxView)
          (lambda (value)
            (begin (let token (constraint-token value))
@@ -1102,13 +1268,14 @@
                       (unreachable)))))
     (def SignatureView
          (datatype ()
-                   (view-binding-signature (type TypeSyntax))
-                   (view-all-signature
-                    (scope ScopeId)
-                    (variables (List TypeVariableId))
-                    (constraints (List ConstraintSyntax))
-                    (type TypeSyntax)
-                    (span SourceSpan)) ))
+           (view-binding-signature
+            (type TypeSyntax))
+           (view-all-signature
+            (scope ScopeId)
+            (variables (List TypeVariableId))
+            (constraints (List ConstraintSyntax))
+            (type TypeSyntax)
+            (span SourceSpan)) ))
     (def inspect-signature (-> Signature SignatureView)
          (lambda (value)
            (begin (let token (signature-token value))
@@ -1123,10 +1290,13 @@
                       (view-binding-signature (wrap-type token))))))
     (def KindSyntaxView
          (datatype ()
-                   (view-kind-type)
-                   (view-kind-constraint)
-                   (view-kind-function (parameters (List KindSyntax)) (result KindSyntax))
-                   (view-kind-evidence (requirement ConstraintSyntax)) ))
+           (view-kind-type)
+           (view-kind-constraint)
+           (view-kind-function
+            (parameters (List KindSyntax))
+            (result KindSyntax))
+           (view-kind-evidence
+            (requirement ConstraintSyntax)) ))
     (def inspect-kind (-> KindSyntax KindSyntaxView)
          (lambda (value)
            (begin (let token (kind-token value))
@@ -1142,12 +1312,12 @@
                                   (unreachable))))))))
     (def MatchArmView
          (datatype ()
-                   (view-match-arm
-                    (constructor BindingReference)
-                    (scope ScopeId)
-                    (parameters (List BindingId))
-                    (body Expression)
-                    (span SourceSpan)) ))
+           (view-match-arm
+            (constructor BindingReference)
+            (scope ScopeId)
+            (parameters (List BindingId))
+            (body Expression)
+            (span SourceSpan)) ))
     (def inspect-match-arm (-> MatchArm MatchArmView)
          (lambda (value)
            (begin (let token (arm-token value))
@@ -1162,8 +1332,15 @@
                       (unreachable)))))
     (def DataFieldView
          (datatype ()
-                   (view-data-field (name Name) (type TypeSyntax) (span SourceSpan))
-                   (view-accessor-field (name Name) (type TypeSyntax) (accessor BindingId) (span SourceSpan)) ))
+           (view-data-field
+            (name Name)
+            (type TypeSyntax)
+            (span SourceSpan))
+           (view-accessor-field
+            (name Name)
+            (type TypeSyntax)
+            (accessor BindingId)
+            (span SourceSpan)) ))
     (def inspect-data-field (-> DataField DataFieldView)
          (lambda (value)
            (begin (let token (field-token value))
@@ -1182,7 +1359,10 @@
                           (unreachable))))))
     (def DataCaseView
          (datatype ()
-                   (view-data-case (binding BindingId) (fields (List DataField)) (span SourceSpan)) ))
+           (view-data-case
+            (binding BindingId)
+            (fields (List DataField))
+            (span SourceSpan)) ))
     (def inspect-data-constructor (-> DataCase DataCaseView)
          (lambda (value)
            (begin (let token (case-token value))
@@ -1195,7 +1375,10 @@
                       (unreachable)))))
     (def ClassMethodView
          (datatype ()
-                   (view-class-method (binding BindingId) (type TypeSyntax) (span SourceSpan)) ))
+           (view-class-method
+            (binding BindingId)
+            (type TypeSyntax)
+            (span SourceSpan)) ))
     (def inspect-class-method (-> ClassMethod ClassMethodView)
          (lambda (value)
            (begin (let token (method-token value))
@@ -1208,7 +1391,10 @@
                       (unreachable)))))
     (def MethodImplementationView
          (datatype ()
-                   (view-method-implementation (method BindingReference) (value Expression) (span SourceSpan)) ))
+           (view-method-implementation
+            (method BindingReference)
+            (value Expression)
+            (span SourceSpan)) ))
     (def inspect-method-implementation (-> MethodImplementation MethodImplementationView)
          (lambda (value)
            (begin (let token (implementation-token value))

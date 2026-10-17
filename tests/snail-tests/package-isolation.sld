@@ -1,9 +1,13 @@
 ;; Exercise the compiler without native libraries, then compose them explicitly.
 (define-library (snail-tests package-isolation)
   (export run-package-isolation)
-  (import (scheme base) (scheme file) (scheme write)
-          (only (chibi filesystem) chmod) (snail-tests harness)
-          (only (wasm-native json) string->json))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme write)
+   (only (chibi filesystem) chmod)
+   (snail-tests harness)
+   (only (wasm-native json) string->json))
   (begin
 
     ;; ---- A compiler copy containing only neutral package libraries ----

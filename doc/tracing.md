@@ -20,8 +20,15 @@ loading, refresh, escaped filenames and HTTP file boundaries.
 
 ## Pass boundaries
 
-The compiler records resolution, inference, specialization and Wasm emission
-as separate spans. Each source read and syntax parse has its own nested span.
+Source reads and syntax parsing have their own spans. The shipped bootstrap
+compiler does not currently wrap resolution, inference, specialization and Wasm
+emission with phase spans. For those boundaries on a complete Siegework build,
+use the private instrumentation in
+[`scripts/measure-siegework.mjs`](../scripts/measure-siegework.mjs); see the
+[self-hosting investigation](self-hosting.md) for commands and timing limits.
+`profile` adds source-labelled binding/function spans and nested preparation work;
+`hotspots` additionally retains helper call counts and inclusive/self totals in
+`operations.json` without emitting millions of tiny events.
 Assembly, mandatory Binaryen optimization, disassembly and native lowering
 record their own build operations. Inclusive/exclusive durations distinguish
 a pass's own work from its children.
@@ -34,10 +41,12 @@ There are no portable collector or per-instruction measurements in these traces.
 ## Host API
 
 ```scheme
-(import (scheme base) (wasm-native chromium-trace))
+(import
+ (scheme base)
+ (wasm-native chromium-trace))
 (define timed-add (chromium-trace "add" (lambda (x y) (+ x y))))
 (with-chromium-trace-to "operations.json"
-  (lambda () (timed-add 20 22)))
+                        (lambda () (timed-add 20 22)))
 ```
 
 This is compiler implementation code executed by Chibi, not Lofi product input.

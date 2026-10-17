@@ -2,8 +2,9 @@
 ;; Its transition stages a valid new marker followed by an invalid Unicode scalar.
 (define-library (tests invalid-output)
   (export answer)
-  (import (scheme base)
-          (only (lofi core) ann -> I32 define-extern))
+  (import
+   (scheme base)
+   (only (lofi core) ann -> I32 define-extern))
   (begin
     (define-extern stage "snail.reducer" "write" (-> I32 I32 I32 Unit))
     (define-extern label "snail.reducer" "label" (-> I32 I32 Unit))

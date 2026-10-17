@@ -1,7 +1,14 @@
 ;; The producer map is explicit and is discarded before receiving its output.
-(import (scheme base) (scheme file) (scheme process-context)
-        (lofi reader) (lofi syntax-parser) (wasm-native chromium-trace)
-        (lofi primitives) (lofi frontend) (lofi compiler bootstrap))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme process-context)
+ (lofi reader)
+ (lofi syntax-parser)
+ (wasm-native chromium-trace)
+ (lofi primitives)
+ (lofi frontend)
+ (lofi compiler bootstrap))
 
 (define directory (cadr (command-line)))
 (define (parse-file path) (parse-library (car (reader->syntax-list (file->reader path)))))

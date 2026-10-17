@@ -5,14 +5,15 @@
           bytevector-u8-ref bytevector-u8-set! bytevector-eq?
           bytevector-copy bytevector-copy! bytevector-append
           utf8->string string->utf8)
-  (import (lofi base)
-          (rename (only (lofi primitive)
-                        make-bytevector bytevector-length bytevector-u8-ref
-                        bytevector-u8-set! bytevector-eq? bytevector-copy!
-                        utf8->string string->utf8)
-                  (make-bytevector make-filled-bytevector)
-                  (bytevector-copy! copy-bytes!)
-                  (utf8->string decode-utf8) (string->utf8 encode-utf8)))
+  (import
+   (lofi base)
+   (rename (only (lofi primitive)
+                 make-bytevector bytevector-length bytevector-u8-ref
+                 bytevector-u8-set! bytevector-eq? bytevector-copy!
+                 utf8->string string->utf8)
+           (make-bytevector make-filled-bytevector)
+           (bytevector-copy! copy-bytes!)
+           (utf8->string decode-utf8) (string->utf8 encode-utf8)))
 
   ;; ---- Fresh mutable bytes and bounded ranges ----
 

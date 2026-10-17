@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload view (-> I64 I64) (lambda (value) value))
 (define-overload view (-> I64 F64) i64->f64)
 

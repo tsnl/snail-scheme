@@ -1,4 +1,7 @@
-(import (lofi base) (lofi text) (lofi io))
+(import
+ (lofi base)
+ (lofi text)
+ (lofi io))
 
 ;; ---- Public Char APIs retain scalar types across the worker boundary ----
 

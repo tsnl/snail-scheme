@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (def boxed (All (T) Any)
      (ann (ann (lambda (value) value) (-> T T)) Any))
 (def number-identity (ann (inst boxed I64) (-> I64 I64)))

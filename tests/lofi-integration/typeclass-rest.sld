@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Choose (typeclass ( T) (: choose (-> T (Rest T) T))))
 (def lofi-migration-instance-1 (instance (Choose I64)
                                          (choose (lambda (first . remaining)

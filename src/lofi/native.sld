@@ -2,10 +2,16 @@
 ;; native package's fixed invocation protocol. The compiler never imports this.
 (define-library (lofi native)
   (export artifact->native-object)
-  (import (scheme base) (scheme file) (scheme write) (only (chibi filesystem) create-directory*)
-          (wasm-native) (wasm-native process) (wasm-native wasm-read)
-          (wasm-native scalar-entry)
-          (lofi artifact))
+  (import
+   (scheme base)
+   (scheme file)
+   (scheme write)
+   (only (chibi filesystem) create-directory*)
+   (wasm-native)
+   (wasm-native process)
+   (wasm-native wasm-read)
+   (wasm-native scalar-entry)
+   (lofi artifact))
   (begin
 
     ;; ---- Wasm bytes and explicit scalar protocol metadata ----

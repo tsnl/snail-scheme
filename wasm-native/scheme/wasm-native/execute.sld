@@ -6,12 +6,25 @@
           runtime-provider make-rust-provider native-code? linked-code? native-instance?
           native-code-library native-code-export native-code-parameters native-code-result
           linked-code-directory instance-directory)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
-          (scheme process-context) (chibi filesystem) (chibi bytevector) (wasm-native json)
-          (chibi weak) (chibi string) (srfi 1) (srfi 18) (srfi 151)
-          (only (srfi 132) list-sort)
-          (only (chibi process) fork execute waitpid current-process-id set-signal-action! signal/pipe)
-          (wasm-native process) (wasm-native native-build))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (scheme inexact)
+   (scheme write)
+   (scheme process-context)
+   (chibi filesystem)
+   (chibi bytevector)
+   (wasm-native json)
+   (chibi weak)
+   (chibi string)
+   (srfi 1)
+   (srfi 18)
+   (srfi 151)
+   (only (srfi 132) list-sort)
+   (only (chibi process) fork execute waitpid current-process-id set-signal-action! signal/pipe)
+   (wasm-native process)
+   (wasm-native native-build))
   (begin
 
     ;; ---- Bounded ELF sections and scalar protocol symbols ----
@@ -121,8 +134,12 @@
     (define (symbol<? left right) (string<? (symbol->string left) (symbol->string right)))
     (define-record-type <native-code>
       (new-native-code bytes library export parameters result imports) native-code?
-      (bytes code-bytes) (library code-library) (export native-code-export)
-      (parameters code-parameters) (result native-code-result) (imports code-imports))
+      (bytes code-bytes)
+      (library code-library)
+      (export native-code-export)
+      (parameters code-parameters)
+      (result native-code-result)
+      (imports code-imports))
     (define (native-code-library code) (append (code-library code) '()))
     (define (native-code-parameters code) (append (code-parameters code) '()))
     (define (load-native artifact)
@@ -144,14 +161,18 @@
 
     (define-record-type <rust-provider>
       (new-rust-provider module source) rust-provider?
-      (module provider-module) (source provider-source))
+      (module provider-module)
+      (source provider-source))
     (define (make-rust-provider module source)
       (unless (and (nonempty-string? module) (string? source)) (error "provider requires a module and Rust source path"))
       (new-rust-provider (string-copy module) (absolute-path source)))
     (define-record-type <runtime-provider> (runtime-provider) runtime-provider?)
     (define-record-type <linked-code>
       (new-linked-code code directory executable supervisor) linked-code?
-      (code linked-code) (directory linked-directory) (executable linked-executable) (supervisor linked-supervisor))
+      (code linked-code)
+      (directory linked-directory)
+      (executable linked-executable)
+      (supervisor linked-supervisor))
     (define (linked-code-directory code) (string-copy (linked-directory code)))
     (define (provider-declarations root providers)
       (append-map
@@ -221,10 +242,16 @@
 
     (define-record-type <instance-state>
       (new-instance-state code directory pid request response mutex alive) instance-state?
-      (code state-code) (directory state-directory) (pid state-pid) (request state-request)
-      (response state-response) (mutex state-mutex) (alive state-alive? set-state-alive!))
+      (code state-code)
+      (directory state-directory)
+      (pid state-pid)
+      (request state-request)
+      (response state-response)
+      (mutex state-mutex)
+      (alive state-alive? set-state-alive!))
     (define-record-type <native-instance>
-      (new-native-instance state) native-instance? (state instance-state))
+      (new-native-instance state) native-instance?
+      (state instance-state))
     ;; Chibi parameters live in each thread's traced dynamic environment. Calls
     ;; root their wrapper until after releasing its lock; cleanup never owns it.
     (define active-native-instance (make-parameter #f))
@@ -366,7 +393,9 @@
   (cond-expand
    (snail-tests
     (export test-native-execution)
-    (import (wasm-native test-utils) (only (chibi ast) gc))
+    (import
+     (wasm-native test-utils)
+     (only (chibi ast) gc))
     (begin
       (define (test-error thunk)
         (guard (failure (else (and (error-object? failure) (error-object-message failure)))) (thunk) #f))

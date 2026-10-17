@@ -1,7 +1,8 @@
 ;; Scalar real mathematics shared by the native and linked Wasm runtimes.
 (define-library (lofi math)
   (export sin cos tan asin acos atan atan2 exp log pow)
-  (import (lofi base))
+  (import
+   (lofi base))
 
   ;; ---- Binary64 trigonometry ----
 

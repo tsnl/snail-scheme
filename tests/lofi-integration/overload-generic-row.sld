@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload choose (All (T) (-> T T T)) (lambda (left right) left))
 (define-overload choose (All (T) (-> T T)) (lambda (value) value))
 (def alias

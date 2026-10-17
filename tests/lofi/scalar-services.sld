@@ -1,4 +1,7 @@
-(import (lofi base) (lofi math) (lofi text))
+(import
+ (lofi base)
+ (lofi math)
+ (lofi text))
 
 ;; ---- Concrete scalar calls retain their public ABI ----
 

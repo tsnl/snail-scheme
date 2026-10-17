@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def values
      (ann (make-vector (ann 100000 I64)) (Vector I64)))
 (if (if (= (vector-length values) (ann 100000 I64))

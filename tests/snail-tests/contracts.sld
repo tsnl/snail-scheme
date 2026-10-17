@@ -1,9 +1,18 @@
 ;; Syntax, inference and initialization contracts retain both Wasm forms.
 (define-library (snail-tests contracts)
   (export run-contract-suite)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme write)
-          (srfi 1) (only (chibi string) string-suffix? call-with-output-string) (srfi 95) (chibi pathname)
-          (chibi regexp) (chibi regexp pcre) (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme write)
+   (srfi 1)
+   (only (chibi string) string-suffix? call-with-output-string)
+   (srfi 95)
+   (chibi pathname)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (snail-tests harness))
   (begin
 
     ;; ---- Located rejections and complete case inventories ----

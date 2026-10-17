@@ -1,8 +1,11 @@
 ;; App-authored shader code contains Scheme forms, not embedded WGSL.
 (define-library (siegework shaders)
   (export shader-entry)
-  (import (scheme base) (webgpu shader) (browser application)
-          (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (webgpu shader)
+   (browser application)
+   (only (lofi core) ann -> I32))
   (begin
     ;; Composition is ordinary Scheme macro expansion before shader checking.
     (define-syntax clip-position

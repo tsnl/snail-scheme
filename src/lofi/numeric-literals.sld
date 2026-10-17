@@ -2,11 +2,14 @@
 ;; a decimal F32 literal must not round through the reader's F64 approximation.
 (define-library (lofi numeric-literals)
   (export literal-number-value checked-integer-literal rounded-float-literal)
-  (import (scheme base) (scheme char) (scheme inexact)
-          (only (scheme bitwise) integer-length)
-          (only (scheme bytevector) bytevector-u32-native-set! bytevector-u64-native-set!
-                bytevector-ieee-single-native-ref bytevector-ieee-double-native-ref)
-          (only (lofi types) strict-error))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme inexact)
+   (only (scheme bitwise) integer-length)
+   (only (scheme bytevector) bytevector-u32-native-set! bytevector-u64-native-set!
+         bytevector-ieee-single-native-ref bytevector-ieee-double-native-ref)
+   (only (lofi types) strict-error))
   (begin
 
     ;; ---- Source spelling and explicit IEEE values ----
@@ -145,9 +148,10 @@
   (cond-expand
    (snail-tests
     (export test-numeric-literals)
-    (import (wasm-native test-utils)
-            (only (scheme bytevector) bytevector-ieee-single-native-set! bytevector-ieee-double-native-set!
-                  bytevector-u32-native-ref bytevector-u64-native-ref))
+    (import
+     (wasm-native test-utils)
+     (only (scheme bytevector) bytevector-ieee-single-native-set! bytevector-ieee-double-native-set!
+           bytevector-u32-native-ref bytevector-u64-native-ref))
     (begin
       (define (literal-bits text type)
         (let ((value (rounded-float-literal (string->number text) text type #f))

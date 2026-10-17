@@ -1,2 +1,3 @@
-(import (lofi base))
+(import
+ (lofi base))
 (vector-ref (ann (ann "AB" Any) (Vector Char)) (ann 0 I64))

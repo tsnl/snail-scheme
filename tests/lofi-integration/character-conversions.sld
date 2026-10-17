@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def convert
      (lambda (procedure value) (procedure value)))
 

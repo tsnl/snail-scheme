@@ -2,9 +2,16 @@
 ;; knows the runtime's Wasm ABI and Binaryen; it never imports native lowering.
 (define-library (wasm-native runtime-wasm)
   (export build-wasm-runtime link-wasm-runtime)
-  (import (scheme base) (scheme cxr) (scheme file) (chibi filesystem)
-          (chibi string) (chibi regexp) (only (srfi 1) any)
-          (wasm-native process) (wasm-native wasm-optimize))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (chibi filesystem)
+   (chibi string)
+   (chibi regexp)
+   (only (srfi 1) any)
+   (wasm-native process)
+   (wasm-native wasm-optimize))
   (begin
 
     ;; ---- Runtime Wasm ABI ----

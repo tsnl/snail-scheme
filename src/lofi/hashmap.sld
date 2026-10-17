@@ -3,11 +3,15 @@
 (define-library (lofi hashmap)
   (export hashmap hashmap? hashmap-ref hashmap-ref/default hashmap-set hashmap-fold
           hashmap-size hashmap-contains? hashmap-key-comparator)
-  (import (scheme base) (scheme case-lambda) (scheme cxr) (scheme char)
-          (only (srfi 128) comparator-hashable? comparator-hash-function
-                comparator-equality-predicate comparator-test-type)
-          (only (srfi 151) bitwise-and bitwise-xor)
-          (only (srfi 69) hash hash-by-identity string-hash string-ci-hash))
+  (import
+   (scheme base)
+   (scheme case-lambda)
+   (scheme cxr)
+   (scheme char)
+   (only (srfi 128) comparator-hashable? comparator-hash-function
+         comparator-equality-predicate comparator-test-type)
+   (only (srfi 151) bitwise-and bitwise-xor)
+   (only (srfi 69) hash hash-by-identity string-hash string-ci-hash))
   (begin
 
     ;; ---- Persistent compressed hash trie ----
@@ -18,15 +22,20 @@
     ;; unused bit positions keeps large hash gaps from creating unary chains.
     (define-record-type <hashmap>
       (make-hashmap comparator hasher root size) hashmap?
-      (comparator hashmap-key-comparator) (hasher hashmap-hasher)
-      (root hashmap-root) (size hashmap-size))
+      (comparator hashmap-key-comparator)
+      (hasher hashmap-hasher)
+      (root hashmap-root)
+      (size hashmap-size))
     (define-record-type <leaf>
       (make-leaf hash entries) leaf?
-      (hash leaf-hash) (entries leaf-entries))
+      (hash leaf-hash)
+      (entries leaf-entries))
     (define-record-type <branch>
       (make-branch mask prefix zero one) branch?
-      (mask branch-mask) (prefix branch-prefix)
-      (zero branch-zero) (one branch-one))
+      (mask branch-mask)
+      (prefix branch-prefix)
+      (zero branch-zero)
+      (one branch-one))
     (define (hash-bit? hash mask) (not (zero? (bitwise-and hash mask))))
     (define (prefix-matches? branch hash)
       (= (bitwise-and hash (- (branch-mask branch) 1)) (branch-prefix branch)))
@@ -155,8 +164,9 @@
   (cond-expand
    (snail-tests
     (export test-hashmap)
-    (import (wasm-native test-utils)
-            (only (srfi 128) make-comparator make-eq-comparator))
+    (import
+     (wasm-native test-utils)
+     (only (srfi 128) make-comparator make-eq-comparator))
     (begin
       (define (collision-comparator)
         (make-comparator string? string-ci=? #f (lambda (key) 7)))
