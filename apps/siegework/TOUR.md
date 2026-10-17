@@ -15,7 +15,7 @@ game vision; the [compiler tour](../../TOUR.md) follows Scheme into Wasm.
 | File | What to follow |
 | --- | --- |
 | [`game.sld`](src/siegework/game.sld) | `match-app` and `client-app` declare commands; `game` joins their codecs and presentation; `application-entry` exposes the scalar entry point. |
-| [`model.sld`](src/siegework/model.sld) | `World` and its component records explain the state; command functions and `advance-world` explain every simulation change. |
+| [`model.sld`](src/siegework/model.sld) | Named map, economy, combat and outcome constants explain the rules; `World`, command functions and `advance-world` explain the state and its changes. |
 | [`codec.sld`](src/siegework/codec.sld) | `encode-world` and `decode-world` translate between records and the fixed snapshot layout. |
 | [`shaders.sld`](src/siegework/shaders.sld) | Scheme macros compose shader expressions, and `shader-entry` exposes the generated text. |
 | [`settings.json`](settings.json) | Handler names connect to keyboard, pointer, controller and authority clock inputs. |
@@ -103,6 +103,12 @@ tool, x and y. Vector indices use `I64`, so the codecs explicitly widen their
 and nonnegative credits; `decode-client` checks schema, tool and cell bounds.
 Snapshot words contain values, with no Wasm references or GPU handles.
 
+This handwritten codec is a workaround for the current scalar bridge. The
+intended language facility is automatic value-graph serialization through a
+common S-expression representation, with readable text and compact binary
+encodings that preserve type information, sharing and cycles. That facility is
+not implemented yet; the word layout above describes the current application.
+
 ## Follow one simulation tick
 
 `settings.json` selects `advance` as the clock handler and a 100 ms interval.
@@ -173,7 +179,11 @@ the replacement path covers compiled Scheme modules and shader pipelines.
 
 ## Where to make a change
 
-- Change costs, movement, damage or wave timing in `model.sld`.
+- Change costs, movement, damage or wave timing in the constant sections at the
+  top of `model.sld`. Constants shared with presentation are exported there.
+  Palette and sprite dimensions live at the top of `game.sld`; its price and
+  timing text uses the rule constants. Static button labels in `index.html`
+  and dimensions/tick settings in `settings.json` still need matching edits.
 - Add a command in `game.sld`, then connect its input and remote exposure in
   `settings.json`; add a page button in `index.html` when appropriate.
 - Change stored fields in the record and its codec together. Field meaning is
