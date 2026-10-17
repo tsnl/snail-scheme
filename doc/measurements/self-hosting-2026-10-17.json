@@ -1,0 +1,349 @@
+{
+  "purpose": "Single-machine build observations, not a self-hosting performance comparison",
+  "firstBaseline": {
+    "command": [
+      "chibi-scheme",
+      "-I",
+      "$REPO/bootstrap",
+      "-I",
+      "$REPO/wasm-native/scheme",
+      "$REPO/apps/siegework/build.scm",
+      "$REPO",
+      "$REPO/build/self-hosting-baseline"
+    ],
+    "commit": "62f4e0d66a79e881f4837f6fb398e3b717de819d",
+    "binaryen_cores": "1",
+    "load_before": [
+      4.1357421875,
+      3.7109375,
+      3.63720703125
+    ],
+    "kind": "unprofiled wall-time sample; build trace remains enabled by product driver",
+    "status": 0,
+    "seconds": 152.967560760997,
+    "load_after": [
+      5.36376953125,
+      4.42431640625,
+      3.921875
+    ],
+    "artifacts": {
+      "shader.wasm": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef",
+      "simulation.wasm": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+    }
+  },
+  "baseline": {
+    "input": {
+      "mode": "baseline",
+      "source": {
+        "commit": "a1c8ec375406ca6d32d6b17bf5644bf7d86a259c",
+        "status": "",
+        "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runnerSha256": "b21897589df9e65fac6c9a196a9edb4eefe348dde86631f622a554b635617761"
+      },
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/self-hosting-baseline-3/app"
+      ],
+      "tools": {
+        "chibi": {
+          "command": "chibi-scheme",
+          "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+        },
+        "wasmAs": {
+          "command": "wasm-as",
+          "version": "wasm-as version 132"
+        },
+        "wasmOpt": {
+          "command": "wasm-opt",
+          "version": "wasm-opt version 132"
+        },
+        "node": {
+          "command": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "version": "v24.19.0"
+        }
+      },
+      "environment": {
+        "BINARYEN_CORES": "1",
+        "CHIBI": null,
+        "WASM_AS": null,
+        "WASM_OPT": null,
+        "WASM_DIS": null,
+        "WASM_MERGE": null,
+        "SNAIL_PROFILE_DIRECTORY": null
+      },
+      "host": {
+        "platform": "linux",
+        "release": "7.2.3",
+        "architecture": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+        "logicalCPUs": 24,
+        "memoryBytes": 33340952576
+      }
+    },
+    "execution": {
+      "before": {
+        "time": "2026-10-17T11:09:21.304Z",
+        "load": [
+          5.03,
+          5.02,
+          4.38
+        ]
+      },
+      "seconds": 149.22627300399998,
+      "status": 0,
+      "signal": null,
+      "after": {
+        "time": "2026-10-17T11:11:50.532Z",
+        "load": [
+          5.17,
+          5.38,
+          4.64
+        ]
+      }
+    },
+    "result": {
+      "kind": "wall-time sample",
+      "artifacts": {
+        "shader.wasm": {
+          "bytes": 7465,
+          "sha256": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef"
+        },
+        "simulation.wasm": {
+          "bytes": 92192,
+          "sha256": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+        }
+      }
+    }
+  },
+  "profile": {
+    "input": {
+      "mode": "profile",
+      "source": {
+        "commit": "a1c8ec375406ca6d32d6b17bf5644bf7d86a259c",
+        "status": "",
+        "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runnerSha256": "b21897589df9e65fac6c9a196a9edb4eefe348dde86631f622a554b635617761"
+      },
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "-I",
+        "$REPO/build/self-hosting-profile-1/overlay",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/self-hosting-profile-1/app"
+      ],
+      "tools": {
+        "chibi": {
+          "command": "chibi-scheme",
+          "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+        },
+        "wasmAs": {
+          "command": "wasm-as",
+          "version": "wasm-as version 132"
+        },
+        "wasmOpt": {
+          "command": "wasm-opt",
+          "version": "wasm-opt version 132"
+        },
+        "node": {
+          "command": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "version": "v24.19.0"
+        }
+      },
+      "environment": {
+        "BINARYEN_CORES": "1",
+        "CHIBI": null,
+        "WASM_AS": null,
+        "WASM_OPT": null,
+        "WASM_DIS": null,
+        "WASM_MERGE": null,
+        "SNAIL_PROFILE_DIRECTORY": "$REPO/build/self-hosting-profile-1"
+      },
+      "host": {
+        "platform": "linux",
+        "release": "7.2.3",
+        "architecture": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+        "logicalCPUs": 24,
+        "memoryBytes": 33340952576
+      }
+    },
+    "execution": {
+      "before": {
+        "time": "2026-10-17T11:11:50.663Z",
+        "load": [
+          5.17,
+          5.38,
+          4.64
+        ]
+      },
+      "seconds": 120.93540770999999,
+      "status": 0,
+      "signal": null,
+      "after": {
+        "time": "2026-10-17T11:13:51.600Z",
+        "load": [
+          4.03,
+          4.92,
+          4.56
+        ]
+      }
+    },
+    "result": {
+      "kind": "instrumented diagnostic",
+      "artifacts": {
+        "shader.wasm": {
+          "bytes": 7465,
+          "sha256": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef"
+        },
+        "simulation.wasm": {
+          "bytes": 92192,
+          "sha256": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+        }
+      },
+      "traces": {
+        "compiler": {
+          "file->reader": 0.031000000000000007,
+          "reader->syntax-list": 8.309000000000001,
+          "lofi.parse": 0.508,
+          "lofi.resolve": 2.0300000000000002,
+          "lofi.check": 32.303,
+          "lofi.specialize": 9.954,
+          "lofi.emit": 65.3,
+          "lofi.artifact": 1.432
+        },
+        "artifacts": {
+          "shader-entry": {
+            "write-wasm": 0.002,
+            "lofi.write-wasm": 0.002,
+            "build.assemble": 0.011,
+            "build.optimize-wasm": 0.079,
+            "lofi.read-artifact": 0.002
+          },
+          "application-entry": {
+            "write-wasm": 0.031,
+            "lofi.write-wasm": 0.031,
+            "build.assemble": 0.071,
+            "build.optimize-wasm": 1.122,
+            "lofi.read-artifact": 0.013
+          }
+        }
+      }
+    }
+  },
+  "instrumentation": {
+    "lofi/compiler/bootstrap.sld": {
+      "original": "59fb927db540cc1ab37a971c7036ed56bf731deb5871b566f4ef35457753413e",
+      "instrumented": "c690aba5a8883b053c1dd7d582920c9d1a02d29e0a3cfb189fe3254a4299655d"
+    },
+    "lofi/artifact.sld": {
+      "original": "4596f977883bbef4c7e377c89be0727d1e850ea94a6c1c7526d98921ba52cf5b",
+      "instrumented": "b3d5a7d7025d7bef715c9eaca68e1323288a01f1e4458a62eb0ad7c3a0778840"
+    }
+  },
+  "readiness": {
+    "commands": [
+      {
+        "name": "native-control-build",
+        "command": [
+          "$REPO/scripts/build-native",
+          "$REPO/examples/scheme-fibonacci.sld",
+          "$REPO/build/self-hosting-probes/fibonacci"
+        ],
+        "status": 0,
+        "seconds": 17.112885982998705
+      },
+      {
+        "name": "native-control-run",
+        "command": [
+          "$REPO/build/self-hosting-probes/fibonacci"
+        ],
+        "status": 0,
+        "seconds": 0.005915603000175906
+      },
+      {
+        "name": "compiler-source",
+        "command": [
+          "$REPO/scripts/build-lofi",
+          "$REPO/src/lofi/compiler/bootstrap.sld",
+          "$REPO/build/self-hosting-probes/compiler.wasm"
+        ],
+        "status": 1,
+        "seconds": 2.1380138429994986
+      },
+      {
+        "name": "native-service",
+        "command": [
+          "$REPO/scripts/build-native",
+          "$REPO/build/self-hosting-probes/service.sld",
+          "$REPO/build/self-hosting-probes/service"
+        ],
+        "status": 1,
+        "seconds": 14.16175956799998
+      }
+    ],
+    "featureProbes": [
+      {
+        "name": "prefix",
+        "command": [
+          "scripts/build-lofi",
+          "build/self-hosting-probes/prefix.sld",
+          "build/self-hosting-probes/prefix.wasm"
+        ],
+        "status": 1,
+        "seconds": 0.9334394500001508,
+        "diagnostic": "lofi: {Exception #19 user \"$REPO/build/self-hosting-probes/prefix.sld:1:9: unsupported Lofi import modifier\" (prefix) #f #f #f}\n",
+        "source": "(import (prefix (scheme base) s:))\n42\n"
+      },
+      {
+        "name": "records",
+        "command": [
+          "scripts/build-lofi",
+          "build/self-hosting-probes/records.sld",
+          "build/self-hosting-probes/records.wasm"
+        ],
+        "status": 1,
+        "seconds": 2.3406713609983854,
+        "diagnostic": "lofi: {Exception #19 user \"$REPO/build/self-hosting-probes/records.sld:3:13: unbound Lofi name\" (make-box) #f #f #f}\n",
+        "source": "(import (scheme base))\n(define-record-type <box> (make-box value) box? (value box-value))\n(box-value (make-box 42))\n"
+      },
+      {
+        "name": "truthiness",
+        "command": [
+          "scripts/build-lofi",
+          "build/self-hosting-probes/truthiness.sld",
+          "build/self-hosting-probes/truthiness.wasm"
+        ],
+        "status": 1,
+        "seconds": 2.522239043999434,
+        "diagnostic": "lofi: {Exception #19 user \"$REPO/build/self-hosting-probes/truthiness.sld:2:5: type mismatch; cannot unify\" (I32 Bool) #f #f #f}\n",
+        "source": "(import (scheme base))\n(if 1 42 0)\n"
+      },
+      {
+        "name": "quote",
+        "command": [
+          "scripts/build-lofi",
+          "build/self-hosting-probes/quote.sld",
+          "build/self-hosting-probes/quote.wasm"
+        ],
+        "status": 1,
+        "seconds": 0.948746215999563,
+        "diagnostic": "lofi: {Exception #19 user \"$REPO/build/self-hosting-probes/quote.sld:2:15: cannot parse Lofi source: expected closing delimiter ')'\" () #f #f #f}\n",
+        "source": "(import (scheme base))\n(define value '(name 42))\n42\n"
+      }
+    ],
+    "nativeControlOutput": "832040\n",
+    "compilerDiagnostic": "lofi: {Exception #19 user \"$REPO/src/lofi/compiler/bootstrap.sld:30:23: cannot parse Lofi source: expected closing delimiter ')'\" () #f #f #f}\n",
+    "serviceDiagnostic": "lofi: {Exception #19 user \"native import has no provider declaration\" ((\"lofi.compiler\" \"result-ok\")) #f #f #f}\n"
+  }
+}

@@ -19,6 +19,11 @@ The compiler cannot compile its own implementation yet. `bootstrap/` is a loader
 view of `src/lofi`, keeping Chibi's own `(scheme base)` separate from the product
 library. Executable Chibi orchestration scripts retain `.scm`.
 
+The [native self-hosting investigation](doc/self-hosting.md) records Siegework
+build costs, compatibility blockers and the proposed `snail run` / `snail build`
+bootstrap. [`scripts/measure-siegework.mjs`](scripts/measure-siegework.mjs) measures
+the original build or profiles a private loader view; self-hosting remains proposed.
+
 ## Read the passes in this order
 
 | Step | File | What to follow |

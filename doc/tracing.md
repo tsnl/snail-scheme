@@ -20,8 +20,12 @@ loading, refresh, escaped filenames and HTTP file boundaries.
 
 ## Pass boundaries
 
-The compiler records resolution, inference, specialization and Wasm emission
-as separate spans. Each source read and syntax parse has its own nested span.
+Source reads and syntax parsing have their own spans. The shipped bootstrap
+compiler does not currently wrap resolution, inference, specialization and Wasm
+emission with phase spans. For those boundaries on a complete Siegework build,
+use the private instrumentation in
+[`scripts/measure-siegework.mjs`](../scripts/measure-siegework.mjs); see the
+[self-hosting investigation](self-hosting.md) for commands and timing limits.
 Assembly, mandatory Binaryen optimization, disassembly and native lowering
 record their own build operations. Inclusive/exclusive durations distinguish
 a pass's own work from its children.

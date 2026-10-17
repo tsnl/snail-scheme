@@ -43,7 +43,7 @@ function artifactOverlay(source) {
   source = replaceOnce(source, '(string-append directory "/compile.trace.json")',
     '(string-append (get-environment-variable "SNAIL_PROFILE_DIRECTORY")\n' +
     '                         "/artifact-" (symbol->string (entry-export entry)) ".trace.json")');
-  source = decorate(source, '(write-wasm module port)', 'lofi.write-wasm');
+  // write-wasm and Binaryen already trace their work inside the retained scope.
   return decorate(source, '(file-bytes output)', 'lofi.read-artifact');
 }
 
