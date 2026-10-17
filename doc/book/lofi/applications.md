@@ -47,6 +47,7 @@ For cross-owner dispatch, attach an application to an explicit destination and
 return a send description:
 
 ```scheme
+(import (scheme immutable)) ; supplies immutable list construction
 (define counter-target (destination match-owner counter))
 ;; From a handler returning its own next state:
 (transition next-client (list (enqueue counter-target (add 2))))
@@ -112,7 +113,7 @@ and one local client. Declare both with `application`, then compose a program:
 | Word counts | Positive `I32` lengths of the portable snapshots. |
 | `decode-*` | `(Vector I32) -> State`; reject invalid schema/values by trapping. |
 | `encode-*` | `State -> (Vector I32)`; allocate an owned vector of exactly the declared length. |
-| `view` | `World -> Client -> (List Quad)` in a single two-argument procedure; no mutation or effects. |
+| `view` | `(-> World Client (List Quad))`, a two-argument procedure with no mutation or effects. |
 | `status` | Two arguments, `World` and `Client`, returning `String`. |
 
 Word zero is the positive schema version; an all-zero host buffer means absent
@@ -121,6 +122,44 @@ state. Other fields belong to the application's codec. Construct quads with
 0–255. Export an entry annotated `(-> I32 I32 I32 I32 I32)` that forwards its four
 arguments to `(run-program program operation a b c)`. Applications do not call the
 raw bridge imports themselves.
+
+### Immutable records and snapshot codecs
+
+`(scheme immutable)` provides `list`, `append`, `reverse` and
+`define-immutable-record`. These are separate imports from the initial
+`(scheme base)` subset. A record declaration names its constructor, accessors and
+pure replacements:
+
+```scheme
+(define-immutable-record Stock stock
+  (ore I32 stock-ore with-stock-ore))
+(define before (stock 40))
+(define after (with-stock-ore before 42)) ; before still contains 40
+```
+
+Application word counts and snapshot contents are `I32`. The current Scheme
+vector API takes **`I64` lengths and indices**, so use an explicit annotation for
+a literal or `i32->i64` for a computed index. An encoder may mutate a newly
+allocated, owned vector; it must not mutate an earlier application state or
+snapshot. For example:
+
+```scheme
+(define (encode-stock value)
+  (let ((words (ann (make-vector (ann 2 I64) 0) (Vector I32))))
+    (vector-set! words (ann 0 I64) 1) ; schema
+    (vector-set! words (ann 1 I64) (stock-ore value))
+    words))
+```
+
+The complete runnable
+[`examples/applications/state.sld`](../../../examples/applications/state.sld)
+includes imports, schema checking and a retained prior record. Compile it with
+the same `tests/applications/build.scm` command used for the counter, substituting
+`state.sld` and `state.wasm`; invoking its `answer` prints `42`. Import
+`(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-text`, and
+`(application bridge)` for `program` and `run-program`.
+
+### Packaging the compiled application
 
 The app-local `build.scm` compiles that entry through `(lofi compiler bootstrap)`
 and compiles a shader entry which returns WGSL Unicode scalars (negative index

@@ -19,7 +19,9 @@ await test('Scheme and Lofi share the shader compiler; composition rejects stage
   for (const name of ['shader', 'shader-lofi']) { const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 1); closeInstance(i); }
 });
 await test('retained immutable Scheme records remain unchanged', () => {
-  const i = instantiate(loadWasm(fixture('immutable'))); assert.equal(invokeEntry(i, []), 1); closeInstance(i);
+  for (const [name, expected] of [['immutable', 1], ['state', 42]]) {
+    const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), expected); closeInstance(i);
+  }
 });
 await test('Scheme and Lofi run the same typed lexical application API', () => {
   for (const name of ['counter', 'counter-lofi']) {

@@ -6,9 +6,11 @@ output="$root/build/application-tests"
 mkdir -p "$output"
 chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
   "$root/apps/siegework/build.scm" "$root" "$root/build/siegework"
-for fixture in counter counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view; do
-  if [ "$fixture" = counter ]; then source="$root/examples/applications/counter.sld"
-  else source="$root/tests/applications/$fixture.sld"; fi
+for fixture in counter state counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view; do
+  case "$fixture" in
+    counter|state) source="$root/examples/applications/$fixture.sld" ;;
+    *) source="$root/tests/applications/$fixture.sld" ;;
+  esac
   chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
     "$root/tests/applications/build.scm" "$root" "$source" "$output/$fixture.wasm"
 done
