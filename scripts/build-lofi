@@ -1,0 +1,3 @@
+#!/bin/sh
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHIBI:-chibi-scheme}" -I "$root/bootstrap" -I "$root/wasm-native/scheme" "$root/scripts/build-lofi.scm" "$root" "$@"

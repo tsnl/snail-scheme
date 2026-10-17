@@ -1,2 +1,0 @@
-(import (sfir base) (sfir integer))
-(integer #f (vector (ann 1 I32)))

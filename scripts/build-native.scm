@@ -1,9 +1,9 @@
-;; Build-script composition: Sphere emits Wasm, then the standalone package
+;; Build-script composition: Lofi emits Wasm, then the standalone package
 ;; lowers that Wasm and explicitly links Cargo providers. No compiler target.
 (import (scheme base) (scheme cxr) (scheme file) (scheme write)
         (chibi filesystem) (chibi pathname) (chibi string) (chibi regexp) (srfi 1)
         (wasm-native) (wasm-native process) (wasm-native wasm-optimize)
-        (wasm-native chromium-trace) (snail-sfir source-driver))
+        (wasm-native chromium-trace) (lofi source-driver))
 
 ;; ---- Source selection and protected outputs ----
 
@@ -33,7 +33,7 @@
 (define (protected-output? root output inputs libraries)
   (or (any (lambda (input) (paths-alias? output input)) inputs)
       (any (lambda (directory) (string-prefix? (string-append directory "/") output))
-           (append (map (lambda (name) (path-join root name)) '("src" "scripts" "lib" "wasm-native")) libraries))))
+           (append (map (lambda (name) (path-join root name)) '("src" "bootstrap" "scripts" "wasm-native")) libraries))))
 
 ;; ---- Command entry policy ----
 
@@ -65,7 +65,7 @@
     (assemble-wasm text binary)
     binary))
 (define (compile-native root options directory bindings)
-  (let* ((source (option-ref options 'source #f)) (mode (option-ref options 'mode 'sfir))
+  (let* ((source (option-ref options 'source #f)) (mode (option-ref options 'mode 'lofi))
          (llvm (path-join directory "module.ll"))
          (guest (path-join directory (if (eq? mode 'object) "module.o" "module.bc"))))
     (with-chromium-trace-to
@@ -92,7 +92,7 @@
                                                                     (list (option-ref options 'entry #f)) '())))
                          (directory-files-recursive (path-join root "src"))
                          (directory-files-recursive (path-join root "scripts"))
-                         (append-map directory-files-recursive (cons (path-join root "lib") libraries))
+                         (append-map directory-files-recursive (cons (path-join root "src") libraries))
                          (append-map (lambda (part) (directory-files-recursive (path-join root "wasm-native" part)))
                                      '("src" "scheme" "scripts"))
                          (list (path-join root "wasm-native/Cargo.toml") (path-join root "wasm-native/Cargo.lock")))))
@@ -110,7 +110,7 @@
                   (check-stable-inputs before)
                   (rename-file program output))))
             (lambda () (native-evidence root directory inputs before output
-                                        (if (eq? (option-ref options 'mode 'sfir) 'object) "imported" "fresh")))))))
+                                        (if (eq? (option-ref options 'mode 'lofi) 'object) "imported" "fresh")))))))
   0)
 
-(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "snail-sfir")
+(command-line-main (lambda (arguments) (build-native-main (car arguments) (cdr arguments))) "lofi")

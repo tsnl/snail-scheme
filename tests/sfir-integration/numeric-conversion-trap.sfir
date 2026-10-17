@@ -1,2 +1,0 @@
-(import (sfir base))
-(f64->i64 +inf.0)

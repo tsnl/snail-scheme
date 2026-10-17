@@ -5,7 +5,7 @@ It has no dependency on native lowering. Importing its libraries creates no
 trace files. A build establishes a destination before it runs traced passes,
 and closes that destination on normal return.
 
-`scripts/build-sfir input.sfir output.wasm` retains `output.wasm.trace.json`.
+`scripts/build-lofi input.sld output.wasm` retains `output.wasm.trace.json`.
 Native builds retain `compile.trace.json` in their unique build directory.
 These are compiler timings, separate from benchmark execution measurements.
 
@@ -40,7 +40,7 @@ There are no portable collector or per-instruction measurements in these traces.
   (lambda () (timed-add 20 22)))
 ```
 
-This is compiler implementation code executed by Chibi, not SFIR product input.
+This is compiler implementation code executed by Chibi, not Lofi product input.
 The decorator preserves zero, one or multiple results and requires an active
 file scope. Nested scopes restore the enclosing destination. Each file starts
 with thread metadata, followed by Chromium complete-duration events in integer
@@ -51,5 +51,5 @@ behavior, so instrumentation must stay outside clean performance comparisons.
 
 `make test` and `scripts/test-chromium-trace` check escaping, nested destinations,
 closure, missing destinations, file-opening errors and abandoned spans. A future
-SFIR tracing library is separate work; no Scheme compilation path is retained
+Lofi tracing library is separate work; no Scheme compilation path is retained
 for the host decorator.

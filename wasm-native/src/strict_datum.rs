@@ -1,4 +1,4 @@
-//! Scalar services for SFIR datums. The SFIR library owns reading and allocation.
+//! Scalar services for Lofi datums. The Lofi library owns reading and allocation.
 //! Rust owns temporary text/number handles and symbol names.
 
 use crate::strict_number::{Number, Scalar};
@@ -165,7 +165,7 @@ pub extern "C" fn token_identifier(id: u32) -> i32 {
     checked(TOKENS.with_borrow(|tokens| Ok(i32::from(identifier(tokens.get(id)?.text())))))
 }
 
-// ---- Identifier grammar for the SFIR datum reader ----
+// ---- Identifier grammar for the Lofi datum reader ----
 
 fn identifier_initial(character: char) -> bool {
     character.is_alphabetic() || "!$%&*/:<=>?^_~@".contains(character)

@@ -1,0 +1,3 @@
+(import (lofi base))
+(define-extern foreign "probe" "id" (All (T) (-> T T)))
+42

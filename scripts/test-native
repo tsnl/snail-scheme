@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "${CHIBI:-chibi-scheme}" -I "$root/src" -I "$root/wasm-native/scheme" -I "$root/tests" -I "$root/wasm-native/tests" "$root/tests/run.scm" "$root" "native" "$@"
+exec "${CHIBI:-chibi-scheme}" -I "$root/bootstrap" -I "$root/wasm-native/scheme" -I "$root/tests" -I "$root/wasm-native/tests" "$root/tests/run.scm" "$root" "native" "$@"

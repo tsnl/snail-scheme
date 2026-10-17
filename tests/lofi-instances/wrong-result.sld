@@ -1,0 +1,7 @@
+(import (lofi primitive))
+
+;; An unused general expression still must satisfy the concrete method type.
+(def Identity (typeclass (T) (: identity (-> T T))))
+(def identity-i64 (instance (Identity I64)
+                            (identity (if #t (lambda (value) #t) (lambda (value) #f)))))
+(ann 42 I64)

@@ -1,0 +1,3 @@
+(import (lofi base))
+(def Box (datatype () (box (value I64))))
+(match (box (ann 1 I64)) ((box) 0))

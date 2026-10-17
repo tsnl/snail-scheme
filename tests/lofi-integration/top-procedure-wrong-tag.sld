@@ -1,0 +1,7 @@
+(import (lofi base))
+
+(def flip (-> Bool Bool)
+     (lambda (x) (not x)))
+(def erased
+     (ann flip Any))
+((ann erased (-> I32 I32)) (ann 42 I32))

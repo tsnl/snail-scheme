@@ -1,0 +1,20 @@
+(import (lofi base))
+(def Copy (typeclass ( T) (: copy-value (-> T T))))
+(def lofi-migration-instance-1 (instance (Copy (Vector I64)) (copy-value vector-copy)))
+(def lofi-migration-instance-2 (instance (Copy (Vector Bool)) (copy-value vector-copy)))
+(def copy-twice
+     (lambda (value) (copy-value (copy-value value))))
+(def invoke
+     (lambda (operation value) (operation value)))
+(def original
+     (vector (ann 40 I64) (ann 2 I64)))
+(def copied
+     (copy-twice original))
+(def flags
+     (invoke copy-value (vector #t #f)))
+(vector-set! copied (ann 0 I64) (ann 0 I64))
+(if (if (not (vector-eq? original copied))
+        (if (vector-ref flags (ann 0 I64)) (not (vector-ref flags (ann 1 I64))) #f)
+        #f)
+    (+ (vector-ref original (ann 0 I64)) (vector-ref original (ann 1 I64)))
+    (unreachable))

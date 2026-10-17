@@ -1,0 +1,8 @@
+(import (lofi base))
+(def values
+     (ann (make-vector (ann 100000 I64)) (Vector I64)))
+(if (if (= (vector-length values) (ann 100000 I64))
+        (if (= (vector-ref values (ann 0 I64)) (ann 0 I64)) (= (vector-ref values (ann 99999 I64)) (ann 0 I64)) #f)
+        #f)
+    (ann 42 I64)
+    (unreachable))

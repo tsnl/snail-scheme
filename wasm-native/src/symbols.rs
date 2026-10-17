@@ -1,5 +1,5 @@
 //! Stable symbol IDs for the scalar datum services. Rust owns the UTF-8 names
-//! and indexed Unicode scalars; compiled SFIR carries a nonnegative I32 ID.
+//! and indexed Unicode scalars; compiled Lofi carries a nonnegative I32 ID.
 
 use std::collections::HashMap;
 

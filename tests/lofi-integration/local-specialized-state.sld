@@ -1,0 +1,11 @@
+(import (lofi base))
+(def exercise
+     (lambda (seed)
+       (begin (let cell (ref seed))
+              (begin (let counted (lambda (x)
+                                    (begin (ref-set! cell (+ (ref-get cell) (ann 1 I64))) x)))
+                     (begin
+                       (counted (ann 42 I64))
+                       (counted #t)
+                       (ref-get cell))))))
+(exercise (ann 40 I64))

@@ -1,0 +1,47 @@
+(import (lofi base))
+
+;; ---- Shared dependency paths are visited once per reachability query ----
+
+(def a0
+     (ann 1 I64))
+(def a1
+     (+ a0 a0))
+(def a2
+     (+ a1 a1))
+(def a3
+     (+ a2 a2))
+(def a4
+     (+ a3 a3))
+(def a5
+     (+ a4 a4))
+(def a6
+     (+ a5 a5))
+(def a7
+     (+ a6 a6))
+(def a8
+     (+ a7 a7))
+(def a9
+     (+ a8 a8))
+(def a10
+     (+ a9 a9))
+(def a11
+     (+ a10 a10))
+(def a12
+     (+ a11 a11))
+(def a13
+     (+ a12 a12))
+(def a14
+     (+ a13 a13))
+(def a15
+     (+ a14 a14))
+(def a16
+     (+ a15 a15))
+(def a17
+     (+ a16 a16))
+(def a18
+     (+ a17 a17))
+(def a19
+     (+ a18 a18))
+(def a20
+     (+ a19 a19))
+a20

@@ -1,0 +1,117 @@
+(import (lofi base) (lofi integer) (lofi rational) (lofi number) (lofi datum))
+
+;; ---- Scalar test transport and a checked complete token ----
+
+(define-extern argument-length "oracle" "argument_length" (-> I32 I64))
+(define-extern argument-character "oracle" "argument_character" (-> I32 I64 Char))
+(define-extern emit-character "oracle" "emit_character" (-> Char Unit))
+(def argument
+     (lambda (index)
+       (begin (let count (argument-length index))
+              (begin (let text (make-string count))
+                     (begin
+                       (def loop
+                            (lambda (at)
+                              (if (= at count)
+                                  text
+                                  (begin (string-set! text at (argument-character index at)) (loop (+ at (ann 1 I64)))))))
+                       (loop (ann 0 I64)))))))
+(def emit
+     (lambda (text)
+       (begin
+         (def loop
+              (lambda (at)
+                (if (= at (string-length text))
+                    (unit)
+                    (begin
+                      (emit-character (string-ref text at)) (loop (+ at (ann 1 I64)))
+                      (unit)))))
+         (loop (ann 0 I64)))))
+(def parsed
+     (lambda (text)
+       (match (string->number text)
+         ((parsed-number value) value)
+         ((not-a-number) (unreachable)) ((number-error message) (unreachable)))))
+
+;; ---- The Number boundary uses its ordinary static operator families ----
+
+(def arithmetic
+     (lambda (operation left right)
+       (if (= operation (ann 1 I64))
+           (+ left right)
+           (if (= operation (ann 2 I64)) (- left right) (if (= operation (ann 3 I64)) (* left right) (/ left right))))))
+(def projection
+     (lambda (operation value)
+       (if (= operation (ann 7 I64))
+           (truncate value)
+           (if (= operation (ann 9 I64))
+               (number-numerator value)
+               (if (= operation (ann 10 I64))
+                   (number-denominator value)
+                   (if (= operation (ann 11 I64))
+                       (number-real-part value)
+                       (if (= operation (ann 12 I64))
+                           (number-imag-part value)
+                           (if (= operation (ann 16 I64))
+                               (number-negate value)
+                               (if (= operation (ann 17 I64)) (number-abs value) (number-from-integer (number->integer value)))))))))))
+(def domain-bits
+     (lambda (value)
+       (+ (if (number-exact? value) (ann 1 I64) (ann 0 I64))
+          (+ (if (number-real? value) (ann 2 I64) (ann 0 I64))
+             (+ (if (number-rational? value) (ann 4 I64) (ann 0 I64))
+                (+ (if (number-integer? value) (ann 8 I64) (ann 0 I64)) (if (number-exact-integer? value) (ann 16 I64) (ann 0 I64))))))))
+(def comparison
+     (lambda (left right)
+       (+ (if (= left right) (ann 1 I64) (ann 0 I64))
+          (+ (if (< left right) (ann 2 I64) (ann 0 I64))
+             (+ (if (<= left right) (ann 4 I64) (ann 0 I64)) (+ (if (> left right) (ann 8 I64) (ann 0 I64)) (if (>= left right) (ann 16 I64) (ann 0 I64))))))))
+(def radix-number
+     (lambda (operation)
+       (begin (let lofi-migration-let-1 (argument (ann 0 I32))) (let lofi-migration-let-2 (integer->i64 (integer-from-string (argument (ann 1 I32)))))
+              (let text lofi-migration-let-1)
+              (let base lofi-migration-let-2)
+              (if (= operation (ann 19 I64))
+                  (parsed-number-value (string->number text base))
+                  (number-from-integer (integer-from-string/radix text base))))))
+(def observed-number
+     (lambda (operation value)
+       (if (= operation (ann 5 I64))
+           (number-exact (inexact-number value))
+           (if (>= operation (ann 19 I64))
+               (radix-number operation)
+               (begin (let left (parsed (argument (ann 0 I32))))
+                      (if (= operation (ann 0 I64))
+                          left
+                          (if (<= operation (ann 4 I64))
+                              (arithmetic operation left (parsed (argument (ann 1 I32))))
+                              (projection operation left))))))))
+(def scalar-observation
+     (lambda (operation)
+       (begin (let left (parsed (argument (ann 0 I32))))
+              (if (= operation (ann 6 I64))
+                  (number->f64 (number-inexact left))
+                  (if (= operation (ann 14 I64))
+                      (i64->f64 (domain-bits left))
+                      (begin (let right (parsed (argument (ann 1 I32))))
+                             (if (= operation (ann 13 I64))
+                                 (i64->f64 (comparison left right))
+                                 (if (number-equivalent? left right) 1.0 0.0))))))))
+
+(def probe (-> I64 F64 F64)
+     (lambda (operation value)
+       (if (if (= operation (ann 6 I64)) #t (if (>= operation (ann 13 I64)) (<= operation (ann 15 I64)) #f))
+           (scalar-observation operation)
+           (begin (let number (observed-number operation value))
+                  (begin (let text (number->string number))
+                         (begin
+                           (if (number-equivalent? number (parsed text))
+                               (unit)
+                               (begin (unreachable)
+                                      (unit)))
+                           (emit text) 0.0))))))
+(unit)
+
+;; Execute the retained module tests through their ordinary Lofi exports.
+(if (= (test-rational) (ann 42 I64)) (unit) (unreachable))
+(if (= (test-number) (ann 42 I64)) (unit) (unreachable))

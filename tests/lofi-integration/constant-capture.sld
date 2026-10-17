@@ -1,0 +1,26 @@
+(import (lofi base))
+
+;; Constants and mutable aliases share a recursive scope. Escaping closures
+;; must preserve separate activations while all aliases observe one Ref.
+(def make-step
+     (lambda (start)
+       (begin
+         (def advance
+              (lambda (delta)
+                (begin
+                  (ref-set! alias (+ (ref-get state) delta))
+                  (+ factor (remainder (ref-get alias) modulus)))))
+         (def factor
+              (ann 7 I64))
+         (def modulus
+              (ann 16 I64))
+         (def state
+              (ref start))
+         (def alias
+              state)
+         (lambda (delta) (advance delta)))))
+(def first
+     (make-step (ann 1 I64)))
+(def second
+     (make-step (ann 10 I64)))
+(+ (first (ann 2 I64)) (+ (second (ann 3 I64)) (first (ann 4 I64))))

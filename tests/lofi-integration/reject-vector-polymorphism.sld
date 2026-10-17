@@ -1,0 +1,8 @@
+(import (lofi base))
+(def value
+     (empty-vector))
+(def read-as-int
+     (lambda () (+ (vector-ref value (ann 0 I64)) (ann 1 I64))))
+(def read-as-bool
+     (lambda () (not (vector-ref value (ann 0 I64)))))
+(ann 42 I64)

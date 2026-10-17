@@ -1,0 +1,4 @@
+(import (lofi base))
+(def value
+     (make-vector (ann 2 I64) (ann 0 I64)))
+(ann value (Vector Any))

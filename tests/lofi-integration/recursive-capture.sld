@@ -1,0 +1,8 @@
+(import (lofi base))
+(def exercise
+     (lambda (seed)
+       (begin
+         (def loop
+              (lambda (n) (if (= n (ann 0 I64)) seed (+ (ann 1 I64) (loop (- n (ann 1 I64)))))))
+         (loop (ann 40 I64)))))
+(exercise (ann 2 I64))

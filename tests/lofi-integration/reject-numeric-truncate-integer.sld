@@ -1,0 +1,2 @@
+(import (lofi base))
+(f64-truncate (ann 42 I64))

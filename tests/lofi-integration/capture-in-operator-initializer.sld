@@ -1,0 +1,5 @@
+(import (lofi base))
+(def exercise
+     (lambda (x)
+       ((begin (let y x) (lambda () y)))))
+(exercise (ann 42 I64))

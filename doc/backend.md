@@ -1,17 +1,18 @@
-# Building and testing SFIR
+# Building and testing Lofi
 
-The compiler implementation runs in Chibi and emits Wasm from `.sfir` inputs.
+The compiler implementation runs in Chibi and emits Wasm from `.sld` inputs.
 Ordinary Scheme build scripts import that compiler and the separate
 [Wasm-to-native package](../wasm-native/README.md) to compose native builds.
-Scheme elaboration and self-hosting remain deferred.
+Hygienic macros and the initial Scheme base forms expand to the same typed core.
+Full Scheme support and self-hosting remain deferred.
 
 `nix-shell` supplies Chibi, Chez, Node, Binaryen, LLVM and Rustup.
 Install the Rust target used by the shared WASI runtime:
 
 ```sh
 rustup target add wasm32-wasip1
-./snail-sfir run examples/fibonacci.sfir
-scripts/build-native examples/fibonacci.sfir build/fibonacci
+./lofi run examples/fibonacci.sld
+scripts/build-native examples/fibonacci.sld build/fibonacci
 build/fibonacci
 ```
 
@@ -24,7 +25,7 @@ already be available locally. Rust `cfg` selects the Wasm or native runtime
 implementation; filesystem and other scalar services share the same sources.
 
 Repository Scheme scripts use explicit search roots:
-`chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" SCRIPT ...`.
+`chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" SCRIPT ...`.
 The standalone package needs only `-I "$package/scheme"` and installed Chibi/SRFI
 libraries; its tests additionally use `-I "$package/tests"`.
 `(wasm-native runtime-wasm)` builds and links the runtime's Wasm form without
@@ -75,10 +76,10 @@ flags reach only target crates, leaving host build scripts to the wrapper.
 working directory, with `repo` set to the checkout's absolute path:
 
 ```sh
-chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
-  "$repo" "$repo/examples/native/answer.sfir" answer \
-  "$repo/examples/native/entry.rs" /tmp/sphere-answer
-/tmp/sphere-answer
+chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" "$repo/build.scm" \
+  "$repo" "$repo/examples/native/answer.sld" answer \
+  "$repo/examples/native/entry.rs" /tmp/lofi-answer
+/tmp/lofi-answer
 ```
 
 The executable prints `42`. The recipe's arguments are
@@ -104,7 +105,7 @@ scripts/test-native
 
 Host unit tests do not establish target behavior. Backend checks execute linked
 Wasm, and native checks execute native code, including forced collection and
-traps. The SFIR integration migration preserves the prior typed contracts while
+traps. The Lofi integration migration preserves the prior typed contracts while
 removing Scheme syntax expansion from their runners.
 
 Build helpers retain WAT, raw Wasm, optimized Wasm and trace files. Native build
@@ -119,12 +120,12 @@ matched workloads. Run clean timing samples without concurrent compilation,
 profiling or forced-GC jobs.
 
 For compiler depth diagnostics, run
-[`compile-cost.scm`](../tests/sfir-generation/compile-cost.scm) against the selected
+[`compile-cost.scm`](../tests/lofi-generation/compile-cost.scm) against the selected
 checkout's module roots:
 
 ```sh
-chibi-scheme -I "$repo/src" -I "$repo/wasm-native/scheme" \
-  tests/sfir-generation/compile-cost.scm 64 128 256 512
+chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" \
+  tests/lofi-generation/compile-cost.scm 64 128 256 512
 ```
 
 The same script works with another revision's roots. It reports checking,

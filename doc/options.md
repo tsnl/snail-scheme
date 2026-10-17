@@ -1,16 +1,25 @@
-# SFIR commands
+# Lofi commands
 
-`snail-sfir` is hosted by Chibi. Help works before dependency checks.
+Lofi means **Low-level Functional IR**. It was previously named SFIR.
+Source files now use `.sld`, standard libraries use `(lofi ...)`, and the
+command is `lofi`. Rename existing files and imports before rebuilding.
+Compiler services and saved artifacts also use `lofi` protocol names; rebuild
+artifacts and update their consumers together. SRFI names belong to the Scheme
+host's libraries and retain their original spelling.
+
+`lofi` is hosted by Chibi. Help works before dependency checks.
 
 ```sh
-./snail-sfir run [-I DIRECTORY] SOURCE.sfir [ARGUMENT ...]
-./snail-sfir compile [-I DIRECTORY] -o OUTPUT SOURCE.sfir
+./lofi run [-I DIRECTORY] SOURCE.sld [ARGUMENT ...]
+./lofi compile [-I DIRECTORY] -o OUTPUT SOURCE.sld
 ```
 
 Both commands use Wasm. `-I` may repeat; search those directories in order,
-then the repository's `lib/` directory. Library names map to `.sfir` paths:
-`(example math)` loads `example/math.sfir`. Inputs have explicit SFIR syntax;
-there is no Scheme or macro-expansion mode.
+then the repository's `src/` directory. Library names map to `.sld` paths:
+`(example math)` loads `example/math.sld`. Imports select language bindings:
+`(lofi core)` names the typed kernel and `(scheme base)` supplies the initial
+Scheme forms. The extension does not select a dialect. Chibi orchestration uses
+`.scm` and the separate `bootstrap/` loader view.
 
 Arguments after the source in `run` are literal program arguments, including
 strings beginning with a dash. The host receives them in its argument vector.
@@ -26,16 +35,16 @@ successful build's temporary files.
 
 ## Module and backend tools
 
-`scripts/build-sfir [-I DIRECTORY] [--export NAME] SOURCE OUTPUT.wasm` produces a
+`scripts/build-lofi [-I DIRECTORY] [--export NAME] SOURCE OUTPUT.wasm` produces a
 module with raw Wasm, WAT and a trace beside the mandatory Binaryen output. Its
 optional `--command` flag checks the command result contract; ordinary modules
 may expose other concrete signatures for custom hosts.
 
-`scripts/link-sfir-runtime INPUT.wasm OUTPUT.wasm` links scalar Rust externs and
-optimizes the complete Wasm reactor. `scripts/run-sfir.mjs` executes that reactor.
+`scripts/link-lofi-runtime INPUT.wasm OUTPUT.wasm` links scalar Rust externs and
+optimizes the complete Wasm reactor. `scripts/run-lofi.mjs` executes that reactor.
 
 `scripts/build-native [OPTIONS] SOURCE OUTPUT` is an ordinary Scheme composition
-script. It compiles SFIR to Wasm, passes that Wasm to `(wasm-native)`, and links
+script. It compiles Lofi to Wasm, passes that Wasm to `(wasm-native)`, and links
 the resulting object with Cargo. `--wasm` consumes an existing Wasm module and
 still runs Binaryen before mechanical LLVM lowering. `--llvm` and `--object`
 resume from an existing LLVM module or native object. `--rust-provider MODULE
@@ -44,7 +53,7 @@ SOURCE.rs` supplies concrete scalar Rust exports compiled by Cargo;
 and is required for object input. `-I`, `--export`, and `--generation-provider`
 control the source-compilation step.
 
-The compiler has no target argument, and `snail-sfir` has no `--target` option.
+The compiler has no target argument, and `lofi` has no `--target` option.
 [`build.scm`](../build.scm) shows the direct library calls with explicit
 `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` arguments. See
 [native execution](native.md) for the physical ABI and retained build evidence.

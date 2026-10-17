@@ -11,7 +11,7 @@
     ;; ---- Explicit linking and retained owned-instance evidence ----
 
     (define (providers)
-      (list (make-rust-provider "probe" (fixture "sfir-native-loading" "provider.rs")) (runtime-provider)))
+      (list (make-rust-provider "probe" (fixture "lofi-native-loading" "provider.rs")) (runtime-provider)))
     (define (linked name . selected)
       (link-native (load-native (read-bytes (build-path (string-append name ".o"))))
                    (if (null? selected) (providers) (car selected)) (output) (runtime-root)))
@@ -101,7 +101,7 @@
         (fails (lambda () (link-native (list bytes) (providers) (output) (runtime-root))) "loaded native code")
         (fails (lambda () (link-native (load-native bytes) '() (output) (runtime-root))) "missing native provider")
         (fails (lambda () (link-native (load-native bytes)
-                                       (list (make-rust-provider "probe" (fixture "sfir-native-loading" "wrong.rs"))) (output) (runtime-root))) "signature")
+                                       (list (make-rust-provider "probe" (fixture "lofi-native-loading" "wrong.rs"))) (output) (runtime-root))) "signature")
         (fails (lambda () (instantiate (list (linked "i32" '())))) "explicitly linked")
         (fails (lambda () (invoke-entry '() '(1))) "native instance")
         (fails (lambda () (load-native (replace-bytes bytes "\"parameters\":[\"I32\"]" "\"parameters\":[\"I64\"]"))) "bridge signature disagrees")
@@ -139,19 +139,19 @@
         (thread-sleep! 60) (close-instance owned)))
     (define (run-native-loading)
       (let ((optimizations (optimizer-scope (lambda ()
-                                              (checked "build" (chibi (fixture "sfir-native-loading" "build.scm") (output)))
+                                              (checked "build" (chibi (fixture "lofi-native-loading" "build.scm") (output)))
                                               (for-each (lambda (check) (check)) (list check-state check-scalars check-rejections check-failure-and-lifetime check-constructors-and-timeouts))))))
         (assert-that (>= (length optimizations) 2) "native and Wasm optimization evidence missing")
-        ;; The compiler appends sfir.entry after its optimizer probe. Compare
+        ;; The compiler appends lofi.entry after its optimizer probe. Compare
         ;; the final artifact, which is the native lowering input, directly.
         (let ((artifact (read-bytes (build-path "state.wasm"))))
-          (assert-equal (read-bytes (build-path "native-state/sphere.wasm")) artifact
+          (assert-equal (read-bytes (build-path "native-state/lofi.wasm")) artifact
                         "native lowering input differs from the compiler artifact")
           (assert-equal (read-bytes (build-path "native-state/optimized.wasm")) artifact
                         "native and Wasm mandatory optimized module bytes differ")))
       (checked "host-loss" (list (tool-name "CARGO" "cargo") "run" "--offline" "--quiet" "--manifest-path" (path "tests/Cargo.toml")
-                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
                                  "-I" (path "wasm-native/scheme") "-I" (path "tests") "-I" (path "wasm-native/tests")
-                                 (path "tests/run.scm") (root) "sfir-native-loading-lost-host" "--output" (output))
+                                 (path "tests/run.scm") (root) "lofi-native-loading-lost-host" "--output" (output))
                `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (complete! "native instance state, exact scalars, rejection and owned process lifetimes" '((passed . #t) (actual_native_execution . #t))))))

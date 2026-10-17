@@ -1,12 +1,17 @@
-# Working on SFIR
+# Working on Lofi
 
 Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- SFIR is the sole product input language. Keep Scheme elaboration, macro
-  staging and self-hosting deferred; the compiler implementation remains
-  Scheme hosted by Chibi. See [the language contract](doc/sfir.md).
+- Languages are libraries: keep language definitions and compiler libraries
+  under `src/`, with paths matching their library names and `.sld` sources.
+  Lofi's typed kernel and the initial `(scheme base)` share hygienic
+  `syntax-rules` expansion, library resolution and the backend. Surface macros
+  expand away before ordinary checking; procedural transformers and self-hosting
+  remain deferred. Chibi hosts `(lofi compiler bootstrap)` through `bootstrap/`;
+  product sources import the public `(lofi compiler)`. See [the language
+  contract](doc/lofi.md).
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, ownership, effects and foreign boundaries

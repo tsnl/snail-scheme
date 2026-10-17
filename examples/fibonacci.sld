@@ -1,0 +1,9 @@
+(import (lofi core) (lofi base) (lofi io))
+
+(def fibonacci (-> I64 I64)
+     (lambda (n)
+       (if (< n (ann 2 I64)) n (+ (fibonacci (- n (ann 1 I64))) (fibonacci (- n (ann 2 I64)))))))
+
+(write-i64 (fibonacci (ann 30 I64)) (current-output-port))
+(newline)
+(ann 0 I64)

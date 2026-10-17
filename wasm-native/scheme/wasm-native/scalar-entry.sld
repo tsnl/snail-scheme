@@ -50,13 +50,13 @@
                 (if (null? (cadddr declaration)) "void" (symbol->string (car (cadddr declaration)))))))
     (define (write-metadata nodes description imports port)
       (let* ((metadata (append description
-                               `((abi . "sfir-native-1")
+                               `((abi . "lofi-native-1")
                                  (imports . ,(list->vector
                                               (map (lambda (node) (import-metadata node imports))
                                                    (declarations nodes 'import)))))))
              (bytes (string->utf8 (json->string metadata))))
-        (write-llvm (list "@sfir_native_metadata = constant [" (bytevector-length bytes)
-                          " x i8] c" (llvm-quoted bytes) ", section \".sfir.entry\", align 1\n") port)))
+        (write-llvm (list "@lofi_native_metadata = constant [" (bytevector-length bytes)
+                          " x i8] c" (llvm-quoted bytes) ", section \".lofi.entry\", align 1\n") port)))
 
     ;; ---- Fixed scalar bits bridge ----
 
@@ -90,13 +90,13 @@
         ((F32) (write-line port "  %bits = bitcast float %result to i32\n  %wide = zext i32 %bits to i64\n  ret i64 %wide"))
         (else (write-line port "  %wide = zext i32 %result to i64\n  ret i64 %wide"))))
     (define (write-bridge parameters result port)
-      (write-line port "@sfir_native_arity = constant i64 " (length parameters))
+      (write-line port "@lofi_native_arity = constant i64 " (length parameters))
       (write-line port "@" (llvm-quoted
-                            (string-append "sfir_native_entry."
+                            (string-append "lofi_native_entry."
                                            (apply string-append (map (lambda (type) (string-append (symbol->string type) "_")) parameters))
                                            "." (symbol->string result)))
-                  " = alias i64 (ptr), ptr @sfir_native_entry")
-      (write-line port "define i64 @sfir_native_entry(ptr %arguments) {\nentry:")
+                  " = alias i64 (ptr), ptr @lofi_native_entry")
+      (write-line port "define i64 @lofi_native_entry(ptr %arguments) {\nentry:")
       (let ((arguments (read-arguments parameters port)))
         (write-line port (if (eq? result 'Unit) "  call void" "  %result = call ")
                     (if (eq? result 'Unit) "" (llvm-type (physical-type result)))

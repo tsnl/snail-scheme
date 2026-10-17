@@ -1,3 +1,0 @@
-(generate-library (generated hygiene)
-                  (import (only (producer make) produce))
-                  (produce))

@@ -1,0 +1,12 @@
+(import (lofi base))
+(def Tree (datatype ( T)
+                    (leaf (value T))
+                    (branch (left (Tree T)) (right (Tree T)))))
+(def first
+     (lambda (tree)
+       (match tree ((leaf value) value) ((branch left right) (first left)))))
+(def ints
+     (branch (leaf (ann 12 I64)) (leaf (ann 19 I64))))
+(def floats
+     (branch (leaf 2.5) (leaf 3.5)))
+(+ (first ints) (f64->i64 (first floats)))

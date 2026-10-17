@@ -1,7 +1,0 @@
-(import (sfir base))
-(def row
-     (make-vector (ann 2 I64) (ann 0 I64)))
-(def matrix
-     (make-vector (ann 2 I64) row))
-(vector-set! (vector-ref matrix (ann 0 I64)) (ann 1 I64) (ann 42 I64))
-(vector-ref (vector-ref matrix (ann 1 I64)) (ann 1 I64))

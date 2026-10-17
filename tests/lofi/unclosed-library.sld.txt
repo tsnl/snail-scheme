@@ -1,0 +1,3 @@
+(define-library (broken)
+  (export answer)
+  (begin (def answer (lambda () 42)))

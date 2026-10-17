@@ -1,0 +1,5 @@
+(import (lofi base))
+
+(def identity (All (T Unused) (-> T T))
+     (lambda (x) x))
+(i32-add (identity (ann 40 I32)) (ann 2 I32))

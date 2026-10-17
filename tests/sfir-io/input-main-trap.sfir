@@ -1,5 +1,0 @@
-(import (sfir base) (sfir io))
-(def port
-     (open-input-file "λ😀.txt"))
-(read-line port)
-(unreachable)

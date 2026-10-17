@@ -1,0 +1,7 @@
+(import (lofi base))
+(def Box (datatype () (box (value I64 unbox))))
+(def value
+     (box later))
+(def later
+     (ann 7 I64))
+(unbox value)

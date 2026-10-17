@@ -1,0 +1,6 @@
+(import (lofi base))
+
+(def cell (Ref I64)
+     (ref (ann 40 I64)))
+(ref-set! cell (+ (ref-get cell) (ann 2 I64)))
+(ref-get cell)
