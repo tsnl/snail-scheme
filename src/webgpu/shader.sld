@@ -47,6 +47,8 @@
 
     ;; ---- WGSL emission ----
 
+    ;; Successful width/stage checks cover every subtree. The private emitter
+    ;; reads those same immutable trees, so no second checked AST is needed.
     (define (expression-source expression)
       (match expression
         ((shader-zero) "0.0") ((shader-one) "1.0")

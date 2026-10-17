@@ -21,12 +21,10 @@
     (define Transition
       (datatype (State) (transition (state State transition-state)
                                     (effects (List Effect) transition-effects))))
-    (define Handler
-      (datatype (State) (handler (reduce (-> State I32 I32 (Transition State)) handler-reduce))))
     (define Application
       (datatype (Owner State) (application-value (schema I32 application-schema)
                                                  (initial (-> State) application-initial)
-                                                 (handlers (List (Handler State)) application-handlers))))
+                                                 (handlers (List (-> State I32 I32 (Transition State))) application-handlers))))
     (define Destination
       (datatype (Owner State) (destination (owner I32 destination-owner)
                                            (app (Application Owner State) destination-app))))
@@ -50,7 +48,7 @@
     (define-typed dispatch
       (All (Owner State) (-> (Application Owner State) State (Request Owner State) (Transition State)))
       (lambda (app state command)
-        ((handler-reduce (select-handler (application-handlers app) (request-slot command)))
+        ((select-handler (application-handlers app) (request-slot command))
          state (request-a command) (request-b command))))
 
     ;; ---- Declaration expansion: all handlers share State ----
@@ -67,16 +65,16 @@
     (define-syntax private-handler
       (syntax-rules ()
         ((_ State (state) body ...)
-         (handler (ann (lambda (state unused-a unused-b) body ...)
-                       (-> State I32 I32 (Transition State)))))
+         (ann (lambda (state unused-a unused-b) body ...)
+              (-> State I32 I32 (Transition State))))
         ((_ State (state (a A)) body ...)
-         (handler (ann (lambda (state a unused-b)
-                         ((ann (lambda (state a) body ...) (-> State A (Transition State))) state a))
-                       (-> State I32 I32 (Transition State)))))
+         (ann (lambda (state a unused-b)
+                ((ann (lambda (state a) body ...) (-> State A (Transition State))) state a))
+              (-> State I32 I32 (Transition State))))
         ((_ State (state (a A) (b B)) body ...)
-         (handler (ann (lambda (state a b)
-                         ((ann (lambda (state a b) body ...) (-> State A B (Transition State))) state a b))
-                       (-> State I32 I32 (Transition State)))))))
+         (ann (lambda (state a b)
+                ((ann (lambda (state a b) body ...) (-> State A B (Transition State))) state a b))
+              (-> State I32 I32 (Transition State))))))
     (define-syntax application-handlers-declare
       (syntax-rules ()
         ((_ name Owner State schema initial slot (handlers ...))

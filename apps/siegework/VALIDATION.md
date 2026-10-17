@@ -1,8 +1,8 @@
 # Playable prototype validation
 
-Verified on 2026-10-16 against compiler base `4525dda7`. The packaged artifact
-generation is `8c6d44d9733225ec5c8b9da4`. Host/runtime follow-up checks live beside
-this record.
+The browser checkpoint on 2026-10-16 used compiler base `4525dda7` and packaged
+artifact generation `8c6d44d9733225ec5c8b9da4`. Later library checks are recorded
+below.
 These are correctness checks, with no performance or hardware-GPU claims.
 
 | Environment | Observed |
@@ -78,6 +78,30 @@ instances per message, an async lock and an outbox would add unrelated machinery
 Atomic commit/validation and publication operations remain cohesive even where
 they exceed the ten-line target. No broader refactoring was needed once those
 boundaries and their failure cases were explicit.
+
+A second fresh, no-history **gpt-6-astra at max effort** explained only the
+application declaration/dispatch and shader construction/emission contracts,
+without repository access. Debate established that the private one-field
+`Handler` record added no invariant beyond its function type. Applications now
+hold the annotated reducer functions directly; nominal owner types, arity
+adapters, delayed initialization and slot bounds checks remain. The shader's
+successful stage/width checks already dominate emission of the same immutable
+trees, so a second checked AST or combined width/text result would add machinery
+without strengthening the boundary. The two passes remain, with that invariant
+beside emission. Ordinary functions fit the ten-line target. The 13-line arity
+macro and 11-line declaration expansion remain cohesive exhaustive cases.
+
+This pass rebuilt generation `f66f0e7aae927dd5d58f580b` and passed all 19 runtime
+checks, three compile-negative cases, `make check` and `git diff --check`.
+Strengthened fixtures cover zero/one/two arguments, payload order, request reuse
+with different states, an unforced trapping initializer, nested shader widths,
+fragment-stage rejection even beneath multiplication by zero, and matching
+macro/constructor output. Handler identities, effect schema, settings and WGSL
+text match the published build. A direct reload from the browser checkpoint's
+Wasm into this generation retained both active-combat and client snapshots
+exactly and executed the next tick. Browser checks were not repeated for this
+library-only pass. It stops here because the remaining representation and checks
+serve explicit contracts; no public API, runtime or compiler change was needed.
 
 The scope remains one local authority, bounded scalar snapshot copying, a small
 shader vocabulary and the current typed Scheme subset. There is no automatic
