@@ -15,7 +15,7 @@
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 4) (initial-world)
+    (application match-app (state World 5) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
@@ -26,7 +26,9 @@
                  (repair (state) (no-effects (repair-world state)))
                  (new-run (state) (no-effects (restart-world state)))
                  (pause-colony (state (value I32)) (no-effects (pause-world state value)))
-                 (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed))))
+                 (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed)))
+                 (cancel-building (state (x I32) (y I32)) (no-effects (cancel-world state x y)))
+                 (arm-tower (state (x I32) (y I32)) (no-effects (arm-world state x y))))
     (define match-target (destination match-owner match-app))
 
     ;; ---- Camera and cursor belong to each browser, including across reload ----
@@ -69,7 +71,7 @@
       (cond ((= (client-tool state) 1) (extract (client-x state) (client-y state)))
             ((= (client-tool state) 2) (fortify (client-x state) (client-y state)))
             (else (observe (client-x state) (client-y state)))))
-    (application client-app (state Client 4) (initial-client)
+    (application client-app (state Client 5) (initial-client)
                  (move (state (x I32) (y I32)) (no-effects (point-client state x y)))
                  (nudge (state (dx I32) (dy I32)) (no-effects (nudge-client state dx dy)))
                  (choose (state (tool I32))
@@ -84,19 +86,21 @@
                  (home (state) (no-effects (make-client (client-tool state) 340 340 0 560000)))
                  (suspend (state (value I32)) (transition state (list (enqueue match-target (pause-colony value)))))
                  (drift (state (dx I32) (dy I32)) (no-effects (drift-client state dx dy)))
-                 (restart-seed (state (seed I32)) (transition state (list (enqueue match-target (new-run-seed seed))))))
+                 (restart-seed (state (seed I32)) (transition state (list (enqueue match-target (new-run-seed seed)))))
+                 (cancel (state) (transition state (list (enqueue match-target (cancel-building (client-x state) (client-y state))))))
+                 (arm (state) (transition state (list (enqueue match-target (arm-tower (client-x state) (client-y state)))))))
 
     ;; ---- Client schema and pure presentation ----
 
     (define (encode-client client)
-      (vector 4 (client-tool client) (client-point-x client) (client-point-y client)
+      (vector 5 (client-tool client) (client-point-x client) (client-point-y client)
               (client-camera-x client) (client-camera-y client)))
     (define (local-word words index) (vector-ref words (i32->i64 index)))
     (define decode-client
       (ann (lambda (words)
              (let ((tool (local-word words 1)) (x (local-word words 2)) (y (local-word words 3))
                    (cx (local-word words 4)) (cy (local-word words 5)))
-               (when (or (not (= (local-word words 0) 4)) (< tool 1) (> tool 3)
+               (when (or (not (= (local-word words 0) 5)) (< tool 1) (> tool 3)
                          (< cx -120000) (> cx 1080000) (< cy -120000) (> cy 920000)
                          (< x 0) (>= x 960) (< y 0) (>= y 640)) (unreachable))
                (make-client tool x y cx cy)))

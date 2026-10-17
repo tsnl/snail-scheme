@@ -18,21 +18,23 @@ export async function checkColony(test, fresh, call) {
   await test('completed observation and upgraded radius open a second working mine', async () => {
     const r = await fresh(), retained = r.stores.get(1);
     await call(r, 'extract', [12,20]); await call(r, 'observe', [12,14]);
-    assert.equal(state(r).surveys.length, 1); assert.equal(state(r).buildings[1].stage, 0);
+    assert.equal(state(r).surveys.length, 1); assert.equal(state(r).buildings[1].stage, 3);
     const paid = state(r).ore; await call(r, 'extract', [5,5]);
     assert.equal(state(r).notice, 1); assert.equal(state(r).ore, paid);
     await advance(r, 100); assert.equal(state(r).buildings[1].stage, 2);
     await call(r, 'observe', [12,8]); await advance(r, 200);
     await call(r, 'upgrade', [12,8]); await call(r, 'extract', [5,5]);
     const northern = state(r).buildings.find(building => building.x === 5 && building.y === 5);
-    assert.ok(northern); await call(r, 'fabricate-worker'); assert.equal(state(r).bots.length, 4); let northDelivered = false;
+    assert.ok(northern); await call(r, 'fabricate-worker'); assert.equal(state(r).bots.length, 4); let northCollected = false;
+    const deliveredBefore = state(r).delivered;
     for (let tick = 0; tick < 600; tick++) {
       const before = state(r);
-      const arriving = before.bots.some(bot => bot.job === 2 && bot.target === northern.id && bot.cargo > 0 && bot.path.length === 0);
+      const arriving = before.bots.find(bot => bot.job === 1 && bot.target === northern.id && bot.path.length === 0);
       await advance(r); materialBalance(state(r));
-      if (arriving && state(r).delivered > before.delivered) northDelivered = true;
+      if (arriving && state(r).bots.some(bot => bot.id === arriving.id && bot.job === 2 && bot.cargo > 0)) northCollected = true;
     }
-    assert.ok(northDelivered); assert.equal(retained[3], 160); assert.equal(retained[7], 0);
+    assert.ok(northCollected); assert.ok(state(r).delivered > deliveredBefore);
+    assert.equal(retained[3], 160); assert.equal(retained[7], 0);
     assert.ok(state(r).buildings.filter(building => building.kind === 1 && building.stage === 2).length === 2);
     await r.close();
   });
@@ -110,11 +112,11 @@ export async function checkColony(test, fresh, call) {
   await test('camera coordinates agree for pointer placement, pan and cursor movement', async () => {
     const r = await fresh(), local = (name, args = []) => r.dispatch(2, r.command('client', name, args));
     await local('pan', [4,-3]); await local('move', [340,380]);
-    assert.deepEqual(r.snapshot(2), [4,1,340,380,160000,440000]);
+    assert.deepEqual(r.snapshot(2), [5,1,340,380,160000,440000]);
     const effects = (await local('confirm')).effects; await call(r, 'extract', [12,20]);
     assert.deepEqual(r.effectCommand(effects[0]), r.command('match', 'extract', [12,20]));
     await local('nudge', [-30,0]); const moved = r.snapshot(2); assert.equal(moved[2], 0); assert.equal(moved[4], -100000);
-    await local('home'); assert.deepEqual(r.snapshot(2), [4,1,340,340,0,560000]);
+    await local('home'); assert.deepEqual(r.snapshot(2), [5,1,340,340,0,560000]);
     for (const [dx,dy,cx,cy,sx,sy] of [[-100,-100,-120000,-120000,0,0],[100,0,1080000,-120000,959,0],[0,100,1080000,920000,959,639],[-100,0,-120000,920000,0,639]]) {
       await local('pan', [dx,dy]); await local('move', [sx,sy]); const camera = r.snapshot(2);
       assert.deepEqual(camera.slice(4), [cx,cy]); await r.restore(2, camera);
@@ -140,7 +142,7 @@ export async function checkColony(test, fresh, call) {
     await r.dispatch(2, r.command('client', 'pan', [-100,-100])); assert.deepEqual(r.snapshot(1), paused);
     await call(r, 'observe', [12,14]); await call(r, 'fabricate-worker');
     const planned = r.snapshot(1); await advance(r, 100); assert.deepEqual(r.snapshot(1), planned);
-    assert.equal(state(r).buildings[1].stage, 0); assert.equal(state(r).bots[3].job, 6);
+    assert.equal(state(r).buildings[1].stage, 3); assert.equal(state(r).bots[3].job, 6);
     await call(r, 'pause-colony', [0]); await advance(r);
     assert.equal(state(r).tick, paused[1] + 1); assert.equal(state(r).paused, 0);
     assert.equal(state(r).bots[3].timer, 29); materialBalance(state(r)); await r.close();

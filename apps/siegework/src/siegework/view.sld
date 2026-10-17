@@ -87,7 +87,7 @@
     (define (rail-quads world rails cx cy)
       (if (null? rails) (empty-list)
           (append (rail-path-quads (rail-path (car rails)) cx cy 9352916
-                                  (if (rail-active? world (car rails)) 200 65))
+                                   (if (rail-active? world (car rails)) 200 65))
                   (rail-quads world (cdr rails) cx cy))))
     (define (shuttle-body rail x y)
       (append (list (rect (- x 7) (- y 6) 14 12 1053471)
