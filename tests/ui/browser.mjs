@@ -28,7 +28,7 @@ async function until(expression) {
   throw new Error(`Condition did not settle: ${expression}`);
 }
 async function key(key, code, modifiers = 0) {
-  const windowsVirtualKeyCode = key === 'Enter' ? 13 : key.toUpperCase().charCodeAt(0);
+  const windowsVirtualKeyCode = key === 'Enter' ? 13 : key === 'Tab' ? 9 : key.toUpperCase().charCodeAt(0);
   await call('Input.dispatchKeyEvent', {type: 'keyDown', key, code, modifiers, windowsVirtualKeyCode,
     ...(key === 'Enter' ? {text: '\r'} : {})});
   await call('Input.dispatchKeyEvent', {type: 'keyUp', key, code, modifiers, windowsVirtualKeyCode});
@@ -50,6 +50,7 @@ try {
   await evaluate('globalThis.originalInput = document.querySelector("[data-ui-key=amount] input")');
   await click('[data-ui-key="more"]');
   assert.match(await evaluate('document.querySelector("[data-status]").textContent'), /11/);
+  await key('Tab', 'Tab'); assert.equal(await evaluate('document.activeElement === originalInput'), true);
   await enter('37'); await evaluate('snailApp.local("increment")'); await until('!snailApp.localWork && !snailApp.dirty');
   assert.equal(await evaluate('originalInput.value'), '37');
   assert.equal(await evaluate('document.activeElement === originalInput'), true);
@@ -60,6 +61,9 @@ try {
   console.log('ok - pointer control, typed state transition, draft and focus survive redraw and compatible reload');
   await enter('12.5'); await click('[data-ui-key="amount"] button');
   assert.equal(await evaluate('originalInput.getAttribute("aria-invalid")'), 'true');
+  const accessibility = await call('Accessibility.getFullAXTree');
+  const field = accessibility.nodes.find(node => node.role?.value === 'textbox' && node.name?.value === 'Value');
+  assert.match(field?.description?.value ?? '', /whole number/);
   assert.match(await evaluate('document.querySelector("[data-status]").textContent'), /12/);
   await enter('37'); await key('Enter', 'Enter'); await until('!snailApp.localWork && !snailApp.dirty');
   await until('document.querySelector("[data-status]").textContent === "Value 37"');
@@ -72,6 +76,13 @@ try {
   }
   await call('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: true});
   await until('document.querySelector("[data-ui]").getBoundingClientRect().width < 400');
+  await until('Math.abs(document.querySelector("[data-ui-key=controls]").getBoundingClientRect().width - document.querySelector("[data-ui]").getBoundingClientRect().width) < 1');
   assert.ok(await evaluate('Array.from(document.querySelectorAll("[data-ui-key]")).every(node => { const r = node.getBoundingClientRect(); return r.width >= 0 && r.height >= 0; })'));
-  console.log('ok - narrow viewport retains nonnegative assigned rectangles');
+  await call('Emulation.setTouchEmulationEnabled', {enabled: true});
+  const touch = await evaluate(`(() => { const node = document.querySelector('[data-ui-key="more"]'); node.scrollIntoView({block:'center'});
+    const r = node.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+  await call('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{...touch, id: 1}]});
+  await call('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+  await until('document.querySelector("[data-status]").textContent === "Value 40"');
+  console.log('ok - narrow viewport retains nonnegative rectangles and touch activates a control');
 } finally { socket.close(); await fetch(`${devtools}/json/close/${target.id}`); }

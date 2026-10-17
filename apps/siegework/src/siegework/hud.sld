@@ -56,7 +56,7 @@
 
     (define (threat-text world)
       (let ((next (next-attack-tick (world-tick world))))
-        (if (< next 0) "FINAL WAVE"
+        (if (= (attack-size next) 0) "FINAL WAVE IN PROGRESS"
             (string-append "NEXT " (integer-text (quotient (+ (- next (world-tick world)) 9) 10))
                            "s · " (integer-text (attack-size next))
                            (if (= (attack-kind next) 2) " heavy" " raiders")))))
@@ -64,7 +64,7 @@
       (control "pause" (if (= (world-paused world) 1) "Resume" "Pause")
                "Plan at your own pace" #t (= (world-paused world) 1)
                ((action-suspend actions) (if (= (world-paused world) 1) 0 1))))
-    (define (critical-row world narrow actions)
+    (define (critical-row world actions)
       (row "critical" 46
            (list (line "ore" 44 (string-append (integer-text (world-credits world)) " ORE") 2)
                  (ui-meter "hub" (grow 1) (px 42)
@@ -79,7 +79,7 @@
                  (control "defend" "Auto · Defend" "Experimental planner" #t (= (world-focus world) 2) ((action-focus actions) 2)))))
     (define (header world context actions)
       (ui-panel "header" (grow 1) (px 80) 12 4
-                (list (critical-row world (< (hud-width context) 600) actions)
+                (list (critical-row world actions)
                       (line "forecast" 16
                             (string-append (if (= (world-paused world) 1) "PAUSED  ·  " "")
                                            (threat-text world) "  ·  " (clock-text (world-tick world))
@@ -146,15 +146,19 @@
     (define (building-controls world building actions)
       (if (not (ready? building))
           (list (control "cancel-build" "Cancel construction" "Return reserved materials" (alive? world) #f (action-cancel actions)))
-          (list (row "structure-actions" 46
-                     (list (control "upgrade" (if (tower? building) "Upgrade · 35" "Upgrade · 40")
-                                    (if (= (building-level building) 2) "Maximum level" "U · more capacity or sight")
-                                    (upgrade-enabled? world building) #f (action-improve actions))
-                           (control "move-structure" "Move · 5 ore" "M · then choose nearby ground"
-                                    (and (alive? world) (not (= (building-kind building) 1))) #f (action-relocate actions))))
-                (control "arm-tower" "Add artillery · 50 ore" "T · keep this tower's sight and depot"
-                         (and (alive? world) (tower? building) (not (armed? building)) (>= (world-credits world) 50))
-                         #f (action-arm actions)))))
+          (append (list (row "structure-actions" 46 (completed-controls world building actions)))
+                  (if (and (tower? building) (not (armed? building)))
+                      (list (control "arm-tower" "Add artillery · 50 ore" "T · keep this tower's sight and depot"
+                                     (and (alive? world) (>= (world-credits world) 50)) #f (action-arm actions)))
+                      (empty-list)))))
+    (define (completed-controls world building actions)
+      (append (if (= (building-kind building) 2) (empty-list)
+                  (list (control "upgrade" (if (tower? building) "Upgrade · 35" "Upgrade · 40")
+                                 (if (= (building-level building) 2) "Maximum level" "U · more capacity or sight")
+                                 (upgrade-enabled? world building) #f (action-improve actions))))
+              (if (= (building-kind building) 1) (empty-list)
+                  (list (control "move-structure" "Move · 5 ore" "M · then choose nearby ground"
+                                 (and (alive? world) (>= (world-credits world) 5)) #f (action-relocate actions))))))
     (define (context-controls world context actions)
       (let ((found (selected-building world context)))
         (cond ((hud-chooser context) (chooser-controls world context actions))
@@ -176,15 +180,18 @@
                           (and (alive? world) (< (list-size (world-bots world)) 12) (>= (world-credits world) 25)) #f (action-fabricate actions))
                  (control "home" "Find hub" "H · return camera" #t #f (action-home actions)))))
     (define (context-card world context actions)
-      (ui-panel "context" (px (if (< (hud-width context) 600) (hud-width context) 410)) (px 304) 12 8
+      (ui-panel "context" (px (if (< (hud-width context) 434) (- (hud-width context) 24) 410))
+                (px (context-height context)) 12 8
                 (append (list (line "context-title" 22 (hover-title world context) 2)
                               (line "context-description" 42 (hover-description world context) 0))
-                        (list (ui-scroll "context-actions" (grow 1) (grow 1) 172 8
+                        (list (ui-scroll "context-actions" (grow 1) (grow 1) 220 8
                                          (append (context-controls world context actions)
                                                  (list (support-controls world actions) (mode-row world actions))))))))
+    (define (context-height context)
+      (if (< (hud-height context) 448) (- (hud-height context) 144) 304))
     (define (colony-hud world context actions)
       (ui-column "hud" (grow 1) (grow 1) 12
                  (list (header world context actions)
                        (spacer "world-space")
-                       (ui-row "bottom" (grow 1) (px 304) 12
+                       (ui-row "bottom" (grow 1) (px (context-height context)) 0
                                (list (spacer "bottom-space") (context-card world context actions))))))))
