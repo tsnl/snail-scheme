@@ -1,6 +1,7 @@
 // Stable owner, replaceable code. Only this private scalar bridge handles
 // mutable buffers; application handlers receive explicit immutable values.
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
+import {createUiBridge} from '../ui/bridge.mjs';
 
 // ---- Typed Wasm forwarding for host scalar functions ----
 
@@ -97,6 +98,7 @@ export class ReducerRuntime {
       quad: (...words) => this.active.output.quads.push(words),
       label: (index, value) => this.stageText('label', index, value)});
     this.diagnostics = diagnosticProvider();
+    this.uiBridge = createUiBridge(scalarProvider, () => this.active);
   }
   bank(id, index) {
     if (!this.active) throw new Error('snapshot bridge used outside a transaction');
@@ -156,14 +158,15 @@ export class ReducerRuntime {
 
   // ---- Synchronous scalar scope; no host I/O can observe its candidate ----
 
-  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores} = {}) {
+  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores, manifest = this.manifest} = {}) {
     if (this.active) throw new Error('nested transition');
     this.active = {owner, readOnly, snapshots, effects: [], output: {quads: []}};
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
+      const ui = this.uiBridge.finish(tx, manifest);
       const output = freezeValue({result, effects: tx.effects.map(effect => this.#materializeEffect(effect)),
-        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : ''});
+        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : '', ...(ui ? {ui} : {})});
       return {next: tx.next, output};
     } catch (error) { error.transitionPhase = 'reduce'; throw error; }
     finally { this.active = undefined; }
@@ -197,7 +200,8 @@ export class ReducerRuntime {
     manifest = validateManifest(manifest);
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics]]));
+    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics],
+      ['snail.ui', this.uiBridge.provider]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
       const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);
@@ -206,11 +210,11 @@ export class ReducerRuntime {
         const app = manifest.applications.find(a => a.owner === (owner === 1 ? 'match' : 'client'));
         if (app.schema !== this.metadata(instance, owner + 2)) throw new Error('manifest/module schema mismatch');
       }
-      this.candidateStores(instance, sizes);
+      this.candidateStores(instance, sizes, manifest);
       return {instance, manifest, sizes};
     } catch (error) { closeInstance(instance); throw error; }
   }
-  candidateStores(instance, sizes) {
+  candidateStores(instance, sizes, manifest = this.manifest) {
     const proposed = new Map(this.stores);
     for (const owner of [1, 2]) {
       if (proposed.has(owner) && sizes[owner - 1] && proposed.get(owner).length !== sizes[owner - 1])
@@ -219,18 +223,18 @@ export class ReducerRuntime {
     }
     // This scope is synchronous. Preparing code never reserves an absent owner's
     // shape, and installation constructs a fresh map from the then-current state.
-    this.validateCandidate(instance, proposed); return proposed;
+    this.validateCandidate(instance, proposed, manifest); return proposed;
   }
   validateState(instance, snapshots = this.stores) {
     if (!this.#stage(instance, [10, 0, 0, 0], {readOnly: true, snapshots}).output.result)
       throw new Error('incompatible state schema; explicit migration required');
   }
-  validateCandidate(instance, snapshots = this.stores) {
+  validateCandidate(instance, snapshots = this.stores, manifest = this.manifest) {
     this.validateState(instance, snapshots);
     // Test presentation before activation too. Initial absent owners have no
     // values to render; their initialization remains a separate transition.
     if ([1, 2].every(owner => snapshots.get(owner)?.[0]))
-      this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots});
+      this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots, manifest});
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
@@ -239,7 +243,7 @@ export class ReducerRuntime {
   #install(candidate) {
     if (this.manifest && protocolContract(candidate.manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const stores = this.candidateStores(candidate.instance, candidate.sizes);
+    const stores = this.candidateStores(candidate.instance, candidate.sizes, candidate.manifest);
     if (this.previous) closeInstance(this.previous.instance);
     this.previous = this.instance ? {instance: this.instance, manifest: this.manifest, sizes: this.sizes} : undefined;
     this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest; this.sizes = candidate.sizes;
@@ -275,7 +279,7 @@ export class ReducerRuntime {
   #recoverCode(error) {
     // A trap does not commit. Persistence failures alone must not change code.
     if (error.transitionPhase !== 'reduce' || !this.previous) return;
-    this.validateCandidate(this.previous.instance);
+    this.validateCandidate(this.previous.instance, this.stores, this.previous.manifest);
     closeInstance(this.instance); this.instance = this.previous.instance;
     this.manifest = this.previous.manifest; this.sizes = this.previous.sizes; this.previous = undefined;
     this.#activation++;

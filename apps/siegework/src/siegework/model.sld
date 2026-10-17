@@ -18,7 +18,7 @@
           Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-kind enemy-target
           enemy-path
           building-at find-building list-size visible? ready? building-radius
-          building-health building-cost placement-reason workers-at mine-backlog
+          building-health building-cost placement-reason move-reason workers-at mine-backlog
           world-credits-set world-hull-set world-tick-set world-enemies-set
           world-buildings-set world-bots-set world-surveys-set world-produced-set
           building-hp-set building-stock-set building-stage-set

@@ -66,7 +66,8 @@ async function start() {
   try {
     await app.open('solo'); await session.open();
     if (session.stopping) { await session.close(); return; }
-    app.start(session); session.startClock(); void session.reload(); app.note('SOLO · saved on this browser · WebGPU');
+    app.start(session); session.startClock(); void session.reload();
+    app.note(`SOLO · saved on this browser · ${app.manifest.settings.renderer === 'dom' ? 'DOM' : 'WebGPU'}`);
   } catch (error) { app.note(`Cannot start: ${error.message}`); console.error(error); await session.close(); }
 }
 const startup = start();

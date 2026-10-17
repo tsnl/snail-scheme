@@ -90,6 +90,7 @@ composition for a native build.
 | [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, optional colony planning, typed reducers, shaders and browser packages. |
 | [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived binary snapshots, one async message lane, durable authority receipts, SQLite and [IndexedDB saves with tab ownership](src/application/indexeddb.mjs). |
 | [`src/browser/`](src/browser/application.sld) | Immutable view data, [continuous input and typed forms](src/browser/input.mjs), shared presentation/reload, separate [solo](src/browser/solo.mjs) and [cloud](src/browser/cloud.mjs) sessions, two-target packaging and the Node authority server. |
+| [`src/ui/`](doc/ui.md) | Immutable typed controls, one top-down Scheme rectangle allocation, copied endpoint events and stable DOM controls; [UI lab](apps/ui-lab/src/ui-lab/game.sld) is the standalone runnable example. |
 | [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler and the real WebGPU quad adapter. |
 | [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement, attached deriving and small immutable list operations. |
 | [`src/lofi/serialization.sld`](src/lofi/serialization.sld) | Separate checked serialization capabilities, derived data instances and traversal-local graph identities. |

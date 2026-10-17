@@ -1,0 +1,17 @@
+:root { color-scheme: dark; --ui-panel: #142722ee; --ui-accent: #a8dfb7; --ui-text: #e8efe2; --ui-muted: #9db2a1; }
+* { box-sizing: border-box; }
+html, body, main { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: #101d1b; color: var(--ui-text); font: 13px/1.4 system-ui, sans-serif; }
+canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+/* 32px vertical inset plus the 88px header and 24px gaps fit the HUD's explicit budget. */
+[data-ui] { position: absolute; inset: 12px 12px 20px; pointer-events: none; }
+.snail-ui-node[data-panel="1"] { pointer-events: auto; box-shadow: 0 8px 28px #03100c55; backdrop-filter: blur(16px); }
+.snail-ui-button, .snail-ui-number { pointer-events: auto; }
+.snail-ui-kind-1 { letter-spacing: .015em; }
+.world-caption { position: absolute; left: 26px; bottom: 40px; color: #b9ccb6; font-size: 10px; pointer-events: none; letter-spacing: .12em; text-transform: uppercase; }
+.world-caption span { display: block; color: #e5ead7; font: 600 24px/1.5 Georgia, serif; letter-spacing: .08em; }
+.connection { position: absolute; left: 14px; bottom: 3px; right: 14px; margin: 0; color: #829b8b; font-size: 10px; overflow: hidden; white-space: nowrap; pointer-events: none; }
+.screen-reader { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (min-width: 601px) { [data-ui-key="modes"] .snail-ui-button { padding: 6px; } [data-ui-key="modes"] .snail-ui-button-label { font-size: 12px; } }
+@media (max-width: 600px) { [data-ui] { inset: 6px 6px 24px; } .world-caption { display: none; } .snail-ui-button { padding: 6px; } .snail-ui-button-label { font-size: 11px; } .snail-ui-button-detail { font-size: 9px; } }
+@media (max-height: 520px) { [data-ui] { overflow-y: auto; } }
