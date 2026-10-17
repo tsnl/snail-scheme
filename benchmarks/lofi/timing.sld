@@ -539,7 +539,7 @@
            (let* ((source (path-join directory "source/benchmarks/lofi/probe"))
                   (log (path-join directory "copy-commands.json"))
                   (history '(((command . #("outside")) (status . 0))))
-                  (row '((case . "probe") (route . "sfir-native") (command . #("unused")) (execution_environment . ())))
+                  (row '((case . "probe") (route . "lofi-native") (command . #("unused")) (execution_environment . ())))
                   (manifest '((inputs . ()) (tools . ((TASKSET . ((path . "unused")))))
                               (timing_protocol . ((cpu . 0))) (config . ((run_timeout . 1))))))
              (create-directory* source) (create-directory* (path-join directory "data/inputs"))
