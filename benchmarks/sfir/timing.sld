@@ -363,13 +363,15 @@
         result))
 
     (define (scheduled-attempt directory entry row manifest environment)
-      (verify-dependencies directory row)
-      (verify-source-files (path-join directory "data") (field manifest 'inputs))
-      (let ((target (path-join directory "timing/measurement" (field entry 'id))))
-        (when (file-exists? target) (error "scheduled attempts cannot be repeated" target))
-        (create-directory* target)
-        (copy-file (path-join directory "source/benchmarks/sfir" (field entry 'case) "input.txt") (path-join target "input.txt"))
-        (append (execute-attempt directory row target manifest environment) entry)))
+      ;; Copy-command history belongs to this attempt; workload receipts persist separately.
+      (parameterize ((current-command-records '()))
+        (verify-dependencies directory row)
+        (verify-source-files (path-join directory "data") (field manifest 'inputs))
+        (let ((target (path-join directory "timing/measurement" (field entry 'id))))
+          (when (file-exists? target) (error "scheduled attempts cannot be repeated" target))
+          (create-directory* target)
+          (copy-file (path-join directory "source/benchmarks/sfir" (field entry 'case) "input.txt") (path-join target "input.txt"))
+          (append (execute-attempt directory row target manifest environment) entry))))
 
     (define (utc-now)
       (trim (run-command! '("date" "-u" "+%Y-%m-%dT%H:%M:%SZ"))))
@@ -529,6 +531,41 @@
                                 (verify-dependencies root row)
                                 (write-text (path-join root "input.txt") "changed")
                                 (expect (rejected? (lambda () (verify-dependencies root row))) #t)))))
+
+      (define (test-attempt-command-history)
+        (call-with-temp-dir
+         "sfir-attempt-history"
+         (lambda (directory preserve)
+           (let* ((source (path-join directory "source/benchmarks/sfir/probe"))
+                  (log (path-join directory "copy-commands.json"))
+                  (history '(((command . #("outside")) (status . 0))))
+                  (row '((case . "probe") (route . "sfir-native") (command . #("unused")) (execution_environment . ())))
+                  (manifest '((inputs . ()) (tools . ((TASKSET . ((path . "unused")))))
+                              (timing_protocol . ((cpu . 0))) (config . ((run_timeout . 1))))))
+             (create-directory* source) (create-directory* (path-join directory "data/inputs"))
+             (write-text (path-join source "input.txt") "canonical input")
+             (write-text (path-join directory "data/inputs/fixture.txt") "fixture")
+             (write-json (path-join source "spec.json") '())
+             ;; Reject before workload launch; the failed process receipt is still durable.
+             (parameterize ((current-command-records history) (current-command-log log) (current-process-supervisor #f))
+               (for-each
+                (lambda (id)
+                  (let ((result (scheduled-attempt directory `((id . ,id) (case . "probe")) row manifest '())))
+                    (expect (field result 'status) "failed-process") (expect (field result 'id) id)
+                    (expect (field (read-json (path-join directory (field result 'record))) 'status) "command-error")
+                    (expect (vector-length (read-json log)) 3)
+                    (expect (eq? (current-command-records) history) #t))) '("first" "second"))
+               (let* ((receipt (path-join directory "timing/measurement/first/commands/execute/record.json"))
+                      (retained (read-bytes receipt)))
+                 (write-json (path-join source "spec.json") '((execution_files . #("missing.scm"))))
+                 (expect (rejected? (lambda () (scheduled-attempt directory '((id . "exception") (case . "probe")) row manifest '()))) #t)
+                 (expect (eq? (current-command-records) history) #t)
+                 (expect (vector-length (read-json log)) 3)
+                 (expect (read-bytes receipt) retained))
+               ;; Ordinary logging outside the attempt keeps appending to the caller's history.
+               (copy-file (path-join source "input.txt") (path-join directory "outside.txt"))
+               (expect (length (current-command-records)) 2)
+               (expect (car (current-command-records)) (car history)))))))
 
       (define (test-incomplete-validation-case)
         (call-with-temp-dir
@@ -753,6 +790,7 @@
         (run-test test-incomplete-measurements)
         (run-test test-host-coverage)
         (run-test test-frozen-artifact)
+        (run-test test-attempt-command-history)
         (run-test test-incomplete-validation-case)
         (run-test test-pending-validation-routes)
         (when (and (pair? execute?) (car execute?)) (run-test test-clean-host-execution)))))))
