@@ -1,6 +1,6 @@
 (define-library (builder scalars)
   (import
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (only (lofi primitive) cons empty-list))
   (export build-i64 build-f32 build-f64 build-bool build-char)
   (begin

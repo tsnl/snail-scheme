@@ -16,7 +16,7 @@ pkgs.mkShellNoCC {
   SNAIL_NATIVE_GCC = "${pkgs.stdenv.cc.cc.lib}/lib";
   shellHook = ''
     if [ -z "''${RUSTC_WRAPPER:-}" ]; then
-      export RUSTC_WRAPPER="${toString ./wasm-native/scripts/rustc-native}"
+      export RUSTC_WRAPPER="${toString ./src/native/scripts/rustc-native}"
     fi
   '';
   packages = with pkgs; [

@@ -15,7 +15,7 @@
    (only (chibi string) call-with-output-string string-split)
    (chibi regexp)
    (chibi regexp pcre)
-   (wasm-native execute)
+   (native execute)
    (only (snail-tests commands) optimizer-scope)
    (snail-tests harness))
   (begin
@@ -28,7 +28,7 @@
       (link-native (load-native (read-bytes (build-path (string-append name ".o"))))
                    (if (null? selected) (providers) (car selected)) (output) (runtime-root)))
     (define (environment name)
-      `(("SNAIL_NATIVE_GC_INTERVAL" . "1") ("SNAIL_GC_STATS" . "1")
+      `( 
         ("SNAIL_TEST_EFFECTS" . ,(build-path (string-append name "-effects")))
         ("SNAIL_TEST_CHILD" . ,(build-path (string-append name "-child")))
         ("SNAIL_TEST_RESOURCE" . ,(build-path (string-append name "-resource")))))
@@ -68,8 +68,8 @@
                       (close-instance owned) (close-instance owned)
                       (fails (lambda () (invoke-entry owned '(0))) "closed")
                       (assert-equal (effects name) '("1" "2"))
-                      (let ((log (read-text (path-join (instance-directory owned) "stderr"))))
-                        (assert-that (regexp-search (pcre->regexp "collections=[1-9][0-9]*") log) "collection did not run" log))))
+                      ;; The provider collects and asserts its counter directly.
+                      (assert-equal (read-text (path-join (instance-directory owned) "stderr")) "")))
                   (list (cons "first" first) (cons "second" second))))
       (let ((third (instance (linked "state") "third")))
         (assert-equal (invoke-entry third '(2)) 3) (close-instance third)))
@@ -164,8 +164,7 @@
           (assert-equal (read-bytes (build-path "native-state/optimized.wasm")) artifact
                         "native and Wasm mandatory optimized module bytes differ")))
       (checked "host-loss" (list (tool-name "CARGO" "cargo") "run" "--offline" "--quiet" "--manifest-path" (path "tests/Cargo.toml")
-                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
-                                 "-I" (path "wasm-native/scheme") "-I" (path "tests") "-I" (path "wasm-native/tests")
+                                 "--bin" "native-host-loss" "--" (output) (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap") "-I" (path "tests") "-I" (path "src/native/tests")
                                  (path "tests/run.scm") (root) "lofi-native-loading-lost-host" "--output" (output))
                `((environment . ,(native-cargo-environment (path "build/native-runtime")))))
       (complete! "native instance state, exact scalars, rejection and owned process lifetimes" '((passed . #t) (actual_native_execution . #t))))))

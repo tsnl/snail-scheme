@@ -8,6 +8,7 @@
           native-guest-path native-guest-identical! fresh-output initialize-suite! argument-value argument-present? argument-positionals
           freeze-sources! record-tools! record-artifacts! verify-reuse! complete! rust-harness
           finalize-records! native-cargo-environment
+          ordinary-cargo
           read-text write-text read-bytes write-bytes read-json write-json file-sha256
           path-join path-directory absolute-path make-build-directory directory-files-recursive
           create-directory* directory-files file-exists? file-regular? delete-file
@@ -21,15 +22,16 @@
    (scheme process-context)
    (scheme time)
    (scheme inexact)
-   (wasm-native json)
+   (only (chibi ast) setenv)
+   (native json)
    (chibi filesystem)
    (chibi pathname)
    (chibi regexp)
    (srfi 1)
    (only (chibi string) string-contains string-prefix? string-suffix? string-join string-split string-trim-right call-with-output-string)
    (srfi 95)
-   (wasm-native process)
-   (only (wasm-native native-build) ensure-native-supervisor native-cargo-environment))
+   (native process)
+   (only (native native-build) ensure-native-supervisor native-cargo-environment))
   (begin
 
     ;; ---- Concrete paths, options and structured evidence ----
@@ -39,8 +41,9 @@
     (define artifacts (make-parameter #f))
     (define test-arguments (make-parameter '()))
     (define test-environment (make-parameter '(("BINARYEN_CORES" . "1"))))
+    (define ordinary-cargo (make-parameter (or (get-environment-variable "LOFI_TEST_CARGO") (tool-name "CARGO" "cargo"))))
     (define (path . parts) (apply path-join (root) parts))
-    (define (runtime-root) (path "wasm-native"))
+    (define (runtime-root) (path "src/native"))
     (define (fixture suite . parts) (apply path "tests" suite parts))
     (define (build-path . parts) (apply path-join (output) parts))
     (define (field value key . default) (option-ref value key (if (null? default) #f (car default))))
@@ -80,7 +83,13 @@
       (create-directory* (output))
       (let ((supervisor (ensure-native-supervisor (runtime-root))))
         (current-process-supervisor supervisor)
-        (test-environment (cons (cons "SNAIL_NATIVE_SUPERVISOR" supervisor) (test-environment)))))
+        (test-environment (append `(("SNAIL_NATIVE_SUPERVISOR" . ,supervisor)
+                                    ("CARGO" . ,(path "src/native/tests/cargo-gc-stress"))
+                                    ("LOFI_TEST_CARGO" . ,(ordinary-cargo))) (test-environment))))
+      ;; Fixture artifacts select collection stress at build time. Rust/Wasm
+      ;; helper crates without the native dependency pass through unchanged.
+      (setenv "LOFI_TEST_CARGO" (ordinary-cargo))
+      (setenv "CARGO" (path "src/native/tests/cargo-gc-stress")))
 
     ;; ---- Bounded commands and complete terminal records ----
 
@@ -133,8 +142,8 @@
       (field (apply checked label command options) 'stdout))
     (define (chibi source . arguments)
       (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
-                    "-I" (path "wasm-native/scheme") "-I" (path "tests")
-                    "-I" (path "wasm-native/tests") source) arguments))
+                    "-I" (path "tests")
+                    "-I" (path "src/native/tests") source) arguments))
     (define (node script . arguments)
       (append (list (tool-name "NODE" "node") "--disable-warning=ExperimentalWarning" "--expose-gc" script) arguments))
     (define binaryen-features
@@ -156,7 +165,7 @@
     (define (runtime-build)
       (checked "runtime" (list (tool-name "CARGO" "cargo") "rustc" "--crate-type=cdylib" "--quiet" "--offline"
                                "--release" "--target" "wasm32-wasip1"
-                               "--manifest-path" (path "wasm-native/Cargo.toml")
+                               "--manifest-path" (path "src/native/runtime/Cargo.toml")
                                "--target-dir" (path "build/wasm-runtime"))))
     (define (link-forms wasm)
       (runtime-build)
@@ -193,15 +202,14 @@
         (write-bytes target (read-bytes source))
         (cons (string->symbol relative) (file-sha256 target))))
     (define (freeze-sources! suite)
-      (let* ((directories (list "src" "bootstrap" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
+      (let* ((directories (list "src" "bootstrap" "tests/snail-tests"
                                 (if (string=? suite "native") "tests" (string-append "tests/" suite))))
-             (paths (append-map (lambda (directory) (directory-files-recursive (path directory))) directories))
-             (files (map path '("wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
+             (paths (append-map (lambda (directory) (directory-source-files (path directory))) directories))
+             (files (map path '("src/native/Cargo.toml" "src/native/Cargo.lock" "src/native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
                                 "scripts/build-lofi" "scripts/build-lofi.scm" "scripts/build-native"
                                 "scripts/build-native.scm" "scripts/link-lofi-runtime" "scripts/link-lofi-runtime.scm"))))
         (write-json (build-path "source-identities.json")
-                    (map snapshot-source (delete-duplicates
-                                          (filter (lambda (file) (not (contains? file "/target/"))) (append paths files)))))))
+                    (map snapshot-source (delete-duplicates (append paths files))))))
     (define (tool-identity tool)
       (let* ((name (tool-name (car tool) (cadr tool)))
              (binary (absolute-path (car (lines (command-output (string-append "find-" (car tool)) (list "which" name))))))
@@ -229,7 +237,7 @@
     (define (verify-reuse!)
       (for-each (lambda (entry)
                   (let ((name (symbol->string (car entry))))
-                    (when (or (starts? name "src/") (starts? name "bootstrap/") (starts? name "wasm-native/")
+                    (when (or (starts? name "src/") (starts? name "bootstrap/")
                               (member (path-extension name) '("sld" "rs"))
                               (member name '("Cargo.toml" "Cargo.lock")))
                       (assert-equal (file-sha256 (path name)) (cdr entry) "cannot reuse changed compiled source" name))))

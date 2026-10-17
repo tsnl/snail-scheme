@@ -8,13 +8,14 @@ comparison system.
 
 The current harness is Scheme and all comparison implementations and native
 entries are Rust built with Cargo. The shared runtime is built through
-`wasm-native/Cargo.toml`. [Historical sources](history.md) preserve
+`src/native/runtime/Cargo.toml`; native builds add the collector crate at
+`src/native/Cargo.toml`. [Historical sources](history.md) preserve
 the earlier C/Python experiment drivers at their exact Git revision.
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm inventory
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
 ```
 
 Validation runs each workload's six routes in one fresh Chibi process. Scheduler

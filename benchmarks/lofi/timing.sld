@@ -6,8 +6,8 @@
   (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
           (scheme process-context) (scheme write) (srfi 1) (srfi 95)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim)
-          (except (chibi filesystem) file-exists?) (wasm-native json)
-          (wasm-native process) (lofi runner) (lofi support))
+          (except (chibi filesystem) file-exists?) (native json)
+          (native process) (lofi runner) (lofi support))
   (begin
 
     ;; ---- Fixed experiment and explicit observation exclusions ----
@@ -16,6 +16,9 @@
       '(("lofi-wasm" . wasm_validation) ("lofi-native" . native_validation)
         ("chez-original" . chez_validation) ("chez-adapted" . chez_adapted_validation)
         ("rust-wasm" . rust_wasm_validation) ("rust-native" . rust_native_validation)))
+    ;; Older frozen executables still recognize their recorded GC observers.
+    ;; Current runtimes have no environment configuration, but replaying an old
+    ;; campaign must not silently classify its instrumentation as clean timing.
     (define observers '(NODE_OPTIONS NODE_V8_COVERAGE LD_PRELOAD SNAIL_GC_STATS SNAIL_NATIVE_GC_INTERVAL))
     (define (trim text) (string-trim text char-whitespace?))
 
@@ -258,13 +261,10 @@
           (field status (cdr (assoc route routes)) "not-attempted") "failed-validation-process"))
 
     (define (prepare-route directory case route target status manifest environment)
-      (let* ((spec (read-json (path-join target "spec.json")))
-             (heap (if (and (string=? route "lofi-native") (assq 'native_heap_bytes spec))
-                       `((SNAIL_GC_HEAP_BYTES . ,(number->string (field spec 'native_heap_bytes)))) '()))
-             (eligible (validated-route-status status route))
+      (let* ((eligible (validated-route-status status route))
              (row `((case . ,(field case 'name)) (route . ,route) (eligibility . ,eligible)
                     (correctness_record . ,(string-append "validation/" (field case 'name) "/status.json"))
-                    (validation_process . ,(field status 'validation_process 'null)) (execution_environment . ,heap))))
+                    (validation_process . ,(field status 'validation_process 'null)) (execution_environment . ()))))
         (if (not (string=? (field row 'eligibility) "passed")) row
             (guard (failure (else (fields-with row (cons 'eligibility "failed-clean-preparation") (cons 'reason (exception-text failure)))))
               (prepare-ready-route directory case route target row manifest environment)))))
@@ -437,7 +437,7 @@
   (cond-expand
    (snail-tests
     (export test-lofi-timing)
-    (import (wasm-native test-utils) (chibi temp-file) (wasm-native native-build))
+    (import (native test-utils) (chibi temp-file) (native native-build))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 
@@ -760,15 +760,15 @@
                            (timing_protocol . ((cpu . ,(car (allowed-cpus))))) (config . ((run_timeout . 30)))))
                (row `((case . "fixture-probe") (route . "lofi-native")
                       (command . ,(vector (tool-name "CHIBI" "chibi-scheme") script))
-                      (execution_environment . ((SNAIL_GC_HEAP_BYTES . "1234"))))))
+                      (execution_environment . ((LOFI_TEST_ATTEMPT_SETTING . "1234"))))))
           (write-json (path-join source "spec.json") '((name . "fixture-probe") (count . 1) (expected . 1) (execution_files . #("probes.scm"))))
           (write-text (path-join source "probes.scm") "required fixture")
           (write-text (path-join target "input.txt") "canonical input")
           (write-text script "(import (scheme base) (scheme file) (scheme write) (scheme process-context))
             (unless (and (string=? (call-with-input-file \"probes.scm\" (lambda (p) (read-string 100 p))) \"required fixture\")
-                         (equal? (get-environment-variable \"SNAIL_GC_HEAP_BYTES\") \"1234\")) (exit 1))
+                         (equal? (get-environment-variable \"LOFI_TEST_ATTEMPT_SETTING\") \"1234\")) (exit 1))
             (display \"{\\\"result\\\":\\\"1\\\",\\\"seconds\\\":0.1}\\n\")\n")
-          (expect (field (execute-attempt directory row target manifest '(("SNAIL_GC_HEAP_BYTES" . "9999"))) 'status) "passed")))
+          (expect (field (execute-attempt directory row target manifest '(("LOFI_TEST_ATTEMPT_SETTING" . "9999"))) 'status) "passed")))
 
       (define (test-clean-host-execution)
         (let ((directory (make-build-directory (path-join (benchmark-root) "build/lofi-timing-probes") "attempt-")))

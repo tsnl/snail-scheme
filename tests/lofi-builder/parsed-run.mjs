@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/execute.mjs';
+import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
 
 const directory = process.argv[2];
 for (const route of ['source', 'received']) {

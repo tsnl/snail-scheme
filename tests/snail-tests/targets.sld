@@ -42,7 +42,7 @@
                                                                 '("owned-" "power-" "interface-"))) valid) valid))
                (source (build-path "stress.tsv")))
           (write-text source (tsv stress columns))
-          (checked "oracle-native-gc" (list native source) '((environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1"))))))
+          (checked "oracle-native-gc" (list native source) '()))
         (indexed-for-each
          (lambda (index case)
            (let ((source (build-path (string-append "failure-" (number->string index) ".tsv"))))
@@ -113,7 +113,7 @@
                                             (strings (field case 'inputs)) (list (field case 'expected)))
                                     (list native (field case 'kind) route (field case 'input) (field case 'expected))))
                      (record (checked (string-append "native-" (number->string index) "-" (number->string route)) arguments
-                                      `((status . ,(if trap? 1 0)) (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))))
+                                      `((status . ,(if trap? 1 0)) ))))
                 (assert-equal (field record 'stderr) (if trap? "WebAssembly trap\n" "") case)
                 (assert-equal (field record 'stdout)
                               (if arithmetic? (apply string-append (map (lambda (value) (string-append "effect:" (number->string value) "\n"))
@@ -129,7 +129,7 @@
         (for-each (lambda (form) (checked (string-append "libraries-" form)
                                           (node (fixture "lofi-arithmetic" "libraries.mjs") (build-path (string-append form ".wasm"))))) '("raw" "optimized"))
         (build-native (string-append wasm ".raw.wasm") native #f '()) (native-guest-identical! native wasm)
-        (checked "libraries-native" (list native) '((status . 42) (stdout . "") (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))))
+        (checked "libraries-native" (list native) '((status . 42) (stdout . "") ))))
 
     ;; ---- All Unicode encodings and exact literal allocation boundaries ----
 
@@ -151,7 +151,7 @@
         (for-each (lambda (artifact) (checked "literal-wasm" (node (fixture "lofi-integration" "run.mjs") artifact "42")))
                   (list wasm (string-append wasm ".raw.wasm")))
         (build-native wasm native #f '())
-        (checked "literal-native" (list native) '((status . 42) (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))
+        (checked "literal-native" (list native) '((status . 42) ))
         (checked "literal-rejected" (list (path "scripts/build-lofi") (fixture "lofi-bytes" "literal-10001.sld") (build-path "too-large.wasm"))
                  '((status . error) (error . "literal-10001.sld:4:20: bytevector literal exceeds Wasm array.new_fixed limit")))))
 
