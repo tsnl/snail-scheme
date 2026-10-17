@@ -113,11 +113,12 @@ export class ReducerRuntime {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
       const next = tx.next ?? this.stores.get(owner);
+      const output = {result, effects: tx.effects, quads: tx.output.quads,
+        label: tx.label ? String.fromCodePoint(...tx.label) : ''};
       phase = "persist";
       if (persist) persist(next, tx.effects); // A failed durable commit publishes nothing.
       if (tx.next) this.stores.set(owner, tx.next);
-      return {result, effects: tx.effects, quads: tx.output.quads,
-        label: tx.label ? String.fromCodePoint(...tx.label) : ''};
+      return output;
     } catch (error) { error.transitionPhase = phase; throw error; }
     finally { this.active = undefined; }
   }

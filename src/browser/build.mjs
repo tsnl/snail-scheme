@@ -6,6 +6,7 @@ import {join, dirname, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/execute.mjs';
 import {ReducerRuntime} from '../application/runtime.mjs';
+import {parseInputSettings} from './input.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex').slice(0, 24);
 export function applicationManifest(source, settings) {
@@ -23,6 +24,7 @@ export function applicationManifest(source, settings) {
     {kind: 'notice', payload: ['String']}]}};
 }
 function checkSettings(settings, protocol) {
+  const input = parseInputSettings(settings);
   const select = (owner, binding) => {
     const handler = protocol.applications.find(app => app.owner === owner)?.handlers.find(h => h.binding === binding);
     if (!handler) throw new Error(`settings refer to unknown ${owner} handler: ${binding}`);
@@ -32,11 +34,11 @@ function checkSettings(settings, protocol) {
     if (select('match', binding).payload.length) throw new Error('clock and reset handlers require no payload');
   }
   for (const binding of settings.remoteHandlers) select('match', binding);
-  for (const [binding, arity] of [[settings.pointer.move, 2], [settings.pointer.confirm, 0]]) {
+  for (const [binding, arity] of [[input.pointer.move, 2], [input.pointer.confirm, 0]]) {
     if (select('client', binding).payload.length !== arity) throw new Error('pointer handler payload does not match its input');
   }
-  for (const command of [...Object.values(settings.keys), ...Object.values(settings.controller ?? {})]) {
-    if (select('client', command[0]).payload.length !== command.length - 1 || command.slice(1).some(x => !Number.isInteger(x)))
+  for (const command of [...input.keys.values(), ...input.buttons.values(), ...input.axes.flatMap(axis => [axis.negative, axis.positive])]) {
+    if (select('client', command[0]).payload.length !== command.length - 1)
       throw new Error('input mapping does not match a typed client handler');
   }
 }
@@ -54,6 +56,9 @@ function checkInitialProgram(bytes, manifest) {
   try {
     runtime.replace(runtime.prepare(bytes, manifest));
     runtime.initialize(1); runtime.initialize(2); runtime.view();
+    const marker = manifest.settings.runMarker;
+    if (marker !== undefined && (!Number.isInteger(marker) || marker < 1 || marker >= runtime.snapshot(1).length))
+      throw new Error('invalid run marker snapshot offset');
   } catch (error) { throw new Error(`application startup check failed: ${error.message}`, {cause: error}); }
   finally { runtime.close(); }
 }
@@ -68,7 +73,7 @@ export function packageApplication(root, app, output) {
   checkInitialProgram(wasm, manifest);
   writeFileSync(join(output, moduleName), wasm); writeFileSync(join(output, shaderName), shader);
   for (const path of ['lofi/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
-    'application/sqlite.mjs', 'webgpu/quads.mjs', 'browser/client.mjs', 'browser/server.mjs']) {
+    'application/sqlite.mjs', 'webgpu/quads.mjs', 'browser/client.mjs', 'browser/input.mjs', 'browser/server.mjs']) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
   for (const asset of ['index.html', 'style.css']) copyFileSync(join(app, asset), join(output, asset));
