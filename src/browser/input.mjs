@@ -210,7 +210,7 @@ export class BrowserInput {
   }
 }
 function editable(element) {
-  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"], form[data-handler]'));
+  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"], form[data-handler], form[data-ui-form]'));
 }
 function nativeActivation(event) {
   return (event.key === 'Enter' || event.key === ' ') && Boolean(event.target?.closest('button, a[href], summary, [role="button"]'));
