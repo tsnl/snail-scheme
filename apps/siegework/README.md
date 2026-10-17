@@ -32,7 +32,7 @@ players. Manual pause survives visibility changes, compatible code reload and
 authority restart. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume, and upgrades can be planned immediately.
 
-This version uses **world and client schema 3**. Older schema-1 prototype and schema-2 colony
+This version uses **world schema 3 and client schema 4**. Older schema-1 prototype and schema-2 colony
 matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
 fresh colony, retaining the old package and `match.sqlite` together. For example,
 build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
@@ -100,7 +100,8 @@ can be destroyed. Repairs cover the hub and structures and use spare labor.
 | Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
 | New run for everyone | N | Start |
 
-The camera can pan three cells beyond each map edge. The plain margin and map
+Held WASD and the left stick move the camera continuously; view buttons move it
+one cell at a time. The camera can pan three cells beyond each map edge. The plain margin and map
 perimeter show where the playable field ends; the minimap separates that boundary
 from the visible camera area. Hovering the margin is allowed, but placing there
 is rejected without moving the order onto a neighboring cell.

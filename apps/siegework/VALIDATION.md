@@ -1,3 +1,13 @@
+Smooth camera follow-up: compiled colony scenarios verify frame-time partitioning,
+negative fractional camera flooring, all four overscroll bounds and margin rejection.
+Actual Chromium 152 input on isolated port 4177 recorded subcell movement while
+holding D, stopped on release, and placed the starter extractor at (12,20) after a
+fractional negative pan. GPU readback and a screenshot passed. The generic input
+suite separately covered variable frames, capped stalls, axis magnitudes, focus,
+visibility, reconnect and legacy controls; no physical gamepad was used.
+The 4175 update retained every authoritative world word, revision and receipt;
+only the local client schema changed from 3 to 4, requiring a page refresh.
+
 # Colony iteration validation
 
 The 2026-10-17 colony checkpoint uses generation `c0e0045c96df267e73aef205`,

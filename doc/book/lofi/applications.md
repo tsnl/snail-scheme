@@ -261,6 +261,14 @@ or button indices appear in `repeatKeys` or `repeatButtons`. The optional positi
 integer `inputRepeatMilliseconds` defaults to 160. A held input fires at most once
 per interval; a stalled frame does not cause catch-up commands.
 
+`continuousKeys` and `controllerAxes` entries with `continuous: true` scale their
+two I32 payload coefficients by elapsed frame milliseconds; axes also use stick
+magnitude outside the deadzone. Each frame contributes at most 50 ms. Focus,
+visibility, device and settings changes discard held input; continuous keys send
+no keydown command. A key cannot be both continuous and repeated.
+`pointer.coordinates: "pixels"` sends logical-canvas integer pixels instead of
+cells. Scheme owns speed, camera bounds, projection and gameplay.
+
 `controllerAxes` optionally maps each axis to negative and positive commands:
 `{"axis":0,"negative":["pan",-1,0],"positive":["pan",1,0],"deadzone":0.35}`.
 Axis commands repeat; the deadzone defaults to 0.35. Settings parsing checks these
