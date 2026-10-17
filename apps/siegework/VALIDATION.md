@@ -22,7 +22,8 @@ wrong state result, wrong payload and command from the wrong application owner.
 
 The [browser runner](../../tests/applications/README.md) verifies actual GPU
 pixels, independent shader candidate validation, two-client purchases and
-convergence, stale snapshot rejection, changed Wasm behavior after reload, exact
+convergence, stale snapshot rejection, combat and cargo in transit, changed Wasm
+behavior after reload, exact
 pending-request preservation, and continued rendering after invalid WGSL or an
 incompatible schema. A Chromium window on an isolated Xvfb display was also
 visually inspected. The headless compositor's screenshot is not used as evidence

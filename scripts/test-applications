@@ -12,12 +12,12 @@ for fixture in counter state counter-lofi immutable shader shader-lofi compatibl
     *) source="$root/tests/applications/$fixture.sld" ;;
   esac
   chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
-    "$root/tests/applications/build.scm" "$root" "$source" "$output/$fixture.wasm"
+    "$root/tests/applications/build.scm" "$root" "$source" "$output/$fixture.wasm" "$root/apps/siegework/src"
 done
 for fixture in reject-state reject-payload reject-owner; do
   if chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
     "$root/tests/applications/build.scm" "$root" "$root/tests/applications/$fixture.sld" \
-    "$output/$fixture.wasm" >"$output/$fixture.log" 2>&1; then
+    "$output/$fixture.wasm" "$root/apps/siegework/src" >"$output/$fixture.log" 2>&1; then
     printf 'Expected compile rejection: %s\n' "$fixture" >&2
     exit 1
   fi

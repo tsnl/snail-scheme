@@ -43,9 +43,9 @@ await test('effects are descriptions; local selection does not directly spend wo
   r.dispatch(1, r.effectCommand(result.effects[0])); assert.equal(r.snapshot(1)[3], 80); r.close();
 });
 await test('compatible reload preserves authoritative and local state and consumes no tick', () => {
-  const r = fresh(); call(r, 'extract', [8, 3]); for (let i = 0; i < 55; i++) call(r, 'advance');
+  const r = fresh(); call(r, 'extract', [8, 3]); for (let i = 0; i < 430; i++) call(r, 'advance');
   r.dispatch(2, r.command('client', 'choose', [2])); r.dispatch(2, r.command('client', 'move', [13, 7]));
-  const world = r.snapshot(1), local = r.snapshot(2); assert.ok(world[13] > 0);
+  const world = r.snapshot(1), local = r.snapshot(2); assert.ok(world[13] > 0); assert.ok(world[16] > 0);
   r.replace(r.prepare(fixture('compatible'), manifest)); r.initialize(1); r.initialize(2);
   assert.deepEqual(r.snapshot(1), world); assert.deepEqual(r.snapshot(2), local);
   r.dispatch(2, r.command('client', 'choose', [1])); assert.equal(r.snapshot(2)[1], 2);

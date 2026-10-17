@@ -21,12 +21,14 @@ node tests/applications/browser.mjs "$PWD/build/siegework" http://127.0.0.1:4173
 ```
 
 The browser test opens two clients, makes shared purchases, checks real WebGPU
-pixel readback, holds a request across a compatible reload with observably changed
+pixel readback, reaches active combat with cargo in transit, holds a request
+across a compatible reload with observably changed
 reducer behavior, injects invalid WGSL
 and an incompatible schema, then restores the original manifest in `finally`.
 Set `SCREENSHOT=1` to also write `browser-check.png` in the selected build directory.
 Use a disposable
 build/match when running it: it starts a new run and changes that test match.
+The combat checkpoint uses about 43 seconds of the actual authority clock.
 
 The isolated Linux software-adapter invocation used during development was:
 
@@ -47,4 +49,6 @@ The test fixtures intentionally use private scalar imports only to attack the
 transaction boundary. Application code should use immutable values and the
 public `(application reducer)` API. `build.scm` here is a tiny explicit-map compiler
 runner selecting an exported `answer`; it is also used by the standalone counter
-example in the book. The portable game snapshot codec belongs to the app.
+and state examples in the book. It accepts optional application source roots
+after the output argument; the suite supplies Siegework's root explicitly for its
+adversarial bridge fixtures. The portable game snapshot codec belongs to the app.

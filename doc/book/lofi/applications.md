@@ -35,7 +35,9 @@ node --input-type=module -e 'import {readFileSync} from "node:fs"; import {loadW
 ```
 
 It prints `42`. The small build helper selects the exported `answer` procedure;
-it uses the same explicit map compiler as an application's `build.scm`.
+it uses the same explicit map compiler as an application's `build.scm`. Extra
+arguments after the output path add application source roots; without them, the
+only search root is the repository's shared `src/`.
 
 The initial payload subset is zero, one or two `I32` arguments. This is a small
 wire codec, not a claim that application data must be integers. State itself is a
@@ -171,14 +173,42 @@ outside source directories. The shader entry signals a diagnostic by returning a
 negative length; the build refuses to publish it.
 
 An app supplies `index.html` (a canvas and elements with `data-status` and
-`data-connection`), `style.css`, and `settings.json`. Settings select the literal
-application source; map its application bindings to `match`/`client`; name the
+`data-connection`), `style.css`, and `settings.json`. The Scheme build recipe
+selects the application source. Settings map its bindings to `match`/`client`; name the
 clock/reset handlers; enumerate remotely permitted match handlers; and map input
 to client handler bindings. These names resolve against the generated manifest
 at the host boundary, not through runtime evaluation of arbitrary Scheme names.
 Buttons can use `data-handler` and JSON `data-args`; keyboard/controller mappings
 contain `[binding, ...payload]`. The shared browser adapter contains no game costs,
 movement, collision or victory rules.
+
+For example, a board with `world-app` and `local-app` could use these settings.
+The owner mapping must match the argument order passed to `program`; the compiler
+checks each application's handlers, while this host wiring is explicit build
+configuration. Every named binding must exist in the generated manifest.
+
+```json
+{
+  "title": "Counter board", "width": 640, "height": 360, "cellSize": 40,
+  "tickMilliseconds": 100,
+  "owners": {"world-app": "match", "local-app": "client"},
+  "tick": "tick", "reset": "reset", "remoteHandlers": ["add", "reset"],
+  "pointer": {"move": "move", "confirm": "confirm"},
+  "keys": {"Enter": ["confirm"]}, "controller": {"0": ["confirm"]}
+}
+```
+
+The clock and reset handlers take no payload. Pointer movement takes two `I32`
+cell coordinates; confirmation takes none. Key names are `KeyboardEvent.key`
+values, and controller keys are standard Gamepad button indices. A minimal page
+loads the packaged shared adapter:
+
+```html
+<canvas width="640" height="360" tabindex="0"></canvas>
+<p data-status></p><p data-connection></p>
+<button data-handler="confirm">Add</button>
+<script type="module" src="/lib/browser/client.mjs"></script>
+```
 
 The shader compiler, pure application API and immutable record library are
 independent of this two-owner host. Broader owner routing and richer wire codecs

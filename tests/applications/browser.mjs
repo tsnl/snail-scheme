@@ -77,7 +77,13 @@ try {
   })()`),true);
   console.log('ok - stale authoritative snapshots cannot rewind the world or local selection');
 
-
+  await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client:clients[0],visible:true})});
+  await until(() => a.evaluate('snailApp.runtime.snapshot(1)[1]>=430'), 'match did not reach combat', 60000);
+  for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
+  await pause(250);
+  const combat = await a.evaluate('snailApp.runtime.snapshot(1)');
+  assert.ok(combat[5] > 0); assert.ok(combat[13] > 0); assert.ok(combat[16] > 0);
+  console.log('ok - reload checkpoint contains combat, defeated attackers and cargo in transit');
   await a.evaluate("snailApp.local('choose',[2]);snailApp.local('move',[13,7]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('confirm')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.equal(JSON.parse(before.pending).length, 1);
