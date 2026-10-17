@@ -178,8 +178,8 @@ The allocation policy follows [Immix, sections 3.1–3.3](https://www.mmtk.io/as
   bypass both cursors and reserve whole blocks.
 - Reserve 2.5% of mapped blocks, rounded down, for evacuation. This reserve is
   inside the heap cap; heaps smaller than forty blocks have no reserved block.
-- Select fragmented source blocks using hole-count histograms, previously live
-  lines, intervening allocations and available target space. During tracing,
+- Select fragmented source blocks using hole-count histograms, previously marked
+  lines and currently available target space. During tracing,
   copy movable survivors once, leave forwarding headers, and repair every edge.
   If target space runs out, retain the remaining objects in place.
 
@@ -188,6 +188,10 @@ count transitions from marked to unmarked lines before reserving the conservativ
 following line. Estimate copy volume from marked lines,
 separately from retained allocation capacity. Otherwise alternating live/dead
 lines would look unfragmented after guard lines consume every available hole.
+Prior marks predict copy cost; current allocation state bounds target capacity.
+New allocations reduce available target space without being presumed live in the
+previous mark histogram. Each copy checks actual capacity, so underestimated
+survival causes in-place marking rather than overwriting occupied storage.
 
 Allocation occupancy and current collection marks are separate maps. Evacuation
 uses only previously free storage and never allocates into selected source blocks.
