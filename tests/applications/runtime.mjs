@@ -21,8 +21,10 @@ await test('Scheme and Lofi share the shader compiler; composition rejects stage
 await test('retained immutable Scheme records remain unchanged', () => {
   const i = instantiate(loadWasm(fixture('immutable'))); assert.equal(invokeEntry(i, []), 1); closeInstance(i);
 });
-await test('standalone typed lexical counter runs', () => {
-  const i = instantiate(loadWasm(fixture('counter'))); assert.equal(invokeEntry(i, []), 42); closeInstance(i);
+await test('Scheme and Lofi run the same typed lexical application API', () => {
+  for (const name of ['counter', 'counter-lofi']) {
+    const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 42); closeInstance(i);
+  }
 });
 await test('immutable prior snapshots, automatic hauling, placement and pure view', () => {
   const r = fresh(), before = r.stores.get(1); call(r, 'extract', [8, 3]);
@@ -42,12 +44,15 @@ await test('compatible reload preserves authoritative and local state and consum
   const r = fresh(); call(r, 'extract', [8, 3]); for (let i = 0; i < 55; i++) call(r, 'advance');
   r.dispatch(2, r.command('client', 'choose', [2])); r.dispatch(2, r.command('client', 'move', [13, 7]));
   const world = r.snapshot(1), local = r.snapshot(2); assert.ok(world[13] > 0);
-  r.replace(r.prepare(bytes, manifest)); r.initialize(1); r.initialize(2);
-  assert.deepEqual(r.snapshot(1), world); assert.deepEqual(r.snapshot(2), local); call(r, 'advance'); r.close();
+  r.replace(r.prepare(fixture('compatible'), manifest)); r.initialize(1); r.initialize(2);
+  assert.deepEqual(r.snapshot(1), world); assert.deepEqual(r.snapshot(2), local);
+  r.dispatch(2, r.command('client', 'choose', [1])); assert.equal(r.snapshot(2)[1], 2);
+  call(r, 'advance'); r.close();
 });
 await test('invalid candidate, incompatible schema and bad snapshot preserve installed code/state', () => {
   const r = fresh(), instance = r.instance, world = r.snapshot(1);
   assert.throws(() => r.prepare(fixture('invalid-candidate'), manifest), /write outside/);
+  assert.throws(() => r.prepare(fixture('invalid-view'), manifest), WebAssembly.RuntimeError);
   const incompatible = structuredClone(manifest); incompatible.applications[0].schema++;
   assert.throws(() => r.prepare(bytes, incompatible), /endpoint contract|schema mismatch/);
   const bad = world.slice(); bad[0]++; assert.throws(() => r.restore(1, bad), /schema/);
@@ -78,6 +83,12 @@ await test('failed durable commit publishes neither state nor revision nor effec
   assert.throws(() => authority.submit({client: 'one', sequence: 1, epoch: authority.epoch,
     command: r.command('match', 'extract', [8, 3])}), /disk failure/);
   assert.deepEqual(r.snapshot(1), before); assert.equal(authority.revision, 0); assert.equal(published, 0); r.close();
+});
+await test('concurrent purchases from distinct players cannot spend the same resources', async () => {
+  const r = fresh(); call(r, 'extract', [8, 3]); const authority = new Authority(r);
+  await Promise.all([[7, 7], [7, 4]].map((site, index) => Promise.resolve().then(() => authority.submit({
+    client: `player-${index}`, sequence: 1, epoch: authority.epoch, command: r.command('match', 'fortify', site)}))));
+  assert.equal(r.snapshot(1)[3], 35); assert.equal(r.snapshot(1)[15], 1); assert.equal(authority.revision, 2); r.close();
 });
 await test('SQLite restart recovers unacknowledged commit and deduplicates retry', () => {
   const directory = mkdtempSync(join(tmpdir(), 'snail-durable-')), path = join(directory, 'match.sqlite');

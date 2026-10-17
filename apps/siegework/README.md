@@ -47,6 +47,8 @@ handler API, state lifetimes, reload contract and small shader dialect. Shared
 code remains under top-level `src/application/`, `src/browser/`, `src/webgpu/`
 and `src/scheme/immutable.sld`; this directory owns game rules, codecs, view,
 shader composition, settings and its real [build recipe](build.scm).
+The [validation record](VALIDATION.md) lists the executed runtime and browser
+checks, exact environment, and remaining limits.
 
 ## The run
 

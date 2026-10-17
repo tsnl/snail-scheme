@@ -1,5 +1,29 @@
 // Browser platform binding: real WebGPU, a fixed vertex layout, replaceable
 // validated pipelines. All scene and color decisions arrive as Scheme data.
+
+// Pop each scope before awaiting. Concurrent reload candidates must not pop
+// one another's device error scopes when compilation finishes out of order.
+async function checkedShader(device, source) {
+  device.pushErrorScope('validation');
+  const module = device.createShaderModule({code: source});
+  const validation = device.popErrorScope();
+  const [info, error] = await Promise.all([module.getCompilationInfo(), validation]);
+  if (error) throw new Error(error.message);
+  const failures = info.messages.filter(message => message.type === 'error');
+  if (failures.length) throw new Error(failures.map(message => message.message).join('\n'));
+  return module;
+}
+async function checkedPipeline(device, descriptor) {
+  device.pushErrorScope('validation');
+  const pending = device.createRenderPipelineAsync(descriptor);
+  const validation = device.popErrorScope();
+  const [pipeline, error] = await Promise.allSettled([pending, validation]);
+  if (error.status === 'rejected') throw error.reason;
+  if (error.value) throw new Error(error.value.message);
+  if (pipeline.status === 'rejected') throw pipeline.reason;
+  return pipeline.value;
+}
+
 export async function createRenderer(canvas, onError = () => {}) {
   if (!navigator.gpu) throw new Error('WebGPU is unavailable in this browser. Use a WebGPU-enabled Chromium build.');
   const adapter = await navigator.gpu.requestAdapter();
@@ -13,19 +37,13 @@ export async function createRenderer(canvas, onError = () => {}) {
   const renderer = {
     adapter: adapter.info, device,
     async prepare(source) {
-      device.pushErrorScope('validation');
-      try {
-        const module = device.createShaderModule({code: source});
-        const info = await module.getCompilationInfo();
-        const failures = info.messages.filter(message => message.type === 'error');
-        if (failures.length) throw new Error(failures.map(e => e.message).join('\n'));
-        return await device.createRenderPipelineAsync({layout: 'auto',
+      const module = await checkedShader(device, source);
+      return checkedPipeline(device, {layout: 'auto',
           vertex: {module, entryPoint: 'vertex_main', buffers: [{arrayStride: 24, attributes: [
             {shaderLocation: 0, offset: 0, format: 'float32x2'}, {shaderLocation: 1, offset: 8, format: 'float32x4'}]}]},
           fragment: {module, entryPoint: 'fragment_main', targets: [{format, blend: {
             color: {srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha'},
             alpha: {srcFactor: 'one', dstFactor: 'one-minus-src-alpha'}}}]}, primitive: {topology: 'triangle-list'}});
-      } finally { const error = await device.popErrorScope(); if (error) throw new Error(error.message); }
     },
     replace(candidate) { previousPipeline = pipeline; pipeline = candidate; },
     rollback() { if (previousPipeline) { pipeline = previousPipeline; previousPipeline = undefined; } },

@@ -185,7 +185,8 @@ encoded identities and payloads.
 State schemas version meaning, not just byte length. A changed schema is rejected
 until an explicit migration exists; automatic migrations are not implemented.
 Candidate initialization cannot access the snapshot bridge outside a transaction.
-Validation is read-only. Failure retains the old state and installed code. A
+Validation is read-only and exercises the pure view against initialized state.
+Failure retains the old state and installed code. A
 trapped transition cannot publish partial writes or effects; the runtime retains
 one previous compatible module for recovery. Live GPU handles stay in the browser
 host and are never serialized as portable state.

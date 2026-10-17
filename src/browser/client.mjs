@@ -97,8 +97,10 @@ function frame(time) {
       buttons = pad.buttons.map(button => button.pressed);
     }
     if (dirty) {
-      const presentation = runtime.view(); renderer.draw(presentation.quads, manifest.settings.width, manifest.settings.height);
-      status.textContent = presentation.label; dirty = false;
+      try {
+        const presentation = runtime.view(); renderer.draw(presentation.quads, manifest.settings.width, manifest.settings.height);
+        status.textContent = presentation.label; dirty = false;
+      } catch (error) { reportTransitionFailure(error); }
     }
   }
   requestAnimationFrame(frame);

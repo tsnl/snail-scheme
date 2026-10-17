@@ -6,7 +6,7 @@ output="$root/build/application-tests"
 mkdir -p "$output"
 chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
   "$root/apps/siegework/build.scm" "$root" "$root/build/siegework"
-for fixture in counter immutable shader shader-lofi trap invalid-candidate; do
+for fixture in counter counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view; do
   if [ "$fixture" = counter ]; then source="$root/examples/applications/counter.sld"
   else source="$root/tests/applications/$fixture.sld"; fi
   chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \

@@ -21,9 +21,11 @@ node tests/applications/browser.mjs "$PWD/build/siegework" http://127.0.0.1:4173
 ```
 
 The browser test opens two clients, makes shared purchases, checks real WebGPU
-pixel readback, holds a request across a compatible reload, injects invalid WGSL
+pixel readback, holds a request across a compatible reload with observably changed
+reducer behavior, injects invalid WGSL
 and an incompatible schema, then restores the original manifest in `finally`.
-It writes `browser-check.png` in the selected build directory. Use a disposable
+Set `SCREENSHOT=1` to also write `browser-check.png` in the selected build directory.
+Use a disposable
 build/match when running it: it starts a new run and changes that test match.
 
 The isolated Linux software-adapter invocation used during development was:

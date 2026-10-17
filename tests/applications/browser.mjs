@@ -1,10 +1,11 @@
 // Real Chromium CDP integration; no browser automation package is required.
 // Start the packaged server and Chromium with a local DevTools port first.
 import assert from 'node:assert/strict';
-import {readFileSync, writeFileSync, renameSync} from 'node:fs';
+import {readFileSync, writeFileSync, renameSync, copyFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 const directory = resolve(process.argv[2]), origin = process.argv[3] ?? 'http://127.0.0.1:4173';
 const devtools = process.argv[4] ?? 'http://127.0.0.1:9336';
+const fixtures = resolve(process.argv[5] ?? join(directory, '../application-tests'));
 const original = JSON.parse(readFileSync(join(directory, 'manifest.json')));
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(check, message, timeout = 15000) {
@@ -18,7 +19,12 @@ async function page() {
   await new Promise(resolve => ws.addEventListener('open', resolve, {once: true}));
   ws.onmessage = event => { const value = JSON.parse(event.data); if (value.id) { pending.get(value.id)?.(value); pending.delete(value.id); } };
   const call = (method, params) => new Promise((resolve, reject) => {
-    const key = ++id; pending.set(key, value => value.error ? reject(new Error(value.error.message)) : resolve(value.result));
+    const key = ++id, timeout = setTimeout(() => {
+      pending.delete(key); reject(new Error(`DevTools timed out: ${method}`));
+    }, 15000);
+    pending.set(key, value => {
+      clearTimeout(timeout); value.error ? reject(new Error(value.error.message)) : resolve(value.result);
+    });
     ws.send(JSON.stringify({id: key, method, params}));
   });
   const evaluate = async expression => {
@@ -55,6 +61,13 @@ try {
   })()`);
   assert.notDeepEqual(pixels.background,pixels.hub); assert.notDeepEqual(pixels.background,pixels.deposit);
   console.log('ok - real WebGPU pixel readback contains the Scheme-authored world');
+  const concurrentShaders = await a.evaluate(`(async()=>{
+    const source=await (await fetch(${JSON.stringify('/' + original.shader)})).text();
+    const results=await Promise.allSettled([snailApp.renderer.prepare('invalid WGSL'),snailApp.renderer.prepare(source)]);
+    return results.map(result=>result.status);
+  })()`);
+  assert.deepEqual(concurrentShaders, ['rejected', 'fulfilled']);
+  console.log('ok - concurrent shader candidates keep validation scopes isolated');
   console.log('ok - two browsers execute Scheme and converge on one purchased world');
   assert.equal(await a.evaluate(`(()=>{
     const before=JSON.stringify(snailApp.runtime.snapshot(1)), local=JSON.stringify(snailApp.runtime.snapshot(2));
@@ -68,13 +81,16 @@ try {
   await a.evaluate("snailApp.local('choose',[2]);snailApp.local('move',[13,7]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('confirm')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.equal(JSON.parse(before.pending).length, 1);
-  const compatible = {...original, generation: `qa-compatible-${Date.now()}`}; publish(compatible);
+  copyFileSync(join(fixtures, 'compatible.wasm'), join(directory, 'compatible.test.wasm'));
+  const compatible = {...original, generation: `qa-compatible-${Date.now()}`, module: 'compatible.test.wasm'}; publish(compatible);
   await until(() => a.evaluate(`snailApp.generation===${JSON.stringify(compatible.generation)}`), 'compatible reload not activated');
   const after = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.deepEqual(after, before);
+  await a.evaluate("snailApp.local('choose',[1])");
+  assert.equal(await a.evaluate('snailApp.runtime.snapshot(2)[1]'), 2);
   await a.evaluate('globalThis.fetch=realFetch;releaseCommand()');
   await until(() => a.evaluate('snailApp.pending.length===0'), 'preserved request not acknowledged');
-  console.log('ok - live Wasm replacement preserves world, cursor, tool and exact pending envelope');
+  console.log('ok - changed Wasm behavior activates while world, cursor, tool and pending envelope survive');
 
   writeFileSync(join(directory, 'invalid.test.wgsl'), '@vertex definitely not valid WGSL');
   publish({...compatible, generation: `qa-bad-shader-${Date.now()}`, shader: 'invalid.test.wgsl'});
@@ -89,8 +105,10 @@ try {
   assert.equal(await a.evaluate('snailApp.generation'), compatible.generation);
   publish({...original, generation:`qa-restored-${Date.now()}`});
   await until(() => a.evaluate("document.querySelector('[data-connection]').textContent.startsWith('LIVE')"), 'valid generation failed to recover');
-  const screenshot = await a.call('Page.captureScreenshot', {format:'png'});
-  writeFileSync(join(directory, 'browser-check.png'), Buffer.from(screenshot.data, 'base64'));
+  if (process.env.SCREENSHOT === '1') {
+    const screenshot = await a.call('Page.captureScreenshot', {format:'png'});
+    writeFileSync(join(directory, 'browser-check.png'), Buffer.from(screenshot.data, 'base64'));
+  }
   const browser = await (await fetch(`${devtools}/json/version`)).json();
   console.log(JSON.stringify({browser:browser.Browser,origin,clients:2,gpu:await a.evaluate('({vendor:snailApp.renderer.adapter?.vendor,architecture:snailApp.renderer.adapter?.architecture,device:snailApp.renderer.adapter?.device,description:snailApp.renderer.adapter?.description})')},null,2));
   console.log('ok - incompatible schema leaves match alive; valid reload recovers');

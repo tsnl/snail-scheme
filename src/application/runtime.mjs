@@ -59,9 +59,10 @@ export function parseCommand(manifest, owner, command) {
 // Contracts may reorder slots, but a live replacement cannot add/remove/change
 // endpoint identities. Pending envelopes remain encoded under their old contract.
 function protocolContract(manifest) {
-  return JSON.stringify(manifest.applications.map(app => ({owner: app.owner, schema: app.schema,
-    handlers: app.handlers.map(h => [h.id, h.payload]).sort((a,b) => a[0].localeCompare(b[0]))}))
-    .sort((a,b) => a.owner.localeCompare(b.owner)));
+  return JSON.stringify({effects: manifest.effects,
+    applications: manifest.applications.map(app => ({owner: app.owner, state: app.state, schema: app.schema,
+      handlers: app.handlers.map(h => [h.id, h.payload, h.result]).sort((a,b) => a[0].localeCompare(b[0]))}))
+      .sort((a,b) => a.owner.localeCompare(b.owner))});
 }
 
 // ---- One synchronous transition per owner ----
@@ -139,9 +140,16 @@ export class ReducerRuntime {
       return {instance, manifest};
     } catch (error) { closeInstance(instance); throw error; }
   }
-  validateCandidate(instance) {
+  validateState(instance) {
     if (!this.transaction(instance, [10, 0, 0, 0], {readOnly: true}).result)
       throw new Error('incompatible state schema; explicit migration required');
+  }
+  validateCandidate(instance) {
+    this.validateState(instance);
+    // Test presentation before activation too. Initial absent owners have no
+    // values to render; their initialization remains a separate transition.
+    if ([1, 2].every(owner => this.stores.get(owner)?.[0]))
+      this.transaction(instance, [4, 0, 0, 0], {readOnly: true});
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
@@ -157,15 +165,16 @@ export class ReducerRuntime {
     const {handler, args} = parseCommand(this.manifest, owner === 1 ? 'match' : 'client', command);
     try { return this.transaction(this.instance, [owner === 1 ? 2 : 3, handler.slot, args[0] ?? 0, args[1] ?? 0], {owner, ...options}); }
     catch (error) {
-      // A trap does not commit. Keep the prior compatible module available for
-      // recovery; persistence failures alone must not change installed code.
-      if (error.transitionPhase === "reduce" && this.previous) {
-        this.validateCandidate(this.previous.instance);
-        closeInstance(this.instance); this.instance = this.previous.instance;
-        this.manifest = this.previous.manifest; this.previous = undefined;
-      }
+      this.recoverCode(error);
       throw error;
     }
+  }
+  recoverCode(error) {
+    // A trap does not commit. Persistence failures alone must not change code.
+    if (error.transitionPhase !== 'reduce' || !this.previous) return;
+    this.validateCandidate(this.previous.instance);
+    closeInstance(this.instance); this.instance = this.previous.instance;
+    this.manifest = this.previous.manifest; this.previous = undefined;
   }
   command(owner, binding, args = []) { return {handler: endpoint(this.manifest, owner, binding).id, args}; }
   effectCommand(effect) {
@@ -174,12 +183,15 @@ export class ReducerRuntime {
     if (!handler) throw new Error('effect targets invalid endpoint');
     return {handler: handler.id, args: effect.args.slice(0, handler.payload.length)};
   }
-  view() { return this.transaction(this.instance, [4, 0, 0, 0], {readOnly: true}); }
+  view() {
+    try { return this.transaction(this.instance, [4, 0, 0, 0], {readOnly: true}); }
+    catch (error) { this.recoverCode(error); throw error; }
+  }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
   restore(owner, words) {
     if (!Array.isArray(words) || words.length !== this.stores.get(owner).length || !words.every(i32)) throw new Error('invalid snapshot');
     const previous = this.stores.get(owner); this.stores.set(owner, Int32Array.from(words));
-    try { this.validateCandidate(this.instance); }
+    try { this.validateState(this.instance); }
     catch (error) { this.stores.set(owner, previous); throw error; }
   }
   close() { if (this.instance) closeInstance(this.instance); if (this.previous) closeInstance(this.previous.instance); }
