@@ -48,8 +48,10 @@ node tests/applications/browser-input.mjs http://127.0.0.1:9336
 ```
 
 That runner serves its own ephemeral fixture and covers held-input repeat, native
-controls, reconnect/reload latching, axes and responsive layout. It does not
-change the game match.
+controls, reconnect/reload latching, smooth axes, and responsive layout. Integer
+form checks exercise native submission, I32 parsing, accessible errors, and
+gameplay cancellation even when focus enters and leaves between frames. It does
+not change the game match.
 
 The isolated Linux software-adapter invocation used during development was:
 
