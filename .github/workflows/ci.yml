@@ -65,7 +65,7 @@ jobs:
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --target wasm32-wasip1
-          cargo fetch --locked --manifest-path wasm-native/Cargo.toml
+          cargo fetch --locked --manifest-path src/native/Cargo.toml
           cargo fetch --locked --manifest-path tests/Cargo.toml
           cargo fetch --locked --manifest-path tools/host/Cargo.toml
       - name: Run checks
@@ -77,8 +77,8 @@ jobs:
             host)
               make test
               make check
-              cargo test --manifest-path wasm-native/Cargo.toml --offline
-              cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check
+              cargo test --manifest-path src/native/Cargo.toml --offline
+              cargo fmt --manifest-path src/native/Cargo.toml --all -- --check
               ;;
             native) scripts/test-native ;;
             applications)

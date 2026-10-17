@@ -4,7 +4,7 @@
   (import
    (lofi base)
    (lofi compiler)
-   (lofi compiler-builder))
+   (lofi compiler builder))
   (export main)
   (begin
 

@@ -89,7 +89,7 @@ unsafe extern "C" {
     fn storage_order() -> u32;
 }
 
-use snail_runtime::native::{self, NativeRoots};
+use native_runtime::native::{self, NativeRoots};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 // ---- Inspect returned references only across nonallocating host operations ----
@@ -206,7 +206,7 @@ unsafe fn check_roots() {
     unsafe {
         native::native_roots_reset_peak();
         assert_eq!(
-            tail(if std::env::var_os("SNAIL_NATIVE_TAIL_STRESS").is_some() {
+            tail(if native::GC_STRESS {
                 2000
             } else {
                 2_000_000
@@ -246,7 +246,11 @@ unsafe fn check_roots() {
         assert_ne!(cyclic(keep.values[0]), 0);
         native::native_roots_leave(&mut keep.header);
         assert!(native::native_roots.is_null());
-        assert!(native::native_gc_collections() > 1);
+        assert!(native::native_gc_collections() > 0);
+        if native::GC_STRESS {
+            assert!(native::native_gc_collections() > 1);
+            assert!(native::gc_moved_objects() > 0);
+        }
     }
 }
 
@@ -274,6 +278,7 @@ fn main() {
     let arguments = support::initialize();
     unsafe {
         match arguments.get(1).map(String::as_str) {
+            Some("normal") => assert!(!native::GC_STRESS),
             Some("saturate") => {
                 saturation(&arguments[2]);
                 support::finish(0);
@@ -294,7 +299,7 @@ fn main() {
                 trap(kind.parse().unwrap());
                 support::finish(2);
             }
-            None => {}
+            None => assert!(native::GC_STRESS),
         }
         assert_eq!(check(), 0);
         check_array_storage();

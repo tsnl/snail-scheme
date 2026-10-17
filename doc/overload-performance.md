@@ -54,7 +54,7 @@ unchanged 57-workload runtime evidence.
 Reproduce the ordinary build from the repository root:
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme \
+chibi-scheme -I bootstrap \
   apps/siegework/build.scm "$PWD" "$PWD/build/siegework-overload-check"
 ```
 

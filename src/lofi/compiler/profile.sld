@@ -9,9 +9,9 @@
    (scheme read)
    (scheme time)
    (scheme write)
-   (lofi source)
-   (wasm-native chromium-trace)
-   (only (wasm-native process) path-join write-json))
+   (lofi compiler source)
+   (native chromium-trace)
+   (only (native process) path-join write-json))
   (begin
 
     ;; ---- Bounded source-unit spans and optional helper totals ----
@@ -75,23 +75,23 @@
     ;; Spans identify source units. Helpers use aggregate timers in hotspots
     ;; mode; putting every lookup in the trace would obscure the useful spans.
     (define recipes
-      '(("lofi/emit-wasm.sld"
+      '(("lofi/compiler/emit-wasm.sld"
          (emit-function (node-loc (function-source function)))
          (emit-entry (node-loc (prepared-body program)))
          (prepare-activation #t)
          (new-local #f) (layout! #f) (emit-call-rule #f) (emit-data-operation #f))
-        ("lofi/infer.sld"
+        ("lofi/compiler/infer.sld"
          (check-initializer! (node-loc (source-initializer binding)))
          (generalize-group! (node-loc (source-initializer (car group))))
          (check-skolem-escape #f) (finish-declaration-check! #t)
          (settle-summary-obligations! #t) (plan-bindings #t)
          (check-obligations #f) (concrete-scope #f) (apply-typing-rule #f) (probe-expression #f))
-        ("lofi/specialize.sld"
+        ("lofi/compiler/specialize.sld"
          (activation-values #f) (type-arm #f) (finish-generation #f)
          (call-demand #f) (request-function #f) (request-value #f) (concrete #f))
-        ("lofi/overloads.sld"
+        ("lofi/compiler/overloads.sld"
          (improve-overloads! #f) (select-overload-view #f) (compatible? #f))
-        ("lofi/types.sld" (generalize #f))))
+        ("lofi/compiler/types.sld" (generalize #f))))
     (define (operation-label operation parameters location)
       (and location
            `(lambda ,parameters
@@ -139,10 +139,10 @@
    (snail-tests
     (export test-compiler-profile)
     (import
-     (wasm-native test-utils)
+     (native test-utils)
      (chibi temp-file)
      (only (chibi filesystem) create-directory)
-     (only (wasm-native process) write-text read-text))
+     (only (native process) write-text read-text))
     (begin
       (define (test-profile-values)
         (let* ((called 0)

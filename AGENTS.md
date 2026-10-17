@@ -58,8 +58,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   APIs distinct from implemented behavior in documentation and TODOs.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path wasm-native/Cargo.toml --offline`,
-`cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check`,
+`cargo test --manifest-path src/native/Cargo.toml --offline`,
+`cargo fmt --manifest-path src/native/Cargo.toml --all -- --check`,
 `scripts/test-backend`, and `scripts/test-build`.
 Backend changes should execute linked Wasm. Native executor changes need actual
 native execution; compilation alone does not test target behavior. Keep the

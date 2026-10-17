@@ -12,3 +12,10 @@
 - [Notable omissions](lofi/omissions.md)
 - [Implementation extensions](lofi/extensions.md)
 - [References](lofi/references.md)
+
+- [Native execution](native/index.md)
+  - [Building and linking](native/building.md)
+  - [ABI and representation](native/abi.md)
+  - [Roots and tail calls](native/roots.md)
+  - [Immix collector](native/collector.md)
+  - [Failures and testing](native/failures.md)

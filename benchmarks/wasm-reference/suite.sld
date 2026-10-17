@@ -7,7 +7,7 @@
           (scheme process-context) (chibi filesystem) (chibi pathname)
           (chibi crypto sha2) (chibi regexp) (only (chibi string) string-prefix? string-suffix? string-split string-trim) (srfi 1) (srfi 95)
           (only (srfi 130) string-contains string-cursor->index)
-          (wasm-native process) (wasm-native native-build) (wasm-reference audit))
+          (native process) (native native-build) (wasm-reference audit))
   (begin
 
     ;; ---- Pinned sources and retained process evidence ----
@@ -235,7 +235,7 @@
         (let ((output (absolute-path output-option)) (files (pinned-sources source)))
           (create-directory* output)
           (let-values (((available implemented names) (reference-workloads root source (option-ref options 'benchmarks '("all")))))
-            (parameterize ((current-process-supervisor (ensure-native-supervisor (path-join root "wasm-native"))) (current-command-records '())
+            (parameterize ((current-process-supervisor (ensure-native-supervisor (path-join root "src/native"))) (current-command-records '())
                            (current-command-log (path-join output "commands.json")))
               (when (option-ref options 'build #f)
                 (run-command! (list (tool-name "CARGO" "cargo") "build" "--offline" "--release" "--target" "wasm32-wasip1"
@@ -247,7 +247,7 @@
   (cond-expand
    (snail-tests
     (export test-reference-suite)
-    (import (wasm-native test-utils))
+    (import (native test-utils))
     (begin
       (define (test-generated-file-snapshots)
         (let* ((directory (make-build-directory "/tmp" "reference-files-test-"))

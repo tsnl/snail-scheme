@@ -25,8 +25,8 @@ function decorate(source, expression, name) {
 }
 
 function compilerOverlay(source) {
-  source = replaceOnce(source, '   (lofi artifact)',
-    '   (lofi artifact)\n   (lofi compiler profile)');
+  source = replaceOnce(source, '   (lofi compiler artifact)',
+    '   (lofi compiler artifact)\n   (lofi compiler profile)');
   for (const [call, name] of [
     ['(resolve-library-map libraries)', 'lofi.resolve'],
     ['(infer-program (append items trailing-items)', 'lofi.check'],
@@ -49,7 +49,7 @@ function artifactOverlay(source) {
 
 function instrumentUnits(overlay, environment) {
   capture(environment.CHIBI ?? 'chibi-scheme', ['-I', join(repository, 'bootstrap'),
-    '-I', join(repository, 'wasm-native/scheme'), join(repository, 'scripts/instrument-compiler.scm'),
+    join(repository, 'scripts/instrument-compiler.scm'),
     repository, overlay]);
   return Object.fromEntries(JSON.parse(readFileSync(join(overlay, 'sites.json'), 'utf8')).map(site =>
     [site.path, {original: hash(readFileSync(join(repository, 'src', site.path))),
@@ -61,7 +61,7 @@ function prepareOverlay(directory, environment) {
   const sources = {};
   for (const [file, instrument] of [
     ['lofi/compiler/bootstrap.sld', compilerOverlay],
-    ['lofi/artifact.sld', artifactOverlay],
+    ['lofi/compiler/artifact.sld', artifactOverlay],
   ]) {
     const original = readFileSync(join(repository, 'src', file), 'utf8');
     const modified = instrument(original);
@@ -112,7 +112,7 @@ function tools(environment) {
 
 function buildCommand(overlay, directory, environment) {
   return [environment.CHIBI ?? 'chibi-scheme',
-    '-I', join(repository, 'bootstrap'), '-I', join(repository, 'wasm-native/scheme'),
+    '-I', join(repository, 'bootstrap'),
     // Chibi searches the last -I directory first.
     ...(overlay ? ['-I', overlay] : []),
     join(repository, 'apps/siegework/build.scm'), repository, join(directory, 'app')];

@@ -7,7 +7,7 @@ Lofi (Low-level Functional IR) is a typed functional language
 and compiler target with an explicit s-expression surface. Type inference and
 specialization determine concrete storage and calls before emitting WasmGC.
 Binaryen always optimizes that Wasm. Run it on V8, or pass it to the separate
-[Wasm-to-native package](wasm-native/README.md) for LLVM lowering and a native
+[Wasm-to-native package](src/native/README.md) for LLVM lowering and a native
 executable with the in-house collector.
 
 Languages are libraries. The typed Lofi kernel, hygienic `syntax-rules` macros,

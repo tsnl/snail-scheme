@@ -1,13 +1,16 @@
-# Chibi bootstrap loader
+# Chibi loader view
 
-All language and compiler libraries live under `src/`. This directory is a
-loader view: `lofi` points at `../src/lofi`, and `application` exposes the
-explicit host helper `(application manifest bootstrap)` from `../src/application`. Use `chibi-scheme -I bootstrap`, so
+This directory exposes `src/lofi/`, `src/native/` and `src/native.sld` through
+symlinks. Host scripts use `chibi-scheme -I "$repo/bootstrap" SCRIPT ...`, so
 Chibi resolves its own `(scheme base)` instead of the product library in
-`src/scheme/base.sld`. Host scripts import `(lofi compiler bootstrap)`; product
-Scheme and Lofi source both import the public `(lofi compiler)` library.
+`src/scheme/base.sld`. Absolute paths work outside the repository root.
 
-Libraries and product programs use `.sld`. Executable Chibi orchestration
-scripts retain `.scm`; that suffix does not select a product language. The
-benchmark freezer materializes this view as ordinary files in its private
-snapshot and records their hashes.
+Host build scripts import `(lofi compiler bootstrap)` and, when producing native
+artifacts, `(native)` separately. Product Scheme and Lofi sources import the
+public `(lofi compiler)` library. Library dependencies share this include root
+and the installed Chibi/SRFI libraries; native package tests additionally use
+`-I "$repo/src/native/tests"`.
+
+The benchmark freezer materializes this loader view as ordinary files in its
+private snapshot and records their hashes. Libraries and product programs use
+`.sld`; executable Chibi orchestration scripts retain `.scm`.

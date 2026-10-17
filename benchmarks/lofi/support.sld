@@ -7,7 +7,7 @@
           (scheme inexact) (scheme write) (srfi 1) (srfi 69) (srfi 95)
           (only (chibi string) string-join string-split string-prefix? string-null? string-any)
           (except (chibi filesystem) file-exists?)
-          (wasm-native process))
+          (native process))
   (begin
 
     ;; ---- Checked configuration and ordinary files ----
@@ -319,7 +319,7 @@
   (cond-expand
    (snail-tests
     (export test-lofi-support)
-    (import (wasm-native test-utils) (chibi temp-file))
+    (import (native test-utils) (chibi temp-file))
     (begin
       (define (rejected? thunk) (guard (failure (else #t)) (thunk) #f))
 

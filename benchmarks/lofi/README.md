@@ -76,11 +76,11 @@ the formatter also fails on the pre-migration Parsing source.
 ## Preparation and validation
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm inventory
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm inventory
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --output /tmp/lofi-check --benchmarks ack \
   --compile-timeout 1800
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm verify --output /tmp/lofi-check
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm verify --output /tmp/lofi-check
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
 ```
 
 Preparation copies static source files, compiler/runtime/build support, Rust
@@ -95,7 +95,7 @@ digest. The manifest also retains the original Rustup dispatcher identities and
 selected installation path as provenance; subsequent builds use the copied
 installation and dependency sources.
 
-The frozen compiler wrapper comes from `source/wasm-native/scripts/rustc-native`, so Cargo
+The frozen compiler wrapper comes from `source/src/native/scripts/rustc-native`, so Cargo
 host build scripts also use Rust's linker without consulting the mutable
 checkout. Custom `RUSTC_WRAPPER` or `RUSTC_WORKSPACE_WRAPPER` commands must be
 unset for a campaign; their unrecorded dependencies would defeat the freeze.
@@ -133,12 +133,12 @@ added correctness coverage while both workloads were unmeasured at that checkpoi
 ## Clean timing protocol
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm prepare --output /tmp/lofi-full57 \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm prepare --output /tmp/lofi-full57 \
   --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm verify --output /tmp/lofi-full57
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm verify --output /tmp/lofi-full57
 # Run only after coordinating a quiet machine with every active worker.
 SNAIL_NATIVE_SUPERVISOR=/tmp/lofi-full57/toolchain/snail-native-supervisor \
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/lofi/timing.scm measure --output /tmp/lofi-full57 \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm measure --output /tmp/lofi-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
 
@@ -174,8 +174,10 @@ Datum/runtime, Nucleic, Tail and Ray interfaces explicitly. Compiler, Dynamic,
 Scheme and SLaTeX use the uninstrumented runtime host and scalar native entry;
 their validation-only diagnostic probes remain outside clean execution. FFT
 retains its separate Rust sine provider on both targets. Every clean attempt
-copies declared execution fixtures, applies the specified native heap size,
-and starts in a fresh working directory. The plan hashes implicit math providers
+copies declared execution fixtures and starts in a fresh working directory.
+New native builds use the collector's fixed production policy; historical
+`native_heap_bytes` fields no longer configure them. Frozen campaigns retain
+their original executables and recorded environments. The plan hashes implicit math providers
 as well as files named directly on the command line.
 
 Sequence workers compare every existing expected element inside `bench` and
@@ -206,9 +208,10 @@ diagnostics; newline conversion cannot weaken decimal checks.
 The plan records Node/V8, Chez, Rust, compiler/source/input, executable/provider
 and immutable shared-library identities. Full preparation verification precedes
 and follows the campaign; each trial checks its executed files and inputs. The
-fixed protocol rejects nonempty `NODE_OPTIONS`, coverage, preload and GC
-observation settings. `SNAIL_GC_STATS` must be unset: its presence enables native
-statistics even when its value is empty. Missing/null settings and inert empty
+fixed protocol rejects nonempty `NODE_OPTIONS`, coverage and preload settings.
+It also rejects legacy GC observation settings when replaying older frozen
+executables: `SNAIL_GC_STATS` enabled statistics even with an empty value. The
+current runtime has no GC environment configuration. Missing/null settings and inert empty
 values such as `NODE_OPTIONS=""` or `LD_PRELOAD=""` remain accepted; rejected
 values remain in the manifest and error. The frozen tree must have no writers.
 The quiet-window text is an operational attestation, not an automatic proof that
@@ -238,10 +241,10 @@ framework was introduced.
 The full-corpus timing extension used a fresh no-files explainer and informed
 critique to retain one scalar native entry and one decimal entry. Run the
 bounded harness checks with
-`chibi-scheme -D snail-tests -I bootstrap -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
+`chibi-scheme -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
 dependency and scheduling tests, reduced synthetic Wasm/Rust/Chez probes execute
 every host category, typed sequence/decimal/math interfaces, failed predicates,
-declared fixture copies and native heap propagation. Their command records and
+declared fixture copies and explicit environment propagation. Their command records and
 artifacts remain in `build/lofi-timing-probes`; these probes establish harness
 behavior and are neither canonical corpus correctness nor timing samples.
 Pass `--execute` to that command to run the actual Wasm, Cargo-native and Chez
