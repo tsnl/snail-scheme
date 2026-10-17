@@ -68,8 +68,14 @@ algorithms, canonical inputs, counts, predicates and external controls are uncha
 Historical executed checkpoints below retain their older surfaces and compilers.
 The manifest's current status comes from the full57 freeze; per-case
 `historical_evidence` preserves earlier links and measured routes. Current
-surface validation is complete with Ack's Wasm failure retained, rather than
-inferred from historical Ack success. Older records remain verbatim. The standard formatter covers
+surface-validation checkpoint is complete with Ack's Wasm failure retained,
+rather than inferred from historical Ack success. Older records remain verbatim.
+The later named-declaration syntax reserves `data`; the preserved FFT source
+currently fails to compile because it uses that name for a value binding. The
+full57 checkpoint does not establish correctness on this newer compiler. The
+native-package reorganization rechecked Ack: native, Chez and Rust native pass,
+while both Wasm routes retain their default-stack exhaustion. Benchmark sources,
+inputs and published evidence remain unchanged. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because
 the formatter also fails on the pre-migration Parsing source.
 
