@@ -51,12 +51,15 @@ small { display: block; color: #e0bc7a; font-size: 10px; margin-top: 4px; line-h
 .east { grid-area: 2 / 3; }
 .home { grid-area: 1 / 4 / 3 / 5; margin-left: 4px; }
 .new-run { margin-top: 10px; width: 100%; background: #151f2c; }
+.run-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
 .new-run kbd { display: inline; margin-right: 12px; }
 footer { display: flex; justify-content: space-between; gap: 24px; color: #9aafc3; font-size: 11px; line-height: 1.8; margin-top: 16px; }
 footer p { margin: 0; }
 footer strong { font-weight: 600; color: #c3d3e1; }
 [data-connection] { color: #8bc5bd; text-align: right; font-family: ui-monospace, monospace; max-width: 360px; overflow-wrap: anywhere; }
 .field-guide { font-size: 12px; color: #9aafc3; line-height: 1.8; margin-top: 18px; border-top: 1px solid #293b4d; padding-top: 14px; }
+.field-key { font-size: 11px; line-height: 1.8; color: #9aafc3; margin: 14px 0 0; }
+.field-key strong { color: #d1dfea; font-weight: 600; }
 summary { cursor: pointer; color: #c3d3e1; width: fit-content; }
 .guide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .guide-grid strong { color: #d1dfea; }

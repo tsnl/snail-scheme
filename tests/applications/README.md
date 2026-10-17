@@ -1,7 +1,8 @@
 # Application integration checks
 
 Run `scripts/test-applications` from any directory. It builds the actual Siegework
-artifacts plus small public-API fixtures, checks compile-negative state/payload/
+artifacts into the disposable `build/application-tests/siegework` package, plus
+small public-API fixtures, checks compile-negative state/payload/
 owner errors, then executes the Wasm in Node. It exercises immutable records and
 retained snapshots, automatic hauling, a losing and winning run, pure view,
 effect staging, compatible reload, hostile candidates, trap rollback, serial
@@ -15,13 +16,13 @@ This is correctness testing, not a performance comparison.
 For real browser checks, start the packaged server:
 
 ```sh
-node build/siegework/lib/browser/server.mjs "$PWD/build/siegework"
+PORT=4176 node build/application-tests/siegework/lib/browser/server.mjs "$PWD/build/application-tests/siegework"
 ```
 
 Start a separate Chromium with a local DevTools port, then run:
 
 ```sh
-node tests/applications/browser.mjs "$PWD/build/siegework" http://127.0.0.1:4173 http://127.0.0.1:9336
+node tests/applications/browser.mjs "$PWD/build/application-tests/siegework" http://127.0.0.1:4176 http://127.0.0.1:9336
 ```
 
 The browser test opens two clients, makes shared purchases, checks real WebGPU
@@ -32,7 +33,23 @@ and an incompatible schema, then restores the original manifest in `finally`.
 Set `SCREENSHOT=1` to also write `browser-check.png` in the selected build directory.
 Use a disposable
 build/match when running it: it starts a new run and changes that test match.
-The combat checkpoint uses about 43 seconds of the actual authority clock.
+The combat checkpoint uses about 80 seconds of the actual authority clock.
+Colony checks cover multiple deposits, physical kit ownership and danger recovery,
+observation versus reachability, the actual outpost raid, an undefended finale,
+zero kill income, manual pause and all four camera margins. The browser runner
+also verifies shared Pause/Resume, visibility changes without clearing pause,
+retained paused/camera state across reload, and rejected margin placement.
+
+The focused input checks use real keyboard/pointer/focus events and injected
+Gamepad samples; they do not claim physical-controller coverage:
+
+```sh
+node tests/applications/browser-input.mjs http://127.0.0.1:9336
+```
+
+That runner serves its own ephemeral fixture and covers held-input repeat, native
+controls, reconnect/reload latching, axes and responsive layout. It does not
+change the game match.
 
 The isolated Linux software-adapter invocation used during development was:
 

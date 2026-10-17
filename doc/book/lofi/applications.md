@@ -254,9 +254,21 @@ configuration. Every named binding must exist in the generated manifest.
 ```
 
 The clock and reset handlers take no payload. Pointer movement takes two `I32`
-cell coordinates; confirmation takes none. Key names are `KeyboardEvent.key`
-values, and controller keys are standard Gamepad button indices. A minimal page
-loads the packaged shared adapter:
+screen-cell coordinates; the client reducer owns camera offsets. Confirmation
+takes none. Key names are `KeyboardEvent.key` values, and controller keys are
+standard Gamepad button indices. Commands fire once per press unless their keys
+or button indices appear in `repeatKeys` or `repeatButtons`. The optional positive
+integer `inputRepeatMilliseconds` defaults to 160. A held input fires at most once
+per interval; a stalled frame does not cause catch-up commands.
+
+`controllerAxes` optionally maps each axis to negative and positive commands:
+`{"axis":0,"negative":["pan",-1,0],"positive":["pan",1,0],"deadzone":0.35}`.
+Axis commands repeat; the deadzone defaults to 0.35. Settings parsing checks these
+bindings and typed payloads both when packaging and in the browser. After focus,
+device or generation changes, held controls must be released before activating
+again. Native controls and editable elements retain their keyboard behavior.
+
+A minimal page loads the packaged shared adapter:
 
 ```html
 <canvas width="640" height="360" tabindex="0"></canvas>
