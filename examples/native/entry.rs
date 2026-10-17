@@ -9,11 +9,11 @@ unsafe extern "C" {
 }
 
 fn main() {
-    snail_runtime::native::initialize_host();
+    native_runtime::native::initialize_host();
     unsafe {
         native_module_init();
         initialize();
         println!("{}", answer());
     }
-    std::process::exit(snail_runtime::native::native_finish(0));
+    std::process::exit(native_runtime::native::native_finish(0));
 }

@@ -1,6 +1,6 @@
 (define-library (producer make)
   (import
-   (lofi compiler-builder)
+   (lofi compiler builder)
    (only (lofi primitive) cons empty-list))
   (export constant-library dependent-library importing-library ill-typed-library produce)
   (begin

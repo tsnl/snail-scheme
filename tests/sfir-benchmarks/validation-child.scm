@@ -5,7 +5,7 @@
  (scheme write)
  (only (chibi filesystem) create-directory*)
  (only (chibi process) kill current-process-id signal/term)
- (wasm-native process))
+ (native process))
 
 (define arguments (cdr (command-line)))
 (define directory (cadr (member "--output" arguments)))

@@ -136,7 +136,7 @@
         (native-guest-identical! native wasm)
         (let ((record (checked (string-append name "-native") (list native)
                                `((status . ,(if (string=? expected "trap") 1 0))
-                                 (environment . (("SNAIL_NATIVE_GC_INTERVAL" . "1")))))))
+                                 ))))
           (assert-equal (field record 'stdout)
                         (apply string-append (map (lambda (digit) (string-append "effect:" (string digit) "\n")) (string->list history))))
           (assert-equal (field record 'stderr) (if (string=? expected "trap") "WebAssembly trap\n" "")))

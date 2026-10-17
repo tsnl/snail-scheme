@@ -5,8 +5,8 @@
           (scheme read) (scheme write) (scheme process-context) (srfi 1)
           (only (srfi 130) string-contains string-cursor->index)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim string-trim-right)
-          (except (chibi filesystem) file-exists?) (wasm-native json)
-          (wasm-native process) (wasm-native native-build) (lofi runner) (lofi support))
+          (except (chibi filesystem) file-exists?) (native json)
+          (native process) (native native-build) (lofi runner) (lofi support))
   (begin
 
     ;; ---- Fixed contracts and retained commands ----

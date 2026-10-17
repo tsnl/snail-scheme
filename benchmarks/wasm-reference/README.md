@@ -8,7 +8,7 @@ tool/binary hashes, runs actual Node/Wasm plus independent original Chez checks,
 and retains failures such as Ackermann's default native-stack overflow.
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/wasm-reference/suite.scm --build \
+chibi-scheme -I bootstrap -I benchmarks benchmarks/wasm-reference/suite.scm --build \
   --output build/rust-reference-checks --benchmarks all --checks full
 ```
 
@@ -16,7 +16,7 @@ The complete residual-program, assembly, instruction-graph, nucleic and generate
 audit tests run with:
 
 ```sh
-chibi-scheme -D snail-tests -I bootstrap -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks \
+chibi-scheme -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks \
   benchmarks/wasm-reference/tests/audits.scm
 ```
 

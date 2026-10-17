@@ -16,7 +16,7 @@ It supplies parsing, explicit library maps, compilation and Wasm execution throu
 the compiler service. The current implementation is Scheme hosted by Chibi:
 [`(lofi compiler bootstrap)`](src/lofi/compiler/bootstrap.sld) composes the passes.
 The compiler cannot compile its own implementation yet. `bootstrap/` is a loader
-view of `src/lofi`, keeping Chibi's own `(scheme base)` separate from the product
+view of `src/lofi` and `src/native`, keeping Chibi's own `(scheme base)` separate from the product
 library. Executable Chibi orchestration scripts retain `.scm`.
 
 The [native self-hosting investigation](doc/self-hosting.md) records Siegework
@@ -32,11 +32,11 @@ remains proposed.
 | Step | File | What to follow |
 | --- | --- | --- |
 | 1. Compilation | [`compiler/bootstrap.sld`](src/lofi/compiler/bootstrap.sld) | `compile` and `library-map->core` compose resolution, checking and emission. |
-| 2. Description | [`frontend.sld`](src/lofi/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. |
-| 3. Resolution and expansion | [`library.sld`](src/lofi/library.sld), [`macros.sld`](src/lofi/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
-| 4. Checking | [`infer.sld`](src/lofi/infer.sld) | `infer-program` checks bodies and records types, scopes and class evidence in [`checked.sld`](src/lofi/checked.sld). |
-| 5. Concrete demand | [`specialize.sld`](src/lofi/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence. |
+| 2. Description | [`frontend.sld`](src/lofi/compiler/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. |
+| 3. Resolution and expansion | [`library.sld`](src/lofi/compiler/library.sld), [`macros.sld`](src/lofi/compiler/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
+| 4. Checking | [`infer.sld`](src/lofi/compiler/infer.sld) | `infer-program` checks bodies and records types, scopes and class evidence in [`checked.sld`](src/lofi/compiler/checked.sld). |
+| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures. |
+| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence. |
 
 ```text
 located library source → imported identities and hygienic expansion
@@ -65,12 +65,12 @@ code. These scopes differ deliberately.
 ```
 
 [`lofi`](lofi) starts [`scripts/lofi.scm`](scripts/lofi.scm), which owns command
-options and build directories. [`source-driver.sld`](src/lofi/source-driver.sld)
+options and build directories. [`source-driver.sld`](src/lofi/compiler/source-driver.sld)
 finds `.sld` dependencies, prepares a library map and calls the compiler. It can
 also execute explicit `generate-library` recipes: producer and application maps
 are separate, with shared source choices and cycle detection. Build scripts
 optimize with Binaryen, link Rust scalar services and run on V8 or lower through
-the independent [`wasm-native/`](wasm-native/README.md) package for native execution.
+the independent [`src/native/`](src/native/README.md) package for native execution.
 
 The map-based `compile` API reads no source files. It accepts library values and
 a public export, and returns optimized artifact bytes with a checked scalar
@@ -81,9 +81,10 @@ composition for a native build.
 
 | Path | Responsibility |
 | --- | --- |
-| [`src/lofi/`](src/lofi/README.md) | Typed core, runtime libraries, public compiler API and bootstrap implementation modules. |
+| [`src/lofi/`](src/lofi/README.md) | Typed core, standard libraries and the public `(lofi compiler)` API. |
+| [`src/lofi/compiler/`](src/lofi/compiler/README.md) | Compiler implementation, library builders and execution adapters. |
 | [`src/scheme/`](src/scheme/) | Scheme language libraries; currently a typed subset of base forms. |
-| [`src/lofi/tools/`](src/lofi/tools/) | Trace viewing and Unicode generation libraries. |
+| [`src/lofi/compiler/tools/`](src/lofi/compiler/tools/) | Trace viewing and Unicode generation libraries. |
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
 | [`examples/`](examples/) | Programs and explicit build/generation examples. |
 | [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, typed reducers, shaders and browser packages. |
@@ -94,18 +95,20 @@ composition for a native build.
 | [`src/lofi/serialization.sld`](src/lofi/serialization.sld) | Separate checked serialization capabilities, derived data instances and traversal-local graph identities. |
 | [`src/lofi/scalar-text.sld`](src/lofi/scalar-text.sld) | Owned scalar text tokens, interned symbols, diagnostics and exact I64 formatting without the dynamic datum/number layers. |
 | [`src/lofi/sexp.sld`](src/lofi/sexp.sld) | Finite S-expression wire values with lossless readable text and compact binary encodings. |
-| [`wasm-native/`](wasm-native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. |
+| [`src/native/`](src/native/README.md) | Independent Wasm-to-LLVM package, shared Rust scalar services and native collector. |
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
 | [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
 | [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 
-Within the native package, `scheme/wasm-native/llvm.sld` publishes live references
-and reloads them after collecting calls. `src/native_gc.rs` owns the Immix block
-allocator, tracing, opportunistic evacuation and weak cleanup. `src/native.rs`
+Within the native package, `src/native/llvm.sld` publishes live references
+and reloads them after collecting calls. `src/native/native_gc.rs` owns the Immix block
+allocator, tracing, opportunistic evacuation and weak cleanup. `src/native/native.rs`
 defines writable roots and the scalar/runtime ABI; allocating helpers protect
 their own reference arguments. Following the product compiler does not require
-following these native lifetime rules. See [the native contract](doc/native.md).
+following these native lifetime rules. `src/native/runtime/` is the scalar-services
+crate shared by Wasm and native; only the parent native crate includes the GC.
+See [the native contract](doc/book/native/index.md).
 
 Use the [detailed compiler reference](doc/compiler.md) for pass contracts and
 execution APIs, and the [language book](doc/book/lofi/index.md) for semantics.

@@ -34,7 +34,7 @@ does not require a self-hosted compiler or compilation inside the browser.
 
 A future Wasm-to-native CLI can likewise have its command and build recipe under
 `apps/`, importing its reusable implementation from `src/`. The existing
-[`wasm-native/`](../wasm-native/README.md) package is not moved by this app draft.
+[`src/native/`](../src/native/README.md) package is not moved by this app draft.
 
 ## Build contract
 

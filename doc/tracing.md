@@ -1,6 +1,6 @@
 # Compiler traces
 
-The Chibi-hosted compiler uses the neutral `(wasm-native chromium-trace)` utility.
+The Chibi-hosted compiler uses the neutral `(native chromium-trace)` utility.
 It has no dependency on native lowering. Importing its libraries creates no
 trace files. A build establishes a destination before it runs traced passes,
 and closes that destination on normal return.
@@ -43,7 +43,7 @@ There are no portable collector or per-instruction measurements in these traces.
 ```scheme
 (import
  (scheme base)
- (wasm-native chromium-trace))
+ (native chromium-trace))
 (define timed-add (chromium-trace "add" (lambda (x y) (+ x y))))
 (with-chromium-trace-to "operations.json"
                         (lambda () (timed-add 20 22)))

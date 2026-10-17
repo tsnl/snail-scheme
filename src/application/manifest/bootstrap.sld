@@ -7,8 +7,8 @@
    (scheme base)
    (scheme cxr)
    (scheme write)
-   (only (lofi library) lofi-library-syntax)
-   (only (lofi syntax) syntax->datum))
+   (only (lofi compiler library) lofi-library-syntax)
+   (only (lofi compiler syntax) syntax->datum))
   (begin
     (define (printed value)
       (let ((output (open-output-string))) (write value output) (get-output-string output)))
