@@ -45,6 +45,22 @@ try {
   const a = await page(), b = await page(); pages.push(a, b);
   const clients = await Promise.all(pages.map(p => p.evaluate('snailApp.session.client')));
   assert.notEqual(clients[0], clients[1]);
+  assert.equal(await a.evaluate(`(async () => {
+    const {Authority} = await import('/lib/application/authority.mjs');
+    const {ReducerRuntime} = await import('/lib/application/runtime.mjs');
+    const manifest = await (await fetch('/manifest.json')).json(), runtime = new ReducerRuntime();
+    const bytes = new Uint8Array(await (await fetch('/' + manifest.module)).arrayBuffer());
+    await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
+    let release, entered; const started = new Promise(resolve => entered = resolve);
+    const authority = new Authority(runtime, {commit: () => { entered(); return new Promise(resolve => release = resolve); }});
+    const envelope = {client:'browser',sequence:1,epoch:authority.epoch,command:runtime.command('match','pause-colony',[1])};
+    const before = JSON.stringify(runtime.snapshot(1)), pending = authority.submit(envelope); await started;
+    const oldVisible = authority.revision === 0 && JSON.stringify(runtime.snapshot(1)) === before;
+    release(); await pending; const retry = await authority.submit(envelope);
+    const ok = oldVisible && authority.revision === 1 && JSON.stringify(runtime.snapshot(1)) !== before && retry.duplicate;
+    await runtime.close(); return ok;
+  })()`), true);
+  console.log('ok - browser Web Crypto authority awaits persistence and deduplicates its committed receipt');
   async function seedForm(value) {
     await a.call('Page.bringToFront');
     await a.evaluate("document.querySelector('#next-run-seed').focus();document.querySelector('#next-run-seed').select()");
@@ -56,13 +72,36 @@ try {
   await a.evaluate("snailApp.local('suspend',[1])"); await until(()=>a.evaluate('snailApp.pending.length===0'),'pause not acknowledged');
   const untouched={world:await a.evaluate('snailApp.runtime.snapshot(1)'),epoch:(await (await fetch(origin+'/snapshot')).json()).epoch};
   await seedForm('0'); const invalid=await a.evaluate('snailApp.runtime.snapshot(1)');
-  const rejected=colony(untouched.world); rejected.notice=16; assert.deepEqual(colony(invalid),rejected);
+  const rejected = colony(untouched.world); rejected.notice=16; assert.deepEqual(colony(invalid),rejected);
   assert.equal((await (await fetch(origin+'/snapshot')).json()).epoch,untouched.epoch);
   await seedForm('43'); await until(async()=>colony(await b.evaluate('snailApp.runtime.snapshot(1)')).seed===43,'seed restart did not reach second client');
   const firstMarker=await a.evaluate('snailApp.runtime.snapshot(1)[1]');
   await seedForm('43'); assert.equal(await a.evaluate('snailApp.runtime.snapshot(1)[1]'),firstMarker+1);
   await seedForm('1'); await until(async()=>colony(await b.evaluate('snailApp.runtime.snapshot(1)')).seed===1,'seed reset did not converge');
   console.log('ok - native seed form reaches Scheme, rejects invalid range and restarts both clients exactly once');
+  await a.evaluate(`(async () => {
+    globalThis.savedFetch = fetch; globalThis.submitted = []; globalThis.releaseRenewal = undefined;
+    let rejected = false;
+    globalThis.fetch = (...args) => {
+      if (new URL(args[0], location.href).pathname === '/command') {
+        const body = JSON.parse(args[1].body); submitted.push(body);
+        if (!rejected) { rejected = true; return savedFetch(args[0], {...args[1],body:JSON.stringify({...body,epoch:'stale-test-epoch'})}); }
+      }
+      if (new URL(args[0], location.href).pathname === '/session' && rejected && !releaseRenewal)
+        return new Promise(resolve => { globalThis.releaseRenewal = () => resolve(savedFetch(...args)); });
+      return savedFetch(...args);
+    };
+    await snailApp.local('suspend', [0]);
+  })()`);
+  await until(() => a.evaluate('!!releaseRenewal'), 'rejected command did not begin session renewal');
+  await a.evaluate("globalThis.afterRenewal = snailApp.local('suspend', [0]); undefined");
+  assert.deepEqual(await a.evaluate('({requests:submitted.length,pending:snailApp.pending.length})'), {requests:1,pending:0});
+  await a.evaluate('releaseRenewal(); afterRenewal');
+  await until(() => a.evaluate('snailApp.pending.length===0 && submitted.length===2'), 'queued input did not resume after renewal');
+  assert.equal(await a.evaluate('submitted[0].sequence===submitted[1].sequence'), true);
+  assert.equal(await a.evaluate('submitted[1].epoch'), (await (await fetch(origin + '/snapshot')).json()).epoch);
+  await a.evaluate('globalThis.fetch = savedFetch; undefined');
+  console.log('ok - input waits through delayed session renewal and uses the restored sequence and epoch');
   async function place(client, key, x, y) {
     await client.call('Page.bringToFront');
     await client.evaluate('document.querySelector("canvas").focus()');
@@ -97,10 +136,10 @@ try {
   assert.deepEqual(concurrentShaders, ['rejected', 'fulfilled']);
   console.log('ok - concurrent shader candidates keep validation scopes isolated');
   console.log('ok - two browsers execute Scheme and converge on one purchased world');
-  assert.equal(await a.evaluate(`(()=>{
+  assert.equal(await a.evaluate(`(async()=>{
     const before=JSON.stringify(snailApp.runtime.snapshot(1)), local=JSON.stringify(snailApp.runtime.snapshot(2));
     const stale=snailApp.runtime.snapshot(1);stale[3]=9999;
-    snailApp.acceptSnapshot({revision:snailApp.revision-1,epoch:'old',state:stale});
+    await snailApp.acceptSnapshot({revision:snailApp.revision-1,epoch:'old',state:stale});
     return JSON.stringify(snailApp.runtime.snapshot(1))===before && JSON.stringify(snailApp.runtime.snapshot(2))===local;
   })()`),true);
   console.log('ok - stale authoritative snapshots cannot rewind the world or local selection');
@@ -111,7 +150,7 @@ try {
     return world.tick >= 800 && world.enemies.length > 0 && world.bots.some(bot => bot.job === 2 && bot.cargo > 0);
   }, 'match did not reach combat with a delivery in transit', 110000);
   await a.evaluate("document.querySelector('[data-handler=suspend][data-args=\"[1]\"]').click()");
-  await until(async () => (await Promise.all(pages.map(p => p.evaluate('snailApp.runtime.snapshot(1)')))).every(value => colony(value).paused === 1), 'shared pause not accepted');
+  await until(async () => (await Promise.all(pages.map(p => p.evaluate('snailApp.runtime.snapshot(1)')))).every(words => colony(words).paused === 1), 'shared pause not accepted');
   const combatWords = await a.evaluate('snailApp.runtime.snapshot(1)'), combat = colony(combatWords);
   assert.ok(combat.delivered > 0); assert.ok(combat.enemies.length > 0);
   assert.ok(combat.bots.some(bot => bot.job === 2 && bot.cargo > 0));
@@ -126,10 +165,11 @@ try {
   for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
   await pause(250);
   console.log('ok - shared pause freezes combat and hauling across visibility changes and repeated pause requests');
-  await a.evaluate("snailApp.local('pan',[-100,-100]);snailApp.local('choose',[2]);snailApp.local('move',[5,5]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('fabricate')");
+  await a.evaluate("snailApp.local('pan',[-100,-100]);snailApp.local('choose',[2]);snailApp.local('move',[5,5]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>new URL(args[0],location.href).pathname==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('fabricate')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.equal(JSON.parse(before.pending).length, 1);
-  assert.deepEqual([client(before.local).cameraX,client(before.local).cameraY], [-120000,-120000]);
+  const camera = client(before.local);
+  assert.deepEqual([camera.cameraX,camera.cameraY], [-120000,-120000]);
   assert.equal(colony(before.world).paused, 1);
   copyFileSync(join(fixtures, 'compatible.wasm'), join(directory, 'compatible.test.wasm'));
   const compatible = {...original, generation: `qa-compatible-${Date.now()}`, module: 'compatible.test.wasm'}; publish(compatible);
@@ -143,7 +183,7 @@ try {
   console.log('ok - changed Wasm behavior activates while paused colony, overscrolled camera, cursor, tool and pending envelope survive');
   await until(async () => JSON.stringify(await a.evaluate('snailApp.runtime.snapshot(1)')) === JSON.stringify(await b.evaluate('snailApp.runtime.snapshot(1)')), 'clients did not converge after pending delivery');
 
-  publish({...compatible, generation:`qa-marker-${Date.now()}`, settings:{...compatible.settings,runMarker:2}});
+  publish({...compatible, generation:`qa-marker-${Date.now()}`, settings:{...compatible.settings,runMarker:24}});
   await until(() => a.evaluate("document.querySelector('[data-connection]').textContent.includes('incompatible run marker')"), 'changed run marker was not rejected');
   assert.equal(await a.evaluate('snailApp.generation'),compatible.generation);
   publish(compatible);

@@ -1,107 +1,99 @@
-# Siegework code tour
+# Reading Siegework
 
-Siegework is a seeded colony simulation built from Scheme libraries. An immutable
-world, a separate client model, portable snapshots and pure presentation run in
-the browser and in a local Node authority. Shared host libraries connect them to
-input, SQLite, the network and WebGPU. See the [play instructions](README.md) and
-[compiler tour](../../TOUR.md) for the surrounding build and language.
+Siegework composes shared application, serialization and browser libraries with
+an app-owned immutable colony simulation. The compiler remains hosted by Chibi;
+Scheme owns the game rules and presentation executed by both browser and server.
 
-## Read the app in this order
+## Follow the modules
 
-| File | Responsibility |
+| Module | Responsibility |
 | --- | --- |
-| [game.sld](src/siegework/game.sld) | Typed match and client commands, camera/cursor movement, snapshot adapters and the scalar entry point. |
-| [model.sld](src/siegework/model.sld) | Immutable colony records, purchases, physical worker jobs, economy, combat and simulation ticks. |
-| [terrain.sld](src/siegework/terrain.sld) | Seeded geography, deposits, remembered surveys and routing. |
-| [state.sld](src/siegework/state.sld) | Gameplay validation and the restart marker around a derived world snapshot. |
-| [view.sld](src/siegework/view.sld) | Pure world/client presentation, scene quads and status text. |
-| [shaders.sld](src/siegework/shaders.sld) | Scheme-authored GPU expressions and the shader text entry point. |
-| [settings.json](settings.json) | Input mappings, remote handlers, restart marker offset and authority clock settings. |
-| [build.scm](build.scm) | Chibi compilation of simulation and shader entry points, followed by packaging. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, remembered surveys and bounded adjacent-cell pathfinding. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; construction reservations, physical deliveries, combat and restart rules. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
+| [`view.sld`](src/siegework/view.sld) | Pure quads and status text for the colony, camera, minimap, reservations and freight. |
+| [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
+| [`shaders.sld`](src/siegework/shaders.sld) | Scheme-authored shader generation for the shared WebGPU quad adapter. |
+| [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and separate solo/cloud packages. |
 
-## Follow an extractor purchase
+The [game guide](README.md) describes play and controls. Shared API contracts are
+in the [application chapter](../../doc/book/lofi/applications.md).
 
-The initial colony has 160 ore. With the extractor selected, confirming the
-starting deposit at `(12, 20)` follows this path:
+The `solo/` package runs from static hosting and stores one authority record in
+IndexedDB under a stable application ID. A Web Lock gives one tab ownership of
+that save. The `cloud/` package runs its authority on Node and stores the match
+in SQLite; independent browsers can resume or cooperate in that same match.
+Both packages use the exact same compiled game and shared browser presentation.
 
-1. The browser dispatches `confirm` to the local client application. Camera and
-   pointer coordinates determine the selected world cell.
-2. The client returns its unchanged local state plus a typed `extract` effect
-   addressed to the match owner. The browser queues the command with player,
-   sequence and epoch metadata, and speculatively applies it for feedback.
-3. The authority checks endpoint identity, typed arguments and retry metadata.
-   `extract-world` checks the placement and available resources, reserves 40 ore
-   and creates a paid construction project. Workers must physically deliver its
-   kit before it becomes a working extractor.
-4. The runtime stages the replacement and decodes it to establish its validity.
-   SQLite commits state, revision, epoch and consumed retry metadata before the
-   authority publishes a snapshot. A failed commit publishes no replacement.
-5. Browsers restore the accepted world while retaining their own client state.
-   Older revisions cannot overwrite newer accepted snapshots. Repeating the
-   same consumed request returns its receipt without buying another project.
+## Follow one accepted command
 
-## State and serialization
+1. [`BrowserInput`](../../src/browser/input.mjs) translates pointer, keyboard,
+   controller and integer-form input into typed client command arguments.
+2. The browser's [`ReducerRuntime`](../../src/application/runtime.mjs) queues a
+   client transition. Scheme returns an immutable client replacement and explicit
+   send descriptions. The client model includes its own camera and selection.
+3. [`cloud.mjs`](../../src/browser/cloud.mjs) sends a match envelope with stable
+   handler identity, sequence and epoch. Local prediction uses the same Scheme
+   match reducer and is replaced by the authority's accepted snapshot.
+   [`solo.mjs`](../../src/browser/solo.mjs) submits directly to the local durable
+   authority. Both use [`application.mjs`](../../src/browser/application.mjs) for
+   input, client transitions, presentation and code replacement.
+4. [`Authority`](../../src/application/authority.mjs) admits that envelope in the
+   runtime's shared FIFO. Retry receipts are checked before stale epochs, so an
+   accepted restart can be retried with its preceding epoch.
+5. The bridge decodes typed state, executes one Scheme reducer, validates its
+   replacement and materializes effects before persistence starts. World and
+   client commands, restore, code installation and shutdown share this lane.
+6. The durable adapter saves state, revision, epoch and consumed retry metadata
+   atomically. Queries see the prior committed state while the save is pending.
+   Only a successful save publishes the replacement and notifications. An
+   observer failure retains the committed receipt and never reruns the reducer.
 
-`define-immutable-record` declares `Building`, `Bot`, `Enemy`, `Alert`, `World`,
-`Survey` and `Client`. Accessors read fields; pure replacements such as
-`world-credits-set` preserve every other field and leave prior records intact.
-Each transported record opts into
-`(deriving derive-serialize derive-deserialize)`.
+## Follow the serialization boundary
 
-The shared [(lofi serialization)](../../src/lofi/serialization.sld) instances
-construct an S-expression containing nominal type names, constructors, fields
-and typed values. [Readable text and compact binary](../../src/lofi/sexp.sld)
-represent the same data. Procedures and live resource handles have no supplied
-instances. The [application adapter](../../src/application/serialization.sld)
-packs the binary into four bytes per `I32` word with checked length and padding.
-The snapshot grows with its data rather than reserving fixed record slots.
+Persisted records explicitly derive `Serialize` and `Deserialize` from
+[`(lofi serialization)`](../../src/lofi/serialization.sld). The derived instances
+own every record field's transport: nominal type, constructor, field names and
+typed scalar or list values use the shared compact S-expression binary format.
+No process address or WasmGC reference crosses the boundary.
 
-The client uses this generic snapshot directly. The world inserts its restart
-counter at word 1, ahead of the generic byte length and payload. The host reads
-that configured offset without interpreting colony records. Encoding derives
-this counter from `World`; decoding requires equality with the decoded field.
-Schema 6 rejects the former fixed-layout snapshots; existing saves need an
-explicit migration or a new run.
+The client uses the generic [`application serialization`](../../src/application/serialization.sld)
+envelope: schema, binary byte count and four packed bytes per `I32` word. The
+world inserts its run marker after the schema, before that binary count and
+payload. The host reads only this documented header. The Scheme decoder proves
+that the header marker equals the marker in the deserialized `World`.
 
-Typed decoding establishes record shape and field types. `state.sld` then
-checks bounded values, counts, identities, terrain, path continuity, worker
-ownership and ore conservation. `game.sld` validates client tool, pointer and
-camera bounds. The runtime validates staged output before persistence, so a
-malformed candidate cannot replace committed state. These semantic checks are
-application rules rather than a second serialization implementation.
+Both owners declare schema 6. Their sizes grow and shrink with the records,
+within the runtime's 65,536-word limit. Schemas 4 and 5 have different layouts and
+are rejected; neither derivation nor this integration migrates existing saves.
+Existing packages and databases are left intact. Cloud packages need a separate
+database unless an explicit migration is implemented and validated. Solo retains
+an incompatible record and explains how to reopen a compatible package; changing
+the static mount path leaves its origin/application save identity unchanged.
 
-## Follow the clock and the view
+Typed construction establishes field shape. The app then checks scalar/count
+bounds, distinct IDs, legal bounded routes, construction carriers and
+reservations, worker job/cargo relationships, mining occupancy, rail endpoints
+and cargo, and the ore ledger. Rails point to older tower IDs or the hub, keeping
+the upstream graph acyclic. These checks remain in Scheme for every host.
 
-`settings.json` selects `advance` at 100 ms intervals. The authority submits
-clock commands while a connected client is visible. Read `advance-world` and its
-named operations in `model.sld` to follow physical work, construction, production,
-hauling, attackers, damage and outcomes. Ore becomes spendable on delivery;
-kills do not create income. Shared pause freezes the simulation while allowing
-inspection and paid planning. Accepted restarts increment the world counter,
-rotating the epoch so old commands cannot affect a new run.
+Accepted restarts increment a bounded run marker, including replaying the same
+seed; the maximum wraps to zero. Rejected seed input retains it. The authority
+compares committed and staged header markers, then rotates the epoch in the same
+durable commit as the world and retry receipt.
 
-Browser animation frames draw state rather than advancing the clock. The client
-owns its tool, pointer and camera, including milli-pixel camera coordinates used
-by smooth panning. `game.sld` passes those coordinates into `colony-view` and
-`colony-status` in `view.sld`. Presentation produces immutable quads and text.
-The [WebGPU adapter](../../src/webgpu/quads.mjs) uploads rectangle vertices and
-uses the compiled Scheme-authored shaders for a real GPU render pass.
+## Follow replacement and checks
 
-## Build and reload
+Candidate code is prepared in a fresh Wasm instance and checked against current
+snapshots. Installation queues behind pending saves and revalidates the latest
+committed state. A failed candidate leaves installed code intact. Reducer traps
+can recover the previous compatible generation; save failures retain code and
+state. Shutdown drains admitted messages before closing durable storage.
 
-`build.scm` compiles `shader-entry` and `application-entry` through the Chibi-hosted
-compiler, retaining application declarations for the packager. The shared
-[build module](../../src/browser/build.mjs) derives endpoint identities, checks
-input settings, runs startup validation, writes generation-specific artifacts
-and publishes `manifest.json` last.
-
-Live runtimes prepare new code against their current snapshots before installing
-it. The browser also validates the shader pipeline. Compatible replacement
-preserves the colony, local camera/selection and pending requests without
-consuming a tick. Schema, endpoint or restart-marker incompatibility rejects the
-candidate. HTML, CSS and host JavaScript changes require a restart.
-
-Run `scripts/test-applications` for actual compiled Wasm transitions, snapshots,
-reload and durable retries. The [test guide](../../tests/applications/README.md)
-adds two-browser WebGPU checks. The [validation record](VALIDATION.md) describes
-executed checks and their limits.
+[`tests/applications`](../../tests/applications/README.md) executes real compiled
+Scheme/Wasm transitions, including cancellation, preemption, depot freight,
+endpoint loss, invalid ownership and persistence failures. Fixture helpers edit
+typed wire records to establish boundary scenarios; they contain no alternate
+game simulation. Browser checks exercise shared input, WebGPU presentation,
+session renewal and compatible or rejected reloads. Historical evidence remains
+in [`VALIDATION.md`](VALIDATION.md).

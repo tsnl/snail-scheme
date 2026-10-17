@@ -13,7 +13,7 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', path:'I32'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32'};
 function typedRecord(type, value) {
   const library = type === 'Survey' ? 'terrain' : type === 'Client' ? 'game' : 'model';
   return [symbol('data'), symbol(`(siegework ${library}):${type}`), symbol(`make-${type.toLowerCase()}`),
@@ -36,13 +36,15 @@ export function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
   return restoreColony(runtime, world);
 }
 export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 22,
-  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14} = {}) {
-  world.bots[index] = {id, x:x * 40 + 20, y:y * 40 + 20, job, target, cargo, timer, path, hp};
+  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0} = {}) {
+  world.bots[index] = {id, x:x * 40 + 20, y:y * 40 + 20, job, target, cargo, timer, path, hp, order};
 }
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
+export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);
 export function colonyBalance(world) {
   const cargo = world.bots.filter(bot => bot.job === 2 || (bot.job === 7 && bot.timer === 2))
     .reduce((sum, bot) => sum + bot.cargo, 0);
   return {bank:160 + world.delivered - world.spent,
-    raw:world.delivered + world.lostOre + cargo + world.buildings.reduce((sum, building) => sum + building.stock, 0)};
+    raw:world.delivered + world.lostOre + cargo + world.buildings.reduce((sum, building) => sum + building.stock, 0)
+      + world.rails.reduce((sum, rail) => sum + rail.cargo, 0)};
 }

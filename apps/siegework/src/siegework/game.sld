@@ -3,10 +3,10 @@
   (import
    (scheme base)
    (scheme immutable)
-   (lofi serialization)
    (application reducer)
    (application bridge)
    (application serialization)
+   (lofi serialization)
    (browser application)
    (siegework model)
    (siegework terrain)
@@ -29,7 +29,9 @@
                  (repair (state) (no-effects (repair-world state)))
                  (new-run (state) (no-effects (restart-world state)))
                  (pause-colony (state (value I32)) (no-effects (pause-world state value)))
-                 (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed))))
+                 (new-run-seed (state (seed I32)) (no-effects (seeded-world state seed)))
+                 (cancel-building (state (x I32) (y I32)) (no-effects (cancel-world state x y)))
+                 (arm-tower (state (x I32) (y I32)) (no-effects (arm-world state x y))))
     (define match-target (destination match-owner match-app))
 
     ;; ---- Camera and cursor belong to each browser, including across reload ----
@@ -88,7 +90,9 @@
                  (home (state) (no-effects (make-client (client-tool state) 340 340 0 560000)))
                  (suspend (state (value I32)) (transition state (list (enqueue match-target (pause-colony value)))))
                  (drift (state (dx I32) (dy I32)) (no-effects (drift-client state dx dy)))
-                 (restart-seed (state (seed I32)) (transition state (list (enqueue match-target (new-run-seed seed))))))
+                 (restart-seed (state (seed I32)) (transition state (list (enqueue match-target (new-run-seed seed)))))
+                 (cancel (state) (transition state (list (enqueue match-target (cancel-building (client-x state) (client-y state))))))
+                 (arm (state) (transition state (list (enqueue match-target (arm-tower (client-x state) (client-y state)))))))
 
     ;; ---- Client schema and pure presentation ----
 

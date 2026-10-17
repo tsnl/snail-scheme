@@ -8,7 +8,8 @@ const encoder = new TextEncoder();
 const uleb = value => { const bytes = []; do { const n = value & 127; value >>>= 7; bytes.push(n | (value ? 128 : 0)); } while (value); return bytes; };
 const name = value => { const bytes = encoder.encode(value); return [...uleb(bytes.length), ...bytes]; };
 const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
-function scalarProvider(functions, signatures) {
+function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
+    ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false]]) {
   const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
   const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
   const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
@@ -76,26 +77,25 @@ export function parseCommand(manifest, owner, command) {
 
 // Contracts may reorder slots, but a live replacement cannot add/remove/change
 // endpoint identities. Pending envelopes remain encoded under their old contract.
-function protocolContract(manifest) {
+export function protocolContract(manifest) {
   return JSON.stringify({effects: manifest.effects,
     applications: manifest.applications.map(app => ({owner: app.owner, state: app.state, schema: app.schema,
       handlers: app.handlers.map(h => [h.id, h.payload, h.result]).sort((a,b) => a[0].localeCompare(b[0]))}))
       .sort((a,b) => a.owner.localeCompare(b.owner))});
 }
 
-// ---- One synchronous transition per owner ----
+// ---- One message lane for the shared two-owner instance ----
 
 export class ReducerRuntime {
   stores = new Map(); active; instance; manifest; sizes; previous;
+  #tail = Promise.resolve(); #closing; #activation = 0; #recoveries = new Set();
   constructor() {
     this.provider = scalarProvider({length: id => this.bank(id).length,
       read: (id, index) => this.read(id, index), write: (id, index, value) => this.write(id, index, value),
       command: (owner, slot, a, b) => this.stageEffect({kind: 'send', owner, slot, args: [a, b]}),
       note: (index, value) => this.stageText('note', index, value),
       quad: (...words) => this.active.output.quads.push(words),
-      label: (index, value) => this.stageText('label', index, value)},
-    [['length', 1, true], ['read', 2, true], ['write', 3, false],
-     ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false]]);
+      label: (index, value) => this.stageText('label', index, value)});
     this.diagnostics = diagnosticProvider();
   }
   bank(id, index) {
@@ -132,44 +132,72 @@ export class ReducerRuntime {
       chars[index] = value;
     }
   }
-  transaction(instance, args, {owner, readOnly = false, persist, snapshots = this.stores} = {}) {
+  #enqueue(operation) {
+    const result = this.#tail.then(operation);
+    this.#tail = result.catch(() => {}); // One failed message cannot poison the lane.
+    return result;
+  }
+  // Authority admission uses the supplied dispatcher inside this same message.
+  // Awaiting another queued mutation here would wait on the current message.
+  message(operation) {
+    if (this.#closing) return Promise.reject(new Error('runtime is closing'));
+    return this.#enqueue(() => this.#runMessage(operation));
+  }
+  async #runMessage(operation) {
+    let transition, open = true, used = false;
+    const dispatch = (...args) => {
+      if (!open || used) throw new Error('one transition per runtime message');
+      used = true;
+      return transition = this.#transition(...args);
+    };
+    try { return await operation(dispatch); }
+    finally { open = false; await transition; }
+  }
+
+  // ---- Synchronous scalar scope; no host I/O can observe its candidate ----
+
+  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores} = {}) {
     if (this.active) throw new Error('nested transition');
     this.active = {owner, readOnly, snapshots, effects: [], output: {quads: []}};
-    let phase = "reduce";
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
-      const next = tx.next ?? tx.snapshots.get(owner);
-      const output = {result, effects: tx.effects, quads: tx.output.quads,
-        label: tx.label ? String.fromCodePoint(...tx.label) : ''};
-      phase = "persist";
-      if (persist) persist(next, tx.effects); // A failed durable commit publishes nothing.
-      if (tx.next) this.stores = new Map(this.stores).set(owner, tx.next);
-      return output;
-    } catch (error) { error.transitionPhase = phase; throw error; }
+      const output = freezeValue({result, effects: tx.effects.map(effect => this.#materializeEffect(effect)),
+        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : ''});
+      return {next: tx.next, output};
+    } catch (error) { error.transitionPhase = 'reduce'; throw error; }
     finally { this.active = undefined; }
+  }
+  #materializeEffect(effect) {
+    if (effect.kind === 'notice') return {kind: 'notice', text: String.fromCodePoint(...effect.chars)};
+    const app = this.manifest.applications.find(a => a.owner === (effect.owner === 1 ? 'match' : 'client'));
+    const handler = app?.handlers[effect.slot];
+    if (!handler || ![1, 2].includes(effect.owner)) throw new Error('effect targets invalid endpoint');
+    const command = {handler: handler.id, args: effect.args.slice(0, handler.payload.length)};
+    parseCommand(this.manifest, app.owner, command);
+    return {kind: 'send', owner: effect.owner, command};
   }
   validateReplacement(instance, tx) {
     if (!tx.next) return;
     const ownerName = tx.owner === 1 ? 'match' : 'client';
     const schema = this.manifest.applications.find(app => app.owner === ownerName).schema;
     if (tx.next[0] !== schema) throw new Error('replacement snapshot has an invalid schema');
-    // Validation sees the proposed snapshot in an isolated read-only scope.
-    // Neither durable storage nor observers can see it before this returns.
-    const snapshots = new Map(tx.snapshots); snapshots.set(tx.owner, tx.next);
+    // Candidate validation receives its own read-only map. Committed snapshots
+    // remain visible even while preparing a replacement or awaiting a save.
+    const snapshots = new Map(tx.snapshots).set(tx.owner, tx.next);
     this.active = {readOnly: true, snapshots, effects: [], output: {quads: []}};
     try {
       if (!invokeEntry(instance, [10, 0, 0, 0])) throw new Error('invalid replacement snapshot');
     } finally { this.active = tx; }
   }
-  metadata(instance, index) { return this.transaction(instance, [0, index, 0, 0], {readOnly: true}).result; }
+  metadata(instance, index) { return this.#stage(instance, [0, index, 0, 0], {readOnly: true}).output.result; }
   prepare(bytes, manifest) {
+    if (this.#closing) throw new Error('runtime is closing');
     if (this.active) throw new Error('code preparation during a transition');
     manifest = validateManifest(manifest);
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const instance = instantiate(loadWasm(bytes), new Map([
-      ['snail.reducer', this.provider], ['snail.library', this.diagnostics]]));
+    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
       const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);
@@ -194,7 +222,7 @@ export class ReducerRuntime {
     this.validateCandidate(instance, proposed); return proposed;
   }
   validateState(instance, snapshots = this.stores) {
-    if (!this.transaction(instance, [10, 0, 0, 0], {readOnly: true, snapshots}).result)
+    if (!this.#stage(instance, [10, 0, 0, 0], {readOnly: true, snapshots}).output.result)
       throw new Error('incompatible state schema; explicit migration required');
   }
   validateCandidate(instance, snapshots = this.stores) {
@@ -202,53 +230,89 @@ export class ReducerRuntime {
     // Test presentation before activation too. Initial absent owners have no
     // values to render; their initialization remains a separate transition.
     if ([1, 2].every(owner => snapshots.get(owner)?.[0]))
-      this.transaction(instance, [4, 0, 0, 0], {readOnly: true, snapshots});
+      this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots});
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
+    return this.message(() => this.#install(candidate));
+  }
+  #install(candidate) {
+    if (this.manifest && protocolContract(candidate.manifest) !== protocolContract(this.manifest))
+      throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
     const stores = this.candidateStores(candidate.instance, candidate.sizes);
     if (this.previous) closeInstance(this.previous.instance);
     this.previous = this.instance ? {instance: this.instance, manifest: this.manifest, sizes: this.sizes} : undefined;
     this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest; this.sizes = candidate.sizes;
+    this.#activation++;
   }
   initialize(owner) {
-    if (!this.stores.get(owner)[0]) return this.transaction(this.instance, [1, owner, 0, 0], {owner});
+    return this.message(() => {
+      if (this.stores.get(owner)[0]) return;
+      const staged = this.#stage(this.instance, [1, owner, 0, 0], {owner});
+      if (staged.next) this.stores = new Map(this.stores).set(owner, staged.next);
+      return staged.output;
+    });
   }
-  dispatch(owner, command, options = {}) {
+  async dispatch(owner, command, {persist, publish} = {}) {
+    command = structuredClone(command); // The queued request owns its input.
+    return this.message(dispatch => dispatch(owner, command, {persist, publish}));
+  }
+  async #transition(owner, command, {persist, publish} = {}) {
     const {handler, args} = parseCommand(this.manifest, owner === 1 ? 'match' : 'client', command);
-    try { return this.transaction(this.instance, [owner === 1 ? 2 : 3, handler.slot, args[0] ?? 0, args[1] ?? 0], {owner, ...options}); }
+    let staged;
+    try { staged = this.#stage(this.instance, [owner === 1 ? 2 : 3, handler.slot, args[0] ?? 0, args[1] ?? 0], {owner}); }
     catch (error) {
-      this.recoverCode(error);
+      this.#recoverCode(error);
       throw error;
     }
+    // The bridge is inactive and reads still see committed snapshots. A saver
+    // receives an immutable copy, never the buffer that will become committed.
+    if (persist) await persist(Object.freeze(Array.from(staged.next ?? this.stores.get(owner))), staged.output.effects);
+    if (staged.next) this.stores = new Map(this.stores).set(owner, staged.next);
+    if (publish) publish(staged.output); // Authority metadata joins this synchronous publication turn.
+    return staged.output;
   }
-  recoverCode(error) {
+  #recoverCode(error) {
     // A trap does not commit. Persistence failures alone must not change code.
     if (error.transitionPhase !== 'reduce' || !this.previous) return;
     this.validateCandidate(this.previous.instance);
     closeInstance(this.instance); this.instance = this.previous.instance;
     this.manifest = this.previous.manifest; this.sizes = this.previous.sizes; this.previous = undefined;
+    this.#activation++;
   }
   command(owner, binding, args = []) { return {handler: endpoint(this.manifest, owner, binding).id, args}; }
-  effectCommand(effect) {
-    const app = this.manifest.applications.find(a => a.owner === (effect.owner === 1 ? 'match' : 'client'));
-    const handler = app?.handlers[effect.slot];
-    if (!handler) throw new Error('effect targets invalid endpoint');
-    return {handler: handler.id, args: effect.args.slice(0, handler.payload.length)};
-  }
+  effectCommand(effect) { return effect.command; }
   view() {
-    try { return this.transaction(this.instance, [4, 0, 0, 0], {readOnly: true}); }
-    catch (error) { this.recoverCode(error); throw error; }
+    if (this.#closing) throw new Error('runtime is closing');
+    try { return this.#stage(this.instance, [4, 0, 0, 0], {readOnly: true}).output; }
+    catch (error) { this.#deferRecovery(this.#activation, error); throw error; }
+  }
+  #deferRecovery(activation, error) {
+    if (this.#closing || this.#recoveries.has(activation)) return;
+    this.#recoveries.add(activation);
+    this.#enqueue(() => { if (this.#activation === activation) this.#recoverCode(error); })
+      .catch(() => {}) // The original query reports failure; failed recovery preserves installed code.
+      .finally(() => this.#recoveries.delete(activation));
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
-  restore(owner, words) {
+  async restore(owner, words) {
+    words = structuredClone(words);
+    return this.message(() => this.#restoreState(owner, words));
+  }
+  #restoreState(owner, words) {
     if (!Array.isArray(words) || words.length < 1 || words.length > 65536 || !words.every(i32)
         || (this.sizes[owner - 1] && words.length !== this.sizes[owner - 1])) throw new Error('invalid snapshot');
     const schema = this.manifest.applications.find(app => app.owner === (owner === 1 ? 'match' : 'client')).schema;
     if (words[0] !== schema) throw new Error('invalid snapshot schema');
-    const value = Int32Array.from(words), snapshots = new Map(this.stores); snapshots.set(owner, value);
+    const snapshots = new Map(this.stores).set(owner, Int32Array.from(words));
     this.validateState(this.instance, snapshots);
     this.stores = snapshots;
   }
-  close() { if (this.instance) closeInstance(this.instance); if (this.previous) closeInstance(this.previous.instance); }
+
+  close() {
+    return this.#closing ??= this.#enqueue(() => {
+      if (this.instance) closeInstance(this.instance);
+      if (this.previous) closeInstance(this.previous.instance);
+    });
+  }
 }

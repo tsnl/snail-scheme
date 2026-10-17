@@ -1,20 +1,17 @@
 # Siegework
 
-Siegework is a cooperative colony defense game built around short, fresh runs.
+Siegework is a colony defense game built around short, fresh runs, with browser-local
+solo saves and a shared server authority for cloud solo or cooperative play.
 Place infrastructure, let autonomous workers supply it, and protect the economy
 that pays for your defenses. The current experiment is an **eight-minute run on a seeded
 48×36 map** in top-down 2D. Three workers share mining, construction, hauling and repairs;
 observation towers reveal opportunities for expansion. There is no player avatar
 or individual worker control.
 
-Game rules, client reducers and presentation are Scheme libraries. Real WebGPU
-renders the world; a local Node authority runs the same generated Wasm, commits
-to SQLite and serves cooperating browser clients. The
+Game rules, client reducers and presentation are Scheme libraries. WebGPU renders
+both builds. Solo runs its authority in the browser with IndexedDB; cloud runs
+the same generated Wasm on Node and commits to SQLite. The
 [prototype contract](PROTOTYPE.md) separates this experiment from future ideas.
-
-The [code tour](TOUR.md) follows a purchase through client input, immutable game
-state, durable authority, snapshots and WebGPU rendering, then explains the build
-and reload paths.
 
 ## Build and play
 
@@ -22,27 +19,58 @@ From the repository root, with Chibi, Binaryen and Node 24 available:
 
 ```sh
 chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
-node build/siegework/lib/browser/server.mjs "$PWD/build/siegework"
 ```
 
-Open `http://127.0.0.1:4173` in a browser with WebGPU and WasmGC. A second tab joins
-the same colony. The server binds localhost; internet hosting, authentication and
-matchmaking are outside this experiment. Prefix the server command with
-`PORT=4175` to use another port. The clock advances only while at least one
+One compilation produces two independent packages with identical simulation
+bytes. Free solo saves on this browser; serve `build/siegework/solo` as static
+files, including under a subpath:
+
+```sh
+python3 -m http.server 4174 --directory build/siegework/solo
+```
+
+The local preview command uses Python 3; any ordinary static host can serve the
+same directory. Open `http://127.0.0.1:4174` with WebGPU, WasmGC, IndexedDB,
+Web Crypto and Web Locks. HTTPS
+or localhost is required. One tab owns the solo save; another tab explains how
+to release it. Reopening restores the colony and manual pause. Camera, tool,
+cursor and pending input restart with the page. Saves belong to this origin and
+the stable `siegework` application ID, and can be lost if browser data is cleared
+or evicted. Solo has no server or cross-device synchronization.
+
+Cloud stores the colony on the server, for either one player resuming from
+another browser or several players sharing it:
+
+```sh
+node build/siegework/cloud/lib/browser/server.mjs "$PWD/build/siegework/cloud"
+```
+
+Open `http://127.0.0.1:4173`. A second tab joins the same colony. This implements
+the save foundation for premium/cloud hosting; accounts, billing and save routing
+are future work. The server binds localhost; public hosting and access control
+are outside this experiment. Prefix the server command with
+`PORT=4175` to use another port. Another physical device needs separately
+configured HTTPS routing to this same authority; the localhost command only
+serves browsers on this machine. The clock advances only while at least one
 connected event-stream client reports its page visible. Hiding one tab does not
 pause a colony another player is viewing; input focus is not required. The shared
 **Pause colony / Resume** buttons explicitly stop and restart simulation for all
 players. Manual pause survives visibility changes, compatible code reload and
-authority restart. Camera movement and orders remain available; paid construction
+authority restart. Solo skips ticks while its own page is hidden; neither host
+replays elapsed ticks on return. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 6**. Older prototype and colony
-matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
-fresh colony, retaining the old package and `match.sqlite` together. For example,
-build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
+This version uses **world and client schema 6**. Derived snapshots retain the
+logistics rules and use a new incompatible transport. Older prototype and colony
+matches cannot be loaded or hot-reloaded into it implicitly. Use a new output
+directory for a fresh colony, retaining the old package and `match.sqlite`
+together. For example, build to `"$PWD/build/siegework-colony"` and run its
+`cloud/lib/browser/server.mjs` with `"$PWD/build/siegework-colony/cloud"` on another port.
 Do not delete or replace a database while its authority is running. There is no
-automatic schema migration. Records derive serialization through the shared
-S-expression text/binary format; the [code tour](TOUR.md) follows the complete path.
+automatic schema migration. Solo likewise retains incompatible saves and refuses
+to start; reopen the previous compatible package. A different output path on the
+same origin does not create a new solo save. Keep the application ID stable for
+updates; use a separately configured ID only for an intentionally separate app.
 
 ## Your first colony
 
@@ -62,6 +90,9 @@ are workers, with turquoise cargo when hauling ore.
    finish construction. Blueprints require currently visible ground and a walking
    route through surveyed terrain. Remembered, shaded terrain stays on the map
    after a tower falls, but it does not show current enemies or permit new orders.
+   Completed towers also accept ore. Placement chooses an automatic railway to
+   a nearby connected tower or the hub; its preview shows the proposed route.
+   Ore becomes spendable only when freight reaches the hub.
 4. Choose what the next delivery buys: another worker, a richer distant mine,
    an extra mining slot, wider observation, or another gun. More extraction can
    pile up at a mine when the same workers are busy building or travel is long.
@@ -74,10 +105,11 @@ first step: the workers still need a known route to build and service it.
 | --- | --- |
 | Extractor | 40 ore; one worker slot, producing 2, 3 or 6 ore/sec when occupied; 120-ore buffer. |
 | Artillery | 50 ore; automatic visible-target fire within eight cells. |
-| Observation tower | 25 ore; seven-cell sight radius when completed. |
+| Observation tower | 25 ore; seven-cell sight, ore depot and automatic upstream railway when completed. |
 | Assemble worker | 25 ore; ready at the hub after three seconds, up to 12 workers. |
 | Upgrade extractor | 40 ore; adds a second worker slot, once. Empty slots produce nothing. |
 | Upgrade tower | 35 ore; increases its sight radius from seven to ten cells, once. |
+| Arm tower | 50 ore; adds artillery while retaining its sight, depot and railway. |
 | Automatic repair | 4 ore per 25 health; keeps 40 ore in reserve, one kit at a time. |
 
 Three workers and 160 ore start each run. A worker parked in a mine produces its
@@ -88,10 +120,27 @@ and low stock at fully occupied mines calls for more extraction. A lone survivin
 worker alternates mining and hauling so recovery can continue.
 
 Workers take nearby reachable work from their actual position. Prioritizing a
-site favors its construction, staffing and collection. Kits still require a hub
-pickup and ore must reach the hub before spending. Construction and repairs keep
-hauling capacity when possible. Repairs cover the hub and structures with one
-paid kit at a time and a 40-ore reserve.
+site favors its construction, staffing and collection. A new build order immediately
+reserves the closest eligible worker by safe walking distance, including a busy
+miner or hauler. The worker delivers carried ore or returns a repair kit before
+collecting the construction kit at the hub. Workers already building, assembling
+or fleeing keep their commitments; an order waits if nobody is available.
+Repairs cover the hub and structures with one paid kit at a time and a 40-ore reserve.
+
+**Cancel build** removes the unfinished site. A kit still at the hub is refunded
+immediately. A kit already being carried returns physically to the hub before its
+refund; losing that carrier also loses the refund. Cancellation releases a reserved
+worker without discarding unrelated ore or repair supplies. Completed sites cannot
+be cancelled or demolished.
+
+Haulers choose the nearest reachable connected depot or hub. Each automatic rail
+has one shuttle carrying up to **32 ore**, with a visible empty return journey.
+Freight may pass through several towers; depot stock and rail cargo are not
+spendable. A route remains fixed while its endpoints survive. When a tower falls,
+freight on its broken links is lost and surviving depots seek a new upstream
+connection. The rails themselves do not block walking or take damage. Arming a
+tower keeps all its logistics roles and uses the same eight-cell fire range as
+standalone artillery.
 
 Workers flee nearby attackers and wait when no safe route exists. Defend supply
 lines with artillery to make them usable again. Workers and completed buildings
@@ -124,6 +173,8 @@ seed. Invalid input keeps the current colony. Seed 1 is the original layout.
 | Assemble worker | F | Left trigger |
 | Prioritize site under cursor | P | Right trigger |
 | Upgrade site under cursor | U | Left bumper |
+| Cancel unfinished site under cursor | C | Left stick click |
+| Arm tower under cursor | T | Right stick click |
 | Toggle automatic repairs | R | Right bumper |
 | Return camera and cursor home | H | View |
 | Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
@@ -135,10 +186,12 @@ perimeter show where the playable field ends; the minimap separates that boundar
 from the visible camera area. Hovering the margin is allowed, but placing there
 is rejected without moving the order onto a neighboring cell.
 
-To upgrade or prioritize, **hover or move the cursor onto an existing site, then
-use U/P or its button**. Clicking is a placement command, not a selection mode.
+To upgrade, prioritize, cancel or arm, **hover or move the cursor onto an existing
+site, then use U/P/C/T or its button**. Clicking is a placement command, not a selection mode.
 Field status names the site, its buffer, workers collecting from it and any
-remaining upgrade. It also explains placement failures and labels the last order
+remaining upgrade. Reserved workers retain their current job marker, with a gold
+construction commitment mark. The status separates mine stock, depot stock,
+freight and refunds still returning to the hub. It also explains placement failures and labels the last order
 separately from the current placement preview.
 
 Eastern waves arrive each minute. An announced raid at 3:30 targets an outer
@@ -158,13 +211,17 @@ The colony, local camera/cursor/tool and pending requests stay in the stable hos
 Invalid builds do not publish a manifest; failed candidates or pipelines keep the
 previous generation running. HTML/CSS/host JavaScript changes require a page or
 server restart. A page restart creates a fresh local UI model; the authoritative
-match is restored from the package's `match.sqlite`.
+match is restored from IndexedDB in solo or the cloud package's `match.sqlite`.
+Solo polls its static manifest for compatible updates; it needs no development
+server. A failed solo save stops the clock with retry/reload guidance. A successful
+retry resumes it. A forced tab/browser termination recovers completed commits;
+it cannot guarantee that an unfinished command was saved.
 
 The [application chapter](../../doc/book/lofi/applications.md) explains typed
 handlers, state lifetimes, reload and the shader dialect. Shared code stays under
 `src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
 This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
-`state.sld` (gameplay validation and derived snapshot envelope), `view.sld` (quads/status), `game.sld` (typed commands
+`state.sld` (derived transport and colony invariants), `view.sld` (quads/status), `game.sld` (typed commands
 and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
 declare controls and layout; generic `src/browser/input.mjs` maps physical input
 and typed integer forms to Scheme handlers. Seed range and restart rules stay in
