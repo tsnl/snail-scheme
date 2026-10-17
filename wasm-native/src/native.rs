@@ -389,13 +389,14 @@ pub unsafe extern "C" fn native_array_new(
     stride: u32,
 ) -> u64 {
     let mut initial = ArrayInitializer::new(initial);
+    let frame = (&raw mut initial).cast::<NativeRoots>();
     let reference_elements = unsafe { runtime().collector.reference_array(kind) };
     unsafe {
-        native_roots_enter(&mut initial.roots, u64::from(reference_elements));
+        native_roots_enter(frame, u64::from(reference_elements));
         initial.roots.count = u64::from(reference_elements);
     }
     let reference = unsafe { native_alloc(16 + length as u64 * stride as u64) };
-    unsafe { native_roots_leave(&mut initial.roots) };
+    unsafe { native_roots_leave(frame) };
     let words = object_words(reference);
     unsafe {
         words.write(kind);
