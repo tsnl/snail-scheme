@@ -2,6 +2,7 @@
 // mutable buffers; application handlers receive explicit immutable values.
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
 import {createUiBridge} from '../ui/bridge.mjs';
+import {createSceneBridge} from '../draw3d/bridge.mjs';
 
 // ---- Typed Wasm forwarding for host scalar functions ----
 
@@ -99,6 +100,7 @@ export class ReducerRuntime {
       label: (index, value) => this.stageText('label', index, value)});
     this.diagnostics = diagnosticProvider();
     this.uiBridge = createUiBridge(scalarProvider, () => this.active);
+    this.sceneBridge = createSceneBridge(scalarProvider, () => this.active);
   }
   bank(id, index) {
     if (!this.active) throw new Error('snapshot bridge used outside a transaction');
@@ -165,8 +167,10 @@ export class ReducerRuntime {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
       const ui = this.uiBridge.finish(tx, manifest);
+      const scene = this.sceneBridge.finish(tx);
       const output = freezeValue({result, effects: tx.effects.map(effect => this.#materializeEffect(effect)),
-        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : '', ...(ui ? {ui} : {})});
+        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : '',
+        ...(ui ? {ui} : {}), ...(scene ? {scene} : {})});
       return {next: tx.next, output};
     } catch (error) { error.transitionPhase = 'reduce'; throw error; }
     finally { this.active = undefined; }
@@ -201,7 +205,7 @@ export class ReducerRuntime {
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
     const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics],
-      ['snail.ui', this.uiBridge.provider]]));
+      ['snail.ui', this.uiBridge.provider], ['snail.scene', this.sceneBridge.provider]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
       const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);

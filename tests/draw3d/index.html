@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Scheme 3D scene fixture</title>
+<style>body{margin:0;background:#101a20}canvas{width:100vw;height:100vh;object-fit:contain}</style>
+<canvas width="960" height="640"></canvas><script type="module">
+import {createSceneRenderer} from './lib/webgpu/scene.mjs';
+const errors=[];globalThis.sceneErrors=errors;
+const renderer=await createSceneRenderer(document.querySelector('canvas'),error=>errors.push(error.message));
+const source=await(await fetch('./shader.wgsl')).text();renderer.replace(await renderer.prepare(source));
+const frame=await(await fetch('./frame.json')).json();renderer.draw(frame);
+globalThis.sceneFixture={renderer,frame};
+</script></html>

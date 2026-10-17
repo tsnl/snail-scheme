@@ -2,7 +2,8 @@
 ;; can import its macros, AST constructors and compiler as ordinary libraries.
 (define-library (webgpu shader)
   (export gpu ShaderExpression shader-zero shader-one shader-position shader-color
-          shader-vec4 shader-product compile-shader shader-valid? shader-text)
+          shader-normal shader-project shader-lambert shader-vec4 shader-product
+          compile-shader compile-scene-shader shader-valid? shader-text)
   (import
    (scheme base)
    (only (lofi base) string-append)
@@ -20,6 +21,12 @@
         (shader-one)
         (shader-position)
         (shader-color)
+        (shader-normal)
+        (shader-project
+         (position ShaderExpression))
+        (shader-lambert
+         (color ShaderExpression)
+         (normal ShaderExpression))
         (shader-vec4
          (xy ShaderExpression)
          (z ShaderExpression)
@@ -33,11 +40,14 @@
          (valid Bool shader-valid?)
          (text String shader-text))))
     (define-syntax gpu
-      (syntax-rules (zero one position color vec4 *)
+      (syntax-rules (zero one position color normal project lambert vec4 *)
         ((_ zero) (shader-zero))
         ((_ one) (shader-one))
         ((_ position) (shader-position))
         ((_ color) (shader-color))
+        ((_ normal) (shader-normal))
+        ((_ (project value)) (shader-project (gpu value)))
+        ((_ (lambert shade direction)) (shader-lambert (gpu shade) (gpu direction)))
         ((_ (vec4 xy z w)) (shader-vec4 (gpu xy) (gpu z) (gpu w)))
         ((_ (* left right)) (shader-product (gpu left) (gpu right)))))
 
@@ -49,15 +59,21 @@
       (cond ((or (= left 0) (= right 0)) 0)
             ((= left 1) right) ((= right 1) left)
             ((= left right) left) (else 0)))
-    (define (expression-width expression vertex?)
+    (define (expression-width expression vertex? scene?)
       (match expression
         ((shader-zero) 1) ((shader-one) 1)
-        ((shader-position) (if vertex? 2 0)) ((shader-color) 4)
+        ((shader-position) (if vertex? (if scene? 3 2) 0)) ((shader-color) 4)
+        ((shader-normal) (if scene? 3 0))
+        ((shader-project position)
+         (if (and scene? vertex? (= (expression-width position vertex? scene?) 3)) 4 0))
+        ((shader-lambert color normal)
+         (if (and scene? (not vertex?) (= (expression-width color vertex? scene?) 4)
+                  (= (expression-width normal vertex? scene?) 3)) 4 0))
         ((shader-vec4 xy z w)
-         (if (and (= (expression-width xy vertex?) 2)
-                  (= (expression-width z vertex?) 1) (= (expression-width w vertex?) 1)) 4 0))
+         (if (and (= (expression-width xy vertex? scene?) 2)
+                  (= (expression-width z vertex? scene?) 1) (= (expression-width w vertex? scene?) 1)) 4 0))
         ((shader-product left right)
-         (product-width (expression-width left vertex?) (expression-width right vertex?)))))
+         (product-width (expression-width left vertex? scene?) (expression-width right vertex? scene?)))))
 
     ;; ---- WGSL emission ----
 
@@ -67,6 +83,11 @@
       (match expression
         ((shader-zero) "0.0") ((shader-one) "1.0")
         ((shader-position) "input.position") ((shader-color) "input.color")
+        ((shader-normal) "input.normal")
+        ((shader-project position)
+         (string-append "(scene.view_projection * vec4f(" (expression-source position) ", 1.0))"))
+        ((shader-lambert color normal)
+         (string-append "lambert(" (expression-source color) ", " (expression-source normal) ")"))
         ((shader-vec4 xy z w)
          (string-append "vec4f(" (expression-source xy) ", " (expression-source z)
                         ", " (expression-source w) ")"))
@@ -82,8 +103,34 @@
        "@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {\n"
        "  return " (expression-source fragment) ";\n}\n"))
     (define (compile-shader vertex fragment)
-      (cond ((not (= (expression-width vertex #t) 4))
+      (cond ((not (= (expression-width vertex #t #f) 4))
              (compiled-shader #f "vertex expression must produce vec4; check operand widths"))
-            ((not (= (expression-width fragment #f) 4))
+            ((not (= (expression-width fragment #f #f) 4))
              (compiled-shader #f "fragment expression must produce vec4; position is vertex-only"))
-            (else (compiled-shader #t (module-source vertex fragment)))))))
+            (else (compiled-shader #t (module-source vertex fragment)))))
+
+    ;; ---- Lit indexed scenes share the checked expression language ----
+
+    ;; Alpha carries the material's emission blend. Scene surfaces are opaque;
+    ;; transparent sorting and physically based materials are separate features.
+    (define (scene-module-source vertex fragment)
+      (string-append
+       "struct Scene { view_projection: mat4x4f, sun: vec4f, ambient: vec4f };\n"
+       "@group(0) @binding(0) var<uniform> scene: Scene;\n"
+       "struct VertexInput { @location(0) position: vec3f, @location(1) normal: vec3f, @location(2) color: vec4f };\n"
+       "struct VertexOutput { @builtin(position) position: vec4f, @location(0) normal: vec3f, @location(1) color: vec4f };\n"
+       "fn lambert(color: vec4f, normal: vec3f) -> vec4f {\n"
+       "  let diffuse = max(dot(normalize(normal), scene.sun.xyz), 0.0) * scene.sun.w;\n"
+       "  let illumination = mix(scene.ambient.xyz + vec3f(diffuse), vec3f(1.0), color.a);\n"
+       "  return vec4f(color.rgb * illumination, 1.0);\n}\n"
+       "@vertex fn vertex_main(input: VertexInput) -> VertexOutput {\n"
+       "  var output: VertexOutput;\n  output.position = " (expression-source vertex) ";\n"
+       "  output.normal = input.normal;\n  output.color = input.color;\n  return output;\n}\n"
+       "@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4f {\n"
+       "  return " (expression-source fragment) ";\n}\n"))
+    (define (compile-scene-shader vertex fragment)
+      (cond ((not (= (expression-width vertex #t #t) 4))
+             (compiled-shader #f "scene vertex expression must produce vec4; project accepts vec3"))
+            ((not (= (expression-width fragment #f #t) 4))
+             (compiled-shader #f "scene fragment expression must produce vec4; lambert accepts color and normal"))
+            (else (compiled-shader #t (scene-module-source vertex fragment)))))))
