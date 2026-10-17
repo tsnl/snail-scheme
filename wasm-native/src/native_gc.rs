@@ -33,7 +33,6 @@ struct Block {
     evacuate: bool,
     holes: usize,
     marked_lines: usize,
-    allocated_lines: usize,
     live_lines: usize,
     available_lines: usize,
     next_line: usize,
@@ -50,7 +49,6 @@ impl Default for Block {
             evacuate: false,
             holes: 0,
             marked_lines: 0,
-            allocated_lines: 0,
             live_lines: 0,
             available_lines: 0,
             next_line: 0,
@@ -196,13 +194,11 @@ impl Collector {
         heap.add_region(config.initial).then_some(heap)
     }
 
-    fn record_start(&mut self, region: usize, header: *mut u64, bytes: usize) {
+    fn record_start(&mut self, region: usize, header: *mut u64) {
         let region = &mut self.regions[region];
         let offset = header as usize - region.arena as usize;
         let index = offset % BLOCK_SIZE / ALIGNMENT;
         region.blocks[offset / BLOCK_SIZE].starts[index / 64] |= 1 << (index % 64);
-        region.blocks[offset / BLOCK_SIZE].allocated_lines +=
-            (offset + bytes).div_ceil(LINE_SIZE) - offset.div_ceil(LINE_SIZE);
     }
 
     pub fn reference_array(&self, kind: u64) -> bool {
@@ -431,7 +427,7 @@ impl Collector {
         owner.search_large = end;
         self.stats.large_objects += 1;
         let header = unsafe { owner.arena.add(first * BLOCK_SIZE).cast() };
-        self.record_start(region, header, (end - first) * BLOCK_SIZE);
+        self.record_start(region, header);
         header
     }
 
@@ -449,7 +445,7 @@ impl Collector {
     fn allocate_bump(&mut self, bytes: usize) -> *mut u64 {
         let header = self.cursor.cast();
         self.cursor = unsafe { self.cursor.add(bytes) };
-        self.record_start(self.bump_region, header, bytes);
+        self.record_start(self.bump_region, header);
         header
     }
 
@@ -502,7 +498,7 @@ impl Collector {
         }
         let header = self.overflow.cursor.cast();
         self.overflow.cursor = unsafe { self.overflow.cursor.add(bytes) };
-        self.record_start(self.overflow.region, header, bytes);
+        self.record_start(self.overflow.region, header);
         self.stats.overflow_objects += 1;
         Some(header)
     }
@@ -631,7 +627,7 @@ impl Collector {
         {
             if block.span == 1 && !block.large {
                 space += block.available_lines;
-                marked[block.holes] += (block.marked_lines + block.allocated_lines).min(LINES);
+                marked[block.holes] += block.marked_lines;
                 available[block.holes] += block.available_lines;
             }
         }
@@ -971,7 +967,6 @@ impl Collector {
             };
             block.available_lines = LINES - block.live_lines;
             block.next_line = 0;
-            block.allocated_lines = 0;
             // Count marked-to-unmarked transitions before adding guard lines,
             // as Immix's conservative spill count does. Alternating live/dead
             // lines can leave no allocatable hole yet be highly fragmented.
