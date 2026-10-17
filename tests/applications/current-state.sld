@@ -7,6 +7,6 @@
     (define answer
       (ann (lambda (operation a b c)
              (if (and (= operation 10) (not (= (snapshot-read 1 0) 0))
-                      (not (= (snapshot-read 1 3) 110)))
+                      (not (= (snapshot-read 1 3) 160)))
                  0 (application-entry operation a b c)))
            (-> I32 I32 I32 I32 I32)))))

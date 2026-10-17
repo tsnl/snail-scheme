@@ -1,4 +1,165 @@
-# Playable prototype validation
+# Staffed colony validation
+
+The 2026-10-17 staffed-colony package uses generation
+`e11ebb903197e057398944d0`, world/client schema 4, Node 24.19.0 and Chromium
+152 with real WebGPU on the isolated SwiftShader software Vulkan adapter.
+These are correctness and playability checks, not hardware performance or
+Firefox stability evidence.
+
+All 42 application integration checks pass against the compiled Scheme/Wasm.
+They cover physically occupied mining slots, capacity upgrades, zero output
+from empty/incoming slots, a sole worker mining and delivering, immediate nearby
+task chaining, escape when the home route is dangerous, return to work, casualty
+and raw-ore conservation, construction/repair kit loss exactly once, one persisted
+emergency worker assembly, encountered-infrastructure damage, bounded copied-location
+alerts, pause, same-seed replay, invalid seed rejection and seed/marker wrapping.
+The original immutability, tower discovery, physical construction, multiple-mine
+delivery, raid recovery, camera, shot and durable multiplayer checks also pass.
+An undefended healthy hub can lose to the finale; a defended seed-1 colony wins.
+Kills produce no ore. This demonstrates a possible win, not balanced difficulty.
+
+The final two-client Chromium run on disposable port 4178 passed native seed-form
+submission, shared restart and invalid-range rejection, actual keyboard/pointer
+construction, WebGPU readback, live combat with cargo in transit, shared pause,
+and changed compatible Wasm with the complete paused colony, overscrolled camera
+and pending request preserved. It also rejected an incompatible run-marker offset,
+invalid shader and incompatible schema, recovered to a valid package, checked
+map/minimap boundary pixels, rejected margin placement and resumed the simulation.
+The final generic input/form browser suite also passed on the same isolated browser.
+
+Screenshots `build/playtest/colony-staffed.png` and `colony-sheltering.png` render
+compiled-model checkpoints through the real browser/GPU. The danger checkpoint
+deliberately positions attackers to expose the boundary; it is not a natural-play
+claim. Their exact status text is in `colony-ui-status.json`. A fresh Astra low
+reader correctly identified two miners and two haulers, occupied-slot production,
+mine stock versus delivered ore, and four living workers sheltering because of
+danger. It distinguished lost ore from worker deaths and understood both seed
+restart controls. No further presentation fix was required.
+
+The terrain fixture executes as Wasm and checks the original seed-1 geography,
+eight golden map fingerprints and 970 routes across 194 sampled seeds, including
+survey and hazard boundaries. Several seeded colonies also produce and physically
+deliver ore in the compiled game tests. The generator is a bounded layout family,
+not an unconstrained procedural terrain system.
+
+The optional run-marker authority boundary is exercised with same-seed accepted
+restarts, rejected seeds, duplicate receipts, stale queued commands, commit failure
+and reload configuration mismatch. A hostile compiled transition returning an
+invalid Unicode label verifies that output conversion fails before persistence,
+state installation or epoch publication. Cold-start configuration must match the
+saved package; there is no durable policy migration framework.
+
+The live 4175 authority was stopped before backing up its latest package and
+SQLite database in `build/siegework-backup-world3-20261017`. The explicit schema-3
+to schema-4 upgrade passed both old and new codecs and retained revision 33814,
+epoch/receipts, tick 1160, 105 ore, four structures and nine workers. Only the schema
+word, seed 1 and nine newly defined worker-health words changed; the previous
+geography and all existing colony values were preserved. The user then started a
+new seed-2 run on the new package. Evidence is in `build/playtest/schema4-upgrade.json`.
+This is a deliberate local upgrade, not automatic schema migration. Port 4173 and
+the previous packages/databases remain intact.
+
+Focused no-history Astra Max explanation/debate passes covered the staffed-worker
+ownership model, seeded terrain, worker/alert presentation, generic smooth input,
+integer forms and the authority restart boundary. They retained direct immutable
+records, checked assignments and explicit cargo ownership. Completion now assigns
+nearby work before a later worker can reserve it; output is materialized before
+durable commit. A separate death queue, general job framework, stored terrain grid
+and general schema migration system would add machinery without resolving a
+current requirement. Cohesive record/codec rows, exhaustive job transitions,
+input-event boundaries and view composition remain exceptions to the ten-line
+target.
+
+Fresh Astra low public-interface reviews identified misleading seed restart
+labels, ambiguous selection and worker-state wording. The interface now distinguishes
+the pending seed from the active map, states the shared restart consequence,
+labels blocked workers as sheltering at the living hub, and shows occupied and
+incoming mining slots separately. It does not imply that idle or game-over workers
+are fleeing.
+
+`make test`, `make check`, `scripts/test-build`, the mdBook build and whitespace
+checks passed. Generic browser input tests cover actual keyboard/pointer/native
+form input and injected gamepad samples; no physical controller was used.
+
+Compilation remains a development cost. The first successful staffed-colony build
+spent about 7 minutes 32 seconds between shader and simulation output. The final
+game build, concurrent with seven game-linked fixtures, took about 10 minutes
+7 seconds; fixtures completed over about 8 minutes 47 seconds to 9 minutes
+33 seconds. Each compiler process used approximately one CPU at the last sample.
+These are wall-clock observations, not profiling evidence. Several generic runtime
+failure fixtures currently import the whole game and repeat its compilation.
+A follow-up can use a small application for generic contract failures while
+retaining a smaller real-game integration set; this change does not restructure
+the tests while validating the deployment.
+
+## Previous smooth-camera checkpoint
+
+Smooth camera follow-up: compiled colony scenarios verify frame-time partitioning,
+negative fractional camera flooring, all four overscroll bounds and margin rejection.
+Actual Chromium 152 input on isolated port 4177 recorded subcell movement while
+holding D, stopped on release, and placed the starter extractor at (12,20) after a
+fractional negative pan. GPU readback and a screenshot passed. The generic input
+suite separately covered variable frames, capped stalls, axis magnitudes, focus,
+visibility, reconnect and legacy controls; no physical gamepad was used.
+The 4175 update retained every authoritative world word, revision and receipt;
+only the local client schema changed from 3 to 4, requiring a page refresh.
+
+# Earlier colony checkpoint
+
+The 2026-10-17 colony checkpoint uses generation `c0e0045c96df267e73aef205`,
+world/client schema 3, Node 24.19.0 and Chromium 152.0.7977.82 with real WebGPU
+on the isolated SwiftShader software Vulkan adapter. This is correctness and
+playability evidence, not hardware performance or Firefox stability evidence.
+
+The compiled colony scenarios cover two mine deliveries, completed-tower discovery,
+radius upgrades, surveyed-route rejection, remembered geography after destruction,
+interrupted kit ownership, bounded repairs, actual raid targeting and rebuilding,
+malformed claims/routes, an undefended healthy-hub finale, all four camera margins,
+manual pause/planning and fixed shot endpoints. A defended fixed layout exterminates
+the final threat at tick 4504 (7:30.4), with ore balance checked across kills. Kills
+produce no resources. This establishes a possible win, not balanced difficulty.
+
+Actual keyboard and pointer play on disposable port 4176 verified worker-built
+construction, shared Pause/Resume semantics, queued work while paused, camera
+overscroll, rejected margin placement and GPU-rendered map/minimap boundaries.
+A compiled firing checkpoint rendered its traveling shot in the same browser.
+The complete two-client browser runner also passed shared purchases, active hauling
+and combat, pause across visibility changes, identical paused colony/camera/pending
+requests through changed compatible Wasm, invalid-WGSL/schema rejection, continued
+GPU rendering and resumed simulation. `make test`, `make check`, `scripts/test-build`,
+the mdBook build and whitespace checks passed for this checkpoint.
+The generic input runner also passed focus/native controls, held repeats,
+injected controller axes/reconnect, scaled pointer and responsive-layout checks.
+No physical controller was used. Screenshots are local evidence under
+`build/playtest/boundary-pause.png` and `build/playtest/shot.png`.
+
+The live 4175 colony was stopped and backed up before an explicit schema-2 to
+schema-3 conversion. The new codec validated the saved colony; only its schema
+word changed. Revision 9059, tick 4568, epoch/retry receipts, 1679 ore, 20 structures
+and 12 workers were retained. The old package and SQLite database remain together
+in `build/siegework-backup-schema2-20261017`; 4173's earlier prototype was untouched.
+This was a deliberate local upgrade, not automatic/general schema migration.
+
+A fresh no-history Astra Max explained the colony ownership and route contract
+without source access. The focused simplify debate replaced split assignment
+checks with one prepared assignment that owns its checked path before reserving
+materials, replaced a hardcoded worker reservation with a dynamic hauling reserve,
+removed unused enemy cooldown state, and strengthened the snapshot decoder's
+cross-record kit/path checks. Record/codec rows, exhaustive transitions and view
+composition retain cohesive exceptions to the ten-line target. A separate input
+explanation pass established per-trigger deadlines, no catch-up, and release
+latches after focus/device/settings changes.
+
+A fresh Astra low newcomer read only the public interface, screenshot and then
+player guide. It correctly understood tower discovery, physical delivery, pooled
+labor, upgrades and zero kill income. Its confusion led to a visible legend and
+first-action cue, hover/cursor selection instructions, explicit range hints,
+installed-upgrade labels, and a separately labeled last-order result. The guide
+now explicitly distinguishes mine stock from spendable delivered ore.
+
+The older two-minute prototype's validation remains below as historical evidence.
+
+## Earlier two-minute prototype
 
 The browser checkpoint on 2026-10-16 used compiler base `4525dda7` and packaged
 artifact generation `8c6d44d9733225ec5c8b9da4`. Later library checks are recorded

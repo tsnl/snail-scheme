@@ -5,8 +5,8 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output="$root/build/application-tests"
 mkdir -p "$output"
 chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
-  "$root/apps/siegework/build.scm" "$root" "$root/build/siegework"
-for fixture in counter state testing counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
+  "$root/apps/siegework/build.scm" "$root" "$output/siegework"
+for fixture in counter state testing counter-lofi immutable terrain invalid-output shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
   case "$fixture" in
     counter|state|testing) source="$root/examples/applications/$fixture.sld" ;;
     *) source="$root/tests/applications/$fixture.sld" ;;
@@ -27,4 +27,4 @@ for fixture in reject-state reject-payload reject-owner; do
   fi
   printf 'ok - compile rejects %s\n' "$fixture"
 done
-node "$root/tests/applications/runtime.mjs" "$root/build/siegework" "$output"
+node "$root/tests/applications/runtime.mjs" "$output/siegework" "$output"

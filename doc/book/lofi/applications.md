@@ -139,6 +139,17 @@ Wasm function pointer. Slots are private to a compiled generation. Reordering
 handlers changes slots but does not change stable identities. Renaming a handler
 or changing its schema/payload changes its identity.
 
+The local authority also accepts an optional `runMarker` setting: a positive
+word offset within the encoded match snapshot. Scheme changes that scalar only
+when it accepts a new run, including replaying the same map seed. During the
+same durable commit, a changed marker rotates the network epoch and records the
+request receipt. Rejected seed input leaves the marker and epoch unchanged;
+retrying an accepted restart returns its receipt. Apps without this setting keep
+the named `reset` handler behavior. The marker offset cannot change during a
+compatible reload. Cold starts must retain matching package settings and saved
+state; this local store does not persist a separate configuration policy. The
+marker describes a lifecycle boundary, not game rules in JavaScript.
+
 The initial build inspects literal `application` declarations inside a library's
 outer `begin`. `(application manifest bootstrap)` reads the exact parsed library
 that the host compiler receives, so protocol metadata cannot come from a later
@@ -254,9 +265,59 @@ configuration. Every named binding must exist in the generated manifest.
 ```
 
 The clock and reset handlers take no payload. Pointer movement takes two `I32`
-cell coordinates; confirmation takes none. Key names are `KeyboardEvent.key`
-values, and controller keys are standard Gamepad button indices. A minimal page
-loads the packaged shared adapter:
+screen-cell coordinates; the client reducer owns camera offsets. Confirmation
+takes none. Key names are `KeyboardEvent.key` values, and controller keys are
+standard Gamepad button indices. Commands fire once per press unless their keys
+or button indices appear in `repeatKeys` or `repeatButtons`. The optional positive
+integer `inputRepeatMilliseconds` defaults to 160. A held input fires at most once
+per interval; a stalled frame does not cause catch-up commands.
+
+`continuousKeys` and `controllerAxes` entries with `continuous: true` scale their
+two I32 payload coefficients by elapsed frame milliseconds; axes also use stick
+magnitude outside the deadzone. Each frame contributes at most 50 ms. Focus,
+visibility, device and settings changes discard held input; continuous keys send
+no keydown command. A key cannot be both continuous and repeated.
+`pointer.coordinates: "pixels"` sends logical-canvas integer pixels instead of
+cells. Scheme owns speed, camera bounds, projection and gameplay.
+
+`controllerAxes` optionally maps each axis to negative and positive commands:
+`{"axis":0,"negative":["pan",-1,0],"positive":["pan",1,0],"deadzone":0.35}`.
+Axis commands repeat; the deadzone defaults to 0.35. Settings parsing checks these
+bindings and typed payloads both when packaging and in the browser. After focus,
+device or generation changes, held controls must be released before activating
+again. Native controls and editable elements retain their keyboard behavior.
+
+The current UI shell is ordinary HTML/CSS, with application state and behavior
+in Scheme; there is no Scheme widget DSL. A form can bind one or two text fields
+to a typed client handler. Put `data-handler` on the form, `data-i32` on each
+input, and a `data-input-error` element in the form. Fields become I32 arguments
+in document order. The submit button uses ordinary native form behavior:
+
+```html
+<form data-handler="restart-seed" novalidate>
+  <label for="seed">Next run seed</label>
+  <input id="seed" type="text" inputmode="numeric" data-i32
+         aria-describedby="seed-error" placeholder="1–65535">
+  <button type="submit">Start this seed</button>
+  <p id="seed-error" data-input-error role="alert"></p>
+</form>
+```
+
+This follows the existing public path: HTML form submission → generic browser
+I32 parsing → typed Scheme client handler → authoritative Scheme transition.
+The browser trims surrounding whitespace and accepts signed decimal integer
+text. Blank, fractional, non-decimal, or out-of-I32 input produces an accessible
+field error without dispatching. A successful submit dispatches once; merely
+editing the text dispatches nothing. Gameplay keys and controller input pause
+while focus is inside the form.
+
+In Siegework, `restart-seed(seed)` forwards `new-run-seed(seed)` to the match
+owner. Scheme accepts seeds 1 through 65535 and preserves the colony with a
+notice for other I32 values. The input is a local draft for the next run; the
+Scheme status displays the active seed. Ordinary New run still advances the
+persisted seed. These seed rules belong to Scheme, not the generic form adapter.
+
+A minimal page loads the packaged shared adapter:
 
 ```html
 <canvas width="640" height="360" tabindex="0"></canvas>

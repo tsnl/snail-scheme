@@ -4,6 +4,6 @@
   (begin
     (define answer
       (ann (lambda (operation a b c)
-             (if (and (= operation 0) (= a 1)) 191
+             (if (and (= operation 0) (= a 1)) 6143
                  (application-entry operation a b c)))
            (-> I32 I32 I32 I32 I32)))))
