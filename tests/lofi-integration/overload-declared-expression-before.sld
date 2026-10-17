@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def cell
      (ref (empty-vector)))
 (ref-set! cell (make-vector (ann 1 I64) 42))

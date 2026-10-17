@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def exercise
      (lambda (seed)
        (begin (let cell (ref seed))

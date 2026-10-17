@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload same (All (T) (-> T T)) (lambda (value) value))
 (def wrapper
      (lambda (value) (same value)))

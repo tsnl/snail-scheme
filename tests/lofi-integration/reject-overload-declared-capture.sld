@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def storage
      (empty-vector))
 (define-overload get-storage (All (T) (-> (Vector T))) (lambda () storage))

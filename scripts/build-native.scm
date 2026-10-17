@@ -1,9 +1,20 @@
 ;; Build-script composition: Lofi emits Wasm, then the standalone package
 ;; lowers that Wasm and explicitly links Cargo providers. No compiler target.
-(import (scheme base) (scheme cxr) (scheme file) (scheme write)
-        (chibi filesystem) (chibi pathname) (chibi string) (chibi regexp) (srfi 1)
-        (wasm-native) (wasm-native process) (wasm-native wasm-optimize)
-        (wasm-native chromium-trace) (lofi source-driver))
+(import
+ (scheme base)
+ (scheme cxr)
+ (scheme file)
+ (scheme write)
+ (chibi filesystem)
+ (chibi pathname)
+ (chibi string)
+ (chibi regexp)
+ (srfi 1)
+ (wasm-native)
+ (wasm-native process)
+ (wasm-native wasm-optimize)
+ (wasm-native chromium-trace)
+ (lofi source-driver))
 
 ;; ---- Source selection and protected outputs ----
 

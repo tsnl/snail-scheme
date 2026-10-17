@@ -1,7 +1,10 @@
 ;; Same protocol and state, observably different client reducer behavior.
 (define-library (tests compatible)
   (export answer)
-  (import (scheme base) (siegework game) (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (siegework game)
+   (only (lofi core) ann -> I32))
   (begin
     (define answer
       (ann (lambda (operation a b c)

@@ -1,5 +1,9 @@
 ;; Character, line and datum readers share one owned-file cursor.
-(import (lofi base) (lofi io) (lofi datum) (lofi read))
+(import
+ (lofi base)
+ (lofi io)
+ (lofi datum)
+ (lofi read))
 
 ;; ---- Peek and read through alternating aliases ----
 

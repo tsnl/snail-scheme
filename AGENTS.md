@@ -23,6 +23,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
+- Put each Scheme import specification and record field on its own line.
+  Name pure field replacements `<accessor>-set`, without a trailing `!`;
+  reserve `!` for mutation.
 - Write section headers as `;; ---- Title ----` in Scheme,
   `// ---- Title ----` in Rust, with sentence
   case and a blank line on each side.

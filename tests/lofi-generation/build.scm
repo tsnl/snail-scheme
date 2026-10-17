@@ -1,7 +1,15 @@
 ;; Prepare one output independently, then collect and compile its consumer graph.
-(import (scheme base) (scheme file) (scheme process-context) (scheme write)
-        (lofi source-driver) (lofi compiler bootstrap) (lofi frontend) (lofi library)
-        (lofi primitives) (wasm-native chromium-trace))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme process-context)
+ (scheme write)
+ (lofi source-driver)
+ (lofi compiler bootstrap)
+ (lofi frontend)
+ (lofi library)
+ (lofi primitives)
+ (wasm-native chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))

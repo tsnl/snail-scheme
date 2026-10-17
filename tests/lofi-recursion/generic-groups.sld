@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 (define-extern record "instance.probe" "record" (-> I64 Unit))
 (def history (ref (ann 0 I64)))
 (def mark (lambda (digit) (begin (ref-set! history (i64-add (i64-mul (ref-get history) (ann 10 I64)) digit)) (record digit))))
@@ -39,7 +40,9 @@
 
 ;; ---- External nominal and class identities survive the private template ----
 
-(def Box (datatype (T) (box (value T unbox))))
+(def Box (datatype (T)
+           (box
+            (value T unbox))))
 (def boxed-left (All (T) (-> I64 (Box T) (Box T)))
      (lambda (n value)
        (if (i64-eq n (ann 0 I64)) value (boxed-right (i64-sub n (ann 1 I64)) value))))

@@ -12,12 +12,19 @@ The [player guide](README.md) describes the implemented controls and costs.
 - Completed observation towers extend active sight. Remembered geography survives
   lost coverage; current enemies require active sight. Placement requires visible,
   reachable ground, and a paid kit must physically arrive before a site operates.
+  Towers also accept worker deliveries and send freight upstream through automatic
+  rail links determined by placement. Arming a tower retains its observation and
+  depot roles; rail cargo becomes spendable only on arrival at the hub.
 - Occupied mining slots produce into bounded buffers; upgrades add slots, not
-  free production. Workers mine, collect ore, deliver it to
+  free production. Workers mine, collect ore, deliver it to a connected depot or
   the hub, build projects and perform bounded automatic repairs. No individual
   orders are needed. Additional workers, extraction upgrades and observation
   upgrades compete with artillery for delivered ore. Kills award no resources.
 - Workers choose nearby reachable tasks and carry ore or kits while fleeing.
+  New orders reserve the closest eligible worker, preempting mining or hauling
+  while retaining any carried supplies. Cancelled hub kits refund immediately;
+  carried kits refund only after a physical return. Existing builders retain
+  their kit ownership and completed buildings cannot be cancelled.
   Encountered workers and buildings can be damaged; actual hits produce bounded
   location alerts. Lost cargo is not refunded. A sole worker alternates mining
   and hauling; a surviving hub can assemble one emergency replacement.
@@ -87,7 +94,8 @@ epoch before acknowledgment/publication. Repeating a request cannot spend twice.
 A stale-run command cannot affect a new run. External effects still need explicit
 idempotency; do not claim universal exactly-once execution.
 
-The colony uses world/client schema 4 and a 6,144-word world snapshot. Earlier
+The colony uses world/client schema 6 with variable-size derived snapshots.
+Its world envelope exposes a checked run marker before the generic binary payload. Earlier
 prototype saves require a separate retained package; start this version with a
 fresh database. Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
@@ -99,7 +107,7 @@ acceptable initially; document its cost and keep it behind the typed state API.
 | Check | Required evidence |
 | --- | --- |
 | Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits quads. |
-| Colony game | Multiple mine deliveries; construction and repair conservation; discovery and known-route rules; danger retreat/recovery; deterministic loss, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
+| Colony game | Multiple mine deliveries; construction and repair conservation; cancellation and preemption ownership; depot/rail delivery and endpoint loss; discovery and known-route rules; danger retreat/recovery; deterministic loss, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
 | Two clients early | Distinct identified players act on one authoritative world; concurrent purchases serialize; both converge to the same accepted revision. |
 | Immutable transitions | Retained prior snapshots stay unchanged; concurrent submissions have no lost updates; trap and failed durability commit publish no partial state/effects. |
 | Compatible reload | Reload during hauling and combat, with a selected tool/cell, overscrolled camera, manual pause and pending input; preserve state and consume no simulation tick. |
@@ -121,6 +129,10 @@ line-of-sight occlusion. Buildings do not block walking routes. Worker routes
 avoid known or locally sensed threats, with local escape when already in danger.
 The selected site priority is shared by the colony. These are experiment limits,
 not claims of a general strategy-game simulation.
+Rail parents are older connected towers or the hub, so connections form an
+upstream tree. Tracks follow surveyed walking routes and reconnect only after
+an endpoint is lost. One bounded shuttle per link models throughput; there is no
+manual track placement, rail collision or intermediate track damage.
 Richer payload codecs, migrations, broader shader syntax, browser device recovery,
 structural sharing and a server database with fencing are library milestones.
 GPU tensors/PyTorch integration is a possible future motivating use case, not a

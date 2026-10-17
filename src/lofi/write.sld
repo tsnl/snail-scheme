@@ -3,7 +3,12 @@
 (define-library (lofi write)
   (export write display write-datum display-datum
           test-write)
-  (import (lofi base) (lofi io) (lofi datum) (lofi number) (lofi bytes))
+  (import
+   (lofi base)
+   (lofi io)
+   (lofi datum)
+   (lofi number)
+   (lofi bytes))
 
   ;; ---- Query-local storage identities and graph analysis ----
 
@@ -14,15 +19,28 @@
   ;; datum-pair/vector views of the same storage must share one graph entry.
   (begin
     (def OutputNode (datatype ()
-                              (output-node (value Datum output-node-value) (active (Ref Bool) output-node-active)
-                                           (repeated (Ref Bool) output-node-repeated) (label (Ref I64) output-node-label))))
+                      (output-node
+                       (value Datum output-node-value)
+                       (active (Ref Bool) output-node-active)
+                       (repeated (Ref Bool) output-node-repeated)
+                       (label (Ref I64) output-node-label))))
     (def OutputGraph (datatype ()
-                               (output-graph (nodes (Ref (List OutputNode)) output-graph-nodes)
-                                             (cyclic (Ref Bool) output-graph-cyclic) (next-label (Ref I64) output-graph-next-label))))
+                       (output-graph
+                        (nodes (Ref (List OutputNode)) output-graph-nodes)
+                        (cyclic (Ref Bool) output-graph-cyclic)
+                        (next-label (Ref I64) output-graph-next-label))))
     (def OutputScan (datatype ()
-                              (scan-done) (scan-value (value Datum) (pending OutputScan))
-                              (scan-elements (values (Vector Datum)) (index I64) (pending OutputScan))
-                              (scan-leave (node OutputNode) (pending OutputScan))))
+                      (scan-done)
+                      (scan-value
+                       (value Datum)
+                       (pending OutputScan))
+                      (scan-elements
+                       (values (Vector Datum))
+                       (index I64)
+                       (pending OutputScan))
+                      (scan-leave
+                       (node OutputNode)
+                       (pending OutputScan))))
 
     (def mutable-output? (-> Datum Bool)
          (lambda (value)
@@ -126,9 +144,16 @@
     ;; ---- Explicit continuations keep nested output off the machine stack ----
 
     (def OutputWork (datatype ()
-                              (output-done) (output-tail (value Datum) (pending OutputWork))
-                              (output-elements (values (Vector Datum)) (index I64) (pending OutputWork))
-                              (output-close (pending OutputWork))))
+                      (output-done)
+                      (output-tail
+                       (value Datum)
+                       (pending OutputWork))
+                      (output-elements
+                       (values (Vector Datum))
+                       (index I64)
+                       (pending OutputWork))
+                      (output-close
+                       (pending OutputWork))))
 
     (def write-datum (-> Datum OutputPort Unit)
          (lambda (value port)

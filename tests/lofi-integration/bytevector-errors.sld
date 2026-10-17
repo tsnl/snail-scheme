@@ -1,4 +1,6 @@
-(import (lofi base) (lofi bytes))
+(import
+ (lofi base)
+ (lofi bytes))
 (def target
      (bytevector (ann 1 I64) (ann 2 I64) (ann 3 I64)))
 (def effects

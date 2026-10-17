@@ -9,7 +9,10 @@
           instantiate generalize free-scheme-variables identity-union
           function-type function-type? function-domains function-rest function-result
           scalar-types subtype? join-types)
-  (import (scheme base) (scheme cxr) (lofi source))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi source))
   (begin
 
     ;; ---- Variables and equality constraints ----
@@ -18,9 +21,11 @@
     ;; variant: it can be substituted at instantiation, but never linked by inference.
     (define-record-type <hole>
       (make-hole id link) hole?
-      (id hole-id) (link hole-link set-hole-link!))
+      (id hole-id)
+      (link hole-link set-hole-link!))
     (define-record-type <rigid>
-      (make-rigid id) rigid? (id rigid-id))
+      (make-rigid id) rigid?
+      (id rigid-id))
     (define next-variable 0)
     (define (next-variable-id)
       (let ((id next-variable)) (set! next-variable (+ id 1)) id))
@@ -74,7 +79,8 @@
     (define-record-type <scheme>
       (make-scheme variables type constraints) scheme?
       (variables scheme-variables set-scheme-variables!)
-      (type scheme-type set-scheme-type!) (constraints scheme-constraints set-scheme-constraints!))
+      (type scheme-type set-scheme-type!)
+      (constraints scheme-constraints set-scheme-constraints!))
     (define (free-scheme-variables scheme)
       (let remove ((variables (type-variables (cons (scheme-type scheme) (scheme-constraints scheme)))))
         (cond ((null? variables) '())
@@ -133,7 +139,8 @@
   (cond-expand
    (snail-tests
     (export test-types)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-types)
         (let ((hole (fresh-hole)) (rigid (fresh-rigid)))

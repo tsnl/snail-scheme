@@ -1,5 +1,8 @@
-(import (lofi base))
-(def Box (datatype ( T) (box (value T unbox))))
+(import
+ (lofi base))
+(def Box (datatype ( T)
+           (box
+            (value T unbox))))
 ;; Both fields have Wasm i32 storage, but their semantic arguments differ.
 (def boxed
      (ann (box (ann 65 I32)) Any))

@@ -4,16 +4,39 @@
   (export ReadResult read read-end read-value read-error read-end?
           read-value-datum read-error-message read-value!
           test-read)
-  (import (lofi base) (lofi io) (lofi datum) (lofi bytes))
+  (import
+   (lofi base)
+   (lofi io)
+   (lofi datum)
+   (lofi bytes))
 
 
   ;; ---- A datum, normal EOF and malformed input are distinct results ----
 
   (begin
-    (def Token (datatype () (value-token (datum Datum)) (end-token) (close-token) (dot-token)
-                         (open-token (kind I64)) (prefix-token (name String)) (error-token (message String))))
-    (def TextResult (datatype () (text-value (text String)) (text-error (message String))))
-    (def Escape (datatype () (escaped-character (value Char)) (escaped-gap) (escape-error (message String))))
+    (def Token (datatype ()
+                 (value-token
+                  (datum Datum))
+                 (end-token)
+                 (close-token)
+                 (dot-token)
+                 (open-token
+                  (kind I64))
+                 (prefix-token
+                  (name String))
+                 (error-token
+                  (message String))))
+    (def TextResult (datatype ()
+                      (text-value
+                       (text String))
+                      (text-error
+                       (message String))))
+    (def Escape (datatype ()
+                  (escaped-character
+                   (value Char))
+                  (escaped-gap)
+                  (escape-error
+                   (message String))))
 
     (def read-end? (-> ReadResult Bool)
          (lambda (result)
@@ -81,7 +104,10 @@
 
     ;; ---- A geometrically growing Unicode token buffer ----
 
-    (def Buffer (datatype () (buffer (text (Ref String) buffer-text) (count (Ref I64) buffer-count))))
+    (def Buffer (datatype ()
+                  (buffer
+                   (text (Ref String) buffer-text)
+                   (count (Ref I64) buffer-count))))
 
     (def new-buffer (-> Buffer)
          (lambda () (buffer (ref (make-string (ann 32 I64))) (ref (ann 0 I64)))))
