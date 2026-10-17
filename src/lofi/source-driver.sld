@@ -7,17 +7,30 @@
           prepare-library collect-libraries collect-source-file
           library-directories generation-provider-module command-program?
           source-file->core source-file->wasm source-file->wat-file)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme write)
-          (only (wasm-native json) json->string) (only (chibi temp-file) call-with-temp-dir)
-          (lofi reader) (lofi syntax-parser) (lofi syntax)
-          (lofi source) (wasm-native chromium-trace) (wasm-native build-host)
-          (lofi frontend) (lofi library) (lofi library-transfer)
-          (lofi compiler bootstrap) (lofi specialize) (lofi emit-wasm)
-          (only (lofi primitives) primitive-names)
-          (only (lofi types) strict-error resolve)
-          (only (lofi checked) program-body program-type)
-          (only (lofi ir) node-loc)
-          (only (wasm-native wasm) write-wasm))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (scheme write)
+   (only (wasm-native json) json->string)
+   (only (chibi temp-file) call-with-temp-dir)
+   (lofi reader)
+   (lofi syntax-parser)
+   (lofi syntax)
+   (lofi source)
+   (wasm-native chromium-trace)
+   (wasm-native build-host)
+   (lofi frontend)
+   (lofi library)
+   (lofi library-transfer)
+   (lofi compiler bootstrap)
+   (lofi specialize)
+   (lofi emit-wasm)
+   (only (lofi primitives) primitive-names)
+   (only (lofi types) strict-error resolve)
+   (only (lofi checked) program-body program-type)
+   (only (lofi ir) node-loc)
+   (only (wasm-native wasm) write-wasm))
   (begin
 
     ;; ---- Located file descriptions ----
@@ -72,7 +85,8 @@
 
     (define-record-type <generation-context>
       (new-generation-context runner providers) generation-context?
-      (runner generation-runner) (providers generation-providers))
+      (runner generation-runner)
+      (providers generation-providers))
     (define (make-generation-context runner providers)
       (unless (and (string? runner) (or (not providers) (string? providers)))
         (error "generation context requires a runner path and an optional provider module path"))
@@ -103,13 +117,16 @@
 
     (define-record-type <source-choice>
       (make-source-choice key path description value) source-choice?
-      (key choice-key) (path choice-path) (description choice-description)
+      (key choice-key)
+      (path choice-path)
+      (description choice-description)
       (value choice-value set-choice-value!))
     (define (choice-loc choice)
       (lofi-library-loc (description-library (choice-description choice))))
     (define-record-type <preparation>
       (new-preparation directories choices context) preparation?
-      (directories preparation-directories) (choices preparation-choices set-preparation-choices!)
+      (directories preparation-directories)
+      (choices preparation-choices set-preparation-choices!)
       (context preparation-context))
     (define (supplied-choices libraries)
       (unless (list? libraries) (error "expected a library map"))
@@ -161,7 +178,8 @@
     (define (collect-imports library state libraries pending)
       (let collect ((imports (lofi-library-imports library)) (libraries libraries))
         (if (null? imports) libraries
-            (let ((import (car imports)))
+            (let ((import
+                   (car imports)))
               (collect (cdr imports) (collect-key (lofi-import-provider import) state libraries pending
                                                   (lofi-import-loc import)))))))
     (define (collect-key key state libraries pending loc)
@@ -176,7 +194,9 @@
       (parse-library
        (located-datum
         `(define-library ,key
-           (import (only ,producer-key produce) (only (lofi compiler-builder) LofiLibrary library-token))
+           (import
+            (only ,producer-key produce)
+            (only (lofi compiler-builder) LofiLibrary library-token))
            (export run) (begin (def run (-> I64) (lambda () (library-token (ann (produce) LofiLibrary)))))) loc)))
     (define (generator-artifact choice state pending)
       (let* ((producer (generation-producer (choice-description choice)))
@@ -255,7 +275,8 @@
   (cond-expand
    (snail-tests
     (export test-source-driver)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-generation text)
         (parse-generation (car (reader->syntax-list (string->reader "recipe.sld" text)))))

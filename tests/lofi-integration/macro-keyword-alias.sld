@@ -1,2 +1,3 @@
-(import (rename (only (macro provider) add-one) (add-one if)))
+(import
+ (rename (only (macro provider) add-one) (add-one if)))
 (if 41)

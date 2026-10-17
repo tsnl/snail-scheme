@@ -1,15 +1,16 @@
 # Siegework
 
-Siegework is a cooperative colony defense game built around short, fresh runs.
+Siegework is a colony defense game built around short, fresh runs, with browser-local
+solo saves and a shared server authority for cloud solo or cooperative play.
 Place infrastructure, let autonomous workers supply it, and protect the economy
 that pays for your defenses. The current experiment is an **eight-minute run on a seeded
 48×36 map** in top-down 2D. Three workers share mining, construction, hauling and repairs;
 observation towers reveal opportunities for expansion. There is no player avatar
 or individual worker control.
 
-Game rules, client reducers and presentation are Scheme libraries. Real WebGPU
-renders the world; a local Node authority runs the same generated Wasm, commits
-to SQLite and serves cooperating browser clients. The
+Game rules, client reducers and presentation are Scheme libraries. WebGPU renders
+both builds. Solo runs its authority in the browser with IndexedDB; cloud runs
+the same generated Wasm on Node and commits to SQLite. The
 [prototype contract](PROTOTYPE.md) separates this experiment from future ideas.
 
 ## Build and play
@@ -18,26 +19,58 @@ From the repository root, with Chibi, Binaryen and Node 24 available:
 
 ```sh
 chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
-node build/siegework/lib/browser/server.mjs "$PWD/build/siegework"
 ```
 
-Open `http://127.0.0.1:4173` in a browser with WebGPU and WasmGC. A second tab joins
-the same colony. The server binds localhost; internet hosting, authentication and
-matchmaking are outside this experiment. Prefix the server command with
-`PORT=4175` to use another port. The clock advances only while at least one
+One compilation produces two independent packages with identical simulation
+bytes. Free solo saves on this browser; serve `build/siegework/solo` as static
+files, including under a subpath:
+
+```sh
+python3 -m http.server 4174 --directory build/siegework/solo
+```
+
+The local preview command uses Python 3; any ordinary static host can serve the
+same directory. Open `http://127.0.0.1:4174` with WebGPU, WasmGC, IndexedDB,
+Web Crypto and Web Locks. HTTPS
+or localhost is required. One tab owns the solo save; another tab explains how
+to release it. Reopening restores the colony and manual pause. Camera, tool,
+cursor and pending input restart with the page. Saves belong to this origin and
+the stable `siegework` application ID, and can be lost if browser data is cleared
+or evicted. Solo has no server or cross-device synchronization.
+
+Cloud stores the colony on the server, for either one player resuming from
+another browser or several players sharing it:
+
+```sh
+node build/siegework/cloud/lib/browser/server.mjs "$PWD/build/siegework/cloud"
+```
+
+Open `http://127.0.0.1:4173`. A second tab joins the same colony. This implements
+the save foundation for premium/cloud hosting; accounts, billing and save routing
+are future work. The server binds localhost; public hosting and access control
+are outside this experiment. Prefix the server command with
+`PORT=4175` to use another port. Another physical device needs separately
+configured HTTPS routing to this same authority; the localhost command only
+serves browsers on this machine. The clock advances only while at least one
 connected event-stream client reports its page visible. Hiding one tab does not
 pause a colony another player is viewing; input focus is not required. The shared
 **Pause colony / Resume** buttons explicitly stop and restart simulation for all
 players. Manual pause survives visibility changes, compatible code reload and
-authority restart. Camera movement and orders remain available; paid construction
+authority restart. Solo skips ticks while its own page is hidden; neither host
+replays elapsed ticks on return. Camera movement and orders remain available; paid construction
 and worker assembly wait until Resume; upgrades take effect immediately.
 
-This version uses **world and client schema 5**. Older prototype and colony
-matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
-fresh colony, retaining the old package and `match.sqlite` together. For example,
-build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
+This version uses **world and client schema 6**. Derived snapshots retain the
+logistics rules and use a new incompatible transport. Older prototype and colony
+matches cannot be loaded or hot-reloaded into it implicitly. Use a new output
+directory for a fresh colony, retaining the old package and `match.sqlite`
+together. For example, build to `"$PWD/build/siegework-colony"` and run its
+`cloud/lib/browser/server.mjs` with `"$PWD/build/siegework-colony/cloud"` on another port.
 Do not delete or replace a database while its authority is running. There is no
-automatic schema migration.
+automatic schema migration. Solo likewise retains incompatible saves and refuses
+to start; reopen the previous compatible package. A different output path on the
+same origin does not create a new solo save. Keep the application ID stable for
+updates; use a separately configured ID only for an intentionally separate app.
 
 ## Your first colony
 
@@ -178,13 +211,17 @@ The colony, local camera/cursor/tool and pending requests stay in the stable hos
 Invalid builds do not publish a manifest; failed candidates or pipelines keep the
 previous generation running. HTML/CSS/host JavaScript changes require a page or
 server restart. A page restart creates a fresh local UI model; the authoritative
-match is restored from the package's `match.sqlite`.
+match is restored from IndexedDB in solo or the cloud package's `match.sqlite`.
+Solo polls its static manifest for compatible updates; it needs no development
+server. A failed solo save stops the clock with retry/reload guidance. A successful
+retry resumes it. A forced tab/browser termination recovers completed commits;
+it cannot guarantee that an unfinished command was saved.
 
 The [application chapter](../../doc/book/lofi/applications.md) explains typed
 handlers, state lifetimes, reload and the shader dialect. Shared code stays under
 `src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
 This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
-`codec.sld` (portable schema), `view.sld` (quads/status), `game.sld` (typed commands
+`state.sld` (derived transport and colony invariants), `view.sld` (quads/status), `game.sld` (typed commands
 and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
 declare controls and layout; generic `src/browser/input.mjs` maps physical input
 and typed integer forms to Scheme handlers. Seed range and restart rules stay in

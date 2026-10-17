@@ -2,17 +2,24 @@
 (define-library (browser application)
   (export Quad quad quad-x quad-y quad-width quad-height quad-rgb quad-opacity
           text-scalar integer-text)
-  (import (scheme base)
-          (only (lofi base) string-append i32->i64 i64->i32)
-          (only (lofi core) datatype ann I32 I64))
+  (import
+   (scheme base)
+   (only (lofi base) string-append i32->i64 i64->i32)
+   (only (lofi core) datatype ann I32 I64))
   (begin
 
     ;; ---- Immutable presentation data ----
 
     ;; Logical pixels, packed RGB and opacity 0..255; no live GPU handles.
     (define Quad
-      (datatype () (quad (x I32 quad-x) (y I32 quad-y) (width I32 quad-width)
-                         (height I32 quad-height) (rgb I32 quad-rgb) (opacity I32 quad-opacity))))
+      (datatype ()
+        (quad
+         (x I32 quad-x)
+         (y I32 quad-y)
+         (width I32 quad-width)
+         (height I32 quad-height)
+         (rgb I32 quad-rgb)
+         (opacity I32 quad-opacity))))
 
     ;; ---- Copied text and decimal presentation ----
 

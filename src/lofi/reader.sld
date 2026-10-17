@@ -84,7 +84,8 @@
   (cond-expand
    (snail-tests
     (export test-reader)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.
       (define (test-value value)

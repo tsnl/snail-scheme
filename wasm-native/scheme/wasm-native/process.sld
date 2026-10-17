@@ -5,12 +5,22 @@
           read-text write-text read-bytes write-bytes read-json write-json
           absolute-path paths-alias? path-directory path-join make-build-directory file-sha256 tool-name
           option-ref command-line-main directory-files-recursive)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
-          (scheme process-context) (scheme time) (chibi filesystem) (chibi pathname)
-          (wasm-native json)
-          (only (chibi io) port->string port->bytevector)
-          (only (chibi process) fork execute waitpid current-process-id)
-          (only (chibi string) string-trim string-prefix?) (srfi 1) (srfi 151))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (scheme time)
+   (chibi filesystem)
+   (chibi pathname)
+   (wasm-native json)
+   (only (chibi io) port->string port->bytevector)
+   (only (chibi process) fork execute waitpid current-process-id)
+   (only (chibi string) string-trim string-prefix?)
+   (srfi 1)
+   (srfi 151))
   (begin
 
     ;; ---- Files and retained evidence ----
@@ -178,7 +188,8 @@
   (cond-expand
    (snail-tests
     (export test-process)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (test-captured-byte-identity)
         (expect (bytevector->hex-string #u8()) "")

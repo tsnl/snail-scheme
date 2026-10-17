@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Identity (typeclass ( T) (: identity (-> T T))))
 (def lofi-migration-instance-1 (instance (Identity I64) (identity (lambda (value) value))))
 (def lofi-migration-instance-2 (instance (Identity Bool) (identity (lambda (value) value))))

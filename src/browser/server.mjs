@@ -10,6 +10,7 @@ import {openStore} from '../application/sqlite.mjs';
 
 const directory = resolve(process.argv[2] ?? '.'), port = Number(process.env.PORT ?? 4173);
 let manifest = JSON.parse(readFileSync(join(directory, 'manifest.json')));
+if (manifest.target !== 'cloud') throw new Error('The authority server requires a cloud package');
 const runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(readFileSync(join(directory, manifest.module)), manifest));
 await runtime.initialize(1); await runtime.initialize(2);
@@ -86,6 +87,7 @@ async function reload() {
   try {
     const next = JSON.parse(readFileSync(join(directory, 'manifest.json')));
     if (next.generation === manifest.generation || rejectedGenerations.has(next.generation)) return;
+    if (next.target !== 'cloud' || next.settings.id !== manifest.settings.id) throw new Error('incompatible application package');
     if (next.settings.runMarker !== manifest.settings.runMarker) throw new Error('incompatible run marker offset');
     const candidate = runtime.prepare(readFileSync(join(directory, next.module)), next);
     try { await runtime.replace(candidate); }

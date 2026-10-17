@@ -1,10 +1,13 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def calls
      (ref (ann 0 I64)))
 
 (def observed (-> I64)
      (lambda () (ref-get calls)))
-(def Box (datatype () (box (value I64 unbox))))
+(def Box (datatype ()
+           (box
+            (value I64 unbox))))
 
 (def invoke (-> I64)
      (lambda ()

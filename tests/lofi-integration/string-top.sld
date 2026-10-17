@@ -1,5 +1,8 @@
-(import (lofi base))
-(def Text (datatype () (text (content String text-content))))
+(import
+ (lofi base))
+(def Text (datatype ()
+            (text
+             (content String text-content))))
 (def saved
      (ref (ann (string-copy "α😀") Any)))
 (def values

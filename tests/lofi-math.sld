@@ -1,4 +1,6 @@
-(import (lofi base) (lofi math))
+(import
+ (lofi base)
+ (lofi math))
 
 ;; ---- A scalar worker exercises all three shared Rust exports ----
 

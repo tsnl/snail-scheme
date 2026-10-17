@@ -1,2 +1,4 @@
-(import (lofi base) (lofi integer))
+(import
+ (lofi base)
+ (lofi integer))
 (test-integer)

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def log
      (ref (ann 0 I64)))
 (def record

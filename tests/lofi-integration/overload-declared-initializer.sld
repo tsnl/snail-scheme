@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def count
      (ref (ann 0 I64)))
 (define-overload add-two (-> I64 I64) implementation)

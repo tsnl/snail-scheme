@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; ---- Scalar-only observation of owned token fields ----
 

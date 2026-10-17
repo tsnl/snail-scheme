@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 (def round-trip (-> I64 I64)
      (lambda (n) (ann (ann n Any) I64)))

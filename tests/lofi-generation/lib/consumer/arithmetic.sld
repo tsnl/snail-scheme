@@ -1,5 +1,6 @@
 (define-library (consumer arithmetic)
-  (import (only (lofi primitive) i32-add))
+  (import
+   (only (lofi primitive) i32-add))
   (export add)
   (begin
     (define-extern tick "tests.consumer" "tick" (-> I32))

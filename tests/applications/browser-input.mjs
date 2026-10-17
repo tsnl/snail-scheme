@@ -25,7 +25,7 @@ const continuous = {...settings, pointer: {...settings.pointer, coordinates: 'pi
   repeatKeys: ['ArrowDown'], continuousKeys: ['w', 'a', 's', 'd'],
   controllerAxes: settings.controllerAxes.map(axis => ({...axis, continuous: true,
     negative: ['drift', ...axis.negative.slice(1)], positive: ['drift', ...axis.positive.slice(1)]}))};
-const shell = readFileSync(new URL('apps/siegework/index.html', root), 'utf8').replace(/<script[^>]*src="\/lib\/browser\/client.mjs"[^>]*><\/script>/, '');
+const shell = readFileSync(new URL('apps/siegework/index.html', root), 'utf8').replace('<script type="module" data-application-entry></script>', '');
 const page = `<!doctype html><html><body style="margin:0;min-height:3000px">
 <canvas width="960" height="640" tabindex="0" style="display:block;width:480px;height:320px"></canvas>
 <button data-handler="choose" data-args="[3]"><span>Observation tower</span></button>

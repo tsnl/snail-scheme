@@ -1,4 +1,5 @@
-(import (chezscheme))
+(import
+ (chezscheme))
 
 ;; ---- Independent native Scheme graphs use the same observable storage ----
 

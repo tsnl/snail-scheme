@@ -11,14 +11,16 @@
           f64-add f64-sub f64-mul f64-div f64-eq f64-lt f64-le f64-gt f64-ge f64-sqrt
           f32-truncate f64-truncate f32-round f64-round f32-floor f64-floor f32-ceiling f64-ceiling
           i64->f64 i32->i64 i64->i32 f32->f64 f32->i32 f64->f32 f64->i64
+          f32->bits bits->f32 f64->bits bits->f64
           ref ref-get ref-set! ref-eq? empty-list cons car cdr null?
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
           vector vector-copy vector-append vector->list list->vector
           char=? char<? char<=? char>? char>=? char->integer integer->char
           make-string string-length string-ref string-set! string-eq? string-copy!
           string string-copy substring string-append string=? string->list list->string)
-  (import (rename (lofi primitive)
-                  (make-vector make-filled-vector) (make-string make-filled-string)))
+  (import
+   (rename (lofi primitive)
+           (make-vector make-filled-vector) (make-string make-filled-string)))
 
   ;; ---- Static numeric operators ----
 

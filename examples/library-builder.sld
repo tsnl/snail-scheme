@@ -1,6 +1,8 @@
 ;; A compiled Lofi function returns structured library syntax through a builder.
 (define-library (builder example)
-  (import (lofi compiler-builder) (only (lofi primitive) cons empty-list))
+  (import
+   (lofi compiler-builder)
+   (only (lofi primitive) cons empty-list))
   (export build)
   (begin
     (def produce (-> LofiLibrary)

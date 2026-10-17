@@ -1,3 +1,4 @@
 (define-library (consumer right)
-  (import (generated answer))
+  (import
+   (generated answer))
   (export (rename value right)))

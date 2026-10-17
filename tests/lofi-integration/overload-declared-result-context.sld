@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload result (-> I64 I64) (lambda (value) (i64-add value (ann 1 I64))))
 (define-overload result (-> I64 F64) (lambda (value) (i64->f64 (i64-add value (ann 1 I64)))))
 (def value

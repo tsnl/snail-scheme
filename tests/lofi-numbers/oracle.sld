@@ -1,4 +1,7 @@
-(import (lofi base) (lofi integer) (lofi rational))
+(import
+ (lofi base)
+ (lofi integer)
+ (lofi rational))
 
 ;; ---- Scalar test transport leaves exact values in Lofi ----
 

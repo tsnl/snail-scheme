@@ -89,15 +89,20 @@
    extern-declaration-type
    extern-declaration-loc
    overload-declaration-type)
-  (import (scheme base) (scheme cxr) (lofi types)
-          (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi types)
+   (only (scheme hash-table) make-hash-table hash-table-set! hash-table-ref/default))
   (begin
 
     ;; ---- Located expressions and declarations ----
 
     (define-record-type <node>
       (make-node kind loc data) node?
-      (kind node-kind) (loc node-loc) (data node-data resolve-node-data!))
+      (kind node-kind)
+      (loc node-loc)
+      (data node-data resolve-node-data!))
     (define source-node make-node)
     ;; resolve-node-data! is a construction boundary for frontend import
     ;; resolution and graph copying. Compiler passes never call it.
@@ -114,12 +119,14 @@
       (make-binding-id) binding-id?)
     (define-record-type <value-definition>
       (new-definition name loc origin scheme declaration initializer kind payload) value-definition?
-      (name value-definition-name) (loc value-definition-loc)
+      (name value-definition-name)
+      (loc value-definition-loc)
       (origin binding-origin)
       (scheme binding-scheme set-binding-scheme!)
       (declaration binding-declaration set-binding-declaration!)
       (initializer binding-initializer set-binding-initializer!)
-      (kind binding-kind set-binding-kind!) (payload binding-payload set-binding-payload!))
+      (kind binding-kind set-binding-kind!)
+      (payload binding-payload set-binding-payload!))
     (define (make-value-definition name loc)
       (new-definition name loc (make-binding-id)
                       (make-scheme '() (fresh-hole) '()) #f #f 'source #f))
@@ -386,7 +393,9 @@
   (cond-expand
    (snail-tests
     (export test-ir)
-    (import (wasm-native test-utils) (only (lofi source) make-loc))
+    (import
+     (wasm-native test-utils)
+     (only (lofi source) make-loc))
     (begin
       (define (test-source-identities)
         (let* ((definition (make-value-definition 'x #f)) (use (make-name definition #f)))

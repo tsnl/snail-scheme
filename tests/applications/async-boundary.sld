@@ -1,9 +1,10 @@
 ;; Tiny actual Wasm reducers isolate asynchronous host ordering from game rules.
 (define-library (async-boundary)
   (export answer)
-  (import (scheme base)
-          (only (lofi core) ann -> I32 define-extern)
-          (only (lofi base) unreachable))
+  (import
+   (scheme base)
+   (only (lofi core) ann -> I32 define-extern)
+   (only (lofi base) unreachable))
   (begin
     (define-extern read "snail.reducer" "read" (-> I32 I32 I32))
     (define-extern stage "snail.reducer" "write" (-> I32 I32 I32 Unit))

@@ -1,7 +1,7 @@
 // Actual Wasm transitions at ownership and combat boundaries; these fixtures do
 // not provide an alternate simulation or pathfinder.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, restoreColony} from './colony-state.mjs';
 
 export async function checkEncounters(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -16,9 +16,9 @@ export async function checkEncounters(test, fresh, call) {
     assert.equal(state(r).buildings[0].stage, 2); return state(r).buildings[0];
   }
   async function cleanWorkers(r, assignments) {
-    const words = r.snapshot(1); words[8] = assignments.length;
-    assignments.forEach((assignment, i) => setWorker(words, i, {...assignment, id:i+1}));
-    await r.restore(1, words);
+    const world = state(r); world.bots.length = assignments.length;
+    assignments.forEach((assignment, i) => setWorker(world, i, {...assignment, id:i+1}));
+    await restoreColony(r, world);
   }
   await test('only physically occupied mining slots produce and upgrades add capacity', async () => {
     const r = await fresh(), mine = await builtMine(r);
@@ -26,12 +26,12 @@ export async function checkEncounters(test, fresh, call) {
     const before = state(r).produced; await advance(r, 10); assert.equal(state(r).produced, before);
     await call(r, 'upgrade', [12,20]); await advance(r, 10); assert.equal(state(r).produced, before);
     await cleanWorkers(r, [{x:12,y:20,job:9,target:mine.id},{job:6,timer:60},{job:6,timer:60}]);
-    const arrival=r.snapshot(1); arrival[1]=69; await r.restore(1,arrival); await advance(r);
+    const arrival = state(r); arrival.tick=69; await restoreColony(r, arrival); await advance(r);
     assert.equal(state(r).produced,before); assert.equal(state(r).bots[0].job,8);
     await advance(r, 10); assert.equal(state(r).produced, before + 2);
     await cleanWorkers(r, [{x:12,y:20,job:8,target:mine.id},{x:12,y:20,job:8,target:mine.id},{job:6,timer:60}]);
     await advance(r, 10); assert.equal(state(r).produced, before + 6); balanced(r);
-    const bad = r.snapshot(1); bad[36] = 1; await assert.rejects(() => r.restore(1, bad)); await r.close();
+    const bad = state(r); bad.buildings[0].level = 1; await assert.rejects(() => restoreColony(r, bad)); await r.close();
   });
   await test('a sole worker alternates mining and physical delivery without free ore', async () => {
     const r = await fresh(); await cleanWorkers(r, [{}]); await builtMine(r);
@@ -60,12 +60,12 @@ export async function checkEncounters(test, fresh, call) {
       assert.ok(Math.abs(bot.x - 420) + Math.abs(bot.y - 820) > 40); balanced(r);
     }
     assert.ok(fleeing && away); assert.equal(state(r).casualties, 0);
-    const words = r.snapshot(1); words[9] = 0; await r.restore(1, words); await advance(r, 220);
+    const world = state(r); world.enemies.length = 0; await restoreColony(r, world); await advance(r, 220);
     assert.ok(state(r).produced > 0); assert.ok(state(r).ore >= bank); await r.close();
   });
   await test('worker death loses cargo once, records its location and assembles one replacement', async () => {
-    const r = await fresh(); const words = r.snapshot(1); words[8] = 1; words[1] = 9;
-    words[14] = 16; setWorker(words, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); await r.restore(1, words);
+    const r = await fresh(); const world = state(r); world.bots.length = 1; world.tick = 9;
+    world.produced = 16; setWorker(world, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); await restoreColony(r, world);
     await addEnemy(r, {x:12,y:20}); await addEnemy(r, {x:12,y:20}); await advance(r);
     const dead = state(r); assert.equal(dead.casualties, 1); assert.equal(dead.lostOre, 16);
     assert.equal(dead.ore, 160); assert.equal(dead.bots.length, 1); assert.equal(dead.bots[0].job, 6);
@@ -76,16 +76,16 @@ export async function checkEncounters(test, fresh, call) {
   });
   await test('a killed construction carrier cancels exactly its paid project without refund', async () => {
     const r = await fresh(); await call(r, 'observe', [12,20+1]); await advance(r);
-    const before = state(r), carrier = before.bots.find(b => b.job === 3), words = r.snapshot(1);
+    const before = state(r), carrier = before.bots.find(b => b.job === 3), world = state(r);
     const index = before.bots.findIndex(b => b.id === carrier.id);
-    setWorker(words, index, {id:carrier.id,x:12,y:21,job:7,target:carrier.target,cargo:25,timer:5});
-    words[1] = 9; await r.restore(1, words); await addEnemy(r, {x:12,y:21}); await addEnemy(r, {x:12,y:21}); await advance(r);
+    setWorker(world, index, {id:carrier.id,x:12,y:21,job:7,target:carrier.target,cargo:25,timer:5});
+    world.tick = 9; await restoreColony(r, world); await addEnemy(r, {x:12,y:21}); await addEnemy(r, {x:12,y:21}); await advance(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     assert.equal(state(r).casualties, 1); await advance(r, 20); assert.equal(state(r).spent, 25); balanced(r); await r.close();
   });
   await test('ordinary enemies damage encountered infrastructure and coalesce actual-hit alerts', async () => {
-    const r = await fresh(), mine = await builtMine(r), words = r.snapshot(1); words[1] = 9; words[37] = 7;
-    setWorker(words,0,{id:1}); setWorker(words,1,{id:2}); setWorker(words,2,{id:3}); await r.restore(1, words);
+    const r = await fresh(), mine = await builtMine(r), world = state(r); world.tick = 9; world.buildings[0].hp = 7;
+    setWorker(world,0,{id:1}); setWorker(world,1,{id:2}); setWorker(world,2,{id:3}); await restoreColony(r, world);
     await addEnemy(r, {x:12,y:20}); await advance(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).lost, 1);
     assert.deepEqual(state(r).alerts.map(a => [a.x,a.y,a.kind]), [[12,20,1]]); balanced(r); await r.close();
@@ -95,18 +95,18 @@ export async function checkEncounters(test, fresh, call) {
     for(const site of sites) await call(r,'observe',site);
     for(let i=0;i<350 && state(r).buildings.some(b=>b.stage!==2);i++) await advance(r);
     assert.ok(state(r).buildings.every(b=>b.stage===2));
-    await cleanWorkers(r,[{},{},{}]); const words=r.snapshot(1); words[1]=9; words[37]=1; await r.restore(1,words);
+    await cleanWorkers(r,[{},{},{}]); const world = state(r); world.tick=9; world.buildings[0].hp=1; await restoreColony(r, world);
     for(const [x,y] of sites) await addEnemy(r,{x,y}); await addEnemy(r,{x:8,y:22}); await advance(r);
     assert.equal(state(r).alerts.length,4); assert.equal(state(r).lost,1); assert.ok(state(r).alerts.some(a=>a.kind===0));
     assert.ok(state(r).alerts.every(a=>a.tick===10));
     const frozen=r.snapshot(1); await call(r,'pause-colony',[1]); await advance(r,90);
     assert.deepEqual(state(r).alerts,colony(frozen).alerts);
-    await call(r,'pause-colony',[0]); const clear=r.snapshot(1); clear[9]=0; await r.restore(1,clear); await advance(r,81);
+    await call(r,'pause-colony',[0]); const clear = state(r); clear.enemies.length=0; await restoreColony(r, clear); await advance(r,81);
     assert.doesNotMatch(r.view().label,/RECENT DAMAGE/); await r.close();
   });
   await test('lost repair kits are spent once and never refunded by casualty cleanup', async () => {
-    const r=await fresh(), words=r.snapshot(1); words[1]=9; words[3]=156; words[15]=4;
-    setWorker(words,0,{id:1,x:12,y:20,job:7,cargo:4,timer:5}); await r.restore(1,words);
+    const r=await fresh(), world = state(r); world.tick=9; world.ore=156; world.spent=4;
+    setWorker(world,0,{id:1,x:12,y:20,job:7,cargo:4,timer:5}); await restoreColony(r, world);
     await addEnemy(r,{x:12,y:20}); await addEnemy(r,{x:12,y:20}); await advance(r);
     assert.equal(state(r).casualties,1); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4);
     await advance(r,50); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4); balanced(r); await r.close();
@@ -114,15 +114,16 @@ export async function checkEncounters(test, fresh, call) {
   await test('same seeds reproduce maps and invalid seed orders retain the colony', async () => {
     const r = await fresh(); await call(r,'new-run-seed',[43]); const initial = r.snapshot(1);
     await call(r,'extract',[12,20]); await advance(r,170); assert.ok(state(r).delivered > 0);
-    await call(r,'new-run-seed',[43]); initial[23]++; assert.deepEqual(r.snapshot(1),initial);
+    await call(r,'new-run-seed',[43]); const replay = colony(initial); replay.runMarker++;
+    assert.deepEqual(state(r),replay);
     for (const seed of [0,-1,65536]) { const before=r.snapshot(1); await call(r,'new-run-seed',[seed]);
-      const after=r.snapshot(1); before[17]=16; assert.deepEqual(after,before); }
+      const expected=colony(before); expected.notice=16; assert.deepEqual(state(r),expected); }
     await call(r,'new-run'); assert.equal(state(r).seed,44);
     for (const seed of [2,7,1337,65535]) { await call(r,'new-run-seed',[seed]); await builtMine(r); await advance(r,160);
       assert.ok(state(r).delivered>0); balanced(r); }
     const saved=r.snapshot(1); await r.restore(1,saved); assert.equal(state(r).seed,65535);
-    saved[23]=2147483647; await r.restore(1,saved); await call(r,'new-run');
-    assert.equal(state(r).seed,1); assert.equal(r.snapshot(1)[23],0);
+    const wrapping=colony(saved); wrapping.runMarker=2147483647; await restoreColony(r,wrapping); await call(r,'new-run');
+    assert.equal(state(r).seed,1); assert.equal(state(r).runMarker,0);
     await r.close();
   });
 }

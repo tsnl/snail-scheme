@@ -1,7 +1,7 @@
 // Actual compiled reducers exercise spatial knowledge, shared labor and material
 // ownership. Snapshot edits below only establish boundary/failure scenarios.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, restoreColony, client, restoreClient} from './colony-state.mjs';
 
 export async function checkColony(test, fresh, call) {
   const advance = async (runtime, ticks = 1) => { for (let tick = 0; tick < ticks; tick++) await call(runtime, 'advance'); };
@@ -34,7 +34,7 @@ export async function checkColony(test, fresh, call) {
       if (arriving && state(r).bots.some(bot => bot.id === arriving.id && bot.job === 2 && bot.cargo > 0)) northCollected = true;
     }
     assert.ok(northCollected); assert.ok(state(r).delivered > deliveredBefore);
-    assert.equal(retained[3], 160); assert.equal(retained[7], 0);
+    assert.equal(colony(retained).ore, 160); assert.equal(colony(retained).buildings.length, 0);
     assert.ok(state(r).buildings.filter(building => building.kind === 1 && building.stage === 2).length === 2);
     await r.close();
   });
@@ -43,8 +43,8 @@ export async function checkColony(test, fresh, call) {
     const r = await fresh(); await call(r, 'observe', [2,16]); await advance(r, 120);
     const before = state(r); await call(r, 'fortify', [2,9]);
     assert.equal(state(r).notice, 6); assert.equal(state(r).ore, before.ore);
-    const words = r.snapshot(1); words[32 + 5] = 1; words[1] = 129;
-    for (let i=0;i<3;i++) setWorker(words,i,{id:i+1}); await r.restore(1, words);
+    const world = state(r); world.buildings[0].hp = 1; world.tick = 129;
+    for (let i=0;i<3;i++) setWorker(world,i,{id:i+1}); await restoreColony(r, world);
     await addEnemy(r, {x:2, y:16, target:before.buildings[0].id, kind:1});
     await advance(r); assert.equal(state(r).lost, 1); assert.deepEqual(state(r).surveys, before.surveys);
     await call(r, 'fortify', [2,9]); assert.equal(state(r).notice, 1);
@@ -58,14 +58,14 @@ export async function checkColony(test, fresh, call) {
     assert.equal(state(r).bots.filter(bot => bot.job === 7 && bot.timer === 5 && bot.target === project.id).length, 1);
     await advance(r, 25); assert.equal(state(r).buildings[0].stage, 1);
     assert.equal(state(r).spent, 25); materialBalance(state(r));
-    const clear = r.snapshot(1); clear[9] = 0; await r.restore(1, clear); await advance(r, 260);
+    const clear = state(r); clear.enemies.length = 0; await restoreColony(r, clear); await advance(r, 260);
     assert.equal(state(r).buildings[0].stage, 2); assert.equal(state(r).spent, 25); assert.equal(state(r).ore, 135);
     await r.close();
   });
 
   await test('automatic repairs preserve their ore reserve and have one supply owner', async () => {
-    const r = await fresh(), words = r.snapshot(1);
-    words[3] = 44; words[15] = 116; words[4] = 100; words[1] = 19; await r.restore(1, words);
+    const r = await fresh(), world = state(r);
+    world.ore = 44; world.spent = 116; world.hull = 100; world.tick = 19; await restoreColony(r, world);
     await advance(r); assert.equal(state(r).ore, 40);
     assert.equal(state(r).bots.filter(bot => bot.job === 4).length, 1);
     await advance(r, 80); assert.equal(state(r).ore, 40); assert.equal(state(r).hull, 125);
@@ -77,12 +77,12 @@ export async function checkColony(test, fresh, call) {
     await call(r, 'observe', [22,20]); await advance(r, 200);
     const outpost = state(r).buildings.find(building => building.x === 22);
     assert.equal(outpost.stage, 2);
-    const checkpoint = r.snapshot(1); checkpoint[1] = 2099; await r.restore(1, checkpoint);
+    const checkpoint = state(r); checkpoint.tick = 2099; await restoreColony(r, checkpoint);
     await advance(r); assert.equal(state(r).enemies.length, 4);
     assert.ok(state(r).enemies.every(enemy => enemy.kind === 1 && enemy.target === outpost.id));
     for (let tick = 0; tick < 400 && state(r).lost === 0; tick++) await advance(r);
     assert.equal(state(r).lost, 1); const knowledge = state(r).surveys;
-    const cleared = r.snapshot(1); cleared[9] = 0; await r.restore(1, cleared);
+    const cleared = state(r); cleared.enemies.length = 0; await restoreColony(r, cleared);
     await call(r, 'observe', [22,20]); assert.equal(state(r).notice, 10); await advance(r, 200);
     assert.equal(state(r).buildings.find(building => building.x === 22).stage, 2);
     assert.deepEqual(state(r).surveys, knowledge); materialBalance(state(r)); await r.close();
@@ -90,15 +90,15 @@ export async function checkColony(test, fresh, call) {
 
   await test('decoder rejects orphaned construction claims and discontinuous worker paths', async () => {
     const r = await fresh(); await call(r, 'observe', [12,14]);
-    const committed = r.snapshot(1), orphan = committed.slice(); orphan[32 + 7] = 1;
-    await assert.rejects(() => r.restore(1, orphan), WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1), committed);
-    await advance(r); const moving = r.snapshot(1), discontinuous = moving.slice(); discontinuous[416 + 8] = 0;
-    await assert.rejects(() => r.restore(1, discontinuous), WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1), moving);
+    const committed = r.snapshot(1), orphan = colony(committed); orphan.buildings[0].stage = 1;
+    await assert.rejects(() => restoreColony(r, orphan), WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1), committed);
+    await advance(r); const moving = r.snapshot(1), discontinuous = colony(moving); discontinuous.bots[0].path[0] = 0;
+    await assert.rejects(() => restoreColony(r, discontinuous), WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1), moving);
     await r.close();
   });
 
   await test('an undefended finale reaches and destroys a healthy hub despite automatic repairs', async () => {
-    const r = await fresh(), words = r.snapshot(1); words[1] = 4199; await r.restore(1, words);
+    const r = await fresh(), world = state(r); world.tick = 4199; await restoreColony(r, world);
     await advance(r); assert.equal(state(r).enemies[0].kind, 2);
     let firstDamage = 0;
     while (state(r).outcome === 0) {
@@ -112,22 +112,22 @@ export async function checkColony(test, fresh, call) {
   await test('camera coordinates agree for pointer placement, pan and cursor movement', async () => {
     const r = await fresh(), local = (name, args = []) => r.dispatch(2, r.command('client', name, args));
     await local('pan', [4,-3]); await local('move', [340,380]);
-    assert.deepEqual(r.snapshot(2), [5,1,340,380,160000,440000]);
+    assert.deepEqual(client(r.snapshot(2)), {tool:1,pointX:340,pointY:380,cameraX:160000,cameraY:440000});
     const effects = (await local('confirm')).effects; await call(r, 'extract', [12,20]);
     assert.deepEqual(r.effectCommand(effects[0]), r.command('match', 'extract', [12,20]));
-    await local('nudge', [-30,0]); const moved = r.snapshot(2); assert.equal(moved[2], 0); assert.equal(moved[4], -100000);
-    await local('home'); assert.deepEqual(r.snapshot(2), [5,1,340,340,0,560000]);
+    await local('nudge', [-30,0]); const moved = client(r.snapshot(2)); assert.equal(moved.pointX, 0); assert.equal(moved.cameraX, -100000);
+    await local('home'); assert.deepEqual(client(r.snapshot(2)), {tool:1,pointX:340,pointY:340,cameraX:0,cameraY:560000});
     for (const [dx,dy,cx,cy,sx,sy] of [[-100,-100,-120000,-120000,0,0],[100,0,1080000,-120000,959,0],[0,100,1080000,920000,959,639],[-100,0,-120000,920000,0,639]]) {
-      await local('pan', [dx,dy]); await local('move', [sx,sy]); const camera = r.snapshot(2);
-      assert.deepEqual(camera.slice(4), [cx,cy]); await r.restore(2, camera);
+      await local('pan', [dx,dy]); await local('move', [sx,sy]); const camera = client(r.snapshot(2));
+      assert.deepEqual([camera.cameraX,camera.cameraY], [cx,cy]); await restoreClient(r, camera);
       const before = state(r), command = r.effectCommand((await local('confirm')).effects[0]); await r.dispatch(1, command);
       assert.equal(state(r).notice, 15); assert.equal(state(r).ore, before.ore);
       assert.equal(state(r).buildings.length, before.buildings.length);
     }
-    const invalid = r.snapshot(2); invalid[4] = -120001;
-    await assert.rejects(() => r.restore(2, invalid), WebAssembly.RuntimeError);
+    const invalid = client(r.snapshot(2)); invalid.cameraX = -120001;
+    await assert.rejects(() => restoreClient(r, invalid), WebAssembly.RuntimeError);
     await local('home'); await local('drift', [-1,0]); await local('move', [0,0]);
-    assert.equal(r.snapshot(2)[4], -360);
+    assert.equal(client(r.snapshot(2)).cameraX, -360);
     assert.deepEqual(r.effectCommand((await local('confirm')).effects[0]), r.command('match','extract',[-1,14]));
     await local('move', [1,0]); assert.deepEqual(r.effectCommand((await local('confirm')).effects[0]), r.command('match','extract',[0,14]));
     await local('home'); for (let i=0;i<10;i++) await local('drift',[16,0]); const shortFrames=r.snapshot(2);
@@ -144,7 +144,7 @@ export async function checkColony(test, fresh, call) {
     const planned = r.snapshot(1); await advance(r, 100); assert.deepEqual(r.snapshot(1), planned);
     assert.equal(state(r).buildings[1].stage, 3); assert.equal(state(r).bots[3].job, 6);
     await call(r, 'pause-colony', [0]); await advance(r);
-    assert.equal(state(r).tick, paused[1] + 1); assert.equal(state(r).paused, 0);
+    assert.equal(state(r).tick, colony(paused).tick + 1); assert.equal(state(r).paused, 0);
     assert.equal(state(r).bots[3].timer, 29); materialBalance(state(r)); await r.close();
   });
 

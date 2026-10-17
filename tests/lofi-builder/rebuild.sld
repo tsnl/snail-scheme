@@ -1,7 +1,9 @@
 ;; A compiled Lofi tree transformation exercises every inspection family.
 ;; It rebuilds syntax and copied literal payloads while keeping binder identities.
 (define-library (builder rebuild)
-  (import (lofi compiler-builder) (only (lofi primitive) empty-list cons car cdr null?))
+  (import
+   (lofi compiler-builder)
+   (only (lofi primitive) empty-list cons car cdr null?))
   (export rebuild-library)
   (begin
     (def rebuild-name (-> Name Name) (lambda (name) (builder-name (builder-name-text name))))
@@ -98,7 +100,7 @@
          (lambda (original)
            (match (inspect-declaration original)
              ((view-definition binding signature value span)
-              (with-signature-location
+              (signature-location-set
                (signature-definition
                 (rebuild-binding binding)
                 (rebuild-signature signature)
@@ -107,7 +109,7 @@
              ((view-inferred-definition binding value span)
               (inferred-definition (rebuild-binding binding) (rebuild-expression value) (rebuild-span span)))
              ((view-local-binding binding signature value span)
-              (with-signature-location
+              (signature-location-set
                (local-binding
                 (rebuild-binding binding)
                 (rebuild-signature signature)
@@ -141,7 +143,7 @@
              ((view-extern binding module symbol type span)
               (extern-definition (rebuild-binding binding) module symbol (rebuild-type type) (rebuild-span span)))
              ((view-overload binding signature value span)
-              (with-signature-location
+              (signature-location-set
                (overload-definition
                 (rebuild-binding binding)
                 (rebuild-signature signature)
