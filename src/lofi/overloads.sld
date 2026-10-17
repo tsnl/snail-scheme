@@ -29,9 +29,20 @@
                               (cons variable (if (and (variable-rigid? variable) (not flexible-rigid?))
                                                  variable (fresh-variable))))
                             (type-variables type))))
+    ;; Most rejected scalar/function rows have a fixed shape contradiction.
+    ;; Reject those before guard captures the increasingly deep compiler stack.
+    ;; Every variable remains a wildcard here: repeated-variable consistency,
+    ;; rigidity and occurs checks still belong to the unchanged copied trial.
+    (define (matching-type-shape? left right)
+      (let ((left (resolve left)) (right (resolve right)))
+        (or (eq? left right) (variable? left) (variable? right)
+            (and (pair? left) (pair? right)
+                 (matching-type-shape? (car left) (car right))
+                 (matching-type-shape? (cdr left) (cdr right))))))
     (define (compatible? left right flexible-rigid?)
-      (guard (failure (else #f))
-        (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t))
+      (and (matching-type-shape? left right)
+           (guard (failure (else #f))
+             (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t)))
     ;; Rigid declaration variables may specialize later. Keep any row that
     ;; could then overlap; the commit below still respects their rigid identity.
     (define (overload-candidates class type instances)
@@ -118,4 +129,57 @@
       (improve-overloads! constraints '() classes instances loc)
       (for-each (lambda (constraint)
                   (let ((class (overload-class (car constraint) classes)))
-                    (when class (select-overload-view class (cadr constraint) instances loc #t)))) constraints))))
+                    (when class (select-overload-view class (cadr constraint) instances loc #t)))) constraints)))
+  ;; ---- Tests ----
+
+  (cond-expand
+   (snail-tests
+    (export test-overloads)
+    (import
+     (wasm-native test-utils)
+     (only (lofi ir) make-value-definition))
+    (begin
+      ;; This is the original speculative trial, retained as a differential
+      ;; oracle. The filter may keep a failing trial; it must never discard a
+      ;; successful one. Trial copies preserve each side's variable sharing.
+      (define (reference-compatible? left right flexible-rigid?)
+        (guard (failure (else #f))
+          (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t))
+      (define (comparison-types)
+        (let ((hole (fresh-hole)) (rigid (fresh-rigid))
+              (first (make-value-definition 'Record #f))
+              (second (make-value-definition 'Record #f)))
+          (list 'I32 'I64 'Bool 'Top 'Never hole rigid
+                (list 'List hole) '(List I32) '(List I64) '(Ref I32) '(Vector I32)
+                (function-type (list hole) #f hole)
+                (function-type (list 'I32) #f 'I64)
+                (function-type (list 'I32) #f 'I32)
+                (function-type (list rigid) #f rigid)
+                (function-type '() 'I32 'I32)
+                (list 'Data first) (list 'Data second))))
+      (define (test-overload-filter-matrix)
+        (let ((types (comparison-types)))
+          (for-each (lambda (left)
+                      (for-each (lambda (right)
+                                  (for-each (lambda (flexible?)
+                                              (expect (compatible? left right flexible?)
+                                                      (reference-compatible? left right flexible?))) '(#f #t))) types)) types)))
+      (define (test-overload-filter-boundaries)
+        (let ((hole (fresh-hole)) (other (fresh-hole)) (rigid (fresh-rigid)))
+          (expect (compatible? 'I32 rigid #f) #f)
+          (expect (compatible? 'I32 rigid #t) #t)
+          (expect (compatible? (cons hole hole) (cons 'I32 'I64) #t) #f)
+          (expect (compatible? (cons hole hole) (cons other (cons other 'I32)) #t) #f)
+          (expect (eq? (resolve hole) hole) #t)
+          (expect (eq? (resolve other) other) #t)))
+      (define (test-overload-filter-links)
+        (let ((outer (fresh-hole)) (inner (fresh-hole)))
+          (unify! outer inner #f) (unify! inner 'I32 #f)
+          (expect (matching-type-shape? outer '(List I32)) #f)
+          (expect (compatible? outer 'I32 #t) #t)
+          (expect (resolve outer) 'I32)))
+      (define (test-overloads)
+        (run-test test-overload-filter-matrix)
+        (run-test test-overload-filter-boundaries)
+        (run-test test-overload-filter-links))))
+   (else)))
