@@ -112,6 +112,15 @@ and null initialization; noncollecting runtime helpers cannot invoke guest code.
 GC stress injection keeps every function framed, including functions that cannot
 collect in production.
 
+The native collector implements full-heap Immix with opportunistic evacuation.
+Collecting calls repair live reference temporaries before the generated code
+uses them again; Rust helpers root and reload their own reference arguments.
+Saved objects require the `native_gc_relocatable_roots` ABI witness. Regenerate
+older objects from Wasm before linking them with the moving runtime. The
+[collector contract](../doc/native.md) documents allocation, relocation, pinning,
+heap headroom and the differences from the original paper. Wasm execution
+continues to use the engine's collector.
+
 Struct allocation calls carry LLVM's call-site `alwaysinline` hint. The private
 Rust allocation method is also marked for inlining, so shared LTO can specialize
 layout arithmetic and zero filling for each fixed size. Allocation preserves

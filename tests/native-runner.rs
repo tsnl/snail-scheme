@@ -25,6 +25,8 @@ unsafe extern "C" {
     fn tail_gc(p0: u32) -> u64;
     #[link_name = "wasm.gc-operands"]
     fn gc_operands() -> u64;
+    #[link_name = "wasm.gc-control"]
+    fn gc_control(condition: u32) -> u64;
     #[link_name = "wasm.trap"]
     fn trap(p0: u32);
     #[link_name = "wasm.i31-s"]
@@ -218,6 +220,8 @@ unsafe fn check_roots() {
         assert_eq!(tail_gc(20_000), 42);
         assert!(native::native_roots_peak() < 8);
         assert_eq!(gc_operands(), 42);
+        assert_eq!(gc_control(0), 42);
+        assert_eq!(gc_control(1), 42);
         #[repr(C)]
         struct RootStorage {
             header: NativeRoots,

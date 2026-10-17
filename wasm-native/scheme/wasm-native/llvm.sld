@@ -47,8 +47,25 @@
     ;; Operand types retain reference identity even though the machine ABI is i64.
     (define (llvm-type type) (if (string=? type "ref") "i64" type))
     (define (reference-value? value) (string=? (car value) "ref"))
-    (define (typed value) (list (llvm-type (car value)) " " (cdr value)))
+    (define (typed value) (list (llvm-type (car value)) " " (operand value)))
     (define (constant type word) (cons type word))
+
+    ;; A reference temporary names storage, not an SSA name that becomes stale
+    ;; when collection moves its object. LLVM promotes these private slots and
+    ;; supplies the phi nodes needed when only one branch collects.
+    (define-record-type <relocatable>
+      (make-relocatable slot) relocatable?
+      (slot relocatable-slot))
+
+    (define (operand value)
+      (if (relocatable? (cdr value))
+          (cdr (load (relocatable-slot (cdr value)))) (cdr value)))
+
+    (define (retain-reference value)
+      (if (and (reference-value? value) (current-function-collects))
+          (let ((pointer (slot "i64")))
+            (store value pointer)
+            (constant "ref" (make-relocatable pointer))) value))
 
     ;; The datum backend receives Scheme f64 values, not encoded bit words.
     ;; LLVM accepts round-tripping decimal doubles; its hex spelling carries
@@ -232,7 +249,8 @@
     ;; Locals and structured joins use entry-block slots. LLVM promotes them to
     ;; SSA; this keeps Wasm branch values explicit without a second CFG pass.
     ;; A false live flag means control cannot fall through. The operand
-    ;; stack holds already-produced SSA values, never deferred reads or calls.
+    ;; stack holds produced values. Reference temporaries have private slots
+    ;; whose contents are repaired after a collecting call.
 
     (define-record-type <emitter>
       (make-emitter locals targets serial live? port slots stack result roots local-roots)
@@ -270,7 +288,7 @@
     (define (instruction type . pieces)
       (let ((name (fresh "%v")))
         (apply line name " = " pieces)
-        (constant type name)))
+        (retain-reference (constant type name))))
 
     (define (finish . pieces)
       (apply line pieces)
@@ -321,7 +339,8 @@
       (instruction "i32" "zext " (typed value) " to i32"))
 
     (define (cast opcode value type)
-      (if (string=? (llvm-type type) (llvm-type (car value))) (constant type (cdr value))
+      (if (string=? (llvm-type type) (llvm-type (car value)))
+          (if (string=? type (car value)) value (constant type (operand value)))
           (instruction type opcode " " (typed value) " to " (llvm-type type))))
 
     (define (call-native name result arguments)
@@ -344,19 +363,32 @@
       (trap-unless (instruction "i1" "icmp ne " (typed value) ", 0"))
       value)
 
-    ;; Collecting functions keep reference locals directly in the frame. At
-    ;; synchronous safepoints only operand temporaries need copies. Nonmoving
-    ;; objects need no reload.
-    ;; The active count excludes stale temporary slots left by earlier loops.
+    ;; Locals already live in the frame. Copy live temporaries into its active
+    ;; suffix and repair their private slots on return. No derived address may
+    ;; survive a collecting call. The count excludes stale slots from old loops.
     (define (publish-roots arguments)
-      (when (current-function-collects)
-        (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
-               (values (filter reference-value? (append (emitter-stack emitter) arguments)))
-               (count (+ offset (length values))))
-          (set-emitter-roots! emitter (max (emitter-roots emitter) count))
-          (for-each (lambda (value index) (store value (root-slot (+ index 3))))
-                    values (iota (length values) offset))
-          (store (constant "i64" count) (root-slot 2)))))
+      (if (not (current-function-collects)) '()
+          (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
+                 (values (filter reference-value? (append (emitter-stack emitter) arguments)))
+                 (count (+ offset (length values)))
+                 (slots (map (lambda (index) (root-slot (+ index 3))) (iota (length values) offset))))
+            (set-emitter-roots! emitter (max (emitter-roots emitter) count))
+            (for-each store values slots)
+            (store (constant "i64" count) (root-slot 2))
+            (map cons values slots))))
+
+    (define (restore-roots roots)
+      (for-each (lambda (root)
+                  (when (relocatable? (cdar root))
+                    (store (load (cdr root)) (relocatable-slot (cdar root))))) roots))
+
+    (define (with-roots values operation)
+      (let* ((roots (publish-roots values)) (result (operation)))
+        (restore-roots roots)
+        result))
+
+    (define (call-collecting-native name result arguments roots)
+      (with-roots roots (lambda () (call-native name result arguments))))
 
     ;; A no-GC proof removes publication, not local storage or initialization.
     ;; initialize-locals still writes parameters and nulls to these private slots.
@@ -494,8 +526,7 @@
     (define current-native-gc-stress (make-parameter #f))
     (define (stress-safepoint arguments)
       (when (current-native-gc-stress)
-        (publish-roots arguments)
-        (call-native "native_gc_collect" "void" '())))
+        (call-collecting-native "native_gc_collect" "void" '() arguments)))
 
     (define (emit-call name arguments result tail?)
       ;; tailcc guarantees tail lowering even when argument counts differ.
@@ -503,12 +534,13 @@
       ;; executable ABI regression covers tailcc + tail across that boundary.
       ;; No collection can occur between unlinking and the callee publishing.
       (when tail? (stress-safepoint arguments))
-      (if tail? (leave-roots) (publish-roots arguments))
-      (let* ((code (list (if tail? "tail " "") "call tailcc " (llvm-type result) " " name
+      (when tail? (leave-roots))
+      (let* ((roots (if tail? '() (publish-roots arguments)))
+             (code (list (if tail? "tail " "") "call tailcc " (llvm-type result) " " name
                          "(" (llvm-join (map typed arguments) ", ") ")"))
              (value (if (string=? result "void") (begin (line code) #f)
                         (instruction result code))))
-        (when tail? (return-value value #t))
+        (if tail? (return-value value #t) (restore-roots roots))
         value))
 
     (define (emit-direct-call index arguments tail?)
@@ -583,11 +615,11 @@
     ;; emitted type layouts identify reference fields precisely for tracing.
     ;; Struct fields occupy eight-byte slots. Arrays use their declared storage
     ;; width; only reference arrays have eight-byte GC edges to trace.
-    ;; Interior pointers stay recognizable across allocating operands and calls.
+    ;; Derived addresses are computed after allocation has repaired references.
 
     (define (allocate-struct name values)
-      (let* ((reference (call-native "native_alloc" "ref"
-                                     (list (constant "i64" (+ 8 (* 8 (length values)))))))
+      (let* ((reference (call-collecting-native "native_alloc" "ref"
+                                                (list (constant "i64" (+ 8 (* 8 (length values))))) values))
              (fields (cdr (type-definition name))))
         (store (constant "i64" (type-id name)) (field-pointer reference 0 "i64"))
         (for-each (lambda (field value index)
@@ -623,15 +655,16 @@
              (cast "zext" (cast "bitcast" value (if (string=? (car value) "double") "i64" "i32")) "i64"))
             (else (cast "zext" value "i64"))))
 
-    (define (new-array name length initial)
-      (call-native "native_array_new" "ref"
-                   (list (constant "i64" (type-id name)) length (value-word initial)
-                         (constant "i32" (storage-size (storage-type (array-type name)))))))
+    (define (new-array name length initial roots)
+      (call-collecting-native "native_array_new" "ref"
+                              (list (constant "i64" (type-id name)) length (value-word initial)
+                                    (constant "i32" (storage-size (storage-type (array-type name)))))
+                              (cons initial roots)))
 
     (define (emit-array-new name default?)
       (let* ((type (value-type (array-type name))) (length (pop-value!))
              (initial (if default? (constant type (zero type)) (pop-value!))))
-        (new-array name length initial)))
+        (new-array name length initial '())))
 
     ;; Array headers contain kind and u64 length, then tightly packed elements.
     ;; Validated Wasm establishes the array kind and storage width. These checks
@@ -654,7 +687,7 @@
 
     (define (emit-array-fixed name length)
       (let* ((type (storage-type (array-type name))) (values (pop-values! length))
-             (reference (new-array name (constant "i32" length) (constant "i64" 0))))
+             (reference (new-array name (constant "i32" length) (constant "i64" 0) values)))
         (for-each (lambda (value index)
                     (store (cast "trunc" value type)
                            (array-slot reference (constant "i32" index) type)))
@@ -800,10 +833,6 @@
     ;; Common operations lead the case: Chibi searches its arms linearly.
     (define (emit-operation node)
       (let ((op (car node)) (args (cdr node)))
-        ;; Publish before operands are popped: constructors retain their fields
-        ;; across allocation, including an array's erased initial machine word.
-        (when (memq op '(struct.new struct.new_default array.new array.new_default array.new_fixed table.grow))
-          (publish-roots '()))
         (case op
           ((local.get) (load (local-slot (car args))))
           ((numeric) (emit-numeric (car args) (cadr args) (pop-values! (caddr args))))
@@ -833,7 +862,7 @@
           ((i31.get_s i31.get_u) (emit-i31-get (pop-value!) (eq? op 'i31.get_s)))
           ((ref.as_non_null) (nonnull (pop-value!)))
           ((ref.eq) (let ((values (pop-values! 2)))
-                      (boolean (instruction "i1" "icmp eq " (typed (car values)) ", " (cdadr values)))))
+                      (boolean (instruction "i1" "icmp eq " (typed (car values)) ", " (operand (cadr values))))))
           ((ref.is_null) (boolean (instruction "i1" "icmp eq " (typed (pop-value!)) ", 0")))
           ((ref.test) (reference-test (pop-value!) (car args)))
           ((ref.cast) (emit-ref-cast (pop-value!) (car args)))
@@ -1111,6 +1140,7 @@
               (llvm-join values ", ") "]"))
 
     (define (declare-gc-layouts declarations)
+      (output "@native_gc_relocatable_roots = constant i64 1")
       (declare-gc-array "parents" "i64"
                         (map (lambda (node)
                                (list "i64 " (if (and (pair? (cdddr node)) (car (cddddr node)))
