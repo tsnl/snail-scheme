@@ -29,6 +29,10 @@ await test('Scheme and Lofi run the same typed lexical application API', () => {
     const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 42); closeInstance(i);
   }
 });
+await test('direct Scheme handler tests initialize state and inspect effect variants', () => {
+  const i = instantiate(loadWasm(fixture('testing')));
+  assert.equal(invokeEntry(i, []), 42); closeInstance(i);
+});
 await test('immutable prior snapshots, automatic hauling, placement and pure view', () => {
   const r = fresh(), before = r.stores.get(1); call(r, 'extract', [8, 3]);
   assert.equal(r.snapshot(1)[3], 80); assert.equal(before[3], 110);
@@ -60,6 +64,24 @@ await test('invalid candidate, incompatible schema and bad snapshot preserve ins
   assert.throws(() => r.prepare(bytes, incompatible), /endpoint contract|schema mismatch/);
   const bad = world.slice(); bad[0]++; assert.throws(() => r.restore(1, bad), /schema/);
   assert.equal(r.instance, instance); assert.deepEqual(r.snapshot(1), world); r.close();
+});
+await test('failed and discarded first candidates reserve no state or shape', () => {
+  const r = new ReducerRuntime();
+  assert.throws(() => r.prepare(fixture('invalid-candidate'), manifest), /write outside/);
+  assert.equal(r.stores.size, 0);
+  const abandoned = r.prepare(fixture('invalid-initial'), manifest);
+  assert.equal(r.stores.size, 0); r.discard(abandoned);
+  const stale = r.prepare(fixture('invalid-initial'), manifest);
+  r.replace(r.prepare(bytes, manifest)); r.initialize(1); r.initialize(2);
+  const world = r.snapshot(1), instance = r.instance;
+  assert.throws(() => r.replace(stale), /incompatible state shape/); r.discard(stale);
+  assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, instance); r.close();
+});
+await test('candidate installation revalidates state advanced after preparation', () => {
+  const r = fresh(), candidate = r.prepare(fixture('current-state'), manifest), instance = r.instance;
+  call(r, 'extract', [8, 3]); const world = r.snapshot(1);
+  assert.throws(() => r.replace(candidate), /incompatible state schema/); r.discard(candidate);
+  assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, instance); r.close();
 });
 await test('trap after staged writes/effects rolls back and restores previous compatible module', () => {
   const r = fresh(), world = r.snapshot(1), previous = r.instance;
@@ -101,6 +123,16 @@ await test('failed durable commit publishes neither state nor revision nor effec
   assert.throws(() => authority.submit({client: 'one', sequence: 1, epoch: authority.epoch,
     command: r.command('match', 'extract', [8, 3])}), /disk failure/);
   assert.deepEqual(r.snapshot(1), before); assert.equal(authority.revision, 0); assert.equal(published, 0); r.close();
+});
+await test('observer failure after commit retains the receipt and never repeats the handler', () => {
+  const r = fresh(); let published = 0;
+  const authority = new Authority(r, {publish: () => { published++; throw new Error('observer unavailable'); }});
+  const command = {client: 'one', sequence: 1, epoch: authority.epoch, command: r.command('match', 'extract', [8, 3])};
+  assert.throws(() => authority.submit(command), /observer unavailable/);
+  assert.equal(authority.revision, 1); assert.equal(r.snapshot(1)[3], 80);
+  const retry = authority.submit(command);
+  assert.equal(retry.duplicate, true); assert.equal(retry.receipt.revision, 1);
+  assert.equal(published, 1); assert.equal(r.snapshot(1)[3], 80); r.close();
 });
 await test('concurrent purchases from distinct players cannot spend the same resources', async () => {
   const r = fresh(); call(r, 'extract', [8, 3]); const authority = new Authority(r);

@@ -6,7 +6,10 @@ owner errors, then executes the Wasm in Node. It exercises immutable records and
 retained snapshots, automatic hauling, a losing and winning run, pure view,
 effect staging, compatible reload, hostile candidates, trap rollback, serial
 submissions, invalid encoded replacements, packaging startup checks, durability
-failure and restart with an unacknowledged request.
+failure and restart with an unacknowledged request. Candidate checks include
+abandoned initial state shapes and state advancing before installation; an
+observer failure after commit retains its retry receipt. The runnable pure
+handler example checks initial values and named effect variants without a host.
 This is correctness testing, not a performance comparison.
 
 For real browser checks, start the packaged server:

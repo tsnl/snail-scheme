@@ -137,23 +137,35 @@ export class ReducerRuntime {
   }
   metadata(instance, index) { return this.transaction(instance, [0, index, 0, 0], {readOnly: true}).result; }
   prepare(bytes, manifest) {
+    if (this.active) throw new Error('code preparation during a transition');
     manifest = validateManifest(manifest);
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
     const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
+      const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);
       for (const owner of [1, 2]) {
-        const size = this.metadata(instance, owner);
-        if (size < 1 || size > 65536 || (this.stores.has(owner) && size !== this.stores.get(owner).length))
-          throw new Error('incompatible state shape; explicit migration required');
-        if (!this.stores.has(owner)) this.stores.set(owner, new Int32Array(size));
+        if (sizes[owner - 1] < 1 || sizes[owner - 1] > 65536) throw new Error('invalid declared state size');
         const app = manifest.applications.find(a => a.owner === (owner === 1 ? 'match' : 'client'));
         if (app.schema !== this.metadata(instance, owner + 2)) throw new Error('manifest/module schema mismatch');
       }
-      this.validateCandidate(instance);
-      return {instance, manifest};
+      this.candidateStores(instance, sizes);
+      return {instance, manifest, sizes};
     } catch (error) { closeInstance(instance); throw error; }
+  }
+  candidateStores(instance, sizes) {
+    const committed = this.stores, proposed = new Map(committed);
+    for (const owner of [1, 2]) {
+      if (proposed.has(owner) && proposed.get(owner).length !== sizes[owner - 1])
+        throw new Error('incompatible state shape; explicit migration required');
+      if (!proposed.has(owner)) proposed.set(owner, new Int32Array(sizes[owner - 1]));
+    }
+    // This scope is synchronous. Preparing code never reserves an absent owner's
+    // shape, and installation constructs a fresh map from the then-current state.
+    this.stores = proposed;
+    try { this.validateCandidate(instance); return proposed; }
+    finally { this.stores = committed; }
   }
   validateState(instance) {
     if (!this.transaction(instance, [10, 0, 0, 0], {readOnly: true}).result)
@@ -168,10 +180,10 @@ export class ReducerRuntime {
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
-    this.validateCandidate(candidate.instance); // State may have advanced while GPU preparation awaited.
+    const stores = this.candidateStores(candidate.instance, candidate.sizes);
     if (this.previous) closeInstance(this.previous.instance);
     this.previous = this.instance ? {instance: this.instance, manifest: this.manifest} : undefined;
-    this.instance = candidate.instance; this.manifest = candidate.manifest;
+    this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest;
   }
   initialize(owner) {
     if (!this.stores.get(owner)[0]) return this.transaction(this.instance, [1, owner, 0, 0], {owner});

@@ -5,7 +5,8 @@ receives a stable state value and its payload, then returns a replacement state
 and effect descriptions. It does no asynchronous work. The runtime owns storage,
 ordering and delivery. This is a library programming model, not a compiler proof
 of purity: use immutable records and lists, and do not mutate values reachable
-from an earlier state.
+from an earlier state. Keep persistent application state in that explicit value;
+handlers, codecs and views must not retain hidden mutable state between calls.
 
 Start with the [documented Scheme subset](macros.md#initial-scheme-base), rather
 than assuming Chibi's complete standard library is compiled into the application.
@@ -79,6 +80,33 @@ other transports can provide their own owner attachment layer. Effects run after
 the replacement commits. Their results must enter as later messages. A handler
 cannot await a network response while holding the state owner.
 
+### Testing handlers without a host
+
+Pure tests can call `dispatch` directly. The initial expression in `application`
+is delayed: `application-initial` returns a zero-argument initializer, so
+`((application-initial counter))` constructs its initial state. This does not
+read or change a runtime owner's committed state.
+
+```scheme
+(define before ((application-initial counter)))
+(define result (dispatch counter before (add 2)))
+(transition-state result)   ; 2; before is still 0
+(transition-effects result) ; an empty immutable list
+```
+
+For returned effects, use `effect-send?` or `effect-notice?` before inspecting
+the corresponding variant. Send accessors are `effect-owner`, `effect-a` and
+`effect-b` for the destination and up to two payload values; `effect-text` reads
+a notice. Dispatch does not deliver the effect. The generated `effect-slot` and
+numeric `effect-kind` serve the private scalar bridge; tests should not depend
+on those wire details.
+
+The complete [`testing.sld`](../../../examples/applications/testing.sld) example
+checks an immutable prior stock value, a replacement value, local state and a
+typed send description. Compile and run it with the same commands as the counter,
+substituting `testing.sld` and `testing.wasm`; it prints `42`. This exercises pure
+handler behavior, not host ordering, durability or effect delivery.
+
 ## One owner, one ordered transition
 
 Each owner commits one message at a time. The handler sees the previous committed
@@ -99,6 +127,10 @@ exactly-once external effects: a future payment, email or remote service needs a
 idempotency key or a transactional outbox appropriate to that service. This first
 adapter has no durable effect outbox; Siegework authoritative handlers produce
 state only. Its client send effects use the explicit in-memory retry queue.
+If an observer throws after commit, state and the receipt remain committed even
+though the caller receives an error. An immediate identical retry returns that
+receipt without rerunning the handler or redelivering its effects. This can lose
+an external notification; it does not undo a successful transition.
 
 The public protocol preserves application/schema identity, handler identity,
 argument types and generated dispatch slots. Network requests carry the stable
@@ -257,6 +289,8 @@ fresh immutable values, execute one transition, and encode a candidate snapshot.
 The host's private bridge stages words and effect descriptions in a transaction.
 It never exposes a mutable global map as the application interface. The initial
 192-word world codec favors an inspectable boundary over zero-copy performance.
+The host may reuse a Wasm instance between calls; fresh decoding and the stated
+application discipline protect snapshots without recreating a module per message.
 Persistent trees, owned buffers and richer serialization may improve copying
 later without changing the handler contract.
 
@@ -268,6 +302,10 @@ boundary. The browser prepares a new GPU pipeline while the old one remains
 active, then revalidates the candidate against the *current* state before swapping.
 Initialization only runs for an absent state owner. Compatible reload consumes no
 gameplay tick and preserves local selection and pending input.
+Preparing a first candidate also leaves absent owners untouched. Temporary zero
+buffers exist only during synchronous validation; a failed or discarded
+candidate cannot reserve its proposed state shape. Installation checks current
+snapshots again before publishing any new owner buffers with the code.
 
 Live reload also requires the same endpoint contracts. Reordering declarations
 is compatible; adding, removing or changing an endpoint requires a restart or a

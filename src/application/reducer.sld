@@ -4,7 +4,7 @@
   (export application Application application-initial application-schema dispatch dispatch-wire
           Request request-slot request-a request-b Transition transition transition-state
           transition-effects no-effects Destination destination Effect enqueue notice effect-owner effect-slot
-          effect-a effect-b effect-text effect-kind match-owner client-owner)
+          effect-a effect-b effect-text effect-send? effect-notice? effect-kind match-owner client-owner)
   (import (scheme base) (scheme immutable)
           (only (lofi core) datatype match ann -> I32 library-begin)
           (only (lofi base) unreachable)
@@ -33,8 +33,12 @@
     (define match-owner 1)
     (define client-owner 2)
     (define (no-effects state) (transition state (empty-list)))
+    (define (effect-send? effect)
+      (match effect ((send owner slot a b) #t) ((notice text) #f)))
+    (define (effect-notice? effect) (not (effect-send? effect)))
+    ;; Numeric kinds belong to the private scalar bridge, not application tests.
     (define (effect-kind effect)
-      (match effect ((send owner slot a b) 1) ((notice text) 2)))
+      (if (effect-send? effect) 1 2))
     (define (dispatch-wire app state slot a b) (dispatch app state (request slot a b)))
     (define-typed enqueue
       (All (Owner State) (-> (Destination Owner State) (Request Owner State) Effect))

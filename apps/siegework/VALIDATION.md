@@ -21,7 +21,7 @@ ordered submissions, contested purchases, durable failure, SQLite restart/retry,
 and deterministic losing and winning runs. Compile-negative fixtures reject a
 wrong state result, wrong payload and command from the wrong application owner.
 
-The suite has 15 runtime checks and three compile-negative cases. The
+The suite has 19 runtime checks and three compile-negative cases. The
 [browser runner](../../tests/applications/README.md) verifies actual GPU
 pixels, independent shader candidate validation, two-client purchases and
 convergence, stale snapshot rejection, combat and cargo in transit, changed Wasm
@@ -56,6 +56,27 @@ experiments test usability; they do not establish full Scheme conformance or
 replace the reference game's integration checks. One builder used the shared
 replacement API manually after a server restart; automatic polling during live
 combat is covered by the reference browser runner.
+
+A fresh, no-history **gpt-6-astra at low effort** understanding check started from
+`3e9e1435`. It ran the documented counter and its own immutable stock/typed send
+test as actual Wasm; both returned `42`. It found no functional reducer defect.
+Its need to inspect source for initializers and effect tags led to the runnable
+`testing.sld` example and named `effect-send?`/`effect-notice?` predicates. Its
+missing-parenthesis typo also exposed an opaque parse diagnostic, routed to the
+parent compiler PR. This check did not exercise the browser, durability or reload.
+
+A separate fresh, no-history **gpt-6-astra at max effort** explained the state
+commit, reload and packaging contract without repository access, then debated
+the implementation observations. The focused simplify pass fixed abandoned
+first-candidate buffers reserving a state shape: preparation now validates with
+temporary buffers and installation rebuilds from current snapshots. Regression
+checks cover discarded/out-of-order candidates, state advancing before
+installation, and an observer throwing after a committed receipt. The pass kept
+synchronous transitions and trusted immutable application discipline; fresh Wasm
+instances per message, an async lock and an outbox would add unrelated machinery.
+Atomic commit/validation and publication operations remain cohesive even where
+they exceed the ten-line target. No broader refactoring was needed once those
+boundaries and their failure cases were explicit.
 
 The scope remains one local authority, bounded scalar snapshot copying, a small
 shader vocabulary and the current typed Scheme subset. There is no automatic
