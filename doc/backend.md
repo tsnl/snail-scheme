@@ -125,13 +125,16 @@ node tests/ci.mjs matrix
 node tests/ci.mjs run integration-1
 ```
 
-CI distributes the ordinary backend suites across four jobs and integration cases
+CI distributes the ordinary backend suites across nine jobs and integration cases
 across eight jobs. Round-robin assignment spreads the manifest's clusters of
 compile rejections across those jobs. The plan checks that every suite and case
 appears exactly once, and each job verifies its actual completion records against
 its assignment. Host checks, native execution, and public-build/application checks
 have their own jobs. A successful `Complete correctness checks` status requires
-every planned job to pass. A failing backend partition retains the existing
+every planned job to pass. The 20 matrix jobs fit GitHub's documented
+[standard-runner concurrency limit](https://docs.github.com/en/actions/reference/limits#job-concurrency-limits-for-github-hosted-runners)
+for the Free plan; the planning and completion jobs run outside that phase.
+A failing backend partition retains the existing
 stop-on-first-failed-suite behavior; other partitions continue.
 
 Each job uploads command records, stdout/stderr, selection/completion records and

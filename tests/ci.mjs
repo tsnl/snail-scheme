@@ -40,7 +40,8 @@ export function verifyPlan(plan, suites, cases) {
   }
 }
 
-export function makePlan(suites, cases, backendCount = 4, integrationCount = 8) {
+// Nine backend + eight integration + three host/public jobs fit 20 runners.
+export function makePlan(suites, cases, backendCount = 9, integrationCount = 8) {
   names(suites, 'backend suites');
   names(cases, 'integration cases');
   assert(suites.includes('lofi-integration'), 'missing integration suite');
