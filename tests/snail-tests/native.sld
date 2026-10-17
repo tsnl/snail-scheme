@@ -1,11 +1,21 @@
 ;; Actual native execution checks instruction, ABI, GC and resource contracts.
 (define-library (snail-tests native)
   (export run-native-suite)
-  (import (scheme base) (scheme cxr) (scheme char) (scheme file) (scheme write) (scheme process-context)
-          (srfi 1) (chibi pathname) (chibi regexp) (chibi regexp pcre)
-          (only (chibi process) execute fork waitpid)
-          (only (chibi filesystem) symbolic-link-file)
-          (snail-tests streams) (rename (snail-tests harness) (checked checked-command)))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (srfi 1)
+   (chibi pathname)
+   (chibi regexp)
+   (chibi regexp pcre)
+   (only (chibi process) execute fork waitpid)
+   (only (chibi filesystem) symbolic-link-file)
+   (snail-tests streams)
+   (rename (snail-tests harness) (checked checked-command)))
   (begin
 
     (define (checked label command . options)

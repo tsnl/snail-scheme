@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def values
      (make-vector (ann 2 I64) (ann 1.25 F32)))
 (vector-set! values (ann 1 I64) (ann 2.5 F32))

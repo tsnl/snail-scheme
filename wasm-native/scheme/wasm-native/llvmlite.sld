@@ -1,6 +1,8 @@
 (define-library (wasm-native llvmlite)
   (export llvm-name llvm-quoted llvm-hex llvm-join write-llvm)
-  (import (scheme base) (only (scheme write) display write-simple))
+  (import
+   (scheme base)
+   (only (scheme write) display write-simple))
   (begin
 
     ;; ---- Immutable operands and serialization ----
@@ -12,7 +14,8 @@
 
     (define-record-type <llvm-name>
       (llvm-name prefix index) llvm-name?
-      (prefix name-prefix) (index name-index))
+      (prefix name-prefix)
+      (index name-index))
 
     (define-record-type <llvm-quoted>
       (llvm-quoted bytes) llvm-quoted?
@@ -75,7 +78,8 @@
   (cond-expand
    (snail-tests
     (export test-llvmlite)
-    (import (wasm-native test-utils))
+    (import
+     (wasm-native test-utils))
     (begin
       (define (llvm-string value)
         (let ((port (open-output-string)))

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def Zero (typeclass ( T) (: zero (-> T))))
 (def lofi-migration-instance-1 (instance (Zero I32) (zero (lambda () (ann 0 I32)))))
 (def lofi-migration-instance-2 (instance (Zero F64) (zero (lambda () 0.0))))

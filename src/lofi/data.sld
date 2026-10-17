@@ -6,10 +6,13 @@
   (export data-type data-type? data-type-schema data-case-fields data-tagged?
           data-constructor? data-constructor-schema data-constructor-index
           data-schema-bindings)
-  (import (scheme base) (scheme cxr) (lofi types)
-          (only (lofi ir)
-                binding-kind binding-payload data-schema-definition
-                data-schema-variables data-schema-cases))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (lofi types)
+   (only (lofi ir)
+         binding-kind binding-payload data-schema-definition
+         data-schema-variables data-schema-cases))
   (begin
 
     ;; ---- Nominal applications and concrete field substitution ----

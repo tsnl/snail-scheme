@@ -1,14 +1,17 @@
 ;; Pure handler tests need neither a running browser nor host state storage.
 (define-library (examples application-testing)
   (export answer)
-  (import (scheme base) (scheme immutable) (application reducer)
-          (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (application reducer)
+   (only (lofi core) ann -> I32))
   (begin
     (define-immutable-record Stock stock
-      (ore I32 stock-ore with-stock-ore))
+      (ore I32 stock-ore stock-ore-set))
     (application inventory (state Stock 1) (stock 10)
                  (deposit (state (amount I32))
-                          (no-effects (with-stock-ore state (+ (stock-ore state) amount)))))
+                          (no-effects (stock-ore-set state (+ (stock-ore state) amount)))))
     (define inventory-target (destination match-owner inventory))
     (application controls (state I32 1) 0
                  (confirm (state (amount I32))

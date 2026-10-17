@@ -1,6 +1,9 @@
-(import (lofi base) (lofi integer) (lofi number)
-        (only (lofi primitive) i64-wrapping-add i64-wrapping-mul
-              f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
+(import
+ (lofi base)
+ (lofi integer)
+ (lofi number)
+ (only (lofi primitive) i64-wrapping-add i64-wrapping-mul
+       f64-ieee-add f64-ieee-sub f64-ieee-mul f64-ieee-div))
 
 (def require (-> Bool Unit) (lambda (condition) (if condition (unit) (unreachable))))
 (def maximum 1.7976931348623157e308)

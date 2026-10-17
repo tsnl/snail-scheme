@@ -8,9 +8,7 @@ const encoder = new TextEncoder();
 const uleb = value => { const bytes = []; do { const n = value & 127; value >>>= 7; bytes.push(n | (value ? 128 : 0)); } while (value); return bytes; };
 const name = value => { const bytes = encoder.encode(value); return [...uleb(bytes.length), ...bytes]; };
 const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
-function scalarProvider(functions) {
-  const signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
-    ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false]];
+function scalarProvider(functions, signatures) {
   const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
   const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
   const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
@@ -20,6 +18,26 @@ function scalarProvider(functions) {
   return new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(bytes)), {host: functions});
 }
 const i32 = value => Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
+
+// Diagnostics transport Unicode scalars only. The provider releases its token
+// before throwing, so a malformed snapshot cannot retain a partial message.
+function diagnosticProvider() {
+  const tokens = new Map(); let next = 1;
+  return scalarProvider({
+    'snail:datum/token-open': () => { const id = next++; tokens.set(id, []); return id; },
+    'snail:datum/token-character': (id, value) => {
+      const text = tokens.get(id);
+      if (!text || value < 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff))
+        throw new Error('invalid diagnostic token or Unicode scalar');
+      text.push(String.fromCodePoint(value));
+    },
+    'snail:datum/fail': id => {
+      const text = tokens.get(id); tokens.delete(id);
+      throw new WebAssembly.RuntimeError(text ? text.join('') : 'invalid diagnostic token');
+    }
+  }, [['snail:datum/token-open', 0, true], ['snail:datum/token-character', 2, false],
+      ['snail:datum/fail', 1, false]]);
+}
 
 // ---- Manifest establishes endpoint identity and payload shape ----
 
@@ -68,26 +86,35 @@ function protocolContract(manifest) {
 // ---- One synchronous transition per owner ----
 
 export class ReducerRuntime {
-  stores = new Map(); active; instance; manifest; previous;
+  stores = new Map(); active; instance; manifest; sizes; previous;
   constructor() {
     this.provider = scalarProvider({length: id => this.bank(id).length,
       read: (id, index) => this.read(id, index), write: (id, index, value) => this.write(id, index, value),
       command: (owner, slot, a, b) => this.stageEffect({kind: 'send', owner, slot, args: [a, b]}),
       note: (index, value) => this.stageText('note', index, value),
       quad: (...words) => this.active.output.quads.push(words),
-      label: (index, value) => this.stageText('label', index, value)});
+      label: (index, value) => this.stageText('label', index, value)},
+    [['length', 1, true], ['read', 2, true], ['write', 3, false],
+     ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false]]);
+    this.diagnostics = diagnosticProvider();
   }
   bank(id, index) {
     if (!this.active) throw new Error('snapshot bridge used outside a transaction');
-    const bank = this.stores.get(id);
+    const bank = this.active.snapshots.get(id);
     if (!bank || (index !== undefined && (index < 0 || index >= bank.length))) throw new RangeError('invalid snapshot field');
     return bank;
   }
   read(id, index) { return this.bank(id, index)[index]; } // Always the prior snapshot.
   write(id, index, value) {
-    const bank = this.bank(id, index);
+    const bank = this.bank(id);
     if (this.active.readOnly || this.active.owner !== id) throw new Error('write outside this owner transition');
+    if (index === -1) {
+      if (value < 1 || value > 65536 || (this.sizes[id - 1] && value !== this.sizes[id - 1]))
+        throw new Error('invalid declared/encoded snapshot size');
+      this.active.next = new Int32Array(value); return;
+    }
     if (!this.active.next) this.active.next = bank.slice();
+    if (index < 0 || index >= this.active.next.length) throw new RangeError('invalid snapshot field');
     this.active.next[index] = value;
   }
   stageEffect(effect) {
@@ -105,19 +132,19 @@ export class ReducerRuntime {
       chars[index] = value;
     }
   }
-  transaction(instance, args, {owner, readOnly = false, persist} = {}) {
+  transaction(instance, args, {owner, readOnly = false, persist, snapshots = this.stores} = {}) {
     if (this.active) throw new Error('nested transition');
-    this.active = {owner, readOnly, effects: [], output: {quads: []}};
+    this.active = {owner, readOnly, snapshots, effects: [], output: {quads: []}};
     let phase = "reduce";
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
-      const next = tx.next ?? this.stores.get(owner);
+      const next = tx.next ?? tx.snapshots.get(owner);
       const output = {result, effects: tx.effects, quads: tx.output.quads,
         label: tx.label ? String.fromCodePoint(...tx.label) : ''};
       phase = "persist";
       if (persist) persist(next, tx.effects); // A failed durable commit publishes nothing.
-      if (tx.next) this.stores.set(owner, tx.next);
+      if (tx.next) this.stores = new Map(this.stores).set(owner, tx.next);
       return output;
     } catch (error) { error.transitionPhase = phase; throw error; }
     finally { this.active = undefined; }
@@ -127,14 +154,13 @@ export class ReducerRuntime {
     const ownerName = tx.owner === 1 ? 'match' : 'client';
     const schema = this.manifest.applications.find(app => app.owner === ownerName).schema;
     if (tx.next[0] !== schema) throw new Error('replacement snapshot has an invalid schema');
-    const previous = this.stores.get(tx.owner);
     // Validation sees the proposed snapshot in an isolated read-only scope.
     // Neither durable storage nor observers can see it before this returns.
-    this.stores.set(tx.owner, tx.next);
-    this.active = {readOnly: true, effects: [], output: {quads: []}};
+    const snapshots = new Map(tx.snapshots); snapshots.set(tx.owner, tx.next);
+    this.active = {readOnly: true, snapshots, effects: [], output: {quads: []}};
     try {
       if (!invokeEntry(instance, [10, 0, 0, 0])) throw new Error('invalid replacement snapshot');
-    } finally { this.stores.set(tx.owner, previous); this.active = tx; }
+    } finally { this.active = tx; }
   }
   metadata(instance, index) { return this.transaction(instance, [0, index, 0, 0], {readOnly: true}).result; }
   prepare(bytes, manifest) {
@@ -142,12 +168,13 @@ export class ReducerRuntime {
     manifest = validateManifest(manifest);
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider]]));
+    const instance = instantiate(loadWasm(bytes), new Map([
+      ['snail.reducer', this.provider], ['snail.library', this.diagnostics]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
       const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);
       for (const owner of [1, 2]) {
-        if (sizes[owner - 1] < 1 || sizes[owner - 1] > 65536) throw new Error('invalid declared state size');
+        if (sizes[owner - 1] < 0 || sizes[owner - 1] > 65536) throw new Error('invalid declared state size');
         const app = manifest.applications.find(a => a.owner === (owner === 1 ? 'match' : 'client'));
         if (app.schema !== this.metadata(instance, owner + 2)) throw new Error('manifest/module schema mismatch');
       }
@@ -156,35 +183,33 @@ export class ReducerRuntime {
     } catch (error) { closeInstance(instance); throw error; }
   }
   candidateStores(instance, sizes) {
-    const committed = this.stores, proposed = new Map(committed);
+    const proposed = new Map(this.stores);
     for (const owner of [1, 2]) {
-      if (proposed.has(owner) && proposed.get(owner).length !== sizes[owner - 1])
+      if (proposed.has(owner) && sizes[owner - 1] && proposed.get(owner).length !== sizes[owner - 1])
         throw new Error('incompatible state shape; explicit migration required');
-      if (!proposed.has(owner)) proposed.set(owner, new Int32Array(sizes[owner - 1]));
+      if (!proposed.has(owner)) proposed.set(owner, new Int32Array(sizes[owner - 1] || 1));
     }
     // This scope is synchronous. Preparing code never reserves an absent owner's
     // shape, and installation constructs a fresh map from the then-current state.
-    this.stores = proposed;
-    try { this.validateCandidate(instance); return proposed; }
-    finally { this.stores = committed; }
+    this.validateCandidate(instance, proposed); return proposed;
   }
-  validateState(instance) {
-    if (!this.transaction(instance, [10, 0, 0, 0], {readOnly: true}).result)
+  validateState(instance, snapshots = this.stores) {
+    if (!this.transaction(instance, [10, 0, 0, 0], {readOnly: true, snapshots}).result)
       throw new Error('incompatible state schema; explicit migration required');
   }
-  validateCandidate(instance) {
-    this.validateState(instance);
+  validateCandidate(instance, snapshots = this.stores) {
+    this.validateState(instance, snapshots);
     // Test presentation before activation too. Initial absent owners have no
     // values to render; their initialization remains a separate transition.
-    if ([1, 2].every(owner => this.stores.get(owner)?.[0]))
-      this.transaction(instance, [4, 0, 0, 0], {readOnly: true});
+    if ([1, 2].every(owner => snapshots.get(owner)?.[0]))
+      this.transaction(instance, [4, 0, 0, 0], {readOnly: true, snapshots});
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
     const stores = this.candidateStores(candidate.instance, candidate.sizes);
     if (this.previous) closeInstance(this.previous.instance);
-    this.previous = this.instance ? {instance: this.instance, manifest: this.manifest} : undefined;
-    this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest;
+    this.previous = this.instance ? {instance: this.instance, manifest: this.manifest, sizes: this.sizes} : undefined;
+    this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest; this.sizes = candidate.sizes;
   }
   initialize(owner) {
     if (!this.stores.get(owner)[0]) return this.transaction(this.instance, [1, owner, 0, 0], {owner});
@@ -202,7 +227,7 @@ export class ReducerRuntime {
     if (error.transitionPhase !== 'reduce' || !this.previous) return;
     this.validateCandidate(this.previous.instance);
     closeInstance(this.instance); this.instance = this.previous.instance;
-    this.manifest = this.previous.manifest; this.previous = undefined;
+    this.manifest = this.previous.manifest; this.sizes = this.previous.sizes; this.previous = undefined;
   }
   command(owner, binding, args = []) { return {handler: endpoint(this.manifest, owner, binding).id, args}; }
   effectCommand(effect) {
@@ -217,10 +242,13 @@ export class ReducerRuntime {
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
   restore(owner, words) {
-    if (!Array.isArray(words) || words.length !== this.stores.get(owner).length || !words.every(i32)) throw new Error('invalid snapshot');
-    const previous = this.stores.get(owner); this.stores.set(owner, Int32Array.from(words));
-    try { this.validateState(this.instance); }
-    catch (error) { this.stores.set(owner, previous); throw error; }
+    if (!Array.isArray(words) || words.length < 1 || words.length > 65536 || !words.every(i32)
+        || (this.sizes[owner - 1] && words.length !== this.sizes[owner - 1])) throw new Error('invalid snapshot');
+    const schema = this.manifest.applications.find(app => app.owner === (owner === 1 ? 'match' : 'client')).schema;
+    if (words[0] !== schema) throw new Error('invalid snapshot schema');
+    const value = Int32Array.from(words), snapshots = new Map(this.stores); snapshots.set(owner, value);
+    this.validateState(this.instance, snapshots);
+    this.stores = snapshots;
   }
   close() { if (this.instance) closeInstance(this.instance); if (this.previous) closeInstance(this.previous.instance); }
 }

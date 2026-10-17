@@ -16,6 +16,9 @@ contracts, their execution evidence and remaining extensions are recorded below:
   initializer, including nested annotations.
 - [x] Parse library-level `datatype`, `typeclass` and named `instance` bodies
   of `def`, check their kinds, and use `Any` at dynamic boundaries.
+- [x] Introduce named `data`, `typeclass` and `instance` declaration forms.
+  Splice library-level `begin` into its surrounding scope, including macro output;
+  retain expression blocks and the earlier declaration syntax for compatibility.
 - [x] Adopt `define-library`, concatenated body clauses and `(lofi base)`.
   Migrate shipped libraries, examples, tests and benchmark sources while
   preserving their algorithms, inputs and existing numeric representations.
@@ -81,6 +84,30 @@ calculus open. The [extension contract](book/lofi/extensions.md) documents typed
 externs and fixed-arity ad-hoc overload declarations alongside named wrapping
 and IEEE operations. Implementation restrictions and future adapters remain
 distinct from the core language contract.
+
+## Data graph serialization
+
+The [data graph contract](book/lofi/types.md#data-graph-serialization) uses one
+finite S-expression representation with readable text and compact binary
+encodings. Types opt in through separate `Serialize` and `Deserialize` instances;
+attached `deriving` clauses invoke ordinary declarative transformers.
+
+- [x] Supply the complete named data declaration to each derive transformer,
+  retain the type once, and splice generated declarations into library scope.
+- [x] Generate concrete `Serialize` and `Deserialize` instances with checked
+  field operations and stable named-library/type tags.
+- [x] Encode scalar values without losing numeric widths or floating-point bits;
+  keep symbols distinct from strings in text and compact binary.
+- [x] Share traversal contexts across fields, preserving the identities of
+  supported mutable storage and reconstructing reference/vector cycles with
+  explicit `Default` element evidence.
+- [x] Complete cross-encoding and target execution checks, including malformed
+  inputs, shared/cyclic storage, numeric edge cases and unsupported fields.
+- [x] Replace Siegework's handwritten codecs with derived instances, retaining
+  application validation, compatibility checks and atomic durable commits.
+- [ ] Add constrained generic instances and serialization derivation for
+  parameterized data declarations. Keep procedures, closures, resources and
+  arbitrary `Any` outside the supplied instance set.
 
 ## Current Lofi migration
 

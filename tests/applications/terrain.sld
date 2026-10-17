@@ -1,10 +1,11 @@
 ;; This fixture compiles the real terrain library and runs through Wasm.
 (define-library (tests terrain)
   (export answer)
-  (import (scheme base)
-          (scheme immutable)
-          (siegework terrain)
-          (only (lofi core) ann -> I32))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (siegework terrain)
+   (only (lofi core) ann -> I32))
   (begin
 
     ;; ---- Seed 1 preserves the published geography ----

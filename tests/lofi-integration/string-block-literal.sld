@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 
 ;; ---- Readonly literal spanning a full block and one scalar ----
 

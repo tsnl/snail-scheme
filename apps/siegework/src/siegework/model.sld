@@ -20,10 +20,12 @@
           world-buildings-set world-bots-set world-surveys-set world-produced-set
           building-hp-set building-stock-set building-stage-set
           bot-path-set enemy-path-set ore-cargo?)
-  (import (scheme base)
-          (scheme immutable)
-          (siegework terrain)
-          (only (lofi core) ann I32))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (lofi serialization)
+   (siegework terrain)
+   (only (lofi core) ann I32 deriving))
   (begin
 
     ;; ---- Colony values ----
@@ -41,7 +43,8 @@
       (stage I32 building-stage building-stage-set)
       (cooldown I32 building-cooldown building-cooldown-set)
       (aim-x I32 building-aim-x building-aim-x-set)
-      (aim-y I32 building-aim-y building-aim-y-set))
+      (aim-y I32 building-aim-y building-aim-y-set)
+      (deriving derive-serialize derive-deserialize))
     ;; Job: 0 available, 1 collect, 2 deliver ore, 3 deliver building kit,
     ;; 4 repair kit, 5 returning kit, 6 hub assembly, 7 fleeing (timer: 2 ore / 5 kit),
     ;; 8 occupied mining slot, 9 travelling to a slot, 10 work blocked by danger.
@@ -55,7 +58,8 @@
       (cargo I32 bot-cargo bot-cargo-set)
       (timer I32 bot-timer bot-timer-set)
       (path (List I32) bot-path bot-path-set)
-      (hp I32 bot-hp bot-hp-set))
+      (hp I32 bot-hp bot-hp-set)
+      (deriving derive-serialize derive-deserialize))
     ;; Kind: 0 siege minion, 1 outpost raider, 2 final beast.
     (define-immutable-record Enemy make-enemy
       (id I32 enemy-id enemy-id-set)
@@ -64,12 +68,14 @@
       (hp I32 enemy-hp enemy-hp-set)
       (kind I32 enemy-kind enemy-kind-set)
       (target I32 enemy-target enemy-target-set)
-      (path (List I32) enemy-path enemy-path-set))
+      (path (List I32) enemy-path enemy-path-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Alert make-alert
       (x I32 alert-x alert-x-set)
       (y I32 alert-y alert-y-set)
       (kind I32 alert-kind alert-kind-set)
-      (tick I32 alert-tick alert-tick-set))
+      (tick I32 alert-tick alert-tick-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record World make-world
       (tick I32 world-tick world-tick-set)
       (outcome I32 world-outcome world-outcome-set)
@@ -93,7 +99,8 @@
       (casualties I32 world-casualties world-casualties-set)
       (lost-ore I32 world-lost-ore world-lost-ore-set)
       (alerts (List Alert) world-alerts world-alerts-set)
-      (run-marker I32 world-run-marker world-run-marker-set))
+      (run-marker I32 world-run-marker world-run-marker-set)
+      (deriving derive-serialize derive-deserialize))
     (define (idle-bot id)
       (make-bot id (cell-x hub-x) (cell-y hub-y) 0 0 0 0 (empty-list) 14))
     (define (new-world seed marker)

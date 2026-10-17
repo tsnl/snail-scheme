@@ -1,7 +1,7 @@
 // Actual Wasm transitions at ownership and combat boundaries; these fixtures do
 // not provide an alternate simulation or pathfinder.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, restoreColony} from './colony-state.mjs';
 
 export async function checkEncounters(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -16,9 +16,9 @@ export async function checkEncounters(test, fresh, call) {
     assert.equal(state(r).buildings[0].stage, 2); return state(r).buildings[0];
   }
   function cleanWorkers(r, assignments) {
-    const words = r.snapshot(1); words[8] = assignments.length;
-    assignments.forEach((assignment, i) => setWorker(words, i, {...assignment, id:i+1}));
-    r.restore(1, words);
+    const world = state(r); world.bots.length = assignments.length;
+    assignments.forEach((assignment, i) => setWorker(world, i, {...assignment, id:i+1}));
+    restoreColony(r, world);
   }
   await test('only physically occupied mining slots produce and upgrades add capacity', () => {
     const r = fresh(), mine = builtMine(r);
@@ -26,12 +26,12 @@ export async function checkEncounters(test, fresh, call) {
     const before = state(r).produced; advance(r, 10); assert.equal(state(r).produced, before);
     call(r, 'upgrade', [12,20]); advance(r, 10); assert.equal(state(r).produced, before);
     cleanWorkers(r, [{x:12,y:20,job:9,target:mine.id},{job:6,timer:60},{job:6,timer:60}]);
-    const arrival=r.snapshot(1); arrival[1]=69; r.restore(1,arrival); advance(r);
+    const arrival = state(r); arrival.tick=69; restoreColony(r, arrival); advance(r);
     assert.equal(state(r).produced,before); assert.equal(state(r).bots[0].job,8);
     advance(r, 10); assert.equal(state(r).produced, before + 2);
     cleanWorkers(r, [{x:12,y:20,job:8,target:mine.id},{x:12,y:20,job:8,target:mine.id},{job:6,timer:60}]);
     advance(r, 10); assert.equal(state(r).produced, before + 6); balanced(r);
-    const bad = r.snapshot(1); bad[36] = 1; assert.throws(() => r.restore(1, bad)); r.close();
+    const bad = state(r); bad.buildings[0].level = 1; assert.throws(() => restoreColony(r, bad)); r.close();
   });
   await test('a sole worker alternates mining and physical delivery without free ore', () => {
     const r = fresh(); cleanWorkers(r, [{}]); builtMine(r);
@@ -60,12 +60,12 @@ export async function checkEncounters(test, fresh, call) {
       assert.ok(Math.abs(bot.x - 420) + Math.abs(bot.y - 820) > 40); balanced(r);
     }
     assert.ok(fleeing && away); assert.equal(state(r).casualties, 0);
-    const words = r.snapshot(1); words[9] = 0; r.restore(1, words); advance(r, 220);
+    const world = state(r); world.enemies.length = 0; restoreColony(r, world); advance(r, 220);
     assert.ok(state(r).produced > 0); assert.ok(state(r).ore >= bank); r.close();
   });
   await test('worker death loses cargo once, records its location and assembles one replacement', () => {
-    const r = fresh(); const words = r.snapshot(1); words[8] = 1; words[1] = 9;
-    words[14] = 16; setWorker(words, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); r.restore(1, words);
+    const r = fresh(); const world = state(r); world.bots.length = 1; world.tick = 9;
+    world.produced = 16; setWorker(world, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); restoreColony(r, world);
     addEnemy(r, {x:12,y:20}); addEnemy(r, {x:12,y:20}); advance(r);
     const dead = state(r); assert.equal(dead.casualties, 1); assert.equal(dead.lostOre, 16);
     assert.equal(dead.ore, 160); assert.equal(dead.bots.length, 1); assert.equal(dead.bots[0].job, 6);
@@ -76,16 +76,16 @@ export async function checkEncounters(test, fresh, call) {
   });
   await test('a killed construction carrier cancels exactly its paid project without refund', () => {
     const r = fresh(); call(r, 'observe', [12,20+1]); advance(r);
-    const before = state(r), carrier = before.bots.find(b => b.job === 3), words = r.snapshot(1);
+    const before = state(r), carrier = before.bots.find(b => b.job === 3), world = state(r);
     const index = before.bots.findIndex(b => b.id === carrier.id);
-    setWorker(words, index, {id:carrier.id,x:12,y:21,job:7,target:carrier.target,cargo:25,timer:5});
-    words[1] = 9; r.restore(1, words); addEnemy(r, {x:12,y:21}); addEnemy(r, {x:12,y:21}); advance(r);
+    setWorker(world, index, {id:carrier.id,x:12,y:21,job:7,target:carrier.target,cargo:25,timer:5});
+    world.tick = 9; restoreColony(r, world); addEnemy(r, {x:12,y:21}); addEnemy(r, {x:12,y:21}); advance(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).ore, 135); assert.equal(state(r).spent, 25);
     assert.equal(state(r).casualties, 1); advance(r, 20); assert.equal(state(r).spent, 25); balanced(r); r.close();
   });
   await test('ordinary enemies damage encountered infrastructure and coalesce actual-hit alerts', () => {
-    const r = fresh(), mine = builtMine(r), words = r.snapshot(1); words[1] = 9; words[37] = 7;
-    setWorker(words,0,{id:1}); setWorker(words,1,{id:2}); setWorker(words,2,{id:3}); r.restore(1, words);
+    const r = fresh(), mine = builtMine(r), world = state(r); world.tick = 9; world.buildings[0].hp = 7;
+    setWorker(world,0,{id:1}); setWorker(world,1,{id:2}); setWorker(world,2,{id:3}); restoreColony(r, world);
     addEnemy(r, {x:12,y:20}); advance(r);
     assert.equal(state(r).buildings.length, 0); assert.equal(state(r).lost, 1);
     assert.deepEqual(state(r).alerts.map(a => [a.x,a.y,a.kind]), [[12,20,1]]); balanced(r); r.close();
@@ -95,18 +95,18 @@ export async function checkEncounters(test, fresh, call) {
     for(const site of sites) call(r,'observe',site);
     for(let i=0;i<350 && state(r).buildings.some(b=>b.stage!==2);i++) advance(r);
     assert.ok(state(r).buildings.every(b=>b.stage===2));
-    cleanWorkers(r,[{},{},{}]); const words=r.snapshot(1); words[1]=9; words[37]=1; r.restore(1,words);
+    cleanWorkers(r,[{},{},{}]); const world = state(r); world.tick=9; world.buildings[0].hp=1; restoreColony(r, world);
     for(const [x,y] of sites) addEnemy(r,{x,y}); addEnemy(r,{x:8,y:22}); advance(r);
     assert.equal(state(r).alerts.length,4); assert.equal(state(r).lost,1); assert.ok(state(r).alerts.some(a=>a.kind===0));
     assert.ok(state(r).alerts.every(a=>a.tick===10));
     const frozen=r.snapshot(1); call(r,'pause-colony',[1]); advance(r,90);
     assert.deepEqual(state(r).alerts,colony(frozen).alerts);
-    call(r,'pause-colony',[0]); const clear=r.snapshot(1); clear[9]=0; r.restore(1,clear); advance(r,81);
+    call(r,'pause-colony',[0]); const clear = state(r); clear.enemies.length=0; restoreColony(r, clear); advance(r,81);
     assert.doesNotMatch(r.view().label,/RECENT DAMAGE/); r.close();
   });
   await test('lost repair kits are spent once and never refunded by casualty cleanup', () => {
-    const r=fresh(), words=r.snapshot(1); words[1]=9; words[3]=156; words[15]=4;
-    setWorker(words,0,{id:1,x:12,y:20,job:7,cargo:4,timer:5}); r.restore(1,words);
+    const r=fresh(), world = state(r); world.tick=9; world.ore=156; world.spent=4;
+    setWorker(world,0,{id:1,x:12,y:20,job:7,cargo:4,timer:5}); restoreColony(r, world);
     addEnemy(r,{x:12,y:20}); addEnemy(r,{x:12,y:20}); advance(r);
     assert.equal(state(r).casualties,1); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4);
     advance(r,50); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4); balanced(r); r.close();
@@ -114,15 +114,16 @@ export async function checkEncounters(test, fresh, call) {
   await test('same seeds reproduce maps and invalid seed orders retain the colony', () => {
     const r = fresh(); call(r,'new-run-seed',[43]); const initial = r.snapshot(1);
     call(r,'extract',[12,20]); advance(r,170); assert.ok(state(r).delivered > 0);
-    call(r,'new-run-seed',[43]); initial[23]++; assert.deepEqual(r.snapshot(1),initial);
+    call(r,'new-run-seed',[43]); const replay = colony(initial); replay.runMarker++;
+    assert.deepEqual(state(r),replay);
     for (const seed of [0,-1,65536]) { const before=r.snapshot(1); call(r,'new-run-seed',[seed]);
-      const after=r.snapshot(1); before[17]=16; assert.deepEqual(after,before); }
+      const expected=colony(before); expected.notice=16; assert.deepEqual(state(r),expected); }
     call(r,'new-run'); assert.equal(state(r).seed,44);
     for (const seed of [2,7,1337,65535]) { call(r,'new-run-seed',[seed]); builtMine(r); advance(r,160);
       assert.ok(state(r).delivered>0); balanced(r); }
     const saved=r.snapshot(1); r.restore(1,saved); assert.equal(state(r).seed,65535);
-    saved[23]=2147483647; r.restore(1,saved); call(r,'new-run');
-    assert.equal(state(r).seed,1); assert.equal(r.snapshot(1)[23],0);
+    const wrapping=colony(saved); wrapping.runMarker=2147483647; restoreColony(r,wrapping); call(r,'new-run');
+    assert.equal(state(r).seed,1); assert.equal(state(r).runMarker,0);
     r.close();
   });
 }

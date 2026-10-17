@@ -82,4 +82,6 @@ public `(application reducer)` API. `build.scm` here is a tiny explicit-map comp
 runner selecting an exported `answer`; it is also used by the standalone counter
 and state examples in the book. It accepts optional application source roots
 after the output argument; the suite supplies Siegework's root explicitly for its
-adversarial bridge fixtures. The portable game snapshot codec belongs to the app.
+adversarial bridge fixtures. Snapshots use derived serialization; `snapshots.mjs`
+reads the generic wire record format for assertions without knowing field offsets.
+App-specific invariant checks remain beside the world and client models.

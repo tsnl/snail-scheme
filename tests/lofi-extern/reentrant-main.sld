@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-extern callback "probe" "callback" (-> Unit))
 
 (def worker (-> I32 I32)

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def self
      (lambda (x) (x x)))
 0

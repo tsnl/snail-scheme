@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (define-overload f (All (T) (-> T T)) (lambda (value) value))
 (def forward
      (lambda (value) (f value)))

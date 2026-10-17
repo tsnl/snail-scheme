@@ -1,5 +1,11 @@
-(import (scheme base) (scheme file) (scheme process-context)
-        (scheme load) (wasm-native wasm) (wasm-native llvm) (wasm-native chromium-trace))
+(import
+ (scheme base)
+ (scheme file)
+ (scheme process-context)
+ (scheme load)
+ (wasm-native wasm)
+ (wasm-native llvm)
+ (wasm-native chromium-trace))
 (load "tests/native-datums.scm")
 (load "tests/native-subtypes.scm")
 (load "tests/native-array-storage.scm")

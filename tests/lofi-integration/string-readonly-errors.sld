@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def literal
      (ref (ann (ann "abc" Any) String)))
 (def effects

@@ -1,21 +1,24 @@
 (define-library (siegework game)
   (export application-entry)
-  (import (scheme base)
-          (scheme immutable)
-          (application reducer)
-          (application bridge)
-          (browser application)
-          (siegework model)
-          (siegework terrain)
-          (siegework codec)
-          (siegework view)
-          (only (lofi core) ann -> I32)
-          (only (lofi base) i32->i64 unreachable))
+  (import
+   (scheme base)
+   (scheme immutable)
+   (lofi serialization)
+   (application reducer)
+   (application bridge)
+   (application serialization)
+   (browser application)
+   (siegework model)
+   (siegework terrain)
+   (siegework state)
+   (siegework view)
+   (only (lofi core) ann -> I32 deriving)
+   (only (lofi base) i32->i64 unreachable))
   (begin
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 4) (initial-world)
+    (application match-app (state World 6) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))
@@ -36,7 +39,8 @@
       (point-x I32 client-point-x client-point-x-set)
       (point-y I32 client-point-y client-point-y-set)
       (camera-x I32 client-camera-x client-camera-x-set)
-      (camera-y I32 client-camera-y client-camera-y-set))
+      (camera-y I32 client-camera-y client-camera-y-set)
+      (deriving derive-serialize derive-deserialize))
     ;; Camera positions use milli-pixels; the view and hit test share floor-pixel
     ;; projection, including negative offsets in the outside-map margin.
     (define (floor-div value divisor)
@@ -69,7 +73,7 @@
       (cond ((= (client-tool state) 1) (extract (client-x state) (client-y state)))
             ((= (client-tool state) 2) (fortify (client-x state) (client-y state)))
             (else (observe (client-x state) (client-y state)))))
-    (application client-app (state Client 4) (initial-client)
+    (application client-app (state Client 6) (initial-client)
                  (move (state (x I32) (y I32)) (no-effects (point-client state x y)))
                  (nudge (state (dx I32) (dy I32)) (no-effects (nudge-client state dx dy)))
                  (choose (state (tool I32))
@@ -89,25 +93,22 @@
     ;; ---- Client schema and pure presentation ----
 
     (define (encode-client client)
-      (vector 4 (client-tool client) (client-point-x client) (client-point-y client)
-              (client-camera-x client) (client-camera-y client)))
-    (define (local-word words index) (vector-ref words (i32->i64 index)))
-    (define decode-client
-      (ann (lambda (words)
-             (let ((tool (local-word words 1)) (x (local-word words 2)) (y (local-word words 3))
-                   (cx (local-word words 4)) (cy (local-word words 5)))
-               (when (or (not (= (local-word words 0) 4)) (< tool 1) (> tool 3)
-                         (< cx -120000) (> cx 1080000) (< cy -120000) (> cy 920000)
-                         (< x 0) (>= x 960) (< y 0) (>= y 640)) (unreachable))
-               (make-client tool x y cx cy)))
-           (-> (Vector I32) Client)))
+      (encode-snapshot 6 client))
+    (define (validate-client client)
+      (let ((tool (client-tool client)) (x (client-point-x client)) (y (client-point-y client))
+            (cx (client-camera-x client)) (cy (client-camera-y client)))
+        (when (or (< tool 1) (> tool 3) (< cx -120000) (> cx 1080000)
+                  (< cy -120000) (> cy 920000) (< x 0) (>= x 960) (< y 0) (>= y 640)) (unreachable)))
+      client)
+    (define (decode-client words)
+      (validate-client (ann (decode-snapshot words) Client)))
     (define (view world client)
       (colony-view world (client-tool client) (client-x client) (client-y client)
                    (camera-pixel (client-camera-x client)) (camera-pixel (client-camera-y client))))
     (define (status world client)
       (colony-status world (client-tool client) (client-x client) (client-y client)))
     (define game
-      (program match-app client-app world-words 6 decode-world encode-world
+      (program match-app client-app 0 0 decode-world encode-world
                decode-client encode-client view status))
     (define application-entry
       (ann (lambda (operation a b c) (run-program game operation a b c))

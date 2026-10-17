@@ -10,11 +10,13 @@ library, not a different meaning of that public name.
 ## Defining and using transformers
 
 ```scheme
-(import (lofi core) (lofi base))
+(import
+ (lofi core)
+ (lofi base))
 (def twice
-  (syntax-rules ()
-    ((_ expression)
-     (begin (let value expression) (+ value value)))))
+     (syntax-rules ()
+       ((_ expression)
+        (begin (let value expression) (+ value value)))))
 (let value 100)
 (twice 21) ; 42
 ```
@@ -49,8 +51,8 @@ use the location of the offending argument or template syntax.
 
 ## Scope and expansion order
 
-Direct `def` and `define-syntax` bindings are block-wide. Sequential kernel
-`let` binds only following statements, and a macro captures the sequential scope
+Direct `def`, `define-syntax` and library declaration bindings are scope-wide.
+Sequential kernel `let` binds only following statements, and a macro captures the sequential scope
 at its definition site. Value and quantified type variables occupy separate
 scopes. Library `begin` clauses concatenate; expression `begin` creates a block.
 
@@ -64,19 +66,23 @@ recursion produces a located diagnostic.
 
 ## Producing several library declarations
 
-`(library-begin form ...)` splices its forms into the surrounding library body.
+At library scope, `(begin form ...)` splices its forms into the surrounding body.
 It creates no lexical scope or runtime value. An imported macro can use it to
 define a nominal type, its operations, and an application registry together:
 
 ```scheme
-(import (lofi core) (lofi base))
+(import
+ (lofi core)
+ (lofi base))
 (def define-counter
-  (syntax-rules ()
-    ((_ State make-state state-value advance)
-     (library-begin
-       (def State (datatype () (make-state (value I32 state-value))))
-       (def advance (-> State State)
-         (lambda (state) (make-state (+ (state-value state) 1))))))))
+     (syntax-rules ()
+       ((_ State make-state state-value advance)
+        (begin
+          (data State ()
+            (make-state
+             (value I32 state-value)))
+          (def advance (-> State State)
+               (lambda (state) (make-state (+ (state-value state) 1))))))))
 
 (define-counter Counter make-counter counter-value advance)
 (counter-value (advance (make-counter 41))) ; 42
@@ -89,12 +95,12 @@ reserves each newly exposed group of sibling definitions before interpreting its
 heads. Rebinding a core splice already consumed is rejected by the same recorded
 decision rule as other retroactive expansion changes.
 
-The form is valid only in a library body, including a script's implicit library.
-Inside `define-library`, write an application macro in a body clause, such as
-`(begin (application ...))`; the macro can return `library-begin`. The structural
+This splicing behavior applies in a library body, including a script's implicit
+library. Inside `define-library`, write an application macro in a body clause, such as
+`(begin (application ...))`; the macro can return another `begin`. The structural
 library header parser does not accept arbitrary macro clauses. An ordinary
-expression `begin` keeps its lexical scope, and a `library-begin` produced inside
-a lambda or expression block is an error.
+expression `begin` keeps its lexical scope. `library-begin` is a compatibility
+alias for the splice and is an error inside a lambda or expression block.
 
 Imports, exports and `define-library` remain explicit source headers. Producing
 one during body expansion, directly or inside a splice, is a located error;
@@ -108,10 +114,84 @@ macros remain outside the supported surface. Kernel syntax remains
 intrinsic for existing direct and constructed-library APIs; `(lofi core)` also
 exports named syntax bindings so libraries can explicitly import or rename it.
 
+## Deriving typeclass instances
+
+A `data` declaration can end with one `deriving` clause naming macro
+transformers. `(lofi serialization)` exports two independent transformers:
+`derive-serialize` generates a `Serialize` instance, and `derive-deserialize`
+generates a `Deserialize` instance.
+
+```scheme
+(import
+ (lofi core)
+ (lofi serialization))
+
+(data Stock ()
+  (stock
+   (ore I32 stock-ore))
+  (deriving derive-serialize derive-deserialize))
+```
+
+The expander removes the clause and passes the complete remaining declaration
+to each transformer as its single argument. For example, `derive-serialize`
+receives `(data Stock () (stock (ore I32 stock-ore)))`. It can inspect the type
+name, parameters, constructors and fields through ordinary `syntax-rules`
+patterns. The type declaration is retained once; each transformer's output is
+spliced alongside it in the same library scope. A transformer produces only its
+additional declarations, without repeating the original type.
+
+Targets are macro bindings, so ordinary import, rename, definition-site capture
+and hygiene rules apply. They may be defined later in the same library when
+normal definition discovery permits it. An empty `(deriving)` is a no-op.
+Duplicate clauses, a clause before a constructor, nonidentifier targets, and
+targets that are runtime values or unbound names are errors. Deriving requires a
+library-level `data` declaration; it does not give expression blocks local types.
+
+Derived methods are ordinary checked code. They call field operations with one
+shared traversal context, so nested fields participate in the same object graph.
+A missing field capability is a class requirement error; there is no fallback
+through `Any`. Deriving either class does not require deriving the other.
+
+The protocol accepts parameterized declarations, and a user transformer can
+inspect their parameters. The two serialization derives currently match an empty
+type-parameter list: they generate concrete instances. Their field macros handle
+`List`, `Ref` and `Vector` recursively without inventing generic instances.
+Deserializing reference or vector storage also requires `Default` evidence for
+its element type, to allocate valid storage before decoding a cycle. Constrained
+generic instances and derivation for parameterized transport types remain future
+work.
+
+### Literal declaration metadata
+
+Three bounded core forms supply literal strings during expansion:
+
+- `(identifier-name identifier)` returns that syntax identifier's source name,
+  before generated binder names replace it.
+- `(library-name)` returns the printed name of the library being expanded.
+  Anonymous scripts use the marker `"#f"`.
+- `(type-name identifier)` resolves a datatype declared in the current library
+  and returns its library-qualified source name. Distinct local datatype
+  bindings cannot claim the same portable name.
+
+The derives use `type-name` for their portable tag and retain constructor and
+field names in the wire value.
+Renaming an imported type does not regenerate its instance or change its tag.
+Use named libraries for stable transport schemas; unrelated anonymous scripts
+with the same type spelling share a tag. Within a library, two hygienically
+private types with the same spelling cannot both claim that portable name;
+serialization derivation reports a collision instead of conflating their types.
+
+These forms do not provide general compile-time evaluation or lookup of an
+already-defined type's schema. The full declaration reaches the transformer
+because the deriving protocol supplies it explicitly. See
+[Data graph serialization](types.md#data-graph-serialization) for the value and
+encoding contracts.
+
 ## Initial Scheme base
 
 ```scheme
-(import (scheme base))
+(import
+ (scheme base))
 (define (fib n)
   (let loop ((n n) (previous 0) (current 1))
     (if (= n 0) previous
@@ -133,7 +213,8 @@ This is a **typed Scheme subset**, not an R7RS implementation:
   tested operand once, and `and`/`or` short circuit. The two-operand `if`, `when`
   and `unless` return `Unit`.
 - `letrec` and `letrec*` both use Lofi's source-order recursive initialization;
-  premature reads trap. `begin` is a lexical block, including in macro expansion.
+  premature reads trap. Expression `begin` is a lexical block; library-level
+  `begin` splices into its surrounding scope, including in macro expansion.
 - `cond` supports clauses with body expressions and an optional final `else`.
   It does not implement test-only or `=>` clauses.
 - Lists and vectors are homogeneous, numeric representations follow Lofi, and

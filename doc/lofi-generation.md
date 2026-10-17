@@ -6,8 +6,9 @@ source and assembles an explicit map for the compiler. It accepts ordinary
 
 ```scheme
 (generate-library (demo answer)
-  (import (producer helpers))
-  (make-answer-library))
+                  (import
+                   (producer helpers))
+                  (make-answer-library))
 ```
 
 The body is one ordinary Lofi expression. Its imports belong to the producer.

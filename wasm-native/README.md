@@ -24,7 +24,8 @@ works from outside the repository. A Lofi build additionally passes
 `-I "$repo/src"`; see the repository's [`build.scm`](../build.scm).
 
 ```scheme
-(import (wasm-native))
+(import
+ (wasm-native))
 
 (define imports
   (list (make-native-import "host" "read" "host_read" '(i32) 'i64)))

@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def bad
      (lambda (captured)
        (begin (let get (lambda (ignored) captured))

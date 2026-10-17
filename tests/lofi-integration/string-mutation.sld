@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def forward
      (string-copy "abcdef"))
 (def backward

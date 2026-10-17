@@ -1,4 +1,5 @@
-(import (lofi primitive))
+(import
+ (lofi primitive))
 
 ;; An unused general expression still must satisfy the concrete method type.
 (def Identity (typeclass (T) (: identity (-> T T))))

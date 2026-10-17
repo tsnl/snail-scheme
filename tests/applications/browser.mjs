@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, renameSync, copyFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
-import {colony} from './colony-state.mjs';
+import {colony, client} from './colony-state.mjs';
 const directory = resolve(process.argv[2]), origin = process.argv[3] ?? 'http://127.0.0.1:4173';
 const devtools = process.argv[4] ?? 'http://127.0.0.1:9336';
 const fixtures = resolve(process.argv[5] ?? join(import.meta.dirname, '../../build/application-tests'));
@@ -56,12 +56,12 @@ try {
   await a.evaluate("snailApp.local('suspend',[1])"); await until(()=>a.evaluate('snailApp.pending.length===0'),'pause not acknowledged');
   const untouched={world:await a.evaluate('snailApp.runtime.snapshot(1)'),epoch:(await (await fetch(origin+'/snapshot')).json()).epoch};
   await seedForm('0'); const invalid=await a.evaluate('snailApp.runtime.snapshot(1)');
-  untouched.world[17]=16; assert.deepEqual(invalid,untouched.world);
+  const rejected=colony(untouched.world); rejected.notice=16; assert.deepEqual(colony(invalid),rejected);
   assert.equal((await (await fetch(origin+'/snapshot')).json()).epoch,untouched.epoch);
-  await seedForm('43'); await until(()=>b.evaluate('snailApp.runtime.snapshot(1)[19]===43'),'seed restart did not reach second client');
-  const firstMarker=await a.evaluate('snailApp.runtime.snapshot(1)[23]');
-  await seedForm('43'); assert.equal(await a.evaluate('snailApp.runtime.snapshot(1)[23]'),firstMarker+1);
-  await seedForm('1'); await until(()=>b.evaluate('snailApp.runtime.snapshot(1)[19]===1'),'seed reset did not converge');
+  await seedForm('43'); await until(async()=>colony(await b.evaluate('snailApp.runtime.snapshot(1)')).seed===43,'seed restart did not reach second client');
+  const firstMarker=await a.evaluate('snailApp.runtime.snapshot(1)[1]');
+  await seedForm('43'); assert.equal(await a.evaluate('snailApp.runtime.snapshot(1)[1]'),firstMarker+1);
+  await seedForm('1'); await until(async()=>colony(await b.evaluate('snailApp.runtime.snapshot(1)')).seed===1,'seed reset did not converge');
   console.log('ok - native seed form reaches Scheme, rejects invalid range and restarts both clients exactly once');
   async function place(client, key, x, y) {
     await client.call('Page.bringToFront');
@@ -111,7 +111,7 @@ try {
     return world.tick >= 800 && world.enemies.length > 0 && world.bots.some(bot => bot.job === 2 && bot.cargo > 0);
   }, 'match did not reach combat with a delivery in transit', 110000);
   await a.evaluate("document.querySelector('[data-handler=suspend][data-args=\"[1]\"]').click()");
-  await until(async () => (await Promise.all(pages.map(p => p.evaluate('snailApp.runtime.snapshot(1)[18]')))).every(value => value === 1), 'shared pause not accepted');
+  await until(async () => (await Promise.all(pages.map(p => p.evaluate('snailApp.runtime.snapshot(1)')))).every(value => colony(value).paused === 1), 'shared pause not accepted');
   const combatWords = await a.evaluate('snailApp.runtime.snapshot(1)'), combat = colony(combatWords);
   assert.ok(combat.delivered > 0); assert.ok(combat.enemies.length > 0);
   assert.ok(combat.bots.some(bot => bot.job === 2 && bot.cargo > 0));
@@ -122,14 +122,14 @@ try {
   await pause(300); assert.deepEqual(await a.evaluate('snailApp.runtime.snapshot(1)'), combatWords);
   await b.evaluate("snailApp.local('suspend',[1])");
   await until(() => b.evaluate('snailApp.pending.length===0'), 'repeated pause not acknowledged');
-  assert.equal(await a.evaluate('snailApp.runtime.snapshot(1)[18]'), 1);
+  assert.equal(colony(await a.evaluate('snailApp.runtime.snapshot(1)')).paused, 1);
   for (const client of clients) await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client,visible:false})});
   await pause(250);
   console.log('ok - shared pause freezes combat and hauling across visibility changes and repeated pause requests');
   await a.evaluate("snailApp.local('pan',[-100,-100]);snailApp.local('choose',[2]);snailApp.local('move',[5,5]);globalThis.realFetch=fetch;globalThis.releaseCommand=undefined;globalThis.fetch=(...args)=>args[0]==='/command'?new Promise(resolve=>{globalThis.releaseCommand=()=>resolve(realFetch(...args))}):realFetch(...args);snailApp.local('fabricate')");
   const before = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.equal(JSON.parse(before.pending).length, 1);
-  assert.deepEqual(before.local.slice(4), [-120000,-120000]);
+  assert.deepEqual([client(before.local).cameraX,client(before.local).cameraY], [-120000,-120000]);
   assert.equal(colony(before.world).paused, 1);
   copyFileSync(join(fixtures, 'compatible.wasm'), join(directory, 'compatible.test.wasm'));
   const compatible = {...original, generation: `qa-compatible-${Date.now()}`, module: 'compatible.test.wasm'}; publish(compatible);
@@ -137,13 +137,13 @@ try {
   const after = await a.evaluate('({world:snailApp.runtime.snapshot(1),local:snailApp.runtime.snapshot(2),pending:JSON.stringify(snailApp.pending)})');
   assert.deepEqual(after, before);
   await a.evaluate("snailApp.local('choose',[1])");
-  assert.equal(await a.evaluate('snailApp.runtime.snapshot(2)[1]'), 2);
+  assert.equal(client(await a.evaluate('snailApp.runtime.snapshot(2)')).tool, 2);
   await a.evaluate('globalThis.fetch=realFetch;releaseCommand()');
   await until(() => a.evaluate('snailApp.pending.length===0'), 'preserved request not acknowledged');
   console.log('ok - changed Wasm behavior activates while paused colony, overscrolled camera, cursor, tool and pending envelope survive');
   await until(async () => JSON.stringify(await a.evaluate('snailApp.runtime.snapshot(1)')) === JSON.stringify(await b.evaluate('snailApp.runtime.snapshot(1)')), 'clients did not converge after pending delivery');
 
-  publish({...compatible, generation:`qa-marker-${Date.now()}`, settings:{...compatible.settings,runMarker:24}});
+  publish({...compatible, generation:`qa-marker-${Date.now()}`, settings:{...compatible.settings,runMarker:2}});
   await until(() => a.evaluate("document.querySelector('[data-connection]').textContent.includes('incompatible run marker')"), 'changed run marker was not rejected');
   assert.equal(await a.evaluate('snailApp.generation'),compatible.generation);
   publish(compatible);
@@ -180,7 +180,7 @@ try {
   await b.evaluate("snailApp.local('suspend',[0])");
   await until(() => b.evaluate('snailApp.pending.length===0'), 'resume not acknowledged');
   await fetch(`${origin}/presence`, {method:'POST',body:JSON.stringify({client:clients[1],visible:true})});
-  await until(() => b.evaluate(`snailApp.runtime.snapshot(1)[1]>${combat.tick}`), 'resume did not restart the colony clock');
+  await until(async () => colony(await b.evaluate('snailApp.runtime.snapshot(1)')).tick > combat.tick, 'resume did not restart the colony clock');
   console.log('ok - visible map/minimap frames, rejected margin placement and shared Resume');
   const browser = await (await fetch(`${devtools}/json/version`)).json();
   console.log(JSON.stringify({browser:browser.Browser,origin,clients:2,gpu:await a.evaluate('({vendor:snailApp.renderer.adapter?.vendor,architecture:snailApp.renderer.adapter?.architecture,device:snailApp.renderer.adapter?.device,description:snailApp.renderer.adapter?.description})')},null,2));

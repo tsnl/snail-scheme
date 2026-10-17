@@ -1,7 +1,12 @@
-(import (lofi base))
-(def Empty (datatype () (empty)))
+(import
+ (lofi base))
+(def Empty (datatype ()
+             (empty)))
 (def Choice (datatype ( T)
-                      (absent) (alternate) (value (item T choice-value))))
+              (absent)
+              (alternate)
+              (value
+               (item T choice-value))))
 (def make-choice
      absent)
 (def call-constructor

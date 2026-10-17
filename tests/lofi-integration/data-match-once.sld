@@ -1,5 +1,9 @@
-(import (lofi base))
-(def Choice (datatype () (yes (value I64)) (no)))
+(import
+ (lofi base))
+(def Choice (datatype ()
+              (yes
+               (value I64))
+              (no)))
 (def count
      (ref (ann 0 I64)))
 (def choose

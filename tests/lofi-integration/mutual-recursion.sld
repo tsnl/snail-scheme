@@ -1,4 +1,5 @@
-(import (lofi base))
+(import
+ (lofi base))
 (def even
      (lambda (n) (if (= n (ann 0 I64)) #t (odd (- n (ann 1 I64))))))
 (def odd

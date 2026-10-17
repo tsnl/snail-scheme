@@ -1,8 +1,11 @@
 ;; Adversarial bridge fixture: writes and effects must remain staged on a trap.
 (define-library (tests trap)
   (export answer)
-  (import (scheme base) (siegework game) (only (lofi core) ann -> I32 define-extern)
-          (only (lofi base) unreachable))
+  (import
+   (scheme base)
+   (siegework game)
+   (only (lofi core) ann -> I32 define-extern)
+   (only (lofi base) unreachable))
   (begin
     (define-extern stage "snail.reducer" "write" (-> I32 I32 I32 Unit))
     (define-extern effect "snail.reducer" "command" (-> I32 I32 I32 I32 Unit))

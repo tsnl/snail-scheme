@@ -1,9 +1,16 @@
 ;; Frozen Chez controls remain independent of the Lofi compiler implementation.
 (define-library (snail-tests chez-bridge)
   (export run-chez-bridge)
-  (import (scheme base) (scheme cxr) (scheme file) (scheme inexact) (scheme write)
-          (srfi 1) (chibi pathname) (only (chibi string) string-split string-prefix? string-contains substring-cursor)
-          (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme cxr)
+   (scheme file)
+   (scheme inexact)
+   (scheme write)
+   (srfi 1)
+   (chibi pathname)
+   (only (chibi string) string-split string-prefix? string-contains substring-cursor)
+   (snail-tests harness))
   (begin
 
     ;; ---- Reviewed library profiles and unchanged external control sources ----

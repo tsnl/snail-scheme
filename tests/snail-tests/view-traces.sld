@@ -1,10 +1,19 @@
 ;; Drive the real loopback server and observe its public HTTP boundary.
 (define-library (snail-tests view-traces)
   (export run-view-traces)
-  (import (scheme base) (scheme char) (scheme file) (scheme write) (srfi 1) (srfi 18)
-          (chibi filesystem) (chibi pathname) (srfi 151)
-          (only (chibi process) fork execute kill waitpid signal/term)
-          (only (chibi string) string-contains string-prefix? string-cursor<? string-cursor-forward substring-cursor) (snail-tests harness))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme file)
+   (scheme write)
+   (srfi 1)
+   (srfi 18)
+   (chibi filesystem)
+   (chibi pathname)
+   (srfi 151)
+   (only (chibi process) fork execute kill waitpid signal/term)
+   (only (chibi string) string-contains string-prefix? string-cursor<? string-cursor-forward substring-cursor)
+   (snail-tests harness))
   (begin
 
     ;; ---- Selected trace and contained UI requests ----

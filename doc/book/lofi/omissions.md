@@ -10,8 +10,8 @@ surface is a typed subset, without general Scheme truthiness, quoted datums,
 Sequential core `let` statements and recursive `def` bindings inside `begin`
 supply the binding operations after expansion.
 Names cannot be reassigned; explicit cells represent mutable state.
-Both `def` and `let` can infer their annotations. Static definitions use
-`datatype`, `typeclass` or `instance` as the direct body of a library-level `def`.
+Both `def` and `let` can infer their annotations. Static declarations use
+library-level `data`, `typeclass` and `instance` forms.
 Kinds distinguish these definitions from ordinary values; dependent types and
 arbitrary computation in types are future work.
 

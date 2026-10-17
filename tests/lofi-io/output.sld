@@ -1,4 +1,6 @@
-(import (lofi base) (lofi io))
+(import
+ (lofi base)
+ (lofi io))
 
 ;; ---- Real text files and concrete callback results ----
 

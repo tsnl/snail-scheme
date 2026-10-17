@@ -75,7 +75,7 @@ such as `#\a`, quoted strings and bytevectors such as `#u8(1 2 3)`. Reserved
 form keywords identify syntax, so `(if …)` is a conditional rather than a call
 to a function named `if`. The [type grammar](types.md) defines `signature` and
 `type`. Library-level static definitions extend this grammar with
-[`datatype`, `typeclass` and `instance`](types.md#kinds-and-static-definitions).
+[`data`, `typeclass` and `instance`](types.md#kinds-and-static-definitions).
 
 `if` selects a value. `(if (< 1 2) 40 0)` produces `40`. Its condition must be a
 Boolean; only the selected branch runs. Both branches are required and must have
@@ -135,12 +135,15 @@ parameter bindings; it does not change the bindings belonging to an earlier call
 reading it returns that value. This does not require the implementation to
 allocate a separate memory cell for every variable.
 
-`begin` groups statements and returns a final expression. `def` introduces a
-binding in the whole block, which permits recursion. `let` introduces a binding
+In expression position, `begin` groups statements and returns a final expression.
+At library scope, `begin` splices its contents into that same scope; it does not
+create a block. This also applies when a macro produces the `begin`.
+`def` introduces a binding in the whole block, which permits recursion.
+`let` introduces a binding
 only for subsequent statements. Either form may carry a signature:
 `(def answer 42)` infers I32, while `(def answer I64 42)` explicitly selects I64
 for that literal. A supplied signature is checked; omitting it requests inference.
-The [type chapter](types.md) explains the same `def` form for static definitions.
+The [type chapter](types.md) explains the separate static declaration forms.
 
 All `def` names in a block are in scope throughout that block, including their
 own initializers. A `def` initializer sees the `let` bindings preceding its

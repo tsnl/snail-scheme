@@ -21,16 +21,19 @@ Its import clauses state which bindings the body can use; its export clauses
 state which bindings other libraries can use.
 
 ```scheme
-; demo/math.sld
+                                        ; demo/math.sld
 (define-library (demo math)
-  (import (lofi base))
+  (import
+   (lofi base))
   (export increment)
   (begin
     (def increment (-> I32 I32) (lambda (value) (+ value 1)))))
 
-; demo/app.sld
+                                        ; demo/app.sld
 (define-library (demo app)
-  (import (lofi base) (only (demo math) increment))
+  (import
+   (lofi base)
+   (only (demo math) increment))
   (export main)
   (begin
     (def main (-> I32) (lambda () (increment 41)))))
@@ -64,7 +67,8 @@ library_statement ::= statement
                     | static_definition
                     | library_splice
 
-library_splice ::= "(" "library-begin" library_statement … ")"
+library_splice ::= "(" "begin" library_statement … ")"
+                 | "(" "library-begin" library_statement … ")"
 
 import_set ::= library_name
              | "(" "only" import_set name … ")"
@@ -82,10 +86,12 @@ rename lists the local name followed by the public name.
 
 Multiple body clauses concatenate their statements in source order. Import
 clauses supply bindings to the whole body; they are not executable statements.
-Within a body, `library-begin` splices several forms into the same library scope;
+Within a body, `begin` splices several forms into the same library scope;
 it is useful when a [macro](macros.md#producing-several-library-declarations)
 generates a type and several operations together. Ordinary expression `begin`
-still creates a lexical block. Neither body macros nor splices may generate
+still creates a lexical block. `library-begin` remains a compatibility alias
+for the library splice and is an error in expression position.
+Neither body macros nor splices may generate
 import, export or `define-library` directives.
 
 ## Exports and imports
@@ -146,10 +152,13 @@ A file may describe how to produce a library instead of spelling out its
 declarations. The driver recognizes this second file-level form:
 
 ```scheme
-; demo/legacy.sld
+                                        ; demo/legacy.sld
 (generate-library (demo legacy)
-  (import (lofi base) (lofi compiler) (frontend scheme))
-  (scheme->lofi (read-source "legacy.scm")))
+                  (import
+                   (lofi base)
+                   (lofi compiler)
+                   (frontend scheme))
+                  (scheme->lofi (read-source "legacy.scm")))
 ```
 
 The imports belong to the generator. Its body is an ordinary Lofi expression
@@ -174,7 +183,7 @@ itself be compiled and executed.
 ## The library value
 
 The following record definitions fix the data boundary using the same
-single-constructor `datatype` form as other structs. `LibraryId`, `BindingId`
+single-constructor `data` form as other structs. `LibraryId`, `BindingId`
 and `ScopeId` are opaque identities; `Name` is an identifier spelling
 and `LibraryKey` is a sequence of name components. `SourceSpan` describes an
 input location. `Declaration` is a structured language declaration containing
@@ -182,29 +191,37 @@ its local binders, references and annotations. A `BindingReference` is either a
 local binding identity or a name together with the scope in which to resolve it.
 
 ```scheme
-(def ImportRename
-  (datatype ()
-    (import-rename (original Name) (local Name))))
-(def ImportSelection
-  (datatype ()
-    (all-imports)
-    (only-imports (from ImportSelection) (names (List Name)))
-    (rename-imports (from ImportSelection) (names (List ImportRename)))))
-(def Import
-  (datatype ()
-    (library-import (provider LibraryKey) (selection ImportSelection) (scope ScopeId))))
-(def Export
-  (datatype ()
-    (library-export (public Name) (binding BindingReference))))
-(def LocatedDeclaration
-  (datatype ()
-    (located-declaration (location SourceSpan) (declaration Declaration))))
-(def LofiLibrary
-  (datatype ()
-    (lofi-library (id LibraryId)
-                  (imports (List Import))
-                  (exports (List Export))
-                  (declarations (List LocatedDeclaration)))))
+(data ImportRename ()
+  (import-rename
+   (original Name)
+   (local Name)))
+(data ImportSelection ()
+  (all-imports)
+  (only-imports
+   (from ImportSelection)
+   (names (List Name)))
+  (rename-imports
+   (from ImportSelection)
+   (names (List ImportRename))))
+(data Import ()
+  (library-import
+   (provider LibraryKey)
+   (selection ImportSelection)
+   (scope ScopeId)))
+(data Export ()
+  (library-export
+   (public Name)
+   (binding BindingReference)))
+(data LocatedDeclaration ()
+  (located-declaration
+   (location SourceSpan)
+   (declaration Declaration)))
+(data LofiLibrary ()
+  (lofi-library
+   (id LibraryId)
+   (imports (List Import))
+   (exports (List Export))
+   (declarations (List LocatedDeclaration))))
 ```
 
 Import selections remain descriptive until the provider's exports are available.
