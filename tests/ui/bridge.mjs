@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createUiBridge} from '../../src/ui/bridge.mjs';
 const manifest = {applications: [{owner: 'client', handlers: [
   {id: 'increment-v1', payload: []}, {id: 'amount-v1', payload: ['I32']}
-]}]};
+]}, {owner: 'match', handlers: [{id: 'shared-amount-v1', payload: ['I32']}]}]};
 let tx;
 const bridge = createUiBridge(functions => functions, () => tx), host = bridge.provider;
 function start() { tx = {readOnly: true}; }
@@ -28,10 +28,14 @@ start(); node(1, 'root'); host.text(1, -1, 1); assert.throws(() => host.text(1, 
 console.log('ok - duplicate identity, incomplete nesting/text and invalid Unicode reject the presentation');
 
 start(); node(3, 'number'); host.action(2, 0, 0, 0); host.end();
-assert.throws(() => bridge.finish(tx, manifest), /number input payload/);
+assert.throws(() => bridge.finish(tx, manifest), /client endpoint with one I32 payload/);
+start(); node(3, 'shared-number'); host.action(1, 0, 0, 0); host.end();
+assert.throws(() => bridge.finish(tx, manifest), /client endpoint with one I32 payload/);
+start(); node(2, 'shared-button'); host.action(1, 0, 5, 0); host.end();
+assert.deepEqual(bridge.finish(tx, manifest).action, {owner: 1, command: {handler: 'shared-amount-v1', args: [5]}});
 start(); node(2, 'button'); host.action(2, 99, 0, 0); host.end();
 assert.throws(() => bridge.finish(tx, manifest), /invalid UI endpoint/);
 tx = {readOnly: false}; assert.throws(() => host.begin(1, 0, 0, 0, 0), /presentation query/);
 assert.throws(() => host.viewport(0), /presentation query/);
 start(); bridge.resize(640, 480); assert.equal(host.viewport(0), 640); assert.equal(host.viewport(1), 480);
-console.log('ok - invalid endpoints, input arity and writes outside presentation are rejected');
+console.log('ok - number fields require client ownership; match buttons work; invalid endpoints, arity and non-presentation writes reject');

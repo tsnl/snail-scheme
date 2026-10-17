@@ -21,8 +21,11 @@ function endpointAction(action, kind, manifest) {
   if (!action) throw new Error('interactive UI node requires an endpoint');
   const owner = action.owner === 1 ? 'match' : 'client';
   const endpoint = manifest?.applications.find(app => app.owner === owner)?.handlers[action.slot];
-  if (!endpoint || ![1, 2].includes(action.owner) || (kind === 3 && endpoint.payload.length !== 1))
-    throw new Error('invalid UI endpoint or number input payload');
+  if (!endpoint || ![1, 2].includes(action.owner)) throw new Error('invalid UI endpoint');
+  // A cloud match submission predicts before the authority acknowledges it.
+  // Integer drafts currently settle only against durable client transitions.
+  if (kind === 3 && (action.owner !== 2 || endpoint.payload.length !== 1))
+    throw new Error('number input requires a client endpoint with one I32 payload');
   return {owner: action.owner, command: {handler: endpoint.id, args: action.args.slice(0, endpoint.payload.length)}};
 }
 function finishNode(node, keys, manifest) {

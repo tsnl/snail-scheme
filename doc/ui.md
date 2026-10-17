@@ -24,8 +24,9 @@ The requests above come from ordinary lexical `application` handlers. In the
 presentation function, `(present-ui! (destination client-owner client-app) tree)`
 ties all events to that application's owner and state types. The browser receives
 versioned endpoint identities, never a user-maintained numeric command enum or a
-live Wasm callback. Controls can also target a match destination directly; normal
-game UI uses client handlers to retain its local selection behavior.
+live Wasm callback. Buttons can also target a match destination directly; normal
+game UI uses client handlers to retain its local selection behavior. Integer forms
+require a client destination in this first slice.
 
 ## Layout contract
 
@@ -80,16 +81,26 @@ control deliberately. Duplicate or missing keys reject the complete presentation
 before it is published.
 
 Typing and submission advance one local edit revision. Completion clears a draft
-only when the request committed and no later edit or submission replaced that
-revision. The next accepted presentation then supplies the current application
-value. Failed requests retain the text for retry. Moving a retained element also
-restores its native focus and text selection if DOM movement disturbed them.
+only when the client transition committed and no later edit or submission replaced
+that revision. The next accepted presentation then supplies the current client
+value. Failed client transitions retain the text for retry. Moving a retained
+element also restores its native focus and text selection if DOM movement disturbed
+them.
 
-`ui-number` accepts a typed request template such as `(set-value 0)`. On submission
-the browser replaces its first I32 argument with the parsed integer. That endpoint
-must have exactly one I32 payload; the host checks this against the generated
-manifest. Invalid or out-of-range text displays an accessible error and sends no
-command. Other controls carry the supplied request unchanged.
+`ui-number` edits a client-owned value through a typed request template such as
+`(set-value 0)`. On submission the browser replaces its first I32 argument with the
+parsed integer. That endpoint
+must belong to the client and have exactly one I32 payload; the host checks this
+against the generated manifest. Invalid or out-of-range text displays an accessible
+error and sends no command. Other controls carry the supplied request unchanged.
+
+Server-owned integer editing is not implemented: cloud submission first queues and
+predicts a command, while authority acknowledgement arrives later. Forwarding a
+match request from a client handler does not add that acknowledgement guarantee;
+the form's displayed value should belong to the client state that handler commits.
+Direct match number fields reject the presentation, while match buttons retain the
+normal cloud prediction and acknowledgement behavior.
+
 These bounds constrain form submissions, not other application handlers; durable
 state bounds belong in the reducer. The example enforces 0–100 in all its handlers.
 The number's label supplies its accessible name and placeholder; add `ui-label`
