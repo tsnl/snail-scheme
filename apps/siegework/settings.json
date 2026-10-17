@@ -20,7 +20,8 @@
     "prioritize-building",
     "repair",
     "new-run",
-    "pause-colony"
+    "pause-colony",
+    "new-run-seed"
   ],
   "pointer": {
     "move": "move",
@@ -210,5 +211,6 @@
     "a",
     "s",
     "d"
-  ]
+  ],
+  "runMarker": 23
 }

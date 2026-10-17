@@ -55,11 +55,11 @@
           <button data-handler="suspend" data-args="[1]" title="Pause the shared colony. Camera and planning remain available; workers and combat wait.">Pause colony</button>
           <button data-handler="suspend" data-args="[0]" title="Resume the shared colony for every player.">Resume</button>
         </div>
-        <button class="new-run" data-handler="restart" title="Start a fresh eight-minute run for everyone in this colony."><kbd>N / START</kbd>New run</button>
+        <button class="new-run" data-handler="restart" title="Start a fresh eight-minute run for everyone in this colony."><kbd>N / START</kbd>New run · next seed</button>
         <form class="seed-form" data-handler="restart-seed" novalidate>
           <label for="next-run-seed">Next run seed</label>
           <input id="next-run-seed" name="seed" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" data-i32 aria-describedby="seed-help seed-error" placeholder="1–65535">
-          <p id="seed-help" class="input-help">Start this seed to replay a map. The field status shows the active seed.</p>
+          <p id="seed-help" class="input-help">Editing leaves this colony unchanged. Start this seed restarts the shared colony for everyone; New run uses the next seed instead. Field status shows the active seed.</p>
           <button type="submit">Start this seed</button>
           <p id="seed-error" class="input-error" data-input-error role="alert"></p>
         </form>

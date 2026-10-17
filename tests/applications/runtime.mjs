@@ -4,6 +4,7 @@ import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {colony} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
+import {checkEncounters} from './colony-encounters.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {Authority} from '../../src/application/authority.mjs';
 import {openStore} from '../../src/application/sqlite.mjs';
@@ -20,6 +21,9 @@ async function test(name, run) { await run(); console.log(`ok ${++passed} - ${na
 
 await test('Scheme and Lofi share the shader compiler; composition rejects stage/width errors', () => {
   for (const name of ['shader', 'shader-lofi']) { const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 1); closeInstance(i); }
+});
+await test('seeded terrain keeps legacy geography and reachable reproducible alternatives', () => {
+  const i = instantiate(loadWasm(fixture('terrain'))); assert.equal(invokeEntry(i, []), 1); closeInstance(i);
 });
 await test('retained immutable Scheme records remain unchanged', () => {
   for (const [name, expected] of [['immutable', 1], ['state', 42]]) {
@@ -98,6 +102,17 @@ await test('an invalid encoded replacement cannot become committed or durable st
   assert.throws(() => r.dispatch(1, r.command('match', 'extract', [12, 20]), {persist: () => committed = true}), WebAssembly.RuntimeError);
   assert.equal(committed, false); assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous); r.close();
 });
+await test('invalid transition output fails before durable state or epoch publication', () => {
+  const r=new ReducerRuntime(), contract={version:1,applications:[
+    {owner:'match',schema:1,handlers:[{binding:'change',id:'change',slot:0,payload:[]}]},
+    {owner:'client',schema:1,handlers:[]} ]};
+  r.replace(r.prepare(fixture('invalid-output'),contract)); r.initialize(1); r.initialize(2);
+  let writes=0,published=0; const authority=new Authority(r,{runMarker:1,commit:()=>writes++,publish:()=>published++});
+  const before=authority.snapshot();
+  assert.throws(()=>authority.submit({client:'one',sequence:1,epoch:authority.epoch,command:r.command('match','change')}),RangeError);
+  assert.deepEqual(authority.snapshot(),before); assert.equal(writes,0); assert.equal(published,0);
+  assert.deepEqual(authority.clients,{}); r.close();
+});
 await test('packaging catches a declared/encoded size mismatch before publishing a manifest', () => {
   const directory = mkdtempSync(join(tmpdir(), 'snail-preflight-')), root = resolve(import.meta.dirname, '../..');
   for (const name of ['shader.wasm', 'application.syntax.json']) copyFileSync(join(output, name), join(directory, name));
@@ -159,7 +174,7 @@ await test('SQLite restart recovers unacknowledged commit and deduplicates retry
 });
 await test('unprotected run loses; a fortified colony reaches a successful finale without kill income', () => {
   const r = fresh(); for (let i = 0; i < 4800; i++) call(r, 'advance');
-  assert.equal(r.snapshot(1)[2], 1); call(r, 'new-run'); call(r, 'extract', [12,20]);
+  assert.equal(r.snapshot(1)[2], 1); call(r, 'new-run-seed', [1]); call(r, 'extract', [12,20]);
   call(r, 'fortify', [15,20]); call(r, 'observe', [16,21]);
   const sites = [[16,22],[15,24],[12,24],[16,18],[13,17],[18,20],[18,22],[19,18]];
   let next = 0, sawKill = false;
@@ -175,5 +190,31 @@ await test('unprotected run loses; a fortified colony reaches a successful final
   }
   assert.ok(sawKill); assert.ok([2,3].includes(r.snapshot(1)[2])); r.close();
 });
+await test('Scheme run markers atomically bind accepted restarts, epochs and retry receipts', () => {
+  const r = fresh(); let durable, rejectCommit = false;
+  const authority = new Authority(r, {runMarker:23, commit:snapshot => {
+    if (rejectCommit) throw new Error('disk unavailable'); durable=structuredClone(snapshot);
+  }});
+  const envelope = (client, sequence, command, epoch=authority.epoch) => ({client,sequence,epoch,command});
+  const oldEpoch=authority.epoch, first=envelope('a',1,r.command('match','new-run-seed',[1]));
+  authority.submit(first); assert.notEqual(authority.epoch,oldEpoch); assert.equal(r.snapshot(1)[23],1);
+  const accepted=authority.snapshot(), receipt=structuredClone(authority.clients.a);
+  assert.equal(authority.submit(first).duplicate,true); assert.deepEqual(authority.snapshot(),accepted);
+  assert.deepEqual(authority.clients.a,receipt);
+  assert.throws(()=>authority.submit(envelope('b',1,r.command('match','extract',[12,20]),oldEpoch)),/stale match epoch/);
+  const beforeInvalid=authority.snapshot(); authority.submit(envelope('a',2,r.command('match','new-run-seed',[65536])));
+  assert.equal(authority.epoch,beforeInvalid.epoch); const unchanged=beforeInvalid.state; unchanged[17]=16;
+  assert.deepEqual(r.snapshot(1),unchanged);
+  const beforeFailure=authority.snapshot(), oldClients=structuredClone(authority.clients), oldDurable=durable;
+  const next=envelope('a',3,r.command('match','new-run-seed',[1])); rejectCommit=true;
+  assert.throws(()=>authority.submit(next),/disk unavailable/); assert.deepEqual(authority.snapshot(),beforeFailure);
+  assert.deepEqual(authority.clients,oldClients); assert.deepEqual(durable,oldDurable);
+  rejectCommit=false; authority.submit(next); assert.notEqual(authority.epoch,beforeFailure.epoch);
+  const copy=fresh(), recovered=new Authority(copy,{saved:durable,runMarker:23});
+  assert.deepEqual(recovered.snapshot(),authority.snapshot()); assert.equal(recovered.submit(next).duplicate,true);
+  for (const runMarker of [0,-1,1.5,6144]) assert.throws(()=>new Authority(r,{runMarker}),/run marker/);
+  r.close(); copy.close();
+});
 await checkColony(test, fresh, call);
+await checkEncounters(test, fresh, call);
 console.log(`${passed} application integration checks passed`);

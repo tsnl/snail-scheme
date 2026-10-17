@@ -4,8 +4,10 @@ import {createHash, randomUUID} from 'node:crypto';
 
 export class Authority {
   revision = 0; epoch = randomUUID(); clients = {}; log = [];
-  constructor(runtime, {saved, commit = () => {}, publish = () => {}, resetHandler} = {}) {
-    this.runtime = runtime; this.commit = commit; this.publish = publish; this.resetHandler = resetHandler;
+  constructor(runtime, {saved, commit = () => {}, publish = () => {}, resetHandler, runMarker} = {}) {
+    this.runtime = runtime; this.commit = commit; this.publish = publish; this.resetHandler = resetHandler; this.runMarker = runMarker;
+    if (runMarker !== undefined && (!Number.isInteger(runMarker) || runMarker < 1 || runMarker >= runtime.snapshot(1).length))
+      throw new Error('invalid run marker snapshot offset');
     if (saved) {
       if (!Number.isSafeInteger(saved.revision) || saved.revision < 0 || typeof saved.epoch !== 'string'
           || !saved.clients || typeof saved.clients !== 'object') throw new Error('invalid durable owner metadata');
@@ -27,11 +29,15 @@ export class Authority {
     }
     if (epoch !== this.epoch) throw new Error('stale match epoch');
     if (sequence !== (prior?.sequence ?? 0) + 1) throw new Error('out-of-order command sequence');
-    const revision = this.revision + 1, nextEpoch = command.handler === this.resetHandler ? randomUUID() : this.epoch;
-    const clients = {...this.clients, [client]: {sequence, fingerprint, receipt: {revision, epoch: nextEpoch}}};
+    const revision = this.revision + 1;
+    const marker = this.runMarker === undefined ? undefined : this.runtime.snapshot(1)[this.runMarker];
+    let nextEpoch = this.epoch, clients;
     const record = {revision, client, sequence, handler: command.handler, args: command.args};
     const digest = createHash('sha256').update(JSON.stringify(record)).digest('hex');
     const result = this.runtime.dispatch(1, command, {persist: state => {
+      const reset = this.runMarker === undefined ? command.handler === this.resetHandler : state[this.runMarker] !== marker;
+      nextEpoch = reset ? randomUUID() : this.epoch;
+      clients = {...this.clients, [client]: {sequence, fingerprint, receipt: {revision, epoch: nextEpoch}}};
       this.commit({state: Array.from(state), revision, epoch: nextEpoch, clients}, this.revision);
     }});
     this.revision = revision; this.epoch = nextEpoch; this.clients = clients;

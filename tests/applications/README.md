@@ -36,9 +36,14 @@ build/match when running it: it starts a new run and changes that test match.
 The combat checkpoint uses about 80 seconds of the actual authority clock.
 Colony checks cover multiple deposits, physical kit ownership and danger recovery,
 observation versus reachability, the actual outpost raid, an undefended finale,
-zero kill income, manual pause and all four camera margins. The browser runner
+zero kill income, occupied mining slots, sole-worker recovery, cargo/kit deaths,
+seed replay, manual pause and all four camera margins. The marker/epoch checks
+cover accepted and rejected seed restarts, duplicate retries, stale-run requests,
+wraparound and failed durable commits. The browser runner
 also verifies shared Pause/Resume, visibility changes without clearing pause,
-retained paused/camera state across reload, and rejected margin placement.
+retained paused/camera state across reload, rejected marker-offset changes,
+native seed-form submission through the compiled Scheme reducer, and rejected
+margin placement.
 
 The focused input checks use real keyboard/pointer/focus events and injected
 Gamepad samples; they do not claim physical-controller coverage:

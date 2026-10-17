@@ -139,6 +139,17 @@ Wasm function pointer. Slots are private to a compiled generation. Reordering
 handlers changes slots but does not change stable identities. Renaming a handler
 or changing its schema/payload changes its identity.
 
+The local authority also accepts an optional `runMarker` setting: a positive
+word offset within the encoded match snapshot. Scheme changes that scalar only
+when it accepts a new run, including replaying the same map seed. During the
+same durable commit, a changed marker rotates the network epoch and records the
+request receipt. Rejected seed input leaves the marker and epoch unchanged;
+retrying an accepted restart returns its receipt. Apps without this setting keep
+the named `reset` handler behavior. The marker offset cannot change during a
+compatible reload. Cold starts must retain matching package settings and saved
+state; this local store does not persist a separate configuration policy. The
+marker describes a lifecycle boundary, not game rules in JavaScript.
+
 The initial build inspects literal `application` declarations inside a library's
 outer `begin`. `(application manifest bootstrap)` reads the exact parsed library
 that the host compiler receives, so protocol metadata cannot come from a later

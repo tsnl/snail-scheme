@@ -6,7 +6,7 @@ output="$root/build/application-tests"
 mkdir -p "$output"
 chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
   "$root/apps/siegework/build.scm" "$root" "$output/siegework"
-for fixture in counter state testing counter-lofi immutable shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
+for fixture in counter state testing counter-lofi immutable terrain invalid-output shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
   case "$fixture" in
     counter|state|testing) source="$root/examples/applications/$fixture.sld" ;;
     *) source="$root/tests/applications/$fixture.sld" ;;
