@@ -16,6 +16,15 @@ Derived addresses never survive collection; they are recomputed from repaired
 bases. The Rust array constructor also roots its own initializer when the array
 contains references. A caller's root does not repair a helper's by-value copy.
 
+Temporary publication skips a store when the same private reference cell already
+matches that exact active root slot. Every collecting call still publishes its
+complete active count and restores every live temporary, including duplicates.
+Collection rewrites the published slot; restoration then repairs the private
+cell, so the equality survives movement. Ordinary labels and returning guest or
+unknown native calls discard this evidence. Only direct allocation/collection
+and a private trap-success edge preserve it. Raw SSA reference parameters always
+publish their value; their spelling does not prove an unchanged address.
+
 The root ABI requires generated modules to define `native_gc_relocatable_roots`.
 Objects emitted before this contract must be regenerated from Wasm before
 linking with this runtime; otherwise linking fails on that missing symbol.

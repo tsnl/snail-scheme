@@ -253,7 +253,7 @@
     ;; whose contents are repaired after a collecting call.
 
     (define-record-type <emitter>
-      (make-emitter locals targets serial live? port slots stack result roots local-roots)
+      (make-emitter locals targets serial live? port slots stack result roots local-roots published-temporaries)
       emitter?
       (locals emitter-locals set-emitter-locals!)
       (targets emitter-targets set-emitter-targets!)
@@ -264,7 +264,8 @@
       (stack emitter-stack set-emitter-stack!)
       (result emitter-result set-emitter-result!)
       (roots emitter-roots set-emitter-roots!)
-      (local-roots emitter-local-roots set-emitter-local-roots!))
+      (local-roots emitter-local-roots set-emitter-local-roots!)
+      (published-temporaries emitter-published-temporaries set-emitter-published-temporaries!))
 
     (define current-emitter (make-parameter #f))
     ;; Wrappers and initialization stay conservative. Only a proved Wasm
@@ -296,7 +297,11 @@
 
     (define (label name)
       (write-llvm (list name ":\n") (emitter-port (current-emitter)))
+      (forget-published-temporaries!)
       (set-emitter-live! (current-emitter) #t))
+
+    (define (forget-published-temporaries!)
+      (set-emitter-published-temporaries! (current-emitter) '()))
 
     (define (slot type)
       (let* ((name (fresh "%slot")) (emitter (current-emitter)))
@@ -346,18 +351,26 @@
     (define (call-native name result arguments)
       ;; Shared LTO can specialize the one allocating ABI for each struct size.
       ;; The call-site inline hint preserves its collecting effects and failures.
-      (let ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")"
-                        (if (equal? name "native_alloc") " alwaysinline" ""))))
-        (if (string=? result "void") (begin (line call) #f)
-            (instruction result call))))
+      (let* ((call (list "call " (llvm-type result) " @" name "(" (llvm-join (map typed arguments) ", ") ")"
+                         (if (equal? name "native_alloc") " alwaysinline" "")))
+             (value (if (string=? result "void") (begin (line call) #f)
+                        (instruction result call))))
+        ;; These two calls are enclosed by with-roots: relocation rewrites the
+        ;; published slots, then restoration reestablishes equality with cells.
+        (unless (member name '("native_alloc" "native_gc_collect")) (forget-published-temporaries!))
+        value))
 
     (define (trap-unless condition)
-      (let ((yes (fresh "ok")) (no (fresh "trap")))
+      (let ((yes (fresh "ok")) (no (fresh "trap"))
+            (published (emitter-published-temporaries (current-emitter))))
         (finish "br " (typed condition) ", label %" yes ", label %" no)
         (label no)
         (line "call void @native_trap()")
         (finish "unreachable")
-        (label yes)))
+        (label yes)
+        ;; The condition was evaluated before this snapshot. Only this private
+        ;; success edge preserves facts; the other edge traps without returning.
+        (set-emitter-published-temporaries! (current-emitter) published)))
 
     (define (nonnull value)
       (trap-unless (instruction "i1" "icmp ne " (typed value) ", 0"))
@@ -366,15 +379,31 @@
     ;; Locals already live in the frame. Copy live temporaries into its active
     ;; suffix and repair their private slots on return. No derived address may
     ;; survive a collecting call. The count excludes stale slots from old loops.
+    ;; Evidence names a cell in one exact active slot, never an old SSA address.
+    ;; Cells keep their semantic value until a label invalidates the evidence.
+    (define (same-published-reference? value previous)
+      (or (and (relocatable? (cdr value)) (eq? (cdr value) (cdr previous)))
+          (and (eqv? (cdr value) 0) (eqv? (cdr previous) 0))))
+
+    (define (publish-temporary-slots values slots previous)
+      (when (pair? values)
+        (unless (and (pair? previous) (same-published-reference? (car values) (car previous)))
+          (store (car values) (car slots)))
+        (publish-temporary-slots (cdr values) (cdr slots) (if (pair? previous) (cdr previous) '()))))
+
     (define (publish-roots arguments)
+      ;; Bottom-first slots keep deeper operands stable. Replacing the evidence
+      ;; drops inactive suffixes before those slots can become active again.
       (if (not (current-function-collects)) '()
           (let* ((emitter (current-emitter)) (offset (emitter-local-roots emitter))
-                 (values (filter reference-value? (append (emitter-stack emitter) arguments)))
+                 (values (filter reference-value? (append (reverse (emitter-stack emitter)) arguments)))
                  (count (+ offset (length values)))
                  (slots (map (lambda (index) (root-slot (+ index 3))) (iota (length values) offset))))
             (set-emitter-roots! emitter (max (emitter-roots emitter) count))
-            (for-each store values slots)
+            (publish-temporary-slots values slots (emitter-published-temporaries emitter))
+            (set-emitter-published-temporaries! emitter values)
             (store (constant "i64" count) (root-slot 2))
+            ;; Skipped copies and aliases still need every restoration entry.
             (map cons values slots))))
 
     (define (restore-roots roots)
@@ -540,6 +569,7 @@
                          "(" (llvm-join (map typed arguments) ", ") ")"))
              (value (if (string=? result "void") (begin (line code) #f)
                         (instruction result code))))
+        (forget-published-temporaries!)
         (if tail? (return-value value #t) (restore-roots roots))
         value))
 
@@ -908,7 +938,7 @@
 
     (define (emit-definition name params body . attributes)
       (let ((emitter (make-emitter '#() '() 0 #t
-                                   (open-output-string) '() '() "void" 0 0)))
+                                   (open-output-string) '() '() "void" 0 0 '())))
         (parameterize ((current-emitter emitter)) (body))
         (output "define " name "(" (llvm-join (map typed params) ", ") ") " attributes "{\nentry:")
         (for-each (lambda (line) (write-llvm line (module-output (current-module))))
@@ -1268,7 +1298,8 @@
    (snail-tests
     (export test-llvm)
     (import
-     (native test-utils))
+     (native test-utils)
+     (only (chibi string) string-split))
     (begin
       (define (test-llvm-floats)
         (expect (float-spelling "1e-300") "1.0e-300")
@@ -1322,7 +1353,106 @@
         (parameterize ((current-native-gc-stress #t))
           (expect (collection-test-flags collection-test-module) (make-list 12 #t))))
 
+      ;; Decode actual root stores and restoration loads, independent of the SSA
+      ;; names chosen for addresses. Integer destinations are frame indices;
+      ;; string destinations are private cells restored from those frame indices.
+      (define (root-test-name word) (substring word 0 (- (string-length word) 1)))
+
+      (define (root-test-stores text)
+        (let loop ((lines (string-split text #\newline)) (addresses '()) (loads '()) (events '()))
+          (if (null? lines) (reverse events)
+              (let ((words (filter (lambda (word) (positive? (string-length word)))
+                                   (string-split (car lines) #\space))))
+                (cond
+                 ((member "%roots," words)
+                  (loop (cdr lines) (cons (cons (car words) (string->number (car (reverse words)))) addresses) loads events))
+                 ((and (> (length words) 2) (equal? (caddr words) "load"))
+                  (let* ((pointer (root-test-name (list-ref words 5))) (root (assoc pointer addresses)))
+                    (loop (cdr lines) addresses (cons (cons (car words) (if root (cdr root) pointer)) loads) events)))
+                 ((and (pair? words) (equal? (car words) "store"))
+                  (let* ((source (root-test-name (caddr words))) (loaded (assoc source loads))
+                         (value (if loaded (cdr loaded) source))
+                         (pointer (root-test-name (list-ref words 4))) (root (assoc pointer addresses)))
+                    (loop (cdr lines) addresses loads
+                          (if (or root (integer? value))
+                              (cons (cons (if root (cdr root) pointer) value) events) events))))
+                 (else (loop (cdr lines) addresses loads events)))))))
+
+      (define (root-test-events prefix body)
+        (let ((emitter (make-emitter '#() '() 0 #t (open-output-string) '() '() "void" 0 prefix '())))
+          (parameterize ((current-emitter emitter)) (body))
+          (root-test-stores (get-output-string (emitter-port emitter)))))
+
+      (define (root-test-reference name)
+        (constant "ref" (make-relocatable (constant "i64" name))))
+
+      (define (test-llvm-root-publication)
+        (let ((a (root-test-reference "%a")) (b (root-test-reference "%b"))
+              (c (root-test-reference "%c")) (zero (constant "ref" 0)) (scalar (constant "i32" 7)))
+          (expect
+           (root-test-events
+            2 (lambda ()
+                (set-emitter-stack! (current-emitter) (list a scalar b))
+                (publish-roots (list b zero)) (publish-roots (list b zero))
+                (push-value! scalar) (publish-roots (list b zero))
+                (push-value! c) (publish-roots (list b zero))
+                (set-emitter-stack! (current-emitter) (list b)) (publish-roots '())
+                (set-emitter-stack! (current-emitter) (list a b)) (publish-roots (list b zero))))
+           '((5 . "%b") (6 . "%a") (7 . "%b") (8 . "0") (2 . "6")
+             (2 . "6") (2 . "6")
+             (7 . "%c") (8 . "%b") (9 . "0") (2 . "7") (2 . "3")
+             (6 . "%a") (7 . "%b") (8 . "0") (2 . "6")))))
+
+      (define (test-llvm-root-restoration)
+        (let* ((a (root-test-reference "%a")) (raw (constant "ref" "%raw"))
+               (values (list a a (constant "ref" 0) raw raw)))
+          (expect
+           (root-test-events
+            0 (lambda () (restore-roots (publish-roots values)) (restore-roots (publish-roots values))))
+           '((3 . "%a") (4 . "%a") (5 . "0") (6 . "%raw") (7 . "%raw") (2 . "5")
+             ("%a" . 3) ("%a" . 4)
+             (6 . "%raw") (7 . "%raw") (2 . "5") ("%a" . 3) ("%a" . 4)))
+          ;; A matching spelling cannot substitute for the same reference cell.
+          (expect (root-test-events 0 (lambda () (publish-roots (list a))
+                                              (publish-roots (list (root-test-reference "%a")))))
+                  '((3 . "%a") (2 . "1") (3 . "%a") (2 . "1")))))
+
+      (define (test-llvm-root-boundaries)
+        (let ((a (root-test-reference "%a")) (b (root-test-reference "%b")))
+          (expect
+           (root-test-events
+            0 (lambda ()
+                (set-emitter-stack! (current-emitter) (list a b)) (publish-roots '())
+                (trap-unless (constant "i1" "true")) (publish-roots '())
+                (label "join") (publish-roots '())
+                (label "loop") (publish-roots '())
+                (call-collecting-native "native_gc_collect" "void" '() '()) (publish-roots '())
+                (call-collecting-native "native_alloc" "ref" (list (constant "i64" 16)) '()) (publish-roots '())
+                (call-native "opaque" "void" '()) (publish-roots '())
+                (emit-call "@guest" (list (constant "i32" 7)) "void" #f) (publish-roots '())))
+           '((3 . "%b") (4 . "%a") (2 . "2") (2 . "2")
+             (3 . "%b") (4 . "%a") (2 . "2")
+             (3 . "%b") (4 . "%a") (2 . "2")
+             (2 . "2") ("%b" . 3) ("%a" . 4) (2 . "2")
+             (2 . "2") ("%b" . 3) ("%a" . 4) (2 . "2")
+             (3 . "%b") (4 . "%a") (2 . "2")
+             (2 . "2") ("%b" . 3) ("%a" . 4)
+             (3 . "%b") (4 . "%a") (2 . "2")))
+          ;; Evaluating the guard condition can invalidate publication evidence.
+          (expect
+           (root-test-events
+            0 (lambda ()
+                (push-value! a) (publish-roots '())
+                (trap-unless (truth (call-native "opaque_condition" "i32" '())))
+                (publish-roots '())))
+           '((3 . "%a") (2 . "1") (3 . "%a") (2 . "1")))
+          (parameterize ((current-function-collects #f))
+            (expect (root-test-events 0 (lambda () (push-value! a) (publish-roots '()))) '()))))
+
       (define (test-llvm)
         (run-test test-llvm-floats)
         (run-test test-llvm-rejections)
-        (run-test test-llvm-collection-effects))))))
+        (run-test test-llvm-collection-effects)
+        (run-test test-llvm-root-publication)
+        (run-test test-llvm-root-restoration)
+        (run-test test-llvm-root-boundaries))))))

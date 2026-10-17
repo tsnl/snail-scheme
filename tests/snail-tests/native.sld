@@ -72,6 +72,25 @@
           (check-array-access-traps optimized)
           (for-each (lambda (kind) (checked (string-append "optimized-storage-trap-" (number->string kind)) (list optimized "storage-trap" kind)
                                             '((status . 1) (error . "WebAssembly trap")))) (iota 5)))))
+    ;; ---- Operand roots follow relocation across repeated publication ----
+
+    (define (run-root-publication)
+      (checked "emit-root-publication" (chibi (fixture "native-root-publication" "build.scm") (root) (output)))
+      (for-each (lambda (suffix)
+                  (checked (string-append "v8-root-publication" suffix)
+                           (node (fixture "native-root-publication" "check.mjs")
+                                 (build-path (string-append "root-publication" suffix)))))
+                '(".wasm" ".opt.wasm"))
+      (let* ((options (list "--llvm" "--entry-rust" (fixture "native-root-publication" "entry.rs")))
+             (normal (native-fixture (build-path "root-publication.ll") "root-publication" options #t))
+             (moving (native-fixture (build-path "root-publication.ll") "root-publication-moving" options))
+             (stress (native-fixture (build-path "root-publication-stress.ll") "root-publication-stress" options)))
+        (checked "root-publication" (list normal))
+        (checked "root-publication-moving" (list moving))
+        (checked "root-publication-stress" (list stress))))
+
+    ;; ---- Element boundaries and concurrent build ownership ----
+
     (define (run-element-segments)
       (for-each (lambda (case)
                   (let* ((length (car case)) (offset (cadr case)) (elements (caddr case)) (traps? (cadddr case))
@@ -252,7 +271,7 @@
         (checked "protect-source-alias" (list (path "scripts/build-native") source alias)
                  '((status . 1) (error . "must not replace an input")))))
     (define (run-native-suite)
-      (run-semantics) (run-element-segments) (run-concurrent-builds)
+      (run-semantics) (run-root-publication) (run-element-segments) (run-concurrent-builds)
       (checked "collector-contracts" (list (tool-name "CARGO" "cargo") "test" "--offline"
                                            "--manifest-path" (path "src/native/Cargo.toml"))
                `((stdout . #f) (stderr . #f) (environment . ,(native-cargo-environment (path "build/native-runtime")))))
