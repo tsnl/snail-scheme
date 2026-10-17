@@ -1,3 +1,0 @@
-(import (sfir primitive))
-(def answer (-> I64) (lambda () 1))
-(answer)

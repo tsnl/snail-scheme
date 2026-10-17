@@ -3,7 +3,7 @@
 Current benchmark drivers are Scheme scripts; comparison programs and native
 hosts are Rust crates built by Cargo. Start with [the current protocol](README.md).
 
-Reports under `results/` and `sfir/evidence/` describe earlier compiler versions.
+Reports under `results/` and `lofi/evidence/` describe earlier compiler versions.
 Their measurements, result predicates and raw data have not been rewritten for
 the Rust migration. Old C and Python experiment drivers, and source archives
 containing them, are retained in

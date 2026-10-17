@@ -1,8 +1,0 @@
-(import (sfir base))
-(def outer
-     (lambda (value)
-       (begin
-         (def count
-              (lambda (index) (if (= index (ann 0 I64)) index (count (- index (ann 1 I64))))))
-         (+ value (count (ann 2 I64))))))
-(outer (ann 42 I64))

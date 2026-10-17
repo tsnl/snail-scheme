@@ -6,7 +6,7 @@
           (only (srfi 130) string-contains string-cursor->index)
           (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim string-trim-right)
           (except (chibi filesystem) file-exists?) (wasm-native json)
-          (wasm-native process) (wasm-native native-build) (sfir runner) (sfir support))
+          (wasm-native process) (wasm-native native-build) (lofi runner) (lofi support))
   (begin
 
     ;; ---- Fixed contracts and retained commands ----
@@ -83,9 +83,9 @@
         (require-check (succeeded? (execute "chez-compile" (list scheme "--script" script) output "")) "Chez control failed to compile")))
 
     (define (prepare-chez output scheme)
-      (let ((source (path-join (benchmark-root) "benchmarks/sfir/string/chez-original.scm")))
+      (let ((source (path-join (benchmark-root) "benchmarks/lofi/string/chez-original.scm")))
         (copy-file source (path-join output "program.scm"))
-        (copy-file (path-join (benchmark-root) "benchmarks/sfir/string/input.txt") (path-join output "input.txt"))
+        (copy-file (path-join (benchmark-root) "benchmarks/lofi/string/input.txt") (path-join output "input.txt"))
         (compile-chez-file (path-join output "program.scm") (path-join output "program.so") output scheme)
         `((source . ,source) (source_sha256 . ,(file-sha256 source)) (artifact_sha256 . ,(file-sha256 (path-join output "program.so"))))))
 

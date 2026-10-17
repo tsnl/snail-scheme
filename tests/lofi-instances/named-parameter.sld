@@ -1,0 +1,7 @@
+(import (lofi primitive))
+
+;; Naming the same lambda must not change its parameter's typing rule.
+(def invoke
+     (lambda (function)
+       (begin (function (ann 42 I64)) (function #t))))
+(invoke (lambda (value) value))

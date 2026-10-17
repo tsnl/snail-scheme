@@ -1,0 +1,42 @@
+(import (lofi primitive))
+(define-extern record "instance.probe" "record" (-> I64 Unit))
+
+;; ---- Source order, shared captures and exactly one initialization ----
+
+(def history (ref (ann 0 I64)))
+(def shared (ref (ann 0 I64)))
+(def mark (-> I64 Unit)
+     (lambda (digit)
+       (begin
+         (ref-set! history (i64-add (i64-mul (ref-get history) (ann 10 I64)) digit))
+         (record digit))))
+(def factory (-> I64 (-> I64 I64))
+     (lambda (digit)
+       (begin
+         (mark digit)
+         (lambda (value) (i64-add value (ref-get shared))))))
+(def identity (All (T) (-> T T)) (lambda (value) value))
+(def PairOps (typeclass (T) (: first (-> T T)) (: second (-> T T))))
+(def pair-i64 (instance (PairOps I64)
+                        (second (factory (ann 1 I64)))
+                        (first (if #t (factory (ann 2 I64)) (factory (ann 9 I64))))))
+;; This instance is never selected, but both expressions must run.
+(def pair-bool (instance (PairOps Bool)
+                         (first (begin (mark (ann 3 I64)) identity))
+                         (second (begin (mark (ann 4 I64)) identity))))
+(def Alias (typeclass (T) (: alias (-> T T))))
+(def ready (factory (ann 5 I64)))
+(def alias-i64 (instance (Alias I64) (alias ready)))
+(def selected (-> I64 I64) first)
+(def observed (-> I64) (lambda () (ref-get history)))
+
+(ref-set! shared (ann 1 I64))
+(if (i64-eq (selected (ann 20 I64)) (ann 21 I64))
+    (if (i64-eq (second (ann 30 I64)) (ann 31 I64))
+        (if (i64-eq (alias (ann 40 I64)) (ann 41 I64))
+            (if (i64-eq (selected (ann 1 I64)) (ann 2 I64))
+                (if (i64-eq (observed) (ann 12345 I64)) (ann 42 I64) (unreachable))
+                (unreachable))
+            (unreachable))
+        (unreachable))
+    (unreachable))

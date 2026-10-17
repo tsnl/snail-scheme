@@ -92,7 +92,7 @@
     ;; ---- Independent original Chez controls ----
 
     (define (chez-source root name)
-      (let* ((directory (path-join root "benchmarks/sfir" name)) (path (path-join directory "chez-original.scm"))
+      (let* ((directory (path-join root "benchmarks/lofi" name)) (path (path-join directory "chez-original.scm"))
              (controls (option-ref (read-json (path-join directory "migration.json")) 'controls '())))
         (unless (string=? (file-sha256 path) (option-ref controls 'chez-original.scm ""))
           (error "authored Chez control differs from its provenance" name))

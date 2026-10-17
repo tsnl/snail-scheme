@@ -1,0 +1,164 @@
+;; Canonical bare Lofi. See migration.json for source provenance.
+
+(import (lofi base) (lofi io))
+
+(def cddr (lambda (xs.2) (cdr (cdr xs.2))))
+
+(def length
+  (lambda (xs)
+    (((lambda () (begin (def loop.7 (lambda (xs.1 n.3) (if (null? xs.1) n.3 (loop.7 (cdr xs.1) (+ n.3 (ann 1 I64)))))) loop.7)))
+      xs
+      (ann 0 I64))))
+
+(define-extern native-input-i64 "benchmark" "input_i64" (-> I32 I64))
+
+(define-extern native-input-f64 "benchmark" "input_f64" (-> I32 F64))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(define-extern hide-i64 "benchmark" "hide_i64" (-> I64 I64))
+
+(define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
+
+(def Point (datatype () (make-point (x F64 point-x) (y F64 point-y) (z F64 point-z))))
+
+(def Sphere (datatype ()
+  (make-sphere (color F64 sphere-color) (radius F64 sphere-radius) (center Point sphere-center))))
+
+(def Root (datatype () (no-root) (some-root (value F64 root-value))))
+
+(def Candidate (datatype () (no-point) (some-point (value Point candidate-point))))
+
+(def Hit (datatype () (miss) (hit (sphere Sphere hit-sphere) (point Point hit-point))))
+
+(def root? (-> Root Bool) (lambda (value.3) (match value.3 ((no-root) #f) ((some-root n.2) #t))))
+
+(def candidate? (-> Candidate Bool)
+  (lambda (value.2) (match value.2 ((no-point) #f) ((some-point p.2) #t))))
+
+(def hit? (-> Hit Bool) (lambda (value.1) (match value.1 ((miss) #f) ((hit s.8 p.1) #t))))
+
+(def ray-min (-> F64 F64 F64)
+  (lambda (left.1 right.1)
+    (if (not (= left.1 left.1)) left.1 (if (< left.1 right.1) left.1 right.1))))
+
+(def ray-max (-> F64 F64 F64)
+  (lambda (left right) (if (not (= left left)) left (if (> left right) left right))))
+
+(def hide (lambda (count.2 x.7) (hide-i64 x.7)))
+
+(def sq (-> F64 F64) (lambda (x.6) (* x.6 x.6)))
+
+(def mag (-> F64 F64 F64 F64) (lambda (x.5 y.4 z.3) (sqrt (+ (+ (sq x.5) (sq y.4)) (sq z.3)))))
+
+(def unit-vector (-> F64 F64 F64 Point)
+  (lambda (x.4 y.3 z.2)
+    ((lambda (d.1) (make-point (/ x.4 d.1) (/ y.3 d.1) (/ z.2 d.1))) (mag x.4 y.3 z.2))))
+
+(def distance (-> Point Point F64)
+  (lambda (p1 p2)
+    (mag (- (point-x p1) (point-x p2)) (- (point-y p1) (point-y p2)) (- (point-z p1) (point-z p2)))))
+
+(def minroot (-> F64 F64 F64 Root)
+  (lambda (a b c.3)
+    (if (= a 0.0)
+      (some-root (/ (* -1.0 c.3) b))
+      ((lambda (disc) (if (< disc 0.0) (no-root) ((lambda (discrt minus-b two-a) (some-root (ray-min (/ (+ minus-b discrt) two-a) (/ (- minus-b discrt) two-a)))) (sqrt disc) (* -1.0 b) (* 2.0 a))))
+        (- (sq b) (* (* 4.0 a) c.3))))))
+
+(def *world* (ref (ann (empty-list ) (List Sphere))))
+
+(def eye (make-point 0.0 0.0 200.0))
+
+(def tracer (-> String I64 Unit)
+  (lambda (pathname res.1)
+    (begin
+      (if (file-exists? pathname) (begin (delete-file pathname) (unit)) (unit))
+      (call-with-output-file
+        pathname
+        (lambda (p)
+          ((lambda (extent) (begin (write-string "P2 " p) (write-i64 extent p) (write-string " " p) (write-i64 extent p) (write-string " 255" p) (newline p) (((lambda () (begin (def loop.5 (lambda (y.2) (if (= y.2 extent) (unit) (begin (((lambda () (begin (def loop.6 (lambda (x.3) (if (= x.3 extent) (unit) (begin (write-i64 (color-at (+ -50.0 (/ (i64->f64 x.3) (i64->f64 res.1))) (+ -50.0 (/ (i64->f64 y.2) (i64->f64 res.1)))) p) (newline p) (loop.6 (+ x.3 (ann 1 I64))))))) loop.6))) (ann 0 I64)) (loop.5 (+ y.2 (ann 1 I64))))))) loop.5))) (ann 0 I64))))
+            (* res.1 (ann 100 I64))))))))
+
+(def color-at (-> F64 F64 I64)
+  (lambda (x.2 y.1)
+    ((lambda (ray.5) (f64->i64 (round (* (sendray eye ray.5) 255.0))))
+      (unit-vector (- x.2 (point-x eye)) (- y.1 (point-y eye)) (* -1.0 (point-z eye))))))
+
+(def sendray (-> Point Point F64)
+  (lambda (pt.5 ray.4)
+    ((lambda (selected.1) (if (hit? selected.1) (* (lambert (hit-sphere selected.1) (hit-point selected.1) ray.4) (surface-color (hit-sphere selected.1))) 0.0))
+      (first-hit pt.5 ray.4))))
+
+(def first-hit (-> Point Point Hit)
+  (lambda (pt.4 ray.3)
+    (((lambda () (begin (def loop.4 (lambda (lst selected dist) (if (null? lst) selected ((lambda (s.7) ((lambda (candidate) (if (candidate? candidate) ((lambda (h) ((lambda (d) ((lambda () (if (< d dist) (loop.4 (cdr lst) (hit s.7 h) d) (loop.4 (cdr lst) selected dist))))) (distance h pt.4))) (candidate-point candidate)) (loop.4 (cdr lst) selected dist))) (intersect s.7 pt.4 ray.3))) (car lst))))) loop.4)))
+      (ref-get *world*)
+      (miss)
+      1e+308)))
+
+(def lambert (-> Sphere Point Point F64)
+  (lambda (s.6 int ray.2)
+    ((lambda (n.1) (ray-max 0.0 (+ (+ (* (point-x ray.2) (point-x n.1)) (* (point-y ray.2) (point-y n.1))) (* (point-z ray.2) (point-z n.1)))))
+      (normal s.6 int))))
+
+(def defsphere (-> F64 F64 F64 F64 F64 Sphere)
+  (lambda (x.1 y z.1 r c.2)
+    ((lambda (s.5) (begin (ref-set! *world* (cons s.5 (ref-get *world*))) s.5))
+      (make-sphere c.2 r (make-point x.1 y z.1)))))
+
+(def surface-color (-> Sphere F64) (lambda (s.4) (sphere-color s.4)))
+
+(def intersect (-> Sphere Point Point Candidate)
+  (lambda (s.3 pt.3 ray.1) (sphere-intersect s.3 pt.3 ray.1)))
+
+(def sphere-intersect (-> Sphere Point Point Candidate)
+  (lambda (s.2 pt.2 ray)
+    ((lambda (xr) ((lambda (yr) ((lambda (zr) ((lambda (c.1) ((lambda (n) ((lambda () (if (root? n) ((lambda (root) (some-point (make-point (+ (point-x pt.2) (* root xr)) (+ (point-y pt.2) (* root yr)) (+ (point-z pt.2) (* root zr))))) (root-value n)) (no-point))))) (minroot (+ (+ (sq xr) (sq yr)) (sq zr)) (* 2.0 (+ (+ (* (- (point-x pt.2) (point-x c.1)) xr) (* (- (point-y pt.2) (point-y c.1)) yr)) (* (- (point-z pt.2) (point-z c.1)) zr))) (+ (+ (+ (sq (- (point-x pt.2) (point-x c.1))) (sq (- (point-y pt.2) (point-y c.1)))) (sq (- (point-z pt.2) (point-z c.1)))) (* -1.0 (sq (sphere-radius s.2))))))) (sphere-center s.2))) (point-z ray))) (point-y ray)))
+      (point-x ray))))
+
+(def normal (-> Sphere Point Point) (lambda (s.1 pt.1) (sphere-normal s.1 pt.1)))
+
+(def sphere-normal (-> Sphere Point Point)
+  (lambda (s pt)
+    ((lambda (c) (unit-vector (- (point-x c) (point-x pt)) (- (point-y c) (point-y pt)) (- (point-z c) (point-z pt))))
+      (sphere-center s))))
+
+(def ray-test (-> I64 String Unit)
+  (lambda (res output-file)
+    (begin
+      (ref-set! *world* (empty-list ))
+      (defsphere 0.0 -300.0 -1200.0 200.0 0.8)
+      (defsphere -80.0 -150.0 -1200.0 200.0 0.7)
+      (defsphere 70.0 -100.0 -1200.0 200.0 0.9)
+      (((lambda () (begin (def loop.2 (lambda (x) (if (> x (ann 2 I64)) (unit) (begin (((lambda () (begin (def loop.3 (lambda (z) (if (> z (ann 7 I64)) (unit) (begin (defsphere (* (i64->f64 x) 200.0) 300.0 (* (i64->f64 z) -400.0) 40.0 0.75) (loop.3 (+ z (ann 1 I64))))))) loop.3))) (ann 2 I64)) (loop.2 (+ x (ann 1 I64))))))) loop.2)))
+        (ann -2 I64))
+      (tracer output-file res))))
+
+(def run (-> I64 String I64) (lambda (input output) (begin (ray-test input output) (ann 1 I64))))
+
+(define-extern path-length "benchmark" "path_length" (-> I64))
+
+(define-extern path-character "benchmark" "path_character" (-> I64 Char))
+
+(def input-path (-> String)
+  (lambda ()
+    ((lambda (size) ((lambda (text) ((lambda () (((lambda () (begin (def loop.1 (lambda (index) (if (= index size) text (begin (string-set! text index (path-character index)) (loop.1 (+ index (ann 1 I64))))))) loop.1))) (ann 0 I64))))) (make-string size #\space)))
+      (path-length))))
+
+(def input0 (native-input-i64 (ann 0 I32)))
+
+(def input1 (input-path))
+
+(def expected-kind (native-input-i64 (ann 1 I32)))
+
+(def hide-path (-> I64 String String)
+  (lambda (count.1 value) (if (barrier) value (unreachable))))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (((lambda () (begin (def loop (lambda (i result) (if (< i count) (loop (+ i (ann 1 I64)) (run (hide count input0) (hide-path count input1))) (if (= result expected-kind) (ann 1 I64) (ann 0 I64))))) loop)))
+      (ann 0 I64)
+      (ann 0 I64))))
+
+(unit)

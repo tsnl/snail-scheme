@@ -3,7 +3,7 @@ use std::io::Write;
 
 fn main() {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let optimizer = std::env::var("SFIR_TEST_OPTIMIZER").unwrap();
+    let optimizer = std::env::var("LOFI_TEST_OPTIMIZER").unwrap();
     let status = std::process::Command::new(optimizer)
         .args(&arguments)
         .status()
@@ -28,7 +28,7 @@ fn main() {
         let mut log = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
-            .open(std::env::var("SFIR_TEST_OPTIMIZER_LOG").unwrap())
+            .open(std::env::var("LOFI_TEST_OPTIMIZER_LOG").unwrap())
             .unwrap();
         writeln!(log, "{record}").unwrap();
     }

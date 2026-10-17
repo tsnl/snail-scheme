@@ -119,7 +119,7 @@
     (define (command-output label command . options)
       (field (apply checked label command options) 'stdout))
     (define (chibi source . arguments)
-      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "src")
+      (append (list (tool-name "CHIBI" "chibi-scheme") "-I" (path "bootstrap")
                     "-I" (path "wasm-native/scheme") "-I" (path "tests")
                     "-I" (path "wasm-native/tests") source) arguments))
     (define (node script . arguments)
@@ -130,7 +130,7 @@
     (define (write-source name text)
       (let ((target (build-path name))) (create-directory* (path-directory target)) (write-text target text) target))
     (define (build-guest source wasm exports . options)
-      (checked "compile" (append (list (path-join (argument-value "--compiler" (root)) "scripts/build-sfir"))
+      (checked "compile" (append (list (path-join (argument-value "--compiler" (root)) "scripts/build-lofi"))
                                  (if (null? options) '() (car options))
                                  (append-map (lambda (name) (list "--export" name)) exports)
                                  (list source wasm))))
@@ -150,7 +150,7 @@
       (for-each
        (lambda (form)
          (checked (string-append form "-link")
-                  (append (list (path-join (argument-value "--compiler" (root)) "scripts/link-sfir-runtime"))
+                  (append (list (path-join (argument-value "--compiler" (root)) "scripts/link-lofi-runtime"))
                           (list "--runtime" (path "build/wasm-runtime/wasm32-wasip1/release/snail_runtime.wasm"))
                           (if (string=? form "raw") '("--diagnostic-prune-only") '())
                           (list (if (string=? form "raw") (string-append wasm ".raw.wasm") wasm)
@@ -180,12 +180,12 @@
         (write-bytes target (read-bytes source))
         (cons (string->symbol relative) (file-sha256 target))))
     (define (freeze-sources! suite)
-      (let* ((directories (list "src" "lib" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
+      (let* ((directories (list "src" "bootstrap" "wasm-native/src" "wasm-native/scheme" "wasm-native/scripts" "tests/snail-tests"
                                 (if (string=? suite "native") "tests" (string-append "tests/" suite))))
              (paths (append-map (lambda (directory) (directory-files-recursive (path directory))) directories))
              (files (map path '("wasm-native/Cargo.toml" "wasm-native/Cargo.lock" "wasm-native/rust-toolchain.toml" "tests/native-support.rs" "tests/run.scm"
-                                "scripts/build-sfir" "scripts/build-sfir.scm" "scripts/build-native"
-                                "scripts/build-native.scm" "scripts/link-sfir-runtime" "scripts/link-sfir-runtime.scm"))))
+                                "scripts/build-lofi" "scripts/build-lofi.scm" "scripts/build-native"
+                                "scripts/build-native.scm" "scripts/link-lofi-runtime" "scripts/link-lofi-runtime.scm"))))
         (write-json (build-path "source-identities.json")
                     (map snapshot-source (delete-duplicates
                                           (filter (lambda (file) (not (contains? file "/target/"))) (append paths files)))))))
@@ -216,8 +216,8 @@
     (define (verify-reuse!)
       (for-each (lambda (entry)
                   (let ((name (symbol->string (car entry))))
-                    (when (or (starts? name "src/") (starts? name "lib/") (starts? name "wasm-native/")
-                              (member (path-extension name) '("sfir" "rs"))
+                    (when (or (starts? name "src/") (starts? name "bootstrap/") (starts? name "wasm-native/")
+                              (member (path-extension name) '("sld" "rs"))
                               (member name '("Cargo.toml" "Cargo.lock")))
                       (assert-equal (file-sha256 (path name)) (cdr entry) "cannot reuse changed compiled source" name))))
                 (read-json (path-join (artifacts) "source-identities.json")))

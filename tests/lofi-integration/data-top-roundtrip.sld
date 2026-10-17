@@ -1,0 +1,5 @@
+(import (lofi base))
+(def Choice (datatype () (left (value I64)) (right (value I64))))
+(def boxed
+     (ann (right (ann 18 I64)) Any))
+(match (ann boxed Choice) ((left value) (ann 0 I64)) ((right value) value))

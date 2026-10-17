@@ -1,2 +1,0 @@
-(import (sfir base))
-(ann (ann #\λ Any) Char)

@@ -1,0 +1,4605 @@
+;; Static Lofi: complete canonical workload.
+;; Every upstream definition remains present; see migration.json.
+
+(import
+  (lofi base)
+  (lofi integer)
+  (lofi rational)
+  (lofi number)
+  (lofi datum)
+  (lofi io)
+  (lofi read)
+  (lofi write)
+  (lofi text)
+  (lofi bytes)
+  (lofi math))
+
+;; ---- Closed values preserve the source data model ----
+
+(def Value (datatype ()
+  (value-null)
+  (value-boolean (boolean Bool value-boolean-boolean))
+  (value-character (character Char value-character-character))
+  (value-string (string String value-string-string))
+  (value-symbol (symbol Symbol value-symbol-symbol))
+  (value-number (number Number value-number-number))
+  (value-pair (first (Ref Value) value-pair-first) (rest (Ref Value) value-pair-rest))
+  (value-vector (vector (Vector Value) value-vector-vector))
+  (value-bytevector (bytes Bytevector value-bytevector-bytes))
+  (value-input (identity (Ref Unit) value-input-identity) (port InputPort value-input-port))
+  (value-output (port OutputPort value-output-port))
+  (value-procedure
+    (identity (Ref Unit) value-procedure-identity)
+    (procedure Procedure value-procedure-procedure))
+  (value-eof)
+  (value-unspecified)
+  (value-uninitialized)))
+
+;; ---- Every callable case has a concrete signature ----
+
+(def Procedure (datatype ()
+  (function-0 (body (-> Value) function-0-body))
+  (function-1 (body (-> Value Value) function-1-body))
+  (function-2 (body (-> Value Value Value) function-2-body))
+  (function-3 (body (-> Value Value Value Value) function-3-body))
+  (function-4 (body (-> Value Value Value Value Value) function-4-body))
+  (function-rest-0 (body (-> Value Value) function-rest-0-body))
+  (function-rest-1 (body (-> Value Value Value) function-rest-1-body))
+  (function-rest-2 (body (-> Value Value Value Value) function-rest-2-body))
+  (function-rest-3 (body (-> Value Value Value Value Value) function-rest-3-body))))
+
+(def value-kind (-> Value I64)
+  (lambda (value)
+    (match value
+      ((value-null) (ann 0 I64))
+      ((value-boolean boolean) (ann 1 I64))
+      ((value-character character) (ann 2 I64))
+      ((value-string string) (ann 3 I64))
+      ((value-symbol symbol) (ann 4 I64))
+      ((value-number number) (ann 5 I64))
+      ((value-pair first rest) (ann 6 I64))
+      ((value-vector vector) (ann 7 I64))
+      ((value-bytevector bytes) (ann 8 I64))
+      ((value-input identity port) (ann 9 I64))
+      ((value-output port) (ann 10 I64))
+      ((value-procedure identity procedure) (ann 11 I64))
+      ((value-eof) (ann 12 I64))
+      ((value-unspecified) (ann 13 I64))
+      ((value-uninitialized) (ann 14 I64)))))
+
+;; ---- Source binding cells detect reads before initialization ----
+
+(def binding-value (-> (Ref Value) Value)
+  (lambda (cell)
+    (begin (let value (ref-get cell))
+      (if (value-uninitialized? value) (datum-fail "binding read before initialization") value))))
+
+(def value-truth? (-> Value Bool)
+  (lambda (value)
+    (match value
+      ((value-null) #t)
+      ((value-boolean boolean) boolean)
+      ((value-character character) #t)
+      ((value-string string) #t)
+      ((value-symbol symbol) #t)
+      ((value-number number) #t)
+      ((value-pair first rest) #t)
+      ((value-vector vector) #t)
+      ((value-bytevector bytes) #t)
+      ((value-input identity port) #t)
+      ((value-output port) #t)
+      ((value-procedure identity procedure) #t)
+      ((value-eof) #t)
+      ((value-unspecified) #t)
+      ((value-uninitialized) #t))))
+
+(def value-null? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 0 I64))))
+
+(def value-boolean? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 1 I64))))
+
+(def value-character? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 2 I64))))
+
+(def value-string? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 3 I64))))
+
+(def value-symbol? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 4 I64))))
+
+(def value-number? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 5 I64))))
+
+(def value-pair? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 6 I64))))
+
+(def value-vector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 7 I64))))
+
+(def value-bytevector? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 8 I64))))
+
+(def value-input? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 9 I64))))
+
+(def value-output? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 10 I64))))
+
+(def value-procedure? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 11 I64))))
+
+(def value-eof? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 12 I64))))
+
+(def value-unspecified? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 13 I64))))
+
+(def value-uninitialized? (-> Value Bool) (lambda (value) (= (value-kind value) (ann 14 I64))))
+
+;; ---- Mutable pairs keep identity in their field cells ----
+
+(def value-cons (-> Value Value Value) (lambda (first rest) (value-pair (ref first) (ref rest))))
+
+(def value-car (-> Value Value) (lambda (pair) (ref-get (value-pair-first pair))))
+
+(def value-cdr (-> Value Value) (lambda (pair) (ref-get (value-pair-rest pair))))
+
+(def value-eq? (-> Value Value Bool)
+  (lambda (left right)
+    (if (= (value-kind left) (value-kind right))
+      (match left
+        ((value-null) #t)
+        ((value-boolean boolean)
+          (if boolean (value-boolean-boolean right) (not (value-boolean-boolean right))))
+        ((value-character character) (char=? character (value-character-character right)))
+        ((value-string string) (string-eq? string (value-string-string right)))
+        ((value-symbol symbol) (symbol=? symbol (value-symbol-symbol right)))
+        ((value-number number) (number-equivalent? number (value-number-number right)))
+        ((value-pair first rest) (ref-eq? first (value-pair-first right)))
+        ((value-vector vector) (vector-eq? vector (value-vector-vector right)))
+        ((value-bytevector bytes) (bytevector-eq? bytes (value-bytevector-bytes right)))
+        ((value-input identity port) (ref-eq? identity (value-input-identity right)))
+        ((value-output port) (output-port=? port (value-output-port right)))
+        ((value-procedure identity procedure) (ref-eq? identity (value-procedure-identity right)))
+        ((value-eof) #t)
+        ((value-unspecified) #t)
+        ((value-uninitialized) #t))
+      #f)))
+
+(def value-length (-> Value I64)
+  (lambda (values) (if (value-null? values) (ann 0 I64) (+ (ann 1 I64) (value-length (value-cdr values))))))
+
+(def value-append (-> Value Value Value)
+  (lambda (left right)
+    (if (value-null? left)
+      right
+      (value-cons (value-car left) (value-append (value-cdr left) right)))))
+
+(def value-reverse (-> Value Value Value)
+  (lambda (values result)
+    (if (value-null? values)
+      result
+      (value-reverse (value-cdr values) (value-cons (value-car values) result)))))
+
+(def value-tail (-> Value I64 Value)
+  (lambda (values index) (if (= index (ann 0 I64)) values (value-tail (value-cdr values) (- index (ann 1 I64))))))
+
+(def value-member (-> Value Value (-> Value Value Bool) Value)
+  (lambda (value values same?)
+    (if (value-null? values)
+      (value-boolean #f)
+      (if (same? value (value-car values)) values (value-member value (value-cdr values) same?)))))
+
+(def value-assoc (-> Value Value (-> Value Value Bool) Value)
+  (lambda (key entries same?)
+    (if (value-null? entries)
+      (value-boolean #f)
+      (if (same? key (value-car (value-car entries)))
+        (value-car entries)
+        (value-assoc key (value-cdr entries) same?)))))
+
+(def values->native (-> Value (List Value))
+  (lambda (values)
+    (if (value-null? values)
+      (empty-list )
+      (cons (value-car values) (values->native (value-cdr values))))))
+
+(def native->values (-> (List Value) Value)
+  (lambda (values)
+    (if (null? values) (value-null) (value-cons (car values) (native->values (cdr values))))))
+
+;; ---- Calls dispatch only statically checked signatures ----
+
+(def invoke-0 (-> Value Value)
+  (lambda (procedure)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body) (body))
+      ((function-1 body) (datum-fail "procedure argument count mismatch"))
+      ((function-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-3 body) (datum-fail "procedure argument count mismatch"))
+      ((function-4 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-0 body) (body (value-null)))
+      ((function-rest-1 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-3 body) (datum-fail "procedure argument count mismatch")))))
+
+(def invoke-1 (-> Value Value Value)
+  (lambda (procedure a0)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body) (datum-fail "procedure argument count mismatch"))
+      ((function-1 body) (body a0))
+      ((function-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-3 body) (datum-fail "procedure argument count mismatch"))
+      ((function-4 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-0 body) (body (value-cons a0 (value-null))))
+      ((function-rest-1 body) (body a0 (value-null)))
+      ((function-rest-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-3 body) (datum-fail "procedure argument count mismatch")))))
+
+(def invoke-2 (-> Value Value Value Value)
+  (lambda (procedure a0 a1)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body) (datum-fail "procedure argument count mismatch"))
+      ((function-1 body) (datum-fail "procedure argument count mismatch"))
+      ((function-2 body) (body a0 a1))
+      ((function-3 body) (datum-fail "procedure argument count mismatch"))
+      ((function-4 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-0 body) (body (value-cons a0 (value-cons a1 (value-null)))))
+      ((function-rest-1 body) (body a0 (value-cons a1 (value-null))))
+      ((function-rest-2 body) (body a0 a1 (value-null)))
+      ((function-rest-3 body) (datum-fail "procedure argument count mismatch")))))
+
+(def invoke-3 (-> Value Value Value Value Value)
+  (lambda (procedure a0 a1 a2)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body) (datum-fail "procedure argument count mismatch"))
+      ((function-1 body) (datum-fail "procedure argument count mismatch"))
+      ((function-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-3 body) (body a0 a1 a2))
+      ((function-4 body) (datum-fail "procedure argument count mismatch"))
+      ((function-rest-0 body) (body (value-cons a0 (value-cons a1 (value-cons a2 (value-null))))))
+      ((function-rest-1 body) (body a0 (value-cons a1 (value-cons a2 (value-null)))))
+      ((function-rest-2 body) (body a0 a1 (value-cons a2 (value-null))))
+      ((function-rest-3 body) (body a0 a1 a2 (value-null))))))
+
+(def invoke-4 (-> Value Value Value Value Value Value)
+  (lambda (procedure a0 a1 a2 a3)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body) (datum-fail "procedure argument count mismatch"))
+      ((function-1 body) (datum-fail "procedure argument count mismatch"))
+      ((function-2 body) (datum-fail "procedure argument count mismatch"))
+      ((function-3 body) (datum-fail "procedure argument count mismatch"))
+      ((function-4 body) (body a0 a1 a2 a3))
+      ((function-rest-0 body)
+        (body (value-cons a0 (value-cons a1 (value-cons a2 (value-cons a3 (value-null)))))))
+      ((function-rest-1 body)
+        (body a0 (value-cons a1 (value-cons a2 (value-cons a3 (value-null))))))
+      ((function-rest-2 body) (body a0 a1 (value-cons a2 (value-cons a3 (value-null)))))
+      ((function-rest-3 body) (body a0 a1 a2 (value-cons a3 (value-null)))))))
+
+(def read-source-value (-> InputPort Value)
+  (lambda (port)
+    (match (read port)
+      ((read-end) (value-eof))
+      ((read-error message) (datum-fail message))
+      ((read-value datum) (datum->value datum)))))
+
+(def value-error (-> Value Never)
+  (lambda (arguments)
+    (begin (write (value->datum arguments)) (newline) (datum-fail "benchmark primitive error"))))
+
+(def integer-radix-digits (-> Integer I64 (List Char) (List Char))
+  (lambda (number radix digits)
+    (if (integer-zero? number)
+      digits
+      (begin (let division (integer-divide number (integer-from-i64 radix)))
+        (integer-radix-digits
+          (division-quotient division)
+          radix
+          (cons (string-ref "0123456789abcdef" (integer->i64 (division-remainder division))) digits))))))
+
+(def integer-radix-string (-> Integer I64 String)
+  (lambda (number radix)
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
+      (if (integer-zero? number)
+        "0"
+        (string-append
+          (if (integer-negative? number) "-" "")
+          (list->string (integer-radix-digits (integer-abs number) radix (empty-list )))))
+      (datum-fail "invalid numeric radix"))))
+
+;; ---- Source primitive calls keep checks at dynamic boundaries ----
+
+(def primitive/+/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-number (number-add (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/-/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-number (number-subtract (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/</2 (-> Value Value Value)
+  (lambda (a0 a1) (value-boolean (number<? (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/<=/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-boolean (number<=? (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/=/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-boolean (number=? (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/abs/1 (-> Value Value)
+  (lambda (a0) (value-number (number-abs (value-number-number a0)))))
+
+(def primitive/acos/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-acos (value-number-number a0)))))
+
+(def primitive/append/2 (-> Value Value Value) (lambda (a0 a1) (value-append a0 a1)))
+
+(def primitive/apply/2 (-> Value Value Value) (lambda (a0 a1) (invoke-list a0 a1)))
+
+(def primitive/asin/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-asin (value-number-number a0)))))
+
+(def primitive/assoc/2 (-> Value Value Value) (lambda (a0 a1) (value-assoc a0 a1 value-equal?)))
+
+(def primitive/assq/2 (-> Value Value Value) (lambda (a0 a1) (value-assoc a0 a1 value-eq?)))
+
+(def primitive/assv/2 (-> Value Value Value) (lambda (a0 a1) (value-assoc a0 a1 value-eq?)))
+
+(def primitive/atan/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-atan (value-number-number a0)))))
+
+(def primitive/atan/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-number
+      (inexact-number
+        (atan2 (number->f64 (value-number-number a0)) (number->f64 (value-number-number a1)))))))
+
+(def primitive/boolean?/1 (-> Value Value) (lambda (a0) (value-boolean (value-boolean? a0))))
+
+(def primitive/caaaar/1 (-> Value Value)
+  (lambda (a0) (value-car (value-car (value-car (value-car a0))))))
+
+(def primitive/caaadr/1 (-> Value Value)
+  (lambda (a0) (value-car (value-car (value-car (value-cdr a0))))))
+
+(def primitive/caaar/1 (-> Value Value) (lambda (a0) (value-car (value-car (value-car a0)))))
+
+(def primitive/caadar/1 (-> Value Value)
+  (lambda (a0) (value-car (value-car (value-cdr (value-car a0))))))
+
+(def primitive/caaddr/1 (-> Value Value)
+  (lambda (a0) (value-car (value-car (value-cdr (value-cdr a0))))))
+
+(def primitive/caadr/1 (-> Value Value) (lambda (a0) (value-car (value-car (value-cdr a0)))))
+
+(def primitive/caar/1 (-> Value Value) (lambda (a0) (value-car (value-car a0))))
+
+(def primitive/cadaar/1 (-> Value Value)
+  (lambda (a0) (value-car (value-cdr (value-car (value-car a0))))))
+
+(def primitive/cadadr/1 (-> Value Value)
+  (lambda (a0) (value-car (value-cdr (value-car (value-cdr a0))))))
+
+(def primitive/cadar/1 (-> Value Value) (lambda (a0) (value-car (value-cdr (value-car a0)))))
+
+(def primitive/caddar/1 (-> Value Value)
+  (lambda (a0) (value-car (value-cdr (value-cdr (value-car a0))))))
+
+(def primitive/cadddr/1 (-> Value Value)
+  (lambda (a0) (value-car (value-cdr (value-cdr (value-cdr a0))))))
+
+(def primitive/caddr/1 (-> Value Value) (lambda (a0) (value-car (value-cdr (value-cdr a0)))))
+
+(def primitive/cadr/1 (-> Value Value) (lambda (a0) (value-car (value-cdr a0))))
+
+(def primitive/call-with-input-file/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (call-with-input-file
+      (value-string-string a0)
+      (lambda (port) (invoke-1 a1 (value-input (ref (unit)) port))))))
+
+(def primitive/call-with-output-file/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (call-with-output-file
+      (value-string-string a0)
+      (lambda (port) (invoke-1 a1 (value-output port))))))
+
+(def primitive/car/1 (-> Value Value) (lambda (a0) (value-car a0)))
+
+(def primitive/cdaaar/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-car (value-car (value-car a0))))))
+
+(def primitive/cdaadr/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-car (value-car (value-cdr a0))))))
+
+(def primitive/cdaar/1 (-> Value Value) (lambda (a0) (value-cdr (value-car (value-car a0)))))
+
+(def primitive/cdadar/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-car (value-cdr (value-car a0))))))
+
+(def primitive/cdaddr/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-car (value-cdr (value-cdr a0))))))
+
+(def primitive/cdadr/1 (-> Value Value) (lambda (a0) (value-cdr (value-car (value-cdr a0)))))
+
+(def primitive/cdar/1 (-> Value Value) (lambda (a0) (value-cdr (value-car a0))))
+
+(def primitive/cddaar/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-cdr (value-car (value-car a0))))))
+
+(def primitive/cddadr/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-cdr (value-car (value-cdr a0))))))
+
+(def primitive/cddar/1 (-> Value Value) (lambda (a0) (value-cdr (value-cdr (value-car a0)))))
+
+(def primitive/cdddar/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-cdr (value-cdr (value-car a0))))))
+
+(def primitive/cddddr/1 (-> Value Value)
+  (lambda (a0) (value-cdr (value-cdr (value-cdr (value-cdr a0))))))
+
+(def primitive/cdddr/1 (-> Value Value) (lambda (a0) (value-cdr (value-cdr (value-cdr a0)))))
+
+(def primitive/cddr/1 (-> Value Value) (lambda (a0) (value-cdr (value-cdr a0))))
+
+(def primitive/cdr/1 (-> Value Value) (lambda (a0) (value-cdr a0)))
+
+(def primitive/ceiling/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-ceiling (value-number-number a0)))))
+
+(def primitive/char->integer/1 (-> Value Value)
+  (lambda (a0) (value-number (exact-number (char->integer (value-character-character a0))))))
+
+(def primitive/char-alphabetic?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (char-alphabetic? (value-character-character a0)))))
+
+(def primitive/char-ci<=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (char<=?
+        (char-foldcase (value-character-character a0))
+        (char-foldcase (value-character-character a1))))))
+
+(def primitive/char-ci<?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (char<?
+        (char-foldcase (value-character-character a0))
+        (char-foldcase (value-character-character a1))))))
+
+(def primitive/char-ci=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (char=?
+        (char-foldcase (value-character-character a0))
+        (char-foldcase (value-character-character a1))))))
+
+(def primitive/char-ci>=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (char>=?
+        (char-foldcase (value-character-character a0))
+        (char-foldcase (value-character-character a1))))))
+
+(def primitive/char-ci>?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (char>?
+        (char-foldcase (value-character-character a0))
+        (char-foldcase (value-character-character a1))))))
+
+(def primitive/char-downcase/1 (-> Value Value)
+  (lambda (a0) (value-character (char-downcase (value-character-character a0)))))
+
+(def primitive/char-lower-case?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (char-lower-case? (value-character-character a0)))))
+
+(def primitive/char-numeric?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (char-numeric? (value-character-character a0)))))
+
+(def primitive/char-upcase/1 (-> Value Value)
+  (lambda (a0) (value-character (char-upcase (value-character-character a0)))))
+
+(def primitive/char-whitespace?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (char-whitespace? (value-character-character a0)))))
+
+(def primitive/char<=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean (char<=? (value-character-character a0) (value-character-character a1)))))
+
+(def primitive/char<?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean (char<? (value-character-character a0) (value-character-character a1)))))
+
+(def primitive/char=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean (char=? (value-character-character a0) (value-character-character a1)))))
+
+(def primitive/char>=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean (char>=? (value-character-character a0) (value-character-character a1)))))
+
+(def primitive/char>?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean (char>? (value-character-character a0) (value-character-character a1)))))
+
+(def primitive/char?/1 (-> Value Value) (lambda (a0) (value-boolean (value-character? a0))))
+
+(def primitive/close-input-port/1 (-> Value Value)
+  (lambda (a0) (begin (close-input-port (value-input-port a0)) (value-unspecified))))
+
+(def primitive/close-output-port/1 (-> Value Value)
+  (lambda (a0) (begin (close-output-port (value-output-port a0)) (value-unspecified))))
+
+(def primitive/complex?/1 (-> Value Value) (lambda (a0) (value-boolean (value-number? a0))))
+
+(def primitive/cons/2 (-> Value Value Value) (lambda (a0 a1) (value-cons a0 a1)))
+
+(def primitive/cos/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-cos (value-number-number a0)))))
+
+(def primitive/current-input-port/0 (-> Value) (lambda () standard-input-value))
+
+(def primitive/current-output-port/0 (-> Value) (lambda () (value-output (current-output-port))))
+
+(def primitive/display/1 (-> Value Value)
+  (lambda (a0) (begin (display (value->datum a0)) (value-unspecified))))
+
+(def primitive/display/2 (-> Value Value Value)
+  (lambda (a0 a1) (begin (display (value->datum a0) (value-output-port a1)) (value-unspecified))))
+
+(def primitive/eof-object?/1 (-> Value Value) (lambda (a0) (value-boolean (value-eof? a0))))
+
+(def primitive/eq?/2 (-> Value Value Value) (lambda (a0 a1) (value-boolean (value-eq? a0 a1))))
+
+(def primitive/equal?/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-boolean (value-equal? a0 a1))))
+
+(def primitive/eqv?/2 (-> Value Value Value) (lambda (a0 a1) (value-boolean (value-eq? a0 a1))))
+
+(def primitive/error/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2) (value-error (value-cons a0 (value-cons a1 (value-cons a2 (value-null)))))))
+
+(def primitive/exact/1 (-> Value Value)
+  (lambda (a0) (value-number (number-exact (value-number-number a0)))))
+
+(def primitive/exact?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (number-exact? (value-number-number a0)))))
+
+(def primitive/exp/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-exp (value-number-number a0)))))
+
+(def primitive/expt/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-number (numeric-expt (value-number-number a0) (value-number-number a1)))))
+
+(def primitive/floor/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-floor (value-number-number a0)))))
+
+(def primitive/inexact/1 (-> Value Value)
+  (lambda (a0) (value-number (number-inexact (value-number-number a0)))))
+
+(def primitive/inexact?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (not (number-exact? (value-number-number a0))))))
+
+(def primitive/input-port?/1 (-> Value Value) (lambda (a0) (value-boolean (value-input? a0))))
+
+(def primitive/integer->char/1 (-> Value Value)
+  (lambda (a0)
+    (value-character (integer->char (integer->i64 (number->integer (value-number-number a0)))))))
+
+(def primitive/integer?/1 (-> Value Value)
+  (lambda (a0)
+    (value-boolean (if (value-number? a0) (number-integer? (value-number-number a0)) #f))))
+
+(def primitive/length/1 (-> Value Value)
+  (lambda (a0) (value-number (exact-number (value-length a0)))))
+
+(def primitive/list/1 (-> Value Value) (lambda (a0) (value-cons a0 (value-null))))
+
+(def primitive/list/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-cons a0 (value-cons a1 (value-null)))))
+
+(def primitive/list/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2) (value-cons a0 (value-cons a1 (value-cons a2 (value-null))))))
+
+(def primitive/list-ref/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-car (value-tail a0 (integer->i64 (number->integer (value-number-number a1)))))))
+
+(def primitive/list?/1 (-> Value Value) (lambda (a0) (value-boolean (value-list? a0))))
+
+(def primitive/log/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-log (value-number-number a0)))))
+
+(def primitive/log/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-number
+      (number-divide (numeric-log (value-number-number a0)) (numeric-log (value-number-number a1))))))
+
+(def primitive/make-string/1 (-> Value Value)
+  (lambda (a0)
+    (value-string (make-string (integer->i64 (number->integer (value-number-number a0)))))))
+
+(def primitive/make-string/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-string
+      (make-string
+        (integer->i64 (number->integer (value-number-number a0)))
+        (value-character-character a1)))))
+
+(def primitive/make-vector/1 (-> Value Value)
+  (lambda (a0)
+    (value-vector
+      (make-vector (integer->i64 (number->integer (value-number-number a0))) (value-unspecified)))))
+
+(def primitive/make-vector/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-vector (make-vector (integer->i64 (number->integer (value-number-number a0))) a1))))
+
+(def primitive/member/2 (-> Value Value Value)
+  (lambda (a0 a1) (value-member a0 a1 value-equal?)))
+
+(def primitive/memq/2 (-> Value Value Value) (lambda (a0 a1) (value-member a0 a1 value-eq?)))
+
+(def primitive/memv/2 (-> Value Value Value) (lambda (a0 a1) (value-member a0 a1 value-eq?)))
+
+(def primitive/newline/0 (-> Value) (lambda () (begin (newline) (value-unspecified))))
+
+(def primitive/newline/1 (-> Value Value)
+  (lambda (a0) (begin (newline (value-output-port a0)) (value-unspecified))))
+
+(def primitive/not/1 (-> Value Value) (lambda (a0) (value-boolean (not (value-truth? a0)))))
+
+(def primitive/null?/1 (-> Value Value) (lambda (a0) (value-boolean (value-null? a0))))
+
+(def primitive/number->string/1 (-> Value Value)
+  (lambda (a0) (value-string (number->string (value-number-number a0)))))
+
+(def primitive/number->string/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-string
+      (numeric-radix-string
+        (value-number-number a0)
+        (integer->i64 (number->integer (value-number-number a1)))))))
+
+(def primitive/number?/1 (-> Value Value) (lambda (a0) (value-boolean (value-number? a0))))
+
+(def primitive/open-input-file/1 (-> Value Value)
+  (lambda (a0) (value-input (ref (unit)) (open-input-file (value-string-string a0)))))
+
+(def primitive/open-output-file/1 (-> Value Value)
+  (lambda (a0) (value-output (open-output-file (value-string-string a0)))))
+
+(def primitive/output-port?/1 (-> Value Value) (lambda (a0) (value-boolean (value-output? a0))))
+
+(def primitive/pair?/1 (-> Value Value) (lambda (a0) (value-boolean (value-pair? a0))))
+
+(def primitive/peek-char/0 (-> Value)
+  (lambda ()
+    (match (peek-char (current-input-port))
+      ((character-end) (value-eof))
+      ((character-value c) (value-character c)))))
+
+(def primitive/peek-char/1 (-> Value Value)
+  (lambda (a0)
+    (match (peek-char (value-input-port a0))
+      ((character-end) (value-eof))
+      ((character-value c) (value-character c)))))
+
+(def primitive/procedure?/1 (-> Value Value) (lambda (a0) (value-boolean (value-procedure? a0))))
+
+(def primitive/rational?/1 (-> Value Value)
+  (lambda (a0)
+    (value-boolean (if (value-number? a0) (number-rational? (value-number-number a0)) #f))))
+
+(def primitive/read/0 (-> Value) (lambda () (read-source-value (current-input-port))))
+
+(def primitive/read/1 (-> Value Value) (lambda (a0) (read-source-value (value-input-port a0))))
+
+(def primitive/read-char/0 (-> Value)
+  (lambda ()
+    (match (read-char (current-input-port))
+      ((character-end) (value-eof))
+      ((character-value c) (value-character c)))))
+
+(def primitive/read-char/1 (-> Value Value)
+  (lambda (a0)
+    (match (read-char (value-input-port a0))
+      ((character-end) (value-eof))
+      ((character-value c) (value-character c)))))
+
+(def primitive/real?/1 (-> Value Value)
+  (lambda (a0) (value-boolean (if (value-number? a0) (number-real? (value-number-number a0)) #f))))
+
+(def primitive/reverse/1 (-> Value Value) (lambda (a0) (value-reverse a0 (value-null))))
+
+(def primitive/round/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-round (value-number-number a0)))))
+
+(def primitive/set-car!/2 (-> Value Value Value)
+  (lambda (a0 a1) (begin (ref-set! (value-pair-first a0) a1) (value-unspecified))))
+
+(def primitive/set-cdr!/2 (-> Value Value Value)
+  (lambda (a0 a1) (begin (ref-set! (value-pair-rest a0) a1) (value-unspecified))))
+
+(def primitive/sin/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-sin (value-number-number a0)))))
+
+(def primitive/sqrt/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-sqrt (value-number-number a0)))))
+
+(def primitive/string->number/1 (-> Value Value)
+  (lambda (a0) (parsed-number->value (string->number (value-string-string a0)))))
+
+(def primitive/string->number/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (parsed-number->value
+      (string->number/radix
+        (value-string-string a0)
+        (integer->i64 (number->integer (value-number-number a1)))))))
+
+(def primitive/string->symbol/1 (-> Value Value)
+  (lambda (a0) (value-symbol (string->symbol (value-string-string a0)))))
+
+(def primitive/string-ci<=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (<=
+        (value-compare-strings
+          (string-foldcase (value-string-string a0))
+          (string-foldcase (value-string-string a1))
+          (ann 0 I64))
+        (ann 0 I64)))))
+
+(def primitive/string-ci<?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (<
+        (value-compare-strings
+          (string-foldcase (value-string-string a0))
+          (string-foldcase (value-string-string a1))
+          (ann 0 I64))
+        (ann 0 I64)))))
+
+(def primitive/string-ci=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (=
+        (value-compare-strings
+          (string-foldcase (value-string-string a0))
+          (string-foldcase (value-string-string a1))
+          (ann 0 I64))
+        (ann 0 I64)))))
+
+(def primitive/string-ci>=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (>=
+        (value-compare-strings
+          (string-foldcase (value-string-string a0))
+          (string-foldcase (value-string-string a1))
+          (ann 0 I64))
+        (ann 0 I64)))))
+
+(def primitive/string-ci>?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (>
+        (value-compare-strings
+          (string-foldcase (value-string-string a0))
+          (string-foldcase (value-string-string a1))
+          (ann 0 I64))
+        (ann 0 I64)))))
+
+(def primitive/string-length/1 (-> Value Value)
+  (lambda (a0) (value-number (exact-number (string-length (value-string-string a0))))))
+
+(def primitive/string-ref/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-character
+      (string-ref
+        (value-string-string a0)
+        (integer->i64 (number->integer (value-number-number a1)))))))
+
+(def primitive/string-set!/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2)
+    (begin
+      (string-set!
+        (value-string-string a0)
+        (integer->i64 (number->integer (value-number-number a1)))
+        (value-character-character a2))
+      (value-unspecified))))
+
+(def primitive/string<=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (<= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
+
+(def primitive/string<?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (< (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
+
+(def primitive/string=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
+
+(def primitive/string>=?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (>= (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
+
+(def primitive/string>?/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (value-boolean
+      (> (value-compare-strings (value-string-string a0) (value-string-string a1) (ann 0 I64)) (ann 0 I64)))))
+
+(def primitive/string?/1 (-> Value Value) (lambda (a0) (value-boolean (value-string? a0))))
+
+(def primitive/substring/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2)
+    (value-string
+      (substring
+        (value-string-string a0)
+        (integer->i64 (number->integer (value-number-number a1)))
+        (integer->i64 (number->integer (value-number-number a2)))))))
+
+(def primitive/symbol->string/1 (-> Value Value)
+  (lambda (a0) (value-string (symbol->string (value-symbol-symbol a0)))))
+
+(def primitive/symbol?/1 (-> Value Value) (lambda (a0) (value-boolean (value-symbol? a0))))
+
+(def primitive/tan/1 (-> Value Value)
+  (lambda (a0) (value-number (numeric-tan (value-number-number a0)))))
+
+(def primitive/truncate/1 (-> Value Value)
+  (lambda (a0) (value-number (number-truncate (value-number-number a0)))))
+
+(def primitive/vector/2 (-> Value Value Value) (lambda (a0 a1) (value-vector (vector a0 a1))))
+
+(def primitive/vector/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2) (value-vector (vector a0 a1 a2))))
+
+(def primitive/vector/4 (-> Value Value Value Value Value)
+  (lambda (a0 a1 a2 a3) (value-vector (vector a0 a1 a2 a3))))
+
+(def primitive/vector-length/1 (-> Value Value)
+  (lambda (a0) (value-number (exact-number (vector-length (value-vector-vector a0))))))
+
+(def primitive/vector-ref/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (vector-ref (value-vector-vector a0) (integer->i64 (number->integer (value-number-number a1))))))
+
+(def primitive/vector-set!/3 (-> Value Value Value Value)
+  (lambda (a0 a1 a2)
+    (begin
+      (vector-set!
+        (value-vector-vector a0)
+        (integer->i64 (number->integer (value-number-number a1)))
+        a2)
+      (value-unspecified))))
+
+(def primitive/vector?/1 (-> Value Value) (lambda (a0) (value-boolean (value-vector? a0))))
+
+(def primitive/write/1 (-> Value Value)
+  (lambda (a0) (begin (write (value->datum a0)) (value-unspecified))))
+
+(def primitive/write/2 (-> Value Value Value)
+  (lambda (a0 a1) (begin (write (value->datum a0) (value-output-port a1)) (value-unspecified))))
+
+(def primitive/write-char/1 (-> Value Value)
+  (lambda (a0) (begin (write-char (value-character-character a0)) (value-unspecified))))
+
+(def primitive/write-char/2 (-> Value Value Value)
+  (lambda (a0 a1)
+    (begin (write-char (value-character-character a0) (value-output-port a1)) (value-unspecified))))
+
+(def primitive-value/boolean? Value
+  (value-procedure (ref (unit)) (function-1 primitive/boolean?/1)))
+
+(def primitive-value/eqv? Value (value-procedure (ref (unit)) (function-2 primitive/eqv?/2)))
+
+(def primitive-value/eq? Value (value-procedure (ref (unit)) (function-2 primitive/eq?/2)))
+
+(def primitive-value/equal? Value (value-procedure (ref (unit)) (function-2 primitive/equal?/2)))
+
+(def primitive-value/set-car! Value
+  (value-procedure (ref (unit)) (function-2 primitive/set-car!/2)))
+
+(def primitive-value/set-cdr! Value
+  (value-procedure (ref (unit)) (function-2 primitive/set-cdr!/2)))
+
+(def primitive-value/caar Value (value-procedure (ref (unit)) (function-1 primitive/caar/1)))
+
+(def primitive-value/cadr Value (value-procedure (ref (unit)) (function-1 primitive/cadr/1)))
+
+(def primitive-value/cdar Value (value-procedure (ref (unit)) (function-1 primitive/cdar/1)))
+
+(def primitive-value/cddr Value (value-procedure (ref (unit)) (function-1 primitive/cddr/1)))
+
+(def primitive-value/caaar Value (value-procedure (ref (unit)) (function-1 primitive/caaar/1)))
+
+(def primitive-value/caadr Value (value-procedure (ref (unit)) (function-1 primitive/caadr/1)))
+
+(def primitive-value/cadar Value (value-procedure (ref (unit)) (function-1 primitive/cadar/1)))
+
+(def primitive-value/caddr Value (value-procedure (ref (unit)) (function-1 primitive/caddr/1)))
+
+(def primitive-value/cdaar Value (value-procedure (ref (unit)) (function-1 primitive/cdaar/1)))
+
+(def primitive-value/cdadr Value (value-procedure (ref (unit)) (function-1 primitive/cdadr/1)))
+
+(def primitive-value/cddar Value (value-procedure (ref (unit)) (function-1 primitive/cddar/1)))
+
+(def primitive-value/cdddr Value (value-procedure (ref (unit)) (function-1 primitive/cdddr/1)))
+
+(def primitive-value/caaaar Value (value-procedure (ref (unit)) (function-1 primitive/caaaar/1)))
+
+(def primitive-value/caaadr Value (value-procedure (ref (unit)) (function-1 primitive/caaadr/1)))
+
+(def primitive-value/caadar Value (value-procedure (ref (unit)) (function-1 primitive/caadar/1)))
+
+(def primitive-value/caaddr Value (value-procedure (ref (unit)) (function-1 primitive/caaddr/1)))
+
+(def primitive-value/cadaar Value (value-procedure (ref (unit)) (function-1 primitive/cadaar/1)))
+
+(def primitive-value/cadadr Value (value-procedure (ref (unit)) (function-1 primitive/cadadr/1)))
+
+(def primitive-value/caddar Value (value-procedure (ref (unit)) (function-1 primitive/caddar/1)))
+
+(def primitive-value/cadddr Value (value-procedure (ref (unit)) (function-1 primitive/cadddr/1)))
+
+(def primitive-value/cdaaar Value (value-procedure (ref (unit)) (function-1 primitive/cdaaar/1)))
+
+(def primitive-value/cdaadr Value (value-procedure (ref (unit)) (function-1 primitive/cdaadr/1)))
+
+(def primitive-value/cdadar Value (value-procedure (ref (unit)) (function-1 primitive/cdadar/1)))
+
+(def primitive-value/cdaddr Value (value-procedure (ref (unit)) (function-1 primitive/cdaddr/1)))
+
+(def primitive-value/cddaar Value (value-procedure (ref (unit)) (function-1 primitive/cddaar/1)))
+
+(def primitive-value/cddadr Value (value-procedure (ref (unit)) (function-1 primitive/cddadr/1)))
+
+(def primitive-value/cdddar Value (value-procedure (ref (unit)) (function-1 primitive/cdddar/1)))
+
+(def primitive-value/cddddr Value (value-procedure (ref (unit)) (function-1 primitive/cddddr/1)))
+
+(def primitive-value/list? Value (value-procedure (ref (unit)) (function-1 primitive/list?/1)))
+
+(def primitive-rest/list (-> Value Value) (lambda (remaining) remaining))
+
+(def primitive-value/list Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/list)))
+
+(def primitive-value/length Value (value-procedure (ref (unit)) (function-1 primitive/length/1)))
+
+(def primitive-rest/append (-> Value Value) (lambda (remaining) (value-append-many remaining)))
+
+(def primitive-value/append Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/append)))
+
+(def primitive-value/reverse Value
+  (value-procedure (ref (unit)) (function-1 primitive/reverse/1)))
+
+(def primitive-value/list-ref Value
+  (value-procedure (ref (unit)) (function-2 primitive/list-ref/2)))
+
+(def primitive-value/memq Value (value-procedure (ref (unit)) (function-2 primitive/memq/2)))
+
+(def primitive-value/memv Value (value-procedure (ref (unit)) (function-2 primitive/memv/2)))
+
+(def primitive-value/member Value (value-procedure (ref (unit)) (function-2 primitive/member/2)))
+
+(def primitive-value/assq Value (value-procedure (ref (unit)) (function-2 primitive/assq/2)))
+
+(def primitive-value/assv Value (value-procedure (ref (unit)) (function-2 primitive/assv/2)))
+
+(def primitive-value/assoc Value (value-procedure (ref (unit)) (function-2 primitive/assoc/2)))
+
+(def primitive-value/symbol? Value
+  (value-procedure (ref (unit)) (function-1 primitive/symbol?/1)))
+
+(def primitive-value/symbol->string Value
+  (value-procedure (ref (unit)) (function-1 primitive/symbol->string/1)))
+
+(def primitive-value/string->symbol Value
+  (value-procedure (ref (unit)) (function-1 primitive/string->symbol/1)))
+
+(def primitive-value/number? Value
+  (value-procedure (ref (unit)) (function-1 primitive/number?/1)))
+
+(def primitive-value/complex? Value
+  (value-procedure (ref (unit)) (function-1 primitive/complex?/1)))
+
+(def primitive-value/real? Value (value-procedure (ref (unit)) (function-1 primitive/real?/1)))
+
+(def primitive-value/rational? Value
+  (value-procedure (ref (unit)) (function-1 primitive/rational?/1)))
+
+(def primitive-value/integer? Value
+  (value-procedure (ref (unit)) (function-1 primitive/integer?/1)))
+
+(def primitive-value/exact? Value (value-procedure (ref (unit)) (function-1 primitive/exact?/1)))
+
+(def primitive-value/inexact? Value
+  (value-procedure (ref (unit)) (function-1 primitive/inexact?/1)))
+
+(def primitive-rest/max (-> Value Value Value)
+  (lambda (a0 remaining)
+    (value-number
+      (numeric-extreme
+        #t
+        (value-number-number a0)
+        remaining
+        (not (number-exact? (value-number-number a0)))))))
+
+(def primitive-value/max Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/max)))
+
+(def primitive-rest/min (-> Value Value Value)
+  (lambda (a0 remaining)
+    (value-number
+      (numeric-extreme
+        #f
+        (value-number-number a0)
+        remaining
+        (not (number-exact? (value-number-number a0)))))))
+
+(def primitive-value/min Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/min)))
+
+(def primitive-rest// (-> Value Value Value)
+  (lambda (a0 remaining)
+    (value-number
+      (if (value-null? remaining)
+        (number-divide (exact-number (ann 1 I64)) (value-number-number a0))
+        (numeric-fold number-divide (value-number-number a0) remaining)))))
+
+(def primitive-value// Value (value-procedure (ref (unit)) (function-rest-1 primitive-rest//)))
+
+(def primitive-value/abs Value (value-procedure (ref (unit)) (function-1 primitive/abs/1)))
+
+(def primitive-rest/gcd (-> Value Value)
+  (lambda (remaining) (value-number (numeric-gcd-fold #f (integer-from-i64 (ann 0 I64)) remaining #f))))
+
+(def primitive-value/gcd Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/gcd)))
+
+(def primitive-rest/lcm (-> Value Value)
+  (lambda (remaining) (value-number (numeric-gcd-fold #t (integer-from-i64 (ann 1 I64)) remaining #f))))
+
+(def primitive-value/lcm Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/lcm)))
+
+(def primitive-value/floor Value (value-procedure (ref (unit)) (function-1 primitive/floor/1)))
+
+(def primitive-value/ceiling Value
+  (value-procedure (ref (unit)) (function-1 primitive/ceiling/1)))
+
+(def primitive-value/truncate Value
+  (value-procedure (ref (unit)) (function-1 primitive/truncate/1)))
+
+(def primitive-value/round Value (value-procedure (ref (unit)) (function-1 primitive/round/1)))
+
+(def primitive-value/exp Value (value-procedure (ref (unit)) (function-1 primitive/exp/1)))
+
+(def primitive-rest/log (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/log/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/log/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/log Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/log)))
+
+(def primitive-value/sin Value (value-procedure (ref (unit)) (function-1 primitive/sin/1)))
+
+(def primitive-value/cos Value (value-procedure (ref (unit)) (function-1 primitive/cos/1)))
+
+(def primitive-value/tan Value (value-procedure (ref (unit)) (function-1 primitive/tan/1)))
+
+(def primitive-value/asin Value (value-procedure (ref (unit)) (function-1 primitive/asin/1)))
+
+(def primitive-value/acos Value (value-procedure (ref (unit)) (function-1 primitive/acos/1)))
+
+(def primitive-rest/atan (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/atan/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/atan/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/atan Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/atan)))
+
+(def primitive-value/sqrt Value (value-procedure (ref (unit)) (function-1 primitive/sqrt/1)))
+
+(def primitive-value/expt Value (value-procedure (ref (unit)) (function-2 primitive/expt/2)))
+
+(def primitive-value/inexact Value
+  (value-procedure (ref (unit)) (function-1 primitive/inexact/1)))
+
+(def primitive-value/exact Value (value-procedure (ref (unit)) (function-1 primitive/exact/1)))
+
+(def primitive-rest/number->string (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/number->string/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/number->string/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/number->string Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/number->string)))
+
+(def primitive-rest/string->number (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/string->number/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/string->number/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/string->number Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/string->number)))
+
+(def primitive-value/char? Value (value-procedure (ref (unit)) (function-1 primitive/char?/1)))
+
+(def primitive-value/char=? Value (value-procedure (ref (unit)) (function-2 primitive/char=?/2)))
+
+(def primitive-value/char<? Value (value-procedure (ref (unit)) (function-2 primitive/char<?/2)))
+
+(def primitive-value/char>? Value (value-procedure (ref (unit)) (function-2 primitive/char>?/2)))
+
+(def primitive-value/char<=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char<=?/2)))
+
+(def primitive-value/char>=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char>=?/2)))
+
+(def primitive-value/char-ci=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char-ci=?/2)))
+
+(def primitive-value/char-ci<? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char-ci<?/2)))
+
+(def primitive-value/char-ci>? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char-ci>?/2)))
+
+(def primitive-value/char-ci<=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char-ci<=?/2)))
+
+(def primitive-value/char-ci>=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/char-ci>=?/2)))
+
+(def primitive-value/char-alphabetic? Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-alphabetic?/1)))
+
+(def primitive-value/char-numeric? Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-numeric?/1)))
+
+(def primitive-value/char-whitespace? Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-whitespace?/1)))
+
+(def primitive-value/char-lower-case? Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-lower-case?/1)))
+
+(def primitive-value/char->integer Value
+  (value-procedure (ref (unit)) (function-1 primitive/char->integer/1)))
+
+(def primitive-value/integer->char Value
+  (value-procedure (ref (unit)) (function-1 primitive/integer->char/1)))
+
+(def primitive-value/char-upcase Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-upcase/1)))
+
+(def primitive-value/char-downcase Value
+  (value-procedure (ref (unit)) (function-1 primitive/char-downcase/1)))
+
+(def primitive-value/string? Value
+  (value-procedure (ref (unit)) (function-1 primitive/string?/1)))
+
+(def primitive-rest/make-string (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/make-string/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/make-string/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/make-string Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/make-string)))
+
+(def primitive-rest/string (-> Value Value)
+  (lambda (remaining) (value-string (list->string (value-characters remaining)))))
+
+(def primitive-value/string Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/string)))
+
+(def primitive-value/string-length Value
+  (value-procedure (ref (unit)) (function-1 primitive/string-length/1)))
+
+(def primitive-value/string-ref Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ref/2)))
+
+(def primitive-value/string-set! Value
+  (value-procedure (ref (unit)) (function-3 primitive/string-set!/3)))
+
+(def primitive-value/string=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string=?/2)))
+
+(def primitive-value/string<? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string<?/2)))
+
+(def primitive-value/string>? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string>?/2)))
+
+(def primitive-value/string<=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string<=?/2)))
+
+(def primitive-value/string>=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string>=?/2)))
+
+(def primitive-value/string-ci=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ci=?/2)))
+
+(def primitive-value/string-ci<? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ci<?/2)))
+
+(def primitive-value/string-ci>? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ci>?/2)))
+
+(def primitive-value/string-ci<=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ci<=?/2)))
+
+(def primitive-value/string-ci>=? Value
+  (value-procedure (ref (unit)) (function-2 primitive/string-ci>=?/2)))
+
+(def primitive-value/substring Value
+  (value-procedure (ref (unit)) (function-3 primitive/substring/3)))
+
+(def primitive-rest/string-append (-> Value Value)
+  (lambda (remaining) (value-join-strings remaining)))
+
+(def primitive-value/string-append Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/string-append)))
+
+(def primitive-value/vector? Value
+  (value-procedure (ref (unit)) (function-1 primitive/vector?/1)))
+
+(def primitive-rest/make-vector (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/make-vector/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/make-vector/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/make-vector Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/make-vector)))
+
+(def primitive-rest/vector (-> Value Value)
+  (lambda (remaining) (value-vector (list->vector (values->native remaining)))))
+
+(def primitive-value/vector Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/vector)))
+
+(def primitive-value/vector-length Value
+  (value-procedure (ref (unit)) (function-1 primitive/vector-length/1)))
+
+(def primitive-value/vector-ref Value
+  (value-procedure (ref (unit)) (function-2 primitive/vector-ref/2)))
+
+(def primitive-value/vector-set! Value
+  (value-procedure (ref (unit)) (function-3 primitive/vector-set!/3)))
+
+(def primitive-value/procedure? Value
+  (value-procedure (ref (unit)) (function-1 primitive/procedure?/1)))
+
+(def primitive-rest/apply (-> Value Value Value Value)
+  (lambda (a0 a1 remaining) (invoke-list a0 (value-apply-arguments (value-cons a1 remaining)))))
+
+(def primitive-value/apply Value
+  (value-procedure (ref (unit)) (function-rest-2 primitive-rest/apply)))
+
+(def primitive-rest/map (-> Value Value Value Value)
+  (lambda (a0 a1 remaining) (value-map-many a0 (value-cons a1 remaining))))
+
+(def primitive-value/map Value
+  (value-procedure (ref (unit)) (function-rest-2 primitive-rest/map)))
+
+(def primitive-rest/for-each (-> Value Value Value Value)
+  (lambda (a0 a1 remaining) (value-for-each-many a0 (value-cons a1 remaining))))
+
+(def primitive-value/for-each Value
+  (value-procedure (ref (unit)) (function-rest-2 primitive-rest/for-each)))
+
+(def primitive-value/call-with-input-file Value
+  (value-procedure (ref (unit)) (function-2 primitive/call-with-input-file/2)))
+
+(def primitive-value/call-with-output-file Value
+  (value-procedure (ref (unit)) (function-2 primitive/call-with-output-file/2)))
+
+(def primitive-value/input-port? Value
+  (value-procedure (ref (unit)) (function-1 primitive/input-port?/1)))
+
+(def primitive-value/output-port? Value
+  (value-procedure (ref (unit)) (function-1 primitive/output-port?/1)))
+
+(def primitive-value/current-input-port Value
+  (value-procedure (ref (unit)) (function-0 primitive/current-input-port/0)))
+
+(def primitive-value/current-output-port Value
+  (value-procedure (ref (unit)) (function-0 primitive/current-output-port/0)))
+
+(def primitive-value/open-input-file Value
+  (value-procedure (ref (unit)) (function-1 primitive/open-input-file/1)))
+
+(def primitive-value/open-output-file Value
+  (value-procedure (ref (unit)) (function-1 primitive/open-output-file/1)))
+
+(def primitive-value/close-input-port Value
+  (value-procedure (ref (unit)) (function-1 primitive/close-input-port/1)))
+
+(def primitive-value/close-output-port Value
+  (value-procedure (ref (unit)) (function-1 primitive/close-output-port/1)))
+
+(def primitive-value/eof-object? Value
+  (value-procedure (ref (unit)) (function-1 primitive/eof-object?/1)))
+
+(def primitive-rest/read (-> Value Value)
+  (lambda (remaining)
+    (if (value-null? remaining)
+      (primitive/read/0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/read/1 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/read Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/read)))
+
+(def primitive-rest/read-char (-> Value Value)
+  (lambda (remaining)
+    (if (value-null? remaining)
+      (primitive/read-char/0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/read-char/1 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/read-char Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/read-char)))
+
+(def primitive-rest/peek-char (-> Value Value)
+  (lambda (remaining)
+    (if (value-null? remaining)
+      (primitive/peek-char/0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/peek-char/1 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/peek-char Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/peek-char)))
+
+(def primitive-rest/write (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/write/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/write/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/write Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/write)))
+
+(def primitive-rest/display (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/display/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/display/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/display Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/display)))
+
+(def primitive-rest/newline (-> Value Value)
+  (lambda (remaining)
+    (if (value-null? remaining)
+      (primitive/newline/0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/newline/1 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/newline Value
+  (value-procedure (ref (unit)) (function-rest-0 primitive-rest/newline)))
+
+(def primitive-rest/write-char (-> Value Value Value)
+  (lambda (a0 remaining)
+    (if (value-null? remaining)
+      (primitive/write-char/1 a0)
+      (if (value-null? (value-cdr remaining))
+        (primitive/write-char/2 a0 (value-car remaining))
+        (datum-fail "primitive argument count mismatch")))))
+
+(def primitive-value/write-char Value
+  (value-procedure (ref (unit)) (function-rest-1 primitive-rest/write-char)))
+
+;; ---- Exact and inexact arithmetic retain their domains ----
+
+(def numeric-floor (-> Number Number)
+  (lambda (x)
+    (if (number-exact? x)
+      (number-from-integer (rational-floor (number->rational x)))
+      (inexact-number (floor (number->f64 x))))))
+
+(def numeric-ceiling (-> Number Number)
+  (lambda (x) (number-negate (numeric-floor (number-negate x)))))
+
+(def numeric-round (-> Number Number)
+  (lambda (x)
+    (if (number-exact? x)
+      (begin (let lo (number->integer (numeric-floor x)))
+        (begin (let fraction (number-subtract x (number-from-integer lo)))
+          (number-from-integer
+            (if (number<? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
+              lo
+              (if (number>? fraction (rational-number (make-rational (integer-from-i64 (ann 1 I64)) (integer-from-i64 (ann 2 I64)))))
+                (integer-add lo (integer-from-i64 (ann 1 I64)))
+                (if (integer-zero? (integer-remainder lo (integer-from-i64 (ann 2 I64))))
+                  lo
+                  (integer-add lo (integer-from-i64 (ann 1 I64)))))))))
+      (inexact-number (round (number->f64 x))))))
+
+(def numeric-fold (-> (-> Number Number Number) Number Value Number)
+  (lambda (operation result remaining)
+    (if (value-null? remaining)
+      result
+      (numeric-fold
+        operation
+        (operation result (value-number-number (value-car remaining)))
+        (value-cdr remaining)))))
+
+(def numeric-extreme (-> Bool Number Value Bool Number)
+  (lambda (maximum? result remaining inexact?)
+    (if (value-null? remaining)
+      (if inexact? (number-inexact result) result)
+      (begin (let next (value-number-number (value-car remaining)))
+        (numeric-extreme
+          maximum?
+          (if (if maximum? (number>? next result) (number<? next result)) next result)
+          (value-cdr remaining)
+          (if inexact? #t (not (number-exact? next))))))))
+
+(def numeric-integral-value (-> Number Integer)
+  (lambda (x)
+    (if (number-integer? x)
+      (number->integer (number-exact x))
+      (datum-fail "integer argument required"))))
+
+(def numeric-lcm (-> Integer Integer Integer)
+  (lambda (a b)
+    (if (if (integer-zero? a) #t (integer-zero? b))
+      (integer-from-i64 (ann 0 I64))
+      (integer-abs (integer-multiply (integer-quotient a (integer-gcd a b)) b)))))
+
+(def numeric-gcd-fold (-> Bool Integer Value Bool Number)
+  (lambda (lcm? result remaining inexact?)
+    (if (value-null? remaining)
+      (if inexact? (number-inexact (number-from-integer result)) (number-from-integer result))
+      (begin (let next (value-number-number (value-car remaining)))
+        (numeric-gcd-fold
+          lcm?
+          (if lcm?
+            (numeric-lcm result (numeric-integral-value next))
+            (integer-gcd result (numeric-integral-value next)))
+          (value-cdr remaining)
+          (if inexact? #t (not (number-exact? next))))))))
+
+;; ---- Complex promotion precedes real scalar services ----
+
+(def numeric-i Number (complex-number (exact-scalar (ann 0 I64)) (exact-scalar (ann 1 I64))))
+
+(def numeric-complex? (-> Number Bool)
+  (lambda (x)
+    (match x
+      ((exact-number n) #f)
+      ((rational-number n) #f)
+      ((inexact-number n) #f)
+      ((complex-number real imaginary) #t))))
+
+(def numeric-real (-> Number F64) (lambda (x) (number->f64 (number-real-part x))))
+
+(def numeric-imag (-> Number F64) (lambda (x) (number->f64 (number-imag-part x))))
+
+(def numeric-rectangular (-> F64 F64 Number)
+  (lambda (a b) (complex-number (inexact-scalar a) (inexact-scalar b))))
+
+(def numeric-real-absolute (-> F64 F64) (lambda (x) (if (< x 0.0) (- 0.0 x) x)))
+
+(def numeric-negative-sign? (-> F64 Bool)
+  (lambda (x) (if (< x 0.0) #t (if (= x 0.0) (< (/ 1.0 x) 0.0) #f))))
+
+(def numeric-hypot (-> F64 F64 F64)
+  (lambda (x y)
+    (begin (let lofi-migration-let-1 (numeric-real-absolute x)) (let lofi-migration-let-2 (numeric-real-absolute y))
+      (let a lofi-migration-let-1)
+(let b lofi-migration-let-2)
+(begin (let lofi-migration-let-3 (if (> a b) a b)) (let lofi-migration-let-4 (if (> a b) b a))
+        (let hi lofi-migration-let-3)
+(let lo lofi-migration-let-4)
+(if (= hi (/ 1.0 0.0)) hi (if (= hi 0.0) 0.0 (* hi (sqrt (+ 1.0 (* (/ lo hi) (/ lo hi)))))))))))
+
+(def numeric-exp (-> Number Number)
+  (lambda (x)
+    (if (not (numeric-complex? x))
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 1 I64))
+        (inexact-number (exp (number->f64 x))))
+      (begin (let lofi-migration-let-5 (exp (numeric-real x))) (let lofi-migration-let-6 (numeric-imag x))
+        (let m lofi-migration-let-5)
+(let a lofi-migration-let-6)
+(numeric-rectangular (* m (cos a)) (* m (sin a)))))))
+
+(def numeric-log (-> Number Number)
+  (lambda (x)
+    (if (if (not (numeric-complex? x)) (not (number-negative? x)) #f)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (log (number->f64 x))))
+      (numeric-rectangular
+        (log (numeric-hypot (numeric-real x) (numeric-imag x)))
+        (atan2 (numeric-imag x) (numeric-real x))))))
+
+(def numeric-complex-root (-> F64 F64 Number)
+  (lambda (a b)
+    (if (= b 0.0)
+      (if (< a 0.0)
+        (numeric-rectangular
+          0.0
+          (if (numeric-negative-sign? b) (- 0.0 (sqrt (- 0.0 a))) (sqrt (- 0.0 a))))
+        (numeric-rectangular (sqrt a) b))
+      (begin (let m (numeric-hypot a b))
+        (begin (let large (sqrt (+ (* 0.5 m) (* 0.5 (numeric-real-absolute a)))))
+          (if (>= a 0.0)
+            (numeric-rectangular large (/ b (* 2.0 large)))
+            (numeric-rectangular
+              (/ (numeric-real-absolute b) (* 2.0 large))
+              (if (numeric-negative-sign? b) (- 0.0 large) large))))))))
+
+(def numeric-inexact-root (-> Number Number)
+  (lambda (x)
+    (if (numeric-complex? x)
+      (numeric-complex-root (numeric-real x) (numeric-imag x))
+      (if (number-negative? x)
+        (numeric-rectangular 0.0 (sqrt (- 0.0 (number->f64 x))))
+        (inexact-number (sqrt (number->f64 x)))))))
+
+(def numeric-sqrt (-> Number Number)
+  (lambda (x)
+    (if (if (not (numeric-complex? x)) (number-exact? x) #f)
+      (begin (let r (number->rational (number-abs x)))
+        (begin (let lofi-migration-let-7 (integer-sqrt/remainder (rational-numerator r))) (let lofi-migration-let-8 (integer-sqrt/remainder (rational-denominator r)))
+          (let n lofi-migration-let-7)
+(let d lofi-migration-let-8)
+(if (if (integer-zero? (root-remainder n)) (integer-zero? (root-remainder d)) #f)
+            (begin (let root (scalar-from-rational (make-rational (root-value n) (root-value d))))
+              (if (number-negative? x)
+                (number-rectangular (exact-scalar (ann 0 I64)) root)
+                (number-from-scalar root)))
+            (numeric-inexact-root x))))
+      (numeric-inexact-root x))))
+
+(def numeric-sinh (-> F64 F64) (lambda (x) (* 0.5 (- (exp x) (exp (- 0.0 x))))))
+
+(def numeric-cosh (-> F64 F64) (lambda (x) (* 0.5 (+ (exp x) (exp (- 0.0 x))))))
+
+(def numeric-sin (-> Number Number)
+  (lambda (x)
+    (if (not (numeric-complex? x))
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (sin (number->f64 x))))
+      (begin (let lofi-migration-let-9 (numeric-real x)) (let lofi-migration-let-10 (numeric-imag x))
+        (let a lofi-migration-let-9)
+(let b lofi-migration-let-10)
+(numeric-rectangular (* (sin a) (numeric-cosh b)) (* (cos a) (numeric-sinh b)))))))
+
+(def numeric-cos (-> Number Number)
+  (lambda (x)
+    (if (not (numeric-complex? x))
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 1 I64))
+        (inexact-number (cos (number->f64 x))))
+      (begin (let lofi-migration-let-11 (numeric-real x)) (let lofi-migration-let-12 (numeric-imag x))
+        (let a lofi-migration-let-11)
+(let b lofi-migration-let-12)
+(numeric-rectangular (* (cos a) (numeric-cosh b)) (- 0.0 (* (sin a) (numeric-sinh b))))))))
+
+(def numeric-tan (-> Number Number)
+  (lambda (x)
+    (if (not (numeric-complex? x))
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (tan (number->f64 x))))
+      (number-divide (numeric-sin x) (numeric-cos x)))))
+
+(def numeric-asin (-> Number Number)
+  (lambda (x)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (asin (number->f64 x))))
+      (number-multiply
+        (number-negate numeric-i)
+        (numeric-log
+          (number-add
+            (number-multiply numeric-i x)
+            (numeric-sqrt (number-subtract (exact-number (ann 1 I64)) (number-multiply x x)))))))))
+
+(def numeric-acos (-> Number Number)
+  (lambda (x)
+    (if (if (not (numeric-complex? x)) (if (number>=? x (exact-number (ann -1 I64))) (number<=? x (exact-number (ann 1 I64))) #f) #f)
+      (if (if (number-exact? x) (number=? x (exact-number (ann 1 I64))) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (acos (number->f64 x))))
+      (number-subtract (inexact-number (acos 0.0)) (numeric-asin x)))))
+
+(def numeric-atan (-> Number Number)
+  (lambda (x)
+    (if (not (numeric-complex? x))
+      (if (if (number-exact? x) (number-zero? x) #f)
+        (exact-number (ann 0 I64))
+        (inexact-number (atan (number->f64 x))))
+      (number-multiply
+        (number-divide numeric-i (exact-number (ann 2 I64)))
+        (number-subtract
+          (numeric-log (number-subtract (exact-number (ann 1 I64)) (number-multiply numeric-i x)))
+          (numeric-log (number-add (exact-number (ann 1 I64)) (number-multiply numeric-i x))))))))
+
+(def numeric-integer-power (-> Number Integer Number Number)
+  (lambda (base exponent result)
+    (if (integer-zero? exponent)
+      result
+      (begin (let division (integer-divide exponent (integer-from-i64 (ann 2 I64))))
+        (numeric-integer-power
+          (number-multiply base base)
+          (division-quotient division)
+          (if (integer-zero? (division-remainder division)) result (number-multiply result base)))))))
+
+(def numeric-expt (-> Number Number Number)
+  (lambda (base exponent)
+    (if (number-exact-integer? exponent)
+      (begin (let n (number->integer exponent))
+        (begin (let result (numeric-integer-power base (integer-abs n) (exact-number (ann 1 I64))))
+          (if (integer-negative? n) (number-divide (exact-number (ann 1 I64)) result) result)))
+      (if (if (not (numeric-complex? base)) (if (not (numeric-complex? exponent)) (not (number-negative? base)) #f) #f)
+        (inexact-number (pow (number->f64 base) (number->f64 exponent)))
+        (numeric-exp (number-multiply exponent (numeric-log base)))))))
+
+(def numeric-radix-fraction (-> Integer Integer I64 (List Char) (List Char))
+  (lambda (remainder denominator radix digits)
+    (if (integer-zero? remainder)
+      (numeric-reverse-characters digits (empty-list ))
+      (begin (let division (integer-divide (integer-multiply remainder (integer-from-i64 radix)) denominator))
+        (numeric-radix-fraction
+          (division-remainder division)
+          denominator
+          radix
+          (cons (string-ref "0123456789abcdef" (integer->i64 (division-quotient division))) digits))))))
+
+(def numeric-reverse-characters (-> (List Char) (List Char) (List Char))
+  (lambda (source result)
+    (if (null? source) result (numeric-reverse-characters (cdr source) (cons (car source) result)))))
+
+(def numeric-inexact-radix-string (-> F64 I64 String)
+  (lambda (x radix)
+    (if (if (= x x) (if (< x (/ 1.0 0.0)) (> x (/ -1.0 0.0)) #f) #f)
+      (begin (let value (rational-from-f64 (numeric-real-absolute x)))
+        (begin (let division (integer-divide (rational-numerator value) (rational-denominator value)))
+          (string-append
+            (if (numeric-negative-sign? x) "-" "")
+            (integer-radix-string (division-quotient division) radix)
+            "."
+            (if (integer-zero? (division-remainder division))
+              "0"
+              (list->string
+                (numeric-radix-fraction
+                  (division-remainder division)
+                  (rational-denominator value)
+                  radix
+                  (empty-list )))))))
+      (number->string (inexact-number x)))))
+
+(def numeric-radix-real (-> Number I64 String)
+  (lambda (x radix)
+    (if (number-exact? x)
+      (begin (let r (number->rational x))
+        (if (rational-integer? r)
+          (integer-radix-string (rational-numerator r) radix)
+          (string-append
+            (integer-radix-string (rational-numerator r) radix)
+            "/"
+            (integer-radix-string (rational-denominator r) radix))))
+      (numeric-inexact-radix-string (number->f64 x) radix))))
+
+(def numeric-radix-string (-> Number I64 String)
+  (lambda (x radix)
+    (if (if (= radix (ann 2 I64)) #t (if (= radix (ann 8 I64)) #t (if (= radix (ann 10 I64)) #t (= radix (ann 16 I64)))))
+      (if (= radix (ann 10 I64))
+        (number->string x)
+        (if (numeric-complex? x)
+          (begin (let lofi-migration-let-13 (numeric-radix-real (number-real-part x) radix)) (let lofi-migration-let-14 (numeric-radix-real (number-imag-part x) radix))
+            (let real lofi-migration-let-13)
+(let imag lofi-migration-let-14)
+(string-append
+              real
+              (if (if (char=? (string-ref imag (ann 0 I64)) #\+) #t (char=? (string-ref imag (ann 0 I64)) #\-)) "" "+")
+              imag
+              "i"))
+          (numeric-radix-real x radix)))
+      (datum-fail "invalid numeric radix"))))
+
+(def standard-input-value Value (value-input (ref (unit)) (current-input-port)))
+
+(def invoke-list (-> Value Value Value)
+  (lambda (procedure arguments)
+    (match (value-procedure-procedure procedure)
+      ((function-0 body)
+        (if (value-null? arguments) (body) (datum-fail "procedure argument count mismatch")))
+      ((function-1 body)
+        (if (value-null? (value-cdr arguments))
+          (body (value-car arguments))
+          (datum-fail "procedure argument count mismatch")))
+      ((function-2 body)
+        (if (value-null? (value-cdr (value-cdr arguments)))
+          (body (value-car arguments) (value-car (value-cdr arguments)))
+          (datum-fail "procedure argument count mismatch")))
+      ((function-3 body)
+        (if (value-null? (value-cdr (value-cdr (value-cdr arguments))))
+          (body
+            (value-car arguments)
+            (value-car (value-cdr arguments))
+            (value-car (value-cdr (value-cdr arguments))))
+          (datum-fail "procedure argument count mismatch")))
+      ((function-4 body)
+        (if (value-null? (value-cdr (value-cdr (value-cdr (value-cdr arguments)))))
+          (body
+            (value-car arguments)
+            (value-car (value-cdr arguments))
+            (value-car (value-cdr (value-cdr arguments)))
+            (value-car (value-cdr (value-cdr (value-cdr arguments)))))
+          (datum-fail "procedure argument count mismatch")))
+      ((function-rest-0 body) (body arguments))
+      ((function-rest-1 body) (body (value-car arguments) (value-cdr arguments)))
+      ((function-rest-2 body)
+        (body
+          (value-car arguments)
+          (value-car (value-cdr arguments))
+          (value-cdr (value-cdr arguments))))
+      ((function-rest-3 body)
+        (body
+          (value-car arguments)
+          (value-car (value-cdr arguments))
+          (value-car (value-cdr (value-cdr arguments)))
+          (value-cdr (value-cdr (value-cdr arguments))))))))
+
+(def value-characters (-> Value (List Char))
+  (lambda (values)
+    (if (value-null? values)
+      (empty-list )
+      (cons (value-character-character (value-car values)) (value-characters (value-cdr values))))))
+
+(def value-wrap-characters (-> (List Char) (List Value))
+  (lambda (values)
+    (if (null? values)
+      (empty-list )
+      (cons (value-character (car values)) (value-wrap-characters (cdr values))))))
+
+(def parsed-number->value (-> NumberResult Value)
+  (lambda (result)
+    (match result
+      ((not-a-number) (value-boolean #f))
+      ((parsed-number number) (value-number number))
+      ((number-error message) (datum-fail message)))))
+
+(def value-compare-strings (-> String String I64 I64)
+  (lambda (left right index)
+    (if (= index (string-length left))
+      (if (= index (string-length right)) (ann 0 I64) (ann -1 I64))
+      (if (= index (string-length right))
+        (ann 1 I64)
+        (begin (let lofi-migration-let-15 (string-ref left index)) (let lofi-migration-let-16 (string-ref right index))
+          (let a lofi-migration-let-15)
+(let b lofi-migration-let-16)
+(if (char=? a b) (value-compare-strings left right (+ index (ann 1 I64))) (if (char<? a b) (ann -1 I64) (ann 1 I64))))))))
+
+(def value-strings-length (-> Value I64 I64)
+  (lambda (values count)
+    (if (> count (ann 4294967294 I64))
+      (datum-fail "string exceeds representation bound")
+      (if (value-null? values)
+        count
+        (value-strings-length
+          (value-cdr values)
+          (+ count (string-length (value-string-string (value-car values)))))))))
+
+(def value-copy-strings (-> Value String I64 String)
+  (lambda (values result offset)
+    (if (value-null? values)
+      result
+      (begin (let text (value-string-string (value-car values)))
+        (begin
+          (string-copy! result offset text (ann 0 I64) (string-length text))
+          (value-copy-strings (value-cdr values) result (+ offset (string-length text))))))))
+
+(def value-join-strings (-> Value Value)
+  (lambda (values)
+    (value-string (value-copy-strings values (make-string (value-strings-length values (ann 0 I64))) (ann 0 I64)))))
+
+(def value-append-many (-> Value Value)
+  (lambda (lists)
+    (if (value-null? lists)
+      (value-null)
+      (if (value-null? (value-cdr lists))
+        (value-car lists)
+        (value-append (value-car lists) (value-append-many (value-cdr lists)))))))
+
+(def value-apply-arguments (-> Value Value)
+  (lambda (values)
+    (if (value-null? (value-cdr values))
+      (value-car values)
+      (value-cons (value-car values) (value-apply-arguments (value-cdr values))))))
+
+(def value-list-heads (-> Value Value)
+  (lambda (lists)
+    (if (value-null? lists)
+      (value-null)
+      (value-cons (value-car (value-car lists)) (value-list-heads (value-cdr lists))))))
+
+(def value-list-tails (-> Value Value)
+  (lambda (lists)
+    (if (value-null? lists)
+      (value-null)
+      (value-cons (value-cdr (value-car lists)) (value-list-tails (value-cdr lists))))))
+
+(def value-map-many (-> Value Value Value)
+  (lambda (procedure lists)
+    (if (value-null? (value-car lists))
+      (value-null)
+      (begin (let first (invoke-list procedure (value-list-heads lists)))
+        (value-cons first (value-map-many procedure (value-list-tails lists)))))))
+
+(def value-for-each-many (-> Value Value Value)
+  (lambda (procedure lists)
+    (if (value-null? (value-car lists))
+      (value-unspecified)
+      (begin
+        (invoke-list procedure (value-list-heads lists))
+        (value-for-each-many procedure (value-list-tails lists))))))
+
+;; ---- Equality and conversion preserve cyclic graphs ----
+
+(def equal-bytes? (-> Bytevector Bytevector I64 Bool)
+  (lambda (left right index)
+    (if (= (bytevector-length left) (bytevector-length right))
+      (if (= index (bytevector-length left))
+        #t
+        (if (= (bytevector-u8-ref left index) (bytevector-u8-ref right index))
+          (equal-bytes? left right (+ index (ann 1 I64)))
+          #f))
+      #f)))
+
+(def EqualPair (datatype () (equal-pair (left Value equal-left) (right Value equal-right))))
+
+(def equal-seen? (-> Value Value (List EqualPair) Bool)
+  (lambda (left right seen)
+    (if (null? seen)
+      #f
+      (if (if (value-eq? left (equal-left (car seen))) (value-eq? right (equal-right (car seen))) #f)
+        #t
+        (equal-seen? left right (cdr seen))))))
+
+(def value-equal? (-> Value Value Bool)
+  (lambda (left right) (equal-graph? left right (empty-list ))))
+
+;; Each path remembers pairs of object identities. Sibling comparisons still run;
+;; a repeated pair closes a cycle without requiring identical sharing patterns.
+(def equal-graph? (-> Value Value (List EqualPair) Bool)
+  (lambda (left right seen)
+    (if (value-eq? left right)
+      #t
+      (if (not (= (value-kind left) (value-kind right)))
+        #f
+        (if (value-string? left)
+          (string=? (value-string-string left) (value-string-string right))
+          (if (value-bytevector? left)
+            (equal-bytes? (value-bytevector-bytes left) (value-bytevector-bytes right) (ann 0 I64))
+            (if (if (value-pair? left) #t (value-vector? left))
+              (if (equal-seen? left right seen)
+                #t
+                (begin (let seen (cons (equal-pair left right) seen))
+                  (if (value-pair? left)
+                    (if (equal-graph? (value-car left) (value-car right) seen)
+                      (equal-graph? (value-cdr left) (value-cdr right) seen)
+                      #f)
+                    (equal-vectors? (value-vector-vector left) (value-vector-vector right) (ann 0 I64) seen))))
+              #f)))))))
+
+(def equal-vectors? (-> (Vector Value) (Vector Value) I64 (List EqualPair) Bool)
+  (lambda (left right index seen)
+    (if (= (vector-length left) (vector-length right))
+      (if (= index (vector-length left))
+        #t
+        (if (equal-graph? (vector-ref left index) (vector-ref right index) seen)
+          (equal-vectors? left right (+ index (ann 1 I64)) seen)
+          #f))
+      #f)))
+
+(def value-list? (-> Value Bool)
+  (lambda (value)
+    (if (value-null? value)
+      #t
+      (if (value-pair? value) (list-cycle-check value (value-cdr value)) #f))))
+
+(def list-cycle-check (-> Value Value Bool)
+  (lambda (slow fast)
+    (if (value-null? fast)
+      #t
+      (if (value-pair? fast)
+        (if (value-eq? slow fast)
+          #f
+          (begin (let next (value-cdr fast))
+            (if (value-null? next)
+              #t
+              (if (value-pair? next) (list-cycle-check (value-cdr slow) (value-cdr next)) #f))))
+        #f))))
+
+(def InwardMemo (datatype () (inward (source Datum inward-source) (result Value inward-result))))
+
+(def OutwardMemo (datatype () (outward (source Value outward-source) (result Datum outward-result))))
+
+(def inward-find (-> Datum (List InwardMemo) Value)
+  (lambda (source seen)
+    (if (null? seen)
+      (value-uninitialized)
+      (if (datum-eq? source (inward-source (car seen)))
+        (inward-result (car seen))
+        (inward-find source (cdr seen))))))
+
+(def OutwardResult (datatype () (outward-absent) (outward-found (value Datum))))
+
+(def outward-find (-> Value (List OutwardMemo) OutwardResult)
+  (lambda (source seen)
+    (if (null? seen)
+      (outward-absent)
+      (if (value-eq? source (outward-source (car seen)))
+        (outward-found (outward-result (car seen)))
+        (outward-find source (cdr seen))))))
+
+(def datum->value (-> Datum Value)
+  (lambda (source) (inward-graph source (ref (ann (empty-list ) (List InwardMemo))))))
+
+(def inward-graph (-> Datum (Ref (List InwardMemo)) Value)
+  (lambda (source seen)
+    (begin (let kind (datum-kind source))
+      (if (= kind (ann 0 I64))
+        (value-null)
+        (if (= kind (ann 1 I64))
+          (value-boolean (datum-boolean-value source))
+          (if (= kind (ann 2 I64))
+            (value-character (datum-character-value source))
+            (if (= kind (ann 3 I64))
+              (value-string (datum-string-value source))
+              (if (= kind (ann 4 I64))
+                (value-symbol (datum-symbol-value source))
+                (if (= kind (ann 5 I64))
+                  (value-number (datum-number-value source))
+                  (if (= kind (ann 8 I64))
+                    (value-bytevector (datum-bytevector-values source))
+                    (begin (let prior (inward-find source (ref-get seen)))
+                      (if (value-uninitialized? prior) (inward-node source kind seen) prior))))))))))))
+
+;; Register the allocated shell before its children, keeping every memoized
+;; reference in managed Lofi data across allocations. Strings and bytes retain
+;; their existing mutable owner rather than copying it into a new object.
+(def inward-node (-> Datum I64 (Ref (List InwardMemo)) Value)
+  (lambda (source kind seen)
+    (begin (let result (if (= kind (ann 6 I64)) (value-cons (value-unspecified) (value-unspecified)) (value-vector (make-vector (vector-length (datum-vector-values source)) (value-unspecified)))))
+      (begin
+        (ref-set! seen (cons (inward source result) (ref-get seen)))
+        (if (= kind (ann 6 I64))
+          (begin
+            (ref-set! (value-pair-first result) (inward-graph (datum-car source) seen))
+            (ref-set! (value-pair-rest result) (inward-graph (datum-cdr source) seen)))
+          (inward-vector (datum-vector-values source) (value-vector-vector result) (ann 0 I64) seen))
+        result))))
+
+(def inward-vector (-> (Vector Datum) (Vector Value) I64 (Ref (List InwardMemo)) Unit)
+  (lambda (source result index seen)
+    (if (= index (vector-length source))
+      (unit)
+      (begin
+        (vector-set! result index (inward-graph (vector-ref source index) seen))
+        (inward-vector source result (+ index (ann 1 I64)) seen)))))
+
+(def value->datum (-> Value Datum)
+  (lambda (source) (outward-graph source (ref (ann (empty-list ) (List OutwardMemo))))))
+
+(def outward-graph (-> Value (Ref (List OutwardMemo)) Datum)
+  (lambda (source seen)
+    (match source
+      ((value-null) (datum-null))
+      ((value-boolean x) (datum-boolean x))
+      ((value-character x) (datum-character x))
+      ((value-string x) (datum-string x))
+      ((value-symbol x) (datum-symbol x))
+      ((value-number x) (datum-number x))
+      ((value-bytevector x) (datum-bytevector x))
+      ((value-pair first rest) (outward-mutable source seen))
+      ((value-vector vector) (outward-mutable source seen))
+      ((value-input identity port) (datum-symbol (string->symbol "#<input-port>")))
+      ((value-output port) (datum-symbol (string->symbol "#<output-port>")))
+      ((value-procedure identity procedure) (datum-symbol (string->symbol "#<procedure>")))
+      ((value-eof) (datum-symbol (string->symbol "#<eof>")))
+      ((value-unspecified) (datum-symbol (string->symbol "#<unspecified>")))
+      ((value-uninitialized) (datum-fail "uninitialized value is not external data")))))
+
+(def outward-mutable (-> Value (Ref (List OutwardMemo)) Datum)
+  (lambda (source seen)
+    (match (outward-find source (ref-get seen))
+      ((outward-found result) result)
+      ((outward-absent) (outward-node source seen)))))
+
+(def outward-node (-> Value (Ref (List OutwardMemo)) Datum)
+  (lambda (source seen)
+    (begin (let result (if (value-pair? source) (datum-cons (datum-null) (datum-null)) (datum-vector (make-vector (vector-length (value-vector-vector source)) (datum-null)))))
+      (begin
+        (ref-set! seen (cons (outward source result) (ref-get seen)))
+        (if (value-pair? source)
+          (begin
+            (datum-set-car! result (outward-graph (value-car source) seen))
+            (datum-set-cdr! result (outward-graph (value-cdr source) seen)))
+          (outward-vector (value-vector-vector source) (datum-vector-values result) (ann 0 I64) seen))
+        result))))
+
+(def outward-vector (-> (Vector Value) (Vector Datum) I64 (Ref (List OutwardMemo)) Unit)
+  (lambda (source result index seen)
+    (if (= index (vector-length source))
+      (unit)
+      (begin
+        (vector-set! result index (outward-graph (vector-ref source index) seen))
+        (outward-vector source result (+ index (ann 1 I64)) seen)))))
+
+;; ---- Source constants retain their complete numeric and datum domain ----
+
+(def literal Value
+  (value-cons
+    (value-symbol (string->symbol "quote"))
+    (value-cons
+      (value-symbol (string->symbol "quasiquote"))
+      (value-cons
+        (value-symbol (string->symbol "unquote"))
+        (value-cons
+          (value-symbol (string->symbol "unquote-splicing"))
+          (value-cons
+            (value-symbol (string->symbol "lambda"))
+            (value-cons
+              (value-symbol (string->symbol "if"))
+              (value-cons
+                (value-symbol (string->symbol "set!"))
+                (value-cons
+                  (value-symbol (string->symbol "cond"))
+                  (value-cons
+                    (value-symbol (string->symbol "=>"))
+                    (value-cons
+                      (value-symbol (string->symbol "else"))
+                      (value-cons
+                        (value-symbol (string->symbol "and"))
+                        (value-cons
+                          (value-symbol (string->symbol "or"))
+                          (value-cons
+                            (value-symbol (string->symbol "case"))
+                            (value-cons
+                              (value-symbol (string->symbol "let"))
+                              (value-cons
+                                (value-symbol (string->symbol "let*"))
+                                (value-cons
+                                  (value-symbol (string->symbol "letrec"))
+                                  (value-cons
+                                    (value-symbol (string->symbol "begin"))
+                                    (value-cons
+                                      (value-symbol (string->symbol "do"))
+                                      (value-cons
+                                        (value-symbol (string->symbol "define"))
+                                        (value-cons
+                                          (value-symbol (string->symbol "define-macro"))
+                                          (value-null))))))))))))))))))))))
+
+(def literal.1 Value (value-string "Identifier expected"))
+
+(def literal.2 Value (value-string "Variable name can not be a syntactic keyword"))
+
+(def literal.3 Value (value-string "Ill-constructed form"))
+
+(def literal.4 Value (value-string "Ill-placed 'unquote-splicing'"))
+
+(def literal.5 Value (value-symbol (string->symbol "unquote-splicing")))
+
+(def literal.6 Value (value-symbol (string->symbol "unquote")))
+
+(def literal.7 Value (value-symbol (string->symbol "quasiquote")))
+
+(def literal.8 Value (value-symbol (string->symbol "unquote-splicing")))
+
+(def literal.9 Value (value-string "Ill-placed 'unquote'"))
+
+(def literal.10 Value (value-string "Ill-placed 'unquote-splicing'"))
+
+(def literal.11 Value (value-string "Body must contain at least one evaluable expression"))
+
+(def literal.12 Value (value-symbol (string->symbol "define-macro")))
+
+(def literal.13 Value (value-symbol (string->symbol "define")))
+
+(def literal.14 Value (value-symbol (string->symbol "begin")))
+
+(def literal.15 Value (value-string "Identifier expected"))
+
+(def literal.16 Value (value-symbol (string->symbol "lambda")))
+
+(def literal.17 Value (value-symbol (string->symbol "=>")))
+
+(def literal.18 Value (value-symbol (string->symbol "else")))
+
+(def literal.19 Value (value-symbol (string->symbol "else")))
+
+(def literal.20 Value (value-symbol (string->symbol "lambda")))
+
+(def literal.21 Value (value-symbol (string->symbol "lambda")))
+
+(def literal.22 Value (value-symbol (string->symbol "letrec")))
+
+(def literal.23 Value (value-symbol (string->symbol "let")))
+
+(def literal.24 Value (value-symbol (string->symbol "let*")))
+
+(def literal.25 Value (value-cons (value-boolean #f) (value-null)))
+
+(def literal.26 Value
+  (value-cons (value-number (exact-number (ann 1 I64))) (value-number (exact-number (ann 1 I64)))))
+
+(def literal.27 Value
+  (value-cons (value-number (exact-number (ann 0 I64))) (value-number (exact-number (ann 1 I64)))))
+
+(def literal.28 Value (value-symbol (string->symbol "lambda")))
+
+(def literal.29 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.30 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.31 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.32 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.33 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.34 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.35 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.36 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.37 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.38 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.39 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.40 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.41 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.42 Value (value-cons (value-number (exact-number (ann -1 I64))) (value-null)))
+
+(def literal.43 Value (value-cons (value-number (exact-number (ann -2 I64))) (value-null)))
+
+(def literal.44 Value (value-cons (value-boolean #t) (value-null)))
+
+(def literal.45 Value (value-cons (value-boolean #f) (value-null)))
+
+(def literal.46 Value (value-cons (value-null) (value-null)))
+
+(def literal.47 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.48 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.49 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.50 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.51 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.52 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.53 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.54 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.55 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.56 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.57 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.58 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.59 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.60 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.61 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.62 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.63 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.64 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.65 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.66 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.67 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.68 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.69 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.70 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.71 Value (value-cons (value-number (exact-number (ann 3 I64))) (value-null)))
+
+(def literal.72 Value (value-cons (value-number (exact-number (ann 2 I64))) (value-null)))
+
+(def literal.73 Value (value-cons (value-number (exact-number (ann 1 I64))) (value-null)))
+
+(def literal.74 Value (value-cons (value-number (exact-number (ann 0 I64))) (value-null)))
+
+(def literal.75 Value (value-symbol (string->symbol "define-macro")))
+
+(def literal.76 Value (value-symbol (string->symbol "define")))
+
+(def literal.77 Value (value-symbol (string->symbol "do")))
+
+(def literal.78 Value (value-symbol (string->symbol "begin")))
+
+(def literal.79 Value (value-symbol (string->symbol "letrec")))
+
+(def literal.80 Value (value-symbol (string->symbol "let*")))
+
+(def literal.81 Value (value-symbol (string->symbol "let")))
+
+(def literal.82 Value (value-symbol (string->symbol "case")))
+
+(def literal.83 Value (value-symbol (string->symbol "or")))
+
+(def literal.84 Value (value-symbol (string->symbol "and")))
+
+(def literal.85 Value (value-symbol (string->symbol "cond")))
+
+(def literal.86 Value (value-symbol (string->symbol "if")))
+
+(def literal.87 Value (value-symbol (string->symbol "lambda")))
+
+(def literal.88 Value (value-symbol (string->symbol "set!")))
+
+(def literal.89 Value (value-symbol (string->symbol "unquote-splicing")))
+
+(def literal.90 Value (value-symbol (string->symbol "unquote")))
+
+(def literal.91 Value (value-symbol (string->symbol "quasiquote")))
+
+(def literal.92 Value (value-symbol (string->symbol "quote")))
+
+(def literal.93 Value (value-symbol (string->symbol "not")))
+
+(def literal.94 Value (value-symbol (string->symbol "boolean?")))
+
+(def literal.95 Value (value-symbol (string->symbol "eqv?")))
+
+(def literal.96 Value (value-symbol (string->symbol "eq?")))
+
+(def literal.97 Value (value-symbol (string->symbol "equal?")))
+
+(def literal.98 Value (value-symbol (string->symbol "pair?")))
+
+(def literal.99 Value (value-symbol (string->symbol "cons")))
+
+(def literal.100 Value (value-symbol (string->symbol "car")))
+
+(def literal.101 Value (value-symbol (string->symbol "cdr")))
+
+(def literal.102 Value (value-symbol (string->symbol "set-car!")))
+
+(def literal.103 Value (value-symbol (string->symbol "set-cdr!")))
+
+(def literal.104 Value (value-symbol (string->symbol "caar")))
+
+(def literal.105 Value (value-symbol (string->symbol "cadr")))
+
+(def literal.106 Value (value-symbol (string->symbol "cdar")))
+
+(def literal.107 Value (value-symbol (string->symbol "cddr")))
+
+(def literal.108 Value (value-symbol (string->symbol "caaar")))
+
+(def literal.109 Value (value-symbol (string->symbol "caadr")))
+
+(def literal.110 Value (value-symbol (string->symbol "cadar")))
+
+(def literal.111 Value (value-symbol (string->symbol "caddr")))
+
+(def literal.112 Value (value-symbol (string->symbol "cdaar")))
+
+(def literal.113 Value (value-symbol (string->symbol "cdadr")))
+
+(def literal.114 Value (value-symbol (string->symbol "cddar")))
+
+(def literal.115 Value (value-symbol (string->symbol "cdddr")))
+
+(def literal.116 Value (value-symbol (string->symbol "caaaar")))
+
+(def literal.117 Value (value-symbol (string->symbol "caaadr")))
+
+(def literal.118 Value (value-symbol (string->symbol "caadar")))
+
+(def literal.119 Value (value-symbol (string->symbol "caaddr")))
+
+(def literal.120 Value (value-symbol (string->symbol "cadaar")))
+
+(def literal.121 Value (value-symbol (string->symbol "cadadr")))
+
+(def literal.122 Value (value-symbol (string->symbol "caddar")))
+
+(def literal.123 Value (value-symbol (string->symbol "cadddr")))
+
+(def literal.124 Value (value-symbol (string->symbol "cdaaar")))
+
+(def literal.125 Value (value-symbol (string->symbol "cdaadr")))
+
+(def literal.126 Value (value-symbol (string->symbol "cdadar")))
+
+(def literal.127 Value (value-symbol (string->symbol "cdaddr")))
+
+(def literal.128 Value (value-symbol (string->symbol "cddaar")))
+
+(def literal.129 Value (value-symbol (string->symbol "cddadr")))
+
+(def literal.130 Value (value-symbol (string->symbol "cdddar")))
+
+(def literal.131 Value (value-symbol (string->symbol "cddddr")))
+
+(def literal.132 Value (value-symbol (string->symbol "null?")))
+
+(def literal.133 Value (value-symbol (string->symbol "list?")))
+
+(def literal.134 Value (value-symbol (string->symbol "list")))
+
+(def literal.135 Value (value-symbol (string->symbol "length")))
+
+(def literal.136 Value (value-symbol (string->symbol "append")))
+
+(def literal.137 Value (value-symbol (string->symbol "reverse")))
+
+(def literal.138 Value (value-symbol (string->symbol "list-ref")))
+
+(def literal.139 Value (value-symbol (string->symbol "memq")))
+
+(def literal.140 Value (value-symbol (string->symbol "memv")))
+
+(def literal.141 Value (value-symbol (string->symbol "member")))
+
+(def literal.142 Value (value-symbol (string->symbol "assq")))
+
+(def literal.143 Value (value-symbol (string->symbol "assv")))
+
+(def literal.144 Value (value-symbol (string->symbol "assoc")))
+
+(def literal.145 Value (value-symbol (string->symbol "symbol?")))
+
+(def literal.146 Value (value-symbol (string->symbol "symbol->string")))
+
+(def literal.147 Value (value-symbol (string->symbol "string->symbol")))
+
+(def literal.148 Value (value-symbol (string->symbol "number?")))
+
+(def literal.149 Value (value-symbol (string->symbol "complex?")))
+
+(def literal.150 Value (value-symbol (string->symbol "real?")))
+
+(def literal.151 Value (value-symbol (string->symbol "rational?")))
+
+(def literal.152 Value (value-symbol (string->symbol "integer?")))
+
+(def literal.153 Value (value-symbol (string->symbol "exact?")))
+
+(def literal.154 Value (value-symbol (string->symbol "inexact?")))
+
+(def literal.155 Value (value-symbol (string->symbol "max")))
+
+(def literal.156 Value (value-symbol (string->symbol "min")))
+
+(def literal.157 Value (value-symbol (string->symbol "/")))
+
+(def literal.158 Value (value-symbol (string->symbol "abs")))
+
+(def literal.159 Value (value-symbol (string->symbol "gcd")))
+
+(def literal.160 Value (value-symbol (string->symbol "lcm")))
+
+(def literal.161 Value (value-symbol (string->symbol "floor")))
+
+(def literal.162 Value (value-symbol (string->symbol "ceiling")))
+
+(def literal.163 Value (value-symbol (string->symbol "truncate")))
+
+(def literal.164 Value (value-symbol (string->symbol "round")))
+
+(def literal.165 Value (value-symbol (string->symbol "exp")))
+
+(def literal.166 Value (value-symbol (string->symbol "log")))
+
+(def literal.167 Value (value-symbol (string->symbol "sin")))
+
+(def literal.168 Value (value-symbol (string->symbol "cos")))
+
+(def literal.169 Value (value-symbol (string->symbol "tan")))
+
+(def literal.170 Value (value-symbol (string->symbol "asin")))
+
+(def literal.171 Value (value-symbol (string->symbol "acos")))
+
+(def literal.172 Value (value-symbol (string->symbol "atan")))
+
+(def literal.173 Value (value-symbol (string->symbol "sqrt")))
+
+(def literal.174 Value (value-symbol (string->symbol "expt")))
+
+(def literal.175 Value (value-symbol (string->symbol "exact->inexact")))
+
+(def literal.176 Value (value-symbol (string->symbol "inexact->exact")))
+
+(def literal.177 Value (value-symbol (string->symbol "number->string")))
+
+(def literal.178 Value (value-symbol (string->symbol "string->number")))
+
+(def literal.179 Value (value-symbol (string->symbol "char?")))
+
+(def literal.180 Value (value-symbol (string->symbol "char=?")))
+
+(def literal.181 Value (value-symbol (string->symbol "char<?")))
+
+(def literal.182 Value (value-symbol (string->symbol "char>?")))
+
+(def literal.183 Value (value-symbol (string->symbol "char<=?")))
+
+(def literal.184 Value (value-symbol (string->symbol "char>=?")))
+
+(def literal.185 Value (value-symbol (string->symbol "char-ci=?")))
+
+(def literal.186 Value (value-symbol (string->symbol "char-ci<?")))
+
+(def literal.187 Value (value-symbol (string->symbol "char-ci>?")))
+
+(def literal.188 Value (value-symbol (string->symbol "char-ci<=?")))
+
+(def literal.189 Value (value-symbol (string->symbol "char-ci>=?")))
+
+(def literal.190 Value (value-symbol (string->symbol "char-alphabetic?")))
+
+(def literal.191 Value (value-symbol (string->symbol "char-numeric?")))
+
+(def literal.192 Value (value-symbol (string->symbol "char-whitespace?")))
+
+(def literal.193 Value (value-symbol (string->symbol "char-lower-case?")))
+
+(def literal.194 Value (value-symbol (string->symbol "char->integer")))
+
+(def literal.195 Value (value-symbol (string->symbol "integer->char")))
+
+(def literal.196 Value (value-symbol (string->symbol "char-upcase")))
+
+(def literal.197 Value (value-symbol (string->symbol "char-downcase")))
+
+(def literal.198 Value (value-symbol (string->symbol "string?")))
+
+(def literal.199 Value (value-symbol (string->symbol "make-string")))
+
+(def literal.200 Value (value-symbol (string->symbol "string")))
+
+(def literal.201 Value (value-symbol (string->symbol "string-length")))
+
+(def literal.202 Value (value-symbol (string->symbol "string-ref")))
+
+(def literal.203 Value (value-symbol (string->symbol "string-set!")))
+
+(def literal.204 Value (value-symbol (string->symbol "string=?")))
+
+(def literal.205 Value (value-symbol (string->symbol "string<?")))
+
+(def literal.206 Value (value-symbol (string->symbol "string>?")))
+
+(def literal.207 Value (value-symbol (string->symbol "string<=?")))
+
+(def literal.208 Value (value-symbol (string->symbol "string>=?")))
+
+(def literal.209 Value (value-symbol (string->symbol "string-ci=?")))
+
+(def literal.210 Value (value-symbol (string->symbol "string-ci<?")))
+
+(def literal.211 Value (value-symbol (string->symbol "string-ci>?")))
+
+(def literal.212 Value (value-symbol (string->symbol "string-ci<=?")))
+
+(def literal.213 Value (value-symbol (string->symbol "string-ci>=?")))
+
+(def literal.214 Value (value-symbol (string->symbol "substring")))
+
+(def literal.215 Value (value-symbol (string->symbol "string-append")))
+
+(def literal.216 Value (value-symbol (string->symbol "vector?")))
+
+(def literal.217 Value (value-symbol (string->symbol "make-vector")))
+
+(def literal.218 Value (value-symbol (string->symbol "vector")))
+
+(def literal.219 Value (value-symbol (string->symbol "vector-length")))
+
+(def literal.220 Value (value-symbol (string->symbol "vector-ref")))
+
+(def literal.221 Value (value-symbol (string->symbol "vector-set!")))
+
+(def literal.222 Value (value-symbol (string->symbol "procedure?")))
+
+(def literal.223 Value (value-symbol (string->symbol "apply")))
+
+(def literal.224 Value (value-symbol (string->symbol "map")))
+
+(def literal.225 Value (value-symbol (string->symbol "for-each")))
+
+(def literal.226 Value (value-symbol (string->symbol "call-with-input-file")))
+
+(def literal.227 Value (value-symbol (string->symbol "call-with-output-file")))
+
+(def literal.228 Value (value-symbol (string->symbol "input-port?")))
+
+(def literal.229 Value (value-symbol (string->symbol "output-port?")))
+
+(def literal.230 Value (value-symbol (string->symbol "current-input-port")))
+
+(def literal.231 Value (value-symbol (string->symbol "current-output-port")))
+
+(def literal.232 Value (value-symbol (string->symbol "open-input-file")))
+
+(def literal.233 Value (value-symbol (string->symbol "open-output-file")))
+
+(def literal.234 Value (value-symbol (string->symbol "close-input-port")))
+
+(def literal.235 Value (value-symbol (string->symbol "close-output-port")))
+
+(def literal.236 Value (value-symbol (string->symbol "eof-object?")))
+
+(def literal.237 Value (value-symbol (string->symbol "read")))
+
+(def literal.238 Value (value-symbol (string->symbol "read-char")))
+
+(def literal.239 Value (value-symbol (string->symbol "peek-char")))
+
+(def literal.240 Value (value-symbol (string->symbol "write")))
+
+(def literal.241 Value (value-symbol (string->symbol "display")))
+
+(def literal.242 Value (value-symbol (string->symbol "newline")))
+
+(def literal.243 Value (value-symbol (string->symbol "write-char")))
+
+;; ---- Complete upstream algorithm, in original initialization order ----
+
+(def source/scheme-eval (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-eval
+
+(def body/source/scheme-eval (-> Value Value)
+  (lambda (source/expr)
+    ((lambda (source/code) (invoke-1 source/code (value-boolean #f)))
+      (body/source/scheme-comp source/expr (binding-value source/scheme-global-environment)))))
+
+(ref-set! source/scheme-eval (value-procedure (ref (unit)) (function-1 body/source/scheme-eval)))
+
+(def source/scheme-global-environment (Ref Value) (ref (value-uninitialized)))
+
+(ref-set! source/scheme-global-environment (primitive/cons/2 (value-null) (value-null)))
+
+(def source/scheme-add-macro (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-add-macro
+
+(def body/source/scheme-add-macro (-> Value Value Value)
+  (lambda (source/name source/proc)
+    (begin
+      (primitive/set-cdr!/2
+        (binding-value source/scheme-global-environment)
+        (primitive/cons/2
+          (primitive/cons/2 source/name source/proc)
+          (primitive/cdr/1 (binding-value source/scheme-global-environment))))
+      source/name)))
+
+(ref-set!
+  source/scheme-add-macro
+  (value-procedure (ref (unit)) (function-2 body/source/scheme-add-macro)))
+
+(def source/scheme-error (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-error
+
+(def body/source/scheme-error (-> Value Value Value)
+  (lambda (source/msg source/args) (primitive/error/3 (value-boolean #f) source/msg source/args)))
+
+(ref-set!
+  source/scheme-error
+  (value-procedure (ref (unit)) (function-rest-1 body/source/scheme-error)))
+
+(def source/lst->vector (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: lst->vector
+
+(def body/source/lst->vector (-> Value Value)
+  (lambda (source/l)
+    ((lambda (source/n) ((lambda (source/v) ((lambda () (invoke-2 ((lambda () (begin (def source/loop (Ref Value) (ref (value-uninitialized))) (def body/source/loop (-> Value Value Value) (lambda (source/l.1 source/i) (if (value-truth? (primitive/pair?/1 source/l.1)) (begin (primitive/vector-set!/3 source/v source/i (primitive/car/1 source/l.1)) (body/source/loop (primitive/cdr/1 source/l.1) (primitive/+/2 source/i (value-number (exact-number (ann 1 I64)))))) source/v))) (ref-set! source/loop (value-procedure (ref (unit)) (function-2 body/source/loop))) (binding-value source/loop)))) source/l (value-number (exact-number (ann 0 I64))))))) (primitive/make-vector/1 source/n)))
+      (primitive/length/1 source/l))))
+
+(ref-set! source/lst->vector (value-procedure (ref (unit)) (function-1 body/source/lst->vector)))
+
+(def source/vector->lst (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: vector->lst
+
+(def body/source/vector->lst (-> Value Value)
+  (lambda (source/v.1)
+    (invoke-2
+      ((lambda () (begin (def source/loop.1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.1 (-> Value Value Value) (lambda (source/l.2 source/i.1) (if (value-truth? (primitive/</2 source/i.1 (value-number (exact-number (ann 0 I64))))) source/l.2 (body/source/loop.1 (primitive/cons/2 (primitive/vector-ref/2 source/v.1 source/i.1) source/l.2) (primitive/-/2 source/i.1 (value-number (exact-number (ann 1 I64)))))))) (ref-set! source/loop.1 (value-procedure (ref (unit)) (function-2 body/source/loop.1))) (binding-value source/loop.1)))
+)
+      (value-null)
+      (primitive/-/2 (primitive/vector-length/1 source/v.1) (value-number (exact-number (ann 1 I64)))))))
+
+(ref-set! source/vector->lst (value-procedure (ref (unit)) (function-1 body/source/vector->lst)))
+
+(def source/scheme-syntactic-keywords (Ref Value) (ref (value-uninitialized)))
+
+(ref-set! source/scheme-syntactic-keywords literal)
+
+(def source/push-frame (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: push-frame
+
+(def body/source/push-frame (-> Value Value Value)
+  (lambda (source/frame source/env)
+    (if (value-truth? (primitive/null?/1 source/frame))
+      source/env
+      (primitive/cons/2
+        (primitive/cons/2 (primitive/car/1 source/env) source/frame)
+        (primitive/cdr/1 source/env)))))
+
+(ref-set! source/push-frame (value-procedure (ref (unit)) (function-2 body/source/push-frame)))
+
+(def source/lookup-var (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: lookup-var
+
+(def body/source/lookup-var (-> Value Value Value)
+  (lambda (source/name.1 source/env.1)
+    (invoke-2
+      ((lambda () (begin (def source/loop1 (Ref Value) (ref (value-uninitialized))) (def body/source/loop1 (-> Value Value Value) (lambda (source/chain source/up) (if (value-truth? (primitive/null?/1 source/chain)) source/name.1 (invoke-4 ((lambda () (begin (def source/loop2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop2 (-> Value Value Value Value Value) (lambda (source/chain.1 source/up.1 source/frame.1 source/over) (if (value-truth? (primitive/null?/1 source/frame.1)) (body/source/loop1 (primitive/car/1 source/chain.1) (primitive/+/2 source/up.1 (value-number (exact-number (ann 1 I64))))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/frame.1) source/name.1)) (primitive/cons/2 source/up.1 source/over) (body/source/loop2 source/chain.1 source/up.1 (primitive/cdr/1 source/frame.1) (primitive/+/2 source/over (value-number (exact-number (ann 1 I64))))))))) (ref-set! source/loop2 (value-procedure (ref (unit)) (function-4 body/source/loop2))) (binding-value source/loop2)))) source/chain source/up (primitive/cdr/1 source/chain) (value-number (exact-number (ann 1 I64))))))) (ref-set! source/loop1 (value-procedure (ref (unit)) (function-2 body/source/loop1))) (binding-value source/loop1)))
+)
+      (primitive/car/1 source/env.1)
+      (value-number (exact-number (ann 0 I64))))))
+
+(ref-set! source/lookup-var (value-procedure (ref (unit)) (function-2 body/source/lookup-var)))
+
+(def source/macro? (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: macro?
+
+(def body/source/macro? (-> Value Value Value)
+  (lambda (source/name.2 source/env.2)
+    (primitive/assq/2 source/name.2 (primitive/cdr/1 source/env.2))))
+
+(ref-set! source/macro? (value-procedure (ref (unit)) (function-2 body/source/macro?)))
+
+(def source/push-macro (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: push-macro
+
+(def body/source/push-macro (-> Value Value Value Value)
+  (lambda (source/name.3 source/proc.1 source/env.3)
+    (primitive/cons/2
+      (primitive/car/1 source/env.3)
+      (primitive/cons/2
+        (primitive/cons/2 source/name.3 source/proc.1)
+        (primitive/cdr/1 source/env.3)))))
+
+(ref-set! source/push-macro (value-procedure (ref (unit)) (function-3 body/source/push-macro)))
+
+(def source/lookup-macro (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: lookup-macro
+
+(def body/source/lookup-macro (-> Value Value Value)
+  (lambda (source/name.4 source/env.4)
+    (primitive/cdr/1 (primitive/assq/2 source/name.4 (primitive/cdr/1 source/env.4)))))
+
+(ref-set! source/lookup-macro (value-procedure (ref (unit)) (function-2 body/source/lookup-macro)))
+
+(def source/variable (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: variable
+
+(def body/source/variable (-> Value Value)
+  (lambda (source/x)
+    (begin
+      (if (value-truth? (primitive/symbol?/1 source/x))
+        (if (value-truth? (value-boolean #f)) (value-boolean #f) (value-unspecified))
+        (body/source/scheme-error literal.1 (value-cons source/x (value-null))))
+      (if (value-truth? (primitive/memq/2 source/x (binding-value source/scheme-syntactic-keywords)))
+        (body/source/scheme-error literal.2 (value-cons source/x (value-null)))
+        (value-unspecified)))))
+
+(ref-set! source/variable (value-procedure (ref (unit)) (function-1 body/source/variable)))
+
+(def source/shape (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: shape
+
+(def body/source/shape (-> Value Value Value)
+  (lambda (source/form source/n.1)
+    (invoke-3
+      ((lambda () (begin (def source/loop.2 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.2 (-> Value Value Value Value) (lambda (source/form.1 source/n.2 source/l.3) ((lambda (source/value) (if (value-truth? source/value) source/value (if (value-truth? (primitive/pair?/1 source/l.3)) (body/source/loop.2 source/form.1 (primitive/-/2 source/n.2 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.3)) (body/source/scheme-error literal.3 (value-cons source/form.1 (value-null)))))) (primitive/<=/2 source/n.2 (value-number (exact-number (ann 0 I64))))))) (ref-set! source/loop.2 (value-procedure (ref (unit)) (function-3 body/source/loop.2))) (binding-value source/loop.2)))
+)
+      source/form
+      source/n.1
+      source/form)))
+
+(ref-set! source/shape (value-procedure (ref (unit)) (function-2 body/source/shape)))
+
+(def source/macro-expand (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: macro-expand
+
+(def body/source/macro-expand (-> Value Value Value)
+  (lambda (source/expr.1 source/env.5)
+    (primitive/apply/2
+      (body/source/lookup-macro (primitive/car/1 source/expr.1) source/env.5)
+      (primitive/cdr/1 source/expr.1))))
+
+(ref-set! source/macro-expand (value-procedure (ref (unit)) (function-2 body/source/macro-expand)))
+
+(def source/comp-var (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-var
+
+(def body/source/comp-var (-> Value Value Value)
+  (lambda (source/expr.2 source/env.6)
+    (begin
+      (body/source/variable source/expr.2)
+      (body/source/gen-var-ref (body/source/lookup-var source/expr.2 source/env.6)))))
+
+(ref-set! source/comp-var (value-procedure (ref (unit)) (function-2 body/source/comp-var)))
+
+(def source/comp-self-eval (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-self-eval
+
+(def body/source/comp-self-eval (-> Value Value Value)
+  (lambda (source/expr.3 source/env.7) (body/source/gen-cst source/expr.3)))
+
+(ref-set!
+  source/comp-self-eval
+  (value-procedure (ref (unit)) (function-2 body/source/comp-self-eval)))
+
+(def source/comp-quote (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-quote
+
+(def body/source/comp-quote (-> Value Value Value)
+  (lambda (source/expr.4 source/env.8)
+    (begin
+      (body/source/shape source/expr.4 (value-number (exact-number (ann 2 I64))))
+      (body/source/gen-cst (primitive/cadr/1 source/expr.4)))))
+
+(ref-set! source/comp-quote (value-procedure (ref (unit)) (function-2 body/source/comp-quote)))
+
+(def source/comp-quasiquote (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-quasiquote
+
+(def body/source/comp-quasiquote (-> Value Value Value)
+  (lambda (source/expr.5 source/env.9)
+    (body/source/comp-quasiquotation
+      (primitive/cadr/1 source/expr.5)
+      (value-number (exact-number (ann 1 I64)))
+      source/env.9)))
+
+(ref-set!
+  source/comp-quasiquote
+  (value-procedure (ref (unit)) (function-2 body/source/comp-quasiquote)))
+
+(def source/comp-quasiquotation (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-quasiquotation
+
+(def body/source/comp-quasiquotation (-> Value Value Value Value)
+  (lambda (source/form.2 source/level source/env.10)
+    (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 0 I64)))))
+      (body/source/scheme-comp source/form.2 source/env.10)
+      (if (value-truth? (primitive/pair?/1 source/form.2))
+        (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.7))
+          (body/source/comp-quasiquotation-list
+            source/form.2
+            (primitive/+/2 source/level (value-number (exact-number (ann 1 I64))))
+            source/env.10)
+          (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.6))
+            (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 1 I64)))))
+              (body/source/scheme-comp (primitive/cadr/1 source/form.2) source/env.10)
+              (body/source/comp-quasiquotation-list
+                source/form.2
+                (primitive/-/2 source/level (value-number (exact-number (ann 1 I64))))
+                source/env.10))
+            (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/form.2) literal.5))
+              (begin
+                (if (value-truth? (primitive/=/2 source/level (value-number (exact-number (ann 1 I64)))))
+                  (body/source/scheme-error literal.4 (value-cons source/form.2 (value-null)))
+                  (value-unspecified))
+                (body/source/comp-quasiquotation-list
+                  source/form.2
+                  (primitive/-/2 source/level (value-number (exact-number (ann 1 I64))))
+                  source/env.10))
+              (body/source/comp-quasiquotation-list source/form.2 source/level source/env.10))))
+        (if (value-truth? (primitive/vector?/1 source/form.2))
+          (body/source/gen-vector-form
+            (body/source/comp-quasiquotation-list
+              (body/source/vector->lst source/form.2)
+              source/level
+              source/env.10))
+          (body/source/gen-cst source/form.2))))))
+
+(ref-set!
+  source/comp-quasiquotation
+  (value-procedure (ref (unit)) (function-3 body/source/comp-quasiquotation)))
+
+(def source/comp-quasiquotation-list (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-quasiquotation-list
+
+(def body/source/comp-quasiquotation-list (-> Value Value Value Value)
+  (lambda (source/l.4 source/level.1 source/env.11)
+    (if (value-truth? (primitive/pair?/1 source/l.4))
+      ((lambda (source/first) (if (value-truth? (primitive/=/2 source/level.1 (value-number (exact-number (ann 1 I64))))) (if (value-truth? (body/source/unquote-splicing? source/first)) (begin (body/source/shape source/first (value-number (exact-number (ann 2 I64)))) (body/source/gen-append-form (body/source/scheme-comp (primitive/cadr/1 source/first) source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) (value-number (exact-number (ann 1 I64))) source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))) (body/source/gen-cons-form (body/source/comp-quasiquotation source/first source/level.1 source/env.11) (body/source/comp-quasiquotation (primitive/cdr/1 source/l.4) source/level.1 source/env.11))))
+        (primitive/car/1 source/l.4))
+      (body/source/comp-quasiquotation source/l.4 source/level.1 source/env.11))))
+
+(ref-set!
+  source/comp-quasiquotation-list
+  (value-procedure (ref (unit)) (function-3 body/source/comp-quasiquotation-list)))
+
+(def source/unquote-splicing? (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: unquote-splicing?
+
+(def body/source/unquote-splicing? (-> Value Value)
+  (lambda (source/x.1)
+    (if (value-truth? (primitive/pair?/1 source/x.1))
+      (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/x.1) literal.8))
+        (value-boolean #t)
+        (value-boolean #f))
+      (value-boolean #f))))
+
+(ref-set!
+  source/unquote-splicing?
+  (value-procedure (ref (unit)) (function-1 body/source/unquote-splicing?)))
+
+(def source/comp-unquote (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-unquote
+
+(def body/source/comp-unquote (-> Value Value Value)
+  (lambda (source/expr.6 source/env.12)
+    (body/source/scheme-error literal.9 (value-cons source/expr.6 (value-null)))))
+
+(ref-set! source/comp-unquote (value-procedure (ref (unit)) (function-2 body/source/comp-unquote)))
+
+(def source/comp-unquote-splicing (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-unquote-splicing
+
+(def body/source/comp-unquote-splicing (-> Value Value Value)
+  (lambda (source/expr.7 source/env.13)
+    (body/source/scheme-error literal.10 (value-cons source/expr.7 (value-null)))))
+
+(ref-set!
+  source/comp-unquote-splicing
+  (value-procedure (ref (unit)) (function-2 body/source/comp-unquote-splicing)))
+
+(def source/comp-set! (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-set!
+
+(def body/source/comp-set! (-> Value Value Value)
+  (lambda (source/expr.8 source/env.14)
+    (begin
+      (body/source/shape source/expr.8 (value-number (exact-number (ann 3 I64))))
+      (body/source/variable (primitive/cadr/1 source/expr.8))
+      (body/source/gen-var-set
+        (body/source/lookup-var (primitive/cadr/1 source/expr.8) source/env.14)
+        (body/source/scheme-comp (primitive/caddr/1 source/expr.8) source/env.14)))))
+
+(ref-set! source/comp-set! (value-procedure (ref (unit)) (function-2 body/source/comp-set!)))
+
+(def source/comp-lambda (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-lambda
+
+(def body/source/comp-lambda (-> Value Value Value)
+  (lambda (source/expr.9 source/env.15)
+    (begin
+      (body/source/shape source/expr.9 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/parms) ((lambda (source/frame.2) ((lambda (source/nb-vars source/code.1) (if (value-truth? (body/source/rest-param? source/parms)) (body/source/gen-lambda-rest source/nb-vars source/code.1) (body/source/gen-lambda source/nb-vars source/code.1))) (primitive/length/1 source/frame.2) (body/source/comp-body (primitive/cddr/1 source/expr.9) (body/source/push-frame source/frame.2 source/env.15)))) (body/source/parms->frame source/parms)))
+        (primitive/cadr/1 source/expr.9)))))
+
+(ref-set! source/comp-lambda (value-procedure (ref (unit)) (function-2 body/source/comp-lambda)))
+
+(def source/parms->frame (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: parms->frame
+
+(def body/source/parms->frame (-> Value Value)
+  (lambda (source/parms.1)
+    (if (value-truth? (primitive/null?/1 source/parms.1))
+      (value-null)
+      (if (value-truth? (primitive/pair?/1 source/parms.1))
+        ((lambda (source/x.2) (begin (body/source/variable source/x.2) (primitive/cons/2 source/x.2 (body/source/parms->frame (primitive/cdr/1 source/parms.1)))))
+          (primitive/car/1 source/parms.1))
+        (begin (body/source/variable source/parms.1) (primitive/list/1 source/parms.1))))))
+
+(ref-set! source/parms->frame (value-procedure (ref (unit)) (function-1 body/source/parms->frame)))
+
+(def source/rest-param? (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: rest-param?
+
+(def body/source/rest-param? (-> Value Value)
+  (lambda (source/parms.2)
+    (if (value-truth? (primitive/pair?/1 source/parms.2))
+      (body/source/rest-param? (primitive/cdr/1 source/parms.2))
+      (if (value-truth? (primitive/null?/1 source/parms.2)) (value-boolean #f) (value-boolean #t)))))
+
+(ref-set! source/rest-param? (value-procedure (ref (unit)) (function-1 body/source/rest-param?)))
+
+(def source/comp-body (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-body
+
+(def body/source/comp-body (-> Value Value Value)
+  (lambda (source/body source/env.16)
+    (begin
+      (def source/letrec-defines (Ref Value) (ref (value-uninitialized)))
+      (def body/source/letrec-defines (-> Value Value Value Value Value)
+        (lambda (source/vars source/vals source/body.1 source/env.17)
+          (if (value-truth? (primitive/pair?/1 source/body.1))
+            ((lambda (source/expr.10) (if (value-truth? (primitive/not/1 (primitive/pair?/1 source/expr.10))) (body/source/letrec-defines* source/vars source/vals source/body.1 source/env.17) (if (value-truth? (body/source/macro? (primitive/car/1 source/expr.10) source/env.17)) (body/source/letrec-defines source/vars source/vals (primitive/cons/2 (body/source/macro-expand source/expr.10 source/env.17) (primitive/cdr/1 source/body.1)) source/env.17) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.10) literal.14)) (body/source/letrec-defines source/vars source/vals (primitive/append/2 (primitive/cdr/1 source/expr.10) (primitive/cdr/1 source/body.1)) source/env.17) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.10) literal.13)) ((lambda (source/x.4) (begin (body/source/variable source/x.4) (body/source/letrec-defines (primitive/cons/2 source/x.4 source/vars) (primitive/cons/2 (body/source/definition-value source/expr.10) source/vals) (primitive/cdr/1 source/body.1) source/env.17))) (body/source/definition-name source/expr.10)) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.10) literal.12)) ((lambda (source/x.3) (body/source/letrec-defines source/vars source/vals (primitive/cdr/1 source/body.1) (body/source/push-macro source/x.3 (body/source/scheme-eval (body/source/definition-value source/expr.10)) source/env.17))) (body/source/definition-name source/expr.10)) (body/source/letrec-defines* source/vars source/vals source/body.1 source/env.17)))))))
+              (primitive/car/1 source/body.1))
+            (body/source/scheme-error literal.11 (value-null)))))
+      (ref-set!
+        source/letrec-defines
+        (value-procedure (ref (unit)) (function-4 body/source/letrec-defines)))
+      (def source/letrec-defines* (Ref Value) (ref (value-uninitialized)))
+      (def body/source/letrec-defines* (-> Value Value Value Value Value)
+        (lambda (source/vars.1 source/vals.1 source/body.2 source/env.18)
+          (if (value-truth? (primitive/null?/1 source/vars.1))
+            (body/source/comp-sequence source/body.2 source/env.18)
+            (body/source/comp-letrec-aux source/vars.1 source/vals.1 source/body.2 source/env.18))))
+      (ref-set!
+        source/letrec-defines*
+        (value-procedure (ref (unit)) (function-4 body/source/letrec-defines*)))
+      (body/source/letrec-defines (value-null) (value-null) source/body source/env.16))))
+
+(ref-set! source/comp-body (value-procedure (ref (unit)) (function-2 body/source/comp-body)))
+
+(def source/definition-name (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: definition-name
+
+(def body/source/definition-name (-> Value Value)
+  (lambda (source/expr.11)
+    (begin
+      (body/source/shape source/expr.11 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/pattern) ((lambda (source/name.5) (begin (if (value-truth? (primitive/symbol?/1 source/name.5)) (if (value-truth? (value-boolean #f)) (value-boolean #f) (value-unspecified)) (body/source/scheme-error literal.15 (value-cons source/name.5 (value-null)))) source/name.5)) (if (value-truth? (primitive/pair?/1 source/pattern)) (primitive/car/1 source/pattern) source/pattern)))
+        (primitive/cadr/1 source/expr.11)))))
+
+(ref-set!
+  source/definition-name
+  (value-procedure (ref (unit)) (function-1 body/source/definition-name)))
+
+(def source/definition-value (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: definition-value
+
+(def body/source/definition-value (-> Value Value)
+  (lambda (source/expr.12)
+    ((lambda (source/pattern.1) (if (value-truth? (primitive/pair?/1 source/pattern.1)) (primitive/cons/2 literal.16 (primitive/cons/2 (primitive/cdr/1 source/pattern.1) (primitive/cddr/1 source/expr.12))) (primitive/caddr/1 source/expr.12)))
+      (primitive/cadr/1 source/expr.12))))
+
+(ref-set!
+  source/definition-value
+  (value-procedure (ref (unit)) (function-1 body/source/definition-value)))
+
+(def source/comp-if (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-if
+
+(def body/source/comp-if (-> Value Value Value)
+  (lambda (source/expr.13 source/env.19)
+    (begin
+      (body/source/shape source/expr.13 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/code1 source/code2) (if (value-truth? (primitive/pair?/1 (primitive/cdddr/1 source/expr.13))) (body/source/gen-if source/code1 source/code2 (body/source/scheme-comp (primitive/cadddr/1 source/expr.13) source/env.19)) (body/source/gen-when source/code1 source/code2)))
+        (body/source/scheme-comp (primitive/cadr/1 source/expr.13) source/env.19)
+        (body/source/scheme-comp (primitive/caddr/1 source/expr.13) source/env.19)))))
+
+(ref-set! source/comp-if (value-procedure (ref (unit)) (function-2 body/source/comp-if)))
+
+(def source/comp-cond (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-cond
+
+(def body/source/comp-cond (-> Value Value Value)
+  (lambda (source/expr.14 source/env.20)
+    (body/source/comp-cond-aux (primitive/cdr/1 source/expr.14) source/env.20)))
+
+(ref-set! source/comp-cond (value-procedure (ref (unit)) (function-2 body/source/comp-cond)))
+
+(def source/comp-cond-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-cond-aux
+
+(def body/source/comp-cond-aux (-> Value Value Value)
+  (lambda (source/clauses source/env.21)
+    (if (value-truth? (primitive/pair?/1 source/clauses))
+      ((lambda (source/clause) (begin (body/source/shape source/clause (value-number (exact-number (ann 1 I64)))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause) literal.18)) (begin (body/source/shape source/clause (value-number (exact-number (ann 2 I64)))) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21)) (if (value-truth? (primitive/not/1 (primitive/pair?/1 (primitive/cdr/1 source/clause)))) (body/source/gen-or (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)) (if (value-truth? (primitive/eq?/2 (primitive/cadr/1 source/clause) literal.17)) (begin (body/source/shape source/clause (value-number (exact-number (ann 3 I64)))) (body/source/gen-cond-send (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/scheme-comp (primitive/caddr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21))) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/clause) source/env.21) (body/source/comp-sequence (primitive/cdr/1 source/clause) source/env.21) (body/source/comp-cond-aux (primitive/cdr/1 source/clauses) source/env.21)))))))
+        (primitive/car/1 source/clauses))
+      (body/source/gen-cst (value-null)))))
+
+(ref-set!
+  source/comp-cond-aux
+  (value-procedure (ref (unit)) (function-2 body/source/comp-cond-aux)))
+
+(def source/comp-and (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-and
+
+(def body/source/comp-and (-> Value Value Value)
+  (lambda (source/expr.15 source/env.22)
+    ((lambda (source/rest) (if (value-truth? (primitive/pair?/1 source/rest)) (body/source/comp-and-aux source/rest source/env.22) (body/source/gen-cst (value-boolean #t))))
+      (primitive/cdr/1 source/expr.15))))
+
+(ref-set! source/comp-and (value-procedure (ref (unit)) (function-2 body/source/comp-and)))
+
+(def source/comp-and-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-and-aux
+
+(def body/source/comp-and-aux (-> Value Value Value)
+  (lambda (source/l.5 source/env.23)
+    ((lambda (source/code.2 source/rest.1) (if (value-truth? (primitive/pair?/1 source/rest.1)) (body/source/gen-and source/code.2 (body/source/comp-and-aux source/rest.1 source/env.23)) source/code.2))
+      (body/source/scheme-comp (primitive/car/1 source/l.5) source/env.23)
+      (primitive/cdr/1 source/l.5))))
+
+(ref-set! source/comp-and-aux (value-procedure (ref (unit)) (function-2 body/source/comp-and-aux)))
+
+(def source/comp-or (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-or
+
+(def body/source/comp-or (-> Value Value Value)
+  (lambda (source/expr.16 source/env.24)
+    ((lambda (source/rest.2) (if (value-truth? (primitive/pair?/1 source/rest.2)) (body/source/comp-or-aux source/rest.2 source/env.24) (body/source/gen-cst (value-boolean #f))))
+      (primitive/cdr/1 source/expr.16))))
+
+(ref-set! source/comp-or (value-procedure (ref (unit)) (function-2 body/source/comp-or)))
+
+(def source/comp-or-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-or-aux
+
+(def body/source/comp-or-aux (-> Value Value Value)
+  (lambda (source/l.6 source/env.25)
+    ((lambda (source/code.3 source/rest.3) (if (value-truth? (primitive/pair?/1 source/rest.3)) (body/source/gen-or source/code.3 (body/source/comp-or-aux source/rest.3 source/env.25)) source/code.3))
+      (body/source/scheme-comp (primitive/car/1 source/l.6) source/env.25)
+      (primitive/cdr/1 source/l.6))))
+
+(ref-set! source/comp-or-aux (value-procedure (ref (unit)) (function-2 body/source/comp-or-aux)))
+
+(def source/comp-case (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-case
+
+(def body/source/comp-case (-> Value Value Value)
+  (lambda (source/expr.17 source/env.26)
+    (begin
+      (body/source/shape source/expr.17 (value-number (exact-number (ann 3 I64))))
+      (body/source/gen-case
+        (body/source/scheme-comp (primitive/cadr/1 source/expr.17) source/env.26)
+        (body/source/comp-case-aux (primitive/cddr/1 source/expr.17) source/env.26)))))
+
+(ref-set! source/comp-case (value-procedure (ref (unit)) (function-2 body/source/comp-case)))
+
+(def source/comp-case-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-case-aux
+
+(def body/source/comp-case-aux (-> Value Value Value)
+  (lambda (source/clauses.1 source/env.27)
+    (if (value-truth? (primitive/pair?/1 source/clauses.1))
+      ((lambda (source/clause.1) (begin (body/source/shape source/clause.1 (value-number (exact-number (ann 2 I64)))) (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/clause.1) literal.19)) (body/source/gen-case-else (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27)) (body/source/gen-case-clause (primitive/car/1 source/clause.1) (body/source/comp-sequence (primitive/cdr/1 source/clause.1) source/env.27) (body/source/comp-case-aux (primitive/cdr/1 source/clauses.1) source/env.27)))))
+        (primitive/car/1 source/clauses.1))
+      (body/source/gen-case-else (body/source/gen-cst (value-null))))))
+
+(ref-set!
+  source/comp-case-aux
+  (value-procedure (ref (unit)) (function-2 body/source/comp-case-aux)))
+
+(def source/comp-let (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-let
+
+(def body/source/comp-let (-> Value Value Value)
+  (lambda (source/expr.18 source/env.28)
+    (begin
+      (body/source/shape source/expr.18 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/x.5) (if (value-truth? (primitive/symbol?/1 source/x.5)) (begin (body/source/shape source/expr.18 (value-number (exact-number (ann 4 I64)))) ((lambda (source/y) ((lambda (source/proc.2) (body/source/scheme-comp (primitive/cons/2 (primitive/list/3 literal.22 (primitive/list/1 (primitive/list/2 source/x.5 source/proc.2)) source/x.5) (body/source/bindings->vals source/y)) source/env.28)) (primitive/cons/2 literal.21 (primitive/cons/2 (body/source/bindings->vars source/y) (primitive/cdddr/1 source/expr.18))))) (primitive/caddr/1 source/expr.18))) (if (value-truth? (primitive/pair?/1 source/x.5)) (body/source/scheme-comp (primitive/cons/2 (primitive/cons/2 literal.20 (primitive/cons/2 (body/source/bindings->vars source/x.5) (primitive/cddr/1 source/expr.18))) (body/source/bindings->vals source/x.5)) source/env.28) (body/source/comp-body (primitive/cddr/1 source/expr.18) source/env.28))))
+        (primitive/cadr/1 source/expr.18)))))
+
+(ref-set! source/comp-let (value-procedure (ref (unit)) (function-2 body/source/comp-let)))
+
+(def source/bindings->vars (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: bindings->vars
+
+(def body/source/bindings->vars (-> Value Value)
+  (lambda (source/bindings)
+    (if (value-truth? (primitive/pair?/1 source/bindings))
+      ((lambda (source/binding) (begin (body/source/shape source/binding (value-number (exact-number (ann 2 I64)))) ((lambda (source/x.6) (begin (body/source/variable source/x.6) (primitive/cons/2 source/x.6 (body/source/bindings->vars (primitive/cdr/1 source/bindings))))) (primitive/car/1 source/binding))))
+        (primitive/car/1 source/bindings))
+      (value-null))))
+
+(ref-set!
+  source/bindings->vars
+  (value-procedure (ref (unit)) (function-1 body/source/bindings->vars)))
+
+(def source/bindings->vals (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: bindings->vals
+
+(def body/source/bindings->vals (-> Value Value)
+  (lambda (source/bindings.1)
+    (if (value-truth? (primitive/pair?/1 source/bindings.1))
+      ((lambda (source/binding.1) (primitive/cons/2 (primitive/cadr/1 source/binding.1) (body/source/bindings->vals (primitive/cdr/1 source/bindings.1))))
+        (primitive/car/1 source/bindings.1))
+      (value-null))))
+
+(ref-set!
+  source/bindings->vals
+  (value-procedure (ref (unit)) (function-1 body/source/bindings->vals)))
+
+(def source/comp-let* (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-let*
+
+(def body/source/comp-let* (-> Value Value Value)
+  (lambda (source/expr.19 source/env.29)
+    (begin
+      (body/source/shape source/expr.19 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/bindings.2) (if (value-truth? (primitive/pair?/1 source/bindings.2)) (body/source/scheme-comp (primitive/list/3 literal.23 (primitive/list/1 (primitive/car/1 source/bindings.2)) (primitive/cons/2 literal.24 (primitive/cons/2 (primitive/cdr/1 source/bindings.2) (primitive/cddr/1 source/expr.19)))) source/env.29) (body/source/comp-body (primitive/cddr/1 source/expr.19) source/env.29)))
+        (primitive/cadr/1 source/expr.19)))))
+
+(ref-set! source/comp-let* (value-procedure (ref (unit)) (function-2 body/source/comp-let*)))
+
+(def source/comp-letrec (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-letrec
+
+(def body/source/comp-letrec (-> Value Value Value)
+  (lambda (source/expr.20 source/env.30)
+    (begin
+      (body/source/shape source/expr.20 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/bindings.3) (body/source/comp-letrec-aux (body/source/bindings->vars source/bindings.3) (body/source/bindings->vals source/bindings.3) (primitive/cddr/1 source/expr.20) source/env.30))
+        (primitive/cadr/1 source/expr.20)))))
+
+(ref-set! source/comp-letrec (value-procedure (ref (unit)) (function-2 body/source/comp-letrec)))
+
+(def source/comp-letrec-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-letrec-aux
+
+(def body/source/comp-letrec-aux (-> Value Value Value Value Value)
+  (lambda (source/vars.2 source/vals.2 source/body.3 source/env.31)
+    (if (value-truth? (primitive/pair?/1 source/vars.2))
+      ((lambda (source/new-env) (body/source/gen-letrec (body/source/comp-vals source/vals.2 source/new-env) (body/source/comp-body source/body.3 source/new-env)))
+        (body/source/push-frame source/vars.2 source/env.31))
+      (body/source/comp-body source/body.3 source/env.31))))
+
+(ref-set!
+  source/comp-letrec-aux
+  (value-procedure (ref (unit)) (function-4 body/source/comp-letrec-aux)))
+
+(def source/comp-vals (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-vals
+
+(def body/source/comp-vals (-> Value Value Value)
+  (lambda (source/l.7 source/env.32)
+    (if (value-truth? (primitive/pair?/1 source/l.7))
+      (primitive/cons/2
+        (body/source/scheme-comp (primitive/car/1 source/l.7) source/env.32)
+        (body/source/comp-vals (primitive/cdr/1 source/l.7) source/env.32))
+      (value-null))))
+
+(ref-set! source/comp-vals (value-procedure (ref (unit)) (function-2 body/source/comp-vals)))
+
+(def source/comp-begin (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-begin
+
+(def body/source/comp-begin (-> Value Value Value)
+  (lambda (source/expr.21 source/env.33)
+    (begin
+      (body/source/shape source/expr.21 (value-number (exact-number (ann 2 I64))))
+      (body/source/comp-sequence (primitive/cdr/1 source/expr.21) source/env.33))))
+
+(ref-set! source/comp-begin (value-procedure (ref (unit)) (function-2 body/source/comp-begin)))
+
+(def source/comp-sequence (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-sequence
+
+(def body/source/comp-sequence (-> Value Value Value)
+  (lambda (source/exprs source/env.34)
+    (if (value-truth? (primitive/pair?/1 source/exprs))
+      (body/source/comp-sequence-aux source/exprs source/env.34)
+      (body/source/gen-cst (value-null)))))
+
+(ref-set!
+  source/comp-sequence
+  (value-procedure (ref (unit)) (function-2 body/source/comp-sequence)))
+
+(def source/comp-sequence-aux (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-sequence-aux
+
+(def body/source/comp-sequence-aux (-> Value Value Value)
+  (lambda (source/exprs.1 source/env.35)
+    ((lambda (source/code.4 source/rest.4) (if (value-truth? (primitive/pair?/1 source/rest.4)) (body/source/gen-sequence source/code.4 (body/source/comp-sequence-aux source/rest.4 source/env.35)) source/code.4))
+      (body/source/scheme-comp (primitive/car/1 source/exprs.1) source/env.35)
+      (primitive/cdr/1 source/exprs.1))))
+
+(ref-set!
+  source/comp-sequence-aux
+  (value-procedure (ref (unit)) (function-2 body/source/comp-sequence-aux)))
+
+(def source/comp-do (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-do
+
+(def body/source/comp-do (-> Value Value Value)
+  (lambda (source/expr.22 source/env.36)
+    (begin
+      (body/source/shape source/expr.22 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/bindings.4 source/exit) (begin (body/source/shape source/exit (value-number (exact-number (ann 1 I64)))) ((lambda (source/vars.3) ((lambda (source/new-env1) ((lambda (source/new-env2) ((lambda () (body/source/gen-letrec (primitive/list/1 (body/source/gen-lambda (primitive/length/1 source/vars.3) (body/source/gen-if (body/source/scheme-comp (primitive/car/1 source/exit) source/new-env2) (body/source/comp-sequence (primitive/cdr/1 source/exit) source/new-env2) (body/source/gen-sequence (body/source/comp-sequence (primitive/cdddr/1 source/expr.22) source/new-env2) (body/source/gen-combination (body/source/gen-var-ref literal.26) (body/source/comp-vals (body/source/bindings->steps source/bindings.4) source/new-env2)))))) (body/source/gen-combination (body/source/gen-var-ref literal.27) (body/source/comp-vals (body/source/bindings->vals source/bindings.4) source/new-env1)))))) (body/source/push-frame source/vars.3 source/new-env1))) (body/source/push-frame literal.25 source/env.36))) (body/source/bindings->vars source/bindings.4))))
+        (primitive/cadr/1 source/expr.22)
+        (primitive/caddr/1 source/expr.22)))))
+
+(ref-set! source/comp-do (value-procedure (ref (unit)) (function-2 body/source/comp-do)))
+
+(def source/bindings->steps (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: bindings->steps
+
+(def body/source/bindings->steps (-> Value Value)
+  (lambda (source/bindings.5)
+    (if (value-truth? (primitive/pair?/1 source/bindings.5))
+      ((lambda (source/binding.2) (primitive/cons/2 (if (value-truth? (primitive/pair?/1 (primitive/cddr/1 source/binding.2))) (primitive/caddr/1 source/binding.2) (primitive/car/1 source/binding.2)) (body/source/bindings->steps (primitive/cdr/1 source/bindings.5))))
+        (primitive/car/1 source/bindings.5))
+      (value-null))))
+
+(ref-set!
+  source/bindings->steps
+  (value-procedure (ref (unit)) (function-1 body/source/bindings->steps)))
+
+(def source/comp-define (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-define
+
+(def body/source/comp-define (-> Value Value Value)
+  (lambda (source/expr.23 source/env.37)
+    (begin
+      (body/source/shape source/expr.23 (value-number (exact-number (ann 3 I64))))
+      ((lambda (source/pattern.2) ((lambda (source/x.7) (begin (body/source/variable source/x.7) (body/source/gen-sequence (body/source/gen-var-set (body/source/lookup-var source/x.7 source/env.37) (body/source/scheme-comp (if (value-truth? (primitive/pair?/1 source/pattern.2)) (primitive/cons/2 literal.28 (primitive/cons/2 (primitive/cdr/1 source/pattern.2) (primitive/cddr/1 source/expr.23))) (primitive/caddr/1 source/expr.23)) source/env.37)) (body/source/gen-cst source/x.7)))) (if (value-truth? (primitive/pair?/1 source/pattern.2)) (primitive/car/1 source/pattern.2) source/pattern.2)))
+        (primitive/cadr/1 source/expr.23)))))
+
+(ref-set! source/comp-define (value-procedure (ref (unit)) (function-2 body/source/comp-define)))
+
+(def source/comp-define-macro (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-define-macro
+
+(def body/source/comp-define-macro (-> Value Value Value)
+  (lambda (source/expr.24 source/env.38)
+    ((lambda (source/x.8) (body/source/gen-macro source/x.8 (body/source/scheme-eval (body/source/definition-value source/expr.24))))
+      (body/source/definition-name source/expr.24))))
+
+(ref-set!
+  source/comp-define-macro
+  (value-procedure (ref (unit)) (function-2 body/source/comp-define-macro)))
+
+(def source/comp-combination (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: comp-combination
+
+(def body/source/comp-combination (-> Value Value Value)
+  (lambda (source/expr.25 source/env.39)
+    (body/source/gen-combination
+      (body/source/scheme-comp (primitive/car/1 source/expr.25) source/env.39)
+      (body/source/comp-vals (primitive/cdr/1 source/expr.25) source/env.39))))
+
+(ref-set!
+  source/comp-combination
+  (value-procedure (ref (unit)) (function-2 body/source/comp-combination)))
+
+(def source/gen-var-ref (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-var-ref
+
+(def body/source/gen-var-ref (-> Value Value)
+  (lambda (source/var)
+    (if (value-truth? (primitive/pair?/1 source/var))
+      (body/source/gen-rte-ref (primitive/car/1 source/var) (primitive/cdr/1 source/var))
+      (body/source/gen-glo-ref (body/source/scheme-global-var source/var)))))
+
+(ref-set! source/gen-var-ref (value-procedure (ref (unit)) (function-1 body/source/gen-var-ref)))
+
+(def source/gen-rte-ref (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-rte-ref
+
+(def body/source/gen-rte-ref (-> Value Value Value)
+  (lambda (source/up.2 source/over.1)
+    ((lambda (source/value.1) (if (value-truth? (primitive/memv/2 source/value.1 literal.30)) (body/source/gen-slot-ref-0 source/over.1) ((lambda (source/value.2) (if (value-truth? (primitive/memv/2 source/value.2 literal.29)) (body/source/gen-slot-ref-1 source/over.1) ((lambda (source/value.3) (body/source/gen-slot-ref-up-2 (body/source/gen-rte-ref (primitive/-/2 source/up.2 (value-number (exact-number (ann 2 I64)))) source/over.1))) source/value.2))) source/value.1)))
+      source/up.2)))
+
+(ref-set! source/gen-rte-ref (value-procedure (ref (unit)) (function-2 body/source/gen-rte-ref)))
+
+(def source/gen-slot-ref-0 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-ref-0
+
+(def body/source/gen-slot-ref-0 (-> Value Value)
+  (lambda (source/i.2)
+    ((lambda (source/value.4) (if (value-truth? (primitive/memv/2 source/value.4 literal.34)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.4) (primitive/vector-ref/2 source/rte.4 (value-number (exact-number (ann 0 I64))))))) ((lambda (source/value.5) (if (value-truth? (primitive/memv/2 source/value.5 literal.33)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.3) (primitive/vector-ref/2 source/rte.3 (value-number (exact-number (ann 1 I64))))))) ((lambda (source/value.6) (if (value-truth? (primitive/memv/2 source/value.6 literal.32)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.2) (primitive/vector-ref/2 source/rte.2 (value-number (exact-number (ann 2 I64))))))) ((lambda (source/value.7) (if (value-truth? (primitive/memv/2 source/value.7 literal.31)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.1) (primitive/vector-ref/2 source/rte.1 (value-number (exact-number (ann 3 I64))))))) ((lambda (source/value.8) (value-procedure (ref (unit)) (function-1 (lambda (source/rte) (primitive/vector-ref/2 source/rte source/i.2))))) source/value.7))) source/value.6))) source/value.5))) source/value.4)))
+      source/i.2)))
+
+(ref-set!
+  source/gen-slot-ref-0
+  (value-procedure (ref (unit)) (function-1 body/source/gen-slot-ref-0)))
+
+(def source/gen-slot-ref-1 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-ref-1
+
+(def body/source/gen-slot-ref-1 (-> Value Value)
+  (lambda (source/i.3)
+    ((lambda (source/value.9) (if (value-truth? (primitive/memv/2 source/value.9 literal.38)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.9) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.9 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 0 I64))))))) ((lambda (source/value.10) (if (value-truth? (primitive/memv/2 source/value.10 literal.37)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.8) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.8 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 1 I64))))))) ((lambda (source/value.11) (if (value-truth? (primitive/memv/2 source/value.11 literal.36)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.7) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.7 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 2 I64))))))) ((lambda (source/value.12) (if (value-truth? (primitive/memv/2 source/value.12 literal.35)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.6) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.6 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 3 I64))))))) ((lambda (source/value.13) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.5) (primitive/vector-ref/2 (primitive/vector-ref/2 source/rte.5 (value-number (exact-number (ann 0 I64)))) source/i.3))))) source/value.12))) source/value.11))) source/value.10))) source/value.9)))
+      source/i.3)))
+
+(ref-set!
+  source/gen-slot-ref-1
+  (value-procedure (ref (unit)) (function-1 body/source/gen-slot-ref-1)))
+
+(def source/gen-slot-ref-up-2 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-ref-up-2
+
+(def body/source/gen-slot-ref-up-2 (-> Value Value)
+  (lambda (source/code.5)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.10)
+          (invoke-1
+            source/code.5
+            (primitive/vector-ref/2
+              (primitive/vector-ref/2 source/rte.10 (value-number (exact-number (ann 0 I64))))
+              (value-number (exact-number (ann 0 I64))))))))))
+
+(ref-set!
+  source/gen-slot-ref-up-2
+  (value-procedure (ref (unit)) (function-1 body/source/gen-slot-ref-up-2)))
+
+(def source/gen-glo-ref (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-glo-ref
+
+(def body/source/gen-glo-ref (-> Value Value)
+  (lambda (source/i.4)
+    (value-procedure
+      (ref (unit))
+      (function-1 (lambda (source/rte.11) (body/source/scheme-global-var-ref source/i.4))))))
+
+(ref-set! source/gen-glo-ref (value-procedure (ref (unit)) (function-1 body/source/gen-glo-ref)))
+
+(def source/gen-cst (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-cst
+
+(def body/source/gen-cst (-> Value Value)
+  (lambda (source/val)
+    ((lambda (source/value.14) (if (value-truth? (primitive/memv/2 source/value.14 literal.46)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.20) (value-null)))) ((lambda (source/value.15) (if (value-truth? (primitive/memv/2 source/value.15 literal.45)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.19) (value-boolean #f)))) ((lambda (source/value.16) (if (value-truth? (primitive/memv/2 source/value.16 literal.44)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.18) (value-boolean #t)))) ((lambda (source/value.17) (if (value-truth? (primitive/memv/2 source/value.17 literal.43)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.17) (value-number (exact-number (ann -2 I64)))))) ((lambda (source/value.18) (if (value-truth? (primitive/memv/2 source/value.18 literal.42)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.16) (value-number (exact-number (ann -1 I64)))))) ((lambda (source/value.19) (if (value-truth? (primitive/memv/2 source/value.19 literal.41)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.15) (value-number (exact-number (ann 0 I64)))))) ((lambda (source/value.20) (if (value-truth? (primitive/memv/2 source/value.20 literal.40)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.14) (value-number (exact-number (ann 1 I64)))))) ((lambda (source/value.21) (if (value-truth? (primitive/memv/2 source/value.21 literal.39)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.13) (value-number (exact-number (ann 2 I64)))))) ((lambda (source/value.22) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.12) source/val)))) source/value.21))) source/value.20))) source/value.19))) source/value.18))) source/value.17))) source/value.16))) source/value.15))) source/value.14)))
+      source/val)))
+
+(ref-set! source/gen-cst (value-procedure (ref (unit)) (function-1 body/source/gen-cst)))
+
+(def source/gen-append-form (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-append-form
+
+(def body/source/gen-append-form (-> Value Value Value)
+  (lambda (source/code1.1 source/code2.1)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.21)
+          (primitive/append/2
+            (invoke-1 source/code1.1 source/rte.21)
+            (invoke-1 source/code2.1 source/rte.21)))))))
+
+(ref-set!
+  source/gen-append-form
+  (value-procedure (ref (unit)) (function-2 body/source/gen-append-form)))
+
+(def source/gen-cons-form (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-cons-form
+
+(def body/source/gen-cons-form (-> Value Value Value)
+  (lambda (source/code1.2 source/code2.2)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.22)
+          (primitive/cons/2
+            (invoke-1 source/code1.2 source/rte.22)
+            (invoke-1 source/code2.2 source/rte.22)))))))
+
+(ref-set!
+  source/gen-cons-form
+  (value-procedure (ref (unit)) (function-2 body/source/gen-cons-form)))
+
+(def source/gen-vector-form (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-vector-form
+
+(def body/source/gen-vector-form (-> Value Value)
+  (lambda (source/code.6)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.23) (body/source/lst->vector (invoke-1 source/code.6 source/rte.23)))))))
+
+(ref-set!
+  source/gen-vector-form
+  (value-procedure (ref (unit)) (function-1 body/source/gen-vector-form)))
+
+(def source/gen-var-set (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-var-set
+
+(def body/source/gen-var-set (-> Value Value Value)
+  (lambda (source/var.1 source/code.7)
+    (if (value-truth? (primitive/pair?/1 source/var.1))
+      (body/source/gen-rte-set
+        (primitive/car/1 source/var.1)
+        (primitive/cdr/1 source/var.1)
+        source/code.7)
+      (body/source/gen-glo-set (body/source/scheme-global-var source/var.1) source/code.7))))
+
+(ref-set! source/gen-var-set (value-procedure (ref (unit)) (function-2 body/source/gen-var-set)))
+
+(def source/gen-rte-set (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-rte-set
+
+(def body/source/gen-rte-set (-> Value Value Value Value)
+  (lambda (source/up.3 source/over.2 source/code.8)
+    ((lambda (source/value.23) (if (value-truth? (primitive/memv/2 source/value.23 literal.48)) (body/source/gen-slot-set-0 source/over.2 source/code.8) ((lambda (source/value.24) (if (value-truth? (primitive/memv/2 source/value.24 literal.47)) (body/source/gen-slot-set-1 source/over.2 source/code.8) ((lambda (source/value.25) (body/source/gen-slot-set-n (body/source/gen-rte-ref (primitive/-/2 source/up.3 (value-number (exact-number (ann 2 I64)))) (value-number (exact-number (ann 0 I64)))) source/over.2 source/code.8)) source/value.24))) source/value.23)))
+      source/up.3)))
+
+(ref-set! source/gen-rte-set (value-procedure (ref (unit)) (function-3 body/source/gen-rte-set)))
+
+(def source/gen-slot-set-0 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-set-0
+
+(def body/source/gen-slot-set-0 (-> Value Value Value)
+  (lambda (source/i.5 source/code.9)
+    ((lambda (source/value.26) (if (value-truth? (primitive/memv/2 source/value.26 literal.52)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.28) (primitive/vector-set!/3 source/rte.28 (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.9 source/rte.28))))) ((lambda (source/value.27) (if (value-truth? (primitive/memv/2 source/value.27 literal.51)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.27) (primitive/vector-set!/3 source/rte.27 (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.9 source/rte.27))))) ((lambda (source/value.28) (if (value-truth? (primitive/memv/2 source/value.28 literal.50)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.26) (primitive/vector-set!/3 source/rte.26 (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.9 source/rte.26))))) ((lambda (source/value.29) (if (value-truth? (primitive/memv/2 source/value.29 literal.49)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.25) (primitive/vector-set!/3 source/rte.25 (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.9 source/rte.25))))) ((lambda (source/value.30) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.24) (primitive/vector-set!/3 source/rte.24 source/i.5 (invoke-1 source/code.9 source/rte.24)))))) source/value.29))) source/value.28))) source/value.27))) source/value.26)))
+      source/i.5)))
+
+(ref-set!
+  source/gen-slot-set-0
+  (value-procedure (ref (unit)) (function-2 body/source/gen-slot-set-0)))
+
+(def source/gen-slot-set-1 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-set-1
+
+(def body/source/gen-slot-set-1 (-> Value Value Value)
+  (lambda (source/i.6 source/code.10)
+    ((lambda (source/value.31) (if (value-truth? (primitive/memv/2 source/value.31 literal.56)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.33) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.33 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.10 source/rte.33))))) ((lambda (source/value.32) (if (value-truth? (primitive/memv/2 source/value.32 literal.55)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.32) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.32 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.10 source/rte.32))))) ((lambda (source/value.33) (if (value-truth? (primitive/memv/2 source/value.33 literal.54)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.31) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.31 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.10 source/rte.31))))) ((lambda (source/value.34) (if (value-truth? (primitive/memv/2 source/value.34 literal.53)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.30) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.30 (value-number (exact-number (ann 0 I64)))) (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.10 source/rte.30))))) ((lambda (source/value.35) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.29) (primitive/vector-set!/3 (primitive/vector-ref/2 source/rte.29 (value-number (exact-number (ann 0 I64)))) source/i.6 (invoke-1 source/code.10 source/rte.29)))))) source/value.34))) source/value.33))) source/value.32))) source/value.31)))
+      source/i.6)))
+
+(ref-set!
+  source/gen-slot-set-1
+  (value-procedure (ref (unit)) (function-2 body/source/gen-slot-set-1)))
+
+(def source/gen-slot-set-n (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-slot-set-n
+
+(def body/source/gen-slot-set-n (-> Value Value Value Value)
+  (lambda (source/up.4 source/i.7 source/code.11)
+    ((lambda (source/value.36) (if (value-truth? (primitive/memv/2 source/value.36 literal.60)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.38) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.38 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 0 I64))) (invoke-1 source/code.11 source/rte.38))))) ((lambda (source/value.37) (if (value-truth? (primitive/memv/2 source/value.37 literal.59)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.37) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.37 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 1 I64))) (invoke-1 source/code.11 source/rte.37))))) ((lambda (source/value.38) (if (value-truth? (primitive/memv/2 source/value.38 literal.58)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.36) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.36 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 2 I64))) (invoke-1 source/code.11 source/rte.36))))) ((lambda (source/value.39) (if (value-truth? (primitive/memv/2 source/value.39 literal.57)) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.35) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.35 (value-number (exact-number (ann 0 I64))))) (value-number (exact-number (ann 3 I64))) (invoke-1 source/code.11 source/rte.35))))) ((lambda (source/value.40) (value-procedure (ref (unit)) (function-1 (lambda (source/rte.34) (primitive/vector-set!/3 (invoke-1 source/up.4 (primitive/vector-ref/2 source/rte.34 (value-number (exact-number (ann 0 I64))))) source/i.7 (invoke-1 source/code.11 source/rte.34)))))) source/value.39))) source/value.38))) source/value.37))) source/value.36)))
+      source/i.7)))
+
+(ref-set!
+  source/gen-slot-set-n
+  (value-procedure (ref (unit)) (function-3 body/source/gen-slot-set-n)))
+
+(def source/gen-glo-set (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-glo-set
+
+(def body/source/gen-glo-set (-> Value Value Value)
+  (lambda (source/i.8 source/code.12)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.39)
+          (body/source/scheme-global-var-set! source/i.8 (invoke-1 source/code.12 source/rte.39)))))))
+
+(ref-set! source/gen-glo-set (value-procedure (ref (unit)) (function-2 body/source/gen-glo-set)))
+
+(def source/gen-lambda-rest (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-rest
+
+(def body/source/gen-lambda-rest (-> Value Value Value)
+  (lambda (source/nb-vars.1 source/body.4)
+    ((lambda (source/value.41) (if (value-truth? (primitive/memv/2 source/value.41 literal.63)) (body/source/gen-lambda-1-rest source/body.4) ((lambda (source/value.42) (if (value-truth? (primitive/memv/2 source/value.42 literal.62)) (body/source/gen-lambda-2-rest source/body.4) ((lambda (source/value.43) (if (value-truth? (primitive/memv/2 source/value.43 literal.61)) (body/source/gen-lambda-3-rest source/body.4) ((lambda (source/value.44) (body/source/gen-lambda-n-rest source/nb-vars.1 source/body.4)) source/value.43))) source/value.42))) source/value.41)))
+      source/nb-vars.1)))
+
+(ref-set!
+  source/gen-lambda-rest
+  (value-procedure (ref (unit)) (function-2 body/source/gen-lambda-rest)))
+
+(def source/gen-lambda-1-rest (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-1-rest
+
+(def body/source/gen-lambda-1-rest (-> Value Value)
+  (lambda (source/body.5)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.40)
+          (value-procedure
+            (ref (unit))
+            (function-rest-0
+              (lambda (source/a)
+                (invoke-1 source/body.5 (primitive/vector/2 source/rte.40 source/a))))))))))
+
+(ref-set!
+  source/gen-lambda-1-rest
+  (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-1-rest)))
+
+(def source/gen-lambda-2-rest (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-2-rest
+
+(def body/source/gen-lambda-2-rest (-> Value Value)
+  (lambda (source/body.6)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.41)
+          (value-procedure
+            (ref (unit))
+            (function-rest-1
+              (lambda (source/a.1 source/b)
+                (invoke-1 source/body.6 (primitive/vector/3 source/rte.41 source/a.1 source/b))))))))))
+
+(ref-set!
+  source/gen-lambda-2-rest
+  (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-2-rest)))
+
+(def source/gen-lambda-3-rest (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-3-rest
+
+(def body/source/gen-lambda-3-rest (-> Value Value)
+  (lambda (source/body.7)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.42)
+          (value-procedure
+            (ref (unit))
+            (function-rest-2
+              (lambda (source/a.2 source/b.1 source/c)
+                (invoke-1
+                  source/body.7
+                  (primitive/vector/4 source/rte.42 source/a.2 source/b.1 source/c))))))))))
+
+(ref-set!
+  source/gen-lambda-3-rest
+  (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-3-rest)))
+
+(def source/gen-lambda-n-rest (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-n-rest
+
+(def body/source/gen-lambda-n-rest (-> Value Value Value)
+  (lambda (source/nb-vars.2 source/body.8)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.43)
+          (value-procedure
+            (ref (unit))
+            (function-rest-3
+              (lambda (source/a.3 source/b.2 source/c.1 source/d)
+                ((lambda (source/x.9) (begin (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 0 I64))) source/rte.43) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 1 I64))) source/a.3) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 2 I64))) source/b.2) (primitive/vector-set!/3 source/x.9 (value-number (exact-number (ann 3 I64))) source/c.1) (invoke-4 ((lambda () (begin (def source/loop.3 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.3 (-> Value Value Value Value Value) (lambda (source/n.3 source/x.10 source/i.9 source/l.8) (if (value-truth? (primitive/</2 source/i.9 source/n.3)) (begin (primitive/vector-set!/3 source/x.10 source/i.9 (primitive/car/1 source/l.8)) (body/source/loop.3 source/n.3 source/x.10 (primitive/+/2 source/i.9 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.8))) (primitive/vector-set!/3 source/x.10 source/i.9 source/l.8)))) (ref-set! source/loop.3 (value-procedure (ref (unit)) (function-4 body/source/loop.3))) (binding-value source/loop.3)))) source/nb-vars.2 source/x.9 (value-number (exact-number (ann 4 I64))) source/d) (invoke-1 source/body.8 source/x.9)))
+                  (primitive/make-vector/1
+                    (primitive/+/2 source/nb-vars.2 (value-number (exact-number (ann 1 I64))))))))))))))
+
+(ref-set!
+  source/gen-lambda-n-rest
+  (value-procedure (ref (unit)) (function-2 body/source/gen-lambda-n-rest)))
+
+(def source/gen-lambda (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda
+
+(def body/source/gen-lambda (-> Value Value Value)
+  (lambda (source/nb-vars.3 source/body.9)
+    ((lambda (source/value.45) (if (value-truth? (primitive/memv/2 source/value.45 literal.67)) (body/source/gen-lambda-0 source/body.9) ((lambda (source/value.46) (if (value-truth? (primitive/memv/2 source/value.46 literal.66)) (body/source/gen-lambda-1 source/body.9) ((lambda (source/value.47) (if (value-truth? (primitive/memv/2 source/value.47 literal.65)) (body/source/gen-lambda-2 source/body.9) ((lambda (source/value.48) (if (value-truth? (primitive/memv/2 source/value.48 literal.64)) (body/source/gen-lambda-3 source/body.9) ((lambda (source/value.49) (body/source/gen-lambda-n source/nb-vars.3 source/body.9)) source/value.48))) source/value.47))) source/value.46))) source/value.45)))
+      source/nb-vars.3)))
+
+(ref-set! source/gen-lambda (value-procedure (ref (unit)) (function-2 body/source/gen-lambda)))
+
+(def source/gen-lambda-0 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-0
+
+(def body/source/gen-lambda-0 (-> Value Value)
+  (lambda (source/body.10)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.44)
+          (value-procedure
+            (ref (unit))
+            (function-0 (lambda () (invoke-1 source/body.10 source/rte.44)))))))))
+
+(ref-set! source/gen-lambda-0 (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-0)))
+
+(def source/gen-lambda-1 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-1
+
+(def body/source/gen-lambda-1 (-> Value Value)
+  (lambda (source/body.11)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.45)
+          (value-procedure
+            (ref (unit))
+            (function-1
+              (lambda (source/a.4)
+                (invoke-1 source/body.11 (primitive/vector/2 source/rte.45 source/a.4))))))))))
+
+(ref-set! source/gen-lambda-1 (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-1)))
+
+(def source/gen-lambda-2 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-2
+
+(def body/source/gen-lambda-2 (-> Value Value)
+  (lambda (source/body.12)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.46)
+          (value-procedure
+            (ref (unit))
+            (function-2
+              (lambda (source/a.5 source/b.3)
+                (invoke-1 source/body.12 (primitive/vector/3 source/rte.46 source/a.5 source/b.3))))))))))
+
+(ref-set! source/gen-lambda-2 (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-2)))
+
+(def source/gen-lambda-3 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-3
+
+(def body/source/gen-lambda-3 (-> Value Value)
+  (lambda (source/body.13)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.47)
+          (value-procedure
+            (ref (unit))
+            (function-3
+              (lambda (source/a.6 source/b.4 source/c.2)
+                (invoke-1
+                  source/body.13
+                  (primitive/vector/4 source/rte.47 source/a.6 source/b.4 source/c.2))))))))))
+
+(ref-set! source/gen-lambda-3 (value-procedure (ref (unit)) (function-1 body/source/gen-lambda-3)))
+
+(def source/gen-lambda-n (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-lambda-n
+
+(def body/source/gen-lambda-n (-> Value Value Value)
+  (lambda (source/nb-vars.4 source/body.14)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.48)
+          (value-procedure
+            (ref (unit))
+            (function-rest-3
+              (lambda (source/a.7 source/b.5 source/c.3 source/d.1)
+                ((lambda (source/x.11) (begin (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 0 I64))) source/rte.48) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 1 I64))) source/a.7) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 2 I64))) source/b.5) (primitive/vector-set!/3 source/x.11 (value-number (exact-number (ann 3 I64))) source/c.3) (invoke-4 ((lambda () (begin (def source/loop.4 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.4 (-> Value Value Value Value Value) (lambda (source/n.4 source/x.12 source/i.10 source/l.9) (if (value-truth? (primitive/<=/2 source/i.10 source/n.4)) (begin (primitive/vector-set!/3 source/x.12 source/i.10 (primitive/car/1 source/l.9)) (body/source/loop.4 source/n.4 source/x.12 (primitive/+/2 source/i.10 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.9))) (value-unspecified)))) (ref-set! source/loop.4 (value-procedure (ref (unit)) (function-4 body/source/loop.4))) (binding-value source/loop.4)))) source/nb-vars.4 source/x.11 (value-number (exact-number (ann 4 I64))) source/d.1) (invoke-1 source/body.14 source/x.11)))
+                  (primitive/make-vector/1
+                    (primitive/+/2 source/nb-vars.4 (value-number (exact-number (ann 1 I64))))))))))))))
+
+(ref-set! source/gen-lambda-n (value-procedure (ref (unit)) (function-2 body/source/gen-lambda-n)))
+
+(def source/gen-sequence (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-sequence
+
+(def body/source/gen-sequence (-> Value Value Value)
+  (lambda (source/code1.3 source/code2.3)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.49)
+          (begin (invoke-1 source/code1.3 source/rte.49) (invoke-1 source/code2.3 source/rte.49)))))))
+
+(ref-set! source/gen-sequence (value-procedure (ref (unit)) (function-2 body/source/gen-sequence)))
+
+(def source/gen-when (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-when
+
+(def body/source/gen-when (-> Value Value Value)
+  (lambda (source/code1.4 source/code2.4)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.50)
+          (if (value-truth? (invoke-1 source/code1.4 source/rte.50))
+            (invoke-1 source/code2.4 source/rte.50)
+            (value-null)))))))
+
+(ref-set! source/gen-when (value-procedure (ref (unit)) (function-2 body/source/gen-when)))
+
+(def source/gen-if (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-if
+
+(def body/source/gen-if (-> Value Value Value Value)
+  (lambda (source/code1.5 source/code2.5 source/code3)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.51)
+          (if (value-truth? (invoke-1 source/code1.5 source/rte.51))
+            (invoke-1 source/code2.5 source/rte.51)
+            (invoke-1 source/code3 source/rte.51)))))))
+
+(ref-set! source/gen-if (value-procedure (ref (unit)) (function-3 body/source/gen-if)))
+
+(def source/gen-cond-send (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-cond-send
+
+(def body/source/gen-cond-send (-> Value Value Value Value)
+  (lambda (source/code1.6 source/code2.6 source/code3.1)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.52)
+          ((lambda (source/temp) (if (value-truth? source/temp) (invoke-1 (invoke-1 source/code2.6 source/rte.52) source/temp) (invoke-1 source/code3.1 source/rte.52)))
+            (invoke-1 source/code1.6 source/rte.52)))))))
+
+(ref-set!
+  source/gen-cond-send
+  (value-procedure (ref (unit)) (function-3 body/source/gen-cond-send)))
+
+(def source/gen-and (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-and
+
+(def body/source/gen-and (-> Value Value Value)
+  (lambda (source/code1.7 source/code2.7)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.53)
+          ((lambda (source/temp.1) (if (value-truth? source/temp.1) (invoke-1 source/code2.7 source/rte.53) source/temp.1))
+            (invoke-1 source/code1.7 source/rte.53)))))))
+
+(ref-set! source/gen-and (value-procedure (ref (unit)) (function-2 body/source/gen-and)))
+
+(def source/gen-or (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-or
+
+(def body/source/gen-or (-> Value Value Value)
+  (lambda (source/code1.8 source/code2.8)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.54)
+          ((lambda (source/temp.2) (if (value-truth? source/temp.2) source/temp.2 (invoke-1 source/code2.8 source/rte.54)))
+            (invoke-1 source/code1.8 source/rte.54)))))))
+
+(ref-set! source/gen-or (value-procedure (ref (unit)) (function-2 body/source/gen-or)))
+
+(def source/gen-case (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-case
+
+(def body/source/gen-case (-> Value Value Value)
+  (lambda (source/code1.9 source/code2.9)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.55)
+          (invoke-2 source/code2.9 source/rte.55 (invoke-1 source/code1.9 source/rte.55)))))))
+
+(ref-set! source/gen-case (value-procedure (ref (unit)) (function-2 body/source/gen-case)))
+
+(def source/gen-case-clause (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-case-clause
+
+(def body/source/gen-case-clause (-> Value Value Value Value)
+  (lambda (source/datums source/code1.10 source/code2.10)
+    (value-procedure
+      (ref (unit))
+      (function-2
+        (lambda (source/rte.56 source/key)
+          (if (value-truth? (primitive/memv/2 source/key source/datums))
+            (invoke-1 source/code1.10 source/rte.56)
+            (invoke-2 source/code2.10 source/rte.56 source/key)))))))
+
+(ref-set!
+  source/gen-case-clause
+  (value-procedure (ref (unit)) (function-3 body/source/gen-case-clause)))
+
+(def source/gen-case-else (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-case-else
+
+(def body/source/gen-case-else (-> Value Value)
+  (lambda (source/code.13)
+    (value-procedure
+      (ref (unit))
+      (function-2 (lambda (source/rte.57 source/key.1) (invoke-1 source/code.13 source/rte.57))))))
+
+(ref-set!
+  source/gen-case-else
+  (value-procedure (ref (unit)) (function-1 body/source/gen-case-else)))
+
+(def source/gen-letrec (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-letrec
+
+(def body/source/gen-letrec (-> Value Value Value)
+  (lambda (source/vals.3 source/body.15)
+    ((lambda (source/nb-vals) ((lambda (source/value.50) (if (value-truth? (primitive/memv/2 source/value.50 literal.70)) (body/source/gen-letrec-1 (primitive/car/1 source/vals.3) source/body.15) ((lambda (source/value.51) (if (value-truth? (primitive/memv/2 source/value.51 literal.69)) (body/source/gen-letrec-2 (primitive/car/1 source/vals.3) (primitive/cadr/1 source/vals.3) source/body.15) ((lambda (source/value.52) (if (value-truth? (primitive/memv/2 source/value.52 literal.68)) (body/source/gen-letrec-3 (primitive/car/1 source/vals.3) (primitive/cadr/1 source/vals.3) (primitive/caddr/1 source/vals.3) source/body.15) ((lambda (source/value.53) (body/source/gen-letrec-n source/nb-vals source/vals.3 source/body.15)) source/value.52))) source/value.51))) source/value.50))) source/nb-vals))
+      (primitive/length/1 source/vals.3))))
+
+(ref-set! source/gen-letrec (value-procedure (ref (unit)) (function-2 body/source/gen-letrec)))
+
+(def source/gen-letrec-1 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-letrec-1
+
+(def body/source/gen-letrec-1 (-> Value Value Value)
+  (lambda (source/val1 source/body.16)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.58)
+          ((lambda (source/x.13) (begin (primitive/vector-set!/3 source/x.13 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1 source/x.13)) (invoke-1 source/body.16 source/x.13)))
+            (primitive/vector/2 source/rte.58 (value-boolean #f))))))))
+
+(ref-set! source/gen-letrec-1 (value-procedure (ref (unit)) (function-2 body/source/gen-letrec-1)))
+
+(def source/gen-letrec-2 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-letrec-2
+
+(def body/source/gen-letrec-2 (-> Value Value Value Value)
+  (lambda (source/val1.1 source/val2 source/body.17)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.59)
+          ((lambda (source/x.14) (begin (primitive/vector-set!/3 source/x.14 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1.1 source/x.14)) (primitive/vector-set!/3 source/x.14 (value-number (exact-number (ann 2 I64))) (invoke-1 source/val2 source/x.14)) (invoke-1 source/body.17 source/x.14)))
+            (primitive/vector/3 source/rte.59 (value-boolean #f) (value-boolean #f))))))))
+
+(ref-set! source/gen-letrec-2 (value-procedure (ref (unit)) (function-3 body/source/gen-letrec-2)))
+
+(def source/gen-letrec-3 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-letrec-3
+
+(def body/source/gen-letrec-3 (-> Value Value Value Value Value)
+  (lambda (source/val1.2 source/val2.1 source/val3 source/body.18)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.60)
+          ((lambda (source/x.15) (begin (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 1 I64))) (invoke-1 source/val1.2 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 2 I64))) (invoke-1 source/val2.1 source/x.15)) (primitive/vector-set!/3 source/x.15 (value-number (exact-number (ann 3 I64))) (invoke-1 source/val3 source/x.15)) (invoke-1 source/body.18 source/x.15)))
+            (primitive/vector/4
+              source/rte.60
+              (value-boolean #f)
+              (value-boolean #f)
+              (value-boolean #f))))))))
+
+(ref-set! source/gen-letrec-3 (value-procedure (ref (unit)) (function-4 body/source/gen-letrec-3)))
+
+(def source/gen-letrec-n (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-letrec-n
+
+(def body/source/gen-letrec-n (-> Value Value Value Value)
+  (lambda (source/nb-vals.1 source/vals.4 source/body.19)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.61)
+          ((lambda (source/x.16) (begin (primitive/vector-set!/3 source/x.16 (value-number (exact-number (ann 0 I64))) source/rte.61) (invoke-3 ((lambda () (begin (def source/loop.5 (Ref Value) (ref (value-uninitialized))) (def body/source/loop.5 (-> Value Value Value Value) (lambda (source/x.17 source/i.11 source/l.10) (if (value-truth? (primitive/pair?/1 source/l.10)) (begin (primitive/vector-set!/3 source/x.17 source/i.11 (invoke-1 (primitive/car/1 source/l.10) source/x.17)) (body/source/loop.5 source/x.17 (primitive/+/2 source/i.11 (value-number (exact-number (ann 1 I64)))) (primitive/cdr/1 source/l.10))) (value-unspecified)))) (ref-set! source/loop.5 (value-procedure (ref (unit)) (function-3 body/source/loop.5))) (binding-value source/loop.5)))) source/x.16 (value-number (exact-number (ann 1 I64))) source/vals.4) (invoke-1 source/body.19 source/x.16)))
+            (primitive/make-vector/1
+              (primitive/+/2 source/nb-vals.1 (value-number (exact-number (ann 1 I64)))))))))))
+
+(ref-set! source/gen-letrec-n (value-procedure (ref (unit)) (function-3 body/source/gen-letrec-n)))
+
+(def source/gen-macro (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-macro
+
+(def body/source/gen-macro (-> Value Value Value)
+  (lambda (source/name.6 source/proc.3)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.62) (body/source/scheme-add-macro source/name.6 source/proc.3))))))
+
+(ref-set! source/gen-macro (value-procedure (ref (unit)) (function-2 body/source/gen-macro)))
+
+(def source/gen-combination (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination
+
+(def body/source/gen-combination (-> Value Value Value)
+  (lambda (source/oper source/args.1)
+    ((lambda (source/value.54) (if (value-truth? (primitive/memv/2 source/value.54 literal.74)) (body/source/gen-combination-0 source/oper) ((lambda (source/value.55) (if (value-truth? (primitive/memv/2 source/value.55 literal.73)) (body/source/gen-combination-1 source/oper (primitive/car/1 source/args.1)) ((lambda (source/value.56) (if (value-truth? (primitive/memv/2 source/value.56 literal.72)) (body/source/gen-combination-2 source/oper (primitive/car/1 source/args.1) (primitive/cadr/1 source/args.1)) ((lambda (source/value.57) (if (value-truth? (primitive/memv/2 source/value.57 literal.71)) (body/source/gen-combination-3 source/oper (primitive/car/1 source/args.1) (primitive/cadr/1 source/args.1) (primitive/caddr/1 source/args.1)) ((lambda (source/value.58) (body/source/gen-combination-n source/oper source/args.1)) source/value.57))) source/value.56))) source/value.55))) source/value.54)))
+      (primitive/length/1 source/args.1))))
+
+(ref-set!
+  source/gen-combination
+  (value-procedure (ref (unit)) (function-2 body/source/gen-combination)))
+
+(def source/gen-combination-0 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination-0
+
+(def body/source/gen-combination-0 (-> Value Value)
+  (lambda (source/oper.1)
+    (value-procedure
+      (ref (unit))
+      (function-1 (lambda (source/rte.63) (invoke-0 (invoke-1 source/oper.1 source/rte.63)))))))
+
+(ref-set!
+  source/gen-combination-0
+  (value-procedure (ref (unit)) (function-1 body/source/gen-combination-0)))
+
+(def source/gen-combination-1 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination-1
+
+(def body/source/gen-combination-1 (-> Value Value Value)
+  (lambda (source/oper.2 source/arg1)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.64)
+          (invoke-1 (invoke-1 source/oper.2 source/rte.64) (invoke-1 source/arg1 source/rte.64)))))))
+
+(ref-set!
+  source/gen-combination-1
+  (value-procedure (ref (unit)) (function-2 body/source/gen-combination-1)))
+
+(def source/gen-combination-2 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination-2
+
+(def body/source/gen-combination-2 (-> Value Value Value Value)
+  (lambda (source/oper.3 source/arg1.1 source/arg2)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.65)
+          (invoke-2
+            (invoke-1 source/oper.3 source/rte.65)
+            (invoke-1 source/arg1.1 source/rte.65)
+            (invoke-1 source/arg2 source/rte.65)))))))
+
+(ref-set!
+  source/gen-combination-2
+  (value-procedure (ref (unit)) (function-3 body/source/gen-combination-2)))
+
+(def source/gen-combination-3 (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination-3
+
+(def body/source/gen-combination-3 (-> Value Value Value Value Value)
+  (lambda (source/oper.4 source/arg1.2 source/arg2.1 source/arg3)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.66)
+          (invoke-3
+            (invoke-1 source/oper.4 source/rte.66)
+            (invoke-1 source/arg1.2 source/rte.66)
+            (invoke-1 source/arg2.1 source/rte.66)
+            (invoke-1 source/arg3 source/rte.66)))))))
+
+(ref-set!
+  source/gen-combination-3
+  (value-procedure (ref (unit)) (function-4 body/source/gen-combination-3)))
+
+(def source/gen-combination-n (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: gen-combination-n
+
+(def body/source/gen-combination-n (-> Value Value Value)
+  (lambda (source/oper.5 source/args.2)
+    (value-procedure
+      (ref (unit))
+      (function-1
+        (lambda (source/rte.67)
+          (begin
+            (def source/evaluate (Ref Value) (ref (value-uninitialized)))
+            (def body/source/evaluate (-> Value Value Value)
+              (lambda (source/l.11 source/rte.68)
+                (if (value-truth? (primitive/pair?/1 source/l.11))
+                  (primitive/cons/2
+                    (invoke-1 (primitive/car/1 source/l.11) source/rte.68)
+                    (body/source/evaluate (primitive/cdr/1 source/l.11) source/rte.68))
+                  (value-null))))
+            (ref-set!
+              source/evaluate
+              (value-procedure (ref (unit)) (function-2 body/source/evaluate)))
+            (primitive/apply/2
+              (invoke-1 source/oper.5 source/rte.67)
+              (body/source/evaluate source/args.2 source/rte.67))))))))
+
+(ref-set!
+  source/gen-combination-n
+  (value-procedure (ref (unit)) (function-2 body/source/gen-combination-n)))
+
+(def source/scheme-comp (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-comp
+
+(def body/source/scheme-comp (-> Value Value Value)
+  (lambda (source/expr.26 source/env.40)
+    (if (value-truth? (primitive/symbol?/1 source/expr.26))
+      (body/source/comp-var source/expr.26 source/env.40)
+      (if (value-truth? (primitive/not/1 (primitive/pair?/1 source/expr.26)))
+        (body/source/comp-self-eval source/expr.26 source/env.40)
+        (if (value-truth? (body/source/macro? (primitive/car/1 source/expr.26) source/env.40))
+          (body/source/scheme-comp
+            (body/source/macro-expand source/expr.26 source/env.40)
+            source/env.40)
+          (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.92))
+            (body/source/comp-quote source/expr.26 source/env.40)
+            (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.91))
+              (body/source/comp-quasiquote source/expr.26 source/env.40)
+              (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.90))
+                (body/source/comp-unquote source/expr.26 source/env.40)
+                (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.89))
+                  (body/source/comp-unquote-splicing source/expr.26 source/env.40)
+                  (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.88))
+                    (body/source/comp-set! source/expr.26 source/env.40)
+                    (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.87))
+                      (body/source/comp-lambda source/expr.26 source/env.40)
+                      (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.86))
+                        (body/source/comp-if source/expr.26 source/env.40)
+                        (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.85))
+                          (body/source/comp-cond source/expr.26 source/env.40)
+                          (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.84))
+                            (body/source/comp-and source/expr.26 source/env.40)
+                            (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.83))
+                              (body/source/comp-or source/expr.26 source/env.40)
+                              (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.82))
+                                (body/source/comp-case source/expr.26 source/env.40)
+                                (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.81))
+                                  (body/source/comp-let source/expr.26 source/env.40)
+                                  (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.80))
+                                    (body/source/comp-let* source/expr.26 source/env.40)
+                                    (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.79))
+                                      (body/source/comp-letrec source/expr.26 source/env.40)
+                                      (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.78))
+                                        (body/source/comp-begin source/expr.26 source/env.40)
+                                        (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.77))
+                                          (body/source/comp-do source/expr.26 source/env.40)
+                                          (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.76))
+                                            (body/source/comp-define source/expr.26 source/env.40)
+                                            (if (value-truth? (primitive/eq?/2 (primitive/car/1 source/expr.26) literal.75))
+                                              (body/source/comp-define-macro
+                                                source/expr.26
+                                                source/env.40)
+                                              (body/source/comp-combination
+                                                source/expr.26
+                                                source/env.40))))))))))))))))))))))))
+
+(ref-set! source/scheme-comp (value-procedure (ref (unit)) (function-2 body/source/scheme-comp)))
+
+(def source/scheme-global-var (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-global-var
+
+(def body/source/scheme-global-var (-> Value Value)
+  (lambda (source/name.7)
+    ((lambda (source/x.18) (if (value-truth? source/x.18) source/x.18 ((lambda (source/y.1) (begin (begin (ref-set! source/scheme-global-variables (primitive/cons/2 source/y.1 (binding-value source/scheme-global-variables))) (value-unspecified)) source/y.1)) (primitive/cons/2 source/name.7 (value-null)))))
+      (primitive/assq/2 source/name.7 (binding-value source/scheme-global-variables)))))
+
+(ref-set!
+  source/scheme-global-var
+  (value-procedure (ref (unit)) (function-1 body/source/scheme-global-var)))
+
+(def source/scheme-global-var-ref (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-global-var-ref
+
+(def body/source/scheme-global-var-ref (-> Value Value)
+  (lambda (source/i.12) (primitive/cdr/1 source/i.12)))
+
+(ref-set!
+  source/scheme-global-var-ref
+  (value-procedure (ref (unit)) (function-1 body/source/scheme-global-var-ref)))
+
+(def source/scheme-global-var-set! (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: scheme-global-var-set!
+
+(def body/source/scheme-global-var-set! (-> Value Value Value)
+  (lambda (source/i.13 source/val.1)
+    (begin (primitive/set-cdr!/2 source/i.13 source/val.1) (value-null))))
+
+(ref-set!
+  source/scheme-global-var-set!
+  (value-procedure (ref (unit)) (function-2 body/source/scheme-global-var-set!)))
+
+(def source/scheme-global-variables (Ref Value) (ref (value-uninitialized)))
+
+(ref-set! source/scheme-global-variables (value-null))
+
+(def source/def-proc (Ref Value) (ref (value-uninitialized)))
+
+;; Original definition: def-proc
+
+(def body/source/def-proc (-> Value Value Value)
+  (lambda (source/name.8 source/value.59)
+    (body/source/scheme-global-var-set!
+      (body/source/scheme-global-var source/name.8)
+      source/value.59)))
+
+(ref-set! source/def-proc (value-procedure (ref (unit)) (function-2 body/source/def-proc)))
+
+(body/source/def-proc
+  literal.93
+  (value-procedure (ref (unit)) (function-1 (lambda (source/x.19) (primitive/not/1 source/x.19)))))
+
+(body/source/def-proc literal.94 primitive-value/boolean?)
+
+(body/source/def-proc literal.95 primitive-value/eqv?)
+
+(body/source/def-proc literal.96 primitive-value/eq?)
+
+(body/source/def-proc literal.97 primitive-value/equal?)
+
+(body/source/def-proc
+  literal.98
+  (value-procedure (ref (unit)) (function-1 (lambda (source/obj) (primitive/pair?/1 source/obj)))))
+
+(body/source/def-proc
+  literal.99
+  (value-procedure
+    (ref (unit))
+    (function-2 (lambda (source/x.20 source/y.2) (primitive/cons/2 source/x.20 source/y.2)))))
+
+(body/source/def-proc
+  literal.100
+  (value-procedure (ref (unit)) (function-1 (lambda (source/x.21) (primitive/car/1 source/x.21)))))
+
+(body/source/def-proc
+  literal.101
+  (value-procedure (ref (unit)) (function-1 (lambda (source/x.22) (primitive/cdr/1 source/x.22)))))
+
+(body/source/def-proc literal.102 primitive-value/set-car!)
+
+(body/source/def-proc literal.103 primitive-value/set-cdr!)
+
+(body/source/def-proc literal.104 primitive-value/caar)
+
+(body/source/def-proc literal.105 primitive-value/cadr)
+
+(body/source/def-proc literal.106 primitive-value/cdar)
+
+(body/source/def-proc literal.107 primitive-value/cddr)
+
+(body/source/def-proc literal.108 primitive-value/caaar)
+
+(body/source/def-proc literal.109 primitive-value/caadr)
+
+(body/source/def-proc literal.110 primitive-value/cadar)
+
+(body/source/def-proc literal.111 primitive-value/caddr)
+
+(body/source/def-proc literal.112 primitive-value/cdaar)
+
+(body/source/def-proc literal.113 primitive-value/cdadr)
+
+(body/source/def-proc literal.114 primitive-value/cddar)
+
+(body/source/def-proc literal.115 primitive-value/cdddr)
+
+(body/source/def-proc literal.116 primitive-value/caaaar)
+
+(body/source/def-proc literal.117 primitive-value/caaadr)
+
+(body/source/def-proc literal.118 primitive-value/caadar)
+
+(body/source/def-proc literal.119 primitive-value/caaddr)
+
+(body/source/def-proc literal.120 primitive-value/cadaar)
+
+(body/source/def-proc literal.121 primitive-value/cadadr)
+
+(body/source/def-proc literal.122 primitive-value/caddar)
+
+(body/source/def-proc literal.123 primitive-value/cadddr)
+
+(body/source/def-proc literal.124 primitive-value/cdaaar)
+
+(body/source/def-proc literal.125 primitive-value/cdaadr)
+
+(body/source/def-proc literal.126 primitive-value/cdadar)
+
+(body/source/def-proc literal.127 primitive-value/cdaddr)
+
+(body/source/def-proc literal.128 primitive-value/cddaar)
+
+(body/source/def-proc literal.129 primitive-value/cddadr)
+
+(body/source/def-proc literal.130 primitive-value/cdddar)
+
+(body/source/def-proc literal.131 primitive-value/cddddr)
+
+(body/source/def-proc
+  literal.132
+  (value-procedure (ref (unit)) (function-1 (lambda (source/x.23) (primitive/null?/1 source/x.23)))))
+
+(body/source/def-proc literal.133 primitive-value/list?)
+
+(body/source/def-proc literal.134 primitive-value/list)
+
+(body/source/def-proc literal.135 primitive-value/length)
+
+(body/source/def-proc literal.136 primitive-value/append)
+
+(body/source/def-proc literal.137 primitive-value/reverse)
+
+(body/source/def-proc literal.138 primitive-value/list-ref)
+
+(body/source/def-proc literal.139 primitive-value/memq)
+
+(body/source/def-proc literal.140 primitive-value/memv)
+
+(body/source/def-proc literal.141 primitive-value/member)
+
+(body/source/def-proc literal.142 primitive-value/assq)
+
+(body/source/def-proc literal.143 primitive-value/assv)
+
+(body/source/def-proc literal.144 primitive-value/assoc)
+
+(body/source/def-proc literal.145 primitive-value/symbol?)
+
+(body/source/def-proc literal.146 primitive-value/symbol->string)
+
+(body/source/def-proc literal.147 primitive-value/string->symbol)
+
+(body/source/def-proc literal.148 primitive-value/number?)
+
+(body/source/def-proc literal.149 primitive-value/complex?)
+
+(body/source/def-proc literal.150 primitive-value/real?)
+
+(body/source/def-proc literal.151 primitive-value/rational?)
+
+(body/source/def-proc literal.152 primitive-value/integer?)
+
+(body/source/def-proc literal.153 primitive-value/exact?)
+
+(body/source/def-proc literal.154 primitive-value/inexact?)
+
+(body/source/def-proc literal.155 primitive-value/max)
+
+(body/source/def-proc literal.156 primitive-value/min)
+
+(body/source/def-proc literal.157 primitive-value//)
+
+(body/source/def-proc literal.158 primitive-value/abs)
+
+(body/source/def-proc literal.159 primitive-value/gcd)
+
+(body/source/def-proc literal.160 primitive-value/lcm)
+
+(body/source/def-proc literal.161 primitive-value/floor)
+
+(body/source/def-proc literal.162 primitive-value/ceiling)
+
+(body/source/def-proc literal.163 primitive-value/truncate)
+
+(body/source/def-proc literal.164 primitive-value/round)
+
+(body/source/def-proc literal.165 primitive-value/exp)
+
+(body/source/def-proc literal.166 primitive-value/log)
+
+(body/source/def-proc literal.167 primitive-value/sin)
+
+(body/source/def-proc literal.168 primitive-value/cos)
+
+(body/source/def-proc literal.169 primitive-value/tan)
+
+(body/source/def-proc literal.170 primitive-value/asin)
+
+(body/source/def-proc literal.171 primitive-value/acos)
+
+(body/source/def-proc literal.172 primitive-value/atan)
+
+(body/source/def-proc literal.173 primitive-value/sqrt)
+
+(body/source/def-proc literal.174 primitive-value/expt)
+
+(body/source/def-proc literal.175 primitive-value/inexact)
+
+(body/source/def-proc literal.176 primitive-value/exact)
+
+(body/source/def-proc literal.177 primitive-value/number->string)
+
+(body/source/def-proc literal.178 primitive-value/string->number)
+
+(body/source/def-proc literal.179 primitive-value/char?)
+
+(body/source/def-proc literal.180 primitive-value/char=?)
+
+(body/source/def-proc literal.181 primitive-value/char<?)
+
+(body/source/def-proc literal.182 primitive-value/char>?)
+
+(body/source/def-proc literal.183 primitive-value/char<=?)
+
+(body/source/def-proc literal.184 primitive-value/char>=?)
+
+(body/source/def-proc literal.185 primitive-value/char-ci=?)
+
+(body/source/def-proc literal.186 primitive-value/char-ci<?)
+
+(body/source/def-proc literal.187 primitive-value/char-ci>?)
+
+(body/source/def-proc literal.188 primitive-value/char-ci<=?)
+
+(body/source/def-proc literal.189 primitive-value/char-ci>=?)
+
+(body/source/def-proc literal.190 primitive-value/char-alphabetic?)
+
+(body/source/def-proc literal.191 primitive-value/char-numeric?)
+
+(body/source/def-proc literal.192 primitive-value/char-whitespace?)
+
+(body/source/def-proc literal.193 primitive-value/char-lower-case?)
+
+(body/source/def-proc literal.194 primitive-value/char->integer)
+
+(body/source/def-proc literal.195 primitive-value/integer->char)
+
+(body/source/def-proc literal.196 primitive-value/char-upcase)
+
+(body/source/def-proc literal.197 primitive-value/char-downcase)
+
+(body/source/def-proc literal.198 primitive-value/string?)
+
+(body/source/def-proc literal.199 primitive-value/make-string)
+
+(body/source/def-proc literal.200 primitive-value/string)
+
+(body/source/def-proc literal.201 primitive-value/string-length)
+
+(body/source/def-proc literal.202 primitive-value/string-ref)
+
+(body/source/def-proc literal.203 primitive-value/string-set!)
+
+(body/source/def-proc literal.204 primitive-value/string=?)
+
+(body/source/def-proc literal.205 primitive-value/string<?)
+
+(body/source/def-proc literal.206 primitive-value/string>?)
+
+(body/source/def-proc literal.207 primitive-value/string<=?)
+
+(body/source/def-proc literal.208 primitive-value/string>=?)
+
+(body/source/def-proc literal.209 primitive-value/string-ci=?)
+
+(body/source/def-proc literal.210 primitive-value/string-ci<?)
+
+(body/source/def-proc literal.211 primitive-value/string-ci>?)
+
+(body/source/def-proc literal.212 primitive-value/string-ci<=?)
+
+(body/source/def-proc literal.213 primitive-value/string-ci>=?)
+
+(body/source/def-proc literal.214 primitive-value/substring)
+
+(body/source/def-proc literal.215 primitive-value/string-append)
+
+(body/source/def-proc literal.216 primitive-value/vector?)
+
+(body/source/def-proc literal.217 primitive-value/make-vector)
+
+(body/source/def-proc literal.218 primitive-value/vector)
+
+(body/source/def-proc literal.219 primitive-value/vector-length)
+
+(body/source/def-proc literal.220 primitive-value/vector-ref)
+
+(body/source/def-proc literal.221 primitive-value/vector-set!)
+
+(body/source/def-proc literal.222 primitive-value/procedure?)
+
+(body/source/def-proc literal.223 primitive-value/apply)
+
+(body/source/def-proc literal.224 primitive-value/map)
+
+(body/source/def-proc literal.225 primitive-value/for-each)
+
+(body/source/def-proc literal.226 primitive-value/call-with-input-file)
+
+(body/source/def-proc literal.227 primitive-value/call-with-output-file)
+
+(body/source/def-proc literal.228 primitive-value/input-port?)
+
+(body/source/def-proc literal.229 primitive-value/output-port?)
+
+(body/source/def-proc literal.230 primitive-value/current-input-port)
+
+(body/source/def-proc literal.231 primitive-value/current-output-port)
+
+(body/source/def-proc literal.232 primitive-value/open-input-file)
+
+(body/source/def-proc literal.233 primitive-value/open-output-file)
+
+(body/source/def-proc literal.234 primitive-value/close-input-port)
+
+(body/source/def-proc literal.235 primitive-value/close-output-port)
+
+(body/source/def-proc literal.236 primitive-value/eof-object?)
+
+(body/source/def-proc literal.237 primitive-value/read)
+
+(body/source/def-proc literal.238 primitive-value/read-char)
+
+(body/source/def-proc literal.239 primitive-value/peek-char)
+
+(body/source/def-proc literal.240 primitive-value/write)
+
+(body/source/def-proc literal.241 primitive-value/display)
+
+(body/source/def-proc literal.242 primitive-value/newline)
+
+(body/source/def-proc literal.243 primitive-value/write-char)
+
+;; ---- Complete canonical workload and original result predicate ----
+
+(def Specification (datatype ()
+  (specification
+    (count I64 specification-count)
+    (input Value specification-input)
+    (expected Value specification-expected))))
+
+(def read-specification (-> InputPort Specification)
+  (lambda (port)
+    (begin (let count (integer->i64 (number->integer (datum-number-value (read-value! (read port))))))
+      (begin (let input (datum->value (read-value! (read port))))
+        (specification count input (datum->value (read-value! (read port))))))))
+
+(def configured (call-with-input-file "input.txt" read-specification))
+
+(def configured-count (-> I64) (lambda () (specification-count configured)))
+
+(define-extern barrier "benchmark" "barrier" (-> Bool))
+
+(def bench (-> I64 I64)
+  (lambda (count)
+    (begin
+      (def repeat (-> I64 Value I64)
+        (lambda (index result)
+          (if (< index count)
+            (repeat
+              (+ index (ann 1 I64))
+              (body/source/scheme-eval
+                (if (barrier) (specification-input configured) (unreachable))))
+            (if (value-equal? result (specification-expected configured)) (ann 1 I64) (ann 0 I64)))))
+      (repeat (ann 0 I64) (value-boolean #f)))))
+
+(unit)
+
+;; ---- Diagnostics exercise behavior beyond the canonical input ----
+
+(def observe (-> I64)
+  (lambda ()
+    (call-with-input-file
+      "probes.scm"
+      (lambda (port)
+        (begin
+          (def loop (-> I64 I64)
+            (lambda (index)
+              (begin (let next (read-source-value port))
+                (if (value-eof? next)
+                  index
+                  (begin (let actual (body/source/scheme-eval (value-car next)))
+                    (if (value-equal? actual (value-car (value-cdr next)))
+                      (loop (+ index (ann 1 I64)))
+                      (begin
+                        (write
+                          (value->datum
+                            (value-cons
+                              (value-number (exact-number index))
+                              (value-cons actual (value-null)))))
+                        (newline)
+                        (datum-fail "interpreter diagnostic mismatch"))))))))
+          (loop (ann 0 I64)))))))

@@ -8,7 +8,7 @@ tool/binary hashes, runs actual Node/Wasm plus independent original Chez checks,
 and retains failures such as Ackermann's default native-stack overflow.
 
 ```sh
-chibi-scheme -I src -I wasm-native/scheme -I benchmarks benchmarks/wasm-reference/suite.scm --build \
+chibi-scheme -I bootstrap -I wasm-native/scheme -I benchmarks benchmarks/wasm-reference/suite.scm --build \
   --output build/rust-reference-checks --benchmarks all --checks full
 ```
 
@@ -16,7 +16,7 @@ The complete residual-program, assembly, instruction-graph, nucleic and generate
 audit tests run with:
 
 ```sh
-chibi-scheme -D snail-tests -I src -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks \
+chibi-scheme -D snail-tests -I bootstrap -I wasm-native/scheme -I tests -I wasm-native/tests -I benchmarks \
   benchmarks/wasm-reference/tests/audits.scm
 ```
 
@@ -32,12 +32,12 @@ source presence marks a workload as fully validated. These are correctness
 runs; coordinate a clean window separately before collecting performance data.
 
 Historical five-case measurements remain in their immutable result archives.
-Active preparation uses the authored Chez controls in `benchmarks/sfir`; no
+Active preparation uses the authored Chez controls in `benchmarks/lofi`; no
 Scheme source generator or Snail Scheme compiler is used.
 
-The [completed SFIR full57 comparison](../sfir/evidence/20261015-full57.md)
+The [completed Lofi full57 comparison](../lofi/evidence/20261015-full57.md)
 retains 56 measured Rust Wasm routes and all 57 native routes, with default
-Wasm Ack's stack failure visible. It compares matching SFIR targets and keeps
+Wasm Ack's stack failure visible. It compares matching Lofi targets and keeps
 original/adapted Chez, source representations and opacity differences explicit.
 Corrected Mperm is a separate six-way campaign; later packet-I/O timings are
 also separate. Earlier Rust checkpoints below keep their original provenance.
@@ -122,7 +122,7 @@ optimization level 2.
 
 The [checked five-case measurement archive](../results/2026-10-13-wasm-five-reference/README.md)
 retains its historical artifacts and protocol. The old five-case driver was
-removed from the active tree during SFIR migration; its source is available at
-revision `d5c2d06`. New SFIR/Chez/Rust comparisons use the explicit status and
-freezing contracts in [`../sfir`](../sfir/README.md). Historical Rust validation
-and timings do not establish SFIR validation or clean comparison coverage.
+removed from the active tree during Lofi migration; its source is available at
+revision `d5c2d06`. New Lofi/Chez/Rust comparisons use the explicit status and
+freezing contracts in [`../lofi`](../lofi/README.md). Historical Rust validation
+and timings do not establish Lofi validation or clean comparison coverage.

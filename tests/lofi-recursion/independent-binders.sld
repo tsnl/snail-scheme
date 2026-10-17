@@ -1,0 +1,4 @@
+(import (lofi primitive))
+(def recur (All (A B) (-> A B A))
+     (lambda (first second) (if #t first (recur second first))))
+(ann 42 I64)
