@@ -18,14 +18,30 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: node tests/ci.test.mjs
+      - id: plan
+        name: Check complete coverage and create matrix
+        run: |
+          ci_matrix="$(node tests/ci.mjs matrix)"
+          printf 'matrix=%s\n' "$ci_matrix" >> "$GITHUB_OUTPUT"
+
   tests:
     name: ${{ matrix.suite }}
+    needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix:
-        suite: [host, backend, native, applications]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -64,12 +80,12 @@ jobs:
               cargo test --manifest-path wasm-native/Cargo.toml --offline
               cargo fmt --manifest-path wasm-native/Cargo.toml --all -- --check
               ;;
-            backend) scripts/test-backend ;;
             native) scripts/test-native ;;
             applications)
               scripts/test-build
               scripts/test-applications
               ;;
+            *) node tests/ci.mjs run "$SUITE" ;;
           esac
       - name: Retain test evidence
         if: always()
@@ -88,3 +104,16 @@ jobs:
             build/**/*.wasm
             !build/native-runtime/**
             !build/wasm-runtime/**
+
+  complete:
+    name: Complete correctness checks
+    if: always()
+    needs: [plan, tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every planned job to succeed
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+        run: test "$PLAN_RESULT" = success && test "$TEST_RESULT" = success

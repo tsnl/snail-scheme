@@ -108,6 +108,37 @@ Wasm, and native checks execute native code, including forced collection and
 traps. The Lofi integration migration preserves the prior typed contracts while
 removing Scheme syntax expansion from their runners.
 
+GitHub Actions runs these checks on x86-64 `ubuntu-24.04`, using the Nixpkgs
+revision and Rust version pinned in [the workflow](../.github/workflows/ci.yml).
+It initializes the benchmark input submodule and fetches locked Cargo dependencies
+before the offline test commands. Nix dependencies, Rust and downloaded crates
+are cached; generated guest artifacts are rebuilt. A new push cancels an obsolete
+run of the same pull request.
+
+[`tests/backend-suites.json`](../tests/backend-suites.json) is the ordered backend
+inventory. With no arguments, `scripts/test-backend` still runs the whole inventory
+serially. Named arguments select suites while preserving inventory order:
+
+```sh
+scripts/test-backend binaryen lofi-execution
+node tests/ci.mjs matrix
+node tests/ci.mjs run integration-1
+```
+
+CI distributes the ordinary backend suites across four jobs and integration cases
+across eight jobs. Round-robin assignment spreads the manifest's clusters of
+compile rejections across those jobs. The plan checks that every suite and case
+appears exactly once, and each job verifies its actual completion records against
+its assignment. Host checks, native execution, and public-build/application checks
+have their own jobs. A successful `Complete correctness checks` status requires
+every planned job to pass. A failing backend partition retains the existing
+stop-on-first-failed-suite behavior; other partitions continue.
+
+Each job uploads command records, stdout/stderr, selection/completion records and
+generated Wasm/LLVM diagnostics for seven days, including on failure. These are
+correctness diagnostics. Parallel CI durations are not workload benchmarks or
+evidence of runtime performance parity; see the [test-runner notes](../tests/README.md).
+
 Build helpers retain WAT, raw Wasm, optimized Wasm and trace files. Native build
 directories also retain LLVM, commands and source hashes. Public compile commands
 publish only a complete artifact; failed builds leave the previous output intact

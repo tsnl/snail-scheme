@@ -6,6 +6,23 @@ diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm,
 mandatory Binaryen output, and native execution with forced collection where the
 contract calls for it.
 
+`backend-suites.json` is shared by the serial backend umbrella and `ci.mjs`.
+The latter creates deterministic CI partitions and invokes the existing runners;
+it does not compile or interpret fixtures. Run `node tests/ci.test.mjs` to check
+partition coverage and rejection of incomplete execution evidence. Integration
+success requires the exact assigned case list in both `selection.json` and
+`results.json`, all cases passing, and a matching `completion.json`. Backend
+success requires the selected suites to reach the umbrella's final validation
+record. New attempt directories prevent stale records from satisfying a check.
+
+The initial scheduling baseline on 2026-10-17 was a successful 29-suite run with
+3,432.268 seconds of summed constituent command duration, including 1,632.856
+seconds in integration. That is 57.20 minutes of recorded command time, not a
+measured GitHub Actions wall time. The inventory at that baseline contained 367
+integration cases. Sharding preserves those cases, including expected compile
+rejections and both Wasm forms for executable cases. The separate 57-workload
+benchmark comparison remains unchanged.
+
 Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
 validation and oracle-provenance records retain the SFIR names and paths from
 their recorded revisions; they are historical evidence, not current commands.
