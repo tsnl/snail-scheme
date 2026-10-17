@@ -1,4 +1,59 @@
-# Playable prototype validation
+# Colony iteration validation
+
+The 2026-10-17 colony checkpoint uses generation `c0e0045c96df267e73aef205`,
+world/client schema 3, Node 24.19.0 and Chromium 152.0.7977.82 with real WebGPU
+on the isolated SwiftShader software Vulkan adapter. This is correctness and
+playability evidence, not hardware performance or Firefox stability evidence.
+
+The compiled colony scenarios cover two mine deliveries, completed-tower discovery,
+radius upgrades, surveyed-route rejection, remembered geography after destruction,
+interrupted kit ownership, bounded repairs, actual raid targeting and rebuilding,
+malformed claims/routes, an undefended healthy-hub finale, all four camera margins,
+manual pause/planning and fixed shot endpoints. A defended fixed layout exterminates
+the final threat at tick 4504 (7:30.4), with ore balance checked across kills. Kills
+produce no resources. This establishes a possible win, not balanced difficulty.
+
+Actual keyboard and pointer play on disposable port 4176 verified worker-built
+construction, shared Pause/Resume semantics, queued work while paused, camera
+overscroll, rejected margin placement and GPU-rendered map/minimap boundaries.
+A compiled firing checkpoint rendered its traveling shot in the same browser.
+The complete two-client browser runner also passed shared purchases, active hauling
+and combat, pause across visibility changes, identical paused colony/camera/pending
+requests through changed compatible Wasm, invalid-WGSL/schema rejection, continued
+GPU rendering and resumed simulation. `make test`, `make check`, `scripts/test-build`,
+the mdBook build and whitespace checks passed for this checkpoint.
+The generic input runner also passed focus/native controls, held repeats,
+injected controller axes/reconnect, scaled pointer and responsive-layout checks.
+No physical controller was used. Screenshots are local evidence under
+`build/playtest/boundary-pause.png` and `build/playtest/shot.png`.
+
+The live 4175 colony was stopped and backed up before an explicit schema-2 to
+schema-3 conversion. The new codec validated the saved colony; only its schema
+word changed. Revision 9059, tick 4568, epoch/retry receipts, 1679 ore, 20 structures
+and 12 workers were retained. The old package and SQLite database remain together
+in `build/siegework-backup-schema2-20261017`; 4173's earlier prototype was untouched.
+This was a deliberate local upgrade, not automatic/general schema migration.
+
+A fresh no-history Astra Max explained the colony ownership and route contract
+without source access. The focused simplify debate replaced split assignment
+checks with one prepared assignment that owns its checked path before reserving
+materials, replaced a hardcoded worker reservation with a dynamic hauling reserve,
+removed unused enemy cooldown state, and strengthened the snapshot decoder's
+cross-record kit/path checks. Record/codec rows, exhaustive transitions and view
+composition retain cohesive exceptions to the ten-line target. A separate input
+explanation pass established per-trigger deadlines, no catch-up, and release
+latches after focus/device/settings changes.
+
+A fresh Astra low newcomer read only the public interface, screenshot and then
+player guide. It correctly understood tower discovery, physical delivery, pooled
+labor, upgrades and zero kill income. Its confusion led to a visible legend and
+first-action cue, hover/cursor selection instructions, explicit range hints,
+installed-upgrade labels, and a separately labeled last-order result. The guide
+now explicitly distinguishes mine stock from spendable delivered ore.
+
+The older two-minute prototype's validation remains below as historical evidence.
+
+## Earlier two-minute prototype
 
 The browser checkpoint on 2026-10-16 used compiler base `4525dda7` and packaged
 artifact generation `8c6d44d9733225ec5c8b9da4`. Later library checks are recorded

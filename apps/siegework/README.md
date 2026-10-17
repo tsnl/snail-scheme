@@ -1,16 +1,16 @@
 # Siegework
 
-Siegework is a cooperative logistics and defense game built around short,
-self-contained runs. Drop into a hostile place, establish an automated economy,
-and turn the material it delivers into fortifications that can withstand a siege.
-Each run starts fresh and ends within an hour.
+Siegework is a cooperative colony defense game built around short, fresh runs.
+Place infrastructure, let autonomous workers supply it, and protect the economy
+that pays for your defenses. The current experiment is an **eight-minute, fixed
+48×36 map** in top-down 2D. Three workers share construction, hauling and repairs;
+observation towers reveal opportunities for expansion. There is no player avatar
+or individual worker control.
 
-The implementation is a deliberately small, two-minute fixed-map demo. Game
-rules, client reducers and shader expressions are Scheme libraries. The world is
-rendered with real WebGPU; a local Node authority runs the same generated Wasm,
-commits to SQLite and serves cooperating browser clients. The
-[prototype contract](PROTOTYPE.md) keeps the acceptance criteria and deferred work
-separate from the broader vision below.
+Game rules, client reducers and presentation are Scheme libraries. Real WebGPU
+renders the world; a local Node authority runs the same generated Wasm, commits
+to SQLite and serves cooperating browser clients. The
+[prototype contract](PROTOTYPE.md) separates this experiment from future ideas.
 
 ## Build and play
 
@@ -21,100 +21,122 @@ chibi-scheme -I bootstrap -I wasm-native/scheme apps/siegework/build.scm "$PWD" 
 node build/siegework/lib/browser/server.mjs "$PWD/build/siegework"
 ```
 
-Open `http://127.0.0.1:4173` in a browser with WebGPU and WasmGC. A second browser
-tab joins the same match. The server binds localhost; internet hosting,
-authentication and matchmaking are outside this prototype. Use `PORT=4175` before
-the server command to choose a different local port.
+Open `http://127.0.0.1:4173` in a browser with WebGPU and WasmGC. A second tab joins
+the same colony. The server binds localhost; internet hosting, authentication and
+matchmaking are outside this experiment. Prefix the server command with
+`PORT=4175` to use another port. The clock advances only while at least one
+connected event-stream client reports its page visible. Hiding one tab does not
+pause a colony another player is viewing; input focus is not required. The shared
+**Pause colony / Resume** buttons explicitly stop and restart simulation for all
+players. Manual pause survives visibility changes, compatible code reload and
+authority restart. Camera movement and orders remain available; paid construction
+and worker assembly wait until Resume, and upgrades can be planned immediately.
 
-Place an extractor on a turquoise deposit, then place artillery along the eastern
-approach. The bot carries ore home automatically. `1`/`2` select extractor or
-artillery; arrows move the snapped cursor; Enter/Space places it. `U` upgrades the
-mine, `R` repairs the hub, and `N` starts a new run. Pointer controls and gamepad
-D-pad/A/X/Y/LB/RB/Start are mapped in [settings.json](settings.json). The siege beast
-arrives at 85 seconds. Survive to 120 seconds or destroy all final threats.
+This version uses **world and client schema 3**. Older schema-1 prototype and schema-2 colony
+matches cannot be loaded or hot-reloaded into it implicitly. Use a new output directory for a
+fresh colony, retaining the old package and `match.sqlite` together. For example,
+build to `"$PWD/build/siegework-colony"` and serve that directory on another port.
+Do not delete or replace a database while its authority is running. There is no
+automatic schema migration.
 
-Run the build command again while playing to replace compatible Scheme code and
-shader pipelines. The match, client selection and pending requests stay in the
-stable host. Invalid builds do not publish a new manifest; failed candidates or
-pipelines keep the previous generation running. A schema change is rejected;
-automatic migrations are not implemented. Changes to HTML/CSS/host JavaScript
-currently require a page/server restart. A page restart creates a new local UI
-model, while the authoritative match is restored from `build/siegework/match.sqlite`.
-Stop the server before removing that file if you want to discard its saved match.
+## Your first colony
 
-The [application chapter](../../doc/book/lofi/applications.md) explains the typed
-handler API, state lifetimes, reload contract and small shader dialect. Shared
-code remains under top-level `src/application/`, `src/browser/`, `src/webgpu/`
-and `src/scheme/immutable.sld`; this directory owns game rules, codecs, view,
-shader composition, settings and its real [build recipe](build.scm).
-The [validation record](VALIDATION.md) lists the executed runtime and browser
-checks, exact environment, and remaining limits.
+The pale cross is your hub. The turquoise diamonds are deposits; outlined
+buildings are paid construction kits waiting for a worker. Small moving dots
+are workers, with turquoise cargo when hauling ore.
 
-## The run
+1. Place an **extractor** on the visible turquoise deposit northeast of the hub
+   (the starting cursor is already there). A worker carries its kit from the hub.
+   Once built, it produces ore into a local buffer; only deliveries increase the
+   ore you can spend.
+2. Place **artillery** along the eastern approach. It automatically aims at visible
+   enemies within eight cells. A brief muzzle flash, traveling shot and impact mark
+   show each actual firing event; damage is immediate, not a ballistics model.
+   Towers can reveal threats beyond a gun's own sight.
+3. Extend **observation towers** north or east. Their sight starts when workers
+   finish construction. Blueprints require currently visible ground and a walking
+   route through surveyed terrain. Remembered, shaded terrain stays on the map
+   after a tower falls, but it does not show current enemies or permit new orders.
+4. Choose what the next delivery buys: another worker, a richer distant mine,
+   increased production, wider observation, or another gun. More extraction can
+   pile up at a mine when the same workers are busy building or travel is long.
 
-1. **Drop in.** Parachute in with a small supply of material and choose a hub
-   location. The opening is quick: the interesting decision is where to establish
-   the operation, not how long to gather the first handful of resources.
-2. **Build an economy.** Place mining or extraction camps near deposits. Bots
-   automatically haul to hubs. Distance, route safety and placement determine
-   what actually arrives; a rich but exposed deposit may be a poor investment.
-3. **Prepare under pressure.** Spend scarce deliveries on more production or on
-   defenses. Timed, escalating minion and monster attacks expose weak routes and
-   force choices about what is worth protecting.
-4. **Survive the finale.** A giant siege beast, a massed swarm, or later a
-   combination tests the position. Fortifications and artillery do the fighting.
-   The players' leverage comes from preparation, placement and coordinated
-   priorities, with time to make a few meaningful adjustments during the attack.
+Northern ore is modest and relatively close; the richer eastern deposit needs a
+longer supply line through the ridge crossing. Revealing a deposit is only the
+first step: the workers still need a known route to build and service it.
 
-Repelling an assault and exterminating its attackers are distinct outcomes. A
-damaged settlement that holds until a beast withdraws can finish a successful
-run; destroying the beast outright is a stronger result. Losing the hub ends the
-run. Exact scoring and the risk/reward of pursuing extermination remain open.
+| Order | Cost and effect |
+| --- | --- |
+| Extractor | 40 ore; produces into a 120-ore buffer at its deposit's rate. |
+| Artillery | 50 ore; automatic visible-target fire within eight cells. |
+| Observation tower | 25 ore; seven-cell sight radius when completed. |
+| Assemble worker | 25 ore; ready at the hub after three seconds, up to 12 workers. |
+| Upgrade extractor | 40 ore; doubles that mine's production, once. |
+| Upgrade tower | 35 ore; increases its sight radius from seven to ten cells, once. |
+| Automatic repair | 4 ore per 25 health; keeps 40 ore in reserve, one kit at a time. |
 
-## Decisions, not busywork
+Three workers and 160 ore start each run. Workers share jobs automatically;
+construction and repairs leave hauling capacity when an operational mine exists.
+Prioritizing a site favors its construction or mine collection. Workers avoid
+observed danger on outward trips and return to the hub with their cargo or kit;
+interrupted work becomes available again without another construction charge.
+Workers themselves are not destructible in this experiment. Completed structures
+can be destroyed. Repairs cover the hub and structures and use spare labor.
+**Defeating enemies gives no ore.** Combat protects your production and routes.
 
-The game is controller-first and asks for few actions per minute. A radial build
-menu, placement preview and snapping make construction deliberate. Workers keep
-extracting and hauling without repeated orders. Defense operates automatically
-within player-chosen priorities. Avoid unit selection chores, manual collection,
-routine repair clicking and reflex melee as the core of survival.
+## Controls and threats
 
-The intended view is overhead or slightly isometric, with a simple 3D aesthetic
-and clear silhouettes. Resource flow, route length, firing coverage and incoming
-threats must be legible before decoration. Colored 2D quads are sufficient for the
-prototype; its renderer still uses real WebGPU and shaders from the first frame.
+| Action | Keyboard / pointer | Standard gamepad |
+| --- | --- | --- |
+| Pan camera | WASD or view buttons | Left stick |
+| Move cursor | Hover the field or arrow keys | D-pad |
+| Choose extractor / artillery / tower | 1 / 2 / 3 or buttons | X / Y / B |
+| Place at cursor | Click, Enter or Space | A |
+| Assemble worker | F | Left trigger |
+| Prioritize site under cursor | P | Right trigger |
+| Upgrade site under cursor | U | Left bumper |
+| Toggle automatic repairs | R | Right bumper |
+| Return camera and cursor home | H | View |
+| Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
+| New run for everyone | N | Start |
 
-Cooperation should reward dividing attention: one player extends extraction
-while another prepares a defensive position, and both can understand the same
-shared economy. Player identities and one authoritative simulation belong in the
-initial command/state design. Singleplayer can run first, but two browser clients
-must work before procedural maps or substantial art.
+The camera can pan three cells beyond each map edge. The plain margin and map
+perimeter show where the playable field ends; the minimap separates that boundary
+from the visible camera area. Hovering the margin is allowed, but placing there
+is rejected without moving the order onto a neighboring cell.
 
-## Uncertainty with a fair response
+To upgrade or prioritize, **hover or move the cursor onto an existing site, then
+use U/P or its button**. Clicking is a placement command, not a selection mode.
+Field status names the site, its buffer, workers collecting from it and any
+remaining upgrade. It also explains placement failures and labels the last order
+separately from the current placement preview.
 
-The final event varies between runs so a single optimized build is not always
-enough. Reward resilient layouts, reserves and the ability to redirect effort.
-Warnings and scouting should reveal useful information early enough to change
-plans; uncertainty must not make an otherwise sensible run unwinnable through an
-unannounced hard counter. The first prototype has a fixed threat and timing so
-its economy and defensive decisions can be understood before adding randomness.
+Eastern waves arrive each minute. An announced raid at 3:30 targets an outer
+operation when one exists; otherwise it attacks the hub. The siege beast arrives
+at 7:00. Broad warnings are global even when enemies are outside active sight.
+Lose if the hub falls, repel the siege by surviving to 8:00, or exterminate it by
+destroying every remaining attacker after the beast arrives. The map and schedule
+are fixed so this experiment can test expansion decisions before adding randomness.
 
-## What this app should teach us
+## Reload and implementation
 
-Siegework is a small application of Snail's libraries: game simulation compiled
-to Wasm, an independently compiled shader program, browser input and GPU bindings,
-and a shared command/state boundary that can move from local to server authority.
-The browser must execute actual Snail-generated simulation Wasm. JavaScript
-adapters may connect browser APIs and move data, but game rules have one source.
+Rebuild while playing to replace compatible Scheme code and shader pipelines.
+The colony, local camera/cursor/tool and pending requests stay in the stable host.
+Invalid builds do not publish a manifest; failed candidates or pipelines keep the
+previous generation running. HTML/CSS/host JavaScript changes require a page or
+server restart. A page restart creates a fresh local UI model; the authoritative
+match is restored from the package's `match.sqlite`.
 
-The goal is to reveal language, compiler and library friction early. A working
-game loop should answer whether a small app can assemble those pieces clearly,
-whether diagnostics identify the relevant source, and whether the boundaries
-remain usable when a second player joins. The
-[application layout](../README.md) keeps reusable machinery in top-level `src/`
-and game-specific composition here.
+The [application chapter](../../doc/book/lofi/applications.md) explains typed
+handlers, state lifetimes, reload and the shader dialect. Shared code stays under
+`src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
+This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
+`codec.sld` (portable schema), `view.sld` (quads/status), `game.sld` (typed commands
+and camera), shaders, settings and its [build recipe](build.scm).
+The [validation record](VALIDATION.md) distinguishes executed checks from limits.
 
-The initial scope is one fixed map, one hub, one extractor, one automated hauler,
-one defense and one threat in a short run. Procedural generation, many resources
-or buildings, sophisticated art and a general game engine all wait for evidence
-from that loop.
+The broader aim remains a low-input cooperative game, with fresh runs under an
+hour and varied, fairly warned finales. Walls, a large tech tree, 3D/elevation,
+procedural maps, additional resources and manual artillery aiming are deferred.
+This experiment asks whether extending observation, paying for physical logistics
+and protecting a distant operation produce useful choices before adding systems.
