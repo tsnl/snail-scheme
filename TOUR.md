@@ -22,7 +22,10 @@ library. Executable Chibi orchestration scripts retain `.scm`.
 The [native self-hosting investigation](doc/self-hosting.md) records Siegework
 build costs, compatibility blockers and the proposed `snail run` / `snail build`
 bootstrap. [`scripts/measure-siegework.mjs`](scripts/measure-siegework.mjs) measures
-the original build or profiles a private loader view; self-hosting remains proposed.
+the original build or profiles a private loader view. Its Chibi-only
+[`compiler/profile.sld`](src/lofi/compiler/profile.sld) owns bounded source-unit
+spans, optional helper totals and checked instrumentation recipes. Self-hosting
+remains proposed.
 
 ## Read the passes in this order
 

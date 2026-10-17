@@ -1,0 +1,214 @@
+{
+  "purpose": "Granular diagnostics and a private optimization experiment; not native self-hosting measurements",
+  "compilerCommit": "6ef7298a76ec99a149b43629539ceff7d3db4b59",
+  "originalOverloadsSha256": "f0cc322e919c25a1831e8b7ba1fbbe066802ffb5fb67454109092c376c0beb2f",
+  "diagnostic": {
+    "execution": {
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "-I",
+        "$REPO/build/trace-investigation/overlay",
+        "$REPO/build/trace-investigation/build.scm",
+        "$REPO",
+        "$REPO/build/trace-investigation/app"
+      ],
+      "status": 0,
+      "seconds": 146.0727157049987
+    },
+    "phases": [
+      {
+        "operation": "lofi.parse",
+        "seconds": 0.142
+      },
+      {
+        "operation": "lofi.resolve",
+        "seconds": 0.055
+      },
+      {
+        "operation": "lofi.check",
+        "seconds": 0.523
+      },
+      {
+        "operation": "lofi.specialize",
+        "seconds": 0.418
+      },
+      {
+        "operation": "lofi.emit",
+        "seconds": 0.471
+      },
+      {
+        "operation": "lofi.artifact",
+        "seconds": 0.127
+      },
+      {
+        "operation": "lofi.parse",
+        "seconds": 0.39
+      },
+      {
+        "operation": "lofi.resolve",
+        "seconds": 2.049
+      },
+      {
+        "operation": "lofi.check",
+        "seconds": 25.928
+      },
+      {
+        "operation": "lofi.specialize",
+        "seconds": 13.076
+      },
+      {
+        "operation": "lofi.emit",
+        "seconds": 91.186
+      },
+      {
+        "operation": "lofi.artifact",
+        "seconds": 1.325
+      }
+    ],
+    "selectedAggregates": [
+      {
+        "name": "lofi.emit:new-local",
+        "calls": 5994,
+        "inclusive_seconds": 0.46,
+        "self_seconds": 0.281
+      },
+      {
+        "name": "lofi.emit:compatible?",
+        "calls": 185706,
+        "inclusive_seconds": 81.599,
+        "self_seconds": 81.599
+      },
+      {
+        "name": "lofi.emit:activation-values",
+        "calls": 537,
+        "inclusive_seconds": 1.905,
+        "self_seconds": 1.905
+      },
+      {
+        "name": "lofi.emit:layout!",
+        "calls": 21213,
+        "inclusive_seconds": 1.715,
+        "self_seconds": 1.652
+      },
+      {
+        "name": "lofi.specialize:compatible?",
+        "calls": 185706,
+        "inclusive_seconds": 8.795,
+        "self_seconds": 8.795
+      },
+      {
+        "name": "lofi.check:generalize",
+        "calls": 560,
+        "inclusive_seconds": 5.205,
+        "self_seconds": 5.205
+      },
+      {
+        "name": "lofi.check:compatible?",
+        "calls": 136363,
+        "inclusive_seconds": 16.441,
+        "self_seconds": 16.441
+      }
+    ],
+    "artifacts": {
+      "shader.wasm": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef",
+      "simulation.wasm": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+    }
+  },
+  "shapeFilterExperiment": {
+    "execution": {
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "-I",
+        "$REPO/build/overload-shape-experiment/overlay",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/overload-shape-experiment/app"
+      ],
+      "status": 0,
+      "seconds": 38.55657050000082
+    },
+    "phases": [
+      {
+        "operation": "lofi.parse",
+        "seconds": 0.048
+      },
+      {
+        "operation": "lofi.resolve",
+        "seconds": 0.039
+      },
+      {
+        "operation": "lofi.check",
+        "seconds": 0.271
+      },
+      {
+        "operation": "lofi.specialize",
+        "seconds": 0.163
+      },
+      {
+        "operation": "lofi.emit",
+        "seconds": 0.193
+      },
+      {
+        "operation": "lofi.artifact",
+        "seconds": 0.122
+      },
+      {
+        "operation": "lofi.parse",
+        "seconds": 0.262
+      },
+      {
+        "operation": "lofi.resolve",
+        "seconds": 1.923
+      },
+      {
+        "operation": "lofi.check",
+        "seconds": 12.518
+      },
+      {
+        "operation": "lofi.specialize",
+        "seconds": 3.914
+      },
+      {
+        "operation": "lofi.emit",
+        "seconds": 11.876
+      },
+      {
+        "operation": "lofi.artifact",
+        "seconds": 1.308
+      }
+    ],
+    "artifacts": {
+      "shader.wasm": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef",
+      "simulation.wasm": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+    },
+    "patch": "--- a/src/lofi/overloads.sld\n+++ b/src/lofi/overloads.sld\n@@ -29,9 +29,16 @@\n                               (cons variable (if (and (variable-rigid? variable) (not flexible-rigid?))\n                                                  variable (fresh-variable))))\n                             (type-variables type))))\n+    (define (matching-shape? left right)\n+      (let ((left (resolve left)) (right (resolve right)))\n+        (or (eq? left right) (variable? left) (variable? right)\n+            (and (pair? left) (pair? right)\n+                 (matching-shape? (car left) (car right))\n+                 (matching-shape? (cdr left) (cdr right))))))\n     (define (compatible? left right flexible-rigid?)\n-      (guard (failure (else #f))\n-        (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t))\n+      (and (matching-shape? left right)\n+           (guard (failure (else #f))\n+             (unify! (copy-trial-type left #t) (copy-trial-type right flexible-rigid?) #f) #t)))\n     ;; Rigid declaration variables may specialize later. Keep any row that\n     ;; could then overlap; the commit below still respects their rigid identity.\n     (define (overload-candidates class type instances)\n"
+  },
+  "exceptionProbe": {
+    "trials": 2000,
+    "samples": [
+      {
+        "depth": 0,
+        "exceptionSeconds": 0.009,
+        "shapeFilterSeconds": 0.0
+      },
+      {
+        "depth": 500,
+        "exceptionSeconds": 0.064,
+        "shapeFilterSeconds": 0.001
+      },
+      {
+        "depth": 5000,
+        "exceptionSeconds": 0.241,
+        "shapeFilterSeconds": 0.0
+      }
+    ]
+  }
+}

@@ -26,6 +26,9 @@ emission with phase spans. For those boundaries on a complete Siegework build,
 use the private instrumentation in
 [`scripts/measure-siegework.mjs`](../scripts/measure-siegework.mjs); see the
 [self-hosting investigation](self-hosting.md) for commands and timing limits.
+`profile` adds source-labelled binding/function spans and nested preparation work;
+`hotspots` additionally retains helper call counts and inclusive/self totals in
+`operations.json` without emitting millions of tiny events.
 Assembly, mandatory Binaryen optimization, disassembly and native lowering
 record their own build operations. Inclusive/exclusive durations distinguish
 a pass's own work from its children.

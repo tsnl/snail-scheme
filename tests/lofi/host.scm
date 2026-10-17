@@ -12,6 +12,7 @@
  (only (lofi frontend) test-frontend)
  (only (lofi macros) test-macros)
  (only (lofi compiler bootstrap) test-compiler)
+ (only (lofi compiler profile) test-compiler-profile)
  (only (lofi source-driver) test-source-driver)
  (only (lofi artifact) test-artifact)
  (only (lofi library-transfer) test-library-transfer)
@@ -23,6 +24,7 @@
  (only (lofi wasm-extern) test-wasm-extern))
 
 (test-compiler)
+(test-compiler-profile)
 (test-artifact)
 (test-library-transfer)
 (call-with-temp-dir

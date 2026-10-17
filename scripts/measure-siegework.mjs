@@ -26,7 +26,7 @@ function decorate(source, expression, name) {
 
 function compilerOverlay(source) {
   source = replaceOnce(source, '   (lofi artifact)',
-    '   (lofi artifact)\n   (wasm-native chromium-trace)');
+    '   (lofi artifact)\n   (lofi compiler profile)');
   for (const [call, name] of [
     ['(resolve-library-map libraries)', 'lofi.resolve'],
     ['(infer-program (append items trailing-items)', 'lofi.check'],
@@ -34,7 +34,7 @@ function compilerOverlay(source) {
     ['(emit-artifact (strict-core->wasm program)', 'lofi.artifact'],
     ['(strict-core->wasm program)', 'lofi.emit'],
   ]) source = decorate(source, call, name);
-  return source;
+  return source.replaceAll('(chromium-trace "lofi.', '(profile-phase "lofi.');
 }
 
 function artifactOverlay(source) {
@@ -47,7 +47,16 @@ function artifactOverlay(source) {
   return decorate(source, '(file-bytes output)', 'lofi.read-artifact');
 }
 
-function prepareOverlay(directory) {
+function instrumentUnits(overlay, environment) {
+  capture(environment.CHIBI ?? 'chibi-scheme', ['-I', join(repository, 'bootstrap'),
+    '-I', join(repository, 'wasm-native/scheme'), join(repository, 'scripts/instrument-compiler.scm'),
+    repository, overlay]);
+  return Object.fromEntries(JSON.parse(readFileSync(join(overlay, 'sites.json'), 'utf8')).map(site =>
+    [site.path, {original: hash(readFileSync(join(repository, 'src', site.path))),
+      instrumented: hash(readFileSync(join(overlay, site.path))), operations: site.operations}]));
+}
+
+function prepareOverlay(directory, environment) {
   const overlay = join(directory, 'overlay');
   const sources = {};
   for (const [file, instrument] of [
@@ -60,6 +69,7 @@ function prepareOverlay(directory) {
     writeFileSync(join(overlay, file), modified);
     sources[file] = {original: hash(original), instrumented: hash(modified)};
   }
+  Object.assign(sources, instrumentUnits(overlay, environment));
   json(join(directory, 'instrumentation.json'), sources);
   return overlay;
 }
@@ -85,7 +95,8 @@ function sourceIdentity() {
 function runMetadata(mode, command, environment, source) {
   return {mode, source, command, tools: tools(environment),
     environment: Object.fromEntries(['BINARYEN_CORES', 'CHIBI', 'WASM_AS', 'WASM_OPT',
-      'WASM_DIS', 'WASM_MERGE', 'SNAIL_PROFILE_DIRECTORY'].map(key => [key, environment[key] ?? null])),
+      'WASM_DIS', 'WASM_MERGE', 'SNAIL_PROFILE_DIRECTORY', 'SNAIL_PROFILE_HELPERS']
+      .map(key => [key, environment[key] ?? null])),
     host: {platform: process.platform, release: release(), architecture: process.arch,
       cpu: cpus()[0]?.model, logicalCPUs: cpus().length, memoryBytes: totalmem()}};
 }
@@ -143,7 +154,11 @@ function profileEvidence(directory) {
   for (const name of ['lofi.resolve', 'lofi.check', 'lofi.specialize', 'lofi.emit', 'lofi.artifact']) {
     assert(name in phases, `missing phase ${name}; private loader instrumentation was not used`);
   }
-  return {compiler: phases, artifacts: Object.fromEntries(
+  for (const prefix of ['emit-function ', 'check-initializer! ']) {
+    assert(Object.keys(phases).some(name => name.startsWith(prefix)), `missing source-unit spans: ${prefix}`);
+  }
+  return {compiler: phases, operations: JSON.parse(readFileSync(join(directory, 'operations.json'), 'utf8')),
+    artifacts: Object.fromEntries(
     ['shader-entry', 'application-entry'].map(entry =>
       [entry, traceDurations(join(directory, `artifact-${entry}.trace.json`))]))};
 }
@@ -151,14 +166,17 @@ function profileEvidence(directory) {
 // ---- One sample per invocation; repeat samples sequentially ----
 
 function main(args) {
-  assert(args.length === 2 && ['baseline', 'profile'].includes(args[0]),
-    'usage: node scripts/measure-siegework.mjs baseline|profile NEW-OUTPUT-DIRECTORY');
+  assert(args.length === 2 && ['baseline', 'profile', 'hotspots'].includes(args[0]),
+    'usage: node scripts/measure-siegework.mjs baseline|profile|hotspots NEW-OUTPUT-DIRECTORY');
   const [mode, output] = args;
   const directory = resolve(output);
   mkdirSync(directory); // Refuse to overwrite an existing run or create missing parents.
   const environment = {...process.env, BINARYEN_CORES: process.env.BINARYEN_CORES ?? '1'};
-  if (mode === 'profile') environment.SNAIL_PROFILE_DIRECTORY = directory;
-  const overlay = mode === 'profile' ? prepareOverlay(directory) : undefined;
+  if (mode !== 'baseline') {
+    environment.SNAIL_PROFILE_DIRECTORY = directory;
+    environment.SNAIL_PROFILE_HELPERS = mode === 'hotspots' ? '1' : '0';
+  }
+  const overlay = mode !== 'baseline' ? prepareOverlay(directory, environment) : undefined;
   const command = buildCommand(overlay, directory, environment);
   const before = sourceIdentity();
   writeFileSync(join(directory, 'source.diff'), capture('git', ['diff', 'HEAD', '--binary']));

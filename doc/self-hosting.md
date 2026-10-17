@@ -79,6 +79,7 @@ mkdir -p build
 node scripts/measure-siegework.mjs baseline build/siegework-baseline-1
 node scripts/measure-siegework.mjs baseline build/siegework-baseline-2
 node scripts/measure-siegework.mjs profile build/siegework-profile-1
+node scripts/measure-siegework.mjs hotspots build/siegework-hotspots-1
 ```
 
 Run these sequentially without other compilation or profiling jobs. Keep sources
@@ -97,7 +98,7 @@ This is recorded provenance, not a hermetic build: keep product sources tracked
 and record any additional untracked inputs separately. A failed command leaves
 its evidence directory and returns nonzero; it never overwrites an existing run.
 
-Profile uses private copies of two libraries beneath the output directory. It
+Profile uses private copies of the compiler libraries beneath the output directory. It
 requires exactly one match for each instrumentation site and puts that loader
 view first. It verifies that the expected phases actually ran. No production
 source is patched. The copied compiler decorates resolution, checking, concrete
@@ -107,6 +108,30 @@ Binaryen traces as `artifact-*.trace.json`. `instrumentation.json` hashes the
 original and copied sources. Inspect `result.json` for phase totals and load the
 raw trace files in the existing trace viewer.
 
+The [profiling helper](../src/lofi/compiler/profile.sld) now also instruments
+individual binding checks and generalization groups, emitted functions and module
+initialization. Function and binding spans carry source file/line/column labels;
+activation preparation, binding planning and obligation settlement have nested
+operation spans. Its fixed recipes must match every selected definition exactly
+once before compilation starts. The driver verifies that source-unit spans exist.
+
+`hotspots` adds aggregate timing for frequently called helpers: overload trials,
+concrete typing, layout lookup, local allocation and related operations.
+`operations.json` records attempted calls, inclusive time and self time by phase.
+Self time excludes other measured helpers only. Raised trials still count;
+`dynamic-wind` restores timer nesting without intercepting their exceptions.
+Reports are saved after completed phases; failed builds retain the last completed
+report and any completed trace spans. Coarse `profile` mode leaves those hot
+helper procedures unwrapped. It still records source-unit spans and their totals.
+
+These wrappers retain an exit obligation and are deliberately confined to
+compiler diagnostics. They change allocation and stack shape and do not preserve
+tail-call space behavior at instrumented boundaries. Helper clock reads add
+further overhead; use counts and substantial totals, not millisecond differences
+between individual calls. The existing Chibi trace clock has millisecond wall-time
+resolution; backward steps clamp to zero. Do not instrument every recursive
+source visitor or emit one trace event for every type comparison.
+
 Spans are inclusive. `lofi.artifact` includes WAT writing, assembly, optimization
 and artifact reading recorded in its separate trace; do not add that parent span
 to its children. The outer trace also records reader work. Unattributed wall time
@@ -114,6 +139,35 @@ includes host startup, other orchestration and browser packaging. Instrumented
 runs are diagnostics, not clean timing samples. Compare the two Wasm hashes
 between modes to check whether the decorations changed generated artifacts;
 matching bytes do not prove every runtime behavior correct.
+
+## Why checking and emission are expensive
+
+The [follow-up profile record](measurements/overload-profile-2026-10-17.json)
+contains operation totals, the experimental patch, and artifact hashes.
+A follow-up granular diagnostic found that speculative overload compatibility
+trials dominate both phases. Checking attempted 136,363 trials; specialization
+and emission each attempted 185,706. Aggregate inclusive time in compatibility
+was 16.441 seconds during checking, 8.795 during specialization and 81.599 during
+emission in that diagnostic. These are instrumented measurements, not clean
+phase costs. Most other measured emission work was much smaller: activation
+scanning took 1.905 seconds, layout work 1.715 and local allocation 0.460.
+
+`compatible?` copies trial types and uses `guard` around `unify!` to reject
+incompatible candidates. A mismatch raises an exception. The cost of those
+exceptions depends on the surrounding compiler stack. A small probe performing
+2,000 scalar mismatch trials took 0.009 seconds at depth zero, 0.064 at depth 500
+and 0.241 at depth 5,000. The same obviously incompatible comparison returned
+without raising in 0.000–0.001 seconds at all three depths.
+
+A private overlay experiment added a conservative type-shape filter before the
+existing trial. Variables still pass through to the original unifier; only
+already contradictory shapes are rejected early. Its complete build took 38.557
+seconds, with identical shader and simulation Wasm. Simulation checking took
+12.518 seconds and emission 11.876. This is an instrumented experiment, separate
+from the original baseline; a production optimization and clean measurements
+belong in the follow-up fix PR. It identifies avoidable host work without needing
+to self-host first. The existing unifier must remain responsible for rigid
+variables, repeated-variable consistency, occurs checks and diagnostics.
 
 ## Reproduce the readiness probes
 
