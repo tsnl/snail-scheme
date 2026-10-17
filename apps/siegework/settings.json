@@ -1,7 +1,7 @@
 {
   "title": "Siegework",
   "width": 960,
-  "height": 560,
+  "height": 640,
   "cellSize": 40,
   "tickMilliseconds": 100,
   "source": "src/siegework/game.sld",
@@ -14,7 +14,10 @@
   "remoteHandlers": [
     "extract",
     "fortify",
+    "observe",
     "upgrade",
+    "fabricate-worker",
+    "prioritize-building",
     "repair",
     "new-run"
   ],
@@ -31,6 +34,10 @@
       "choose",
       2
     ],
+    "3": [
+      "choose",
+      3
+    ],
     " ": [
       "confirm"
     ],
@@ -40,11 +47,40 @@
     "u": [
       "improve"
     ],
+    "f": [
+      "fabricate"
+    ],
+    "p": [
+      "prioritize"
+    ],
     "r": [
       "mend"
     ],
     "n": [
       "restart"
+    ],
+    "h": [
+      "home"
+    ],
+    "w": [
+      "pan",
+      0,
+      -1
+    ],
+    "a": [
+      "pan",
+      -1,
+      0
+    ],
+    "s": [
+      "pan",
+      0,
+      1
+    ],
+    "d": [
+      "pan",
+      1,
+      0
     ],
     "ArrowLeft": [
       "nudge",
@@ -67,9 +103,24 @@
       1
     ]
   },
+  "inputRepeatMilliseconds": 140,
+  "repeatKeys": [
+    "w",
+    "a",
+    "s",
+    "d",
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown"
+  ],
   "controller": {
     "0": [
       "confirm"
+    ],
+    "1": [
+      "choose",
+      3
     ],
     "2": [
       "choose",
@@ -84,6 +135,15 @@
     ],
     "5": [
       "mend"
+    ],
+    "6": [
+      "fabricate"
+    ],
+    "7": [
+      "prioritize"
+    ],
+    "8": [
+      "home"
     ],
     "9": [
       "restart"
@@ -108,5 +168,10 @@
       1,
       0
     ]
-  }
+  },
+  "repeatButtons": [12, 13, 14, 15],
+  "controllerAxes": [
+    {"axis": 0, "negative": ["pan", -1, 0], "positive": ["pan", 1, 0], "deadzone": 0.35},
+    {"axis": 1, "negative": ["pan", 0, -1], "positive": ["pan", 0, 1], "deadzone": 0.35}
+  ]
 }
