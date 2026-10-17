@@ -103,7 +103,9 @@ composition for a native build.
 
 Within the native package, `src/native/llvm.sld` publishes live references
 and reloads them after collecting calls. `src/native/native_gc.rs` owns the Immix block
-allocator, tracing, opportunistic evacuation and weak cleanup. `src/native/native.rs`
+allocator, tracing, opportunistic evacuation and weak cleanup. Its optional
+`gc-trace` host recording exports collection pauses as Chromium events.
+`src/native/native.rs`
 defines writable roots and the scalar/runtime ABI; allocating helpers protect
 their own reference arguments. Following the product compiler does not require
 following these native lifetime rules. `src/native/runtime/` is the scalar-services

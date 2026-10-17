@@ -5,6 +5,8 @@
 //! native callers reload published references before using them again.
 
 use crate::native::{NativeRoots, NativeTable, native_trap};
+#[cfg(feature = "gc-trace")]
+use std::{collections::TryReserveError, io, io::Write, time::Duration, time::Instant};
 use std::{ffi::c_void, ptr};
 
 // ---- Heap representation ----
@@ -144,6 +146,8 @@ pub(crate) struct Collector {
     watches: Vec<Watch>,
     metadata: Metadata,
     stats: Statistics,
+    #[cfg(feature = "gc-trace")]
+    trace: Option<GcTrace>,
     #[cfg(test)]
     allocation_failures: AllocationFailures,
     #[cfg(test)]
@@ -173,6 +177,8 @@ impl Collector {
             watches: Vec::new(),
             metadata,
             stats: Statistics::default(),
+            #[cfg(feature = "gc-trace")]
+            trace: None,
             #[cfg(test)]
             allocation_failures: AllocationFailures::default(),
             #[cfg(test)]
@@ -982,6 +988,8 @@ impl Collector {
     }
 
     pub unsafe fn collect(&mut self, roots: *mut NativeRoots) {
+        #[cfg(feature = "gc-trace")]
+        let start = self.trace.as_ref().map(|_| Instant::now());
         self.prepare_evacuation();
         unsafe { self.mark_roots(roots) };
         while let Some(words) = self.work.pop() {
@@ -996,6 +1004,10 @@ impl Collector {
         self.collecting = false;
         self.needs_defragmentation =
             self.stats.occupied_bytes > self.heap_bytes - self.heap_bytes / 4;
+        #[cfg(feature = "gc-trace")]
+        if let (Some(start), Some(trace)) = (start, self.trace.as_mut()) {
+            trace.record(start, Instant::now());
+        }
     }
 
     pub fn collections(&self) -> usize {
@@ -1006,9 +1018,117 @@ impl Collector {
         self.stats.moved_objects
     }
 
+    #[cfg(feature = "gc-trace")]
+    pub fn start_trace(&mut self, capacity: usize) -> Result<(), TryReserveError> {
+        self.trace = Some(GcTrace::new(capacity)?);
+        Ok(())
+    }
+
+    #[cfg(feature = "gc-trace")]
+    pub fn take_trace(&mut self) -> Option<GcTrace> {
+        self.trace.take()
+    }
+
     #[cfg(feature = "gc-stress")]
     pub fn limit_to_current_capacity(&mut self) {
         self.config.maximum = self.heap_bytes;
+    }
+}
+
+// ---- Bounded collection pause recording ----
+
+/// One completed stop-the-world collection, relative to its recording's start.
+#[cfg(feature = "gc-trace")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GcPause {
+    pub start: Duration,
+    pub duration: Duration,
+}
+
+/// Counts and durations include completed collections whose events were dropped.
+#[cfg(feature = "gc-trace")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct GcTraceSummary {
+    pub collections: usize,
+    pub dropped_events: usize,
+    pub total_pause: Duration,
+    pub maximum_pause: Duration,
+}
+
+/// Host memory is reserved before recording. A full buffer drops events without
+/// changing collection, growing the buffer, or retaining managed references.
+#[cfg(feature = "gc-trace")]
+pub struct GcTrace {
+    origin: Instant,
+    capacity: usize,
+    pauses: Vec<GcPause>,
+    summary: GcTraceSummary,
+}
+
+#[cfg(feature = "gc-trace")]
+impl GcTrace {
+    fn new(capacity: usize) -> Result<Self, TryReserveError> {
+        let mut pauses = Vec::new();
+        pauses.try_reserve_exact(capacity)?;
+        Ok(Self {
+            origin: Instant::now(),
+            capacity,
+            pauses,
+            summary: GcTraceSummary::default(),
+        })
+    }
+
+    // The clock brackets evacuation setup through weak callbacks, sweep and
+    // collection scheduling. Recording and later JSON output are outside it.
+    fn record(&mut self, start: Instant, finish: Instant) {
+        let duration = finish.duration_since(start);
+        self.summary.collections += 1;
+        self.summary.total_pause += duration;
+        self.summary.maximum_pause = self.summary.maximum_pause.max(duration);
+        if self.pauses.len() == self.capacity {
+            self.summary.dropped_events += 1;
+        } else {
+            self.pauses.push(GcPause {
+                start: start.duration_since(self.origin),
+                duration,
+            });
+        }
+    }
+
+    pub fn summary(&self) -> GcTraceSummary {
+        self.summary
+    }
+
+    pub fn pauses(&self) -> &[GcPause] {
+        &self.pauses
+    }
+
+    /// Write a completed Chromium event array accepted by scripts/view-traces.
+    /// Timestamps and durations use integer microseconds; no guest code runs.
+    pub fn write_chromium_json(&self, mut output: impl Write) -> io::Result<()> {
+        writeln!(output, "[")?;
+        write!(
+            output,
+            "{{\"ph\":\"M\",\"pid\":1,\"tid\":1,\"name\":\"thread_name\",\"args\":{{\"name\":\"Native GC\"}}}}"
+        )?;
+        for (index, pause) in self.pauses.iter().enumerate() {
+            write!(
+                output,
+                ",\n{{\"ph\":\"X\",\"pid\":1,\"tid\":1,\"cat\":\"native.gc\",\"name\":\"Immix collection\",\"ts\":{},\"dur\":{},\"args\":{{\"collection\":{}}}}}",
+                pause.start.as_micros(),
+                pause.duration.as_micros(),
+                index + 1
+            )?;
+        }
+        let summary = self.summary;
+        writeln!(
+            output,
+            ",\n{{\"ph\":\"M\",\"pid\":1,\"tid\":1,\"name\":\"native_gc_summary\",\"args\":{{\"collections\":{},\"dropped_events\":{},\"total_pause_us\":{},\"maximum_pause_us\":{}}}}}\n]",
+            summary.collections,
+            summary.dropped_events,
+            summary.total_pause.as_micros(),
+            summary.maximum_pause.as_micros()
+        )
     }
 }
 
@@ -1855,5 +1975,96 @@ mod tests {
             assert_eq!(*(heap.frame.values[0] as *mut u64).add(1), 123);
             assert_eq!(*(heap.frame.values[1] as *mut u64).add(1), 456);
         }
+    }
+
+    #[cfg(feature = "gc-trace")]
+    #[test]
+    fn bounded_trace_counts_dropped_pauses_and_preserves_microsecond_units() {
+        for capacity in [0, 2] {
+            let mut trace = GcTrace::new(capacity).unwrap();
+            let storage = trace.pauses.as_ptr();
+            for (start, duration) in [(10, 20), (40, 10), (70, 60)] {
+                let start = trace.origin + Duration::from_micros(start);
+                trace.record(start, start + Duration::from_micros(duration));
+            }
+            assert_eq!(trace.pauses.as_ptr(), storage);
+            assert_eq!(trace.pauses().len(), capacity);
+            assert_eq!(trace.summary().collections, 3);
+            assert_eq!(trace.summary().dropped_events, 3 - capacity);
+            assert_eq!(trace.summary().total_pause, Duration::from_micros(90));
+            assert_eq!(trace.summary().maximum_pause, Duration::from_micros(60));
+            if capacity == 2 {
+                let mut json = Vec::new();
+                trace.write_chromium_json(&mut json).unwrap();
+                assert_eq!(
+                    String::from_utf8(json).unwrap(),
+                    concat!(
+                        "[\n",
+                        "{\"ph\":\"M\",\"pid\":1,\"tid\":1,\"name\":\"thread_name\",\"args\":{\"name\":\"Native GC\"}}",
+                        ",\n{\"ph\":\"X\",\"pid\":1,\"tid\":1,\"cat\":\"native.gc\",\"name\":\"Immix collection\",\"ts\":10,\"dur\":20,\"args\":{\"collection\":1}}",
+                        ",\n{\"ph\":\"X\",\"pid\":1,\"tid\":1,\"cat\":\"native.gc\",\"name\":\"Immix collection\",\"ts\":40,\"dur\":10,\"args\":{\"collection\":2}}",
+                        ",\n{\"ph\":\"M\",\"pid\":1,\"tid\":1,\"name\":\"native_gc_summary\",\"args\":{\"collections\":3,\"dropped_events\":1,\"total_pause_us\":90,\"maximum_pause_us\":60}}\n]\n"
+                    )
+                );
+                assert!(
+                    trace
+                        .write_chromium_json(&mut [0u8; 1].as_mut_slice())
+                        .is_err()
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "gc-trace")]
+    #[test]
+    fn tracing_brackets_weak_cleanup_and_preserves_moving_roots() {
+        unsafe extern "C" fn observe(_: *mut c_void, data: *mut c_void) {
+            unsafe { *data.cast::<Option<Instant>>() = Some(Instant::now()) };
+        }
+        let mut heap = Heap::new(3, 3);
+        let live = heap.object(16, 10, 42);
+        heap.frame.values[0] = live as u64;
+        let dead = heap.object(16, 10, 43);
+        let mut finalized = None::<Instant>;
+        heap.collector.watch(
+            dead.cast(),
+            Some(observe),
+            (&mut finalized as *mut Option<Instant>).cast(),
+        );
+        heap.collector.start_trace(1).unwrap();
+        assert!(heap.collector.start_trace(usize::MAX).is_err());
+        heap.collector.evacuate_all = true;
+        heap.collect();
+        assert_ne!(heap.frame.values[0], live as u64);
+        assert_eq!(unsafe { *(heap.frame.values[0] as *const u64).add(1) }, 42);
+        heap.frame.values.fill(0);
+        heap.collect();
+        let trace = heap.collector.take_trace().unwrap();
+        let pause = trace.pauses()[0];
+        let callback_time = finalized.unwrap().duration_since(trace.origin);
+        assert!(callback_time >= pause.start && callback_time <= pause.start + pause.duration);
+        assert_eq!(trace.summary().collections, heap.collector.collections());
+        assert_eq!(trace.summary().dropped_events, 1);
+        assert!(heap.collector.take_trace().is_none());
+        heap.collect();
+        assert_eq!(heap.collector.collections(), 3);
+        assert_eq!(trace.summary().collections, 2);
+    }
+
+    #[cfg(feature = "gc-trace")]
+    #[test]
+    fn replacing_a_trace_resets_its_scope_without_collecting() {
+        let mut heap = Heap::new(1, 1);
+        heap.collector.start_trace(0).unwrap();
+        heap.collect();
+        assert_eq!(
+            heap.collector.trace.as_ref().unwrap().summary().collections,
+            1
+        );
+        heap.collector.start_trace(1).unwrap();
+        let trace = heap.collector.take_trace().unwrap();
+        assert_eq!(trace.summary(), GcTraceSummary::default());
+        assert!(trace.pauses().is_empty());
+        assert_eq!(heap.collector.collections(), 1);
     }
 }

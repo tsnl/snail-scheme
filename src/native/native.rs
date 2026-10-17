@@ -8,6 +8,8 @@
 #[cfg(not(test))]
 use crate::native_gc::Layout;
 use crate::native_gc::{Collector, Config, Finalizer, Metadata};
+#[cfg(feature = "gc-trace")]
+pub use crate::native_gc::{GcPause, GcTrace, GcTraceSummary};
 use std::{
     ffi::{CStr, c_char, c_void},
     io::Write,
@@ -263,6 +265,27 @@ pub unsafe extern "C" fn native_gc_unpin(reference: u64) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn native_gc_collections() -> usize {
     unsafe { runtime().collector.collections() }
+}
+
+/// Begin a bounded recording, replacing any previous recording. Reservation
+/// failure preserves the previous recording. Zero capacity keeps only totals.
+///
+/// # Safety
+/// Only the single owning host may call this after initialization, outside guest
+/// code and finalizers. This API neither collects nor changes collection policy.
+#[cfg(feature = "gc-trace")]
+pub unsafe fn gc_trace_start(capacity: usize) -> Result<(), std::collections::TryReserveError> {
+    unsafe { runtime().collector.start_trace(capacity) }
+}
+
+/// Stop recording and transfer its host-owned data for inspection or JSON output.
+///
+/// # Safety
+/// Only the single owning host may call this after initialization, outside guest
+/// code and finalizers. Returned data contains no managed references.
+#[cfg(feature = "gc-trace")]
+pub unsafe fn gc_trace_take() -> Option<GcTrace> {
+    unsafe { runtime().collector.take_trace() }
 }
 
 #[unsafe(no_mangle)]

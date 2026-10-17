@@ -7,6 +7,8 @@ license = "Apache-2.0"
 [features]
 # Test executables collect and attempt evacuation before every allocation.
 gc-stress = []
+# Explicit host scopes record bounded collection pauses; normal builds omit it.
+gc-trace = []
 
 [dependencies]
 libc = "0.2.186"
