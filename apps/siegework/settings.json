@@ -18,13 +18,13 @@
     "observe",
     "upgrade",
     "fabricate-worker",
-    "prioritize-building",
-    "repair",
     "new-run",
     "pause-colony",
     "new-run-seed",
     "cancel-building",
-    "arm-tower"
+    "arm-tower",
+    "set-focus",
+    "relocate-building"
   ],
   "pointer": {
     "move": "move",
@@ -61,12 +61,6 @@
     ],
     "f": [
       "fabricate"
-    ],
-    "p": [
-      "prioritize"
-    ],
-    "r": [
-      "mend"
     ],
     "n": [
       "restart"
@@ -113,6 +107,12 @@
       "nudge",
       0,
       1
+    ],
+    "m": [
+      "relocate"
+    ],
+    "Escape": [
+      "cancel"
     ]
   },
   "inputRepeatMilliseconds": 140,
@@ -142,13 +142,14 @@
       "improve"
     ],
     "5": [
-      "mend"
+      "relocate"
     ],
     "6": [
       "fabricate"
     ],
     "7": [
-      "prioritize"
+      "focus",
+      0
     ],
     "8": [
       "home"

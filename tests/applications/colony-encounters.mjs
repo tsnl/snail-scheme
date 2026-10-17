@@ -104,13 +104,6 @@ export async function checkEncounters(test, fresh, call) {
     await call(r,'pause-colony',[0]); const clear = state(r); clear.enemies.length=0; await restoreColony(r, clear); await advance(r,81);
     assert.doesNotMatch(r.view().label,/RECENT DAMAGE/); await r.close();
   });
-  await test('lost repair kits are spent once and never refunded by casualty cleanup', async () => {
-    const r=await fresh(), world = state(r); world.tick=9; world.ore=156; world.spent=4;
-    setWorker(world,0,{id:1,x:12,y:20,job:7,cargo:4,timer:5}); await restoreColony(r, world);
-    await addEnemy(r,{x:12,y:20}); await addEnemy(r,{x:12,y:20}); await advance(r);
-    assert.equal(state(r).casualties,1); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4);
-    await advance(r,50); assert.equal(state(r).ore,156); assert.equal(state(r).spent,4); balanced(r); await r.close();
-  });
   await test('same seeds reproduce maps and invalid seed orders retain the colony', async () => {
     const r = await fresh(); await call(r,'new-run-seed',[43]); const initial = r.snapshot(1);
     await call(r,'extract',[12,20]); await advance(r,170); assert.ok(state(r).delivered > 0);

@@ -178,7 +178,7 @@
               (append (mine-slots world building x y)
                       (append (list (rect (- x 14) (+ y 24)
                                           (quotient (* (building-hp building) 28) (building-health (building-kind building))) 2 9352916))
-                              (if (= (building-id building) (world-priority world))
+                              (if (moving? building)
                                   (outline (- x 19) (- y 19) 38 38 16769709) (empty-list))))))
 
     ;; Cooldown 8..5 draws one shot over four simulation frames. Damage is still
@@ -360,8 +360,6 @@
 
     ;; ---- Worker roles, actual damage and scheduled threats ----
 
-    (define (count-job bots job)
-      (if (null? bots) 0 (+ (if (= (bot-job (car bots)) job) 1 0) (count-job (cdr bots) job))))
     (define (count-at-hub bots)
       (if (null? bots) 0 (+ (if (at-hub? (car bots)) 1 0) (count-at-hub (cdr bots)))))
     (define (stock-total buildings kind)
@@ -374,15 +372,20 @@
       (string-append (integer-text (quotient tick 600)) ":"
                      (if (< (remainder (quotient tick 10) 60) 10) "0" "")
                      (integer-text (remainder (quotient tick 10) 60))))
+    (define (next-attack-text world)
+      (let* ((tick (next-attack-tick (world-tick world))) (kind (attack-kind tick)))
+        (string-append "NEXT SPAWN " (clock-text tick) " · "
+                       (if (= kind 2) "final beast + 6 escorts"
+                           (string-append (integer-text (attack-size tick))
+                                          (if (= kind 1) " outpost raiders" " eastern attackers")))
+                       " · travel time depends on their target")))
     (define (warning-text world)
       (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · N / Start begins a fresh colony")
             ((= (world-outcome world) 2) "RUN ENDED · SIEGE REPELLED · the colony held for eight minutes")
             ((= (world-outcome world) 3) "RUN ENDED · THREAT EXTERMINATED · the colony survives")
-            ((>= (world-tick world) 4200) "SCHEDULE · final siege began at 7:00 · hold until 8:00")
-            ((>= (world-tick world) 3600) "SCHEDULE · eastern siege at 7:00 · reinforce the crossing")
-            ((>= (world-tick world) 2100) "SCHEDULE · outpost raid began at 3:30 · final siege at 7:00")
-            ((>= (world-tick world) 1500) "SCHEDULE · outpost raid at 3:30 · protect the outer operation")
-            (else "SCHEDULE · eastern waves each minute · outpost raid 3:30 · final siege 7:00")))
+            ((>= (world-tick world) final-siege-tick)
+             (string-append "FINAL SIEGE INBOUND · hold until " (clock-text run-end-tick)))
+            (else (next-attack-text world))))
     (define (alert-name kind)
       (cond ((= kind 0) "HUB") ((= kind 1) "Extractor") ((= kind 2) "Artillery")
             ((= kind 3) "Tower") (else "Workers")))
@@ -401,25 +404,31 @@
     (define (reason-text reason)
       (cond ((= reason 1) "Outside active observation · extend a tower first")
             ((= reason 2) "Rock or water · choose traversable ground")
-            ((= reason 3) "Occupied · U: upgrade · P: priority · C: cancel build · T: arm tower")
+            ((= reason 3) "Occupied · U: upgrade · M: move · C: cancel · T: arm tower")
             ((= reason 4) "Extractor needs a turquoise deposit")
             ((= reason 5) "Keep this deposit available for an extractor")
             ((= reason 6) "No surveyed walking route from the hub")
-            ((= reason 7) "Not enough delivered ore")
+            ((= reason 7) "Not enough ore for this order")
             ((= reason 8) "Colony capacity reached")
             ((= reason 9) "Run finished · start a new colony")
-            ((= reason 10) "Construction ordered · kit paid at hub")
+            ((= reason 10) "Construction ordered · materials reserved at pickup source")
             ((= reason 11) "Selected site cannot use that upgrade · check its available actions")
             ((= reason 12) "Upgrade installed")
             ((= reason 13) "Worker assembling at the hub · ready in three seconds")
-            ((= reason 14) "Site prioritized · construction, mine staffing and collection")
+            ((= reason 14) "Colony mode changed")
             ((= reason 15) "Outside map boundary · move the cursor onto the field")
             ((= reason 16) "Seed must be 1–65535; colony unchanged")
             ((= reason 17) "Build cancelled · refunded")
             ((= reason 18) "Build cancelled · materials returning to hub")
             ((= reason 19) "Select an unfinished build")
             ((= reason 20) "Tower artillery installed · sight and depot remain active")
-            (else "Ready to place · workers build, mine, haul and repair")))
+            ((= reason 21) "Move queued · 5 ore · draining deliveries automatically")
+            ((= reason 22) "Move complete · health, upgrades and identity preserved")
+            ((= reason 23) "Move cancelled · 5 ore refunded")
+            ((= reason 24) "Move needs a completed tower or artillery with no move pending")
+            ((= reason 25) "Choose a destination one or two walking cells away")
+            ((= reason 26) "Move cancelled · supply route changed · 5 ore refunded")
+            (else "Ready to place · workers build, mine and haul")))
     (define (building-name kind)
       (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") (else "OBSERVATION TOWER")))
     (define (mine-production-text world building staff)
@@ -434,7 +443,8 @@
         (string-append " · miners " (integer-text staff) "/" (integer-text (building-level building))
                        " (+" (integer-text (workers-at (world-bots world) 9 (building-id building))) " incoming)"
                        (mine-production-text world building staff)
-                       "\nStock " (integer-text (building-stock building)) "/120 · "
+                       "\nStock " (integer-text (building-stock building)) "/120"
+                       (if (= (building-id building) (construction-cache world)) " · up to 50 held for construction; excess is hauled" "") " · "
                        (integer-text (workers-at (world-bots world) 1 (building-id building))) " collectors en route"
                        (if (= (building-level building) 2) " · two mining slots installed"
                            (if (ready? building) " · U: +1 mining slot / 40 ore; needs another worker"
@@ -473,91 +483,77 @@
       (if (null? bots) (empty-list)
           (if (= (bot-order (car bots)) id) (list (car bots)) (project-worker (cdr bots) id))))
     (define (reserved-worker-text bot)
-      (cond ((= (bot-job bot) 11) "worker collecting kit at hub")
+      (cond ((= (bot-job bot) 11) "worker collecting reserved materials")
             ((= (bot-job bot) 10) "worker reserved · waiting for a safe route")
-            ((= (bot-job bot) 7) "reserved worker retreating · kit remains at hub")
+            ((= (bot-job bot) 7) "reserved worker retreating · kit remains at source")
             ((and (= (bot-job bot) 2) (> (bot-cargo bot) 0)) "worker delivering existing ore before kit pickup")
             ((and (= (bot-job bot) 5) (> (bot-cargo bot) 0)) "worker returning existing kit before pickup")
             (else "worker reserved · finishing current work before kit pickup")))
     (define (reserved-kit-text world building)
       (let ((found (project-worker (world-bots world) (building-id building))))
-        (string-append " · kit at hub · "
+        (string-append " · materials reserved · "
                        (if (null? found) "awaiting worker" (reserved-worker-text (car found)))
                        " · C: cancel + refund")))
     (define (construction-text world building)
       (cond ((ready? building) " · operational")
             ((= (building-stage building) 1) " · kit in transit · C: cancel; refund on hub return")
             ((= (building-stage building) 3) (reserved-kit-text world building))
-            (else " · kit waiting at hub · C: cancel + refund")))
+            (else " · reserved kit awaiting worker · C: cancel + refund")))
+    (define (move-text building)
+      (if (moving? building)
+          (string-append " · MOVE [" (integer-text (building-move-x building)) "," (integer-text (building-move-y building))
+                         "] queued · draining supplies · C: cancel + refund") ""))
+    (define (supply-text world building)
+      (if (ready? building) ""
+          (let ((source (find-building (world-buildings world) (building-source building))))
+            (if (= (building-source building) 0) " · supplies from hub"
+                (if (null? source) " · source lost; carried kit retained"
+                    (string-append " · supplies from [" (integer-text (building-x (car source))) ","
+                                   (integer-text (building-y (car source))) "]"))))))
     (define (building-detail world building)
       (string-append (building-name (building-kind building))
-                     (construction-text world building)
+                     (construction-text world building) (supply-text world building) (move-text building)
                      " · " (integer-text (building-hp building)) " health"
                      (if (= (building-kind building) 1)
                          (mine-detail world building)
                          (if (= (building-kind building) 3)
                              (tower-detail world building)
-                             " · automatic aim · 8-cell range · visible threats"))))
+                             " · automatic aim · 8-cell range · rocks block fire"))))
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (not (null? found)) (building-detail world (car found))
-            (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
-                           (integer-text x) "," (integer-text y) "] · "
-                           (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
-                               (string-append "deposit: " (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
-                           (if (= tool 2) "8-cell firing range · " "")
-                           (reason-text (placement-reason world tool x y))))))
-    (define (worker-work-text bots)
-      (string-append "Mining " (integer-text (count-job bots 8)) " (+" (integer-text (count-job bots 9)) " incoming) · "
-                     "hauling " (integer-text (+ (count-job bots 1) (count-job bots 2))) " · "
-                     "building/repair " (integer-text (+ (count-job bots 3) (count-job bots 4))) " · "
-                     "kit pickup " (integer-text (count-job bots 11)) " · "
-                     "kit return " (integer-text (count-job bots 5)) "\n"
-                     "Retreating " (integer-text (count-job bots 7)) " · blocked by danger " (integer-text (count-job bots 10)) " · "
-                     "idle " (integer-text (count-job bots 0)) " · assembling " (integer-text (count-job bots 6))))
-    (define (reserved-worker-count bots)
-      (if (null? bots) 0
-          (+ (if (> (bot-order (car bots)) 0) 1 0) (reserved-worker-count (cdr bots)))))
-    (define (refund-pending? bot)
-      (and (= (bot-target bot) 0) (> (bot-cargo bot) 4)
-           (or (= (bot-job bot) 5) (and (= (bot-job bot) 7) (= (bot-timer bot) 5)))))
-    (define (refund-pending-count bots)
-      (if (null? bots) 0
-          (+ (if (refund-pending? (car bots)) 1 0) (refund-pending-count (cdr bots)))))
-    (define (worker-orders-text bots)
-      (string-append "Reserved for next build " (integer-text (reserved-worker-count bots))
-                     " (included in roles above) · cancelled kits awaiting refund "
-                     (integer-text (refund-pending-count bots)) "\n"))
-    (define (sheltering-count bots)
-      (if (null? bots) 0
-          (+ (if (and (at-hub? (car bots)) (= (bot-job (car bots)) 10)) 1 0)
-             (sheltering-count (cdr bots)))))
-    (define (shelter-text world)
-      (if (and (= (world-outcome world) 0) (> (sheltering-count (world-bots world)) 0))
-          (string-append (integer-text (sheltering-count (world-bots world)))
-                         " sheltering at hub until a route is safe\n") ""))
-    (define (population-text world)
-      (string-append "COLONY " (integer-text (list-size (world-bots world))) "/12 · "
-                     "AT HUB " (integer-text (count-at-hub (world-bots world))) " · lost "
-                     (integer-text (world-casualties world)) " workers / " (integer-text (world-lost-ore world)) " ore\n"
-                     (worker-work-text (world-bots world)) "\n"
-                     (worker-orders-text (world-bots world)) (shelter-text world)))
+            (if (= tool 0) "INSPECT · hover a site for details · M: move a completed tower or gun"
+                (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
+                               (integer-text x) "," (integer-text y) "] · "
+                               (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
+                                   (string-append "deposit: " (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
+                               (if (= tool 2) "8-cell firing range · " "")
+                               (reason-text (placement-reason world tool x y)))))))
     (define (economy-text world)
       (string-append (integer-text (world-credits world)) " SPENDABLE ORE · HUB " (integer-text (world-hull world)) "/300 · "
+                     "Workers " (integer-text (list-size (world-bots world))) " · "
                      (clock-text (world-tick world)) "/8:00 · seed " (integer-text (world-seed world)) "\n"
                      "Mine stock " (integer-text (stock-total (world-buildings world) 1))
                      " · depot stock " (integer-text (stock-total (world-buildings world) 3))
                      " · rail cargo " (integer-text (rail-cargo-total (world-rails world))) " raw ore · delivered "
                      (integer-text (world-delivered world)) " · defeated " (integer-text (world-kills world)) "\n"))
-    (define (order-text world)
-      (string-append "Last order: " (reason-text (world-notice world)) " · Auto repair "
-                     (if (= (world-repairs world) 1) "ON (keeps 40 ore)" "OFF")))
-    (define (colony-status world tool x y)
-      (string-append (if (and (= (world-outcome world) 0) (= (world-paused world) 1))
-                         "PAUSED · shared colony · planning stays available\n" "")
-                     (warning-text world) "\n"
-                     (damage-status world) (economy-text world) (population-text world)
-                     "Ants: teal mining · pale hauling · gold kits · coral retreat · amber wait · gray idle\n"
-                     "Gold marker above worker = reserved for a new build · shuttles: gold load / hollow empty\n"
-                     "Mine slots: filled = mining · amber outline = incoming · gray = empty\n"
-                     (selection-text world tool x y) "\n" (order-text world)))))
+    (define (plan-text world)
+      (cond ((= (world-focus world) 0) "MANUAL · you choose investments; workers choose pickup sources and routes")
+            (else (string-append (if (= (world-focus world) 1) "AUTO · EXPLORE · " "AUTO · DEFEND · ")
+                                 (cond ((= (world-plan world) 1) "finishing the committed project")
+                                       ((= (world-plan world) 2) "waiting for a whole kit; keeping 40 hub ore")
+                                       ((= (world-plan world) 3) "assembling workforce")
+                                       ((= (world-plan world) 4) "developing an observed deposit")
+                                       ((= (world-plan world) 5) "extending observation")
+                                       ((= (world-plan world) 6) "covering known approaches")
+                                       ((= (world-plan world) 7) "no useful safe site in current observation")
+                                       ((= (world-plan world) 9) "finishing the queued move")
+                                       (else "choosing the next investment"))))))
+    (define (colony-status world tool x y origin-x origin-y)
+      (string-append (if (and (= (world-outcome world) 0) (= (world-paused world) 1)) "PAUSED · planning available\n" "")
+                     (plan-text world) "\n" (economy-text world) (warning-text world) "\n" (damage-status world)
+                     (if (>= origin-x 0)
+                         (string-append "MOVE [" (integer-text origin-x) "," (integer-text origin-y) "] → ["
+                                        (integer-text x) "," (integer-text y) "] · 5 ore · up to 2 cells · click to confirm · C to cancel")
+                         (selection-text world tool x y))
+                     "\nLast order: " (reason-text (world-notice world))))))

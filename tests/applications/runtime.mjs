@@ -6,6 +6,7 @@ import {colony, client, restoreColony} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
+import {checkFocus} from './colony-focus.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {Authority} from '../../src/application/authority.mjs';
@@ -76,7 +77,7 @@ await test('invalid candidate, incompatible schema and bad snapshot preserve ins
 });
 await test('derived colony snapshots reject legacy layouts, marker disagreement and invalid values', async () => {
   const r = await fresh(), committed = r.snapshot(1);
-  for (const schema of [4,5]) {
+  for (const schema of [4,5,6]) {
     const legacy = Array(schema === 4 ? 6144 : 10240).fill(0); legacy[0] = schema;
     await assert.rejects(() => r.restore(1, legacy), /schema/);
   }
@@ -203,7 +204,7 @@ await test('unprotected run loses; a fortified colony reaches a successful final
     }
     await call(r, 'advance');
     const after = colony(r.snapshot(1));
-    assert.equal(after.ore, 160 + after.delivered - after.spent, 'ore comes only from deliveries');
+    assert.equal(after.ore, 160 + after.delivered + after.localSpent - after.spent, 'ore comes only from deliveries');
     if (after.kills > before.kills) sawKill = true;
   }
   assert.ok(sawKill); assert.ok([2,3].includes(colony(r.snapshot(1)).outcome)); await r.close();
@@ -236,5 +237,6 @@ await test('Scheme run markers atomically bind accepted restarts, epochs and ret
 await checkColony(test, fresh, call);
 await checkEncounters(test, fresh, call);
 await checkLogistics(test, fresh, call);
+await checkFocus(test, fresh, call);
 await checkAsyncRuntime(test, fixture);
 console.log(`${passed} application integration checks passed`);

@@ -103,3 +103,6 @@ summary { cursor: pointer; color: #c3d3e1; width: fit-content; }
   [data-connection] { text-align: left; margin-top: 12px; }
   .guide-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+.manual-controls summary { font-size: 13px; line-height: 1.6; }
+.manual-controls[open] .controls { margin-top: 12px; }

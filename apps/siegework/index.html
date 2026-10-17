@@ -24,26 +24,34 @@
     </section>
 
     <aside class="commands" aria-label="Colony commands">
-      <section class="command-group" aria-labelledby="build-heading">
-        <h2 id="build-heading">Build <span>Choose, then place</span></h2>
+      <section class="command-group" aria-labelledby="focus-heading">
+        <h2 id="focus-heading">Colony control <span>Manual by default</span></h2>
         <div class="controls">
-          <button data-handler="choose" data-args="[1]" title="Select an extractor. Place it on a visible, reachable mineral deposit. One worker can staff it; other workers haul its ore."><kbd>1 / X</kbd>Extractor<small>40 ore · 1 mining slot</small></button>
-          <button data-handler="choose" data-args="[2]" title="Select artillery. Workers build it, then it automatically fires at visible enemies within eight cells."><kbd>2 / Y</kbd>Artillery<small>50 ore</small></button>
-          <button data-handler="choose" data-args="[3]" title="Select an observation tower. When complete, it reveals terrain and receives hauled ore at its depot. An automatic rail shuttle carries ore upstream."><kbd>3 / B</kbd>Observation tower<small>25 ore · sight + rail depot</small></button>
-          <button class="primary" data-handler="confirm" title="Place the selected building at the cursor. The field status explains any blocked placement."><kbd>ENTER / A</kbd>Place building<small>At the cursor</small></button>
+          <button class="primary" data-handler="focus" data-args="[1]">Auto · Explore<small>Extract deposits, expand sight</small></button>
+          <button data-handler="focus" data-args="[2]">Auto · Defend<small>Extract deposits, cover approaches</small></button>
         </div>
+        <p class="command-help">An experiment in fewer orders. One project at a time, with 40 hub ore kept in reserve. Field status explains the next action.</p>
       </section>
-      <section class="command-group" aria-labelledby="colony-heading">
-        <h2 id="colony-heading">Colony <span>Workers act on their own</span></h2>
+      <details class="command-group manual-controls">
+        <summary data-handler="focus" data-args="[0]">Manual mode · placement &amp; investments</summary>
+        <p class="command-help">Opening these controls stops future automatic purchases. Existing work continues. Both modes use the same workers and resources.</p>
         <div class="controls">
-          <button data-handler="fabricate" title="Queue a new colony worker: 25 ore and three seconds to assemble. Haulers carry up to 16 ore per trip."><kbd>F / LT</kbd>Assemble worker<small>25 ore · 3 sec</small></button>
-          <button data-handler="prioritize" title="Give the selected site's construction or mine deliveries priority."><kbd>P / RT</kbd>Prioritize selected<small>Give this site priority</small></button>
-          <button data-handler="improve" title="Add a second mining slot for 40 ore, or extend the selected observation tower's range. Field status shows cost and availability."><kbd>U / LB</kbd>Upgrade selected<small>Mine staffing / tower range</small></button>
-          <button data-handler="mend" title="Toggle automatic hub and structure repairs. Repair spends ore while retaining a construction reserve; field status shows whether it is on."><kbd>R / RB</kbd>Toggle auto repair<small>Current state in field status</small></button>
-          <button data-handler="arm" title="Add artillery to the selected completed observation tower for 50 ore. Its sight, depot and rail connection remain in service."><kbd>T / R3</kbd>Arm selected tower<small>50 ore · add artillery</small></button>
-          <button class="cancel-build" data-handler="cancel" title="Cancel the unfinished build at the cursor. A kit still at the hub refunds now; a carried kit refunds when the worker returns it. Completed buildings cannot be cancelled."><kbd>C / L3</kbd>Cancel selected build<small>Carried kit must return first</small></button>
+          <button data-handler="choose" data-args="[1]"><kbd>1 / X</kbd>Extractor<small>40 ore · deposit required</small></button>
+          <button data-handler="choose" data-args="[2]"><kbd>2 / Y</kbd>Artillery<small>50 ore · rocks block shots</small></button>
+          <button data-handler="choose" data-args="[3]"><kbd>3 / B</kbd>Observation tower<small>25 ore · sight + rail depot</small></button>
+          <button data-handler="confirm"><kbd>ENTER / A</kbd>Place at cursor<small>Workers choose supplies</small></button>
+          <button data-handler="fabricate"><kbd>F / LT</kbd>Assemble worker<small>25 ore · 3 sec</small></button>
+          <button data-handler="improve"><kbd>U / LB</kbd>Upgrade selected<small>Mine 40 · tower sight 35 ore</small></button>
+          <button data-handler="arm"><kbd>T / R3</kbd>Arm selected tower<small>50 ore · keeps depot and sight</small></button>
         </div>
-        <p class="command-help">Hover or move the cursor onto a site to select it. New builds can reserve busy miners, haulers and repairers; workers settle existing cargo before collecting the kit.</p>
+      </details>
+      <section class="command-group" aria-labelledby="adjust-heading">
+        <h2 id="adjust-heading">Fine-tune <span>Hover a completed site</span></h2>
+        <div class="controls">
+          <button data-handler="relocate"><kbd>M / RB</kbd>Move tower or gun<small>5 ore · up to 2 cells</small></button>
+          <button class="cancel-build" data-handler="cancel"><kbd>C / L3</kbd>Cancel build or move<small>Materials return physically</small></button>
+        </div>
+        <p class="command-help">Move: hover the source, press M, then click its destination. Supplies drain automatically before relocation. C cancels the cursor action. Cancelling a build returns to Manual.</p>
       </section>
       <section class="command-group" aria-labelledby="view-heading">
         <h2 id="view-heading">View <span>WASD / left stick</span></h2>
@@ -74,14 +82,14 @@
     <p id="navigation-help"><strong>Move view:</strong> WASD / left stick. <strong>Move cursor:</strong> arrows / D-pad.<br><strong>Place:</strong> point + click, or Enter / Space / A. <strong>Return home:</strong> H / View.</p>
     <p data-connection role="status">CONNECTING</p>
   </footer>
-  <p class="field-key"><strong>First order:</strong> place an extractor on the turquoise diamond at the starting cursor. <strong>Pale cross:</strong> hub. <strong>Blue mast:</strong> observation tower and depot. <strong>Outlined sites:</strong> construction pending. <strong>Rails:</strong> solid when active, faint while planned. <strong>Shuttles:</strong> gold load, hollow when empty.</p>
+  <p class="field-key"><strong>First choice:</strong> place an extractor on the turquoise diamond, or try Auto · Explore / Defend. <strong>Pale cross:</strong> hub. <strong>Blue mast:</strong> observation tower and depot. <strong>Outlined sites:</strong> construction pending. <strong>Rails:</strong> solid when active, faint while planned. <strong>Shuttles:</strong> gold load, hollow when empty.</p>
   <details class="field-guide">
     <summary>Field guide</summary>
     <div class="guide-grid">
       <p><strong>Staff a supply line.</strong> Put extractors on deposits. Workers automatically staff each mine's one mining slot; a 40-ore upgrade adds a second slot. Each occupied slot produces at the deposit's rate. Empty slots produce nothing. Other workers carry up to 16 ore per trip to the nearest safe connected depot or hub. A mine holds at most 120 ore. Workers can take damage and flee danger automatically.</p>
-      <p><strong>Bring ore home.</strong> Each tower automatically connects to an earlier completed tower or the hub along known ground. Its single shuttle carries up to 32 ore upstream, then returns empty. Depot stock can accumulate without a capacity limit; growing stock shows a transport bottleneck. Mine stock, depot stock and cargo become spendable only on reaching the hub. If a rail endpoint is destroyed, its travelling cargo is lost and surviving depots reconnect automatically.</p>
-      <p><strong>Survey and defend.</strong> Build on currently visible ground with a surveyed route from the hub. The tower placement preview shows its proposed rail path; completed towers reveal more terrain. U extends tower sight for 35 ore. T adds artillery for 50 ore while keeping sight and depot service. All artillery automatically attacks visible threats within eight cells. Shaded terrain is remembered; bright terrain is in view.</p>
-      <p><strong>Change construction plans.</strong> New builds reserve a worker immediately when one can safely take the job. Busy workers settle their cargo before collecting the kit; a gold marker above a worker shows this reservation. C cancels the selected unfinished build. Uncollected kits refund immediately; carried kits must return to the hub first. Automatic repairs keep 40 ore in reserve. Defeated enemies give no ore. Pause leaves camera movement and planning available; construction waits for Resume.</p>
+      <p><strong>Bring ore home.</strong> Each tower automatically connects to an earlier completed tower or the hub along known ground. Its single shuttle carries up to 32 ore upstream, then returns empty. Depot stock can accumulate without a capacity limit; growing stock shows a transport bottleneck. Mine and depot stock can supply construction directly; hub arrival adds to your general ore budget. If a rail endpoint is destroyed, its travelling cargo is lost and surviving depots reconnect automatically.</p>
+      <p><strong>Survey and defend.</strong> Build on currently visible ground with a surveyed route from the hub. The tower placement preview shows its proposed rail path; completed towers reveal more terrain. U extends tower sight for 35 ore. T adds artillery for 50 ore while keeping sight and depot service. Rocks block shots. Eastern groups begin at 1:00; outpost raids spawn at 3:30 and 5:30, then the final beast and six escorts at 7:00. The forecast shows the next group before it starts walking toward you.</p>
+      <p><strong>Shorten construction trips.</strong> Workers compare complete delivery times from the hub, extractor buffers and tower stockpiles. One source must hold the entire kit; reserved ore cannot be hauled or put on a train. Once income starts, one mine keeps up to 50 ore for construction while you have three workers and at least 40 hub ore. Loaded workers deliver existing ore first. Cancelling an uncollected kit returns it to its source; a carried kit returns to the hub. There is no automatic repair. Move keeps health and upgrades. Pause preserves planning and freezes work.</p>
     </div>
   </details>
 </main>

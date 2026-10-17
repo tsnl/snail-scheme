@@ -1,4 +1,4 @@
-// Derived schema-6 records for assertions and bounded encounter fixtures. Only
+// Derived schema-7 records for assertions and bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -25,8 +25,8 @@ function typedField(field, value) {
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
-export const colonyWords = world => snapshotWords(6, typedRecord('World', world), world.runMarker);
-export const clientWords = local => snapshotWords(6, typedRecord('Client', local));
+export const colonyWords = world => snapshotWords(7, typedRecord('World', world), world.runMarker);
+export const clientWords = local => snapshotWords(7, typedRecord('Client', local));
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));
 
@@ -36,15 +36,15 @@ export function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
   return restoreColony(runtime, world);
 }
 export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 22,
-  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0} = {}) {
-  world.bots[index] = {id, x:x * 40 + 20, y:y * 40 + 20, job, target, cargo, timer, path, hp, order};
+  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0, source = 0} = {}) {
+  world.bots[index] = {id, x:x * 40 + 20, y:y * 40 + 20, job, target, cargo, timer, path, hp, order, source};
 }
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
 export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);
 export function colonyBalance(world) {
   const cargo = world.bots.filter(bot => bot.job === 2 || (bot.job === 7 && bot.timer === 2))
     .reduce((sum, bot) => sum + bot.cargo, 0);
-  return {bank:160 + world.delivered - world.spent,
-    raw:world.delivered + world.lostOre + cargo + world.buildings.reduce((sum, building) => sum + building.stock, 0)
+  return {bank:160 + world.delivered + world.localSpent - world.spent,
+    raw:world.delivered + world.localSpent + world.lostOre + cargo + world.buildings.reduce((sum, building) => sum + building.stock, 0)
       + world.rails.reduce((sum, rail) => sum + rail.cargo, 0)};
 }
