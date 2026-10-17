@@ -345,5 +345,133 @@
     "nativeControlOutput": "832040\n",
     "compilerDiagnostic": "lofi: {Exception #19 user \"$REPO/src/lofi/compiler/bootstrap.sld:30:23: cannot parse Lofi source: expected closing delimiter ')'\" () #f #f #f}\n",
     "serviceDiagnostic": "lofi: {Exception #19 user \"native import has no provider declaration\" ((\"lofi.compiler\" \"result-ok\")) #f #f #f}\n"
+  },
+  "verificationProfile": {
+    "input": {
+      "mode": "profile",
+      "source": {
+        "commit": "5710a39a7e2ec0908efe0d85e3ceca2cea3e5306",
+        "status": "",
+        "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "runnerSha256": "caae4fb7a14b4e5f09b36799766b9f2b168dabb4cd38ad507163ad985078cbf0"
+      },
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "$REPO/bootstrap",
+        "-I",
+        "$REPO/wasm-native/scheme",
+        "-I",
+        "$REPO/build/self-hosting-profile-2/overlay",
+        "$REPO/apps/siegework/build.scm",
+        "$REPO",
+        "$REPO/build/self-hosting-profile-2/app"
+      ],
+      "tools": {
+        "chibi": {
+          "command": "chibi-scheme",
+          "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+        },
+        "wasmAs": {
+          "command": "wasm-as",
+          "version": "wasm-as version 132"
+        },
+        "wasmOpt": {
+          "command": "wasm-opt",
+          "version": "wasm-opt version 132"
+        },
+        "node": {
+          "command": "/nix/store/k3nz3s314bipvqbcbw3faq823hxpwbn1-nodejs-slim-24.19.0/bin/node",
+          "version": "v24.19.0"
+        }
+      },
+      "environment": {
+        "BINARYEN_CORES": "1",
+        "CHIBI": null,
+        "WASM_AS": null,
+        "WASM_OPT": null,
+        "WASM_DIS": null,
+        "WASM_MERGE": null,
+        "SNAIL_PROFILE_DIRECTORY": "$REPO/build/self-hosting-profile-2"
+      },
+      "host": {
+        "platform": "linux",
+        "release": "7.2.3",
+        "architecture": "x64",
+        "cpu": "Intel(R) Core(TM) Ultra 7 270K Plus",
+        "logicalCPUs": 24,
+        "memoryBytes": 33340952576
+      }
+    },
+    "execution": {
+      "before": {
+        "time": "2026-10-17T11:14:55.088Z",
+        "load": [
+          3.66,
+          4.63,
+          4.48
+        ]
+      },
+      "seconds": 104.903364825,
+      "status": 0,
+      "signal": null,
+      "after": {
+        "time": "2026-10-17T11:16:39.995Z",
+        "load": [
+          3.24,
+          4.27,
+          4.37
+        ]
+      }
+    },
+    "result": {
+      "kind": "instrumented diagnostic",
+      "artifacts": {
+        "shader.wasm": {
+          "bytes": 7465,
+          "sha256": "db055b2b06d3bd12d4f586b330033c86d923f301815a6970b9288092632879ef"
+        },
+        "simulation.wasm": {
+          "bytes": 92192,
+          "sha256": "fcae24d4410a2f6a8a8589a240507763e6fe4b7e0d3fbc397651cb4745ec16b6"
+        }
+      },
+      "traces": {
+        "compiler": {
+          "file->reader": 0.03700000000000001,
+          "reader->syntax-list": 7.9,
+          "lofi.parse": 0.525,
+          "lofi.resolve": 2.018,
+          "lofi.check": 28.759,
+          "lofi.specialize": 10.501000000000001,
+          "lofi.emit": 52.647,
+          "lofi.artifact": 1.447
+        },
+        "artifacts": {
+          "shader-entry": {
+            "write-wasm": 0.003,
+            "build.assemble": 0.01,
+            "build.optimize-wasm": 0.076,
+            "lofi.read-artifact": 0.003
+          },
+          "application-entry": {
+            "write-wasm": 0.031,
+            "build.assemble": 0.071,
+            "build.optimize-wasm": 1.123,
+            "lofi.read-artifact": 0.013
+          }
+        }
+      }
+    },
+    "instrumentation": {
+      "lofi/compiler/bootstrap.sld": {
+        "original": "59fb927db540cc1ab37a971c7036ed56bf731deb5871b566f4ef35457753413e",
+        "instrumented": "c690aba5a8883b053c1dd7d582920c9d1a02d29e0a3cfb189fe3254a4299655d"
+      },
+      "lofi/artifact.sld": {
+        "original": "4596f977883bbef4c7e377c89be0727d1e850ea94a6c1c7526d98921ba52cf5b",
+        "instrumented": "44cf97dd84a6a018ea06fc270c528dcfe4696cc63ee22619e11235b7f1c3dba6"
+      }
+    }
   }
 }

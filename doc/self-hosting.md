@@ -34,20 +34,24 @@ Binaryen 132 and Node 24.19.0, with `BINARYEN_CORES=1`:
 | --- | ---: |
 | Original app build, first wall-time sample | 152.968 |
 | Original app build, second wall-time sample | 149.226 |
-| Separate instrumented diagnostic | 120.935 |
-| Resolution in that diagnostic | 2.030 |
+| First instrumented diagnostic | 120.935 |
+| Second instrumented diagnostic, final recorder | 104.903 |
+| Resolution in the first diagnostic | 2.030 |
 | Checking | 32.303 |
 | Concrete preparation/specialization | 9.954 |
 | Wasm IR emission | 65.300 |
 | Artifact construction, including external tools | 1.432 |
 | Binaryen assembly + optimization, contained in artifact construction | 1.283 |
 
-The first sample used compiler revision `62f4e0d6`; the second sample and profile
-used `a1c8ec37`, which only adds the measurement command. Both compiled the same
-compiler and application sources. Shader and simulation Wasm hashes matched
-across all three runs. The phase totals include both entry compilations. WAT
-writing took 0.033 seconds, separate from the much larger Wasm IR emission cost.
-The instrumented run's lower total is **not a speedup result**: instrumentation,
+The first sample used compiler revision `62f4e0d6`; the second sample and first
+profile used `a1c8ec37`, which only adds the measurement command. The final
+recorder at `5710a39a` removes a duplicate WAT span and adds these notes. All four
+runs compiled the same compiler and application sources, and all shader and
+simulation Wasm hashes matched. The table reports first-diagnostic phase totals
+for both entry compilations. WAT writing took 0.033 seconds, separate from the
+much larger Wasm IR emission cost. The second diagnostic attributed 52.647 seconds
+to emission, 28.759 to checking, 10.501 to specialization and 1.280 to Binaryen.
+The instrumented runs' lower totals are **not speedup results**: instrumentation,
 allocation/GC and machine variability can change these costs. Use its spans to
 locate expensive work, not to infer clean phase times or a native speedup.
 
@@ -57,7 +61,7 @@ records commands, identities, hashes, phase totals and readiness diagnostics.
 artifacts remain in the named ignored `build/` directories; the commands below
 regenerate them. This is a small observational sample, not a statistical result.
 
-These are build observations on one machine and revision, not a controlled
+These are build observations on one machine and compiler/application revision, not a controlled
 comparison against the reported 7–8 minute build. In particular, this checkout
 contains the prototype Siegework plus derived serialization; it does not contain
 the larger colony application from PR #302. The measurements include shader and
