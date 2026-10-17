@@ -11,12 +11,12 @@ import {openStore} from '../application/sqlite.mjs';
 const directory = resolve(process.argv[2] ?? '.'), port = Number(process.env.PORT ?? 4173);
 let manifest = JSON.parse(readFileSync(join(directory, 'manifest.json')));
 const runtime = new ReducerRuntime();
-runtime.replace(runtime.prepare(readFileSync(join(directory, manifest.module)), manifest));
-runtime.initialize(1); runtime.initialize(2);
+await runtime.replace(runtime.prepare(readFileSync(join(directory, manifest.module)), manifest));
+await runtime.initialize(1); await runtime.initialize(2);
 const rejectedGenerations = new Set();
 const store = openStore(join(directory, 'match.sqlite')), streams = new Map(), sessions = new Set();
 const broadcast = value => { for (const {response} of streams.values()) response.write(`data: ${JSON.stringify(value)}\n\n`); };
-const authority = new Authority(runtime, {saved: store.load(), commit: (snapshot, expected) => store.commit(snapshot, expected),
+const authority = await Authority.open(runtime, {saved: store.load(), commit: (snapshot, expected) => store.commit(snapshot, expected),
   publish: broadcast, resetHandler: endpoint(manifest, 'match', manifest.settings.reset).id, runMarker: manifest.settings.runMarker});
 const clockClient = '__clock';
 function send(response, status, value) {
@@ -51,7 +51,7 @@ async function route(request, response) {
   }
   if (request.method === 'POST' && url.pathname === '/command') {
     const input = await body(request); if (!sessions.has(input.client)) throw new Error('unknown session'); allowed(input.command);
-    send(response, 200, authority.submit(input)); return;
+    send(response, 200, await authority.submit(input)); return;
   }
   if (url.pathname === '/manifest.json') { send(response, 200, manifest); return; }
   if (url.pathname === '/snapshot') { send(response, 200, authority.snapshot()); return; }
@@ -74,23 +74,36 @@ const server = createServer((request, response) => {
     recoverCode(); send(response, 400, {error: error.message, ...authority.snapshot()});
   });
 });
-const ticking = setInterval(() => {
-  if (![...streams.values()].some(stream => stream.visible)) return;
+let stopping = false, ticking, reloading;
+async function tick() {
   try {
-    authority.submit({client: clockClient, sequence: (authority.clients[clockClient]?.sequence ?? 0) + 1,
-      epoch: authority.epoch, command: runtime.command('match', manifest.settings.tick)}, {internal: true});
+    if ([...streams.values()].some(stream => stream.visible))
+      await authority.submit({client: clockClient, command: runtime.command('match', manifest.settings.tick)}, {internal: true});
   } catch (error) { recoverCode(); broadcast({type: 'error', error: error.message}); }
-}, manifest.settings.tickMilliseconds);
-const reloading = setInterval(() => {
+  finally { if (!stopping) ticking = setTimeout(tick, manifest.settings.tickMilliseconds); }
+}
+async function reload() {
   try {
     const next = JSON.parse(readFileSync(join(directory, 'manifest.json')));
     if (next.generation === manifest.generation || rejectedGenerations.has(next.generation)) return;
     if (next.settings.runMarker !== manifest.settings.runMarker) throw new Error('incompatible run marker offset');
-    runtime.replace(runtime.prepare(readFileSync(join(directory, next.module)), next));
+    const candidate = runtime.prepare(readFileSync(join(directory, next.module)), next);
+    try { await runtime.replace(candidate); }
+    catch (error) { runtime.discard(candidate); throw error; }
     manifest = next; authority.resetHandler = endpoint(manifest, 'match', manifest.settings.reset).id;
     broadcast({type: 'reload', generation: manifest.generation});
   } catch (error) { broadcast({type: 'reload-error', error: error.message}); }
-}, 1000);
+  finally { if (!stopping) reloading = setTimeout(reload, 1000); }
+}
+ticking = setTimeout(tick, manifest.settings.tickMilliseconds);
+reloading = setTimeout(reload, 1000);
 server.listen(port, '127.0.0.1', () => console.log(`${manifest.settings.title}: http://127.0.0.1:${port} (single authority, SQLite, two-client ready)`));
-function close() { clearInterval(ticking); clearInterval(reloading); for (const stream of streams.values()) stream.response.end(); server.close(); store.close(); runtime.close(); }
-process.once('SIGTERM', close); process.once('SIGINT', close);
+async function close() {
+  if (stopping) return;
+  stopping = true; clearTimeout(ticking); clearTimeout(reloading);
+  for (const stream of streams.values()) stream.response.end();
+  streams.clear(); server.close();
+  await runtime.close(); // Drain admitted saves before closing their durable adapter.
+  store.close();
+}
+process.once('SIGTERM', () => void close()); process.once('SIGINT', () => void close());

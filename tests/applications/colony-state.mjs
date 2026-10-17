@@ -20,10 +20,10 @@ export function colony(words) {
 }
 
 // Boundary fixtures use the same schema offsets as the inspection above.
-export function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
+export async function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
   const words = runtime.snapshot(1), index = 2096 + words[9] * 140;
   [words[6]++, x * 40 + 20, y * 40 + 20, hp, kind, target, 0, 0].forEach((value, field) => words[index + field] = value);
-  words[9]++; runtime.restore(1, words);
+  words[9]++; await runtime.restore(1, words);
 }
 
 export function setWorker(words, index, {id = words[416 + index * 140], x = 8, y = 22,

@@ -1,0 +1,12 @@
+#!/bin/sh
+# Async host invariants against tiny actual Wasm reducers; no game compilation.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+output="$root/build/application-async-tests"
+mkdir -p "$output"
+for fixture in async-boundary async-view; do
+  chibi-scheme -I "$root/bootstrap" -I "$root/wasm-native/scheme" \
+    "$root/tests/applications/build.scm" "$root" "$root/tests/applications/$fixture.sld" \
+    "$output/$fixture.wasm" "$root/tests/applications"
+done
+node "$root/tests/applications/async-runtime.mjs" "$output"

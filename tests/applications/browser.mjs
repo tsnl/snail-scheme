@@ -45,6 +45,22 @@ try {
   const a = await page(), b = await page(); pages.push(a, b);
   const clients = await Promise.all(pages.map(p => p.evaluate('snailApp.session.client')));
   assert.notEqual(clients[0], clients[1]);
+  assert.equal(await a.evaluate(`(async () => {
+    const {Authority} = await import('/lib/application/authority.mjs');
+    const {ReducerRuntime} = await import('/lib/application/runtime.mjs');
+    const manifest = await (await fetch('/manifest.json')).json(), runtime = new ReducerRuntime();
+    const bytes = new Uint8Array(await (await fetch('/' + manifest.module)).arrayBuffer());
+    await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
+    let release, entered; const started = new Promise(resolve => entered = resolve);
+    const authority = new Authority(runtime, {commit: () => { entered(); return new Promise(resolve => release = resolve); }});
+    const envelope = {client:'browser',sequence:1,epoch:authority.epoch,command:runtime.command('match','pause-colony',[1])};
+    const pending = authority.submit(envelope); await started;
+    const oldVisible = authority.revision === 0 && runtime.snapshot(1)[18] === 0;
+    release(); await pending; const retry = await authority.submit(envelope);
+    const ok = oldVisible && authority.revision === 1 && runtime.snapshot(1)[18] === 1 && retry.duplicate;
+    await runtime.close(); return ok;
+  })()`), true);
+  console.log('ok - browser Web Crypto authority awaits persistence and deduplicates its committed receipt');
   async function seedForm(value) {
     await a.call('Page.bringToFront');
     await a.evaluate("document.querySelector('#next-run-seed').focus();document.querySelector('#next-run-seed').select()");
@@ -63,6 +79,29 @@ try {
   await seedForm('43'); assert.equal(await a.evaluate('snailApp.runtime.snapshot(1)[23]'),firstMarker+1);
   await seedForm('1'); await until(()=>b.evaluate('snailApp.runtime.snapshot(1)[19]===1'),'seed reset did not converge');
   console.log('ok - native seed form reaches Scheme, rejects invalid range and restarts both clients exactly once');
+  await a.evaluate(`(async () => {
+    globalThis.savedFetch = fetch; globalThis.submitted = []; globalThis.releaseRenewal = undefined;
+    let rejected = false;
+    globalThis.fetch = (...args) => {
+      if (args[0] === '/command') {
+        const body = JSON.parse(args[1].body); submitted.push(body);
+        if (!rejected) { rejected = true; return savedFetch(args[0], {...args[1],body:JSON.stringify({...body,epoch:'stale-test-epoch'})}); }
+      }
+      if (args[0] === '/session' && rejected && !releaseRenewal)
+        return new Promise(resolve => { globalThis.releaseRenewal = () => resolve(savedFetch(...args)); });
+      return savedFetch(...args);
+    };
+    await snailApp.local('suspend', [snailApp.runtime.snapshot(1)[18]]);
+  })()`);
+  await until(() => a.evaluate('!!releaseRenewal'), 'rejected command did not begin session renewal');
+  await a.evaluate("globalThis.afterRenewal = snailApp.local('suspend', [snailApp.runtime.snapshot(1)[18]]); undefined");
+  assert.deepEqual(await a.evaluate('({requests:submitted.length,pending:snailApp.pending.length})'), {requests:1,pending:0});
+  await a.evaluate('releaseRenewal(); afterRenewal');
+  await until(() => a.evaluate('snailApp.pending.length===0 && submitted.length===2'), 'queued input did not resume after renewal');
+  assert.equal(await a.evaluate('submitted[0].sequence===submitted[1].sequence'), true);
+  assert.equal(await a.evaluate('submitted[1].epoch'), (await (await fetch(origin + '/snapshot')).json()).epoch);
+  await a.evaluate('globalThis.fetch = savedFetch; undefined');
+  console.log('ok - input waits through delayed session renewal and uses the restored sequence and epoch');
   async function place(client, key, x, y) {
     await client.call('Page.bringToFront');
     await client.evaluate('document.querySelector("canvas").focus()');
@@ -97,10 +136,10 @@ try {
   assert.deepEqual(concurrentShaders, ['rejected', 'fulfilled']);
   console.log('ok - concurrent shader candidates keep validation scopes isolated');
   console.log('ok - two browsers execute Scheme and converge on one purchased world');
-  assert.equal(await a.evaluate(`(()=>{
+  assert.equal(await a.evaluate(`(async()=>{
     const before=JSON.stringify(snailApp.runtime.snapshot(1)), local=JSON.stringify(snailApp.runtime.snapshot(2));
     const stale=snailApp.runtime.snapshot(1);stale[3]=9999;
-    snailApp.acceptSnapshot({revision:snailApp.revision-1,epoch:'old',state:stale});
+    await snailApp.acceptSnapshot({revision:snailApp.revision-1,epoch:'old',state:stale});
     return JSON.stringify(snailApp.runtime.snapshot(1))===before && JSON.stringify(snailApp.runtime.snapshot(2))===local;
   })()`),true);
   console.log('ok - stale authoritative snapshots cannot rewind the world or local selection');

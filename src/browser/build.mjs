@@ -51,18 +51,18 @@ function shaderSource(path) {
     if (length < 0) throw new Error(source); return source;
   } finally { closeInstance(instance); }
 }
-function checkInitialProgram(bytes, manifest) {
+async function checkInitialProgram(bytes, manifest) {
   const runtime = new ReducerRuntime();
   try {
-    runtime.replace(runtime.prepare(bytes, manifest));
-    runtime.initialize(1); runtime.initialize(2); runtime.view();
+    await runtime.replace(runtime.prepare(bytes, manifest));
+    await runtime.initialize(1); await runtime.initialize(2); runtime.view();
     const marker = manifest.settings.runMarker;
     if (marker !== undefined && (!Number.isInteger(marker) || marker < 1 || marker >= runtime.snapshot(1).length))
       throw new Error('invalid run marker snapshot offset');
   } catch (error) { throw new Error(`application startup check failed: ${error.message}`, {cause: error}); }
-  finally { runtime.close(); }
+  finally { await runtime.close(); }
 }
-export function packageApplication(root, app, output) {
+export async function packageApplication(root, app, output) {
   const settings = JSON.parse(readFileSync(join(app, 'settings.json'), 'utf8'));
   const protocol = applicationManifest(JSON.parse(readFileSync(join(output, 'application.syntax.json'), 'utf8')), settings);
   checkSettings(settings, protocol);
@@ -70,7 +70,7 @@ export function packageApplication(root, app, output) {
   const generation = hash(Buffer.concat([wasm, Buffer.from(shader + JSON.stringify(protocol) + JSON.stringify(settings))]));
   const moduleName = `simulation.${generation}.wasm`, shaderName = `shader.${generation}.wgsl`;
   const manifest = {...protocol, generation, module: moduleName, shader: shaderName, settings};
-  checkInitialProgram(wasm, manifest);
+  await checkInitialProgram(wasm, manifest);
   writeFileSync(join(output, moduleName), wasm); writeFileSync(join(output, shaderName), shader);
   for (const path of ['lofi/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
     'application/sqlite.mjs', 'webgpu/quads.mjs', 'browser/client.mjs', 'browser/input.mjs', 'browser/server.mjs']) {
@@ -84,6 +84,6 @@ export function packageApplication(root, app, output) {
 }
 if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
   const [, , root, app, output] = process.argv;
-  const manifest = packageApplication(root, app, output);
+  const manifest = await packageApplication(root, app, output);
   console.log(`Built ${manifest.settings.title}: ${join(output, 'manifest.json')}\nRun: node ${join(output, 'lib/browser/server.mjs')} ${output}`);
 }

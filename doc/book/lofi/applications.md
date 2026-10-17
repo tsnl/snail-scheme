@@ -113,8 +113,105 @@ Each owner commits one message at a time. The handler sees the previous committe
 value; readers retain that value even after a replacement. A trap or failed
 durable commit discards the candidate state and staged effects. Before commit,
 the runtime checks the replacement schema and runs the application's decoder in
-an isolated read-only scope over the encoded candidate. Independent
-owners need no shared global message order.
+an isolated read-only scope over the encoded candidate.
+
+The current `ReducerRuntime` uses one FIFO for its shared two-owner Wasm instance.
+Both owners' commands, initialization, snapshot restoration, code installation
+and closing share that order. A client command waits behind a pending match save;
+separate runtime instances proceed independently. `dispatch`, `initialize`,
+`restore`, `replace` and `close` return promises. Observe their completion and
+errors with `await` or another promise consumer; commands can be admitted
+concurrently and awaited together.
+`prepare`, `snapshot` and `view` remain synchronous. During a save, queries see
+the previous committed snapshots, and the scalar execution scope is inactive.
+Queued commands, authority envelopes and restored snapshots capture their inputs
+when called, so later caller edits cannot change an admitted message.
+
+Reduction, candidate validation, text conversion and effect routing finish
+synchronously before persistence starts. The saver receives an immutable copy
+of the candidate snapshot and materialized effects. Send effects carry stable
+handler identities from their originating generation, so a later slot reorder
+cannot reinterpret them. The runtime awaits the saver before publishing state;
+authority metadata and receipts join that publication in the same synchronous
+turn. A rejected save publishes nothing and does not roll back code. A failed
+message rejects its own promise without poisoning the FIFO.
+
+`Authority.open(runtime, {saved, commit, publish, ...options})` asynchronously
+restores a saved authority after runtime initialization. Use `new Authority`
+only for an already initialized fresh owner; passing saved data to that
+constructor is rejected. `commit(snapshot, expectedRevision)` may return a
+promise or complete synchronously, and must atomically save state, revision,
+epoch and client receipts. Its rejection must mean that the candidate was not
+durably accepted; ambiguous outcomes require adapter-specific reconciliation.
+The current SQLite adapter still performs blocking synchronous I/O. The shared
+authority uses Web Crypto in Node and browsers, but an IndexedDB adapter and a
+static-hosted solo mode are not implemented.
+
+The host-only `runtime.message(operation)` boundary lets authority receipt checks
+and reduction occupy the same FIFO entry. Its supplied dispatcher permits one
+transition and expires when the callback finishes; the runtime drains that
+transition even if its promise is not returned. Return or await that dispatcher,
+never another queued runtime mutation from inside the message or persistence
+callback: waiting for work behind the current message would deadlock.
+The runtime's synchronous publication hook installs prepared authority metadata,
+then calls the authority's `publish` observer. Asynchronous external effect
+delivery needs its own adapter.
+
+Here is a minimal Node host, run from the repository root with an already built
+package at `build/siegework`. The same runtime and authority imports work in the
+browser; file loading and the storage adapter belong to the host.
+
+```js
+import {readFile} from 'node:fs/promises';
+import {ReducerRuntime} from './src/application/runtime.mjs';
+import {Authority} from './src/application/authority.mjs';
+import {openStore} from './src/application/sqlite.mjs';
+
+const directory = 'build/siegework';
+const manifest = JSON.parse(await readFile(`${directory}/manifest.json`, 'utf8'));
+const bytes = await readFile(`${directory}/${manifest.module}`);
+const runtime = new ReducerRuntime(), store = openStore(`${directory}/match.sqlite`);
+try {
+  await runtime.replace(runtime.prepare(bytes, manifest));
+  await runtime.initialize(1); // Match owner; only initializes absent state.
+  await runtime.initialize(2); // Local client owner.
+  const authority = await Authority.open(runtime, {
+    saved: await store.load(), runMarker: manifest.settings.runMarker,
+    resetHandler: runtime.command('match', manifest.settings.reset).handler,
+    commit: (snapshot, expectedRevision) => store.commit(snapshot, expectedRevision),
+    publish: notification => console.log(notification),
+  });
+  const client = crypto.randomUUID(), epoch = authority.epoch;
+  const command = runtime.command('match', manifest.settings.tick);
+  const first = authority.submit({client, sequence: 1, epoch, command});
+  const second = authority.submit({client, sequence: 2, epoch, command});
+  await Promise.all([first, second]); // Admission order is retained.
+  console.log(authority.snapshot()); // {revision, epoch, state}
+  console.log(runtime.view()); // {result, effects, quads, label}
+
+  // For reload, pass newly loaded compatible bytes and manifest here.
+  const candidate = runtime.prepare(bytes, manifest);
+  try { await runtime.replace(candidate); }
+  catch (error) { runtime.discard(candidate); throw error; }
+} finally {
+  await runtime.close(); // Finish admitted saves before closing their store.
+  store.close();
+}
+```
+
+The saved record is `{state, revision, epoch, clients}`. `state` is an ordinary
+array of signed 32-bit words, not an `Int32Array` or an opaque state object.
+Each `clients[client]`
+contains `{sequence, fingerprint, receipt: {revision, epoch}}`; persist and
+restore this record together. Fresh initialization and `Authority.open` do not
+save an initial snapshot: durability begins with the first accepted command.
+Before that commit, restart creates a fresh initialized owner and epoch.
+`submit` resolves to `{revision, epoch, state}`; a consumed retry also includes
+`duplicate: true` and its original `receipt`. The observer receives
+`{type: 'snapshot', revision, epoch, state}` followed by ordered
+`{type: 'effect', revision, effect}` notifications. Materialized notices contain
+`{kind: 'notice', text}`; sends contain
+`{kind: 'send', owner, command: {handler, args}}`, where owner is 1 or 2.
 
 Siegework's local server assigns a revision to each accepted command, including
 commands that make no gameplay change. It commits the state, revision, match
@@ -348,8 +445,8 @@ A replacement Wasm module has a fresh managed heap. No WasmGC object pointer is
 transferred between instances. App codecs copy the current bounded snapshot into
 fresh immutable values, execute one transition, and encode a candidate snapshot.
 The host's private bridge stages words and effect descriptions in a transaction.
-It never exposes a mutable global map as the application interface. The initial
-192-word world codec favors an inspectable boundary over zero-copy performance.
+It never exposes a mutable global map as the application interface. The bounded
+snapshot codec favors an inspectable boundary over zero-copy performance.
 The host may reuse a Wasm instance between calls; fresh decoding and the stated
 application discipline protect snapshots without recreating a module per message.
 Persistent trees, owned buffers and richer serialization may improve copying
@@ -381,6 +478,21 @@ Failure retains the old state and installed code. A
 trapped transition cannot publish partial writes or effects; the runtime retains
 one previous compatible module for recovery. Live GPU handles stay in the browser
 host and are never serialized as portable state.
+
+Preparation may run while a save is pending, but installation waits in the FIFO
+and revalidates the latest committed state. A query trap schedules recovery after
+already admitted messages; the recovery is tagged with its code activation and
+cannot roll back a later installation. The browser reconciles its GPU pipeline
+and input settings after that deferred recovery. `close()` immediately rejects
+new messages, `view` and `prepare`, drains accepted messages and saves, then
+disposes code. `snapshot` remains readable. The server closes SQLite after draining.
+
+The server schedules its next tick only after the previous tick settles and the
+tick interval elapses. Slow persistence slows the simulation instead of creating
+a backlog of catch-up ticks. Browser snapshot application, local effects and
+session renewal are ordered; new envelopes wait for renewed sequence/epoch
+metadata. Held movement pauses while earlier local work is pending and does not
+repay elapsed time after it completes.
 
 HTML, CSS and the JavaScript platform adapter are presently restarted with a
 normal page load. The state-preserving path covers Scheme application modules and

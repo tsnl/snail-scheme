@@ -13,6 +13,25 @@ observer failure after commit retains its retry receipt. The runnable pure
 handler example checks initial values and named effect variants without a host.
 This is correctness testing, not a performance comparison.
 
+`scripts/test-applications-async` builds only two tiny Wasm fixtures and runs the
+focused async boundary checks. The full application runner includes these checks
+too. Deferred persistence covers committed query visibility, both owners' FIFO
+ordering, independent runtimes, captured inputs, concurrent reset retries,
+rejected saves and retry recovery, immutable restored receipts, materialized
+effects, reordered slots, installation against current state, deferred query
+recovery, and draining close. These execute real compiled Scheme reducers; the
+test controls only when the storage promise settles.
+
+The 2026-10-17 async migration passed the focused script (10 checks), the combined
+Node runner (52 checks), and the real two-client browser runner on private port
+4182 with Chromium 152 / SwiftShader. The tiny async fixtures were freshly
+compiled. Unchanged game and adversarial artifacts were reused from the
+`siegework-playable-20261017` checkpoint at commit `b91d6e9d`, generation
+`e11ebb903197e057398944d0` (schema 4, 6144 match words). The simulation SHA-256 was
+`8d18de158326b9d855300320b9a7257aec05551f2df56350fe7829c27bb53133`.
+The run used copied packages and a separate database; the full compiler fixture
+build and compile-negative checks were not repeated for this JavaScript change.
+
 For real browser checks, start the packaged server:
 
 ```sh
@@ -43,7 +62,9 @@ wraparound and failed durable commits. The browser runner
 also verifies shared Pause/Resume, visibility changes without clearing pause,
 retained paused/camera state across reload, rejected marker-offset changes,
 native seed-form submission through the compiled Scheme reducer, and rejected
-margin placement.
+margin placement. It imports and executes the shared Web Crypto authority in an
+actual browser with a deferred save, and holds session renewal while new input
+arrives to check the next envelope's sequence and epoch.
 
 The focused input checks use real keyboard/pointer/focus events and injected
 Gamepad samples; they do not claim physical-controller coverage:
