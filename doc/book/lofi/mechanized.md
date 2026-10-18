@@ -7,7 +7,7 @@ Expression typing and evaluation still use the [formal summary](reference.md).
 Ott generates both a typeset reference and Rocq inductive definitions from the
 same source. Handwritten Rocq proofs import those generated definitions. The
 first proofs establish variable scope, declaration arity, closed instance heads,
-and agreement between the formation rules for the `All`/`requires` spellings.
+and agreement between omitted and empty `requires` clauses.
 They do not yet prove that the compiler implements the specification.
 
 Build the checked reference from the repository root:
