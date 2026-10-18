@@ -11,6 +11,9 @@ ordering and delivery. This is a library programming model, not a compiler proof
 of purity: use immutable records and lists, and do not mutate values reachable
 from an earlier state. Keep persistent application state in that explicit value;
 handlers, codecs and views must not retain hidden mutable state between calls.
+The bridge may retain validated interpretations of immutable snapshots. A handler
+must also leave vectors, references and other mutable storage reachable from an
+input state unchanged; this contract is not a compiler-enforced immutability proof.
 
 Start with the [documented Scheme subset](macros.md#initial-scheme-base), rather
 than assuming Chibi's complete standard library is compiled into the application.
@@ -216,6 +219,22 @@ for their state records, then import `(application serialization)` and compose:
 | `view` | `(-> World Client (List Quad))`, a two-argument procedure with no mutation or effects. |
 | `status` | Two arguments, `World` and `Client`, returning `String`. |
 
+Each `Program` retains at most three successfully decoded values for each owner.
+The host assigns an identity to each immutable snapshot bank; equal bytes in a
+new bank have a new identity. A decoder caches a value only after structural and
+application validation returns. Every newly written replacement still goes
+through the encoded snapshot and its decoder before persistence. Neither a
+handler's returned value nor a cache hit grants authority to commit.
+
+These caches belong to one Wasm instance. Preparing replacement code constructs
+independent caches; rollback uses the prior instance's interpretations. A valid
+candidate whose save fails may remain cached, but queries still read the host's
+committed banks. Eviction repeats pure decoding. The host's identity registry uses
+weak keys and never recycles its positive `I32` tokens; exhaustion fails the
+operation instead of allowing an old cached identity to match a new bank.
+Reuse assumes each decoder and validator depends only on its supplied snapshot,
+and that application code leaves the decoded value's reachable storage unchanged.
+
 The browser host routes `enqueue` effects between these two owners. World sends
 pass through durable storage; their reply effects enter the browser queue only
 after commit. Client self-messages enter that same queue, so a UI can distinguish
@@ -297,7 +316,13 @@ changing a difficulty interval does not require changing either renderer. Camera
 and selection belong to client state, while transient GPU interpolation belongs
 to the display clock. Only the game world is the durable colony.
 
-`(application bridge)` exports `(read-snapshot owner)` and
+`(application bridge)` exports `(read-program-world program)` and
+`(read-program-previous-world program)` for typed current and prior World values.
+`read-program-local` and `read-program-previous-local` provide the same access for
+Client. These readers share the Program's decoder caches, including from Client
+handlers that inspect World and views that interpolate between committed states.
+
+For explicit codec work, the bridge also exports `(read-snapshot owner)` and
 `(read-previous-snapshot owner)`, where owner is `1` for the game model or `2` for
 the presentation model. Each call copies an encoded snapshot into a Wasm-owned
 `(Vector I32)`. Decode that vector with the application's snapshot codec before
@@ -315,7 +340,7 @@ snapshot, so presentation starts at the loaded state. If no prior snapshot exist
 the previous read uses the current snapshot. History is transient runtime data
 and is not part of a saved checkpoint. Compatible code replacement preserves it.
 
-A presentation query can decode the prior world once and match entities by ID
+A presentation query can read the prior world and match entities by ID
 to supply `moving-group` transforms in a [`motion-batch`](../../../src/draw3d/README.md#motion-between-committed-states).
 Use current transforms for newly created entities or discontinuities such as a
 new run. The GPU advances the supplied transition on display frames; this does

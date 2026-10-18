@@ -4,9 +4,10 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output="$root/build/application-async-tests"
 mkdir -p "$output"
-for fixture in async-boundary async-view; do
+for fixture in async-boundary async-view invalid-candidate invalid-initial invalid-state snapshot-cache; do
   chibi-scheme -I "$root/bootstrap" \
     "$root/tests/applications/build.scm" "$root" "$root/tests/applications/$fixture.sld" \
     "$output/$fixture.wasm" "$root/tests/applications"
 done
 node "$root/tests/applications/async-runtime.mjs" "$output"
+node "$root/tests/applications/snapshot-cache.mjs" "$output"

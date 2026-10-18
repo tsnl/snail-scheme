@@ -134,7 +134,7 @@
     (define (choose-site state)
       (client-preview-set
        (client-target-y-set (client-target-x-set (client-chooser-set state #t) (client-x state)) (client-y state)) 0))
-    (define (context-world) (decode-world (read-snapshot 1)))
+    (define (context-world) (read-program-world game))
     (define (send-request state request) (transition state (list (enqueue match-target request))))
     ;; Dialog: 0 closed, 1 Pause, 2 confirmation. Pending: 1 pause, 2 resume,
     ;; 3 reset. Result: 0 waiting, 1 committed, 2 replaced by an authoritative
@@ -470,7 +470,7 @@
     (define (view world client)
       (let* ((area (world-viewport client)) (camera (client-camera client))
              (context (client-context world client)) (layout (hud-layout world context))
-             (before (decode-world (read-previous-snapshot 1)))
+             (before (read-program-previous-world game))
              (previous (if (and (= (world-seed before) (world-seed world))
                                 (= (world-run-marker before) (world-run-marker world))) before world))
              (attacks (recent-attacks world client (world-alerts world) 0 (attack-capacity world client))))

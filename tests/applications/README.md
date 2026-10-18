@@ -16,6 +16,11 @@ adversarial reducer fixtures. It executes real Wasm for typed handler ownership,
 immutable state, terrain, colony logistics, effect materialization, async local
 commit/rollback, imported checkpoint validation and hot replacement. Separate
 checks exercise the optional opaque HTTP/SQLite checkpoint service.
+The decoded-snapshot fixture checks exact identity reuse, newly encoded candidate
+validation, failed saves, pending queries, per-instance rollback and bounded
+cache eviction through actual managed Wasm execution.
+`scripts/test-applications-async` rebuilds and runs those small host-boundary
+fixtures without compiling the game.
 The same runner executes [`max-dps-test`](max-dps-test.md), a small model-only
 balance probe with three-minute deposit discovery and 0.5 artillery utilization.
 Its optimistic capacity result is distinct from a real-map survival playtest.
@@ -23,6 +28,7 @@ Its optimistic capacity result is distinct from a real-map survival playtest.
 ```sh
 node tests/applications/save-service.mjs
 node tests/applications/async-runtime.mjs build/application-tests
+node tests/applications/snapshot-cache.mjs build/application-tests
 node tests/applications/runtime.mjs build/application-tests/siegework/solo build/application-tests build/application-tests/siegework
 ```
 
