@@ -17,33 +17,40 @@ grammar and rules. If a rule changes, update its surrounding explanation too. --
 `…` repeats the preceding item zero or more times; `[item]` is optional.
 Each quoted string is a separate source token. `name` and the literal categories
 are reader tokens; other grammar names expand into the rules below. Reserved
-keywords distinguish special forms from ordinary calls.
+keywords distinguish special forms from ordinary calls. Trailing semicolons
+label grammar alternatives.
 
+{{#include types.md:names}}
+
+```text
+{{#include libraries.md:libraries}}
 {{#include terms.md:expressions}}
-
 {{#include types.md:types}}
-
 {{#include types.md:schemes}}
-
-{{#include types.md:kinds}}
-
+{{#include types.md:static-definitions}}
 {{#include types.md:data}}
-
 {{#include types.md:classes}}
+```
 
-Static definitions occur only in a library body for the MVP. The
-[library grammar](libraries.md#writing-a-library) embeds them alongside ordinary
-statements and defines imports, exports and generation recipes.
+The entry point is `library_file`. Its body admits `static_definition` through
+`library_statement`; expression blocks admit only `statement`. Static
+declarations therefore require library scope, including when produced by a
+macro. Library splices preserve that scope.
+
+This grammar describes the implemented syntax, including `=>` and typed rest
+parameters. The [planned simplification](omissions.md#planned-language-simplification)
+records their intended replacements and the open `All` design.
 
 ## Core typing rules
 
-`Γ` maps binding identities to schemes. Schemes have the form `∀ᾱ. P ⇒ T`;
-unquantified types have no bound variables and no requirements.
-`Γ ⊢ e ::↑ T |> P` synthesizes T and collects P;
-`Γ ⊢ e ::↓ T |> P` checks against T and collects P.
-See [Reading the typing rules](types.md#reading-the-typing-rules) for the notation.
-Fresh variables are inference holes, which do not appear in source syntax.
-Equalities unify after following solved holes; quantified variables are rigid.
+{{#include types.md:typing-notation}}
+
+Schemes have the form `∀ᾱ. P ⇒ T`: quantified variables, requirements, and a
+type. The following rules describe the current inference algorithm. In
+`TYPE-NAME-INFER`, allocating fresh holes leaves their solutions to surrounding
+constraints; it does not infer a concrete instantiation from the name alone.
+`TYPE-INST-INFER` substitutes explicit type arguments in both the type and the
+requirements. See [Types](types.md) for examples and the generalization limits.
 
 {{#include types.md:literals}}
 
@@ -71,13 +78,13 @@ generalize(Γ, initializer, T, P):
 
 eligible = literal | name | lambda | instantiation | static-annotation(eligible)
 
-check-block(Γ, statements) = (Γ′, P)       Γ′ ⊢ result ::↑ T |> Q
+check-block(Γ, statements) = (Γ′, P)       Γ′ ⊢ result ::↑ T ; requirements Q
 ──────────────────────────────────────────────────────────── TYPE-BLOCK-INFER
-Γ ⊢ (begin statements … result) ::↑ T |> P ∪ Q
+Γ ⊢ (begin statements … result) ::↑ T ; requirements P ∪ Q
 
-check-block(Γ, statements) = (Γ′, P)       Γ′ ⊢ result ::↓ T |> Q
+check-block(Γ, statements) = (Γ′, P)       Γ′ ⊢ result ::↓ T ; requirements Q
 ──────────────────────────────────────────────────────────── TYPE-BLOCK-CHECK
-Γ ⊢ (begin statements … result) ::↓ T |> P ∪ Q
+Γ ⊢ (begin statements … result) ::↓ T ; requirements P ∪ Q
 ```
 
 `check-block` resolves scopes, checks each initializer or expression, solves
@@ -88,14 +95,9 @@ annotation rules. Expression statements contribute obligations even when their
 values are discarded. Generalization does not suppress initializer effects or
 initialization checks.
 
-## Kinds
+## Well-formed types and requirements
 
-`Δ` maps static names to kinds. Datatypes produce Type or a constructor ending
-in Type; typeclasses produce a constructor ending in Constraint; checked
-instances produce Evidence of their head requirement. These are static
-classifications, not runtime values.
-
-{{#include types.md:kind-rules}}
+{{#include types.md:well-formedness}}
 
 ## Evaluation rules
 

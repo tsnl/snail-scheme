@@ -49,6 +49,7 @@ the described bindings. The parser or generator that produces the library may
 itself perform effects, such as reading source files.
 
 ```text
+<!-- ANCHOR: libraries -->
 library_name ::= "(" name name … ")"
 
 library_file ::= "(" "define-library" library_name library_clause … ")"
@@ -78,6 +79,7 @@ rename_pair ::= "(" name name ")"
 
 export_spec ::= name
               | "(" "rename" name name ")"
+<!-- ANCHOR_END: libraries -->
 ```
 
 `library_name` contains name components such as `(demo math)`. An import

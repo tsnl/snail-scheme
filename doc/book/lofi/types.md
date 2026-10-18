@@ -10,15 +10,45 @@ A *type variable* stands for a type chosen at a use of a generic definition. A
 type. Resolution distinguishes type variables and nominal type names from
 ordinary value names. A nominal application must have its declared arity.
 
-<!-- ANCHOR: types -->
+## Names and binding identities
+
+<!-- ANCHOR: names -->
+`name` is a source identifier token, such as `value`, `T`, or `Display`.
+The following grammar categories all use that lexical syntax. Their distinct
+roles determine which binding a name must resolve to:
+
 ```text
+value_name    resolves to x ∈ ValueNames        = {x₀, x₁, …}
+type_variable resolves to α ∈ TypeVariableNames = {α₀, α₁, …}
+datatype_name resolves to D ∈ DatatypeNames     = {D₀, D₁, …}
+class_name    resolves to C ∈ ClassNames        = {C₀, C₁, …}
+instance_name resolves to d ∈ InstanceNames     = {d₀, d₁, …}
+```
+
+These are disjoint, countably infinite supplies of possible binding identities.
+A particular program declares only finitely many. The same spelling can denote
+different identities in different scopes; membership in a universe does not
+itself bring a name into scope. Type variables must be bound by an enclosing
+`All`, datatype, or typeclass declaration. Constructor, accessor, and method
+bindings are value names. Field labels and library-name components are also
+identifier tokens, but do not themselves introduce value bindings.
+
+A nominal type is identified by its datatype declaration. A scheme quantifies
+type variables over a type and its requirements. These describe different
+properties: a scheme can mention a nominal type, such as `(Tree T)`.
+<!-- ANCHOR_END: names -->
+
+## Type syntax
+
+```text
+<!-- ANCHOR: types -->
 type ::= primitive_type
        | type_variable
-       | nominal_type
-       | nominal_application
-       | reference_type
-       | list_type
-       | vector_type
+       | datatype_name                                  ; zero parameters
+       | "(" datatype_name type type … ")"               ; type arguments
+       | "(" "Ref" type ")"
+       | "(" "List" type ")"
+       | "(" "Vector" type ")"
        | function_type
 
 primitive_type ::= "I32" | "I64"
@@ -27,22 +57,10 @@ primitive_type ::= "I32" | "I64"
                  | "String" | "Bytevector"
                  | "Never" | "Any"
 
-type_variable ::= name
-
-nominal_type ::= name
-
-nominal_application ::= "(" nominal_type type type … ")"
-
-reference_type ::= "(" "Ref" type ")"
-
-list_type ::= "(" "List" type ")"
-
-vector_type ::= "(" "Vector" type ")"
-
 function_type ::= "(" "->" type … type ")"
                 | "(" "->" type … "(" "Rest" type ")" type ")"
-```
 <!-- ANCHOR_END: types -->
+```
 
 ## Reading the typing rules
 
@@ -50,27 +68,55 @@ A rule puts its premises above a horizontal line and its conclusion below.
 The name at the right of the line identifies the rule. A line with no premises
 states an axiom: the conclusion holds directly.
 
-`Γ` is the environment mapping available bindings to their signatures. `e` is
-an expression and `T` a type. Following the bidirectional convention, `::↑`
-means *synthesize*: determine a type from the expression. `::↓` means *check*:
-verify the expression against a type already supplied by its context.
+<!-- ANCHOR: typing-notation -->
+`Γ` maps available value-binding identities to schemes. `e` is an expression
+and `T` a type. `::↑` means *synthesize*: compute a type from the expression,
+possibly containing unsolved inference holes. `::↓` means *check*: verify the
+expression against an expected type supplied by its context. Either operation
+can use unification to solve holes; checking does not require every type to be
+concrete before it starts.
 
 ```text
-Γ ⊢ e ::↑ T |> P    infer type T for e, collecting requirements P
-Γ ⊢ e ::↓ T |> P    check e against T, collecting requirements P
+Γ ⊢ e ::↑ T ; requirements P    infer type T for e, collecting P
+Γ ⊢ e ::↓ T ; requirements P    check e against T, collecting P
 ```
 
-`|>` separates the type judgment from its collected class requirements. It is
-notation in the specification, not a Lofi operator or a stage boundary.
-`P = ∅` means no requirements; `P₁ ∪ P₂` combines requirements from two
-subexpressions. For example, using `to-hex-string` at an abstract type T can
+The suffix names a second output: a set `P` of class requirements. It is
+specification notation, not source syntax. `P = ∅` means no requirements;
+`P₁ ∪ P₂` combines requirements from two subexpressions. For example, using
+`to-hex-string` at an abstract type T can
 collect `{(ToHexString T)}`. A generic signature can carry that requirement;
 a concrete use must supply the corresponding instance.
 
+A requirement names a class and its type arguments. An *obligation* is a
+requirement the checker must discharge, using an assumption from the enclosing
+scheme or a checked instance for the concrete types. This checks the availability
+and types of operations; it does not prove semantic laws about their behavior.
+For example, `ToHexString` does not prove that a returned string contains only
+hexadecimal digits.
+
+The relevant AST and checker data can be read as:
+
+```text
+requirement = (class binding identity, type arguments)
+scheme      = (quantified variables, type, requirements)
+judgment    = (inferred type, requirements, source expression, …)
+```
+
+Declared requirements belong to a binding's scheme. Inferred requirements are
+checker results associated with expressions; they are not extra source forms
+attached to every expression. The implementation calls these fields
+`constraints`. Equality equations solved by unification are separate from `P`.
+
 Subscripts distinguish related expressions or types. A bar over a variable,
 as in `ᾱ`, denotes a sequence. Repeated sequences in a rule have matching
-lengths. Unification solves inference variables, while an explicitly quantified
-variable is rigid when its definition is checked.
+lengths. `?β` denotes a fresh, flexible inference hole; it is not a source type
+variable. The algorithm maintains solutions for these holes and follows them
+before comparing types. The summary leaves this solver state implicit.
+An explicitly quantified variable is rigid while its definition is checked:
+unification may solve a hole to that variable, but cannot specialize the variable
+itself to a particular type.
+<!-- ANCHOR_END: typing-notation -->
 
 ## Primitive types
 
@@ -94,31 +140,31 @@ and overload candidates do not silently change a literal's default width.
 ```text
 integer ∈ range(I32)
 ────────────────────────────────── TYPE-I32-INFER
-Γ ⊢ integer ::↑ I32 |> ∅
+Γ ⊢ integer ::↑ I32 ; requirements ∅
 
 float fits F64 after rounding
 ────────────────────────────────── TYPE-F64-INFER
-Γ ⊢ float ::↑ F64 |> ∅
+Γ ⊢ float ::↑ F64 ; requirements ∅
 
 W ∈ {I32, I64}     integer ∈ range(W)
 ──────────────────────────────────────────── TYPE-INT-LITERAL-ANN
-Γ ⊢ (ann integer W) ::↑ W |> ∅
+Γ ⊢ (ann integer W) ::↑ W ; requirements ∅
 
 W ∈ {F32, F64}     float fits W after rounding
 ──────────────────────────────────────────── TYPE-FLOAT-LITERAL-ANN
-Γ ⊢ (ann float W) ::↑ W |> ∅
+Γ ⊢ (ann float W) ::↑ W ; requirements ∅
 
 ────────────────────────────────── TYPE-BOOL-INFER
-Γ ⊢ boolean ::↑ Bool |> ∅
+Γ ⊢ boolean ::↑ Bool ; requirements ∅
 
 ────────────────────────────────── TYPE-CHAR-INFER
-Γ ⊢ character ::↑ Char |> ∅
+Γ ⊢ character ::↑ Char ; requirements ∅
 
 ────────────────────────────────── TYPE-STRING-INFER
-Γ ⊢ string ::↑ String |> ∅
+Γ ⊢ string ::↑ String ; requirements ∅
 
 ────────────────────────────────── TYPE-BYTEVECTOR-INFER
-Γ ⊢ bytevector ::↑ Bytevector |> ∅
+Γ ⊢ bytevector ::↑ Bytevector ; requirements ∅
 ```
 <!-- ANCHOR_END: literals -->
 
@@ -188,17 +234,18 @@ sets of class requirements.
 
 <!-- ANCHOR: calls -->
 ```text
-Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body ::↓ R |> P
+Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body ::↓ R ; requirements P
 ────────────────────────────────────────────────────── TYPE-LAMBDA-CHECK
-Γ ⊢ (lambda (x₁ … xₙ) body) ::↓ (-> T₁ … Tₙ R) |> P
+Γ ⊢ (lambda (x₁ … xₙ) body) ::↓ (-> T₁ … Tₙ R) ; requirements P
 
-T₁, …, Tₙ fresh     Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body ::↑ R |> P
+T₁, …, Tₙ fresh     Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body ::↑ R ; requirements P
 ────────────────────────────────────────────────────── TYPE-LAMBDA-INFER
-Γ ⊢ (lambda (x₁ … xₙ) body) ::↑ (-> T₁ … Tₙ R) |> P
+Γ ⊢ (lambda (x₁ … xₙ) body) ::↑ (-> T₁ … Tₙ R) ; requirements P
 
-Γ ⊢ f ::↑ (-> T₁ … Tₙ R) |> P₀     Γ ⊢ eᵢ ::↓ Tᵢ |> Pᵢ  (1 ≤ i ≤ n)
+Γ ⊢ f ::↑ (-> T₁ … Tₙ R) ; requirements P₀
+Γ ⊢ eᵢ ::↓ Tᵢ ; requirements Pᵢ  (1 ≤ i ≤ n)
 ───────────────────────────────────────────────────────────────── TYPE-CALL-INFER
-Γ ⊢ (f e₁ … eₙ) ::↑ R |> P₀ ∪ ⋃ᵢ Pᵢ
+Γ ⊢ (f e₁ … eₙ) ::↑ R ; requirements P₀ ∪ ⋃ᵢ Pᵢ
 ```
 <!-- ANCHOR_END: calls -->
 
@@ -223,20 +270,22 @@ is rank one: `All` occurs at the outside of a binding signature, not inside
 parameters, results or stored element types. Each resulting closure has a
 concrete function type.
 
-<!-- ANCHOR: schemes -->
 ```text
+<!-- ANCHOR: schemes -->
 signature ::= type
-            | "(" "All" "(" name … ")" type ")"
-            | "(" "All" "(" name … ")" qualified_type ")"
+            | "(" "All" "(" type_variable … ")" type ")"
+            | "(" "All" "(" type_variable … ")"
+                  "(" "=>" "(" requirement … ")" type ")" ")"
 
-qualified_type ::= "(" "=>" "(" obligation … ")" type ")"
-
-obligation ::= "(" name type … ")"
-```
+requirement ::= "(" class_name type … ")"
 <!-- ANCHOR_END: schemes -->
+```
 
-Internally, write a signature as `∀ᾱ. P ⇒ T`: quantified variables, requirements,
-and the resulting type. Each use replaces quantified variables with fresh
+The current source spelling `=>` attaches requirements to a type; this pair is
+often called a *qualified type*. The complete `All` signature is a *scheme*.
+Write a scheme as `∀ᾱ. P ⇒ T`: quantified variables, requirements,
+and the resulting type. An ordinary type used as a signature has no quantified
+variables and no declared requirements. Each use replaces quantified variables with fresh
 inference variables. Explicit `inst` replaces them with the supplied types.
 Type variables from an attached `All` are rigid while checking that definition:
 its body must work for every allowed type, not just its current callers. These
@@ -245,15 +294,24 @@ parameters also scope over type annotations inside the initializer, so a nested
 
 <!-- ANCHOR: instances -->
 ```text
-Γ(x) = ∀ᾱ. P ⇒ T       β̄ fresh
+Γ(x) = ∀ᾱ. P ⇒ T       ?β̄ fresh inference holes       |ᾱ| = |?β̄|
 ────────────────────────────────────────────── TYPE-NAME-INFER
-Γ ⊢ x ::↑ T[ᾱ := β̄] |> P[ᾱ := β̄]
+Γ ⊢ x ::↑ T[ᾱ := ?β̄] ; requirements P[ᾱ := ?β̄]
 
 Γ(x) = ∀ᾱ. P ⇒ T       |ᾱ| = |Ū| ≥ 1
 ────────────────────────────────────────────── TYPE-INST-INFER
-Γ ⊢ (inst x U₁ … Uₙ) ::↑ T[ᾱ := Ū] |> P[ᾱ := Ū]
+Γ ⊢ (inst x U₁ … Uₙ) ::↑ T[ᾱ := Ū] ; requirements P[ᾱ := Ū]
 ```
 <!-- ANCHOR_END: instances -->
+
+`TYPE-NAME-INFER` instantiates a scheme without choosing concrete type arguments.
+For `identity`, it produces `(-> ?β ?β)`. Applying it to `42` later solves
+`?β = I32`. Each use gets fresh holes. This is inference with deferred solving;
+the name alone does not determine a unique concrete instantiation.
+`TYPE-INST-INFER` instead substitutes the supplied types in both the type and
+the requirements. Neither rule by itself establishes that those requirements
+have an implementation. The checking and generalization rules decide which
+requirements must be discharged and which can remain in a scheme.
 
 An unannotated `def` or `let` can infer an `All`. Inference generalizes variables
 not fixed by the surrounding environment, subject to the *value restriction*:
@@ -283,7 +341,7 @@ the arrow does not mention it. Different declarations in one group keep their
 own rigid binders; their recursive views may correspond by consistent renaming,
 including a permutation of binders.
 
-## Kinds and static definitions
+## Static definitions and well-formedness
 
 `data`, `typeclass` and `instance` are library-level declarations. Each names
 its subject and can introduce related bindings, such as constructors, accessors
@@ -298,57 +356,63 @@ or class methods:
           (display-text (lambda (flag) (match flag ((off) "off") ((on) "on")))))
 ```
 
-A *kind* classifies these static definitions. `Flag` has kind `Type`: it is a
-type of ordinary values. `Display` has kind `(Kind-> Type Constraint)`: applying
-it to a type forms a class requirement. `flag-display` has kind
-`(Evidence (Display Flag))`: it supplies an implementation of that requirement.
-A generic datatype such as Vec3 has kind `(Kind-> Type Type)`.
-
-These kinds are inferred from the declarations.
-Ordinary value definitions have types rather than kinds. `Type`, `Constraint`
-and `Evidence` are not runtime value types and cannot be stored in Any.
-
-<!-- ANCHOR: kinds -->
 ```text
-kind ::= "Type"
-       | "Constraint"
-       | "(" "Kind->" kind kind … ")"
-       | "(" "Evidence" obligation ")"
-
+<!-- ANCHOR: static-definitions -->
 static_definition ::= data_definition
                     | typeclass_definition
                     | instance_definition
+<!-- ANCHOR_END: static-definitions -->
 ```
-<!-- ANCHOR_END: kinds -->
 
-These declarations require library scope. Their parameters have kind Type,
-instance heads are concrete, and they cannot be returned from functions or
-selected by a runtime `if`. This is a simple kind discipline, not dependent typing.
+These declarations require library scope. A datatype names a type constructor;
+a typeclass names a requirement constructor; an instance supplies implementations
+for one concrete requirement. Their parameters stand for ordinary types. They
+cannot be returned from functions or selected by a runtime `if`.
 
 The compiler still accepts the earlier `(def name [kind] static_former)` syntax
 for compatibility, including `(datatype (...) ...)` bodies. Expansion normalizes
 the new declarations to that internal representation before ordinary checking.
-New source should use the explicit declaration forms.
+In that older notation, a *kind* classifies a static declaration: `Type` for a
+zero-parameter datatype, `(Kind-> Type … Type)` for a datatype constructor,
+`(Kind-> Type … Constraint)` for a class, and `(Evidence (C T …))` for an
+instance. These classifications are not runtime value types. New source should
+use the explicit declaration forms.
 
-Kind checking verifies that fields and method parameters are types, class
-applications form requirements, and instances implement the requirement named
-in their head. With `Δ` mapping static names to kinds, representative rules are:
+<!-- ANCHOR: well-formedness -->
+The first-order type language needs the following well-formedness checks:
 
-<!-- ANCHOR: kind-rules -->
+- A type variable refers to an enclosing type-parameter binder.
+- A datatype application names a visible datatype, has its declared number of
+  arguments, and supplies a well-formed type for each argument. A bare datatype
+  name denotes a type only when its declaration has zero parameters.
+- A class requirement names a visible class and supplies its declared number of
+  well-formed type arguments. It appears in a scheme's requirements or an
+  instance head, rather than in a field or function parameter's type position.
+- A type variable cannot be applied as a constructor: `(F T)` requires a
+  datatype declaration for `F`, not an `All` parameter.
+- A scheme occurs at the outside of a binding signature. It cannot be nested
+  inside an ordinary type.
+
+`arity` reads the parameter count from the resolved declaration. `type-ok` and
+`requirement-ok` below use the lexical scope at the application site:
+
 ```text
-Δ(F) = (Kind-> Type … Type)     Δ ⊢ Tᵢ : Type  (1 ≤ i ≤ n)
-──────────────────────────────────────────────────────── KIND-TYPE-APPLY
-Δ ⊢ (F T₁ … Tₙ) : Type
+D is a visible datatype     arity(D) = n     |T̄| = n
+type-ok(Tᵢ) for every 1 ≤ i ≤ n
+──────────────────────────────────────────────────── WF-DATATYPE-APPLY
+type-ok(D applied to T̄)
 
-Δ(C) = (Kind-> Type … Constraint)     Δ ⊢ Tᵢ : Type  (1 ≤ i ≤ n)
-────────────────────────────────────────────────────────────── KIND-CLASS-APPLY
-Δ ⊢ (C T₁ … Tₙ) : Constraint
+C is a visible class        arity(C) = n     |T̄| = n
+type-ok(Tᵢ) for every 1 ≤ i ≤ n
+──────────────────────────────────────────────────── WF-CLASS-APPLY
+requirement-ok((C T₁ … Tₙ))
 ```
-<!-- ANCHOR_END: kind-rules -->
 
-The number of arguments matches the constructor's or class's declared arity.
-Checking an instance's method implementations establishes its Evidence kind;
-a kind annotation alone cannot assert that an implementation is correct.
+The datatype conclusion uses `D` when `n = 0` and `(D T₁ … Tₙ)` otherwise.
+These rules check that a requirement is well-formed, not that it is satisfied.
+Checking an instance requires its head to contain no free type variables and
+its methods to implement the class signatures for those types.
+<!-- ANCHOR_END: well-formedness -->
 
 ## Struct and union types
 
@@ -357,18 +421,18 @@ fixed set of cases. `data` describes both using constructors: one constructor
 for a struct, several for a union. Fields are immutable; a field of type
 `(Ref T)` can hold an explicitly mutable cell.
 
-<!-- ANCHOR: data -->
 ```text
-data_definition ::= "(" "data" name "(" name … ")"
+<!-- ANCHOR: data -->
+data_definition ::= "(" "data" datatype_name "(" type_variable … ")"
                     constructor_clause constructor_clause … [deriving_clause] ")"
 
 deriving_clause ::= "(" "deriving" name … ")"
 
-constructor_clause ::= "(" name field_clause … ")"
+constructor_clause ::= "(" value_name field_clause … ")"
 
-field_clause ::= "(" name type [name] ")"
-```
+field_clause ::= "(" name type [value_name] ")"
 <!-- ANCHOR_END: data -->
+```
 
 The names in the parameter list bind type variables over the field types.
 A constructor clause names a constructor; a field clause gives a field name,
@@ -418,17 +482,18 @@ Color. A qualified signature such as
 `(All (T) (=> ((ToHexString T)) (-> T String)))` permits using that method in a
 generic body.
 
-<!-- ANCHOR: classes -->
 ```text
-typeclass_definition ::= "(" "typeclass" name "(" name … ")" method_signature … ")"
+<!-- ANCHOR: classes -->
+typeclass_definition ::= "(" "typeclass" class_name "(" type_variable … ")"
+                         method_signature … ")"
 
-method_signature ::= "(" ":" name function_type ")"
+method_signature ::= "(" ":" value_name function_type ")"
 
-instance_definition ::= "(" "instance" name obligation method_implementation … ")"
+instance_definition ::= "(" "instance" instance_name requirement method_implementation … ")"
 
-method_implementation ::= "(" name expression ")"
-```
+method_implementation ::= "(" value_name expression ")"
 <!-- ANCHOR_END: classes -->
+```
 
 A typeclass's parameters scope its method signatures. An instance supplies every
 method exactly once; its head has no free type variables. Instance selection
@@ -594,17 +659,17 @@ many(T)
 ────────────── SUBTYPE-ANY
 T <: Any
 
-Γ ⊢ e ::↑ U |> P       U <: T
+Γ ⊢ e ::↑ U ; requirements P       U <: T
 ────────────────────────────── TYPE-SUBSUME-CHECK
-Γ ⊢ e ::↓ T |> P
+Γ ⊢ e ::↓ T ; requirements P
 
-Γ ⊢ e ::↓ T |> P
+Γ ⊢ e ::↓ T ; requirements P
 ────────────────────────────── TYPE-ANN-INFER
-Γ ⊢ (ann e T) ::↑ T |> P
+Γ ⊢ (ann e T) ::↑ T ; requirements P
 
-Γ ⊢ e ::↑ Any |> P      many(T)
+Γ ⊢ e ::↑ Any ; requirements P      many(T)
 ────────────────────────────── TYPE-PROJECT-INFER
-Γ ⊢ (ann e T) ::↑ T |> P
+Γ ⊢ (ann e T) ::↑ T ; requirements P
 ```
 <!-- ANCHOR_END: subtyping -->
 
@@ -618,13 +683,15 @@ a known expected Any type can request injection in each branch.
 
 <!-- ANCHOR: branches -->
 ```text
-Γ ⊢ c ::↓ Bool |> P₀    Γ ⊢ a ::↑ A |> P₁    Γ ⊢ b ::↑ B |> P₂    T = join(A,B)
+Γ ⊢ c ::↓ Bool ; requirements P₀
+Γ ⊢ a ::↑ A ; requirements P₁    Γ ⊢ b ::↑ B ; requirements P₂    T = join(A,B)
 ─────────────────────────────────────────────────────────────────────────── TYPE-IF-INFER
-Γ ⊢ (if c a b) ::↑ T |> P₀ ∪ P₁ ∪ P₂
+Γ ⊢ (if c a b) ::↑ T ; requirements P₀ ∪ P₁ ∪ P₂
 
-Γ ⊢ c ::↓ Bool |> P₀    Γ ⊢ a ::↓ T |> P₁    Γ ⊢ b ::↓ T |> P₂
+Γ ⊢ c ::↓ Bool ; requirements P₀
+Γ ⊢ a ::↓ T ; requirements P₁    Γ ⊢ b ::↓ T ; requirements P₂
 ────────────────────────────────────────────────────────── TYPE-IF-CHECK
-Γ ⊢ (if c a b) ::↓ T |> P₀ ∪ P₁ ∪ P₂
+Γ ⊢ (if c a b) ::↓ T ; requirements P₀ ∪ P₁ ∪ P₂
 
 join(Never,T) = T; join(T,Never) = T; otherwise unify the two types or report an error.
 ```
