@@ -6,7 +6,10 @@
 # Intermediate build files
 /build/
 /target/
-.snail-native-entry-*.rs
 *.trace.json
 **/__pycache__/
 /tests/target/
+
+/src/runtime/target/
+/src/runtime/build/
+/tools/host/target/

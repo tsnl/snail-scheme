@@ -601,7 +601,7 @@
    (snail-tests
     (export test-frontend)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler reader) string->reader)
      (only (lofi compiler syntax-parser) reader->syntax-list))
     (begin

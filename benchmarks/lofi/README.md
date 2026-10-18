@@ -9,6 +9,11 @@ Preparation checks `lofi_sha256`. Frozen reports, raw records
 and their `sfir-*` route labels retain the names used by the measured revision;
 the rename does not establish new validation or performance results.
 
+Current runs use Lofi/Wasm, original/adapted Chez, Rust/Wasm and Rust/native.
+The LLVM backend and Lofi/native route are removed. Historical six-route records
+below retain their original compiler, results and meaning; no current full-suite
+performance measurement is claimed by the removal.
+
 The corpus keeps all 57 workloads from R7RS benchmarks revision
 `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each directory contains the
 canonical input, an external original Chez program, source provenance, and a
@@ -27,11 +32,12 @@ SLaTeX now passes its complete 500-iteration workload, all 28,500 output files a
 resource checks on the current source. Compiler retains all 1,343 kernel forms,
 its 2,000-compilation canonical input and complete 497-line assembly predicate;
 all six canonical routes pass on the recorded compiler snapshot. The runner
-registers all 57 sources. Dynamic and Scheme pass their complete current-source
-canonical workloads on both Lofi targets and all four external control routes;
-their workload-local verifiers preserve the source lifecycles. The
-[manifest](corpus.json) distinguishes source presence, Wasm validation, native
-validation and measurement. Source presence proves none of the latter three.
+registers all 57 sources. Recorded Dynamic and Scheme campaigns passed their
+canonical workloads on both then-supported Lofi targets and all four controls.
+Their workload-local verifiers preserve the source lifecycles. The
+[manifest](corpus.json) retains source presence, historical target validation and
+measurement separately. Source presence establishes neither current correctness
+nor measured performance.
 
 The [completed full57 report](evidence/20261015-full57.md) freezes compiler
 `8e547bfb`, validates all 57 native routes and 56 Wasm routes, and measures 326
@@ -101,10 +107,8 @@ digest. The manifest also retains the original Rustup dispatcher identities and
 selected installation path as provenance; subsequent builds use the copied
 installation and dependency sources.
 
-The frozen compiler wrapper comes from `source/src/native/scripts/rustc-native`, so Cargo
-host build scripts also use Rust's linker without consulting the mutable
-checkout. Custom `RUSTC_WRAPPER` or `RUSTC_WORKSPACE_WRAPPER` commands must be
-unset for a campaign; their unrecorded dependencies would defeat the freeze.
+Custom `RUSTC_WRAPPER` and `RUSTC_WORKSPACE_WRAPPER` commands must be unset for a
+campaign; their unrecorded dependencies would defeat the freeze.
 
 Validation invokes the Lofi compiler, whose build contract always runs Binaryen,
 and retains both raw and optimized Wasm. Every process has a terminal record,
@@ -247,7 +251,7 @@ framework was introduced.
 The full-corpus timing extension used a fresh no-files explainer and informed
 critique to retain one scalar native entry and one decimal entry. Run the
 bounded harness checks with
-`chibi-scheme -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
+`chibi-scheme -D snail-tests -I bootstrap -I tests -I tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
 dependency and scheduling tests, reduced synthetic Wasm/Rust/Chez probes execute
 every host category, typed sequence/decimal/math interfaces, failed predicates,
 declared fixture copies and explicit environment propagation. Their command records and

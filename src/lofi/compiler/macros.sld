@@ -857,7 +857,7 @@
    (snail-tests
     (export test-macros)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (lofi compiler reader)
      (lofi compiler syntax-parser))
     (begin

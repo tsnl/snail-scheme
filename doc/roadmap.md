@@ -1,10 +1,14 @@
 # Roadmap
 
+The execution target is WasmGC. The LLVM backend and custom collector are removed;
+completed native milestones below record historical work. Self-hosting targets
+WasmGC on an engine such as V8 and remains a separate milestone.
+
 The active goal is a complete, understandable Lofi compiler and benchmark suite.
 [The language contract](lofi.md) defines the target; [the tour](../TOUR.md)
 describes the implementation. Chibi continues to host the compiler.
 
-The separate [native self-hosting investigation](self-hosting.md) proposes
+The historical [self-hosting investigation](self-hosting.md) proposed
 `snail run` and `snail build`, with reproducible Siegework measurements,
 compiler compatibility blockers and staged bootstrap acceptance criteria.
 The compiler port and command are not implemented yet.
@@ -71,7 +75,7 @@ contracts, their execution evidence and remaining extensions are recorded below:
   including explicit type identities, ordered local scopes, static declarations
   and the existing extern/overload extensions. Preserve the checked transfer boundary.
 - [x] Add native loading with independent state, a checked scalar bridge and
-  explicit providers; see [the native adapter](lofi-native-loading.md).
+  explicit providers (retired with the LLVM backend).
 - [x] Expose explicit library maps, compilation, Wasm loading, independent state
   and checked scalar invocation to ordinary Lofi through an owned Chibi service.
   Return recoverable errors and retain separate provider linkage; see the
@@ -153,7 +157,8 @@ attached `deriving` clauses invoke ordinary declarative transformers.
 - [ ] Bound recursive code expansion while preserving useful helper inlining.
   Measure both allocation-heavy and conversion-heavy workloads before changing
   the global policy; smaller Wasm alone does not establish faster execution.
-- [ ] Ablate empty native root-frame calls, redundant zero fills and repeated
+- [x] Retire the LLVM backend and custom native collector; remove native root frames.
+- [ ] Measure remaining Wasm allocation, redundant zero fills and repeated
   UTF-8 validation using the representation and execution contracts in that report.
 
 The implementation migration landed in [PR #227](https://github.com/tsnl/snail-scheme/pull/227),
@@ -168,7 +173,7 @@ Lofi trails Chez and Rust on all six aggregate comparisons. The later
 measures one concrete I/O change separately; it is not a new full-suite result.
 The earlier [six-case measurements](../benchmarks/lofi/evidence/20261015-clean-six.md)
 remain historical. The compiler service produces and executes Wasm; native
-loading remains a separate host adapter.
+loading has been retired with the LLVM backend.
 
 The [corpus manifest](../benchmarks/lofi/corpus.json) tracks source presence,
 validation and measurement independently. Pre-migration strict-Scheme results
@@ -176,9 +181,8 @@ are historical evidence, not a current Lofi score.
 
 ## After the migration
 
-- Broaden typed foreign interfaces and additional 64-bit native targets only
-  with ABI and actual target validation. Native remains a mechanical lowering
-  of Binaryen-optimized Wasm.
+- Keep WasmGC as the execution target, using V8 as the primary runtime. Broaden
+  typed host interfaces with explicit ABI and actual execution checks.
 - Add optional affine grades and `Drop` using type evidence to establish cleanup
   obligations. `Any` stays unrestricted; affine values need an explicit shared
   wrapper to enter it. Borrow checking and stack promotion are separate work.

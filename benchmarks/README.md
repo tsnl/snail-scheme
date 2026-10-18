@@ -6,11 +6,10 @@ inputs and explicit source/target-validation/measurement status. Lofi is the
 only compiler input language. Chibi hosts the compiler; Chez is an independent
 comparison system.
 
-The current harness is Scheme and all comparison implementations and native
-entries are Rust built with Cargo. The shared runtime is built through
-`src/native/runtime/Cargo.toml`; native builds add the collector crate at
-`src/native/Cargo.toml`. [Historical sources](history.md) preserve
-the earlier C/Python experiment drivers at their exact Git revision.
+The harness is Scheme. Rust scalar services build through `src/runtime/Cargo.toml`.
+The supported Lofi target is WasmGC. Independent Rust/native programs remain
+comparison controls; the Lofi LLVM backend and custom collector are removed.
+[Historical sources](history.md) preserve earlier experiment drivers.
 
 ```sh
 chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm inventory
@@ -18,7 +17,7 @@ chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --out
 chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm validate --output /tmp/lofi-check
 ```
 
-Validation runs each workload's six routes in one fresh Chibi process. Scheduler
+Validation runs each workload's five routes in one fresh Chibi process. Scheduler
 commands retain raw output, exit status and signals under
 `commands/validation-scheduler/`; frozen-driver captures remain under
 `frozen-driver/`. If a child terminates, completed route checkpoints remain
@@ -26,23 +25,14 @@ visible, unfinished routes become `not-completed`, and the scheduler continues
 every remaining selected workload. Validation requires a fresh attempt; a failed
 campaign stays intact and a new campaign uses a new output directory.
 
-Preparation captures `SNAIL_NATIVE_CPU`. Leave it unset for the portable native
-default or select an explicit compiler CPU name such as `x86-64-v3`. Freezes
-reject `native`, whose meaning depends on the build host, and empty values.
-This override affects Lofi-native guest code and its Rust runtime/providers;
-the independent Rust-native controls keep their own build configuration.
-
 Tail compares the entire output against an independently reversed-line oracle.
 Its concatenation uses bounded call arity, avoiding an observed Chibi crash in
 the canonical validator. UTF-8 decoding, blank lines, LF termination and
 rejection of CR remain explicit; the host's internal failure mechanism is unresolved.
 
-Preparation copies checked-in target sources; it does not elaborate Scheme or
-expand macros. The compiler always runs Binaryen. Native builds consume the
-retained raw Wasm and verify that their mandatory optimization produces exactly
-the V8 program bytes. Earlier freezes supplied already optimized Wasm to the
-native helper; the [optimization audit](lofi/evidence/20261015-native-optimization-audit.json)
-records those differing effective modules. The
+Preparation copies checked-in target sources. The compiler runs Binaryen and
+retains raw and optimized Wasm. Historical six-route measurements below include
+the retired Lofi/native backend and remain unchanged. The
 [complete 57-workload report](lofi/evidence/20261015-full57.md) records 326 measured
 routes and all 1,956 scheduled processes passing their full predicates at frozen
 compiler `8e547bfb`. Both default Ack Wasm failures, 12 unavailable adapted Chez

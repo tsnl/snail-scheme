@@ -9,11 +9,11 @@
    (scheme file)
    (scheme write)
    (only (chibi temp-file) call-with-temp-dir)
-   (only (native json) json->string)
-   (native build-host)
-   (native chromium-trace)
-   (native wasm-optimize)
-   (only (native wasm) write-wasm))
+   (only (lofi host json) json->string)
+   (lofi host build-host)
+   (lofi host chromium-trace)
+   (lofi host wasm-optimize)
+   (only (lofi host wasm) write-wasm))
   (begin
 
     ;; ---- Public entry identity ----
@@ -104,7 +104,7 @@
    (snail-tests
     (export test-artifact)
     (import
-     (native test-utils))
+     (lofi host test-utils))
     (begin
       (define (test-wasm-section-lengths)
         (let ((port (open-output-bytevector)))

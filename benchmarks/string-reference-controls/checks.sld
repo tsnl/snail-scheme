@@ -1,12 +1,24 @@
 ;; Independent full-payload predicates and separate Wasm allocation diagnostics.
 (define-library (string-reference-controls checks)
   (export controls-main allocation-main)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme inexact)
-          (scheme read) (scheme write) (scheme process-context) (srfi 1)
-          (only (srfi 130) string-contains string-cursor->index)
-          (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim string-trim-right)
-          (except (chibi filesystem) file-exists?) (native json)
-          (native process) (native native-build) (lofi runner) (lofi support))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme inexact)
+   (scheme read)
+   (scheme write)
+   (scheme process-context)
+   (srfi 1)
+   (only (srfi 130) string-contains string-cursor->index)
+   (only (chibi string) string-split string-join string-prefix? string-suffix? string-trim string-trim-right)
+   (except (chibi filesystem) file-exists?)
+   (lofi host json)
+   (lofi host process)
+   (lofi compiler tools host-tools)
+   (lofi runner)
+   (lofi support))
   (begin
 
     ;; ---- Fixed contracts and retained commands ----
@@ -211,7 +223,7 @@
     (define (fresh-output path)
       (when (file-exists? path) (error "control output must be fresh" path))
       (create-directory* path)
-      (current-process-supervisor (ensure-native-supervisor (runtime-project-directory (benchmark-root)))))
+      (current-process-supervisor (build-host-tool (benchmark-root) "snail-process-supervisor")))
 
     (define (controls-main values)
       (let* ((options (arguments values '("--artifact" "--output"))) (output (field options 'output))

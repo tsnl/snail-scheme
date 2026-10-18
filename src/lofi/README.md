@@ -44,7 +44,7 @@ at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations were retained by the initial extraction. It preserved foreign
 module/provider strings and scalar signatures. The scalar-services crate in
-[`src/native/runtime/`](../native/runtime/Cargo.toml) serves both Wasm and native execution;
+[`src/runtime/`](../native/runtime/Cargo.toml) serves both Wasm and native execution;
 the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
@@ -202,6 +202,6 @@ Compiled producers transfer owned values into Chibi through the checked
 recipes. `compiler.sld` provides first-class parsing, explicit library maps,
 compilation, loading, independent instances and checked scalar invocation through
 the Chibi-hosted [compiler service](../../doc/lofi-compiler-service.md). That service
-always compiles to Wasm; [native loading](../../doc/lofi-native-loading.md) uses a
-separate adapter that passes the Wasm artifact to the native package. Source
-discovery and provider installation remain explicit driver operations.
+always compiles to WasmGC. Source discovery and provider installation remain
+explicit driver operations. The engine owns managed references and machine code;
+Rust scalar services live in `src/runtime/`.

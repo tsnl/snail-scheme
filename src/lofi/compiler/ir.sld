@@ -394,7 +394,7 @@
    (snail-tests
     (export test-ir)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler source) make-loc))
     (begin
       (define (test-source-identities)

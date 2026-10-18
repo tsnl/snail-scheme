@@ -2,15 +2,9 @@
 The `scripts/test-*` commands launch ordinary Chibi programs in `tests/snail-tests`.
 The harness records every command, its terminal output, status, duration and owned
 process cleanup under a fresh attempt directory in `build/`. These durations are
-diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm,
-mandatory Binaryen output, and native execution with forced collection where the
-contract calls for it.
-
-`native-root-publication/` keeps operand references across repeated publication,
-moving collection in imports, branches, loops, and a tail transfer. Its shared
-array elements also exercise a moving initializer and an operand-only array.
-The native suite runs normal and forced-moving executables plus raw and
-Binaryen-optimized Wasm in V8.
+diagnostics, not clean benchmark measurements. Contract tests retain raw Wasm
+and Binaryen output and execute both in V8. The engine owns GC; the host retains
+explicit scalar-resource cleanup checks.
 
 `backend-suites.json` is shared by the serial backend umbrella and `ci.mjs`.
 The latter creates deterministic CI partitions and invokes the existing runners;
@@ -52,25 +46,17 @@ algorithm.
 `scripts/test-lofi-serialization` checks the complete fixture inventory in
 `serialization/cases.json`: derived graphs, nominal type tags, malformed input,
 unsupported types, S-expression text/binary boundaries and packed snapshots.
-It executes raw and optimized Wasm linked to the Rust WASI runtime, then native
-code from the identical optimized guest. Rejection probes check initialization,
-failure status and diagnostic text. Supply fixture names to select cases, or
-use `--only wasm` and then `--only native --reuse-artifacts DIRECTORY` to split
-the execution routes. Small native cases collect on every allocation; the large
-boundary case uses an interval of 4,096 allocations.
+It executes raw and optimized Wasm linked to the Rust WASI runtime. Rejection
+probes check initialization, failure status and diagnostic text. Supply fixture
+names to select cases.
 
 Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
 validation and oracle-provenance records retain the SFIR names and paths from
 their recorded revisions; they are historical evidence, not current commands.
 
-Native entries and scalar providers are Rust sources. The build driver creates
-Cargo packages that link the generated guest object with the same `snail-runtime`
-library used by the product. `tests/Cargo.toml` owns independent transport-data,
-optimizer, adversarial compiler-process and host-loss probes; it does not define
-another runtime. The host-loss probe publishes its readiness record by writing
-and closing a sibling temporary file, then renaming it. Seeing `host-ready`
-therefore guarantees complete JSON before the controller kills the host and
-checks that its native processes disappear.
+`tests/Cargo.toml` owns independent transport-data, optimizer and adversarial
+compiler-process probes. `tools/host/process-supervisor.rs` enforces command
+deadlines and reaps descendants; its tests include processes that change groups.
 
 Numeric, reader, writer and Unicode expectations are committed data, with source
 revision and independent oracle provenance in `oracle-provenance.json`. The

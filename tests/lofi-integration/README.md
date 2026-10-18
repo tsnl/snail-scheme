@@ -74,7 +74,7 @@ actually differs. No source file is rewritten during execution.
 
 The bytevector literal boundary uses two authored fixtures, containing exactly
 10,000 and 10,001 bytes. The first still checks every stored value on both Wasm
-forms and native64; the second must fail at the literal's source location.
+forms; the second must fail at the literal's source location.
 
 The Number boundary checker uses frozen external Chez controls under
 `../lofi-numbers/chez`; it writes test data without creating Scheme program

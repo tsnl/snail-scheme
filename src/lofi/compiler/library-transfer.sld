@@ -8,7 +8,7 @@
    (scheme base)
    (scheme cxr)
    (scheme write)
-   (only (native json) json-read json->string)
+   (only (lofi host json) json-read json->string)
    (lofi compiler source)
    (lofi compiler ir)
    (lofi compiler syntax)
@@ -896,11 +896,11 @@
    (snail-tests
     (export test-library-transfer)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler macros) core-syntax-names)
      (only (lofi compiler primitives) primitive-names)
      (only (chibi temp-file) call-with-temp-dir)
-     (only (native chromium-trace) with-chromium-trace-to)
+     (only (lofi host chromium-trace) with-chromium-trace-to)
      (only (lofi compiler frontend) parse-library)
      (only (lofi compiler reader) string->reader)
      (only (lofi compiler syntax-parser) reader->syntax-list)

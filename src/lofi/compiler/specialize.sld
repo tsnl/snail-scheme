@@ -26,7 +26,7 @@
    (lofi compiler data)
    (lofi compiler pass)
    (lofi compiler ir)
-   (only (lofi compiler wasm-extern) native-scalar-signature))
+   (only (lofi compiler wasm-extern) wasm-scalar-signature))
   (begin
 
     ;; ---- Persistent compilation requests ----
@@ -609,9 +609,9 @@
         (when (memq (car names) (cdr names)) (strict-error loc "export names must be distinct" (car names)))
         (check-export-names (cdr names) loc)))
     (define (check-export-signature type loc)
-      (when (function-rest type) (strict-error loc "native export requires fixed scalar parameters"))
-      (guard (failure (else (strict-error loc "native export requires scalar parameters and a scalar or Unit result")))
-        (native-scalar-signature (function-domains type) (function-result type))))
+      (when (function-rest type) (strict-error loc "Wasm export requires fixed scalar parameters"))
+      (guard (failure (else (strict-error loc "Wasm export requires scalar parameters and a scalar or Unit result")))
+        (wasm-scalar-signature (function-domains type) (function-result type))))
     (define (selected-export entry environment context)
       (let* ((binding (cdr entry)) (scheme (binding-scheme binding)) (type (scheme-type scheme))
              (site (lookup-site binding environment context)) (loc (value-definition-loc binding)))
@@ -658,7 +658,7 @@
    (snail-tests
     (export test-specialize)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler frontend) syntax-list->ir-library)
      (only (lofi compiler reader) string->reader)
      (only (lofi compiler syntax-parser) reader->syntax-list)

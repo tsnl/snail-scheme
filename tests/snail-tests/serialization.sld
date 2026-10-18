@@ -52,43 +52,6 @@
         (assert-that (contains? (field record 'stderr) (field case 'diagnostic))
                      "missing serialization failure diagnostic" (car probe))))
 
-    ;; ---- Native calls exercise the same zero-argument exports ----
-
-    (define (rust-declaration name index type)
-      (string-append "#[link_name = \"wasm." name "\"] fn probe_" (number->string index)
-                     "() -> " (if (string=? type "I64") "i64" "i32") ";\n"))
-    (define (native-entry case)
-      (let* ((checks (probes case)) (entry (build-path (string-append (field case 'name) "-entry.rs")))
-             (indexes (iota (length checks))))
-        (write-text entry
-                    (string-append "#[path = \"" (path "tests/native-support.rs") "\"] mod support;\nunsafe extern \"C\" {\n"
-                                   (apply string-append (map (lambda (probe index) (rust-declaration (car probe) index (field case 'type))) checks indexes))
-                                   "}\nfn main() { let args = support::initialize(); let probe: usize = args[1].parse().unwrap();\n"
-                                   "assert_eq!(native_runtime::native::GC_STRESS, "
-                                   (if (field case 'gc_stress #t) "true" "false") ");\n"
-                                   "if probe != 0 { assert_eq!(unsafe { probe_0() }, " (field case 'result "42") "); }\nlet value = unsafe { match probe {\n"
-                                   (apply string-append (map (lambda (index) (string-append (number->string index) " => probe_" (number->string index) "() as i64,\n")) indexes))
-                                   "_ => panic!(\"unknown probe\") } }; assert_eq!(value, " (field case 'result "42") "); support::finish(0); }\n"))
-        entry))
-    (define (check-native case)
-      (let ((native (build-path (string-append (field case 'name) ".native"))))
-        ;; The large wire-width boundary fixture tests ordinary allocation;
-        ;; collecting every allocation would repeatedly trace its 65K-element list.
-        ;; All other serialization fixtures stress relocation at every allocation.
-        (parameterize ((test-environment
-                        (if (field case 'gc_stress #t) (test-environment)
-                            (map (lambda (entry) (if (equal? (car entry) "CARGO")
-                                                     (cons "CARGO" (ordinary-cargo)) entry))
-                                 (test-environment)))))
-          (build-native (string-append (guest-path case) ".raw.wasm") native (native-entry case) '()))
-        (native-guest-identical! native (guest-path case))
-        (indexed-for-each
-         (lambda (index probe)
-           (let ((record (checked (string-append (field case 'name) "-native-" (car probe)) (list native (number->string index))
-                                  `((status . ,(if (string=? (cdr probe) "trap") 1 0))))))
-             (check-diagnostic case probe record))) (probes case))
-        (display (string-append "PASS " (field case 'name) " native\n"))))
-
     ;; ---- Selection keeps development checks within the complete case inventory ----
 
     (define (check-inventory cases)
@@ -100,19 +63,16 @@
                       "serialization fixture inventory differs")))
     (define (run-serialization-suite)
       (let* ((cases (rows (read-json (path "tests/serialization/cases.json"))))
-             (selected (argument-positionals)) (only (argument-value "--only" #f)))
+             (selected (argument-positionals)))
         (check-inventory cases)
-        (assert-that (member only '(#f "wasm" "native")) "unknown serialization target")
+
         (for-each (lambda (name) (assert-that (any (lambda (case) (string=? name (field case 'name))) cases) "unknown serialization case" name)) selected)
         (unless (null? selected) (set! cases (filter (lambda (case) (member (field case 'name) selected)) cases)))
-        (unless (equal? only "native") (runtime-build))
+        (runtime-build)
         (for-each (lambda (case)
                     (if (field case 'compile_error)
-                        (unless (equal? only "native") (check-compile-rejection case))
-                        (begin
-                          (unless (equal? only "native")
-                            (compile-fixture case)
-                            (for-each (lambda (form) (link-fixture case form) (check-wasm case form)) '("raw" "optimized")))
-                          (unless (equal? only "wasm") (check-native case))))) cases)
+                        (check-compile-rejection case)
+                        (begin (compile-fixture case)
+                               (for-each (lambda (form) (link-fixture case form) (check-wasm case form)) '("raw" "optimized"))))) cases)
         (complete! "derived serialization and common wire representation"
-                   `((passed . #t) (fixtures . ,(length cases)) (target . ,(or only "all"))))))))
+                   `((passed . #t) (fixtures . ,(length cases)) (target . "wasm")))))))

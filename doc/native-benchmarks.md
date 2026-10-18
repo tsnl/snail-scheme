@@ -1,5 +1,11 @@
 # Historical runtime benchmarks
 
+> Historical investigation: the LLVM backend and custom native runtime have been
+> removed. Commands and native-bootstrap plans below describe earlier revisions.
+> The current self-hosting target is WasmGC on an engine such as V8; that milestone
+> remains unimplemented. See [the current build contract](backend.md).
+
+
 This page archives the October 10 Scheme experiments, including their language
 scope, collector and build commands. It does not describe current Lofi behavior.
 See [BENCHMARKS.md](../BENCHMARKS.md) for the active Lofi, Chez and Rust corpus.
