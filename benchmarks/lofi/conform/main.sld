@@ -92,7 +92,7 @@
         (present (car entries))
         (find-entry key (cdr entries))))))
 
-(def conform-member? (All (T) (=> ((ConformIdentity T)) (-> T (List T) Bool)))
+(def conform-member? (All (T) (requires (ConformIdentity T)) (-> T (List T) Bool))
   (lambda (value.17 values.6)
     (if (not (null? values.6))
       ((lambda (value.18) (if value.18 value.18 (conform-member? value.17 (cdr values.6))))
@@ -167,10 +167,10 @@
               (cons (car one.2) (merge (cdr one.2) two.1))))))
       (loop.7 obj))))
 
-(def adjoin (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T))))
+(def adjoin (All (T) (requires (ConformIdentity T)) (-> T (List T) (List T)))
   (lambda (element.2 set.1) (if (conform-member? element.2 set.1) set.1 (cons element.2 set.1))))
 
-(def eliminate (All (T) (=> ((ConformIdentity T)) (-> T (List T) (List T))))
+(def eliminate (All (T) (requires (ConformIdentity T)) (-> T (List T) (List T)))
   (lambda (element.1 set)
     (if (null? set)
       set
@@ -178,12 +178,12 @@
         (cdr set)
         (cons (car set) (eliminate element.1 (cdr set)))))))
 
-(def intersect (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T))))
+(def intersect (All (T) (requires (ConformIdentity T)) (-> (List T) (List T) (List T)))
   (lambda (list1.1 list2.1)
     (((lambda () (begin (def loop.6 (lambda (l.1) (if (null? l.1) (empty-list ) (if (conform-member? (car l.1) list2.1) (cons (car l.1) (loop.6 (cdr l.1))) (loop.6 (cdr l.1)))))) loop.6)))
       list1.1)))
 
-(def union (All (T) (=> ((ConformIdentity T)) (-> (List T) (List T) (List T))))
+(def union (All (T) (requires (ConformIdentity T)) (-> (List T) (List T) (List T)))
   (lambda (list1 list2) (if (null? list1) list2 (union (cdr list1) (adjoin (car list1) list2)))))
 
 (def make-internal-node (-> String (List Node) (List Node) BlueState Node)

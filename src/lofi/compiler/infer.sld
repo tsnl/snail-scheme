@@ -164,14 +164,13 @@
                             (if rest (reverse (cdr (reverse domains))) domains))
                        (and rest (source-type (cadr last) variables loc)) (source-type result variables loc))))
     (define (declared-scheme type variables loc)
-      (let* ((all? (source:all-type? type))
-             (fresh (if all? (map (lambda (variable) (cons variable (fresh-variable #t)))
-                                  (source:all-variables type)) '()))
+      (let* ((fresh (map (lambda (variable) (cons variable (fresh-variable #t)))
+                         (source:signature-variables type)))
              (scope (append fresh variables))
              (obligations (map (lambda (constraint)
                                  (cons (car constraint) (map (lambda (type) (source-type type scope loc)) (cdr constraint))))
-                               (source:type-constraints type))))
-        (cons (make-scheme (map cdr fresh) (source-type (source:all-body type) scope loc) obligations) scope)))
+                               (source:signature-requirements type))))
+        (cons (make-scheme (map cdr fresh) (source-type (source:signature-type type) scope loc) obligations) scope)))
 
     ;; ---- Closed nominal data declarations ----
 
