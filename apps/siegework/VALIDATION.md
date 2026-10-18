@@ -27,6 +27,29 @@ elevation and diagonal quarter-turn snaps for 2:1 dimetric ground diamonds.
 Intermediate rotations remain smooth; picking, pan and camera-relative light
 continue using the same camera basis.
 
+The current published package is `build/siegework-cache/solo`, generation
+`ae733e7b2bcc57d95974ba65`, built at `1a0f2403`. Its 546,626-byte simulation
+has SHA-256
+`64e4cbd2288679a9bf075f92c6857c26726c9948b6a9423807a2d735091bf9da`.
+It preserves the native viewport and existing World10 colonies. Refresh once
+for the added host snapshot-identity provider.
+
+This exact package passes 199 actual-Wasm application checks, 21 presentation
+groups and all 19 Chromium hosting/storage sections, including both product
+browser suites, hot replacement, failed writes, restart and saved reopen.
+All 18 published files on port 4212 were compared byte-for-byte against this
+package. Formatting and the book build pass.
+
+A bounded cache reuses three validated typed snapshots per owner and module
+instance. Newly encoded candidates still undergo complete validation before
+persistence. Sixty complete baseline/candidate output and snapshot comparisons
+match. Shared-host encounter tick/view medians fell from 26.43–27.52 ms to
+17.27–17.85 ms; these CPU diagnostics do not establish hardware frame rate.
+See [the cache measurement report](../../doc/measurements/decoded-snapshots-2026-10-18.md)
+for raw rounds, work counts and the required application purity contract.
+
+The following native-host checkpoint predates the cache implementation.
+
 The native host checkpoint is `build/siegework-native/solo`, generation
 `97a05e81371239ddd43bad09`. It repackages the existing canonical debug Wasm with
 the updated settings and browser host. Its 542,560-byte simulation has SHA-256
@@ -49,8 +72,8 @@ verify native world and DOM screenshot dimensions at DPR 1, 2 and 3 on an odd
 replacement, touch construction, menus and saved reopen. These software GPU
 checks do not establish hardware frame rate or thermal behavior.
 
-The earlier quarter-resolution package was published on port 4212;
-this native checkpoint has not yet been published. World10 saves remain
+The native checkpoint replaced the earlier quarter-resolution package on port
+4212, and the cache package above now supersedes it. World10 saves remain
 compatible. The original invalid-transition and Firefox QueueId reports remain
 unreproduced; this revision does not claim to fix them.
 
