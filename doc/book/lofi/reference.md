@@ -37,20 +37,28 @@ The entry point is `library_file`. Its body admits `static_definition` through
 declarations therefore require library scope, including when produced by a
 macro. Library splices preserve that scope.
 
-This grammar describes the implemented syntax, including `=>` and typed rest
-parameters. The [planned simplification](omissions.md#planned-language-simplification)
-records their intended replacements and the open `All` design.
+This grammar uses `All` with an optional `requires` clause. The earlier `=>`
+spelling remains an input compatibility form, as described in [Types](types.md).
+Typed rest parameters are still implemented; their planned replacement is
+recorded under [planned simplification](omissions.md#planned-language-simplification).
 
 ## Core typing rules
 
 {{#include types.md:typing-notation}}
 
-Schemes have the form `∀ᾱ. P ⇒ T`: quantified variables, requirements, and a
-type. The following rules describe the current inference algorithm. In
+Schemes have the form `∀ᾱ. T requires P`: quantified variables, a type, and
+requirements. Definition checking treats the quantified variables as rigid and
+the requirements as assumptions. Each use substitutes fresh inference holes or
+explicit arguments for those variables, preserving the requirements.
+
+The following rules describe the current inference algorithm. In
 `TYPE-NAME-INFER`, allocating fresh holes leaves their solutions to surrounding
 constraints; it does not infer a concrete instantiation from the name alone.
 `TYPE-INST-INFER` substitutes explicit type arguments in both the type and the
-requirements. See [Types](types.md) for examples and the generalization limits.
+requirements. Checking a name instantiates its scheme and then applies
+`TYPE-SUBSUME-CHECK` against the expected type, solving flexible holes as needed.
+Requirements remain obligations even when their parameters do not occur in the
+expected type. See [Types](types.md) for examples and the generalization limits.
 
 {{#include types.md:literals}}
 
@@ -74,7 +82,7 @@ with the environment and cannot be generalized by another binding in that group.
 generalize(Γ, initializer, T, P):
   A = free(T,P) ∖ free(Γ) if eligible(initializer), otherwise ∅
   abstract = {q ∈ P | free(q) ∩ A ≠ ∅}
-  return (∀A. abstract ⇒ T, P ∖ abstract)
+  return (∀A. T requires abstract, P ∖ abstract)
 
 eligible = literal | name | lambda | instantiation | static-annotation(eligible)
 

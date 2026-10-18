@@ -273,32 +273,56 @@ concrete function type.
 ```text
 <!-- ANCHOR: schemes -->
 signature ::= type
-            | "(" "All" "(" type_variable … ")" type ")"
             | "(" "All" "(" type_variable … ")"
-                  "(" "=>" "(" requirement … ")" type ")" ")"
+                  ["(" "requires" requirement … ")"] type ")"
 
 requirement ::= "(" class_name type … ")"
 <!-- ANCHOR_END: schemes -->
 ```
 
-The current source spelling `=>` attaches requirements to a type; this pair is
-often called a *qualified type*. The complete `All` signature is a *scheme*.
-Write a scheme as `∀ᾱ. P ⇒ T`: quantified variables, requirements,
-and the resulting type. An ordinary type used as a signature has no quantified
-variables and no declared requirements. Each use replaces quantified variables with fresh
-inference variables. Explicit `inst` replaces them with the supplied types.
-Type variables from an attached `All` are rigid while checking that definition:
-its body must work for every allowed type, not just its current callers. These
-parameters also scope over type annotations inside the initializer, so a nested
-`def` can refer to its enclosing definition's type parameters.
+`All` binds the type parameters; its optional `requires` clause lists class
+assumptions available while checking the definition. The final component is
+one ordinary type. The complete signature is a *scheme*, written
+`∀ᾱ. T requires P` in the rules. Requirements are part of the scheme, rather
+than a separate type form that can appear inside an arrow or container.
+
+```scheme
+(def render (All (T) (requires (ToHexString T)) (-> T String))
+     (lambda (value) (to-hex-string value)))
+```
+
+The clause may contain several requirements, such as
+`(requires (Display T) (Serialize T))`. Omitting it is equivalent to writing
+`(requires)`. An empty parameter list is also valid: `All ()` quantifies no
+variables, while its requirements still need to be satisfied. An ordinary type
+used as a signature has neither quantified variables nor declared requirements.
+
+While checking a definition, each `All` parameter becomes a fresh **rigid**
+variable. The initializer must work for that arbitrary type using the declared
+requirements and any enclosing assumptions. For example, an initializer with
+signature `(All (T) (-> T T))` cannot return `42` for every input: unification
+cannot equate the rigid `T` with I32. These parameters also scope over annotations
+inside the initializer, so a nested `def` can refer to its enclosing definition's
+type parameters. They do not escape into sibling definitions.
+
+At each use of a generic binding, quantified variables instead become fresh
+**flexible inference holes**. Arguments and an expected result type can solve
+those holes. Explicit `inst` supplies the type arguments directly. In both cases,
+the substituted requirements must be discharged from enclosing assumptions or
+available instances; available instances do not choose the type arguments.
+
+The earlier `(All (T) (=> ((ToHexString T)) (-> T String)))` spelling remains an
+input compatibility form. It has the same meaning and checker path. The term
+*qualified type* describes the historical requirements-and-type pair; new source
+uses the explicit `requires` clause above.
 
 <!-- ANCHOR: instances -->
 ```text
-Γ(x) = ∀ᾱ. P ⇒ T       ?β̄ fresh inference holes       |ᾱ| = |?β̄|
+Γ(x) = ∀ᾱ. T requires P       ?β̄ fresh inference holes       |ᾱ| = |?β̄|
 ────────────────────────────────────────────── TYPE-NAME-INFER
 Γ ⊢ x ::↑ T[ᾱ := ?β̄] ; requirements P[ᾱ := ?β̄]
 
-Γ(x) = ∀ᾱ. P ⇒ T       |ᾱ| = |Ū| ≥ 1
+Γ(x) = ∀ᾱ. T requires P       |ᾱ| = |Ū| ≥ 1
 ────────────────────────────────────────────── TYPE-INST-INFER
 Γ ⊢ (inst x U₁ … Uₙ) ::↑ T[ᾱ := Ū] ; requirements P[ᾱ := Ū]
 ```
@@ -307,11 +331,20 @@ parameters also scope over type annotations inside the initializer, so a nested
 `TYPE-NAME-INFER` instantiates a scheme without choosing concrete type arguments.
 For `identity`, it produces `(-> ?β ?β)`. Applying it to `42` later solves
 `?β = I32`. Each use gets fresh holes. This is inference with deferred solving;
-the name alone does not determine a unique concrete instantiation.
+the name alone does not determine a unique concrete instantiation. Checking
+`identity` against `(-> I64 I64)` instantiates the same way, then solves the
+hole against the expected type using the checking rule below. Unification is
+part of checking; it never changes the rigid variables of a checked definition.
 `TYPE-INST-INFER` instead substitutes the supplied types in both the type and
 the requirements. Neither rule by itself establishes that those requirements
 have an implementation. The checking and generalization rules decide which
 requirements must be discharged and which can remain in a scheme.
+
+An expected type does not always determine every parameter. With a signature
+`(All (T) (requires (Display T)) (-> String))`, checking a use against
+`(-> String)` leaves `T` unknown because it appears only in the requirement.
+For a concrete use, `(inst name I32)` supplies that missing choice. The checker
+must not select I32 just because a `Display I32` instance happens to be available.
 
 An unannotated `def` or `let` can infer an `All`. Inference generalizes variables
 not fixed by the surrounding environment, subject to the *value restriction*:
@@ -479,7 +512,7 @@ A typeclass names a set of required operations. An instance supplies those
 operations for a particular tuple of types. The `ToHexString` example defines
 one method and supplies separate instances for PrimaryColor, `(Vec3 F32)` and
 Color. A qualified signature such as
-`(All (T) (=> ((ToHexString T)) (-> T String)))` permits using that method in a
+`(All (T) (requires (ToHexString T)) (-> T String))` permits using that method in a
 generic body.
 
 ```text
