@@ -24,7 +24,7 @@
     ],
     "2": [
       "choose",
-      3
+      2
     ],
     " ": [
       "confirm"
@@ -103,14 +103,7 @@
     ],
     "3": [
       "choose",
-      2
-    ],
-    "4": [
-      "choose",
-      4
-    ],
-    "b": [
-      "build-menu"
+      3
     ],
     "g": [
       "worker-menu"

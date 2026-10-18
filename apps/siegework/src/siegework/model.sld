@@ -322,7 +322,7 @@
     (define (fortify-world world x y) (queue-building world 2 x y 0))
     (define (observe-world world x y) (queue-building world 3 x y 0))
     (define (wall-world world x y) (queue-building world 4 x y 0))
-    ;; Brush requests use absolute map cells. Validate the kind and whole index
+    ;; Construction requests use absolute map cells. Validate the kind and whole index
     ;; before converting coordinates, then use the ordinary paid placement path.
     (define (place-cell-world world kind cell)
       (cond ((or (< kind 1) (> kind 4)) world)

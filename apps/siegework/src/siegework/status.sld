@@ -174,7 +174,7 @@
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (not (null? found)) (building-detail world (car found))
-            (if (= tool 0) "BUILD · choose a brush, tap tiles, then Done · select an existing structure for actions · Q/E: rotate camera"
+            (if (= tool 0) "Select a deposit for an extractor, or an empty tile for construction · tap the same tile again to build its preview · select an existing structure for actions · Q/E: rotate camera"
                 (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                                (integer-text x) "," (integer-text y) "] · "
                                (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))

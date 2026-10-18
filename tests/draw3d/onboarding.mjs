@@ -25,7 +25,7 @@ async function effects(values) {
   }
 }
 async function placeExtractor() {
-  await command('choose',[1]);await command('confirm');await command('done-plan');await command('clear-plan');
+  if(!client(runtime.snapshot(2)).chooser)await command('confirm');await command('choose',[1]);
 }
 async function advance(ticks) {
   for (let i = 0; i < ticks; i++) await runtime.dispatch(1, runtime.command('match', 'advance'));
@@ -65,10 +65,10 @@ try {
     await command('viewport',[width,height]);
     for(const left of [false,true]) {
       if(left){await command('pause-menu');await command('handedness');await command('resume');}
-      const hint=placed('onboarding'),build=placed('build-menu');
-      assert.equal(hint.y+hint.height/2,build.y+build.height/2,'the callout points at the Build row');
-      assert.equal(hint.node.properties[9],left?1:2);
-      assert.equal(left?hint.x-(build.x+build.width):build.x-(hint.x+hint.width),14,'the pointer fits the gap');
+      const hint=placed('onboarding'),rail=placed('rail');
+      assert.match(node('onboarding-help').text,/Tap the highlighted deposit/);
+      assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
+      assert.ok(hint.node.properties[9]>0,'the hint points toward its highlighted deposit');
       assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
       assert.ok(placed('rotate-left').x<placed('rotate-right').x,'rotation arrows keep screen order');
       assert.deepEqual(runtime.snapshot(1),fresh,'layout and handedness leave the fresh colony unchanged');
@@ -76,7 +76,7 @@ try {
     await command('pause-menu');await command('handedness');await command('resume');
   }
   await command('viewport',[960,640]);
-  console.log('ok - first-extractor callout remains attached to Build on both edges at portrait and short landscape sizes');
+  console.log('ok - first-extractor guidance points toward the highlighted deposit on both edges at portrait and short landscape sizes');
   await command('center');cursor(12,20);
   await command('pan',[20,-20]);await home();cursor(8,22);
   assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
@@ -84,7 +84,7 @@ try {
   await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),fresh);
   // The tallest visible tip projects onto an adjacent ground cell.
   await point(11.8,20,.63);cursor(12,20);assert.equal(node('context'),undefined);
-  await command('confirm');assert.equal(node('context'),undefined);
+  await command('confirm');assert.ok(node('extractor'));assert.equal(node('tower'),undefined);
   assert.deepEqual(runtime.snapshot(1),fresh);await point(12,20);await placeExtractor();assert.equal(world().buildings[0].kind,1);
   await point(11.8,20,.63);cursor(12,20);await command('confirm');await command('cancel');
   assert.equal(world().buildings.length,0);await command('center');cursor(12,20);

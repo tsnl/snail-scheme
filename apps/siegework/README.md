@@ -27,7 +27,7 @@ time, artifact size and runtime performance can differ.
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v10`, with world schema 10 and
-client schema 6. Earlier incompatible colonies retain their separate save identity.
+client schema 7. Earlier incompatible colonies retain their separate save identity.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
@@ -41,19 +41,21 @@ The status dials and controls occupy one vertical edge strip. **Pause** opens a
 centered menu with Resume, Restart and the control-side setting. The same icons
 and touch-sized buttons appear on desktop and mobile.
 
-- Open **Build**, choose an extractor, tower, artillery or wall brush, then tap
-  cells to plan several structures of that type. Tap a planned cell again to
-  remove it. **Done** submits the orders; **Cancel** clears the plan without
-  spending ore. Dotted boundaries and translucent structures show the plan.
-  Deposits require the extractor brush, including the first one. A persistent
-  callout beside Build explains the first extractor order.
-- The brush stays fixed while the plan has cells. Submitted cells are checked
-  against the current colony one at a time. Accepted orders leave the plan;
-  unavailable or unsaved placements remain for correction or retry. Editing
-  waits until every submitted attempt finishes. The clock starts only after an
-  accepted order, so planning alone does not start the game.
-- Outside build mode, select a building for **Upgrade** (`U`) or **Cancel** (`C`)
-  on its pending order. Dismissing the selection does not cancel construction.
+- Tap a resource deposit to open its **Extractor** action (`1`). Extractors
+  are not part of the ordinary construction choices. Persistent first-extractor
+  guidance points toward the highlighted deposit.
+- Tap an empty tile to open its construction popup: **Tower** (`1`),
+  **Artillery** (`2`) or **Wall** (`3`), with ore costs shown before ordering.
+  The hologram uses this session’s last successfully ordered ordinary building, starting
+  with a tower. Tap that same tile again, or double-click it, to order that type.
+  Tapping a different tile only moves the selection; it does not spend ore.
+- One order saves at a time. Accepted orders close the popup and update the next
+  hologram; an extractor leaves the ordinary choice unchanged. A rejected or
+  unsaved order keeps its selected site and attempted type available for retry.
+  Selection alone never starts the colony clock.
+- Select an existing building for **Upgrade** (`U`) or **Cancel** (`C`) on its
+  pending order. Repeated tile taps only inspect an existing building; they do
+  not upgrade or cancel it. Dismissing selection does not cancel construction.
   Buildings may occupy tracks and railway intersections; their foundations
   leave clearance for the rails.
 - Select the hub or open **Workers** (`G`), then choose **New worker** (`F`)
@@ -72,7 +74,7 @@ and touch-sized buttons appear on desktop and mobile.
 - **Pause** (`P`) stops the colony and opens the menu. **Resume**, Escape or a
   tap outside resumes play. **Restart** opens a confirmation; Cancel, Escape or
   a tap outside returns to the paused menu. A saved paused colony reopens with
-  Resume available. Pausing preserves selections and unpaid construction plans.
+  Resume available. Pausing preserves the unpaid selection.
   Pending Resume and Restart show progress and disable duplicate actions until
   saving finishes; a failed save leaves the action available to retry.
 - WASD pans in screen directions. Q/E smoothly rotates between quarter turns,
@@ -80,8 +82,8 @@ and touch-sized buttons appear on desktop and mobile.
   wheel or two-finger pinch zooms without moving the view center. Two on-screen
   arrow buttons provide quarter turns on touchscreens, without changing the
   world-drag gesture.
-  Arrow keys move the selected cell; Enter selects or submits a plan, while Space
-  selects or toggles a planned tile. Gamepad controls are absent.
+  Arrow keys move the cursor; Enter or Space selects a tile and a second press
+  orders its previewed structure. Gamepad controls are absent.
 
 Pill-shaped cards use equally sized circular action buttons, icons, costs and
 visible shortcut keys on every screen. The pause menu uses labeled rows. Names

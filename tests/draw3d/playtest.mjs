@@ -60,7 +60,7 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
     await command(r,'dismiss');
     for(const [width,height] of [[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]) {
       await command(r,'viewport',[width,height]);
-      for(const key of ['ore','health','workers','difficulty','home','build-menu','pause','worker-menu','rotate-left','rotate-right'])
+      for(const key of ['ore','health','workers','difficulty','home','pause','worker-menu','rotate-left','rotate-right'])
         assert.deepEqual(node(r,key).rect.slice(2),[56,56],`${key} circle at ${width}×${height}`);
       assert.equal(node(r,'ore').text,'');assert.match(node(r,'ore-readout-label').text,/110 ore/);
       assert.equal(node(r,'health').properties[3],300);assert.equal(node(r,'health').properties[5],300);
@@ -186,5 +186,45 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
     assert.deepEqual(local(r).dismissed,[{key:key(afterExpiry.alerts[0]),until:345}],'a new dismissal prunes expired areas');
     await command(r,'center');assert.deepEqual(local(r).dismissed,[]);
     console.log('ok - attack dismissal is local, follows shared area proximity, expires, and retains only four recent areas');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
+    const w=world(r),target=at(w,12,22),hub=at(w,8,22);
+    w.alerts=[0,1,4].map((kind,index)=>({x:hub.x+index*2,y:hub.y,kind,tick:w.tick}));await restoreColony(r,w);
+    for(const [width,height]of[[320,568],[390,844],[568,320],[640,360]])for(const leftHanded of [false,true]) {
+      await command(r,'viewport',[width,height]);
+      await restoreClient(r,{...local(r),chooser:true,targetX:target.x,targetY:target.y,cursorX:target.x,cursorY:target.y,leftHanded});
+      const before=project(r,12,22),wanted=[leftHanded?40:width-40,height-110];
+      await command(r,'drag',wanted.map((value,index)=>value-before[index]));const point=project(r,12,22);
+      const card=node(r,'context');assert.ok(card);const origin=[];
+      function place(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key==='context')origin.push(x+12,y+12);for(const child of value.children)place(child,x,y);}
+      place(r.view().ui);const rect=[...origin,...card.rect.slice(2)];
+      assert.ok(point[0]<rect[0]||point[0]>rect[0]+rect[2]||point[1]<rect[1]||point[1]>rect[1]+rect[3],'selected tile remains outside its popup');
+      for(const inset of r.view().scene.insets??[]) {
+        const value=inset.rect;assert.ok(point[0]<value[0]||point[0]>value[0]+value[2]||point[1]<value[1]||point[1]>value[1]+value[3],'attack thumbnail does not cover the selected tile');
+      }
+      function inspect(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];if(value.key.startsWith('attack-toast-'))assert.ok(point[0]<x+12||point[0]>x+12+value.rect[2]||point[1]<y+12||point[1]>y+12+value.rect[3],'attack card leaves the second-tap target clear');for(const child of value.children)inspect(child,x,y);}
+      inspect(r.view().ui);
+    }
+    console.log('ok - narrow mirrored popups and attack cards leave the selected tile available for its second tap');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
+    const initial=world(r),hub=at(initial,8,22);
+    for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
+      const ended={...initial,outcome,started:true,hull:outcome===1?0:300,nestHp:outcome===3?0:1500,
+        alerts:[0,1,4].map((kind,index)=>({x:hub.x+index*2,y:hub.y,kind,tick:initial.tick}))};
+      await restoreColony(r,ended);await command(r,'viewport',[width,height]);await restoreClient(r,{...local(r),chooser:false,leftHanded});
+      const boxes=new Map();function gather(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];boxes.set(value.key,[x,y,value.rect[2],value.rect[3]]);for(const child of value.children)gather(child,x,y);}
+      gather(r.view().ui);const result=boxes.get('result');assert.ok(result);assert.equal(node(r,'restart').properties[1],1);
+      for(const [key,toast]of boxes)if(key.startsWith('attack-toast-'))assert.ok(toast[0]+toast[2]<=result[0]||result[0]+result[2]<=toast[0]||toast[1]+toast[3]<=result[1]||result[1]+result[3]<=toast[1],'alerts leave the always-visible outcome card and Restart clear');
+    }
+    console.log('ok - victory and defeat cards reserve their space from attack alerts without an active selection');
   } finally {await r.close();}
 }

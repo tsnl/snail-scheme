@@ -16,8 +16,8 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal and nearest-building/crystal/ground picking over the existing grid. |
-| [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, brush plans, camera commands, local attack mutes, restart/pause handling and HUD/inset composition. |
-| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and contextual cards through the reusable top-down Scheme UI library. |
+| [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, local attack mutes, restart/pause handling and HUD/inset composition. |
+| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
@@ -41,19 +41,26 @@ runs in the browser. See the [save guide](../../doc/static-saves.md).
 5. IndexedDB atomically compares the old revision and saves `{revision, state}`.
    Queries see the old state until transaction completion, then the new state,
    revision and effects publish together. Failed saves preserve the old game.
-6. The browser queues committed replies back to Client. A planned build has a
-   separate completion message for each attempted cell, so failed persistence
-   cannot leave the planning controls locked. Success removes a ghost; completion
-   releases its pending slot. The next batch waits for every completion.
+6. The browser queues committed replies back to Client. One placement keeps its
+   pending slot until the authored completion message runs, including when
+   persistence fails. An accepted reply closes selection and remembers the next
+   ordinary building type; a failure keeps the intended choice available to retry.
 
-The brush plan is Client state, not a second game world. `Done` emits ordinary
-typed `build-cell(kind, cell)` commands, each carrying an absolute map cell.
-Validation and payment happen in the model's normal placement operation. The
-local host preserves reply-before-completion ordering; no network receipt or
-batch protocol is implied. A rejected or unsaved cell remains planned. Code
-replacement and shutdown drain admitted commands and their queued replies.
+The selected tile and remembered ordinary building type are Client presentation
+state. A construction button captures both its kind and absolute cell, so a stale
+button cannot order a new selection. The second tap on the same empty tile emits
+that same typed `build-cell(kind, cell)` request. Deposits offer only extractors;
+existing-building taps inspect, with separate explicit upgrade and cancel actions.
+The model's normal placement operation validates and pays for each order.
 
-Pause presentation covers the current plan and selection without replacing them.
+One local placement slot remains occupied through reply and completion. Imports
+clear selection and supersede the older result without releasing that slot early.
+A queued activation after a failed write can retry the still-unpaid intended order;
+an accepted site becomes inspect-only. This uses the existing ordered local
+messages, without a batch protocol or a second game world. Code replacement and
+shutdown drain admitted commands and replies.
+
+Pause presentation covers the current selection without replacing it.
 Client distinguishes the closed menu, Pause and restart confirmation; committed
 World pause also supplies the Pause menu after a saved colony reloads. Resume
 unpauses explicitly, while canceling restart returns to Pause. Covered gameplay
@@ -80,7 +87,7 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 10 and client schema 6 under application ID
+The game declares world schema 10 and client schema 7 under application ID
 `siegework-colony-v10`, which starts a fresh save identity. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts and are rejected; derivation does not migrate existing saves. The browser retains

@@ -13,7 +13,7 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', plan:'I32', pending:'I32', dismissed:'DismissedAttack'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack'};
 function typedRecord(type, value) {
   if (type === 'Enemy') {
     const {burrower = false, rank = value.kind === 2 ? 6 : 0, ...fields} = value;
@@ -33,9 +33,9 @@ function typedField(field, value) {
 export const colonyWords = world => snapshotWords(10, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,...fields}=local;
-  return snapshotWords(6, typedRecord('Client', {...fields, heading:local.heading ?? 0,
+  return snapshotWords(7, typedRecord('Client', {...fields, heading:local.heading ?? 0,
     turnFrom:local.turnFrom ?? 0, turnTo:local.turnTo ?? 0, turnElapsed:local.turnElapsed ?? 300,
-    scale:local.scale ?? 1000, preview:local.preview ?? 0, dialog:local.dialog ?? 0,dialogPending:local.dialogPending ?? 0,dialogResult:local.dialogResult ?? 0,homing:local.homing ?? false,brush:local.brush ?? 0,plan:local.plan ?? [],pending:local.pending ?? [],rejected:local.rejected ?? 0,unconfirmed:local.unconfirmed ?? 0,resolution:local.resolution ?? 0,menu:local.menu ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
+    scale:local.scale ?? 1000, preview:local.preview ?? 0, dialog:local.dialog ?? 0,dialogPending:local.dialogPending ?? 0,dialogResult:local.dialogResult ?? 0,homing:local.homing ?? false,lastKind:local.lastKind ?? 3,choiceKind:local.choiceKind ?? 3,buildKind:local.buildKind ?? 0,buildCell:local.buildCell ?? -1,buildResult:local.buildResult ?? 0,menu:local.menu ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
 };
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));

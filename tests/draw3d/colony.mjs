@@ -47,7 +47,7 @@ function popupControlsFit() {
     if(value.kind===5)assert.equal(value.properties[8],0,`${value.key} must not scroll`);
     if(value.kind===2){
       assert.ok(left>=0&&top>=0&&left+value.rect[2]<=width&&top+value.rect[3]<=height,`${value.key} must fit its card`);
-      assert.match(value.text,/^(?:[123UCTNFHPR]|Esc|Enter)$/,`${value.key} shows its hotkey`);
+      assert.match(value.text,/^(?:[123UCTNFHPR]|Esc|Enter|Close)$/,`${value.key} shows its hotkey`);
     }
     const padding=value.kind===5?value.properties[6]:0;
     for(const child of value.children)walk(child,left+padding,top+padding);
@@ -60,9 +60,6 @@ async function effects(values) {
     if(effect.owner===1&&['new-run','new-run-seed'].some(name=>effect.command.handler===runtime.command('match',name,name==='new-run-seed'?[1]:[]).handler))
       await command('reset-presentation');
   }
-}
-async function plan(kind,cells) {
-  await command('choose',[kind]);for(const [x,y] of cells){await point(x,y);await command('confirm');}
 }
 function controlsFit(width,height) {
   function walk(value,x=0,y=0) {
@@ -106,66 +103,48 @@ try {
   console.log('ok - smooth home, screen-aligned bounded pan, retained entities and orthographic zoom preserve match state and look-at');
 
   await command('center');await point(12,20);await command('confirm');
-  assert.equal(local().chooser,false);assert.deepEqual(runtime.snapshot(1),fresh);
-  assert.match(node('onboarding-help').text,/Build.*extractor brush.*deposit.*Done/);
-  await command('build-menu');assert.ok(node('extractor'));await command('choose',[1]);
-  await point(12,20);await command('confirm');assert.equal(local().plan.length,1);assert.deepEqual(runtime.snapshot(1),fresh);
-  await command('confirm');assert.equal(local().plan.length,0);await command('confirm');
-  await command('choose',[2]);assert.equal(local().brush,1,'a nonempty plan locks the selected type');
+  assert.equal(local().chooser,true);assert.deepEqual(runtime.snapshot(1),fresh);
+  assert.ok(node('extractor'));assert.equal(node('tower'),undefined);popupControlsFit();
+  await point(12,22);await command('confirm');assert.ok(node('tower')&&node('artillery')&&node('wall'));
+  assert.equal(node('extractor'),undefined);assert.deepEqual(runtime.snapshot(1),fresh);popupControlsFit();
   const unpaid=runtime.snapshot(2);await command('pause-menu');
   for(const confirming of [false,true]) {
     if(confirming)await command('restart');
     const covered=runtime.snapshot(2),stopped=runtime.snapshot(1);
-    for(const [binding,args]of[['center',[]],['clear-plan',[]],['restart-seed',[42]],['choose',[3]],['done-plan',[]],['home',[]],['preview',[4]]]) {
-      await command(binding,args);assert.deepEqual(runtime.snapshot(2),covered,`${binding} preserves the unpaid plan behind the dialog`);
+    for(const [binding,args]of[['center',[]],['restart-seed',[42]],['choose',[3]],['home',[]],['preview',[4]],['confirm',[]]]) {
+      await command(binding,args);assert.deepEqual(runtime.snapshot(2),covered,`${binding} preserves the unpaid selection behind the dialog`);
       assert.deepEqual(runtime.snapshot(1),stopped);
     }
     if(confirming){await command('resume');assert.deepEqual(runtime.snapshot(2),covered);await command('dismiss');assert.equal(world().paused,1);}
   }
   await command('resume');assert.deepEqual(runtime.snapshot(2),unpaid);assert.deepEqual(runtime.snapshot(1),fresh);
-  await command('clear-plan');assert.equal(local().plan.length,0);assert.deepEqual(runtime.snapshot(1),fresh);
-  await plan(1,[[12,20]]);await command('accept');assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);
-  assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);await command('clear-plan');
+  await point(12,20);await command('confirm');await command('choose',[1]);
+  assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);assert.equal(local().chooser,false);assert.equal(local().buildKind,0);
   await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.94);await command('confirm');
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
-  console.log('ok - empty selection is free; brush tiles toggle, type locks, Cancel is unpaid, and Done alone orders construction');
+  console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');
 
-  await command('dismiss');await plan(4,[[13,21],[14,21]]);
-  const beforePlan=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','done-plan'));
-  assert.equal(submitted.effects.length,4);assert.equal(local().pending.length,2);assert.deepEqual(runtime.snapshot(1),beforePlan);
+  await command('dismiss');await point(13,21);await command('confirm');
+  const before=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','choose',[3]));
+  assert.equal(submitted.effects.length,2);assert.equal(local().buildKind,4);assert.deepEqual(runtime.snapshot(1),before);
   const pending=runtime.snapshot(2);
-  for(const [binding,args]of[['clear-plan',[]],['choose',[3]],['restart',[]],['center',[]]]) {
-    await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight plan`);
+  for(const [binding,args]of[['choose',[2]],['center',[]],['home',[]],['worker-menu',[]],['confirm',[]]]) {
+    await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight site`);
   }
   await command('pause-menu');assert.equal(world().paused,1);assert.equal(node('restart-menu').properties[1],0);
-  const coveredPlan=runtime.snapshot(2),pausedPlan=runtime.snapshot(1);
-  for(const [binding,args]of[['clear-plan',[]],['center',[]],['restart-seed',[2]],['choose',[3]],['hire',[]],['pan',[1,1]],['zoom',[200]],['turn',[1]],['done-plan',[]],['build-menu',[]],['worker-menu',[]],['confirm',[]],['activate',[]]]) {
-    await command(binding,args);assert.deepEqual(runtime.snapshot(2),coveredPlan,`${binding} stays behind the pause menu`);assert.deepEqual(runtime.snapshot(1),pausedPlan);
-  }
-  await advance(10);assert.deepEqual(runtime.snapshot(1),pausedPlan,'the authoritative clock stops while the menu is open');
-  const first=await runtime.dispatch(1,runtime.effectCommand(submitted.effects[0]));await effects(first.effects);
-  assert.equal(local().pending.length,2,'a reply alone does not unlock the batch');
-  assert.equal(local().resolution,1);await effects([submitted.effects[1]]);assert.equal(local().pending.length,1);
-  await effects(submitted.effects.slice(2));assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);
-  assert.ok(siteAt(world(),13,21)&&siteAt(world(),14,21));assert.equal(node('restart-menu').properties[1],1);
-  await command('resume');await command('clear-plan');
-  const bank=world().ore;await plan(4,[[8,22],[15,21]]);await command('done-plan');
-  assert.equal(local().pending.length,0);assert.equal(local().plan.length,1);assert.equal(local().rejected,1);
-  assert.equal(world().ore,bank-8);assert.ok(siteAt(world(),15,21));await command('clear-plan');assert.equal(world().ore,bank-8);
-  console.log('ok - typed per-cell commits settle in order; accepted cells clear and rejected cells remain without extra charges');
+  await effects(submitted.effects);assert.equal(local().buildKind,0);assert.equal(local().lastKind,4);assert.ok(node('pause-dialog'));
+  await command('resume');assert.equal(siteAt(world(),13,21).kind,4);assert.equal(local().chooser,false);
+  const spent=world().spent;await point(14,21);await command('confirm');assert.equal(world().spent,spent);assert.equal(local().choiceKind,4);
+  await command('confirm');assert.equal(world().spent,spent+8);await command('confirm');await command('confirm');
+  assert.equal(world().spent,spent+8);assert.ok(node('cancel-build'),'occupied-site taps inspect without cancelling');
+  console.log('ok - one in-flight order locks its site through settlement; accepted memory drives the next second-tap build');
 
-  await runtime.restore(1,fresh);await command('center');await plan(4,[[13,21],[14,21],[15,21]]);
-  const outgoing=await runtime.dispatch(2,runtime.command('client','done-plan'));
-  await effects(outgoing.effects.slice(0,2));
-  // A failed save publishes no reply. Its already-authored settlement still runs.
-  await effects([outgoing.effects[3]]);await effects(outgoing.effects.slice(4));
-  assert.equal(local().pending.length,0);assert.equal(local().unconfirmed,1);assert.equal(local().plan.length,1);
-  assert.equal(siteAt(world(),14,21),undefined);assert.equal(world().ore,144);assert.match(node('plan-price').text,/Unconfirmed/);
-  const retryable=runtime.snapshot(2);await point(14,21);await command('confirm');
-  assert.equal(local().plan.length,0);assert.equal(local().unconfirmed,0);assert.equal(local().rejected,0);
-  assert.doesNotMatch(node('plan-price').text,/Unconfirmed|retry/);
-  await runtime.restore(2,retryable);await command('done-plan');assert.equal(local().plan.length,0);assert.equal(local().unconfirmed,0);assert.equal(world().ore,136);
-  await command('clear-plan');console.log('ok - settlement without a durable reply retains a retryable cell and unlocks only after the batch drains');
+  await command('dismiss');await point(15,21);await command('confirm');
+  const failedWorld=runtime.snapshot(1),outgoing=await runtime.dispatch(2,runtime.command('client','choose',[2]));
+  assert.equal(local().buildKind,2);await effects(outgoing.effects.filter(effect=>effect.owner===2));
+  assert.deepEqual(runtime.snapshot(1),failedWorld);assert.equal(local().buildKind,0);assert.equal(local().choiceKind,2);assert.equal(local().lastKind,4);
+  assert.equal(local().chooser,true);await command('confirm');assert.equal(siteAt(world(),15,21).kind,2);assert.equal(local().lastKind,2);
+  console.log('ok - settlement without a durable reply keeps the exact attempted type retryable and changes memory only on acceptance');
 
   await runtime.restore(1,fresh);await command('center');await home();const unselected=runtime.snapshot(1);
   await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
@@ -191,10 +170,9 @@ try {
     assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
     await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
     assert.ok(placed('rotate-left').left<placed('rotate-right').left,'Q stays physically left of E');
-    await command('resume');await command('build-menu');controlsFit(width,height);assert.ok(node('extractor')&&node('tower')&&node('artillery')&&node('wall'));
-    await command('choose',[3]);controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));
-    await command('pause-menu');controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));await command('resume');
-    await command('clear-plan');await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
+    await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&node('wall'));
+    const target=project(12,22),card=placed('context');assert.ok(target[0]-12<card.left||target[0]-12>=card.right||target[1]-16<card.top||target[1]-16>=card.bottom,'selected tile remains outside the popup');
+    await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
   }
   console.log('ok - same 56px controls fit desktop, portrait and short landscape; handedness mirrors the entire rail and attached panels');
 

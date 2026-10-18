@@ -10,7 +10,8 @@ import {checkFocus} from './colony-focus.mjs';
 import {checkWorld} from './colony-world.mjs';
 import {checkVisibility} from './colony-visibility.mjs';
 import {checkHub} from './colony-hub.mjs';
-import {checkBrushOrders} from './colony-brush.mjs';
+import {checkConstructionOrders} from './colony-construction.mjs';
+import {checkDirectBuild} from './colony-direct-build.mjs';
 import {checkCrowd} from './colony-crowd.mjs';
 import {checkRetaliation} from './colony-retaliation.mjs';
 import {checkDigging} from './colony-digging.mjs';
@@ -61,27 +62,20 @@ await test('immutable prior snapshots, automatic hauling, placement and pure vie
   assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
   assert.ok(view.scene.batches.some(batch => batch.vertices.length > 100)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
-await test('a brush plan spends only after Done and clears only after its reply and settlement', async () => {
+await test('a selected deposit spends only on construction and unlocks after reply and settlement', async () => {
   const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  const selected = await local('confirm');
-  assert.deepEqual(selected.effects, []); assert.equal(client(r.snapshot(2)).chooser, false);
-  assert.deepEqual(r.snapshot(1), before);
-  assert.equal(colony(r.snapshot(1)).started,false); assert.equal(colony(r.snapshot(1)).tick,0);
-  assert.deepEqual((await local('build-menu')).effects,[]);
-  assert.deepEqual((await local('choose',[1])).effects,[]);
-  assert.deepEqual((await local('confirm')).effects,[]);
-  const planned=client(r.snapshot(2)),cell=planned.cursorX+planned.cursorY*384;
-  assert.deepEqual(planned.plan,[cell]);assert.deepEqual(planned.pending,[]);assert.deepEqual(r.snapshot(1),before);
-  const result=await local('done-plan');assert.deepEqual(r.snapshot(1),before);
+  assert.deepEqual((await local('confirm')).effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
+  assert.deepEqual(r.snapshot(1), before); assert.equal(colony(r.snapshot(1)).started,false);
+  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*384;
+  const result=await local('confirm');assert.deepEqual(r.snapshot(1),before);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
-    {kind:'send',owner:2,command:r.command('client','plan-settled',[cell])}]);
-  assert.equal(client(r.snapshot(2)).chooser, false);
+    {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);
+  assert.equal(client(r.snapshot(2)).buildKind,1);
   const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,120);
-  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','plan-result',[cell,1])}]);
-  await r.dispatch(2,r.effectCommand(committed.effects[0]));
-  assert.deepEqual(client(r.snapshot(2)).plan,[cell]);assert.deepEqual(client(r.snapshot(2)).pending,[cell]);
+  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,1])}]);
+  await r.dispatch(2,r.effectCommand(committed.effects[0]));assert.equal(client(r.snapshot(2)).buildKind,1);
   await r.dispatch(2,r.effectCommand(result.effects[1]));
-  assert.deepEqual(client(r.snapshot(2)).plan,[]);assert.deepEqual(client(r.snapshot(2)).pending,[]);await r.close();
+  assert.equal(client(r.snapshot(2)).buildKind,0);assert.equal(client(r.snapshot(2)).chooser,false);await r.close();
 });
 await test('worker hiring requires the selected hub and retains its dialog for another paid order',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
@@ -97,10 +91,10 @@ await test('worker hiring requires the selected hub and retains its dialog for a
 });
 await test('dismiss closes a selected project while explicit cancellation owns its refund',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  await local('nudge',[-2,2]);await local('build-menu');await local('choose',[3]);await local('confirm');
-  const selected=await local('done-plan'),committed=await r.dispatch(1,r.effectCommand(selected.effects[0]));
+  await local('nudge',[-2,2]);await local('confirm');
+  const selected=await local('choose',[1]),committed=await r.dispatch(1,r.effectCommand(selected.effects[0]));
   await r.dispatch(2,r.effectCommand(committed.effects[0]));await r.dispatch(2,r.effectCommand(selected.effects[1]));
-  assert.equal(colony(r.snapshot(1)).ore,135);await local('clear-plan');
+  assert.equal(colony(r.snapshot(1)).ore,135);
   await local('confirm'); assert.deepEqual((await local('dismiss')).effects,[]);
   assert.equal(client(r.snapshot(2)).chooser,false); assert.equal(colony(r.snapshot(1)).buildings.length,1);
   await local('confirm'); const cancelled=await local('cancel'); assert.equal(cancelled.effects.length,1);
@@ -220,7 +214,8 @@ await checkFocus(test, fresh, call);
 await checkWorld(test, fresh);
 await checkVisibility(test, fresh);
 await checkHub(test, fresh, bytes);
-await checkBrushOrders(test, fresh);
+await checkConstructionOrders(test, fresh);
+await checkDirectBuild(test, fresh);
 await checkCrowd(test, fresh, bytes);
 await checkRetaliation(test, fresh, bytes);
 await checkDigging(test, fresh);

@@ -148,9 +148,10 @@ source edits remain unchecked until compiled and exercised.
 - [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
 - [x] Outline the combined range of active artillery on the map.
 - [x] Enemies under fire pursue the attacker, with walls still blocking them.
-- [x] Build with a selected brush and a local multi-cell plan. Tapping toggles a
-      planned cell; Done submits orders and Cancel spends nothing. Keep rejected
-      cells visible for correction and prevent overlapping submissions.
+- [x] Replace the brush planner with direct tile construction. Deposits offer
+      extractors; ordinary tiles offer tower/artillery/wall with visible costs.
+      Repeat a tile tap to build the remembered successful type; retargeting is
+      free, and failed orders retain their intended choice for retry.
 - [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
 - [x] Keep drag for panning and pinch for zoom; expose compact quarter-turn
       buttons directly on screen. Do not add twist rotation.
@@ -195,8 +196,8 @@ including the separately checked final mobile package, is recorded in
 - [x] Remove the map-scale toggle; retain wheel/pinch zoom and Q/E buttons.
 - [x] Consolidate Pause, Resume, Restart and handedness into a labeled centered
       menu. Restart cancellation returns to Pause; saved paused colonies expose
-      Resume. Keep unpaid plans intact and block covered gameplay controls.
-- [x] Keep first-extractor guidance visible and anchor its callout beside Build.
+      Resume. Keep unpaid selection intact and block covered gameplay controls.
+- [x] Keep first-extractor guidance visible and point toward the highlighted deposit.
 - [x] Keep menu operations pending until save settlement, retain retry controls
       after failures and synchronize paused startup/imports without adding World
       reads to camera input.
