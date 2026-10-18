@@ -1,8 +1,7 @@
 # Make a counter with typed commands
 
-Build a program that adds two to forty and returns `42`. This isolates the
-application's smallest operation: compute a replacement from an old state and
-a command. No state service, network or browser is involved.
+Build a program that adds two to forty and returns `42`. You will declare state,
+define commands and run a handler that calculates the next state.
 
 Use the [shared setup](index.md#set-up-once). The complete source is
 [`counter.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/counter.sld).
@@ -84,12 +83,4 @@ Try replacing `(add 2)` with `(reset)` and expect `0`. Then restore the original
 `answer` so the supplied checkpoint again returns `42`. Keep arithmetic small
 here; the example does not implement an overflow policy for a production counter.
 
-## Find this in Siegework
-
-In [`game.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/game.sld), `match-app`
-uses the same declaration. Its `advance` handler calculates a replacement
-`World`, and `new-run` returns a fresh initial world. The larger state does
-not change the dispatch model.
-
-Next: [make an inventory](inventory.md), where an operation can leave state
-unchanged because a purchase is unaffordable.
+Next: [build an inventory](inventory.md) that rejects unaffordable purchases.
