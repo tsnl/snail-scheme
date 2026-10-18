@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test benchmark
+.PHONY: format check test benchmark spec
 
 CHIBI ?= chibi-scheme
 EMACS ?= emacs
@@ -7,6 +7,9 @@ NIXFMT ?= nixfmt
 BENCH_OUTPUT ?= /tmp/lofi-benchmarks
 # Benchmark captures retain their recorded source hashes and layout.
 SCHEME_SOURCES = '*.scm' '*.sld' ':!:benchmarks/**'
+
+spec:
+	./scripts/spec
 
 test:
 	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit

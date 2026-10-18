@@ -15,24 +15,27 @@ of implemented behavior separate from proposed language changes.
 - [ ] Specify fixed-arity Lofi functions and explicit argument packing for
   Scheme variadic procedures before removing the documented rest forms.
 
-## Deferred: Ott formalization and proofs
+## Ott formalization and Rocq proofs
 
-Formalization and proof tooling are deferred. They are not prerequisites for
-landing documentation improvements.
+The [Ott/Rocq draft](doc/spec/README.md) now defines the documented grammar and
+checks the first formation proofs. It is not a prerequisite for landing other
+documentation improvements or a proof of the compiler.
 
-- [ ] Review the Ott grammar and named inference rules in the draft against
-  the implemented language.
+- [x] Define the documented grammar and initial named formation rules in Ott.
 - [ ] Generate the corresponding book sections from that source once the
   workflow is established, keeping explanations and examples alongside the rules.
-- [ ] Review the Ott-to-Rocq build before landing the proof tooling. Generating
-  definitions does not itself prove properties of the language or compiler.
-- [ ] Add machine-checked proofs incrementally, beginning with variable scope,
-  name categories, application arity, and closed instance heads. State each
-  fragment's assumptions and proved properties before expanding its coverage.
+- [x] Generate Coq definitions and check them with Rocq 9.1.1.
+- [x] Prove variable scope, application arity, closed instance heads, and
+  formation equivalence for omitted/empty `requires` clauses. Keep name categories
+  distinct in the generated AST.
+- [ ] Define substitution, instantiation, rigid checking, and evidence discharge.
+- [ ] Move expression typing and evaluation rules into Ott, then prove their
+  properties. Initialization and effects need explicit treatment.
+- [ ] Establish correspondence with compiler syntax and checking; symbolic
+  grammar and formation proofs alone do not prove the implementation correct.
 
-The [Ott/Rocq experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
-explores generated definitions and formation proofs. It remains separate from
-the landed compiler and book; it does not prove compiler correctness.
+The [formalization PR #325](https://github.com/tsnl/snail-scheme/pull/325)
+remains a draft while this verification work develops.
 
 ## Siegework iteration
 
