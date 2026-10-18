@@ -105,7 +105,7 @@ try {
   await command('center');await point(12,20);await command('confirm');
   assert.equal(local().chooser,true);assert.deepEqual(runtime.snapshot(1),fresh);
   assert.ok(node('extractor'));assert.equal(node('tower'),undefined);popupControlsFit();
-  await point(12,22);await command('confirm');assert.ok(node('tower')&&node('artillery')&&node('wall'));
+  await point(12,22);await command('confirm');assert.ok(node('tower')&&node('artillery')&&node('house'));
   assert.equal(node('extractor'),undefined);assert.deepEqual(runtime.snapshot(1),fresh);popupControlsFit();
   const unpaid=runtime.snapshot(2);await command('pause-menu');
   for(const confirming of [false,true]) {
@@ -128,7 +128,7 @@ try {
   const before=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','choose',[3]));
   assert.equal(submitted.effects.length,2);assert.equal(local().buildKind,4);assert.deepEqual(runtime.snapshot(1),before);
   const pending=runtime.snapshot(2);
-  for(const [binding,args]of[['choose',[2]],['center',[]],['home',[]],['worker-menu',[]],['confirm',[]]]) {
+  for(const [binding,args]of[['choose',[2]],['center',[]],['home',[]],['fabricate',[]],['confirm',[]]]) {
     await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight site`);
   }
   await command('pause-menu');assert.equal(world().paused,1);assert.equal(node('restart-menu').properties[1],0);
@@ -148,13 +148,13 @@ try {
 
   await runtime.restore(1,fresh);await command('center');await home();const unselected=runtime.snapshot(1);
   await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
-  await command('worker-menu');assert.deepEqual(runtime.snapshot(1),unselected);assert.ok(node('worker'));
-  assert.deepEqual(node('worker').action.command,runtime.command('client','hire'));
-  assert.deepEqual(manifest.settings.keys.f,['hire']);assert.deepEqual(manifest.settings.keys.g,['worker-menu']);
-  await command('hire');await command('hire');await command('dismiss');
+  assert.equal(node('worker-menu'),undefined);await command('home');await animate();assert.deepEqual(runtime.snapshot(1),unselected);assert.ok(node('worker'));
+  assert.deepEqual(node('worker').action.command,runtime.command('client','fabricate'));
+  assert.deepEqual(manifest.settings.keys.f,['fabricate']);assert.equal(manifest.settings.keys.g,undefined);
+  await command('fabricate');await command('fabricate');assert.equal(local().chooser,true);await command('dismiss');
   assert.equal(world().ore,110);assert.equal(local().chooser,false);await command('home');await animate();
   assert.ok(node('repair')&&node('worker'));assert.equal(node('close-context'),undefined);await command('fabricate');assert.equal(world().ore,85);await command('dismiss');
-  console.log('ok - worker actions open without charge; repeated F hiring and hub repair use explicit typed requests');
+  console.log('ok - hub actions open without charge; repeated F hiring and hub repair use explicit typed requests');
 
   await home();
   for(let turn=0;turn<4;turn++){
@@ -175,9 +175,9 @@ try {
     assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
     await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
     assert.ok(placed('rotate-left').left<placed('rotate-right').left,'Q stays physically left of E');
-    await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&node('wall'));
+    await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&node('house'));
     const target=project(12,22),card=placed('context');assert.ok(target[0]-12<card.left||target[0]-12>=card.right||target[1]-16<card.top||target[1]-16>=card.bottom,'selected tile remains outside the popup');
-    await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
+    await command('home');await animate();controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
   }
   console.log('ok - same 56px controls fit desktop, portrait and short landscape; handedness mirrors the entire rail and attached panels');
 

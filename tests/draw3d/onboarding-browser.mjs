@@ -95,24 +95,18 @@ async function checkAttackToasts() {
   const saved=await evaluate('snailApp.runtime.snapshot(1)');
   for(const[width,height]of[[1100,760],[390,844],[844,390]]){
     await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:width<900});await pause(250);await settled();
-    const count=3; // This fixture has three alerts and each viewport fits three 88px cards.
-    const frame=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene;return{insets:scene.insets.map(view=>({key:view.key,rect:view.rect})),
+    const count=3; // Three compact alerts fit every fixture viewport.
+    const frame=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene;return{insets:scene.insets??[],
       resources:snailApp.renderer.resources,cards:[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(e=>e.getBoundingClientRect().toJSON())};})()`);
-    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,1+2*count);
-    assert.equal(frame.resources.insetPixels,32*24*count);
-    for(const rect of frame.cards)assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1);
-    for(const{rect:[x,y,w,h]}of frame.insets){assert.deepEqual([w,h],[64,48]);assert.ok(x>=0&&y>=0&&x+w<=width&&y+h<=height);}
-    const colors=await evaluate(`(async()=>{const scene=snailApp.runtime.view().scene,p=await snailApp.renderer.readPixels(scene),[x,y,w,h]=scene.insets[0].rect;
-      const sx=snailApp.canvas.width/snailApp.viewport[0],sy=snailApp.canvas.height/snailApp.viewport[1];
-      const colors=new Set();for(let py=Math.ceil(y*sy);py<(y+h)*sy;py++)for(let px=Math.ceil(x*sx);px<(x+w)*sx;px++){
-        const i=py*p.bytesPerRow+px*4;colors.add(Array.from(p.bytes.subarray(i,i+3)).join(','));}return colors.size;})()`);
-    assert.ok(colors>12,'live thumbnail must contain rendered world geometry');await capture(`attacks-${width}x${height}`);
+    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,0);assert.equal(frame.resources.insets,0);assert.equal(frame.resources.insetPixels,0);
+    for(const rect of frame.cards){assert.equal(rect.height,56);assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1);}
+    await capture(`attacks-${width}x${height}`);
   }
   const first=(await world()).alerts[0];const key=await evaluate(`document.querySelector('[data-ui-key^="attack-toast-"]').dataset.uiKey`);
   await click(key);await until(async()=>!(await local()).homing,'attack camera travel');
   const state=await local();assert.equal(state.cameraX,first.x*1000);assert.equal(state.cameraY,first.y*1000);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),saved);
-  console.log('ok - bounded attack cards show rendered live insets at desktop, portrait and landscape sizes; inspection only moves the camera',origin);
+  console.log('ok - compact attack cards allocate no scene insets at desktop, portrait and landscape sizes; inspection only moves the camera',origin);
 }
 try {
   await call('Runtime.enable'); await call('Network.enable'); await call('Network.setCacheDisabled', {cacheDisabled: true});
