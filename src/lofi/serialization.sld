@@ -48,10 +48,10 @@
     (data DeserializeContext ()
       (deserialize-context
        (objects (Ref (List DeserializedObject)) deserialized-objects)))
-    (def serialize (All (T) (=> ((Serialize T)) (-> T Sexp)))
+    (def serialize (All (T) (requires (Serialize T)) (-> T Sexp))
          (lambda (value)
            (serialize-with (serialize-context (ref (empty-list)) (ref (ann 0 I64))) value)))
-    (def deserialize (All (T) (=> ((Deserialize T)) (-> Sexp T)))
+    (def deserialize (All (T) (requires (Deserialize T)) (-> Sexp T))
          (lambda (value) (deserialize-with (deserialize-context (ref (empty-list))) value)))
 
     ;; ---- Parse wire shapes before using their contents ----

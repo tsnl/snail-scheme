@@ -23,7 +23,7 @@
     (define keywords
       '(def lambda if let begin library-begin ann inst match import export define-library
             data datatype typeclass instance define-overload define-extern
-            : All requires => -> Ref List Vector Rest Type Constraint Kind-> Evidence
+            : All requires -> Ref List Vector Rest
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define unsupported-keywords
       '(define-syntax syntax-rules let-syntax letrec-syntax cond-expand include
@@ -378,9 +378,9 @@
             (let-values (((rest final) (parse-statements (cdr forms) next)))
               (values (cons node rest) final)))))
     (define (signature-scope signature scope)
-      (if (and signature (all-type? signature))
+      (if (and signature (all-signature? signature))
           (extend-types scope (map (lambda (variable) (cons (type-variable-name variable) variable))
-                                   (all-variables signature))) scope))
+                                   (signature-variables signature))) scope))
     (define (parse-binding form definition scope)
       (let* ((items (definition-parts form))
              (signature (and (= (length items) 3) (parse-signature (cadr items) scope)))
@@ -391,13 +391,13 @@
         (make-value-binding definition initializer (syntax-loc form) (head form))))
     (define (parse-definition form scope)
       (let ((former (definition-former form)))
-        (let ((declaration
-               (case former
-                 ((datatype) (parse-data form scope))
-                 ((typeclass) (parse-class form scope))
-                 ((instance) (parse-instance form scope))
-                 (else (parse-binding form (resolve (car (definition-parts form)) scope) scope)))))
-          (if (static-former? former) (attach-static-kind form scope declaration) declaration))))
+        (when (and (static-former? former) (= (length (definition-parts form)) 3))
+          (fail (cadr (definition-parts form)) "static definitions do not accept kind annotations"))
+        (case former
+          ((datatype) (parse-data form scope))
+          ((typeclass) (parse-class form scope))
+          ((instance) (parse-instance form scope))
+          (else (parse-binding form (resolve (car (definition-parts form)) scope) scope)))))
     (define (parse-item form environment)
       (case (head form)
         ((def) (parse-definition form environment))
@@ -490,7 +490,8 @@
     (define (parse-compound-type form environment)
       (let ((items (parts form)) (tag (head form)))
         (case tag
-          ((All requires =>) (fail form "All and constraints belong to an attached binding signature"))
+          ((All requires) (fail form "All and requirements belong to an attached binding signature"))
+          ((=>) (fail form "use a requires clause in the All signature"))
           ((Ref List Vector Rest) (list tag (parse-type (car (arguments form 1)) environment)))
           ((->)
            (when (null? (cdr items)) (fail form "function type requires a result"))
@@ -507,16 +508,12 @@
           (fail form "All expects parameters, an optional requires clause, and a type"))
         (let* ((variables (type-variables (parts (car items)) form))
                (scope (extend-types environment variables)))
-          (list 'All (map cdr variables) (parse-all-tail (cdr items) scope)))))
-    ;; Both source spellings use the same declared signature and checker path.
-    (define (parse-all-tail items environment)
-      (let ((first (car items)))
-        (if (null? (cdr items))
-            (if (eq? (head first) '=>) (parse-qualified first environment) (parse-type first environment))
-            (begin
-              (unless (eq? (head first) 'requires) (fail first "expected a requires clause before the type"))
-              (list '=> (map (lambda (requirement) (parse-constraint requirement environment)) (cdr (parts first)))
-                    (parse-type (cadr items) environment))))))
+          (make-all-signature (map cdr variables)
+                              (if (= (length items) 3) (parse-requires (cadr items) scope) '())
+                              (parse-type (car (reverse items)) scope)))))
+    (define (parse-requires form environment)
+      (unless (eq? (head form) 'requires) (fail form "expected a requires clause before the type"))
+      (map (lambda (requirement) (parse-constraint requirement environment)) (cdr (parts form))))
     (define (parse-constraint form environment)
       (let ((items (parts form)))
         (when (null? items) (fail form "constraint requires a class"))
@@ -532,41 +529,6 @@
                                               (memq (binding-kind definition) '(typeclass overload)))))
                 (fail form "constraint requires a typeclass or overload family"))
               (or definition (import-reference form scope 'constraint))))))
-    (define (parse-qualified form environment)
-      (let ((items (arguments form 2)))
-        (list '=> (map (lambda (constraint) (parse-constraint constraint environment)) (parts (car items)))
-              (parse-type (cadr items) environment))))
-
-    ;; ---- Static kinds ----
-
-    ;; Kinds describe declarations, never runtime values. The checker still
-    ;; verifies every field and instance method; a kind annotation is no proof.
-    (define (former-kind form scope)
-      (let ((former (definition-former form)))
-        (if (eq? former 'instance)
-            (let* ((body (binding-body (definition-parts form))) (items (cdr (parts body))))
-              (when (null? items) (fail body "instance requires a class"))
-              (list 'Evidence (parse-constraint (car items) scope)))
-            (let* ((items (parameterized-former-parts form))
-                   (result (if (eq? former 'datatype) 'Type 'Constraint)) (parameters (cadr items)))
-              (if (null? parameters) result (append '(Kind->) (make-list (length parameters) 'Type) (list result)))))))
-    (define (parse-kind form scope)
-      (if (syntax-identifier? form)
-          (let ((name (identifier form)))
-            (unless (memq name '(Type Constraint)) (fail form "expected a kind")) name)
-          (case (head form)
-            ((Evidence) (list 'Evidence (parse-constraint (car (arguments form 1)) scope)))
-            ((Kind->)
-             (let ((items (cdr (parts form))))
-               (when (< (length items) 2) (fail form "kind arrow requires a parameter and result"))
-               (cons 'Kind-> (map (lambda (item) (parse-kind item scope)) items))))
-            (else (fail form "expected a kind")))))
-    (define (attach-static-kind form scope declaration)
-      (let ((items (definition-parts form)) (expected (former-kind form scope)))
-        (if (= (length items) 3)
-            (make-node 'static-kind (syntax-loc (cadr items))
-                       (list (parse-kind (cadr items) scope) expected declaration))
-            declaration)))
 
     ;; ---- Data, classes, overloads and foreign declarations ----
 
@@ -622,7 +584,7 @@
       (let ((items (definition-parts form)))
         (unless (= (length items) 3) (fail form "overload requires an explicit signature"))
         (let ((signature (parse-signature (cadr items) environment)))
-          (unless (arrow-type? (all-body signature)) (fail form "overload requires a function signature"))
+          (unless (arrow-type? (signature-type signature)) (fail form "overload requires a function signature"))
           (make-overload-declaration (resolve (car items) environment) signature
                                      (parse-expression (binding-body items) (signature-scope signature environment)) (syntax-loc form)
                                      (syntax-loc (cadr items))))))
@@ -751,7 +713,7 @@
                                               (def C (typeclass (A) (: method (-> A A))))))"))
                (app (test-parsed "(define-library (test app) (import (test types))
                                   (begin (def identity (-> T T) (lambda (T) (ann T T)))
-                                         (def evidence (Evidence (C T))
+                                         (def evidence
                                            (instance (C T) (method (lambda (x) x))))))"))
                (resolved (test-library-map app provider))
                (type (test-export (cdr (assoc '(test types) resolved)) 'T))
@@ -859,40 +821,36 @@
                                          "(def identity (All (T) (-> T T)) (lambda (T) (ann T T)))"))))
                (signature (type-declaration-type (binding-declaration (value-binding-definition item))))
                (function (value-binding-initializer item)) (annotation (lambda-body function)))
-          (expect (eq? (annotation-type annotation) (car (all-variables signature))) #t)
+          (expect (eq? (annotation-type annotation) (car (signature-variables signature))) #t)
           (expect (eq? (name-definition (annotation-expression annotation)) (car (lambda-parameters function))) #t)))
       (define (test-requirement-scope)
-        (for-each
-         (lambda (text)
-           (let* ((library (test-source
-                            (string-append "(typeclass Identity (A) (: identity (-> A A)))
-                                             (typeclass Relation (A B) (: relate (-> A B)))
-                                             (def f " text " (lambda (T) (ann T T)))")))
-                  (items (library-body library)) (binding (caddr items))
-                  (signature (type-declaration-type (binding-declaration (value-binding-definition binding))))
-                  (variable (car (all-variables signature))) (requirements (type-constraints signature)))
-             (expect (length requirements) 2)
-             (expect (eq? (caar requirements) (class-declaration-definition (car items))) #t)
-             (expect (eq? (caadr requirements) (class-declaration-definition (cadr items))) #t)
-             (expect (eq? (cadar requirements) variable) #t)
-             (expect (eq? (cadadr requirements) variable) #t)
-             (expect (eq? (cadr (all-body signature)) variable) #t)
-             (expect (eq? (annotation-type (lambda-body (value-binding-initializer binding))) variable) #t)))
-         '("(All (T) (requires (Identity T) (Relation T T)) (-> T T))"
-           "(All (T) (=> ((Identity T) (Relation T T)) (-> T T)))")))
+        (let* ((library (test-source "(typeclass Identity (A) (: identity (-> A A)))
+                                     (typeclass Relation (A B) (: relate (-> A B)))
+                                     (def f (All (T) (requires (Identity T) (Relation T T)) (-> T T))
+                                       (lambda (T) (ann T T)))"))
+               (items (library-body library)) (binding (caddr items))
+               (signature (type-declaration-type (binding-declaration (value-binding-definition binding))))
+               (variable (car (signature-variables signature))) (requirements (signature-requirements signature)))
+          (expect (length requirements) 2)
+          (expect (eq? (caar requirements) (class-declaration-definition (car items))) #t)
+          (expect (eq? (caadr requirements) (class-declaration-definition (cadr items))) #t)
+          (expect (eq? (cadar requirements) variable) #t)
+          (expect (eq? (cadadr requirements) variable) #t)
+          (expect (eq? (cadr (signature-type signature)) variable) #t)
+          (expect (eq? (annotation-type (lambda-body (value-binding-initializer binding))) variable) #t)))
       (define (test-empty-requirements)
         (for-each
          (lambda (text)
            (let* ((binding (car (library-body (test-source (string-append "(def value " text " 42)")))))
                   (signature (type-declaration-type (binding-declaration (value-binding-definition binding)))))
-             (expect (all-variables signature) '())
-             (expect (type-constraints signature) '())
-             (expect (all-body signature) 'I32)))
-         '("(All () I32)" "(All () (requires) I32)" "(All () (=> () I32))")))
+             (expect (signature-variables signature) '())
+             (expect (signature-requirements signature) '())
+             (expect (signature-type signature) 'I32)))
+         '("I32" "(All () I32)" "(All () (requires) I32)")))
       (define (test-invalid-requirements)
         (for-each
          (lambda (signature) (test-rejected (string-append "(def bad " signature " (lambda (value) value))")))
-         '("(All)" "(All (T))" "(All T T)" "(All (T T) T)"
+         '("(All (T) (=> () (-> T T)))" "(All)" "(All (T))" "(All T T)" "(All (T T) T)"
            "(All (T) (requires))" "(All (T) (requires . T) T)"
            "(All (T) (requires T) T)" "(All (T) (requires (C (All (U) U))) T)"
            "(All (T) T (requires (C T)))" "(All (T) (requires (C T)) (requires (D T)) T)"
@@ -909,9 +867,7 @@
                      (test-parsed text) #f)
                    '("expected an identifier" "parsed-test.sld" 2 1)))
          '("(def bad (All (T) (requires (\n(C) T)) (-> T T)) (lambda (value) value))"
-           "(def bad (All (T) (requires (\n42 T)) (-> T T)) (lambda (value) value))"
-           "(def bad (All (T) (=> ((\n(C) T)) (-> T T))) (lambda (value) value))"
-           "(def bad (All (T) (=> ((\n42 T)) (-> T T))) (lambda (value) value))")))
+           "(def bad (All (T) (requires (\n42 T)) (-> T T)) (lambda (value) value))")))
       (define (test-library-body-scope)
         (let* ((library (test-source "(define-library (test clauses) (export answer)
                                       (begin (def answer later)) (begin (def later 42)))"))
@@ -921,13 +877,15 @@
                        (value-binding-definition (cadr items))) #t)
           (expect (eq? (named-binding-definition (car (library-exports library)))
                        (value-binding-definition (car items))) #t)))
-      (define (test-static-kinds)
-        (let* ((library (test-source "(def Flag Type (datatype () (off) (on)))
-                                      (def C (Kind-> Type Constraint) (typeclass (T) (: f (-> T T))))
-                                      (def evidence (Evidence (C Flag)) (instance (C Flag) (f (lambda (x) x))))"))
-               (items (library-body library)))
-          (expect (map node-kind items) '(data-schema class-declaration instance-declaration))
-          (expect (value-definition-name (instance-declaration-definition (caddr items))) 'evidence)))
+      (define (test-rejected-static-annotations)
+        (for-each
+         (lambda (text)
+           (expect (guard (failure (else (error-object-message failure))) (test-parsed text) #f)
+                   "static definitions do not accept kind annotations"))
+         '("(def Flag Type (datatype () (off) (on)))"
+           "(def C (Kind-> Type Constraint) (typeclass (T) (: f (-> T T))))"
+           "(def C (typeclass (T) (: f (-> T T))))
+             (def evidence (Evidence (C I32)) (instance (C I32) (f (lambda (x) x))))")))
       (define (test-cached-overload-identity)
         (let* ((provider (test-source "(define-library (test provider) (export choose)
                                       (begin (define-overload choose (-> I64 I64) (lambda (x) x))))"))
@@ -992,7 +950,7 @@
         (run-test test-invalid-requirements)
         (run-test test-requirement-head-diagnostics)
         (run-test test-library-body-scope)
-        (run-test test-static-kinds)
+        (run-test test-rejected-static-annotations)
         (run-test test-cached-overload-identity)
         (run-test test-explicit-overload-signatures)
         (run-test test-local-named-declaration-diagnostics)

@@ -8,7 +8,7 @@
 (def empty
      (ann (make-vector (ann 0 I64)) (Vector Bool)))
 
-(def build (All (T) (=> ((Default T)) (-> I64 (Vector T))))
+(def build (All (T) (requires (Default T)) (-> I64 (Vector T)))
      (lambda (count) (make-vector count)))
 (if (if (= (vector-ref values (ann 0 I64)) (ann 0 I64))
         (if (= (vector-ref values (ann 1 I64)) (ann 42 I64))

@@ -311,10 +311,10 @@ those holes. Explicit `inst` supplies the type arguments directly. In both cases
 the substituted requirements must be discharged from enclosing assumptions or
 available instances; available instances do not choose the type arguments.
 
-The earlier `(All (T) (=> ((ToHexString T)) (-> T String)))` spelling remains an
-input compatibility form. It has the same meaning and checker path. The term
-*qualified type* describes the historical requirements-and-type pair; new source
-uses the explicit `requires` clause above.
+A scheme carries three things: quantified variables, requirements, and an
+ordinary body type. Omitting `requires` supplies no requirements. The compiler
+uses this same structure directly; requirements are not a nested type form.
+The earlier `=>` spelling is rejected.
 
 <!-- ANCHOR: instances -->
 ```text
@@ -402,14 +402,12 @@ a typeclass names a requirement constructor; an instance supplies implementation
 for one concrete requirement. Their parameters stand for ordinary types. They
 cannot be returned from functions or selected by a runtime `if`.
 
-The compiler still accepts the earlier `(def name [kind] static_former)` syntax
-for compatibility, including `(datatype (...) ...)` bodies. Expansion normalizes
-the new declarations to that internal representation before ordinary checking.
-In that older notation, a *kind* classifies a static declaration: `Type` for a
-zero-parameter datatype, `(Kind-> Type … Type)` for a datatype constructor,
-`(Kind-> Type … Constraint)` for a class, and `(Evidence (C T …))` for an
-instance. These classifications are not runtime value types. New source should
-use the explicit declaration forms.
+Expansion lowers these declarations to named core forms such as
+`(def Box (datatype (T) (box (value T))))`. The declaration itself supplies its
+category and parameter count. Static definitions do not accept kind annotations;
+there is no separate kind syntax or user-supplied kind evidence. The checker
+still verifies field types, class requirements, instance methods, and argument
+counts. Former kind words such as `Type` and `Constraint` are ordinary names.
 
 <!-- ANCHOR: well-formedness -->
 The first-order type language needs the following well-formedness checks:

@@ -57,19 +57,19 @@
             (unless (= (snapshot-byte words index) (ann 0 I64)) (unreachable))
             (padding (+ index (ann 1 I64))))) bytes))
     (define (snapshot->sexp words) (binary->sexp (snapshot-binary words)))
-    (def encode-snapshot (All (T) (=> ((Serialize T)) (-> I32 T (Vector I32))))
+    (def encode-snapshot (All (T) (requires (Serialize T)) (-> I32 T (Vector I32)))
          (lambda (schema value) (binary-snapshot schema (sexp->binary (serialize value)))))
-    (def decode-snapshot (All (T) (=> ((Deserialize T)) (-> (Vector I32) T)))
+    (def decode-snapshot (All (T) (requires (Deserialize T)) (-> (Vector I32) T))
          (lambda (words) (deserialize (snapshot->sexp words))))
 
     ;; ---- Applications retain semantic validation after checked construction ----
 
     (def serialized-program
          (All (WorldOwner State LocalOwner Local)
-              (=> ((Serialize State) (Deserialize State) (Serialize Local) (Deserialize Local))
-                  (-> (Application WorldOwner State) (Application LocalOwner Local)
-                      (-> State State) (-> Local Local) (-> State Local (List Quad)) (-> State Local String)
-                      (Program WorldOwner State LocalOwner Local))))
+              (requires (Serialize State) (Deserialize State) (Serialize Local) (Deserialize Local))
+              (-> (Application WorldOwner State) (Application LocalOwner Local)
+                  (-> State State) (-> Local Local) (-> State Local (List Quad)) (-> State Local String)
+                  (Program WorldOwner State LocalOwner Local)))
          (lambda (world local validate-world validate-local view status)
            (program world local 0 0
                     (lambda (words) (validate-world (decode-snapshot words)))

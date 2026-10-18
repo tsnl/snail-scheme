@@ -4,10 +4,10 @@
 (define-overload source (-> Bool) (lambda () #t))
 (define-overload destination (-> I64 F64) i64->f64)
 (define-overload compose
-  (All (A B) (=> ((source (-> B)) (destination (-> B A))) (-> A)))
+  (All (A B) (requires (source (-> B)) (destination (-> B A))) (-> A))
   (lambda () (destination (source))))
 (define-overload reverse-compose
-  (All (A B) (=> ((destination (-> B A)) (source (-> B))) (-> A)))
+  (All (A B) (requires (destination (-> B A)) (source (-> B))) (-> A))
   (lambda () (destination (source))))
 
 (def first F64
