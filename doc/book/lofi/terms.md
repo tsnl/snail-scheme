@@ -22,17 +22,19 @@ produce its arguments. The three expressions after `if` are its condition,
 true branch and false branch. Using the same `expression` category for each
 position means each can contain an arbitrary expression.
 
-<!-- ANCHOR: expressions -->
 ```text
+<!-- ANCHOR: expressions -->
 expression ::= literal
-             | name
-             | call
-             | conditional
-             | function
-             | block
-             | match
-             | annotation
-             | instantiation
+             | value_name
+             | "(" expression expression … ")"                   ; call
+             | "(" "if" expression expression expression ")"      ; conditional
+             | "(" "lambda" "(" value_name … ")" expression ")"   ; fixed parameters
+             | "(" "lambda" "(" value_name value_name … "." value_name ")" expression ")"
+             | "(" "lambda" value_name expression ")"             ; rest parameters
+             | "(" "begin" statement … expression ")"             ; block
+             | "(" "match" expression match_arm match_arm … ")"
+             | "(" "ann" expression type ")"                      ; annotation
+             | "(" "inst" value_name type type … ")"              ; type arguments
 
 literal ::= integer_literal
           | float_literal
@@ -41,41 +43,25 @@ literal ::= integer_literal
           | string_literal
           | bytevector_literal
 
-call ::= "(" expression expression … ")"
-
-conditional ::= "(" "if" expression expression expression ")"
-
-function ::= "(" "lambda" "(" name … ")" expression ")"
-           | "(" "lambda" "(" name name … "." name ")" expression ")"
-           | "(" "lambda" name expression ")"
-
-block ::= "(" "begin" statement … expression ")"
-
-statement ::= value_definition
-            | local_binding
+statement ::= "(" "def" value_name [signature] expression ")"
+            | "(" "let" value_name [signature] expression ")"
             | expression
 
-value_definition ::= "(" "def" name [signature] expression ")"
-
-local_binding ::= "(" "let" name [signature] expression ")"
-
-match ::= "(" "match" expression match_arm match_arm … ")"
-
-match_arm ::= "(" "(" name name … ")" expression ")"
-
-annotation ::= "(" "ann" expression type ")"
-
-instantiation ::= "(" "inst" name type type … ")"
-```
+match_arm ::= "(" "(" value_name value_name … ")" expression ")"
 <!-- ANCHOR_END: expressions -->
+```
 
-`name` is an identifier. The reader recognizes literal tokens: integers such as
+`name` is an identifier token. A `value_name` is an identifier used to bind or
+refer to a value, including constructors and methods. The other name categories
+are defined under [Names and binding identities](types.md#names-and-binding-identities).
+Trailing semicolons in the grammar introduce explanatory comments.
+The reader recognizes literal tokens: integers such as
 `42`, floating-point numbers such as `1.5`, Booleans `#t` and `#f`, characters
 such as `#\a`, quoted strings and bytevectors such as `#u8(1 2 3)`. Reserved
 form keywords identify syntax, so `(if …)` is a conditional rather than a call
 to a function named `if`. The [type grammar](types.md) defines `signature` and
 `type`. Library-level static definitions extend this grammar with
-[`data`, `typeclass` and `instance`](types.md#kinds-and-static-definitions).
+[`data`, `typeclass` and `instance`](types.md#static-definitions-and-well-formedness).
 
 `if` selects a value. `(if (< 1 2) 40 0)` produces `40`. Its condition must be a
 Boolean; only the selected branch runs. Both branches are required and must have
