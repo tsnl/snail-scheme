@@ -5,16 +5,16 @@ cursor. Moving the pointer changes only your cursor. Clicking asks the authority
 to move the marker for every tab. The view draws just three rectangles.
 
 The finished app is
-[`marker-board`](../../../../examples/applications/marker-board/README.md).
+[`marker-board`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/marker-board/README.md).
 It uses the same two-owner host as Siegework, with no mining, combat or animation.
 Use the [shared setup](index.md#set-up-once) first.
 
 ## Run the finished board
 
 ```sh
-chibi-scheme -I bootstrap -I wasm-native/scheme \
+chibi-scheme -I bootstrap \
   examples/applications/marker-board/build.scm "$PWD" "$PWD/build/marker-board"
-PORT=4174 node build/marker-board/lib/browser/server.mjs "$PWD/build/marker-board"
+PORT=4174 node build/marker-board/cloud/lib/browser/server.mjs "$PWD/build/marker-board/cloud"
 ```
 
 Open `http://127.0.0.1:4174` in a browser with WebGPU and WasmGC. On a fresh
@@ -33,7 +33,7 @@ repository root, for edits and builds.
 
 ## Follow the state through one click
 
-Open [`board.sld`](../../../../examples/applications/marker-board/src/tutorial/board.sld).
+Open [`board.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/marker-board/src/tutorial/board.sld).
 Both owners store a `Cell` with `I32` fields `x` and `y`. Valid cells have
 `0 <= x < 8` and `0 <= y < 6`. `move-cell` returns a new cell for valid input
 and retains the previous one for invalid input.
@@ -49,9 +49,10 @@ typed command owners. Confirmation is the key operation:
                                     (place (cell-x state) (cell-y state))))))
 ```
 
-The client keeps its cursor and sends its coordinates. The authority runs
-`place` against the current shared state, checks the bounds again and commits
-the replacement. The browser receives a shared snapshot and redraws.
+The client keeps its cursor and sends its coordinates. The cloud host previews
+the move with the same Scheme reducer. The authority runs `place` against its
+current state, checks the bounds again and commits the replacement. The browser
+then replaces its preview with the accepted shared snapshot.
 
 The host converts pointer coordinates to cell coordinates before calling
 `move`; do not divide by the cell size again in Scheme. Leaving the board retains
@@ -80,7 +81,7 @@ order: background, marker, then translucent cursor. `status` independently
 calculates the text from the same two values.
 
 The renderer converts these rectangles into triangles and their positions into
-clip coordinates. [`shaders.sld`](../../../../examples/applications/marker-board/src/tutorial/shaders.sld)
+clip coordinates. [`shaders.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/marker-board/src/tutorial/shaders.sld)
 contains the remaining GPU work:
 
 ```scheme
@@ -107,7 +108,8 @@ The remaining files each have one job:
 | `style.css` | Page layout and styles |
 | `build.scm` | Source roots, exported entries and output artifacts |
 
-Settings maps `board-app` to `match`, and `cursor-app` to `client`. That order
+Settings gives the app the stable ID `marker-board`, maps `board-app` to `match`,
+and maps `cursor-app` to `client`. That order
 agrees with `(serialized-program board-app cursor-app ...)`. `remoteHandlers`
 permits `place` and `clear` from clients; `idle` remains authority-only.
 `pointer.move` names the two-argument local handler, and `pointer.confirm`
@@ -117,8 +119,10 @@ handler names through `data-handler`.
 The build recipe supplies the app's `src/` and shared repository `src/` as
 library roots. It compiles simulation and shader entries, retains application
 declarations for the manifest, and calls the shared packager. The packager checks
-the settings and executes the initial state/view before publishing `manifest.json`.
-You do not need app-specific JavaScript.
+the settings and executes the initial state/view before publishing each package's
+`manifest.json`. It writes `solo/` for a browser-owned save and `cloud/` for the
+shared Node authority used here. The HTML's `data-application-entry` script is
+replaced with the selected host entry. You do not need app-specific JavaScript.
 
 ## Change the presentation
 
@@ -134,10 +138,10 @@ and opening that port. Stop this server with Ctrl-C when done.
 
 ## Find this in Siegework
 
-[`game.sld`](../../../../apps/siegework/src/siegework/game.sld) returns a longer
-quad list with the same `view` contract. Its client selection plays the role
+[`view.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/view.sld) returns a longer
+quad list with the same `view` contract. The client selection in `game.sld` plays the role
 of this cursor. Its shader library adds composition, but crosses the same build
-boundary. Read [Siegework's tour](../../../../apps/siegework/TOUR.md) after following
+boundary. Read [Siegework's tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md) after following
 one click through this board.
 
 Next: [save and reload the board](reload.md), separating portable state from

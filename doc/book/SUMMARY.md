@@ -1,7 +1,8 @@
 # Summary
 
-[Lofi](lofi/index.md)
+[Lofi](index.md)
 
+- [Language overview](lofi/index.md)
 - [Terms and definitions](lofi/terms.md)
 - [Types](lofi/types.md)
 - [Formal summary](lofi/reference.md)

@@ -20,7 +20,7 @@ application first.
 ## Set up once
 
 Run commands from the repository root. The repository's `nix-shell` supplies
-Chibi, Binaryen and Node; otherwise use the [build requirements](../../../backend.md)
+Chibi, Binaryen and Node; otherwise use the [build requirements](https://github.com/tsnl/snail-scheme/blob/main/doc/backend.md)
 to provide them. These tutorials use the Chibi-hosted compiler and Node 24.
 
 ```sh
@@ -37,7 +37,7 @@ If WebGPU is unavailable, the first three lessons and the automated runtime
 checks still work.
 
 Finished sources live in
-[`examples/applications`](../../../../examples/applications/README.md).
+[`examples/applications`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/README.md).
 Edit them in your own working checkout, or type the small complete examples
 into the stated files. Each lesson's commands build those files directly.
 Restore your exercise edits before running the checkpoint checks:
@@ -86,7 +86,7 @@ The board shows this explicitly, including a no-op clock. A future host with
 optional inputs could shorten that setup, but those options are not implemented.
 The examples use the existing host contract throughout.
 
-The older [`state.sld`](../../../../examples/applications/state.sld) demonstrates
+The older [`state.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/state.sld) demonstrates
 an explicit word codec. It is useful when studying the lower-level bridge;
 it is not required preparation for making an app. The board uses derived
 snapshots, just like Siegework.

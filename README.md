@@ -18,6 +18,8 @@ remains Scheme hosted by Chibi; self-hosting and full R7RS support are future wo
 
 The [Lofi chapters](doc/book/lofi/index.md) specify the typed language,
 library values and compiler-as-library model, with examples and formal rules.
+The [online book](https://tsnl.github.io/snail-scheme/) is published from `main`
+by the Book and Pages workflow. Build it locally with `scripts/book build`.
 
 ## Start reading
 

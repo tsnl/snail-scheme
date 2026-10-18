@@ -15,7 +15,7 @@ From the repository root, build a pure example and print its return value:
 
 ```sh
 mkdir -p build/examples
-chibi-scheme -I bootstrap -I wasm-native/scheme tests/applications/build.scm \
+chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/counter.sld" "$PWD/build/examples/counter.wasm"
 node examples/applications/run.mjs build/examples/counter.wasm
 ```

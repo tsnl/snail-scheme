@@ -5,7 +5,7 @@ application's smallest operation: compute a replacement from an old state and
 a command. No state service, network or browser is involved.
 
 Use the [shared setup](index.md#set-up-once). The complete source is
-[`counter.sld`](../../../../examples/applications/counter.sld).
+[`counter.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/counter.sld).
 
 ## Declare state and commands
 
@@ -47,7 +47,7 @@ returning an `I32`, which is the scalar entry the runner invokes.
 
 ```sh
 mkdir -p build/examples
-chibi-scheme -I bootstrap -I wasm-native/scheme tests/applications/build.scm \
+chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/counter.sld" "$PWD/build/examples/counter.wasm"
 node examples/applications/run.mjs build/examples/counter.wasm
 ```
@@ -86,7 +86,7 @@ here; the example does not implement an overflow policy for a production counter
 
 ## Find this in Siegework
 
-In [`game.sld`](../../../../apps/siegework/src/siegework/game.sld), `match-app`
+In [`game.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/game.sld), `match-app`
 uses the same declaration. Its `advance` handler calculates a replacement
 `World`, and `new-run` returns a fresh initial world. The larger state does
 not change the dispatch model.

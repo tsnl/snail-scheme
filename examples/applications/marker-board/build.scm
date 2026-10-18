@@ -1,5 +1,5 @@
 ;; From any directory:
-;; chibi-scheme -I "$repo/bootstrap" -I "$repo/wasm-native/scheme" \
+;; chibi-scheme -I "$repo/bootstrap" \
 ;;   "$repo/examples/applications/marker-board/build.scm" "$repo" "$repo/build/marker-board"
 (import
  (scheme base)
@@ -7,13 +7,13 @@
  (scheme write)
  (chibi filesystem)
  (chibi string)
- (wasm-native process)
- (wasm-native chromium-trace)
+ (native process)
+ (native chromium-trace)
  (lofi compiler bootstrap)
- (lofi source-driver)
+ (lofi compiler source-driver)
  (application manifest bootstrap)
- (only (lofi frontend) make-primitive-library)
- (only (lofi primitives) primitive-names))
+ (only (lofi compiler frontend) make-primitive-library)
+ (only (lofi compiler primitives) primitive-names))
 
 ;; ---- Explicit inputs and product source roots ----
 

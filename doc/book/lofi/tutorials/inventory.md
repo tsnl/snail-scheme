@@ -6,7 +6,7 @@ fifty. An unaffordable purchase and a negative price leave the state unchanged.
 
 This uses the counter's `application`, `dispatch` and `Transition` vocabulary.
 The complete source is
-[`inventory.sld`](../../../../examples/applications/inventory.sld).
+[`inventory.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/inventory.sld).
 
 ## Give the state a name
 
@@ -55,7 +55,7 @@ values; otherwise it returns `0`.
 
 ```sh
 mkdir -p build/examples
-chibi-scheme -I bootstrap -I wasm-native/scheme tests/applications/build.scm \
+chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/inventory.sld" "$PWD/build/examples/inventory.wasm"
 node examples/applications/run.mjs build/examples/inventory.wasm
 ```
@@ -94,8 +94,8 @@ Keep the stored values immutable for this programming model.
 
 ## Find this in Siegework
 
-[`model.sld`](../../../../apps/siegework/src/siegework/model.sld) has records
-for the world and its pieces. Purchase operations check credits and placement
+[`model.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/model.sld) has records
+for the world and its pieces. Purchase operations check ore and placement
 before building a replacement. The world is a larger version of `Stock`;
 read one purchase before following an entire simulation tick.
 

@@ -5,7 +5,7 @@ inventory to deposit ore. This separates two events that a large app can make
 hard to distinguish: calculating a request and delivering it.
 
 The complete source is
-[`testing.sld`](../../../../examples/applications/testing.sld). Despite its
+[`testing.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/testing.sld). Despite its
 name, it is an ordinary compiled application example with a runnable checkpoint.
 It uses the immutable `Stock` pattern from [the inventory lesson](inventory.md).
 
@@ -61,7 +61,7 @@ a different effect variant.
 
 ```sh
 mkdir -p build/examples
-chibi-scheme -I bootstrap -I wasm-native/scheme tests/applications/build.scm \
+chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/testing.sld" "$PWD/build/examples/testing.wasm"
 node examples/applications/run.mjs build/examples/testing.wasm
 ```
@@ -98,9 +98,10 @@ checkpoint after the exercise.
 
 ## Find this in Siegework
 
-In [`game.sld`](../../../../apps/siegework/src/siegework/game.sld), client
-`confirm` examines the selected tool and returns a request for `extract` or
-`fortify`. That local handler cannot spend the authoritative world's credits.
+In [`game.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/game.sld), client
+`confirm` uses `place-order` to turn the selected tool into a request for
+`extract`, `fortify` or `observe`. That local handler cannot spend the
+authoritative world's ore.
 The authoritative handler checks the request against the state current when
 it is processed, which may have changed since the player saw it.
 

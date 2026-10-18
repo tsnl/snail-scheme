@@ -45,7 +45,7 @@ schemas, and serializing a value alone does not save it to disk.
 3. In a second terminal at the repository root, rebuild:
 
    ```sh
-   chibi-scheme -I bootstrap -I wasm-native/scheme \
+   chibi-scheme -I bootstrap \
      examples/applications/marker-board/build.scm "$PWD" "$PWD/build/marker-board"
    ```
 
@@ -84,12 +84,12 @@ Stop the server with Ctrl-C, then run the same command against the same output
 directory:
 
 ```sh
-PORT=4174 node build/marker-board/lib/browser/server.mjs "$PWD/build/marker-board"
+PORT=4174 node build/marker-board/cloud/lib/browser/server.mjs "$PWD/build/marker-board/cloud"
 ```
 
 Refresh the tabs to establish new sessions with the restarted authority. Expect
 the shared marker at `6,1`, with fresh local cursors at `0,0`. The host restored
-the committed match from `build/marker-board/match.sqlite`. Leave that file in
+the committed match from `build/marker-board/cloud/match.sqlite`. Leave that file in
 place while testing restart. The Reset marker button resets the shared position
 through an ordinary command; no database deletion is needed.
 
@@ -126,6 +126,6 @@ SQLite close/reopen restoration. The steps above additionally show the real
 server, browser and pipeline behavior.
 
 In Siegework the same boundary preserves a whole world instead of one marker.
-Continue with [its code tour](../../../../apps/siegework/TOUR.md), especially
-“Follow a build and a compatible reload,” or consult the
+Continue with [its code tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md), especially
+“Follow replacement and checks,” or consult the
 [full reload contract](../applications.md#reload-boundary).
