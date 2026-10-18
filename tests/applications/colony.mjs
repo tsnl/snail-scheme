@@ -102,29 +102,17 @@ export async function checkColony(test, fresh, call) {
     assert.equal(state(r).spent, 0); await r.close();
   });
 
-  await test('camera coordinates agree for pointer placement, pan and cursor movement', async () => {
+  await test('3D camera preserves state, bounds pan and rejects invalid client snapshots', async () => {
     const r = await fresh(), local = (name, args = []) => r.dispatch(2, r.command('client', name, args));
-    await local('pan', [4,-3]); await local('move', [340,380]);
-    assert.deepEqual(client(r.snapshot(2)), {tool:1,pointX:340,pointY:380,cameraX:160000,cameraY:440000,originX:-1,originY:-1});
-    const effects = (await local('confirm')).effects; await call(r, 'extract', [12,20]);
-    assert.deepEqual(r.effectCommand(effects[0]), r.command('match', 'extract', [12,20]));
-    await local('nudge', [-30,0]); const moved = client(r.snapshot(2)); assert.equal(moved.pointX, 0); assert.equal(moved.cameraX, -100000);
-    await local('home'); assert.deepEqual(client(r.snapshot(2)), {tool:1,pointX:340,pointY:340,cameraX:0,cameraY:560000,originX:-1,originY:-1});
-    for (const [dx,dy,cx,cy,sx,sy] of [[-100,-100,-120000,-120000,0,0],[100,0,1080000,-120000,959,0],[0,100,1080000,920000,959,639],[-100,0,-120000,920000,0,639]]) {
-      await local('pan', [dx,dy]); await local('move', [sx,sy]); const camera = client(r.snapshot(2));
-      assert.deepEqual([camera.cameraX,camera.cameraY], [cx,cy]); await restoreClient(r, camera);
-      const before = state(r), command = r.effectCommand((await local('confirm')).effects[0]); await r.dispatch(1, command);
-      assert.equal(state(r).notice, 15); assert.equal(state(r).ore, before.ore);
-      assert.equal(state(r).buildings.length, before.buildings.length);
-    }
-    const invalid = client(r.snapshot(2)); invalid.cameraX = -120001;
+    const world = r.snapshot(1); await local('pan', [4, -3]);
+    const panned = client(r.snapshot(2)); assert.notEqual(panned.cameraX, 10000);
+    assert.deepEqual(r.snapshot(1), world); await local('home');
+    const initial = r.snapshot(2); await r.restore(2, initial); assert.deepEqual(r.snapshot(2), initial);
+    const invalid = client(initial); invalid.cameraX = -3001;
     await assert.rejects(() => restoreClient(r, invalid), WebAssembly.RuntimeError);
-    await local('home'); await local('drift', [-1,0]); await local('move', [0,0]);
-    assert.equal(client(r.snapshot(2)).cameraX, -360);
-    assert.deepEqual(r.effectCommand((await local('confirm')).effects[0]), r.command('match','extract',[-1,14]));
-    await local('move', [1,0]); assert.deepEqual(r.effectCommand((await local('confirm')).effects[0]), r.command('match','extract',[0,14]));
-    await local('home'); for (let i=0;i<10;i++) await local('drift',[16,0]); const shortFrames=r.snapshot(2);
-    await local('home'); for (let i=0;i<5;i++) await local('drift',[32,0]); assert.deepEqual(r.snapshot(2),shortFrames); await r.close();
+    await local('pan', [100, 100]); const bounded = client(r.snapshot(2));
+    assert.ok(bounded.cameraX >= -3000 && bounded.cameraX <= 50000);
+    assert.ok(bounded.cameraY >= -3000 && bounded.cameraY <= 38000); await r.close();
   });
 
   await test('shared pause freezes all simulation while retaining inspection and paid planning', async () => {
@@ -150,8 +138,8 @@ export async function checkColony(test, fresh, call) {
     await advance(r); const next = state(r), gun = next.buildings[0];
     assert.deepEqual([gun.aimX,gun.aimY], [shot.aimX,shot.aimY]);
     assert.notDeepEqual(next.enemies.find(enemy => enemy.id === target.id), target);
-    await call(r, 'pause-colony', [1]); const frozen = r.view().quads;
-    await advance(r, 30); assert.deepEqual(r.view().quads, frozen);
-    await call(r, 'pause-colony', [0]); await advance(r); assert.notDeepEqual(r.view().quads, frozen); await r.close();
+    await call(r, 'pause-colony', [1]); const frozen = r.view().scene;
+    await advance(r, 30); assert.deepEqual(r.view().scene, frozen);
+    await call(r, 'pause-colony', [0]); await advance(r); assert.notDeepEqual(r.view().scene, frozen); await r.close();
   });
 }

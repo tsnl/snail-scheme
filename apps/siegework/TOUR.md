@@ -13,20 +13,14 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`planning.sld`](src/siegework/planning.sld) | Optional Manual/Auto Explore/Defend investment policy using observed opportunities and a bounded reserve. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, sharing the planner’s preferred known deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
-| [`view.sld`](src/siegework/view.sld) | Pure quads and status text for the colony, camera, minimap, reservations and freight. |
-| [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
-| [`shaders.sld`](src/siegework/shaders.sld) | Scheme-authored shader generation for the shared WebGPU quad adapter. |
+| [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan and nearest-building/crystal/ground picking over the existing grid. |
-| [`three-game.sld`](src/siegework/three-game.sld) | Separate 3D client state, contextual placement, typed HUD actions and the unchanged match reducer endpoints. |
+| [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan and nearest-building/crystal/ground picking over the existing grid. |
+| [`game.sld`](src/siegework/game.sld) | Typed game and presentation commands, contextual placement, HUD composition and the scalar entry point. |
 | [`hud.sld`](src/siegework/hud.sld) | Compact contextual controls and status through the reusable top-down Scheme UI library. |
-| [`three/build.scm`](three/build.scm) | 3D static browser packaging using the shared Scheme scene shader. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
-The [3D prototype guide](three/README.md) describes its separate build, save
-identity, contextual controls and currently implemented drawing API.
-
 The `solo/` package runs from static hosting and stores one game record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
 A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit
@@ -62,11 +56,10 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The original 2D owners declare schema 7. The 3D prototype shares world schema 7
-and has a separate client schema 1 and application ID. Record sizes grow and shrink,
-within the runtime's 65,536-word limit. Schemas 4, 5 and 6 have different layouts and
-are rejected; neither derivation nor this integration migrates existing saves.
-Existing packages and databases are left intact. The browser retains
+The game declares world schema 7 and client schema 1 under application ID
+`siegework-colony`, which starts a fresh save identity. Record sizes grow and
+shrink within the runtime's 65,536-word limit. Schemas 4, 5 and 6 have different
+layouts and are rejected; derivation does not migrate existing saves. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
 the static mount path leaves its origin/application save identity unchanged.
 
@@ -85,7 +78,8 @@ a local paid kit to the hub transfers its cost from local spending to delivered
 ore before refunding or retaining the project's hub-backed reservation.
 
 Accepted restarts increment a bounded run marker, including replaying the same
-seed; the maximum wraps to zero. Rejected seed input retains it. The saved world retains this marker as an application invariant; the browser
+seed; the maximum wraps to zero. Rejected seed input retains it. The saved world
+retains this marker as an application invariant; the browser
 does not create a network epoch or request receipt.
 
 ## Follow replacement and checks
@@ -101,5 +95,5 @@ Scheme/Wasm transitions, including cancellation, preemption, depot freight,
 endpoint loss, invalid ownership and persistence failures. Fixture helpers edit
 typed wire records to establish boundary scenarios; they contain no alternate
 game simulation. Browser checks exercise shared input, WebGPU presentation,
-online checkpoint transfers and compatible or rejected reloads. Historical evidence remains
-in [`VALIDATION.md`](VALIDATION.md).
+online checkpoint transfers and compatible or rejected reloads. Current evidence
+is recorded in [`VALIDATION.md`](VALIDATION.md).

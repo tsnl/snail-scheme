@@ -8,7 +8,7 @@ replication stream, gameplay server or multiplayer session is required.
 ## Build and serve
 
 ```sh
-chibi-scheme -I bootstrap apps/siegework/three/build.scm "$PWD" "$PWD/build/siegework-static"
+chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework-static"
 python3 -m http.server 4191 --directory build/siegework-static/solo
 ```
 
@@ -16,18 +16,15 @@ Open `http://127.0.0.1:4191` in Chromium. Any ordinary HTTPS static host works,
 including hosting under a subpath. The game requires WasmGC, WebGPU, IndexedDB
 and Web Locks. One tab owns the save for this origin and application ID.
 
-Compatible previous browser saves reopen automatically. The database name,
-version, object store and contract are preserved; obsolete epoch and client
-receipt fields disappear on the next successful write. Existing cloud output
-directories and SQLite game databases remain untouched. Build into a fresh
-directory; a cloud directory contains private saves and must not be served as
-static files. Importing an old server database is a separate migration.
+The stable application ID is `siegework-colony`. A compatible module replacement
+retains the current colony, camera and selection. Schema-incompatible saves are
+rejected visibly; this build starts a fresh save identity.
 
 ## Enable online save/load at build time
 
 ```sh
 SAVE_SERVICE_URL=http://127.0.0.1:4174/saves/ \
-  chibi-scheme -I bootstrap apps/siegework/three/build.scm "$PWD" "$PWD/build/siegework-static"
+  chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework-static"
 python3 -m http.server 4192 --directory build/siegework-static/synced
 SAVE_ORIGIN=http://127.0.0.1:4192 PORT=4174 \
   node src/save/server.mjs /tmp/siegework-checkpoints.sqlite

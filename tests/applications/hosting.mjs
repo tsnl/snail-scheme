@@ -16,8 +16,7 @@ const servicePort = Number(process.env.TEST_SAVE_PORT ?? 4294);
 const debugPort = Number(process.env.TEST_CDP_PORT ?? 9346), devtools = `http://127.0.0.1:${debugPort}`;
 const origin = `http://127.0.0.1:${soloPort}`, base = `${origin}/games/siegework/`, synced = `http://127.0.0.1:${syncedPort}`, serviceURL = `http://127.0.0.1:${servicePort}/saves/`;
 cpSync(join(artifacts, 'solo'), join(work, 'solo'), {recursive: true});
-const sourceManifest = JSON.parse(readFileSync(join(work, 'solo/manifest.json')));
-await packageApplication(root, join(root, sourceManifest.settings.renderer === 'scene3d' ? 'apps/siegework/three' : 'apps/siegework'), artifacts, {output: join(work, 'synced'), saveServiceURL: serviceURL});
+await packageApplication(root, join(root, 'apps/siegework'), artifacts, {output: join(work, 'synced'), saveServiceURL: serviceURL});
 const original = JSON.parse(readFileSync(join(work, 'solo/manifest.json'))), requests = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(check, message, milliseconds = 20000) {

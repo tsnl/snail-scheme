@@ -42,7 +42,7 @@ The [player guide](README.md) describes the implemented controls and costs.
 - Rocks block direct artillery fire. There is no automatic repair.
 - Explicit Pause/Resume freezes simulation while allowing inspection and
   paid planning. It survives durable restart and compatible reload.
-- Top-down 2D, continuous WASD/left-stick camera pan with a three-cell exterior margin,
+- Overhead 3D, continuous WASD/left-stick camera pan with a three-cell exterior margin,
   pointer/arrow/D-pad cursor and snapped
   construction. Guns visibly aim automatically at eligible visible enemies; bounded shot traces
   show each actual firing without changing immediate damage.
@@ -50,9 +50,9 @@ The [player guide](README.md) describes the implemented controls and costs.
   selected structures expose their staffing, materials and freight. A numeric seed form starts
   a reproducible new run only when explicitly submitted.
 
-The world must use **real WebGPU** and shaders compiled from Scheme expressions.
-Colored quads and DOM status text are sufficient. No Canvas2D substitute and no
-JavaScript copy of the simulation rules. The browser loads Snail-generated Wasm
+The world uses **real WebGPU**, low-poly meshes and shaders compiled from Scheme
+expressions. The grid governs movement and combat; mesh height is presentation.
+There is no JavaScript copy of the simulation rules. The browser loads Snail-generated Wasm
 and runs client reducers, pure presentation and all world transitions, saving them locally.
 
 ## Public application model
@@ -102,10 +102,10 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world/client schema 7 with variable-size derived snapshots.
-Its world envelope exposes a checked run marker before the generic binary payload. Earlier
-prototype saves require a separate retained package; start this version with a
-fresh database. Schema versions cover field meaning as well as shape. Reject incompatible schemas
+The colony uses world schema 7 and client schema 1 with variable-size derived snapshots.
+Its world envelope exposes a checked run marker before the generic binary payload.
+The application ID `siegework-colony` starts a fresh save identity.
+Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
 handles or WasmGC references. Copying a bounded record into a fresh module heap is
 acceptable initially; document its cost and keep it behind the typed state API.
@@ -114,13 +114,13 @@ acceptable initially; document its cost and keep it behind the typed state API.
 
 | Check | Required evidence |
 | --- | --- |
-| Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits quads. |
+| Real browser path | Reproducible app-local `build.scm`; generated simulation Wasm executes; Scheme shader AST compiles to inspectable WGSL; real WebGPU submits indexed meshes. |
 | Colony game | Multiple mine deliveries; hub/local construction conservation; cancellation and preemption ownership; depot/rail delivery and endpoint loss; discovery and known-route rules; danger retreat/recovery; deterministic loss, raid and surviving layout; zero kill income, staffed slots, sole-worker recovery, loss accounting and seeded replay. |
-| Two clients early | Distinct identified players act on one authoritative world; concurrent purchases serialize; both converge to the same accepted revision. |
+| Static solo | Local-only package makes no gameplay-server requests; IndexedDB commits precede publication; optional online checkpoint transfer leaves local play independent of service availability. |
 | Immutable transitions | Retained prior snapshots stay unchanged; concurrent submissions have no lost updates; trap and failed durability commit publish no partial state/effects. |
 | Compatible reload | Reload during hauling and combat, with a selected tool/cell, overscrolled camera, manual pause and pending input; preserve state and consume no simulation tick. |
 | Failure isolation | Invalid candidate, incompatible schema and invalid WGSL leave the old application/pipeline usable. |
-| Durable restart | Restart after a commit before acknowledgment, retry it, recover the accepted state and avoid a second purchase. |
+| Durable restart | Reopen the browser after a completed commit and recover the accepted colony and pause state. |
 | Typed API | Compile-negative wrong handler payload, wrong state result and wrong application owner. Scheme and Lofi both import the same shader/application libraries. |
 
 Record browser/version, actual GPU adapter, origin, build revision, providers and
@@ -129,7 +129,7 @@ limitations with the checks. Compilation alone does not pass a runtime gate.
 ## Explicit future work
 
 Walls with deliberate breach behavior, randomized/fairly telegraphed finales, a
-larger tech tree, 3D/elevation, unbounded terrain generation, matchmaking and
+larger tech tree, terrain elevation, unbounded terrain generation and
 additional resources remain deferred. The map uses a bounded seeded family.
 Ordinary enemies retain their hub route and raiders their outpost route while
 attacking encountered workers or structures. Observation is circular rather than
@@ -141,8 +141,9 @@ Rail parents are older connected towers or the hub, so connections form an
 upstream tree. Tracks follow surveyed walking routes and reconnect after
 an endpoint is lost or relocated. One bounded shuttle per link models throughput; there is no
 manual track placement, rail collision or intermediate track damage.
-Richer payload codecs, migrations, broader shader syntax, browser device recovery,
-structural sharing and explicit opaque checkpoint save/load are library milestones.
+Richer payload codecs, migrations, broader shader syntax, browser device recovery
+and structural sharing are library milestones. Explicit opaque checkpoint
+save/load is available as an optional build.
 GPU tensors/PyTorch integration is a possible future motivating use case, not a
 required dependency.
 

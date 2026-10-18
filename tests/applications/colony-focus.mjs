@@ -155,10 +155,10 @@ export async function checkFocus(test, fresh, call) {
   await test('move input outside the map cannot wrap into a different row', async () => {
     const r=await fresh(), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
     const value=client(r.snapshot(2)); value.originX=0; value.originY=22;
-    value.pointX=860; value.pointY=340; value.cameraX=1080000; value.cameraY=560000;
-    await restoreClient(r,value); const effects=(await local('confirm')).effects;
-    assert.deepEqual(r.effectCommand(effects[0]),r.command('match','relocate-building',[22*48,-1]));
-    const before=state(r).ore; await r.dispatch(1,r.effectCommand(effects[0])); assert.equal(state(r).ore,before);
+    value.cursorX=-1; value.cursorY=-1;
+    await restoreClient(r,value); const before=r.snapshot(1), effects=(await local('confirm')).effects;
+    assert.deepEqual(effects, []);
+    assert.deepEqual(r.snapshot(1),before);
     await r.close();
   });
   await test('local tower kits are exclusive against rail loading', async () => {
@@ -252,11 +252,11 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('the full scheduled enemy backlog survives pause, save/reload and presentation', async () => {
-    const r=await fresh(),baseQuads=r.view().quads.length,world=state(r); world.tick=4200; world.paused=1;
+    const r=await fresh(),baseVertices=r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0),world=state(r); world.tick=4200; world.paused=1;
     for(let i=0;i<50;i++)world.enemies.push({id:world.nextId++,x:500,y:820,hp:i===49?1800:170,
       kind:i===49?2:0,target:0,path:[]});
     await restoreColony(r,world); const saved=r.snapshot(1);
-    assert.ok(saved.length<65536); assert.ok(r.view().quads.length>=baseQuads+200);
+    assert.ok(saved.length<65536); assert.ok(r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0)>=baseVertices+200);
     await r.restore(1,saved); await advance(r,5); assert.deepEqual(r.snapshot(1),saved);
     const excess=state(r); excess.enemies.push({...excess.enemies[0],id:excess.nextId++});
     await assert.rejects(()=>restoreColony(r,excess),WebAssembly.RuntimeError);

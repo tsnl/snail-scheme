@@ -132,12 +132,12 @@ export async function checkLogistics(test, fresh, call) {
     await advance(r); assert.equal(state(r).delivered, 0);
     const loaded = state(r).rails.find(link => link.source === child.id);
     assert.equal(loaded.cargo, 32); assert.equal(loaded.progress, 0);
-    await call(r, 'pause-colony', [1]); const saved = r.snapshot(1), frame = r.view().quads;
+    await call(r, 'pause-colony', [1]); const saved = r.snapshot(1), frame = r.view().scene;
     await r.restore(1, saved); await advance(r, 20);
-    assert.deepEqual(r.snapshot(1), saved); assert.deepEqual(r.view().quads, frame);
+    assert.deepEqual(r.snapshot(1), saved); assert.deepEqual(r.view().scene, frame);
     await call(r, 'pause-colony', [0]);
     await advance(r, 10); assert.equal(state(r).delivered, 0);
-    assert.notDeepEqual(r.view().quads, frame);
+    assert.notDeepEqual(r.view().scene, frame);
     assert.equal(state(r).rails.find(link => link.source === parent.id).cargo, 32);
     assert.equal(state(r).rails.find(link => link.source === parent.id).progress, 0);
     await until(r, world => world.delivered === 32); const delivered = state(r).ore;

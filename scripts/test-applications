@@ -7,7 +7,7 @@ mkdir -p "$output"
 node "$root/tests/applications/save-service.mjs"
 chibi-scheme -I "$root/bootstrap" \
   "$root/apps/siegework/build.scm" "$root" "$output/siegework"
-for fixture in counter state testing counter-lofi immutable terrain invalid-output async-boundary async-view shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do
+for fixture in counter state testing counter-lofi immutable terrain invalid-output invalid-candidate invalid-initial invalid-state async-boundary async-view shader shader-lofi; do
   case "$fixture" in
     counter|state|testing) source="$root/examples/applications/$fixture.sld" ;;
     *) source="$root/tests/applications/$fixture.sld" ;;

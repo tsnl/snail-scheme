@@ -20,13 +20,14 @@ function typedRecord(type, value) {
     ...Object.entries(value).map(([field, contents]) => [symbol(fieldName(field)), typedField(field, contents)])];
 }
 function typedField(field, value) {
+  if (typeof value === 'boolean') return [symbol('Bool'), symbol(value ? 'true' : 'false')];
   if (!Array.isArray(value)) return [symbol('I32'), value];
   const type = itemTypes[field], name = type === 'I32' ? type : `(siegework ${type === 'Survey' ? 'terrain' : 'model'}):${type}`;
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
 export const colonyWords = world => snapshotWords(7, typedRecord('World', world), world.runMarker);
-export const clientWords = local => snapshotWords(7, typedRecord('Client', local));
+export const clientWords = local => snapshotWords(1, typedRecord('Client', local));
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));
 

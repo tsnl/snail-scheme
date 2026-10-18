@@ -1,5 +1,5 @@
 // Disposable saves only. Real Chromium/WebGPU, pointer, keyboard and controller
-// input verify Scheme onboarding on the same cloud and solo simulation module.
+// input verify Scheme onboarding on the static browser simulation module.
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync} from 'node:fs';
 import {colony, client} from '../applications/colony-state.mjs';

@@ -1,5 +1,5 @@
 {
-  "id": "siegework",
+  "id": "siegework-colony",
   "title": "Siegework",
   "width": 960,
   "height": 640,
@@ -25,10 +25,6 @@
     "2": [
       "choose",
       2
-    ],
-    "3": [
-      "choose",
-      3
     ],
     " ": [
       "confirm"
@@ -99,6 +95,10 @@
     ],
     "Escape": [
       "cancel"
+    ],
+    "p": [
+      "suspend",
+      -1
     ]
   },
   "inputRepeatMilliseconds": 140,
@@ -113,8 +113,7 @@
       "confirm"
     ],
     "1": [
-      "choose",
-      3
+      "cancel"
     ],
     "2": [
       "choose",
@@ -141,7 +140,8 @@
       "home"
     ],
     "9": [
-      "restart"
+      "suspend",
+      -1
     ],
     "10": [
       "cancel"
@@ -214,5 +214,7 @@
     "s",
     "d"
   ],
-  "runMarker": 1
+  "runMarker": 1,
+  "renderer": "scene3d",
+  "viewportHandler": "viewport"
 }

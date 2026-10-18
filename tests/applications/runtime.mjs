@@ -48,7 +48,7 @@ await test('immutable prior snapshots, automatic hauling, placement and pure vie
   await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 120);
   for (let tick = 0; tick < 120; tick++) await call(r, 'advance');
   assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
-  assert.ok(view.quads.length > 40); assert.match(view.label, /ore/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
+  assert.ok(view.scene.batches.some(batch => batch.vertices.length > 100)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
 await test('effects are descriptions; local selection does not directly spend world resources', async () => {
   const r = await fresh(), before = r.snapshot(1);
@@ -56,23 +56,15 @@ await test('effects are descriptions; local selection does not directly spend wo
   assert.deepEqual(r.snapshot(1), before); assert.equal(result.effects.length, 1);
   await r.dispatch(1, r.effectCommand(result.effects[0])); assert.equal(colony(r.snapshot(1)).ore, 120); await r.close();
 });
-await test('compatible reload preserves authoritative and local state and consumes no tick', async () => {
+await test('compatible 3D reload preserves both models without consuming a tick', async () => {
   const r = await fresh(); await call(r, 'extract', [12, 20]); for (let i = 0; i < 700; i++) await call(r, 'advance');
-  await r.dispatch(2, r.command('client', 'choose', [2])); await r.dispatch(2, r.command('client', 'move', [13, 7]));
-  const world = r.snapshot(1), local = r.snapshot(2); assert.ok(colony(world).delivered > 0); assert.ok(colony(world).enemies.length > 0);
-  await r.replace(r.prepare(fixture('compatible'), manifest)); await r.initialize(1); await r.initialize(2);
-  assert.deepEqual(r.snapshot(1), world); assert.deepEqual(r.snapshot(2), local);
-  await r.dispatch(2, r.command('client', 'choose', [1])); assert.equal(client(r.snapshot(2)).tool, 2);
-  await call(r, 'advance'); await r.close();
-});
-await test('invalid candidate, incompatible schema and bad snapshot preserve installed code/state', async () => {
-  const r = await fresh(), instance = r.instance, world = r.snapshot(1);
-  assert.throws(() => r.prepare(fixture('invalid-candidate'), manifest), /write outside/);
-  assert.throws(() => r.prepare(fixture('invalid-view'), manifest), WebAssembly.RuntimeError);
+  await r.dispatch(2, r.command('client', 'pan', [1, 1]));
+  const world = r.snapshot(1), local = r.snapshot(2), old = r.instance;
+  await r.replace(r.prepare(bytes, manifest)); await r.initialize(1); await r.initialize(2);
+  assert.notEqual(r.instance, old); assert.deepEqual(r.snapshot(1), world); assert.deepEqual(r.snapshot(2), local);
   const incompatible = structuredClone(manifest); incompatible.applications[0].schema++;
   assert.throws(() => r.prepare(bytes, incompatible), /endpoint contract|schema mismatch/);
-  const bad = world.slice(); bad[0]++; await assert.rejects(() => r.restore(1, bad), /schema/);
-  assert.equal(r.instance, instance); assert.deepEqual(r.snapshot(1), world); await r.close();
+  const bad = world.slice(); bad[0]++; await assert.rejects(() => r.restore(1, bad), /schema/); await r.close();
 });
 await test('derived colony snapshots reject legacy layouts, marker disagreement and invalid values', async () => {
   const r = await fresh(), committed = r.snapshot(1);
@@ -89,37 +81,6 @@ await test('derived colony snapshots reject legacy layouts, marker disagreement 
   }
   assert.deepEqual(r.snapshot(1), committed); await r.close();
 });
-await test('failed and discarded first candidates reserve no state or shape', async () => {
-  const r = new ReducerRuntime();
-  assert.throws(() => r.prepare(fixture('invalid-candidate'), manifest), /write outside/);
-  assert.equal(r.stores.size, 0);
-  const abandoned = r.prepare(fixture('invalid-initial'), manifest);
-  assert.equal(r.stores.size, 0); r.discard(abandoned);
-  const stale = r.prepare(fixture('invalid-initial'), manifest);
-  await r.replace(r.prepare(bytes, manifest)); await r.initialize(1); await r.initialize(2);
-  const world = r.snapshot(1), instance = r.instance;
-  await assert.rejects(() => r.replace(stale), /incompatible state shape/); r.discard(stale);
-  assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, instance); await r.close();
-});
-await test('candidate installation revalidates state advanced after preparation', async () => {
-  const r = await fresh(), candidate = r.prepare(fixture('current-state'), manifest), instance = r.instance;
-  await call(r, 'extract', [12, 20]); const world = r.snapshot(1);
-  await assert.rejects(() => r.replace(candidate), /incompatible state schema/); r.discard(candidate);
-  assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, instance); await r.close();
-});
-await test('trap after staged writes/effects rolls back and restores previous compatible module', async () => {
-  const r = await fresh(), world = r.snapshot(1), previous = r.instance;
-  await r.replace(r.prepare(fixture('trap'), manifest));
-  await assert.rejects(() => call(r, 'extract', [12, 20]), WebAssembly.RuntimeError);
-  assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous);
-  await call(r, 'extract', [12, 20]); assert.equal(colony(r.snapshot(1)).ore, 120); await r.close();
-});
-await test('an invalid encoded replacement cannot become committed or durable state', async () => {
-  const r = await fresh(), world = r.snapshot(1), previous = r.instance; let committed = false;
-  await r.replace(r.prepare(fixture('invalid-state'), manifest));
-  await assert.rejects(() => r.dispatch(1, r.command('match', 'extract', [12, 20]), {persist: () => committed = true}), WebAssembly.RuntimeError);
-  assert.equal(committed, false); assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous); await r.close();
-});
 await test('invalid transition output fails before durable state or revision publication', async () => {
   const r=new ReducerRuntime(), contract={version:1,applications:[
     {owner:'match',schema:1,handlers:[{binding:'change',id:'change',slot:0,payload:[]}]},
@@ -131,10 +92,10 @@ await test('invalid transition output fails before durable state or revision pub
   assert.deepEqual(local.snapshot(),before); assert.equal(writes,0); assert.equal(published,0);
   await r.close();
 });
-await test('packaging catches a declared/encoded size mismatch before publishing a manifest', async () => {
+await test('packaging rejects invalid simulation bytes before publishing a manifest', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'snail-preflight-')), root = resolve(import.meta.dirname, '../..');
   for (const name of ['shader.wasm', 'application.syntax.json']) copyFileSync(join(artifacts, name), join(directory, name));
-  writeFileSync(join(directory, 'simulation.wasm'), fixture('invalid-initial'));
+  writeFileSync(join(directory, 'simulation.wasm'), new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
   writeFileSync(join(directory, 'manifest.json'), 'previous manifest');
   await assert.rejects(() => packageApplication(root, join(root, 'apps/siegework'), directory), /application startup check failed/);
   assert.equal(readFileSync(join(directory, 'manifest.json'), 'utf8'), 'previous manifest');

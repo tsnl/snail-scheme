@@ -80,6 +80,18 @@ export async function checkAsyncRuntime(test, fixture) {
     const accepted = local.snapshot(); await assert.rejects(() => local.restore([99, 9, 0, 0]), /schema/);
     assert.deepEqual(local.snapshot(), accepted); await r.close();
   });
+  await test('invalid candidates reserve no shape and encoded schema failures precede persistence', async () => {
+    const r = new ReducerRuntime();
+    assert.throws(() => r.prepare(fixture('invalid-candidate'), contract), /write outside/); assert.equal(r.stores.size, 0);
+    const abandoned = r.prepare(fixture('invalid-initial'), contract); r.discard(abandoned);
+    assert.equal(r.stores.size, 0); const stale = r.prepare(fixture('invalid-initial'), contract);
+    await r.replace(r.prepare(bytes, contract)); await r.initialize(1); await r.initialize(2);
+    await assert.rejects(() => r.replace(stale), /incompatible state shape/); r.discard(stale);
+    const before = r.snapshot(1), previous = r.instance; let persisted = false;
+    await r.replace(r.prepare(fixture('invalid-state'), contract));
+    await assert.rejects(() => r.dispatch(1, command('add', [1]), {persist: () => persisted = true}), /schema/);
+    assert.equal(persisted, false); assert.deepEqual(r.snapshot(1), before); assert.equal(r.instance, previous); await r.close();
+  });
   await test('notice conversion, effect routing and reducer traps all fail before persistence', async () => {
     const r = await fresh(bytes), before = r.snapshot(1); let writes = 0, deliveries = 0;
     for (const binding of ['bad-notice', 'bad-send', 'trap']) {

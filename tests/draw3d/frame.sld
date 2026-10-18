@@ -4,7 +4,7 @@
    (scheme base)
    (draw3d)
    (siegework model)
-   (siegework three-view)
+   (siegework view)
    (only (lofi core) ann -> I32))
   (begin
     (define answer
