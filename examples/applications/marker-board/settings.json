@@ -1,0 +1,14 @@
+{
+  "title": "Marker board",
+  "width": 320,
+  "height": 240,
+  "cellSize": 40,
+  "tickMilliseconds": 1000,
+  "owners": {"board-app": "match", "cursor-app": "client"},
+  "tick": "idle",
+  "reset": "clear",
+  "remoteHandlers": ["place", "clear"],
+  "pointer": {"move": "move", "confirm": "confirm"},
+  "keys": {"Enter": ["confirm"], "r": ["restart"]},
+  "controller": {}
+}

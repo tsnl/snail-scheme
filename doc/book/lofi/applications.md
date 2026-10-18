@@ -1,5 +1,9 @@
 # Applications, state, and hot reload
 
+For a guided introduction, follow the [five small application tutorials](tutorials/index.md):
+a counter, immutable inventory, local commands, a shared marker board, and saving
+and reloading that board. This chapter is the reference for their contracts.
+
 An application is a collection of typed handlers over one state type. A handler
 receives a stable state value and its payload, then returns a replacement state
 and effect descriptions. It does no asynchronous work. The runtime owns storage,
@@ -49,7 +53,7 @@ Build and execute it from the repository root:
 mkdir -p build/examples
 chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/counter.sld" "$PWD/build/examples/counter.wasm"
-node --input-type=module -e 'import {readFileSync} from "node:fs"; import {loadWasm, instantiate, invokeEntry} from "./src/lofi/compiler/execute.mjs"; console.log(invokeEntry(instantiate(loadWasm(readFileSync("build/examples/counter.wasm"))), []));'
+node examples/applications/run.mjs build/examples/counter.wasm
 ```
 
 It prints `42`. The small build helper selects the exported `answer` procedure;
