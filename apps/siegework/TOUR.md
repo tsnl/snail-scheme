@@ -16,8 +16,8 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal and nearest-building/crystal/ground picking over the existing grid. |
-| [`game.sld`](src/siegework/game.sld) | Typed game and presentation commands, explicit selection, restart/pause handling, HUD composition and attack insets and the scalar entry point. |
-| [`hud.sld`](src/siegework/hud.sld) | Compact contextual controls and status through the reusable top-down Scheme UI library. |
+| [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, brush plans, camera commands, local attack mutes, restart/pause handling and HUD/inset composition. |
+| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and contextual cards through the reusable top-down Scheme UI library. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).

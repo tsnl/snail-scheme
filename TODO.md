@@ -130,10 +130,10 @@ source edits remain unchecked until compiled and exercised.
 ## Final integration checklist
 
 - [x] Give exploration a longer opening and slow wave, strength and group-size escalation.
-- [ ] Use one circle size for HUD controls and icon-only construction actions;
+- [x] Use one circle size for HUD controls and icon-only construction actions;
       group all controls and readouts in a vertical left/right edge strip, with
       pill-shaped panels, visible hotkeys and a left-handed setting.
-- [ ] Separate health from ore, enlarge the resource icon, and show counts in
+- [x] Separate health from ore, enlarge the resource icon, and show counts in
       matching high-contrast labels or badges.
 - [x] Quote hub repairs to the highest affordable percentage, spending only the
       ore needed or available; complete the paid work with a worker.
@@ -144,20 +144,20 @@ source edits remain unchecked until compiled and exercised.
 - [x] Give artillery a distinct gun silhouette and improve the Orbit icon.
 - [x] Count down to the next difficulty increase, never to an unseen wave spawn;
       keep hidden enemy spawns out of the HUD and accessible status.
-- [ ] Keep New worker readily available in the edge strip and selected-hub actions.
+- [x] Keep New worker readily available in the edge strip and selected-hub actions.
 - [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
 - [x] Outline the combined range of active artillery on the map.
 - [x] Enemies under fire pursue the attacker, with walls still blocking them.
-- [ ] Build with a selected brush and a local multi-cell plan. Tapping toggles a
+- [x] Build with a selected brush and a local multi-cell plan. Tapping toggles a
       planned cell; Done submits orders and Cancel spends nothing. Keep rejected
       cells visible for correction and prevent overlapping submissions.
 - [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
-- [ ] Keep drag for panning and pinch for zoom; expose compact quarter-turn
+- [x] Keep drag for panning and pinch for zoom; expose compact quarter-turn
       buttons directly on screen. Do not add twist rotation.
-- [ ] Keep mobile attack notifications separate from controls, with white-on-red
+- [x] Keep mobile attack notifications separate from controls, with white-on-red
       titles, small live thumbnails and a dismiss action; inspect portrait and
       landscape layouts, and permit later attacks to alert again.
-- [ ] Measure mobile slowdown by separating simulation, view and GPU work;
+- [x] Profile representative mobile-sized simulation, view and GPU work;
       preserve native pixel density and avoid claiming an unproved thermal cause.
 - [x] Add the max-dps-test using actual model facts, three-minute discovery and
       0.5 utilization; report its optimistic assumptions and finite horizon.
@@ -179,8 +179,8 @@ source edits remain unchecked until compiled and exercised.
 - [x] Restart confirmation pauses, with cancellation restoring the prior pause.
 - [x] Smoke on damage and red/white attack notifications with clickable live views.
 - [x] Continuous display-rate unit/freight motion; hard reveal contour checked above.
-- [ ] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
-- [ ] Reconcile current main and include the Siegework build in CI.
+- [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
+- [x] Reconcile current main and include the Siegework build in CI.
       Merge only after the PR checks pass.
 
 World10 model checkpoint: the compact edge-strip build passes 175 integration

@@ -18,11 +18,33 @@ compiler benchmarks.
 
 ## Executed checks
 
-The compact edge-strip checkpoint passed all 175 actual-Wasm application
-integration checks. These cover the full 3×3 hub, paid worker repairs, separate
+The published package is `build/siegework-mobile-final/solo`, built on main
+`e528eb28` plus this follow-up. Generation `a0cc8ebcee596d591d3a5957` contains
+535,442 bytes of simulation Wasm, SHA-256
+`4bff25194efc129088432ad17297f21d7ceac81938dc9f0a4a14e56b689cbea3`.
+The HTTP-served module matches that hash. Publication replaced each file
+atomically, with the manifest last, and retained the previous hashed assets.
+
+That exact package passes all 175 actual-Wasm application integration checks.
+These cover the full 3×3 hub, paid worker repairs, separate
 observation/logistics and artillery upgrade trees, retained rails and compatible
 World10 saves, gentler escalation, retaliation and brush-order settlement.
-The latest rotation/dismissal package is checked separately before publication.
+
+Six product-presentation groups, seven brush/client groups and four onboarding
+groups pass. Final Chromium checks exercise portrait widths 320, 360 and 390,
+landscape 568×320 and 640×360, a mirrored rail and native DPR 3. They cover
+rotation buttons, touch pan/pinch, paid plans, repeated hub hiring, repair,
+notification/control separation, dismissal, durable reopening and GPU disposal.
+Dismissal checks include nearby damage of another kind, a stale rendered key,
+invalid keys, expiry, pruning and the intentional four-recent-area limit.
+
+The final hosting runner passes all 19 sections in Chromium 152 with a private
+profile and SwiftShader. It uses real IndexedDB, transaction aborts, writer
+ownership, visibility suspension, compatible/rejected hot replacement, browser
+restart, moved mount paths and optional checkpoint save/load through an outage.
+Its actual mouse tests build a tower and extractor through unpaid plans, confirm
+payment, worker delivery and completion, then reload the active colony. Tests
+make no gameplay-server requests in the local-only package.
 
 Six browser-effect groups execute real Wasm through `BrowserApplication` and
 `LocalState`: reply-before-completion ordering, first/middle/last/all save
