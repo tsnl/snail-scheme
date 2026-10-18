@@ -2,6 +2,7 @@
   (export answer)
   (import
    (scheme base)
+   (scheme immutable)
    (draw3d)
    (siegework model)
    (siegework view)
