@@ -9,11 +9,15 @@ import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
 import {checkWorld} from './colony-world.mjs';
 import {checkVisibility} from './colony-visibility.mjs';
+import {checkHub} from './colony-hub.mjs';
+import {checkBrushOrders} from './colony-brush.mjs';
 import {checkCrowd} from './colony-crowd.mjs';
+import {checkRetaliation} from './colony-retaliation.mjs';
 import {checkDigging} from './colony-digging.mjs';
 import {checkRanks} from './colony-ranks.mjs';
 import {checkCarts} from './colony-carts.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
+import {checkBrowserEffects} from './browser-effects.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
@@ -56,16 +60,27 @@ await test('immutable prior snapshots, automatic hauling, placement and pure vie
   assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
   assert.ok(view.scene.batches.some(batch => batch.vertices.length > 100)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
-await test('effects are descriptions; local selection does not directly spend world resources', async () => {
-  const r = await fresh(), before = r.snapshot(1);
-  const selected = await r.dispatch(2, r.command('client', 'confirm'));
-  assert.deepEqual(selected.effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
+await test('a brush plan spends only after Done and clears only after its reply and settlement', async () => {
+  const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
+  const selected = await local('confirm');
+  assert.deepEqual(selected.effects, []); assert.equal(client(r.snapshot(2)).chooser, false);
   assert.deepEqual(r.snapshot(1), before);
   assert.equal(colony(r.snapshot(1)).started,false); assert.equal(colony(r.snapshot(1)).tick,0);
-  const result = await r.dispatch(2, r.command('client', 'choose', [1]));
-  assert.deepEqual(r.snapshot(1), before); assert.equal(result.effects.length, 1);
+  assert.deepEqual((await local('build-menu')).effects,[]);
+  assert.deepEqual((await local('choose',[1])).effects,[]);
+  assert.deepEqual((await local('confirm')).effects,[]);
+  const planned=client(r.snapshot(2)),cell=planned.cursorX+planned.cursorY*384;
+  assert.deepEqual(planned.plan,[cell]);assert.deepEqual(planned.pending,[]);assert.deepEqual(r.snapshot(1),before);
+  const result=await local('done-plan');assert.deepEqual(r.snapshot(1),before);
+  assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
+    {kind:'send',owner:2,command:r.command('client','plan-settled',[cell])}]);
   assert.equal(client(r.snapshot(2)).chooser, false);
-  await r.dispatch(1, r.effectCommand(result.effects[0])); assert.equal(colony(r.snapshot(1)).ore, 120); await r.close();
+  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,120);
+  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','plan-result',[cell,1])}]);
+  await r.dispatch(2,r.effectCommand(committed.effects[0]));
+  assert.deepEqual(client(r.snapshot(2)).plan,[cell]);assert.deepEqual(client(r.snapshot(2)).pending,[cell]);
+  await r.dispatch(2,r.effectCommand(result.effects[1]));
+  assert.deepEqual(client(r.snapshot(2)).plan,[]);assert.deepEqual(client(r.snapshot(2)).pending,[]);await r.close();
 });
 await test('worker hiring requires the selected hub and retains its dialog for another paid order',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
@@ -81,8 +96,10 @@ await test('worker hiring requires the selected hub and retains its dialog for a
 });
 await test('dismiss closes a selected project while explicit cancellation owns its refund',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  await local('nudge',[-2,2]); await local('confirm'); const selected=await local('choose',[1]);
-  await r.dispatch(1,r.effectCommand(selected.effects[0])); assert.equal(colony(r.snapshot(1)).ore,135);
+  await local('nudge',[-2,2]);await local('build-menu');await local('choose',[3]);await local('confirm');
+  const selected=await local('done-plan'),committed=await r.dispatch(1,r.effectCommand(selected.effects[0]));
+  await r.dispatch(2,r.effectCommand(committed.effects[0]));await r.dispatch(2,r.effectCommand(selected.effects[1]));
+  assert.equal(colony(r.snapshot(1)).ore,135);await local('clear-plan');
   await local('confirm'); assert.deepEqual((await local('dismiss')).effects,[]);
   assert.equal(client(r.snapshot(2)).chooser,false); assert.equal(colony(r.snapshot(1)).buildings.length,1);
   await local('confirm'); const cancelled=await local('cancel'); assert.equal(cancelled.effects.length,1);
@@ -196,9 +213,13 @@ await checkLogistics(test, fresh, call);
 await checkFocus(test, fresh, call);
 await checkWorld(test, fresh);
 await checkVisibility(test, fresh);
+await checkHub(test, fresh, bytes);
+await checkBrushOrders(test, fresh);
 await checkCrowd(test, fresh, bytes);
+await checkRetaliation(test, fresh, bytes);
 await checkDigging(test, fresh);
 await checkRanks(test, fresh);
 await checkCarts(test, fresh);
 await checkAsyncRuntime(test, fixture);
+await checkBrowserEffects(test, fixture);
 console.log(`${passed} application integration checks passed`);

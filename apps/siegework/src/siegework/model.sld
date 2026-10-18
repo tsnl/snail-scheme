@@ -1,9 +1,10 @@
 ;; The colony is one immutable authoritative value. Jobs reserve a project before
 ;; another worker can choose it; ore moves through workers and depot freight to hub.
 (define-library (siegework model)
-  (export World make-world initial-world advance-world extract-world observe-world wall-world
+  (export World make-world initial-world advance-world extract-world observe-world wall-world place-cell-world
           fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
-          cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick attack-kind attack-size threat-tier
+          cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
+          DifficultyWindow difficulty-window difficulty-window-for difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
           world-tick world-outcome world-credits world-hull world-kills world-next-id world-started
           world-buildings world-bots world-enemies world-surveys world-focus
           world-plan world-local-spent world-delivered world-produced world-spent world-lost world-notice world-paused
@@ -12,14 +13,14 @@
           nest-health maximum-buildings maximum-surveys upgrade-cost
           world-breaches world-excavations world-ground? world-rock-remaining rock-health
           Dig make-dig dig-cell dig-remaining enemy-burrower dig-at
-          Alert make-alert alert-x alert-y alert-kind alert-tick
+          Alert make-alert alert-x alert-y alert-kind alert-tick attack-alert-ticks attack-alert-radius
           Building make-building building-id building-kind building-x building-y
           building-level building-hp building-stock building-stage building-cooldown
           building-aim-x building-aim-y building-armed building-source building-move-x building-move-y moving? tower? armed?
           Bot make-bot bot-id bot-x bot-y bot-job bot-target bot-cargo bot-timer bot-path bot-hp bot-order bot-source
           Rail make-rail rail-source rail-parent rail-progress rail-returning rail-cargo rail-path
-          rail-x rail-y rail-preview bot-riding? cart-station? rail-reserved?
-          track-cell track-east? track-south? track-west? track-north? track-station? track-reserved?
+          rail-x rail-y rail-preview bot-riding? cart-station?
+          track-cell track-east? track-south? track-west? track-north? track-station?
           Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-kind enemy-target
           enemy-path enemy-rank enemy-rank-health enemy-rank-damage maximum-enemy-rank maximum-enemy-health
           building-at find-building list-size visible? known? workers-see? construction-hidden? ready? building-radius
@@ -30,23 +31,25 @@
           world-plan-set world-focus-set safe-site? affordable-kit? local-affordable? count-mines pending-build? pending-move? pending-move-count reserved-stock construction-cache
           bot-path-set enemy-path-set ore-cargo? kit-carrier?
           worker-cost worker-assembly-ticks production-worker? pending-workers fabrication-reason
+          hub-cell? repair-world repair-reason repair-cost repair-target repair-percent repair-ticks repair-health repair-worker? pending-repair?
           arming? construction-stage construction-cost construction-kit-size uncollected-supplies raw-stock)
   (import
    (scheme base)
    (scheme immutable)
    (lofi serialization)
    (siegework terrain)
+   (only (lofi base) unreachable)
    (only (lofi core) ann I32 deriving))
   (begin
 
     ;; ---- Colony values ----
 
-    ;; Kind: 1 extractor, 2 legacy artillery, 3 tower, 4 defensive wall.
-    ;; Towers progress from sight/depot to artillery to a cart station. Each
-    ;; upgrade consumes one delivered kit; its previous function stays active.
-    ;; Level names the completed function once operational, or the requested
-    ;; level of a new unfinished tower; a two-kit artillery site is inert until
-    ;; both kits arrive. Upgrades retain the old level until their kit arrives.
+    ;; Kind: 1 extractor, 2 artillery, 3 observation/depot tower, 4 wall.
+    ;; Artillery upgrades strengthen its gun; tower upgrades extend sight then
+    ;; add carts. Each upgrade retains prior functions until its kit arrives.
+    ;; Legacy armed towers keep that gun when upgraded; new towers never add one.
+    ;; New artillery needs two kits and stays inert until both arrive. Only old
+    ;; saves contain unfinished level-two towers (the former artillery design).
     ;; Stage: 0 paid kit at source awaiting a worker, 1 carried kit, 2 operational,
     ;; 3 paid kit at source reserved for a worker settling cargo or collecting it.
     ;; Stages 4/5/7 mirror 0/1/3 while an operational tower awaits its upgrade kit.
@@ -79,6 +82,9 @@
     ;; Production jobs reserve a future worker ID in target; the paid materials
     ;; stay at the hub while cargo remains ordinary ore. Job 6 with target 0 is
     ;; the sole-colonist recovery exception, never a paid production order.
+    ;; Jobs 12/13 return for a paid hub repair / perform that repair. Fleeing
+    ;; timer 12 retains the repair order; target owns its paid ore amount and
+    ;; cargo remains ordinary mined ore. No repair target denotes an entity ID.
     (define-immutable-record Bot make-bot
       (id I32 bot-id bot-id-set)
       (x I32 bot-x bot-x-set)
@@ -105,6 +111,8 @@
     ;; Behavior and strength are independent. Rank survives wounds and keeps the
     ;; introduced medium, hard, extra-hard, miniboss, elite and boss silhouettes.
     ;; Kind: 0 siege minion, 1 outpost raider, 2 final beast.
+    ;; Target 0 attacks the hub opportunistically; a building ID commits to an
+    ;; exposed outpost or the last building that wounded this enemy.
     (define-immutable-record Enemy make-enemy
       (id I32 enemy-id enemy-id-set)
       (x I32 enemy-x enemy-x-set)
@@ -166,6 +174,11 @@
     (define maximum-surveys 1024)
     (define (world-hub-x world) (spawn-x (world-seed world)))
     (define (world-hub-y world) (spawn-y (world-seed world)))
+    ;; The saved center remains the delivery point. All nine surrounding tiles
+    ;; belong to the hub for new orders; existing saves keep their structures.
+    (define (hub-cell? world x y)
+      (and (>= x (- (world-hub-x world) 1)) (<= x (+ (world-hub-x world) 1))
+           (>= y (- (world-hub-y world) 1)) (<= y (+ (world-hub-y world) 1))))
     (define (world-nest-x world) (nest-x (world-seed world)))
     (define (world-nest-y world) (nest-y (world-seed world)))
     (define (idle-bot seed id)
@@ -274,11 +287,10 @@
             ((not (visible? world x y)) 1)
             ((not (surveyed? (world-surveys world) x y)) 6)
             ((not (world-ground? world x y)) 2)
-            ((or (and (= x (world-hub-x world)) (= y (world-hub-y world)))
+            ((or (hub-cell? world x y)
                  (and (= x (world-nest-x world)) (= y (world-nest-y world)))
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((track-reserved? world (cell-index x y)) 28)
             ((and (= kind 1) (= (deposit-rate (world-seed world) x y) 0)) 4)
             ((and (not (= kind 1)) (> (deposit-rate (world-seed world) x y) 0)) 5)
             ((not (affordable-kit? world (building-cost kind))) 7)
@@ -292,8 +304,8 @@
                (world-notice-set world 6))
               (else (accept-building world kind x y reserve)))))
     (define (accept-building world kind x y reserve)
-      (let* ((building (make-building (world-next-id world) (if (= kind 2) 3 kind) x y (if (= kind 2) 2 1)
-                                      (building-health (if (= kind 2) 3 kind)) 0 0 0 (cell-x x) (cell-y y) 0 -1 -1 -1))
+      (let* ((building (make-building (world-next-id world) kind x y 1
+                                      (building-health kind) 0 0 0 (cell-x x) (cell-y y) 0 -1 -1 -1))
              (choice (choose-builder world building (world-bots world) (empty-list) reserve))
              (source (if (null? choice) (waiting-source world building reserve) (builder-source (car choice)))))
         (if (< source 0) (world-notice-set world 6)
@@ -310,18 +322,26 @@
     (define (fortify-world world x y) (queue-building world 2 x y 0))
     (define (observe-world world x y) (queue-building world 3 x y 0))
     (define (wall-world world x y) (queue-building world 4 x y 0))
+    ;; Brush requests use absolute map cells. Validate the kind and whole index
+    ;; before converting coordinates, then use the ordinary paid placement path.
+    (define (place-cell-world world kind cell)
+      (cond ((or (< kind 1) (> kind 4)) world)
+            ((or (< cell 0) (>= cell (* map-width map-height))) (world-notice-set world 15))
+            (else (queue-building world kind (index-x cell) (index-y cell) 0))))
     (define (upgrade-world world x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (or (not (active? world)) (null? found)) (world-notice-set world 11)
             (upgrade-building world (car found)))))
     (define (upgrade-cost building)
-      (cond ((tower? building) 25) ((= (building-level building) 1) 40) (else 160)))
+      (cond ((or (tower? building) (= (building-kind building) 2)) 25)
+            ((= (building-level building) 1) 40) (else 160)))
     (define (upgrade-building world building)
       (let ((price (upgrade-cost building)))
         (cond ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building)
-                   (= (building-kind building) 2) (= (building-kind building) 4)) (world-notice-set world 11))
+                   (= (building-kind building) 4)) (world-notice-set world 11))
               ((>= (list-size (world-surveys world)) maximum-surveys) (world-notice-set world 8))
-              ((tower? building) (if (affordable-kit? world price) (queue-arming world building) (world-notice-set world 7)))
+              ((or (tower? building) (= (building-kind building) 2))
+               (if (affordable-kit? world price) (queue-upgrade world building) (world-notice-set world 7)))
               ((< (world-credits world) price) (world-notice-set world 7))
               (else (let ((improved (building-level-set building (+ (building-level building) 1))))
                       (world-notice-set (remember-building (put-building (spend world price) improved)
@@ -368,6 +388,50 @@
       (let ((reason (fabrication-reason world)))
         (if (= reason 0) (accept-fabrication world (car (choose-assembler world (world-bots world) (empty-list))))
             (world-notice-set world reason))))
+
+    ;; ---- Explicit paid hub repair ----
+
+    ;; Paid material stays at the hub until one worker finishes this order.
+    ;; Traveling workers retain ordinary ore; death refunds the unused payment.
+    (define repair-ticks 30)
+    (define repair-health 2)
+    (define (repair-cost world)
+      (minimum (world-credits world) (quotient (+ (- 300 (world-hull world)) 1) repair-health)))
+    ;; This quote assumes no further damage while the assigned worker travels
+    ;; and works. Completion restores the purchased health to the then-current hull.
+    (define (repair-target world)
+      (minimum 300 (+ (world-hull world) (* repair-health (repair-cost world)))))
+    (define (repair-percent world) (quotient (* 100 (repair-target world)) 300))
+    (define (repair-worker? bot)
+      (or (= (bot-job bot) 12) (= (bot-job bot) 13)
+          (and (= (bot-job bot) 7) (= (bot-timer bot) 12))))
+    (define (pending-repair? bots)
+      (and (not (null? bots)) (or (repair-worker? (car bots)) (pending-repair? (cdr bots)))))
+    (define (repair-reason world)
+      (cond ((not (active? world)) 9)
+            ((>= (world-hull world) 300) 29)
+            ((pending-repair? (world-bots world)) 30)
+            ((= (world-credits world) 0) 7)
+            ((null? (choose-assembler world (world-bots world) (empty-list))) 27)
+            (else 0)))
+    (define (start-repair world bot)
+      (put-bot (credit-delivery world (bot-cargo bot))
+               (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 13 (bot-target bot) 0
+                         repair-ticks (empty-list) (bot-hp bot) 0 0)))
+    (define (accept-repair world choice)
+      (let* ((bot (builder-worker choice)) (paid-ore (repair-cost world))
+             (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 12 paid-ore (bot-cargo bot) 0
+                                  (builder-pickup choice) (bot-hp bot) 0 0))
+             (paid (world-started-set (spend world paid-ore) #t)))
+        (world-notice-set (if (at-hub? world bot) (start-repair paid returning) (put-bot paid returning)) 31)))
+    (define (repair-world world)
+      (let ((reason (repair-reason world)))
+        (if (= reason 0) (accept-repair world (car (choose-assembler world (world-bots world) (empty-list))))
+            (world-notice-set world reason))))
+    (define (repair-hub world bot)
+      (if (> (bot-timer bot) 1) (put-bot world (bot-timer-set bot (- (bot-timer bot) 1)))
+          (finish-work (world-hull-set world (minimum 300 (+ (world-hull world) (* repair-health (bot-target bot))))) bot)))
+
     ;; Focus: 0 manual purchases, 1 explore, 2 defend. Plans are derived
     ;; status codes; they never own ore, workers or a hidden construction queue.
     (define (focus-world world value)
@@ -377,20 +441,16 @@
     ;; ---- Cancellation and immediate construction commitments ----
 
     (define (arm-world world x y)
-      (let ((found (building-at (world-buildings world) x y)))
-        (cond ((or (not (active? world)) (null? found)) (world-notice-set world 11))
-              ((or (not (ready? (car found))) (not (tower? (car found))) (not (= (building-level (car found)) 1))
-                   (arming? (car found)) (moving? (car found)))
-               (world-notice-set world 11))
-              ((not (affordable-kit? world 25)) (world-notice-set world 7))
-              (else (queue-arming world (car found))))))
-    (define (queue-arming world tower)
-      (let* ((project (building-source-set (building-stage-set tower 4) -1))
+      ;; Retained command identity for old clients; conversions are no longer
+      ;; offered because towers and artillery now have separate upgrade trees.
+      (world-notice-set world 11))
+    (define (queue-upgrade world building)
+      (let* ((project (building-source-set (building-stage-set building 4) -1))
              (choice (choose-builder world project (world-bots world) (empty-list) 0))
              (source (if (null? choice) (waiting-source world project 0) (builder-source (car choice)))))
         (if (< source 0) (world-notice-set world 6)
             (let* ((paid (pay-kit world source 25))
-                   (current (car (find-building (world-buildings paid) (building-id tower))))
+                   (current (car (find-building (world-buildings paid) (building-id building))))
                    (project (building-source-set (building-stage-set current 4) source))
                    (paid (put-building paid project)))
               (world-notice-set (if (null? choice) paid (reserve-builder paid project (car choice))) 20)))))
@@ -480,7 +540,8 @@
       (+ (path-ticks (fast-rails world (world-rails world)) (bot-x bot) (bot-y bot) path) 1))
     (define (committed-builders bots)
       (if (null? bots) 0
-          (+ (if (or (> (bot-order (car bots)) 0) (kit-carrier? (car bots)) (production-worker? (car bots))) 1 0)
+          (+ (if (or (> (bot-order (car bots)) 0) (kit-carrier? (car bots))
+                     (production-worker? (car bots)) (repair-worker? (car bots))) 1 0)
              (committed-builders (cdr bots)))))
     (define (builder-eligible? world bot)
       (and (= (bot-order bot) 0)
@@ -590,7 +651,7 @@
 
     ;; One sorted entry per occupied map cell: cell*32 plus east=1, south=2,
     ;; west=4, north=8 and ever-station=16. Connections are reciprocal; the
-    ;; station bit keeps former endpoints rebuildable. This bounded map owns no
+    ;; station bit remembers former endpoints. This bounded map owns no
     ;; cargo, station IDs or speed: those belong only to active Rail records.
     (define (track-cell track) (quotient track 32))
     (define (track-flag? track flag) (= (remainder (quotient track flag) 2) 1))
@@ -599,10 +660,6 @@
     (define (track-west? track) (track-flag? track 4))
     (define (track-north? track) (track-flag? track 8))
     (define (track-station? track) (track-flag? track 16))
-    (define (track-at tracks cell)
-      (cond ((or (null? tracks) (> (track-cell (car tracks)) cell)) -1)
-            ((= (track-cell (car tracks)) cell) (car tracks))
-            (else (track-at (cdr tracks) cell))))
     (define (add-track tracks cell flag)
       (cond ((or (null? tracks) (> (track-cell (car tracks)) cell)) (cons (+ (* cell 32) flag) tracks))
             ((= (track-cell (car tracks)) cell)
@@ -622,10 +679,6 @@
     (define (lay-site-rail world site)
       (let ((rail (find-rail (world-rails world) (building-id site))))
         (if (null? rail) world (lay-rail world (car rail)))))
-    (define (track-reserved? world cell)
-      (let ((track (track-at (world-tracks world) cell)))
-        (or (and (>= track 0) (not (track-station? track)))
-            (rail-reserved? (world-rails world) cell))))
 
     ;; ---- Automatic upstream rails and physical depot freight ----
 
@@ -636,12 +689,6 @@
       (if (null? rails) rails
           (if (= (rail-source (car rails)) source) (cdr rails)
               (cons (car rails) (remove-rail (cdr rails) source)))))
-    (define (interior-cell? path cell)
-      (and (not (null? path)) (not (null? (cdr path)))
-           (or (= (car path) cell) (interior-cell? (cdr path) cell))))
-    (define (rail-reserved? rails cell)
-      (and (not (null? rails))
-           (or (interior-cell? (cdr (rail-path (car rails))) cell) (rail-reserved? (cdr rails) cell))))
     (define (replace-rail rails value)
       (if (null? rails) rails
           (cons (if (= (rail-source (car rails)) (rail-source value)) value (car rails))
@@ -723,6 +770,8 @@
       (and (not (null? (find-building (world-buildings world) (rail-source rail))))
            (or (= (rail-parent rail) 0) (not (null? (find-building (world-buildings world) (rail-parent rail)))))))
     (define (retain-rails world rails kept)
+      ;; Buildings may share laid track cells. Only losing an endpoint removes
+      ;; a freight route; later construction never erases its track or cargo.
       (if (null? rails) (world-rails-set world (reverse kept))
           (let ((rail (car rails)))
             (if (rail-endpoints-alive? world rail) (retain-rails world (cdr rails) (cons rail kept))
@@ -819,11 +868,10 @@
                  (> (distance x y (building-x building) (building-y building)) 2)) 25)
             ((not (visible? world x y)) 1)
             ((not (world-ground? world x y)) 2)
-            ((or (and (= x (world-hub-x world)) (= y (world-hub-y world)))
+            ((or (hub-cell? world x y)
                  (and (= x (world-nest-x world)) (= y (world-nest-y world)))
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((track-reserved? world (cell-index x y)) 28)
             ((> (deposit-rate (world-seed world) x y) 0) 5)
             ((< (world-credits world) 5) 7)
             ((>= (+ (list-size (world-surveys world)) (pending-move-count (world-buildings world))) maximum-surveys) 8)
@@ -842,7 +890,8 @@
                                                   (building-move-y-set (building-move-x-set building a) b)) 21))))))
     (define (advance-move world building)
       (if (not (and (moving? building) (move-drained? world building))) world
-          (let ((candidate (move-candidate world building (building-move-x building) (building-move-y building))))
+          (let ((candidate (if (hub-cell? world (building-move-x building) (building-move-y building)) (empty-list)
+                               (move-candidate world building (building-move-x building) (building-move-y building)))))
             (if (null? candidate) (world-notice-set (put-building (spend world -5) (clear-move building)) 26)
                 (let* ((world (car candidate)) (moved (car (find-building (world-buildings world) (building-id building)))))
                   (world-notice-set (remember-building (lay-moved-rails world (world-rails world) (building-id building)) moved) 22))))))
@@ -1040,7 +1089,7 @@
             (else (return-home world bot (bot-timer bot)))))
     (define (interrupt-bot world bot)
       (let ((job (if (or (= (bot-job bot) 3) (= (bot-job bot) 5)) 5
-                     (if (= (bot-job bot) 4) 4
+                     (if (or (= (bot-job bot) 4) (= (bot-job bot) 12)) (bot-job bot)
                          (if (= (bot-job bot) 11) 11 (if (= (bot-job bot) 7) (bot-timer bot) 2))))))
         (flee-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 7 (bot-target bot)
                                   (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot)))))
@@ -1076,8 +1125,7 @@
       (let ((free (clear-job bot))) (assign-work (put-bot world free) free)))
     (define (incorporate-kit site cargo complete)
       (if (arming? site)
-          (let ((level (+ (building-level site) 1)))
-            (building-armed-set (building-level-set site level) (if (= level 2) 1 0)))
+          (building-level-set site (+ (building-level site) 1))
           (building-armed-set (building-stock-set site (if complete 0 (+ (building-stock site) cargo)))
                               (if (and complete (tower? site) (= (building-level site) 2)) 1 0))))
     (define (complete-building world bot)
@@ -1117,6 +1165,7 @@
             ((= (bot-job bot) 5) (return-kit world bot))
             ((= (bot-job bot) 9) (put-bot world (bot-job-set bot 8)))
             ((= (bot-job bot) 11) (reserved-work world bot))
+            ((= (bot-job bot) 12) (start-repair world bot))
             (else world)))
     (define (mine-bot world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
@@ -1137,6 +1186,7 @@
     (define (advance-bot world bot)
       (let ((bot (if (sheltered? world bot) (bot-hp-set bot 14) bot)))
         (cond ((= (bot-job bot) 6) (assemble-worker world bot))
+              ((= (bot-job bot) 13) (repair-hub world bot))
               ((= (bot-job bot) 7) (flee-bot world bot))
               ((and (not (sheltered? world bot)) (danger? (world-enemies world) (bot-x bot) (bot-y bot)))
                (interrupt-bot world bot))
@@ -1152,16 +1202,33 @@
 
     ;; ---- The nest sends escalating attacks until destroyed ----
 
-    (define first-wave-tick 300)
-    (define wave-interval 300)
-    (define first-raid-tick 900)
-    (define raid-interval 900)
-    (define final-siege-tick 3600)
+    ;; The opening allows ninety seconds of exploration. Ordinary waves then
+    ;; arrive once a minute; new strength ranks take three minutes each.
+    (define first-wave-tick 900)
+    (define wave-interval 600)
+    (define first-raid-tick 2700)
+    (define raid-interval 1800)
+    (define final-siege-tick 10800)
     ;; This serialization bound is over six years of continuous simulation.
     ;; It never declares a timed victory; only destroying the nest wins.
     (define run-end-tick 2147480000)
     (define maximum-enemies 128)
-    (define (threat-tier tick) (minimum 40 (quotient tick 600)))
+    (define simulation-ticks-per-second 10)
+    (define difficulty-step-ticks 1800)
+    ;; This computed domain interval is the only source of difficulty timing.
+    ;; Zero end means the final tier, with no further increase scheduled.
+    (define-immutable-record DifficultyWindow make-difficulty-window
+      (tier I32 difficulty-tier difficulty-tier-set)
+      (start I32 difficulty-start difficulty-start-set)
+      (end I32 difficulty-end difficulty-end-set))
+    (define (difficulty-window-for tick interval)
+      (unless (and (>= tick 0) (<= tick run-end-tick) (> interval 0)
+                   (<= interval (quotient run-end-tick 41)))
+        (unreachable))
+      (let ((tier (minimum 40 (quotient tick interval))))
+        (make-difficulty-window tier (* tier interval) (if (= tier 40) 0 (* (+ tier 1) interval)))))
+    (define (difficulty-window tick) (difficulty-window-for tick difficulty-step-ticks))
+    (define (threat-tier tick) (difficulty-tier (difficulty-window tick)))
     (define (maximum-enemy-rank tick) (minimum 6 (threat-tier tick)))
     (define maximum-enemy-health 2310)
     (define (enemy-rank-health rank)
@@ -1180,12 +1247,24 @@
     (define (attack-size tick)
       (cond ((heavy-wave? tick) (+ 7 (minimum 17 (quotient (- tick final-siege-tick) final-siege-tick))))
             ((raid-wave? tick) (+ 5 (minimum 19 (quotient (- tick first-raid-tick) raid-interval))))
-            ((regular-wave? tick) (+ 4 (minimum 20 (quotient (- tick first-wave-tick) 900)))) (else 0)))
+            ((regular-wave? tick) (+ 4 (minimum 20 (quotient (- tick first-wave-tick) 2700)))) (else 0)))
     (define (attack-at-or-after tick)
       (if (> (attack-size tick) 0) tick
           (attack-at-or-after (+ tick 150))))
     (define (next-attack-tick tick)
       (attack-at-or-after (* 150 (+ 1 (quotient tick 150)))))
+    ;; Raids replace regular waves; bosses fall halfway between them. These
+    ;; disjoint schedules give constant-time numbering and countdown spans,
+    ;; even near the six-year save bound. Tick zero starts the opening span.
+    (define (regular-attack-count tick)
+      (if (< tick first-wave-tick) 0 (+ 1 (quotient (- tick first-wave-tick) wave-interval))))
+    (define (next-attack-number tick)
+      (+ 1 (+ (regular-attack-count tick) (quotient tick final-siege-tick))))
+    (define (attack-countdown-span tick)
+      (let* ((count (regular-attack-count tick))
+             (regular (if (= count 0) 0 (+ first-wave-tick (* (- count 1) wave-interval))))
+             (heavy (* (quotient tick final-siege-tick) final-siege-tick)))
+        (- (next-attack-tick tick) (maximum regular heavy))))
     (define (outpost-distance world site)
       (distance (building-x site) (building-y site) (world-hub-x world) (world-hub-y world)))
     (define (exposed-outpost? world site best)
@@ -1300,15 +1379,26 @@
         (enemy-path-set enemy (enemy-route world enemy
                                            (if (null? target) (world-hub-x world) (building-x (car target)))
                                            (if (null? target) (world-hub-y world) (building-y (car target)))))))
+    (define (path-ends-at? path cell)
+      (and (not (null? path))
+           (if (null? (cdr path)) (= (car path) cell) (path-ends-at? (cdr path) cell))))
+    (define (enemy-route-stale? world enemy)
+      (let ((target (enemy-target-building world enemy)))
+        (and (not (null? target))
+             (if (null? (enemy-path enemy)) (null? (near-building enemy target))
+                 (not (path-ends-at? (enemy-path enemy)
+                                     (cell-index (building-x (car target)) (building-y (car target)))))))))
+    ;; A relocated attacker keeps its ID but changes the route's destination.
+    ;; Check that destination on the same bounded cadence as terrain shortcuts;
+    ;; repeated shots from a stationary attacker keep valid detours intact.
     (define (refresh-enemy-route world enemy)
-      (if (and (= (remainder (+ (world-tick world) (enemy-id enemy)) 20) 0)
-               (< (digging-cell world enemy) 0)
-               (or (not (null? (world-breaches world))) (not (null? (world-excavations world)))))
-          (let ((candidate (route-enemy world enemy)))
-            (if (and (not (null? (enemy-path candidate)))
-                     (or (null? (enemy-path enemy))
-                         (< (enemy-path-cost world enemy (enemy-path candidate)) (enemy-path-cost world enemy (enemy-path enemy))))) candidate enemy))
-          enemy))
+      (if (not (= (remainder (+ (world-tick world) (enemy-id enemy)) 20) 0)) enemy
+          (cond ((enemy-route-stale? world enemy) (route-enemy world enemy))
+                ((and (< (digging-cell world enemy) 0)
+                      (or (not (null? (world-breaches world))) (not (null? (world-excavations world)))))
+                 (enemy-path-set enemy (faster-enemy-path world enemy (enemy-path enemy)
+                                                          (enemy-path (route-enemy world enemy)))))
+                (else enemy))))
 
     ;; ---- Crowds spread into neighboring walking lanes ----
 
@@ -1386,6 +1476,9 @@
              (length (if (= square 0) 0 (root-step square square))))
         (if (> length artillery-range) 0
             (+ 6 (quotient (* 18 (- artillery-range length)) artillery-range)))))
+    (define (building-shot-damage building x y)
+      (let ((damage (artillery-damage (cell-x (building-x building)) (cell-y (building-y building)) x y)))
+        (if (= (building-kind building) 2) (quotient (* damage (+ (building-level building) 1)) 2) damage)))
     (define (choose-target world building enemies best)
       (if (null? enemies) best
           (let ((enemy (car enemies)))
@@ -1400,10 +1493,14 @@
                                              (< (distance (enemy-x enemy) (enemy-y enemy) (cell-x (world-hub-x world)) (cell-y (world-hub-y world)))
                                                 (distance (enemy-x (car best)) (enemy-y (car best)) (cell-x (world-hub-x world)) (cell-y (world-hub-y world)))))))
                                (list enemy) best)))))
-    (define (hurt-enemy enemies id amount)
+    (define (retaliate-enemy world enemy attacker amount)
+      (let ((wounded (enemy-hp-set enemy (- (enemy-hp enemy) amount))))
+        (if (or (<= (enemy-hp wounded) 0) (= (enemy-target wounded) attacker)) wounded
+            (route-enemy world (enemy-target-set wounded attacker)))))
+    (define (hurt-enemy world enemies id attacker amount)
       (if (null? enemies) enemies
-          (cons (if (= (enemy-id (car enemies)) id) (enemy-hp-set (car enemies) (- (enemy-hp (car enemies)) amount))
-                    (car enemies)) (hurt-enemy (cdr enemies) id amount))))
+          (cons (if (= (enemy-id (car enemies)) id) (retaliate-enemy world (car enemies) attacker amount)
+                    (car enemies)) (hurt-enemy world (cdr enemies) id attacker amount))))
     (define (fire-building world building)
       ;; Aim records an actual shot, so its tracer cannot bend while cooling down.
       (if (> (building-cooldown building) 0) world
@@ -1412,9 +1509,8 @@
                 (let* ((enemy (car target))
                        (aimed (building-aim-y-set (building-aim-x-set building (enemy-x enemy)) (enemy-y enemy))))
                   (world-enemies-set (put-building world (building-cooldown-set aimed 8))
-                                     (hurt-enemy (world-enemies world) (enemy-id enemy)
-                                                 (artillery-damage (cell-x (building-x building)) (cell-y (building-y building))
-                                                                   (enemy-x enemy) (enemy-y enemy)))))))))
+                                     (hurt-enemy world (world-enemies world) (enemy-id enemy) (building-id building)
+                                                 (building-shot-damage building (enemy-x enemy) (enemy-y enemy)))))))))
     (define (nest-in-range? world building)
       (let ((x (cell-x (world-nest-x world))) (y (cell-y (world-nest-y world)))
             (a (cell-x (building-x building))) (b (cell-y (building-y building))))
@@ -1424,7 +1520,7 @@
       (if (not (nest-in-range? world building)) world
           (let* ((x (cell-x (world-nest-x world))) (y (cell-y (world-nest-y world)))
                  (aimed (building-aim-y-set (building-aim-x-set building x) y))
-                 (damage (artillery-damage (cell-x (building-x building)) (cell-y (building-y building)) x y)))
+                 (damage (building-shot-damage building x y)))
             (world-nest-hp-set (put-building world (building-cooldown-set aimed 8))
                                (maximum 0 (- (world-nest-hp world) damage))))))
     (define (fire-buildings world buildings)
@@ -1438,10 +1534,18 @@
       (if (null? enemies) enemies
           (if (> (enemy-hp (car enemies)) 0) (cons (car enemies) (enemy-survivors (cdr enemies)))
               (enemy-survivors (cdr enemies)))))
-    ;; ---- Encounters damage nearby colony assets without changing the siege route ----
+    ;; ---- Encounters respect walls and a committed attacker's priority ----
 
+    ;; The nine hub tile centers form a square; their outer attack boundary
+    ;; keeps the same rounded 45-pixel reach as the former single-cell hub.
     (define (near-hub? world enemy)
-      (within? (enemy-x enemy) (enemy-y enemy) (cell-x (world-hub-x world)) (cell-y (world-hub-y world)) 45))
+      (let ((x (cell-x (world-hub-x world))) (y (cell-y (world-hub-y world))))
+        (within? (enemy-x enemy) (enemy-y enemy)
+                 (minimum (+ x cell-size) (maximum (- x cell-size) (enemy-x enemy)))
+                 (minimum (+ y cell-size) (maximum (- y cell-size) (enemy-y enemy))) 45)))
+    (define (enemy-target-building world enemy)
+      (let ((target (find-building (world-buildings world) (enemy-target enemy))))
+        (if (and (not (null? target)) (ready? (car target))) target (empty-list))))
     (define (near-worker world enemy bots)
       (if (null? bots) (empty-list)
           (let ((bot (car bots)))
@@ -1462,12 +1566,18 @@
                      (within? (enemy-x enemy) (enemy-y enemy) (cell-x (building-x site)) (cell-y (building-y site)) 56))
                 (list site) (near-wall enemy (cdr buildings))))))
     (define (encounter? world enemy)
-      (or (near-hub? world enemy) (not (null? (near-worker world enemy (world-bots world))))
-          (not (null? (near-building enemy (world-buildings world))))))
+      (let ((target (enemy-target-building world enemy)))
+        (or (not (null? (near-wall enemy (world-buildings world))))
+            (if (null? target)
+                (or (near-hub? world enemy) (not (null? (near-worker world enemy (world-bots world))))
+                    (not (null? (near-building enemy (world-buildings world)))))
+                (not (null? (near-building enemy target)))))))
+    (define attack-alert-ticks 80)
+    (define attack-alert-radius 4)
     (define (retained-alerts alerts x y tick remaining)
       (if (or (= remaining 0) (null? alerts)) (empty-list)
           (let ((alert (car alerts)))
-            (if (or (> (- tick (alert-tick alert)) 80) (within? x y (alert-x alert) (alert-y alert) 4))
+            (if (or (> (- tick (alert-tick alert)) attack-alert-ticks) (within? x y (alert-x alert) (alert-y alert) attack-alert-radius))
                 (retained-alerts (cdr alerts) x y tick remaining)
                 (cons alert (retained-alerts (cdr alerts) x y tick (- remaining 1)))))))
     (define (record-attack world x y kind)
@@ -1476,9 +1586,11 @@
     (define (attack-target world enemy)
       (let* ((damage (enemy-rank-damage (enemy-rank enemy)))
              (wall (near-wall enemy (world-buildings world)))
+             (target (enemy-target-building world enemy))
              (worker (near-worker world enemy (world-bots world)))
-             (site (near-building enemy (world-buildings world))))
+             (site (near-building enemy (if (null? target) (world-buildings world) target))))
         (cond ((not (null? wall)) (damage-building world (car wall) damage))
+              ((not (null? target)) (if (null? site) world (damage-building world (car site) damage)))
               ((and (near-hub? world enemy) (> (world-hull world) 0))
                (record-attack (world-hull-set world (maximum 0 (- (world-hull world) damage))) (world-hub-x world) (world-hub-y world) 0))
               ((not (null? worker))
@@ -1501,8 +1613,9 @@
           (if (= (building-id (car buildings)) id) (cdr buildings)
               (cons (car buildings) (remove-building (cdr buildings) id)))))
     (define (ore-cargo? bot)
-      (or (= (bot-job bot) 2) (= (bot-job bot) 4)
-          (and (= (bot-job bot) 7) (or (= (bot-timer bot) 2) (= (bot-timer bot) 4)))))
+      (or (= (bot-job bot) 2) (= (bot-job bot) 4) (= (bot-job bot) 12)
+          (and (= (bot-job bot) 7)
+               (or (= (bot-timer bot) 2) (= (bot-timer bot) 4) (= (bot-timer bot) 12)))))
     (define (kit-carrier? bot)
       (and (> (bot-cargo bot) 4)
            (or (= (bot-job bot) 3) (= (bot-job bot) 5)
@@ -1511,8 +1624,9 @@
       (let* ((found (find-building (world-buildings world) (bot-order bot)))
              (world (if (null? found) world (put-building world (construction-stage-set (car found) 0))))
              (world (world-casualties-set world (+ (world-casualties world) 1)))
-             ;; A cancelled worker order leaves its unconsumed materials at hub.
-             (world (if (production-worker? bot) (spend world (- 0 worker-cost)) world)))
+             ;; Cancelled hub work leaves its unconsumed materials at the hub.
+             (world (cond ((production-worker? bot) (spend world (- 0 worker-cost)))
+                          ((repair-worker? bot) (spend world (- 0 (bot-target bot)))) (else world))))
         (cond ((ore-cargo? bot) (world-lost-ore-set world (+ (world-lost-ore world) (bot-cargo bot))))
               ((kit-carrier? bot)
                (lose-carried-kit world bot))

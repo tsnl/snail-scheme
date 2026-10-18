@@ -98,6 +98,12 @@ geometry batches. No managed reference or GPU handle enters the cache:
 retained data consists of copied vertices and indices, scoped to one Wasm instance.
 Replacing the module starts fresh geometry caches while preserving typed state.
 
+Completed numeric arrays are frozen at the bridge's construction boundary, so
+the presentation finalizer can preserve them without recursively copying every
+number. Wrappers and reveal metadata still receive recursive freezing. See the
+[measured finalization cost](../../doc/measurements/scene-finalization-2026-10-18.md)
+for avoided work, output-equivalence checks and remaining mobile costs.
+
 `present-scene!` transforms positions and normals only for changed batches.
 The host validates finite scalars, complete uniforms and bounded indices. The
 shaders apply the camera matrix and Lambert lighting. `src/webgpu/scene.mjs`
@@ -208,14 +214,15 @@ Wrap any retained, motion or translucent batch with a radial reveal:
 ```
 
 The wrapper takes the batch, a nonnegative `I32` transition identity, world XY
-center, enclosing radius, positive feather width, nonnegative initial elapsed
+center, enclosing radius, nonnegative edge width, nonnegative initial elapsed
 milliseconds and positive duration milliseconds. Center, radius and feather are
-`F64`; times are `I32`. The radius must enclose **all** supplied geometry in XY,
+`F64`; times are `I32`. An edge width of zero requests a sharp continuous contour;
+a positive width feathers it. The radius must enclose **all** supplied geometry in XY,
 including tile corners and both endpoints of moving geometry. Stage the complete
 geometry at the start. Previously revealed geometry belongs in ordinary batches.
 
 The fragment shader measures distance from each interpolated world position to
-the center. A continuous soft edge advances with a quintic easing curve: slow
+the center. The continuous contour advances with a quintic easing curve: slow
 start, fast middle, slow finish. The host updates a small uniform and redraws
 existing buffers at display rate; Scheme, reducers and UI layout do not run on
 that path. Exactly invisible fragments discard, and the endpoint exposes the

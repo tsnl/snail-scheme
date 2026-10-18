@@ -3,7 +3,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output="$root/build/draw3d-tests"
 mkdir -p "$output/lib/webgpu"
-for fixture in math frame shader motion; do
+for fixture in math frame shader motion presentation; do
   chibi-scheme -I "$root/bootstrap" "$root/tests/applications/build.scm" "$root" \
     "$root/tests/draw3d/$fixture.sld" "$output/$fixture.wasm" "$root/apps/siegework/src"
 done

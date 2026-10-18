@@ -24,13 +24,13 @@
     ],
     "2": [
       "choose",
-      2
+      3
     ],
     " ": [
       "confirm"
     ],
     "Enter": [
-      "confirm"
+      "accept"
     ],
     "u": [
       "improve"
@@ -38,11 +38,11 @@
     "c": [
       "cancel"
     ],
-    "t": [
-      "arm"
+    "r": [
+      "repair"
     ],
     "f": [
-      "fabricate"
+      "hire"
     ],
     "n": [
       "restart"
@@ -98,21 +98,32 @@
       -1
     ],
     "q": [
-      "rotate",
-      0,
+      "turn",
       -1
     ],
     "e": [
-      "rotate",
-      0,
+      "turn",
       1
     ],
     "3": [
       "choose",
-      3
+      2
     ],
     "v": [
       "orbit"
+    ],
+    "4": [
+      "choose",
+      4
+    ],
+    "b": [
+      "build-menu"
+    ],
+    "o": [
+      "settings"
+    ],
+    "g": [
+      "worker-menu"
     ]
   },
   "inputRepeatMilliseconds": 140,

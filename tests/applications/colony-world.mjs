@@ -36,13 +36,13 @@ export async function checkWorld(test,fresh) {
   await test('surviving the old finale does not win and the nest continues spawning later waves',async()=>{
     const r=await fresh(),world=state(r); world.started=true; world.tick=4800; await restoreColony(r,world); await advance(r);
     assert.equal(state(r).outcome,0); assert.equal(state(r).nestHp,1500);
-    const later=state(r); later.tick=5999; await restoreColony(r,later); await advance(r);
+    const later=state(r); later.tick=11699; await restoreColony(r,later); await advance(r);
     assert.ok(state(r).enemies.length>7); assert.equal(state(r).outcome,0);
     assert.ok(state(r).enemies.every(enemy=>Math.abs(enemy.x-(199*40+20))<=47&&Math.abs(enemy.y-(24*40+20))<=87));
     await r.close();
   });
   await test('forward artillery destroys the nest and that victory survives save and pause',async()=>{
-    const r=await fresh(),point=at(state(r),9,23); await build(r,'fortify',point.x,point.y);
+    const r=await fresh(),point=at(state(r),10,23); await build(r,'fortify',point.x,point.y);
     const world=state(r),site=world.buildings[0]; Object.assign(site,{kind:2,level:1,armed:0,x:199,y:28,cooldown:0}); world.rails=[];
     world.surveys.unshift({x:199,y:28,radius:4}); world.lastRevealTick=world.tick; world.nestHp=6;
     await restoreColony(r,world); const bank=state(r).ore; await advance(r);
@@ -51,7 +51,7 @@ export async function checkWorld(test,fresh) {
     const won=r.snapshot(1); await r.restore(1,won); await advance(r,10); assert.deepEqual(r.snapshot(1),won); await r.close();
   });
   await test('the continuing wave respects the 128-enemy live cap',async()=>{
-    const r=await fresh(),world=state(r); world.started=true; world.tick=599;
+    const r=await fresh(),world=state(r); world.started=true; world.tick=899;
     for(let i=0;i<127;i++)world.enemies.push({id:world.nextId++,x:199*40+20,y:24*40+20,hp:80,kind:0,target:0,path:[]});
     await restoreColony(r,world); await advance(r); assert.equal(state(r).enemies.length,128);
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved); await r.close();

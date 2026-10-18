@@ -1,0 +1,25 @@
+;; The actual presentation projection follows a changed model interval.
+(define-library (tests draw3d presentation)
+  (export answer)
+  (import
+   (scheme base)
+   (siegework model)
+   (siegework presentation)
+   (only (lofi base) string=?)
+   (only (lofi core) ann -> I32))
+  (begin
+    (define (readout-matches? tick interval number elapsed span text)
+      (let ((value (project-difficulty (difficulty-window-for tick interval) tick)))
+        (and (= (difficulty-number value) number) (= (difficulty-elapsed value) elapsed)
+             (= (difficulty-span value) span) (string=? (difficulty-summary value) text))))
+    (define (projection-contract?)
+      (and (readout-matches? 900 1800 1 900 1800 "Difficulty rises in 90s")
+           (readout-matches? 900 3600 1 900 3600 "Difficulty rises in 270s")
+           (readout-matches? 3599 3600 1 3599 3600 "Difficulty rises in 1s")
+           (readout-matches? 3600 3600 2 0 3600 "Difficulty rises in 360s")
+           (readout-matches? 144000 3600 41 1 1 "Maximum difficulty")))
+    (define answer
+      (ann (lambda (interval)
+             (if (= interval -1) (if (projection-contract?) 1 0)
+                 (difficulty-end (difficulty-window-for 0 interval))))
+           (-> I32 I32)))))

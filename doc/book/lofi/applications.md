@@ -216,12 +216,32 @@ for their state records, then import `(application serialization)` and compose:
 | `view` | `(-> World Client (List Quad))`, a two-argument procedure with no mutation or effects. |
 | `status` | Two arguments, `World` and `Client`, returning `String`. |
 
+The browser host routes `enqueue` effects between these two owners. World sends
+pass through durable storage; their reply effects enter the browser queue only
+after commit. Client self-messages enter that same queue, so a UI can distinguish
+an authoritative result from completion of an attempt. A failed save publishes
+no World effects. Already admitted independent sends and completion messages
+still drain, with errors reported afterwards. This permits partial success; it
+does not turn a group of effects into one atomic transaction.
+
+For example, Siegework pairs each planned placement with a Client completion
+message. Acceptance removes its preview; completion releases its pending slot.
+If saving fails, no acceptance is delivered and the preview remains retryable.
+The UI keeps new submissions locked until the admitted batch has settled.
+
 The adapter serializes through the shared S-expression representation and its
 compact binary encoding. Its envelope carries schema version, byte length and
 four bytes per `I32` word, with checked final zero padding. Snapshots may grow or
 shrink within the host's 1,048,576-word bound. Schema zero marks an absent owner only
 inside the host; restoring a committed snapshot requires its declared positive
 schema. Neither derive implements migration between incompatible schemas.
+
+On page refresh, adding game endpoints can reopen an existing save if the world
+state/schema, effects, run marker, reset identity and every previous endpoint
+contract remain identical. Removing or changing an old endpoint is rejected.
+Live code replacement still requires the complete endpoint contract to match:
+refresh when adding handlers or changing transient client schema. The browser
+retains incompatible saved records rather than silently resetting them.
 
 The browser host supplies scalar diagnostic services for malformed snapshots.
 `Symbol` fields also need the interning services supplied by the linked Rust
@@ -264,6 +284,18 @@ Import `(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-te
 and `(application bridge)` for `run-program`.
 
 ### Previous snapshots for presentation
+
+Keep three responsibilities separate. The game model owns rules and deadlines;
+for example, it computes when difficulty increases. A pure presentation projection
+turns that interval into a label and progress value. Display animation interpolates
+positions or advances visual effects between committed snapshots. It must not
+invent a second game timer or change the simulated outcome.
+
+Siegework's [`presentation.sld`](../../../apps/siegework/src/siegework/presentation.sld)
+contains that projection. Its HUD and accessible status consume the same result;
+changing a difficulty interval does not require changing either renderer. Camera
+and selection belong to client state, while transient GPU interpolation belongs
+to the display clock. Only the game world is the durable colony.
 
 `(application bridge)` exports `(read-snapshot owner)` and
 `(read-previous-snapshot owner)`, where owner is `1` for the game model or `2` for

@@ -171,6 +171,26 @@ try {
   for(const flag of ['animated','reused','metadataReused','terminal','stopped','hiddenRetained','sizeRejected','sizePreserved'])assert.equal(reveal[flag],true,flag);
   assert.equal(reveal.held,1);assert.equal(reveal.released,0);assert.deepEqual(reveal.errors,[]);
   console.log('ok - fragment-soft radial reveals share clocks across cameras, keep old coverage stable, reuse geometry and hold the terminal frame');
+  const hardReveal = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
+    const before={width:canvas.width,height:canvas.height},original=Object.getOwnPropertyDescriptor(performance,'now');let time=1000;
+    Object.defineProperty(performance,'now',{configurable:true,value:()=>time});canvas.width=400;canvas.height=400;
+    const vertices=[];for(const[x,y]of[[-.9,-.9],[.9,-.9],[.9,.9],[-.9,.9]])vertices.push(x,y,.3,0,0,1,1,0,0,1);
+    const batch={key:93,vertices,indices:[0,1,2,0,2,3],reveal:{id:987,x:.37,y:.21,radius:.6,edge:0,elapsed:1500,duration:3000}};
+    const scene={uniforms:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,1,1,0,0,0,0,0,0,-1],background:[0,0,1],batches:[batch]};
+    async function sample(points){const result=await renderer.readPixels(scene);return points.map(([x,y])=>{
+      const at=Math.floor((1-y)*200)*result.bytesPerRow+Math.floor((x+1)*200)*4,p=Array.from(result.bytes.slice(at,at+4));
+      if(result.format.startsWith('bgra'))[p[0],p[2]]=[p[2],p[0]];return p;});}
+    try{const points=[[.37,.21],[.66,.21],[.68,.21],[.57,.41],[.60,.44],[.08,.21],[.06,.21]];
+      const middle=await sample(points),uploads=renderer.resources.uploads;
+      time=1100;renderer.animate(time);const advanced=await sample([[.68,.21],[.06,.21]]);
+      const reused=renderer.resources.uploads===uploads;time=2500;renderer.animate(time);
+      return{middle,advanced,reused,endpoint:await sample(points),errors:sceneErrors};
+    }finally{if(original)Object.defineProperty(performance,'now',original);else delete performance.now;
+      canvas.width=before.width;canvas.height=before.height;renderer.draw(frame);}})()`);
+  assert.deepEqual(hardReveal.middle,[red,red,blue,red,blue,red,blue]);
+  assert.deepEqual(hardReveal.advanced,[red,red]);assert.equal(hardReveal.reused,true);
+  assert.deepEqual(hardReveal.endpoint,Array(7).fill(red));assert.deepEqual(hardReveal.errors,[]);
+  console.log('ok - zero-edge reveals cut a hard continuous circle through triangle interiors and advance without geometry uploads');
   const insetMotion=await evaluate(`(async()=>{const{renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
     const original=Object.getOwnPropertyDescriptor(performance,'now');let time=5000;
     Object.defineProperty(performance,'now',{configurable:true,value:()=>time});

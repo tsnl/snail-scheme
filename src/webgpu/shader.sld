@@ -114,7 +114,8 @@
     ;; Vertex alpha carries emission; ambient.w carries per-batch opacity.
     ;; The host draws translucent previews after opaque surfaces, without depth writes.
     ;; reveal.xy is the world center, z the advancing front and w the half-edge.
-    ;; A negative half-edge disables clipping, including the exact endpoint.
+    ;; Negative w disables clipping, zero clips sharply, positive w feathers.
+    ;; Both edges are continuous within triangles, never quantized to geometry.
     (define (scene-module-source vertex fragment)
       (string-append
        "struct Scene { view_projection: mat4x4f, sun: vec4f, ambient: vec4f, motion: vec4f, reveal: vec4f };\n"
@@ -124,6 +125,7 @@
        "fn revealed(world: vec2f) -> f32 {\n"
        "  if (scene.reveal.w < 0.0) { return 1.0; }\n"
        "  let distance = length(world - scene.reveal.xy);\n"
+       "  if (scene.reveal.w == 0.0) { return select(0.0, 1.0, distance <= scene.reveal.z); }\n"
        "  return 1.0 - smoothstep(scene.reveal.z - scene.reveal.w, scene.reveal.z + scene.reveal.w, distance);\n}\n"
        "fn lambert(color: vec4f, normal: vec3f) -> vec4f {\n"
        "  let diffuse = max(dot(normalize(normal), scene.sun.xyz), 0.0) * scene.sun.w;\n"

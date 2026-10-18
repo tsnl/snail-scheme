@@ -1,0 +1,38 @@
+;; Actual Wasm requests, committed replies and authored settlement messages.
+(define-library (browser-effects)
+  (export answer)
+  (import
+   (scheme base)
+   (only (lofi core) ann -> I32 define-extern)
+   (only (lofi base) unreachable))
+  (begin
+    (define-extern read "snail.reducer" "read" (-> I32 I32 I32))
+    (define-extern stage "snail.reducer" "write" (-> I32 I32 I32 Unit))
+    (define-extern send "snail.reducer" "command" (-> I32 I32 I32 I32 Unit))
+
+    (define (request-cell cell)
+      (send 1 0 cell 1)
+      (send 2 2 cell 0))
+    (define (begin-plan middle)
+      (when (= (read 2 1) 0)
+        (stage 2 1 3) (stage 2 2 0) (stage 2 3 0)
+        (stage 2 4 (+ (read 2 4) 1))
+        (request-cell 1) (request-cell middle) (request-cell 4)))
+    (define (client-message slot cell)
+      (cond ((= slot 0) (begin-plan 2))
+            ((= slot 1) (stage 2 2 (+ (read 2 2) cell)))
+            ((= slot 2) (stage 2 1 (- (read 2 1) 1)) (stage 2 3 (+ (read 2 3) cell)))
+            ((= slot 3) (stage 2 5 (+ (read 2 5) 1)))
+            (else (begin-plan -2))))
+    (define (build-cell cell cost)
+      (if (< cell 0) (unreachable)
+          (begin (stage 1 1 (+ (read 1 1) cost)) (send 2 1 cell 1))))
+
+    (define answer
+      (ann (lambda (operation a b c)
+             (cond ((= operation 0) (cond ((= a 1) 2) ((= a 2) 6) (else 1)))
+                   ((= operation 1) (stage a 0 1) 1)
+                   ((= operation 2) (build-cell b c) 1)
+                   ((= operation 3) (client-message a b) 1)
+                   (else 1)))
+           (-> I32 I32 I32 I32 I32)))))

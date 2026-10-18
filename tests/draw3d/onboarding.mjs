@@ -15,7 +15,13 @@ const world = () => colony(runtime.snapshot(1)), local = () => {
 };
 async function command(binding, args = []) {
   const result = await runtime.dispatch(2, runtime.command('client', binding, args));
-  for (const effect of result.effects) if (effect.kind === 'send') await runtime.dispatch(1, runtime.effectCommand(effect));
+  await effects(result.effects);
+}
+async function effects(values) {
+  for(const effect of values)if(effect.kind==='send'){const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);}
+}
+async function placeExtractor() {
+  await command('choose',[1]);await command('confirm');await command('done-plan');await command('clear-plan');
 }
 async function advance(ticks) {
   for (let i = 0; i < ticks; i++) await runtime.dispatch(1, runtime.command('match', 'advance'));
@@ -44,7 +50,7 @@ function save(name) {
 }
 try {
   const fresh=runtime.snapshot(1);
-  assert.equal(node('onboarding'),undefined);assert.equal(node('context'),undefined);
+  assert.ok(node('onboarding'));assert.equal(node('context'),undefined);
   await command('center');cursor(12,20);
   await command('pan',[20,-20]);await home();cursor(8,22);
   assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
@@ -52,11 +58,11 @@ try {
   await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),fresh);
   // The tallest visible tip projects onto an adjacent ground cell.
   await point(11.8,20,.63);cursor(12,20);assert.equal(node('context'),undefined);
-  await command('confirm');assert.match(node('context-title').text,/deposit/i);
-  assert.deepEqual(runtime.snapshot(1),fresh);await command('choose',[1]);assert.equal(world().buildings[0].kind,1);
+  await command('confirm');assert.equal(node('context'),undefined);
+  assert.deepEqual(runtime.snapshot(1),fresh);await point(12,20);await placeExtractor();assert.equal(world().buildings[0].kind,1);
   await point(11.8,20,.63);cursor(12,20);await command('confirm');await command('cancel');
   assert.equal(world().buildings.length,0);await command('center');cursor(12,20);
-  await command('confirm');await command('choose',[1]);await advance(140);assert.equal(world().buildings[0].stage,2);
+  await placeExtractor();await advance(140);assert.equal(world().buildings[0].stage,2);
   assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
   await command('center');cursor(8,22);await command('suspend',[1]);
   const established=runtime.snapshot(1),selection=runtime.snapshot(2);save('established');
@@ -90,7 +96,7 @@ try {
     const site=at(world(),10,y);await runtime.dispatch(1,runtime.command('match','observe',[site.x,site.y]));await advance(180);
   }
   await command('center');cursor(5,5);const explored=runtime.snapshot(1);
-  await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await command('choose',[1]);await advance(10);
+  await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await placeExtractor();await advance(10);
   const planned=siteAt(world(),5,5);assert.ok(planned);assert.equal(planned.kind,1);
   console.log('ok - explored richer deposits become the guidance target while construction stays explicit');
 

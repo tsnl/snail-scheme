@@ -73,6 +73,7 @@ export async function checkDigging(test,fresh) {
   await test('completed excavation opens direct fire and workers can build on the cleared rock',async()=>{
     const r=await fresh(); await build(r,'observe',9,14); const gun=await build(r,'fortify',6,9);
     const world=state(r),enemy=digger(world,{target:gun.id}),cell=enemy.path[0]; world.enemies=[enemy];
+    enemy.path.push(routeCell(world,6,9)); // The remembered route still reaches its gun beyond the rock.
     world.tick=0; world.lastRevealTick=-100; world.buildings.find(site=>site.id===gun.id).cooldown=0;
     for(let i=0;i<world.bots.length;i++)setWorker(world,i);
     await restoreColony(r,world); await advance(r,79); assert.equal(state(r).enemies[0].hp,80);
@@ -83,7 +84,7 @@ export async function checkDigging(test,fresh) {
   });
   await test('roughly one in ten spawned enemies has the deterministic burrowing capability',async()=>{
     const r=await fresh(); let total=0,burrowers=0;
-    for(let tick=300;tick<=6000;tick+=300) {
+    for(let tick=900;tick<=12300;tick+=600) {
       const world=state(r); world.started=true; world.tick=tick-1; world.enemies=[]; await restoreColony(r,world); await advance(r);
       for(const enemy of state(r).enemies) {
         assert.equal(enemy.burrower,(state(r).seed%10+enemy.id%10)%10===0);
@@ -97,7 +98,7 @@ export async function checkDigging(test,fresh) {
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
     await build(r,'build-wall',12,2); await build(r,'fortify',12,1);
-    const world=state(r); world.tick=899; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
+    const world=state(r); world.tick=2699; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
     assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{

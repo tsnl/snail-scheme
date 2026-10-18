@@ -16,6 +16,9 @@ adversarial reducer fixtures. It executes real Wasm for typed handler ownership,
 immutable state, terrain, colony logistics, effect materialization, async local
 commit/rollback, imported checkpoint validation and hot replacement. Separate
 checks exercise the optional opaque HTTP/SQLite checkpoint service.
+The same runner executes [`max-dps-test`](max-dps-test.md), a small model-only
+balance probe with three-minute deposit discovery and 0.5 artillery utilization.
+Its optimistic capacity result is distinct from a real-map survival playtest.
 
 ```sh
 node tests/applications/save-service.mjs

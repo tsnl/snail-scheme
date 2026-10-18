@@ -129,13 +129,13 @@ export async function checkLogistics(test, fresh, call) {
     assert.equal(state(r).spent, 75); assert.equal(state(r).ore, 85); await r.close();
   });
 
-  await test('arming cancellation preserves the operational tower and refunds each kit at its physical location', async () => {
+  await test('tower upgrade cancellation preserves operation and refunds kits at their physical locations', async () => {
     const r = await fresh(); await tower(r, 12,21); const before = state(r);
-    await call(r, 'arm-tower', [12,21]); assert.equal(state(r).ore, before.ore - 25);
+    await call(r, 'upgrade', [12,21]); assert.equal(state(r).ore, before.ore - 25);
     assert.equal(state(r).buildings[0].armed, 0); assert.ok([4,7].includes(state(r).buildings[0].stage));
     await call(r, 'cancel-building', [12,21]); assert.equal(state(r).ore, before.ore);
     assert.equal(state(r).buildings[0].stage, 2); assert.deepEqual(state(r).rails, before.rails);
-    await call(r, 'arm-tower', [12,21]); await until(r, world => world.buildings[0].stage === 5);
+    await call(r, 'upgrade', [12,21]); await until(r, world => world.buildings[0].stage === 5);
     await call(r, 'cancel-building', [12,21]); assert.equal(state(r).ore, before.ore - 25);
     assert.equal(state(r).buildings[0].stage, 2); assert.equal(state(r).buildings[0].armed, 0);
     await until(r, world => world.ore === before.ore); assert.equal(state(r).buildings.length, 1); await r.close();
@@ -257,17 +257,19 @@ export async function checkLogistics(test, fresh, call) {
     await r.close();
   });
 
-  await test('arming retains tower sight, depot stock and route while firing without kill income', async () => {
+  await test('legacy armed towers retain their gun, sight and depot when upgrading to carts', async () => {
     const r = await fresh(), towerSite = await tower(r, 12,21);
+    await call(r,'upgrade',[12,21]); await until(r,world=>world.buildings[0].level===2);
     const world = state(r); world.produced = 16;
-    setBuilding(world, 0, {stock:16}); await restoreColony(r, world);
-    const before = state(r); await call(r, 'arm-tower', [12,21]); const armed = state(r);
-    assert.equal(armed.buildings[0].id, towerSite.id); assert.equal(armed.buildings[0].armed, 0);
-    assert.equal(armed.buildings[0].kind, 3); assert.equal(armed.buildings[0].level, 1);
+    setBuilding(world, 0, {stock:16,armed:1}); await restoreColony(r, world);
+    const before = state(r); await call(r, 'upgrade', [12,21]); const armed = state(r);
+    assert.equal(armed.buildings[0].id, towerSite.id); assert.equal(armed.buildings[0].armed, 1);
+    assert.equal(armed.buildings[0].kind, 3); assert.equal(armed.buildings[0].level, 2);
     assert.equal(armed.buildings[0].stock, 16); assert.deepEqual(armed.surveys, before.surveys);
     assert.deepEqual(armed.rails, before.rails); assert.equal(armed.ore, before.ore - 25);
     assert.ok([4,5,7].includes(armed.buildings[0].stage));
-    await until(r, world => world.buildings[0].armed === 1);
+    await until(r, world => world.buildings[0].level === 3); assert.equal(state(r).buildings[0].armed,1);
+    const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved);
     const supplied = state(r);
     await addEnemy(r, {x:14,y:21,hp:10}); await advance(r);
     assert.equal(state(r).kills, 1); assert.equal(state(r).ore, supplied.ore);

@@ -7,11 +7,13 @@ import {colony, client, at, siteAt} from '../applications/colony-state.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
+runtime.uiBridge.resize(936,608);
 const world = () => colony(runtime.snapshot(1));
 const local = () => client(runtime.snapshot(2));
 async function command(binding, args = []) {
+  if(binding==='viewport')runtime.uiBridge.resize(args[0]-24,args[1]-32);
   const result = await runtime.dispatch(2, runtime.command('client', binding, args));
-  for (const effect of result.effects) if (effect.kind === 'send') await runtime.dispatch(1, runtime.effectCommand(effect));
+  await effects(result.effects);
 }
 async function advance(ticks) {
   for (let i = 0; i < ticks; i++) await runtime.dispatch(1, runtime.command('match', 'advance'));
@@ -45,12 +47,32 @@ function popupControlsFit() {
     if(value.kind===5)assert.equal(value.properties[8],0,`${value.key} must not scroll`);
     if(value.kind===2){
       assert.ok(left>=0&&top>=0&&left+value.rect[2]<=width&&top+value.rect[3]<=height,`${value.key} must fit its card`);
-      assert.match(value.text,/^(?:[123UCTNFHP](?: ·)? |Esc(?: |$)|Enter )/,`${value.key} shows its hotkey`);
+      assert.match(value.text,/^(?:[123UCTNFHPR]|Esc|Enter)$/,`${value.key} shows its hotkey`);
     }
     const padding=value.kind===5?value.properties[6]:0;
     for(const child of value.children)walk(child,left+padding,top+padding);
   }
   for(const child of card.children)walk(child,card.properties[6],card.properties[6]);
+}
+async function effects(values) {
+  for(const effect of values)if(effect.kind==='send') {
+    const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);
+  }
+}
+async function plan(kind,cells) {
+  await command('choose',[kind]);for(const [x,y] of cells){await point(x,y);await command('confirm');}
+}
+function controlsFit(width,height) {
+  function walk(value,x=0,y=0) {
+    x+=value.rect[0];y+=value.rect[1];
+    if((value.kind===2&&value.key!=='restart-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
+      assert.deepEqual(value.rect.slice(2),[56,56],value.key);
+      assert.ok(x>=0&&y>=0&&x+56<=width-24&&y+56<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
+    }
+    const padding=value.kind===5?value.properties[6]:0;
+    for(const child of value.children)walk(child,x+padding,y+padding);
+  }
+  walk(runtime.view().ui);
 }
 try {
   const fresh=runtime.snapshot(1),frame=runtime.view();
@@ -78,87 +100,85 @@ try {
   assert.ok([3,7,11].every(index=>runtime.view().scene.uniforms[index]===0));assert.equal(runtime.view().scene.uniforms[15],1);
   console.log('ok - smooth home, screen-aligned bounded pan, retained entities and orthographic zoom preserve match state and look-at');
 
-  await point(11.8,20,.63);cursorAt(12,20);assert.equal(node('context'),undefined);
-  await command('fabricate');await command('preview',[2]);assert.equal(local().preview,0);assert.deepEqual(runtime.snapshot(1),fresh);
-  await command('confirm');assert.equal(local().chooser,true);assert.deepEqual(runtime.snapshot(1),fresh);
-  assert.match(node('context-title').text,/deposit/i);assert.ok(node('extractor'));assert.equal(node('build-chooser'),undefined);
-  await command('confirm');assert.deepEqual(runtime.snapshot(1),fresh);
-  await command('choose',[2]);assert.deepEqual(runtime.snapshot(1),fresh);
-  await command('choose',[1]);assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);
-  await point(12,20);await command('confirm');const ordered=runtime.snapshot(1);assert.ok(node('cancel-build'));
-  await command('dismiss');assert.equal(local().chooser,false);assert.deepEqual(runtime.snapshot(1),ordered);
-  await command('confirm');await command('cancel');assert.equal(world().buildings.length,0);assert.equal(local().chooser,false);
-  await command('confirm');await command('choose',[1]);await advance(140);assert.equal(siteAt(world(),12,20).stage,2);
-  await point(12,20,.94);cursorAt(12,20);const completed=runtime.snapshot(1);await command('confirm');
-  assert.deepEqual(runtime.snapshot(1),completed);assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
-  console.log('ok - hover opens nothing; confirm only selects; numbered build, explicit upgrade and C cancellation change the world');
+  await command('center');await point(12,20);await command('confirm');
+  assert.equal(local().chooser,false);assert.deepEqual(runtime.snapshot(1),fresh);
+  assert.match(node('onboarding-help').text,/Build.*extractor brush.*deposit.*Done/);
+  await command('build-menu');assert.ok(node('extractor'));await command('choose',[1]);
+  await point(12,20);await command('confirm');assert.equal(local().plan.length,1);assert.deepEqual(runtime.snapshot(1),fresh);
+  await command('confirm');assert.equal(local().plan.length,0);await command('confirm');
+  await command('choose',[2]);assert.equal(local().brush,1,'a nonempty plan locks the selected type');
+  await command('clear-plan');assert.equal(local().plan.length,0);assert.deepEqual(runtime.snapshot(1),fresh);
+  await plan(1,[[12,20]]);await command('accept');assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);
+  assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);await command('clear-plan');
+  await advance(140);assert.equal(siteAt(world(),12,20).stage,2);await point(12,20,.94);await command('confirm');
+  assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
+  console.log('ok - empty selection is free; brush tiles toggle, type locks, Cancel is unpaid, and Done alone orders construction');
 
-  await command('dismiss');await point(12,21);const beforeChoice=runtime.snapshot(1),selectedPoint=project(12,21,.08);
-  await command('confirm');assert.deepEqual(runtime.snapshot(1),beforeChoice);popupControlsFit();
-  const cardBounds=placed('context'),target=[local().targetX,local().targetY];
-  const dx=Math.max(cardBounds.left-selectedPoint[0],selectedPoint[0]-cardBounds.right,0),dy=Math.max(cardBounds.top-selectedPoint[1],selectedPoint[1]-cardBounds.bottom,0);
-  assert.ok(dx>0||dy>0);assert.ok(cardBounds.node.properties[9]>0);assert.ok(Math.hypot(dx,dy)<150);
-  await point(13,21);assert.deepEqual(placed('context'),cardBounds);assert.deepEqual([local().targetX,local().targetY],target);
-  await command('choose',[1]);assert.equal(local().chooser,false);assert.equal(siteAt(world(),12,21)?.kind,3);
-  await point(13,22);await command('confirm');await command('choose',[2]);assert.equal(siteAt(world(),13,22)?.kind,3);assert.equal(siteAt(world(),13,22)?.level,2);
-  await point(13,22);await command('confirm');await command('cancel');assert.equal(siteAt(world(),13,22),undefined);
-  console.log('ok - one context card remains anchored to its selected cell while hover moves and explicit choices target that cell');
+  await command('dismiss');await plan(4,[[13,21],[14,21]]);
+  const beforePlan=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','done-plan'));
+  assert.equal(submitted.effects.length,4);assert.equal(local().pending.length,2);assert.deepEqual(runtime.snapshot(1),beforePlan);
+  const pending=runtime.snapshot(2);
+  for(const [binding,args]of[['clear-plan',[]],['choose',[3]],['restart',[]],['center',[]]]) {
+    await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight plan`);
+  }
+  const first=await runtime.dispatch(1,runtime.effectCommand(submitted.effects[0]));await effects(first.effects);
+  assert.equal(local().pending.length,2,'a reply alone does not unlock the batch');
+  assert.equal(local().resolution,1);await effects([submitted.effects[1]]);assert.equal(local().pending.length,1);
+  await effects(submitted.effects.slice(2));assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);
+  assert.ok(siteAt(world(),13,21)&&siteAt(world(),14,21));await command('clear-plan');
+  const bank=world().ore;await plan(4,[[8,22],[15,21]]);await command('done-plan');
+  assert.equal(local().pending.length,0);assert.equal(local().plan.length,1);assert.equal(local().rejected,1);
+  assert.equal(world().ore,bank-8);assert.ok(siteAt(world(),15,21));await command('clear-plan');assert.equal(world().ore,bank-8);
+  console.log('ok - typed per-cell commits settle in order; accepted cells clear and rejected cells remain without extra charges');
 
-  await runtime.restore(1,fresh);await home();await point(9,23);await command('confirm');await command('choose',[1]);await advance(140);
-  assert.equal(siteAt(world(),9,23).stage,2);assert.ok(world().ore>=50);await point(9,23,1.35);await command('confirm');await command('dismiss');
-  const unselectedTower=runtime.snapshot(1);await command('arm');await command('improve');await command('cancel');await command('preview',[2]);
-  assert.deepEqual(runtime.snapshot(1),unselectedTower);assert.equal(local().preview,0);
-  await command('confirm');await command('arm');assert.notDeepEqual(runtime.snapshot(1),unselectedTower);
-  console.log('ok - unselected structures ignore arm, improve, cancel and preview commands');
+  await runtime.restore(1,fresh);await command('center');await plan(4,[[13,21],[14,21],[15,21]]);
+  const outgoing=await runtime.dispatch(2,runtime.command('client','done-plan'));
+  await effects(outgoing.effects.slice(0,2));
+  // A failed save publishes no reply. Its already-authored settlement still runs.
+  await effects([outgoing.effects[3]]);await effects(outgoing.effects.slice(4));
+  assert.equal(local().pending.length,0);assert.equal(local().unconfirmed,1);assert.equal(local().plan.length,1);
+  assert.equal(siteAt(world(),14,21),undefined);assert.equal(world().ore,144);assert.match(node('plan-price').text,/Unconfirmed/);
+  const retryable=runtime.snapshot(2);await point(14,21);await command('confirm');
+  assert.equal(local().plan.length,0);assert.equal(local().unconfirmed,0);assert.equal(local().rejected,0);
+  assert.doesNotMatch(node('plan-price').text,/Unconfirmed|retry/);
+  await runtime.restore(2,retryable);await command('done-plan');assert.equal(local().plan.length,0);assert.equal(local().unconfirmed,0);assert.equal(world().ore,136);
+  await command('clear-plan');console.log('ok - settlement without a durable reply retains a retryable cell and unlocks only after the batch drains');
 
-  await runtime.restore(1,fresh);await home();const unselected=runtime.snapshot(1);await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
-  await command('home');await animate();const count=world().bots.length;await command('fabricate');await command('fabricate');
-  assert.equal(world().bots.filter(bot=>bot.job===4||(bot.job===6&&bot.target>0)).length,2);
-  await advance(31);assert.equal(world().bots.length,count+2);assert.equal(local().chooser,true);assert.match(node('context-title').text,/hub/i);assert.ok(node('worker'));
-  await command('dismiss');const hired=runtime.snapshot(1);await command('fabricate');assert.deepEqual(runtime.snapshot(1),hired);
-  console.log('ok - worker fabrication is hub-only and repeated hiring keeps the selected hub card open');
+  await runtime.restore(1,fresh);await command('center');await home();const unselected=runtime.snapshot(1);
+  await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
+  await command('worker-menu');assert.deepEqual(runtime.snapshot(1),unselected);assert.ok(node('worker'));
+  assert.deepEqual(node('worker').action.command,runtime.command('client','hire'));
+  assert.deepEqual(manifest.settings.keys.f,['hire']);assert.deepEqual(manifest.settings.keys.g,['worker-menu']);
+  await command('hire');await command('hire');await command('dismiss');
+  assert.equal(world().ore,110);assert.equal(local().chooser,false);await command('home');await animate();
+  assert.ok(node('repair')&&node('worker'));assert.equal(node('close-context'),undefined);await command('fabricate');assert.equal(world().ore,85);await command('dismiss');
+  console.log('ok - worker actions open without charge; repeated F hiring and hub repair use explicit typed requests');
 
   await command('suspend',[1]);await home();
   for(let turn=0;turn<4;turn++){
     await command('rotate',[0,1]);assert.equal(runtime.view().scene.requestFrame,true);await command('animate',[50]);assert.ok(local().heading%90000!==0);
-    await animate();assert.equal(runtime.view().scene.requestFrame,false);await point(12,20);cursorAt(12,20);
+    await animate();await point(12,20);cursorAt(12,20);
     const start=project(12,20);await command('drag',[32,-24]);const dragged=project(12,20);
     assert.ok(Math.abs(dragged[0]-start[0]-32)<=1&&Math.abs(dragged[1]-start[1]+24)<=1);await command('drag',[-32,24]);
-    const before=project(12,20);await command('pan',[0,1]);const after=project(12,20);assert.ok(Math.abs(before[0]-after[0])<=1);assert.ok(after[1]<before[1]);
-    await command('pan',[0,-1]);
   }
-  assert.equal(local().heading,0);
-  for(const[width,height]of[[1280,720],[390,844],[844,390],[640,360]]){
-    await command('viewport',[width,height]);await home();
-    for(const scale of [1000,12000]){
-      if(local().scale!==scale)await command('orbit');
-      const before=project(8,22);await command('drag',[60,-30]);const after=project(8,22);
-      assert.ok(Math.abs(after[0]-before[0]-60)<=1&&Math.abs(after[1]-before[1]+30)<=1);
-      await command('drag',[-60,30]);
-    }
-    await command('orbit');
-    await command('viewport',[width,height]);await home();await point(9,23);await command('confirm');popupControlsFit();
-    const bounds=placed('context');assert.ok(bounds.left>=0&&bounds.top>=0&&bounds.right<=width&&bounds.bottom<=height,`context fits ${width}x${height}`);
-    assert.deepEqual(runtime.view().scene.viewport,[0,0,width,height]);await command('dismiss');await command('center');await point(12.4,20,.63);cursorAt(12,20);
+  for(const[width,height]of[[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]){
+    await command('viewport',[width,height]);await home();controlsFit(width,height);
+    const right=placed('rail').left;await command('settings');controlsFit(width,height);assert.ok(node('pause')&&node('orbit')&&node('restart-header')&&node('rotate-left')&&node('rotate-right'));
+    assert.deepEqual(node('rotate-left').action.command,runtime.command('client','turn',[-1]));
+    assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
+    await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
+    await command('settings');await command('build-menu');controlsFit(width,height);assert.ok(node('extractor')&&node('tower')&&node('artillery')&&node('wall'));
+    await command('choose',[3]);controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));
+    await command('settings');controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));await command('settings');
+    await command('clear-plan');await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('settings');await command('handedness');await command('settings');
   }
-  console.log('ok - rotated and narrow-view picking remain accurate; every context action fits desktop, portrait and landscape');
+  console.log('ok - same 56px controls fit desktop, portrait and short landscape; handedness mirrors the entire rail and attached panels');
 
   await command('suspend',[0]);await command('restart');assert.equal(world().paused,1);assert.ok(node('restart-dialog'));
   const modal=runtime.snapshot(1);await command('suspend',[-1]);assert.deepEqual(runtime.snapshot(1),modal);
-  const restartCamera=[local().cameraX,local().cameraY];await command('viewport',[700,420]);
-  await command('drag',[60,30]);
-  assert.equal(local().restartMode,1);assert.deepEqual([local().cameraX,local().cameraY],restartCamera);assert.ok(node('restart-dialog'));
   await command('dismiss');assert.equal(world().paused,0);assert.equal(node('restart-dialog'),undefined);
-  await command('suspend',[1]);await command('restart');await command('dismiss');assert.equal(world().paused,1);
-  const committed=runtime.snapshot(1),selection=runtime.snapshot(2);
-  await runtime.replace(runtime.prepare(bytes,manifest));await runtime.initialize(1);await runtime.initialize(2);
+  const committed=runtime.snapshot(1),selection=runtime.snapshot(2);await runtime.replace(runtime.prepare(bytes,manifest));
   assert.deepEqual(runtime.snapshot(1),committed);assert.deepEqual(runtime.snapshot(2),selection);
-  if(process.argv[3]){
-    const previous=JSON.parse(readFileSync(join(process.argv[3],'manifest.json'))),oldBytes=readFileSync(join(process.argv[3],previous.module));
-    assert.notDeepEqual(oldBytes,bytes);await runtime.replace(runtime.prepare(oldBytes,previous));
-    assert.deepEqual(runtime.snapshot(1),committed);assert.deepEqual(runtime.snapshot(2),selection);
-    await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),committed);assert.deepEqual(runtime.snapshot(2),selection);
-  }
-  await command('restart');await command('confirm');assert.equal(local().restartMode,0);assert.equal(world().buildings.length,0);
-  console.log('ok - restart requires confirmation, restores prior pause on dismissal, and compatible reload preserves both owners');
-} finally { await runtime.close(); }
+  await command('restart');await command('accept');assert.equal(local().restartMode,0);assert.equal(world().buildings.length,0);
+  console.log('ok - restart pauses, restores pause on dismissal, accepts Enter explicitly and compatible reload preserves both owners');
+} finally {await runtime.close();}

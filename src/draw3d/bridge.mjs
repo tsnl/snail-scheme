@@ -20,6 +20,13 @@ function ownerSnapshots(tx, mask) {
   return [mask & 1 ? tx.snapshots.get(1) : undefined, mask & 2 ? tx.snapshots.get(2) : undefined];
 }
 function sameSnapshots(left, right) { return left[0] === right[0] && left[1] === right[1]; }
+function freezeGeometry(batch) {
+  // The builder owns these ordinary arrays and admits only scalar numbers.
+  // Freezing each leaf proves it immutable without a later recursive copy/walk.
+  // Leave the wrapper and reveal metadata for the presentation's deep freeze.
+  Object.freeze(batch.vertices); Object.freeze(batch.indices);
+  if (batch.previous) Object.freeze(batch.previous);
+}
 function viewportRect(x, y, width, height) {
   if (x < 0 || y < 0 || width < 1 || height < 1 || x + width > 16384 || y + height > 16384)
     throw new Error('invalid scene viewport');
@@ -66,6 +73,7 @@ export function createSceneBridge(provider, transaction) {
     const batch = scene.open.batch;
     if (batch.duration > 0 && batch.previous.length !== batch.vertices.length / 10 * 3)
       throw new Error('incomplete previous scene vertices');
+    if (!scene.open.reused) freezeGeometry(batch);
     scene.batches.push(scene.open.batch);
     if (scene.open.key >= 0) scene.pending.push({key: scene.open.key, states: scene.open.states,
       dependencies: scene.open.dependencies, batch: scene.open.batch});
@@ -124,7 +132,7 @@ export function createSceneBridge(provider, transaction) {
       if (!open || open.ready || open.reveal || id < 0 || elapsed < 0 || duration <= 0)
         throw new Error('invalid scene reveal');
       const value = {id,x:scalar(x),y:scalar(y),radius:scalar(radius),edge:scalar(edge),elapsed,duration};
-      if (value.radius < 0 || value.edge <= 0) throw new Error('invalid scene reveal extent');
+      if (value.radius < 0 || value.edge < 0) throw new Error('invalid scene reveal extent');
       open.reveal = value;
     },
     dependency(value) {

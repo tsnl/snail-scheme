@@ -37,12 +37,13 @@ export async function checkFocus(test, fresh, call) {
   }
   const move = (r,x,y,a,b) => call(r,'relocate-building',[x+y*48,a+b*48]);
 
-  await test('manual is the default and idle colonies do not spend or repair', async () => {
+  await test('idle colonies spend nothing until a manual repair is requested', async () => {
     const r = await fresh(), world = state(r); world.hull = 250;
     await restoreColony(r, world); await advance(r, 100);
     assert.equal(state(r).focus, 0); assert.equal(state(r).ore, 160);
     assert.equal(state(r).hull, 250); assert.equal(state(r).buildings.length, 0);
-    assert.ok(!r.manifest?.applications?.some(a => a.handlers.some(h => h.binding === 'repair')));
+    await call(r,'repair-hub'); assert.equal(state(r).hull,250); assert.equal(state(r).ore,135);
+    assert.equal(state(r).bots.find(bot=>bot.job===13).target,25);
     await r.close();
   });
   await test('local extractor supply picks the nearby empty worker without charging the bank', async () => {
@@ -243,7 +244,7 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('recurring nest attacks select one schedule and strengthen later heavy beasts', async () => {
-    for(const [tick,count,kind,hp] of [[299,0,0],[300,4,0],[600,4,0],[900,5,1],[1200,5,0],[1800,6,1],[2700,7,1],[3000,7,0],[3600,7,2,1800],[6000,10,0],[7200,8,2,1890]]) {
+    for(const [tick,count,kind,hp] of [[899,0,0],[900,4,0],[1500,4,0],[2700,5,1],[3300,4,0],[3900,5,0],[4500,6,1],[6300,7,1],[6900,6,0],[10800,7,2,1800],[15300,12,1],[21600,8,2,1890]]) {
       const r=await fresh(), world=state(r); world.started=true; world.tick=tick-1; await restoreColony(r,world);
       await advance(r); const enemies=state(r).enemies; assert.equal(enemies.length,count);
       if(kind===2){assert.equal(enemies.filter(e=>e.kind===2).length,1);assert.equal(enemies[0].hp,hp);}

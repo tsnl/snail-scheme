@@ -34,7 +34,7 @@ class SoloSession {
   }
   publish(output) {
     this.app.dirty = true;
-    for (const effect of output.effects) if (effect.kind === 'notice') this.app.note(effect.text);
+    this.app.queueEffects(output.effects);
   }
   async submit(command) {
     try {
@@ -51,7 +51,7 @@ class SoloSession {
       this.app.note(`SOLO · saved on this browser · revision ${this.revision}`); return result;
     } catch (error) {
       this.stopClock(); await this.recordFailure(error);
-      throw new Error(`${error.message}; clock stopped. Retry the action or reload.`, {cause: error});
+      throw error; // Presentation reads the clock state after the admitted tail drains.
     }
   }
   async recordFailure(error) {
@@ -71,7 +71,7 @@ class SoloSession {
       if (!this.stopping && !this.faulted && !document.hidden)
         await this.local.submit(this.app.runtime.command('match', this.app.manifest.settings.tick));
     } catch (error) {
-      this.stopClock(); await this.recordFailure(error); this.app.report(new Error(`${error.message}; clock stopped. Retry an action or reload.`, {cause: error}));
+      this.stopClock(); await this.recordFailure(error); this.app.report(error);
     }
     finally { this.ticking = false; this.startClock(); }
   }

@@ -30,6 +30,10 @@ export class BrowserApplication {
     // Browser operations may await network renewal or GPU preparation. They
     // call into the runtime FIFO; runtime messages never wait on this lane.
     if (this.closing) return Promise.reject(new Error('Browser application is closing'));
+    return this.continueUpdate(operation);
+  }
+  continueUpdate(operation) {
+    // Work emitted by an admitted transition also drains during close.
     const result = this.updates.then(operation); this.updates = result.catch(() => {}); return result;
   }
   async open(target) {
@@ -80,6 +84,8 @@ export class BrowserApplication {
     globalThis.snailApp = this; // Executable browser diagnostics.
   }
   local(binding, args = []) {
+    // The returned promise includes outgoing durable World orders. Reverse
+    // Client effects enter the FIFO after publication and run in later turns.
     const command = this.runtime.command('client', binding, args.slice()); this.localWork++;
     return this.update(() => this.localTransition(command)).catch(error => this.report(error)).finally(() => this.localWork--);
   }
@@ -101,10 +107,31 @@ export class BrowserApplication {
   }
   async localTransition(command) {
     const result = await this.runtime.dispatch(2, command);
-    for (const effect of result.effects) {
-      if (effect.kind === 'send' && effect.owner === 1) await this.session.submit(this.runtime.effectCommand(effect));
-      else if (effect.kind === 'notice') this.note(effect.text);
+    await this.routeEffects(result.effects);
+    this.dirty = true;
+  }
+  queueEffects(effects) {
+    // Publication runs inside the runtime FIFO. Never await this browser lane
+    // there: its current Client turn may be waiting for that durable commit.
+    for (const effect of effects)
+      void this.continueUpdate(() => this.deliverEffect(effect)).catch(error => this.report(error));
+  }
+  async deliverEffect(effect) {
+    if (effect.kind === 'notice') this.note(effect.text);
+    else if (effect.owner === 1) await this.session.submit(this.runtime.effectCommand(effect));
+    else await this.localTransition(this.runtime.effectCommand(effect));
+  }
+  async routeEffects(effects) {
+    const failures = [];
+    for (const effect of effects) {
+      if (effect.kind === 'send' && effect.owner === 1) {
+        try { await this.session.submit(this.runtime.effectCommand(effect)); }
+        catch (error) { failures.push(error); }
+      } else this.queueEffects([effect]);
     }
+    // Authored settlement messages still run when a preceding save fails.
+    if (failures.length) void this.continueUpdate(() => this.report(failures.length === 1 ? failures[0]
+      : new AggregateError(failures, failures.map(error => error.message).join('; '))));
     this.dirty = true;
   }
   reconcileGeneration() {
@@ -117,7 +144,8 @@ export class BrowserApplication {
   }
   report(error) {
     this.reconcileGeneration(); this.dirty = true;
-    this.note(`Transition rejected; committed state retained: ${error.message}`, 'error');
+    const clock = this.session?.faulted ? '; clock stopped. Retry the action or reload.' : '';
+    this.note(`Transition rejected; committed state retained: ${error.message}${clock}`, 'error');
   }
   frame(time) {
     if (this.closing) return;
@@ -145,8 +173,15 @@ export class BrowserApplication {
     this.closing = true;
     this.uiResize?.disconnect();
     this.viewportResize?.disconnect();
-    await this.updates; // UI work already accepted may still submit to the runtime.
+    await this.drainUpdates();
+    // A clock save can publish replies independently of a browser operation.
+    await this.runtime.message(() => {});
+    await this.drainUpdates();
     await this.runtime.close();
     await this.renderer?.close();
+  }
+  async drainUpdates() {
+    let pending;
+    do { pending = this.updates; await pending; } while (pending !== this.updates);
   }
 }

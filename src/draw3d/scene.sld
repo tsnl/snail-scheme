@@ -159,9 +159,10 @@
           (render-batch key state-mask dependencies 1.0 #f duration (no-reveal) nodes) (unreachable)))
     ;; The radius encloses all supplied geometry in world XY. A stable identity
     ;; shares one display-clock transition across batches and camera views.
+    ;; Edge zero clips sharply per fragment; a positive width feathers the front.
     (define (reveal-batch batch identity x y radius edge elapsed duration)
       (unless (and (>= identity 0) (finite? x) (finite? y) (finite? radius) (finite? edge)
-                   (>= radius 0.0) (> edge 0.0) (>= elapsed 0) (> duration 0)) (unreachable))
+                   (>= radius 0.0) (>= edge 0.0) (>= elapsed 0) (> duration 0)) (unreachable))
       (render-batch (batch-key batch) (batch-state-mask batch) (batch-dependencies batch)
                     (batch-opacity batch) (batch-pulse batch) (batch-duration batch)
                     (radial-reveal identity x y radius edge elapsed duration) (batch-nodes batch)))

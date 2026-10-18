@@ -9,9 +9,10 @@ Scheme owns the game rules and presentation executed in the browser.
 | Module | Responsibility |
 | --- | --- |
 | [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; worker/source completion estimates, exclusive shared supply kits, worker assembly, queued artillery conversion, deliveries, permanent excavation, enemy ranks, cart travel, persistent tracks and combat. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, cart travel and persistent tracks. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
+| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal and nearest-building/crystal/ground picking over the existing grid. |
@@ -40,6 +41,17 @@ runs in the browser. See the [save guide](../../doc/static-saves.md).
 5. IndexedDB atomically compares the old revision and saves `{revision, state}`.
    Queries see the old state until transaction completion, then the new state,
    revision and effects publish together. Failed saves preserve the old game.
+6. The browser queues committed replies back to Client. A planned build has a
+   separate completion message for each attempted cell, so failed persistence
+   cannot leave the planning controls locked. Success removes a ghost; completion
+   releases its pending slot. The next batch waits for every completion.
+
+The brush plan is Client state, not a second game world. `Done` emits ordinary
+typed `build-cell(kind, cell)` commands, each carrying an absolute map cell.
+Validation and payment happen in the model's normal placement operation. The
+local host preserves reply-before-completion ordering; no network receipt or
+batch protocol is implied. A rejected or unsaved cell remains planned. Code
+replacement and shutdown drain admitted commands and their queued replies.
 
 ## Follow the serialization boundary
 
@@ -55,7 +67,7 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 10 and client schema 4 under application ID
+The game declares world schema 10 and client schema 5 under application ID
 `siegework-colony-v10`, which starts a fresh save identity. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts and are rejected; derivation does not migrate existing saves. The browser retains
@@ -106,7 +118,9 @@ worker or picking up a kit. A carrier already traveling on a proved route can
 complete it. The HUD and world marker share the same hidden-construction rule.
 
 Active rail links own freight and identify connected depots. A separate sorted,
-bounded map of laid track cells owns physical geometry and reserved ground.
+bounded map of laid track cells owns physical geometry. Buildings can occupy
+tracks and junctions without erasing either layer; rail-aware foundations and
+neighbor-connected wall meshes make their relationship visible.
 Destroying a depot removes its active connection without erasing its tracks.
 Cart speed applies only when both active endpoints support workers; ordinary
 freight uses the existing depot network. Weighted route costs and assignment
