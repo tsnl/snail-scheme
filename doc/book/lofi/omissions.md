@@ -45,9 +45,9 @@ The following changes are planned, not accepted compiler syntax:
   calls. The current kernel still accepts dotted and rest-only lambdas and
   `Rest` function types. Polymorphism handles variation in types; packing is
   still needed for variation in runtime argument count.
-- Move the language specification into Ott, with prose and examples alongside
-  generated grammar and named rules. The generated reference should replace
-  the corresponding handwritten book content as coverage becomes complete.
+- Move the language specification into a formal source, with prose and examples
+  alongside checked definitions and named rules. The generated reference should
+  replace the corresponding handwritten book content as coverage becomes complete.
 
 ## Implementation and open work
 
