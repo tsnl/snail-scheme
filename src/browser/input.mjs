@@ -41,6 +41,11 @@ export function parseInputSettings(settings) {
     throw new Error('input requires positive dimensions, repeat interval, and pointer handlers');
   const coordinates = pointer.coordinates ?? 'cells';
   if (coordinates !== 'cells' && coordinates !== 'pixels') throw new Error('pointer coordinates must be cells or pixels');
+  const {zoomHandler, dragHandler} = settings;
+  if (zoomHandler !== undefined && (typeof zoomHandler !== 'string' || !zoomHandler))
+    throw new Error('zoom handler must name a client endpoint');
+  if (dragHandler !== undefined && (typeof dragHandler !== 'string' || !dragHandler))
+    throw new Error('drag handler must name a client endpoint');
   const keys = commands(settings.keys), buttons = commands(settings.controller, true);
   const repeatKeys = mappedInputs(settings.repeatKeys, keys), continuousKeys = mappedInputs(settings.continuousKeys, keys);
   for (const key of continuousKeys) {
@@ -50,7 +55,7 @@ export function parseInputSettings(settings) {
   if (settings.controllerAxes !== undefined && !Array.isArray(settings.controllerAxes)) throw new Error('controller axes require an array');
   const axes = (settings.controllerAxes ?? []).map(controllerAxis);
   if (new Set(axes.map(value => value.axis)).size !== axes.length) throw new Error('controller axes must be unique');
-  return {width, height, cellSize, pointer: {...pointer, coordinates}, interval, keys, buttons, axes,
+  return {width, height, cellSize, pointer: {...pointer, coordinates}, zoomHandler, dragHandler, interval, keys, buttons, axes,
     repeatKeys, continuousKeys, repeatButtons: mappedInputs(settings.repeatButtons, buttons)};
 }
 
@@ -61,24 +66,41 @@ export class BrowserInput {
   // Replacing that object only resets physical input latches, never app state.
   constructor(canvas, readSettings, dispatch) {
     this.canvas = canvas; this.readSettings = readSettings; this.dispatch = dispatch;
-    this.keys = new Map(); this.controls = new Map();
+    this.keys = new Map(); this.controls = new Map(); this.contacts = new Map();
+    this.touchAction = canvas.style.touchAction;
     this.syncSettings(); this.install();
   }
   syncSettings() {
     const settings = this.readSettings();
-    if (settings !== this.settings) { this.settings = settings; this.reset(); }
+    if (settings !== this.settings) {
+      this.settings = settings; this.reset();
+      this.canvas.style.touchAction = settings.zoomHandler || settings.dragHandler ? 'none' : this.touchAction;
+    }
   }
   reset() {
     this.keys.clear(); this.controls.clear(); this.point = undefined;
     this.pad = undefined; this.baseline = true; this.time = undefined;
+    const captured = [...this.contacts.keys()];
+    this.contacts.clear(); this.gesture = this.pinch = undefined; this.zoom = this.dragX = this.dragY = 0;
+    for (const id of captured) if (this.canvas.hasPointerCapture(id)) this.canvas.releasePointerCapture(id);
   }
   send(value) {
     this.point = undefined;
     this.dispatch(value[0], value.slice(1));
   }
   install() {
-    this.canvas.addEventListener('pointermove', event => this.movePointer(event));
+    this.canvas.addEventListener('pointermove', event => {
+      if (this.contacts.has(event.pointerId)) this.moveContact(event);
+      else if (event.pointerType !== 'touch') this.movePointer(event);
+    });
     this.canvas.addEventListener('pointerdown', event => this.pressPointer(event));
+    this.canvas.addEventListener('pointerup', event => this.releaseContact(event));
+    this.canvas.addEventListener('pointercancel', event => this.releaseContact(event, true));
+    this.canvas.addEventListener('lostpointercapture', event => this.releaseContact(event, true));
+    this.canvas.addEventListener('wheel', event => this.wheel(event), {passive: false});
+    document.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'touch' && this.gesture && this.gesture.id !== event.pointerId) this.suppressDrag();
+    });
     document.addEventListener('keydown', event => this.pressKey(event));
     document.addEventListener('keyup', event => this.keys.delete(event.code || event.key));
     document.addEventListener('compositionstart', () => this.keys.clear());
@@ -101,6 +123,7 @@ export class BrowserInput {
     // at most 50ms once; subsequent frames never repay the missing time.
     const elapsed = this.time === undefined ? 0 : Math.max(0, Math.min(50, time - this.time));
     this.time = time;
+    this.flushDrag(); this.flushZoom();
     this.pollKeys(time, elapsed); this.pollController(time, elapsed);
   }
   pollKeys(time, elapsed) {
@@ -144,9 +167,84 @@ export class BrowserInput {
     this.send([pointer.move, x, y]); this.point = [x, y];
   }
   pressPointer(event) {
+    this.syncSettings();
     if (event.button !== 0) return;
     event.preventDefault(); this.canvas.focus({preventScroll: true});
+    if (event.pointerType === 'touch' || this.settings.dragHandler) { this.pressContact(event); return; }
     this.movePointer(event, true); this.send([this.settings.pointer.confirm]);
+  }
+
+  // ---- One contact can tap or drag; multiple contacts can only pinch ----
+
+  suppressDrag() {
+    this.gesture = undefined; this.dragX = this.dragY = 0;
+  }
+  pressContact(event) {
+    if (event.isPrimary && !this.contacts.size)
+      this.gesture = {id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false};
+    else this.suppressDrag();
+    this.contacts.set(event.pointerId, {x: event.clientX, y: event.clientY, type: event.pointerType});
+    this.canvas.setPointerCapture(event.pointerId); this.pinch = touchDistance(this.contacts);
+  }
+  moveContact(event) {
+    this.syncSettings();
+    const previous = this.contacts.get(event.pointerId); if (!previous) return;
+    this.contacts.set(event.pointerId, {...previous, x: event.clientX, y: event.clientY});
+    if (this.gesture?.id === event.pointerId) this.moveGesture(event, previous);
+    const distance = touchDistance(this.contacts);
+    if (this.pinch && distance) this.queueZoom(1000 * Math.log(this.pinch / distance));
+    this.pinch = distance;
+  }
+  moveGesture(event, previous) {
+    const gesture = this.gesture;
+    if (!gesture.dragging && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <= 8) return;
+    // Crossing the threshold includes the press-to-current displacement once.
+    const from = gesture.dragging ? previous : gesture;
+    this.queueDrag(event.clientX - from.x, event.clientY - from.y); gesture.dragging = true;
+  }
+  releaseContact(event, cancelled = false) {
+    this.syncSettings();
+    if (!this.contacts.has(event.pointerId)) return;
+    if (cancelled) { this.suppressDrag(); this.zoom = 0; } else this.moveContact(event);
+    const confirm = !cancelled && this.gesture?.id === event.pointerId && !this.gesture.dragging;
+    this.contacts.delete(event.pointerId); this.gesture = undefined; this.pinch = touchDistance(this.contacts);
+    // Delete before releasing capture: its expected lost-capture event must
+    // not discard a completed drag still waiting for the next display frame.
+    if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
+    if (confirm) { this.movePointer(event, true); this.send([this.settings.pointer.confirm]); }
+  }
+  queueDrag(dx, dy) {
+    if (!this.settings.dragHandler || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    this.dragX = Math.max(-2147483648, Math.min(2147483647, this.dragX + dx));
+    this.dragY = Math.max(-2147483648, Math.min(2147483647, this.dragY + dy));
+  }
+  flushDrag() {
+    const dx = Math.trunc(this.dragX), dy = Math.trunc(this.dragY);
+    this.dragX -= dx; this.dragY -= dy;
+    if (!this.gesture?.dragging) this.dragX = this.dragY = 0;
+    if (dx || dy) this.send([this.settings.dragHandler, dx, dy]);
+  }
+
+  // ---- Zoom describes a scale change; the Scheme client owns camera policy ----
+
+  wheel(event) {
+    this.syncSettings();
+    if (!this.settings.zoomHandler || event.defaultPrevented || document.hidden || !document.hasFocus() ||
+        editable(document.activeElement) || !Number.isFinite(event.deltaY) || !event.deltaY) return;
+    event.preventDefault();
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.canvas.getBoundingClientRect().height : 1;
+    this.queueZoom(event.deltaY * unit);
+  }
+  queueZoom(delta) {
+    if (!this.settings.zoomHandler || !Number.isFinite(delta)) return;
+    this.zoom = Math.max(-2147483647, Math.min(2147483647, this.zoom + delta));
+  }
+  flushZoom() {
+    const whole = Math.trunc(this.zoom); this.zoom -= whole;
+    const delta = Math.max(-1000, Math.min(1000, whole));
+    // Keep fractional input; discard excess whole units instead of replaying a
+    // stalled frame's wheel burst across later frames.
+    if (delta) this.send([this.settings.zoomHandler, delta]);
   }
 
   // ---- Integer forms ----
@@ -210,13 +308,20 @@ export class BrowserInput {
   }
 }
 function editable(element) {
-  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"], form[data-handler]'));
+  return element?.isContentEditable || Boolean(element?.closest('input, textarea, select, [role="textbox"], form[data-handler], form[data-ui-form]'));
 }
 function nativeActivation(event) {
   return (event.key === 'Enter' || event.key === ' ') && Boolean(event.target?.closest('button, a[href], summary, [role="button"]'));
 }
 function coordinateAt(position, length, units) {
   return Math.max(0, Math.min(Math.ceil(units) - 1, Math.floor(position / length * units)));
+}
+function touchDistance(touches) {
+  if (touches.size !== 2) return undefined;
+  const [left, right] = touches.values();
+  if (left.type !== 'touch' || right.type !== 'touch') return undefined;
+  const distance = Math.hypot(left.x - right.x, left.y - right.y);
+  return Number.isFinite(distance) && distance > 0 ? distance : undefined;
 }
 function scaledI32(value, scale) {
   // Equal magnitudes round symmetrically; saturation preserves the I32 ABI.

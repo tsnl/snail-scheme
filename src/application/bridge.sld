@@ -1,7 +1,7 @@
 ;; Private scalar ABI adapter. Application code sees immutable typed values;
 ;; only this codec stages a replacement snapshot in a host-owned transaction.
 (define-library (application bridge)
-  (export Program program run-program read-snapshot)
+  (export Program program run-program read-snapshot read-previous-snapshot)
   (import
    (scheme base)
    (application reducer)
@@ -11,6 +11,8 @@
   (begin
     (define-extern snapshot-length "snail.reducer" "length" (-> I32 I32))
     (define-extern snapshot-read "snail.reducer" "read" (-> I32 I32 I32))
+    (define-extern previous-length "snail.reducer" "previous-length" (-> I32 I32))
+    (define-extern previous-read "snail.reducer" "previous-read" (-> I32 I32 I32))
     (define-extern stage-word "snail.reducer" "write" (-> I32 I32 I32 Unit))
     (define-extern stage-command "snail.reducer" "command" (-> I32 I32 I32 I32 Unit))
     (define-extern stage-note "snail.reducer" "note" (-> I32 I32 Unit))
@@ -37,6 +39,11 @@
         (let loop ((index 0))
           (when (< index (snapshot-length owner))
             (vector-set! words (i32->i64 index) (snapshot-read owner index)) (loop (+ index 1)))) words))
+    (define (read-previous-snapshot owner)
+      (let* ((count (previous-length owner)) (words (make-vector (i32->i64 count) 0)))
+        (let loop ((index 0))
+          (when (< index count)
+            (vector-set! words (i32->i64 index) (previous-read owner index)) (loop (+ index 1)))) words))
     (define (write-words owner words)
       (stage-word owner -1 (i64->i32 (vector-length words)))
       (let loop ((index 0))

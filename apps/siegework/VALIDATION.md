@@ -1,397 +1,145 @@
-# Siegework validation
+# Release validation — 2026-10-18
 
-## Derived colony and hosting integration
+## Crowd and visibility checkpoint
 
-The final 2026-10-17 integration combines asynchronous execution, outpost
-logistics and separate solo/cloud packages with derived world/client schema 6.
-Both packages use generation `66be352c533caec8b1bfdf14` and the exact same game
-Wasm (SHA-256 `bca27ee9c78e1e1cf54462728f2648e5a2be952b69a4d3f80682b35760fd0390`).
-The game compiled from the final Scheme sources; the two hosts package those
-artifacts without a second game compilation.
+`build/siegework-crowd-final/solo` passes 137 actual-Wasm application checks.
+Generation `5abe5ae9c1f5fda7b44a34fb` contains a 648,530-byte simulation with
+SHA-256 `036bc7377807933793dff78161fd254ddcd42675d3d63517d2620da05bca39f7`.
+Crowds use bounded parallel ground lanes: the overlap fixture measures 40px
+for two enemies and 80px for sixteen, while both reach their target. Tests cover
+fast-enemy detour commitment, saved/hot-replaced movement, water, walls, digging,
+path limits and the 128-enemy cap. Five new visibility checks cover every build
+kind, stale menus, observer destruction and fogged kit deliveries. These cases
+do not reproduce the reported transition crash.
 
-All 66 application integration checks pass on the cloud package. These include
-33 colony/encounter/logistics scenarios, malformed derived records and marker
-headers, rejection of schemas 4 and 5, code replacement and rollback, durable
-restart receipts, persistence failures and the ten tiny-Wasm async boundary
-checks. The game-wrapper fixtures were rebuilt against the schema-6 sources;
-three invalid application declarations also fail compilation as expected.
+The serialization CI harness now traps both animation-history host imports.
+All 15 serialization fixtures pass, including raw/optimized linked Wasm, native
+execution, malformed-input probes and compile rejections. Local evidence is in
+`/tmp/siegework-crowd-final-runtime.log` and
+`/tmp/siegework-serialization-ci-repair-20261018.log`.
+The newer 3×3 hub, separate upgrade trees and playtest UI revisions remain in
+progress; this checkpoint does not claim them.
 
-All 13 generic browser input/form/layout checks and the complete two-client
-WebGPU/reload runner pass on the final cloud package. The latter reaches combat
-with ore in transit, freezes both through shared pause and visibility changes,
-and activates changed Wasm while preserving the paused colony, overscrolled
-camera, selection and pending command. Incompatible schemas, marker offsets and
-WGSL candidates retain the running package.
+## Touch release
 
-All 14 hosting checks pass in actual Chromium: separate packages share exact
-Wasm; real IndexedDB transactions retain state, epochs and receipts through
-abort/retry and competing commits; one tab owns a solo save; slow persistence
-admits one pending tick; visibility resumes without catch-up; compatible reload
-retains both owners; incompatible startup/update retains the save; browser
-restart and a moved static subpath reopen it without application-server
-requests; leaving during open closes GPU/lock resources; cloud server restart
-and independent clients resume the saved SQLite match. The private browser
-runner waits for a real WebGPU adapter before opening the application.
+The consolidated PR #334 is based on main `9bdee767`, including rank-one
+`All ... requires` and the compiler-performance changes from PR #331.
+The canonical build is `apps/siegework/build.scm`; there is one static 3D game.
 
-`make check`, JavaScript syntax and whitespace checks pass. All packages,
-profiles, ports and databases used here are isolated test outputs. Chromium 152
-uses the SwiftShader Vulkan adapter; this is correctness evidence, not hardware
-coverage or a timing measurement. Older saves are rejected, not migrated.
-Upstream profiling code, measurement JSON and the earlier checkpoint evidence
-below retain their original scope. Unified GitHub CI is tracked separately.
+The verified release package is `build/siegework-touch-release/solo`:
 
-## Earlier schema-5 outpost candidate
+- Generation: `bc7325e9da0aa05411935248`.
+- Simulation: 645,395 bytes, SHA-256
+  `b7b113c57b23cc2128a5d8f88262ca892bcb52629e78e1ee170d89c07090d78c`.
+- Application ID: `siegework-colony-v10`; world schema 10, client schema 4.
+- Host JavaScript, stylesheet and shader are packaged with that module. Host
+  changes require a page refresh; compatible Scheme/shader replacement preserves
+  both live owners. The saved world is independent of client-only controls.
 
-The 2026-10-17 outpost candidate uses generation `d1105da2b285bc57b308159b`,
-world/client schema 5 and a 10,240-word world snapshot. It is tested in a separate
-package on port 4181; the live schema-4 checkpoint on 4175 is unchanged.
+## Executed checks
 
-All 33 game scenarios pass against the compiled Scheme/Wasm: the previous 20
-colony and encounter scenarios plus 13 logistics cases. The new cases exercise
-uncollected and carried cancellation refunds, pause/restore during a return,
-nearest-worker preemption including a miner, loaded hauler and repairer, usable
-route distance across a wall, cancellation without losing unrelated cargo,
-reservation release on worker death, actual depot unloading, two-hop freight,
-empty returns without duplicate income, tower arming with zero kill income,
-endpoint-loss accounting/reconnection, and rejected malformed ownership.
-A separate compiled defended run exterminates the siege at tick 4488 with the
-hub at 300 health and 26 kills. Resource conservation is checked through the run;
-this is a possible winning layout, not a difficulty or balance claim.
+`make test`, `make check`, the CI partition tests and `mdbook build` pass.
+`scripts/test-ui` passes typed control, hover, circular-readout, layout and
+negative-owner checks. `scripts/test-draw3d` passes linked geometry, projections,
+picking, retained dependency identity, motion, inset scope and reveal contracts.
+The freshly rebuilt game passes all 123 application integration checks plus the
+headless camera/selection and onboarding/outcome runners.
 
-After rebasing the outpost commits onto asynchronous runtime `67ad1ca2`, all 33
-game scenarios and the ten tiny-Wasm async boundary checks pass together. The
-merge retains awaited mutations and schema-5 assertions. Game Scheme sources and
-compiler dependencies are unchanged, so this run reuses the verified game and
-async fixture artifacts without recompilation. Evidence is in
-`build/playtest/logistics-async-rebase.log`; this does not claim that the older
-schema-4 failure wrappers were rerun against the schema-5 game.
+Those transitions exercise physical shared kits, refunds and losses, paid worker
+assembly, three-level mines/towers, cart speed and weighted assignment, persistent
+track geometry, worker sight, hidden construction, walls, excavation, rank
+introduction and the first-order clock. A model-only stress artifact built from
+the same World10 source passed 31,494 commands, 1,026 exact save round-trips and 156
+injected close encounters over four 7,200-tick seeds. Its 26 explicit repairs keep
+defeated fixtures running into later waves; this is adversarial testing, not four
+unaided winning games.
 
-Actual Chromium 152 keyboard and pointer input on isolated DevTools port 9345
-placed a paused build, cancelled it with C and observed the refund in two clients.
-T armed a completed tower without replacing its identity, depot or rail service.
-Workers then unloaded ore nearby and rail freight reached the hub. Real WebGPU
-readback and `build/siegework-logistics/logistics.png` show the resulting colony,
-with exact status and scene provenance in `logistics-browser.json`. This scene
-was built through controls, not loaded from a simulation fixture. The adapter
-is isolated SwiftShader Vulkan; it is not hardware or Firefox stability evidence.
+The release hosting runner passes all 19 sections in Chromium 152.0.7977.82 using
+private Xvfb and SwiftShader. It exercises real IndexedDB, one-tab ownership,
+transaction abort and retry, hidden-page suspension, retained failure diagnostics,
+browser restart, changed mount paths, compatible/rejected reloads, and the optional
+checkpoint service including outage/conflicts. Both embedded product browser
+runners pass. No gameplay-server requests are made by the local-only build.
 
-The full two-client browser suite also passes on this package. It reaches combat
-with ore in transit, preserves the shared manual pause through visibility changes,
-and activates changed compatible Wasm while preserving the entire colony,
-overscrolled camera and pending request. Incompatible run-marker offsets, shaders
-and schemas are rejected; a valid package recovers. GPU boundary pixels, rejected
-margin placement and resumed simulation are checked. The freight scenario
-separately pauses and restores a loaded shuttle and verifies its frozen frame.
+Independent product browser checks pass mouse and touch select-then-action,
+repeated hub hiring, explicit upgrading/cancellation, restart confirmation and
+prior-pause restoration, screen-aligned pan, smooth Home/rotation, wheel/pinch
+zoom, and portrait/landscape card bounds. The camera drag endpoint is checked
+at all quarter turns, regular/orbital scales and portrait/landscape sizes; it
+ignores drag requests during restart confirmation. Real mouse, pen and touch
+input checks cover threshold crossing, subpixel/frame coalescing, final release,
+cancellation, blur, settings replacement and pinch handoff. A real DPR3 touch
+drag of 60×40 CSS pixels moves the map by 60×40 without selecting or changing
+the world; pinch leaves its center intact. Header and action labels are checked
+for clipping. Attack cards and live thumbnails fit portrait and landscape screens;
+omitted thumbnails release their GPU resources, and selecting an attack pans
+without changing the world. A defeated zero-worker colony retains its result
+across reload and requires a confirmed restart. Native DPR is retained, including a 1170×2532 backing canvas at
+3× scale. Screenshots were inspected for the selected deposit, build boundary,
+artillery preview and hub-hire card.
 
-`make test`, `make check`, `scripts/test-build`, app Scheme formatting, JavaScript
-syntax and whitespace checks pass. The main candidate compiled in 15 minutes
-13.82 seconds, using 913.12 seconds of user CPU; the separate compatible-game
-fixture took 15 minutes 46.34 seconds and 946.03 seconds of user CPU. These are
-measured development costs, not compiler profiling. The checkpoint's full hosted
-CI passed, with its serial application job taking 49 minutes 55 seconds; the
-outpost follow-up has not yet run hosted CI.
+The reusable GPU fixture also checks fragment-level feathering, main/inset reveal
+clock sharing, native 2× DPR, resizing, camera/shader replacement, terminal-frame
+sleep, pending-readback cleanup and a single adapter/device. Camera-only changes
+retain geometry; clock-only reveal changes do not upload geometry. These are
+correctness and avoided-work checks, not hardware frame-time measurements.
 
-A read-only upgrade preflight validated the latest checkpoint save with both
-codecs. It retained revision 63842, epoch, seed 2, tick 4620, 644 ore, 13 buildings
-and 12 workers. The candidate changes the schema word, clears the obsolete source
-mine IDs on seven ore-returning workers, and appends zero-initialized new storage.
-No live state was written and no package was switched. Evidence is recorded in
-`build/playtest/outpost-upgrade-preflight.json`; this is not an automatic migration.
+## Limits and reproduction
 
-Fresh source-free Astra Max explanation/debate passes covered logistics ownership
-and presentation. One current cargo and one next-build reservation per worker
-represent preemption directly; there is no separate courier/builder protocol.
-Fixed links to older connected towers make the network acyclic, with one bounded
-shuttle per link. Casualties settle before broken links lose cargo and reconnect.
-Removing the reservation or empty return leg would lose the required ownership
-or throughput behavior. Codec rows and exhaustive job/cargo transitions remain
-cohesive exceptions to the ten-line function target.
+The user's earlier invalid-transition crash remains unreproduced in the old
+World8 checkpoint and the new World10 stress runs. Rejected reducers now capture
+one exact local reproduction separately from the committed save. The browser
+fixture deliberately injects one invalid staged result and verifies unchanged
+save/revision, a stopped clock and retained command/candidate/prior snapshots
+across reload. Inspect with `await snailApp.session.store.failure()`.
+No claim is made that the unknown original cause or Firefox's queue crash is fixed.
 
-## Earlier derived staffed-colony integration
+The live preview remains on port 4212. All destructive browser checks use private
+hosts, profiles and saves. Logs for this pass include
+`/tmp/siegework-touch-release-runtime.log`, `/tmp/siegework-touch-release-hosting.log`,
+`/tmp/siegework-application-tutorials.log`, `/tmp/siegework-reveal-fixtures.log`
+and `/tmp/siegework-reveal-gpu.log`. Temporary evidence is local; CI retains its
+own artifacts. The CI applications job builds Siegework, the application tutorials,
+UI and 3D fixtures. Full backend coverage remains partitioned across the existing
+jobs rather than replaced by these focused checks.
 
-The cleanup integration preserves the landed colony behavior while replacing the
-fixed-layout schema-4 codec with derived schema-6 snapshots. The world retains a
-host-visible restart counter; decoding checks it against the typed record before
-applying the original bounds, path, ownership and conservation checks. Prior save
-formats are rejected rather than converted implicitly.
+# Earlier static-client checkpoint — 2026-10-18
 
-Local integration checks pass for the compiled colony startup, `make test`,
-`make check`, real Chromium input contracts and the two-client WebGPU/reload
-runner. The browser checks include seed restarts, shared purchases, pause,
-overscrolled camera retention, pending command preservation, incompatible marker
-offsets, invalid shaders and schema rejection. This uses Chromium 152 with the
-SwiftShader Vulkan adapter and is correctness evidence, not a clean timing run.
-The application fixture suite and required GitHub correctness run are tracked
-separately in the pull request.
+The canonical `apps/siegework/build.scm` builds the 3D game and runs the entire
+Scheme simulation in the browser. It emits static `solo/` files and, with
+`SAVE_SERVICE_URL`, static `synced/` files with explicit checkpoint save/load.
+Both contain identical 459,803-byte Wasm, SHA-256
+`8a6ce4864d90a5846e927b26ed3cd72a81365ec000c890782f6b25c8f7a276eb`,
+generation `045471be3397e7a6b7bb24c7`. Application ID `siegework-colony` starts
+a fresh save identity; world schema is 7 and client schema is 1.
 
-## Earlier schema-4 colony
+Passed `make test`, `make check`, `scripts/test-draw3d`, 77 linked-Wasm application
+checks, three expected compile rejections, opaque HTTP/SQLite service tests,
+compiled contextual controls and onboarding. Application tests compile the full
+game once; adversarial runtime fixtures use small independent reducers.
 
-The 2026-10-17 staffed-colony package uses generation
-`e11ebb903197e057398944d0`, world/client schema 4, Node 24.19.0 and Chromium
-152 with real WebGPU on the isolated SwiftShader software Vulkan adapter.
-These are correctness and playability checks, not hardware performance or
-Firefox stability evidence.
+The canonical private hosting runner passed in headed Chromium 152 with
+SwiftShader: real IndexedDB legacy envelopes, transaction aborts, tab ownership,
+slow/failed persistence, visibility, hot replacement, browser restart, moved
+subpaths, optional online save/load, stale writes, canceled/invalid imports and
+service outage. Local-only packages made no gameplay-server requests. Compatible
+hot replacement installed a fresh Wasm instance and preserved both state owners;
+an incompatible replacement retained the previous code.
 
-All 42 application integration checks pass against the compiled Scheme/Wasm.
-They cover physically occupied mining slots, capacity upgrades, zero output
-from empty/incoming slots, a sole worker mining and delivering, immediate nearby
-task chaining, escape when the home route is dangerous, return to work, casualty
-and raw-ore conservation, construction/repair kit loss exactly once, one persisted
-emergency worker assembly, encountered-infrastructure damage, bounded copied-location
-alerts, pause, same-seed replay, invalid seed rejection and seed/marker wrapping.
-The original immutability, tower discovery, physical construction, multiple-mine
-delivery, raid recovery, camera, shot and durable multiplayer checks also pass.
-An undefended healthy hub can lose to the finale; a defended seed-1 colony wins.
-Kills produce no ore. This demonstrates a possible win, not balanced difficulty.
+Actual mouse/touch/injected-controller playtests built and completed a tower and
+extractor, upgraded the extractor, moved freight, canceled moves and restored the
+colony after reload. WebGPU readback produced 73 distinct channel values, with
+2,564 vertices and 1,272 triangles. A visually inspected screenshot confirmed the
+scene rendered. A camera-only pan preserved all batch identities and performed
+**zero geometry uploads**. This demonstrates avoided work, not an end-to-end
+frame-time speedup.
 
-The final two-client Chromium run on disposable port 4178 passed native seed-form
-submission, shared restart and invalid-range rejection, actual keyboard/pointer
-construction, WebGPU readback, live combat with cargo in transit, shared pause,
-and changed compatible Wasm with the complete paused colony, overscrolled camera
-and pending request preserved. It also rejected an incompatible run-marker offset,
-invalid shader and incompatible schema, recovered to a valid package, checked
-map/minimap boundary pixels, rejected margin placement and resumed the simulation.
-The final generic input/form browser suite also passed on the same isolated browser.
+Focused simplification reviewed local publication, independent HTTP revisions,
+load consent, shutdown and the bounded request parser. The runtime remains free
+of UI callbacks; online requests never hold its message lane. The full 3D cold
+build still takes minutes despite the landed overload optimization; compiler
+latency remains separate work.
 
-Screenshots `build/playtest/colony-staffed.png` and `colony-sheltering.png` render
-compiled-model checkpoints through the real browser/GPU. The danger checkpoint
-deliberately positions attackers to expose the boundary; it is not a natural-play
-claim. Their exact status text is in `colony-ui-status.json`. A fresh Astra low
-reader correctly identified two miners and two haulers, occupied-slot production,
-mine stock versus delivered ore, and four living workers sheltering because of
-danger. It distinguished lost ore from worker deaths and understood both seed
-restart controls. No further presentation fix was required.
-
-The terrain fixture executes as Wasm and checks the original seed-1 geography,
-eight golden map fingerprints and 970 routes across 194 sampled seeds, including
-survey and hazard boundaries. Several seeded colonies also produce and physically
-deliver ore in the compiled game tests. The generator is a bounded layout family,
-not an unconstrained procedural terrain system.
-
-The optional run-marker authority boundary is exercised with same-seed accepted
-restarts, rejected seeds, duplicate receipts, stale queued commands, commit failure
-and reload configuration mismatch. A hostile compiled transition returning an
-invalid Unicode label verifies that output conversion fails before persistence,
-state installation or epoch publication. Cold-start configuration must match the
-saved package; there is no durable policy migration framework.
-
-The live 4175 authority was stopped before backing up its latest package and
-SQLite database in `build/siegework-backup-world3-20261017`. The explicit schema-3
-to schema-4 upgrade passed both old and new codecs and retained revision 33814,
-epoch/receipts, tick 1160, 105 ore, four structures and nine workers. Only the schema
-word, seed 1 and nine newly defined worker-health words changed; the previous
-geography and all existing colony values were preserved. The user then started a
-new seed-2 run on the new package. Evidence is in `build/playtest/schema4-upgrade.json`.
-This is a deliberate local upgrade, not automatic schema migration. Port 4173 and
-the previous packages/databases remain intact.
-
-Focused no-history Astra Max explanation/debate passes covered the staffed-worker
-ownership model, seeded terrain, worker/alert presentation, generic smooth input,
-integer forms and the authority restart boundary. They retained direct immutable
-records, checked assignments and explicit cargo ownership. Completion now assigns
-nearby work before a later worker can reserve it; output is materialized before
-durable commit. A separate death queue, general job framework, stored terrain grid
-and general schema migration system would add machinery without resolving a
-current requirement. Cohesive record/codec rows, exhaustive job transitions,
-input-event boundaries and view composition remain exceptions to the ten-line
-target.
-
-Fresh Astra low public-interface reviews identified misleading seed restart
-labels, ambiguous selection and worker-state wording. The interface now distinguishes
-the pending seed from the active map, states the shared restart consequence,
-labels blocked workers as sheltering at the living hub, and shows occupied and
-incoming mining slots separately. It does not imply that idle or game-over workers
-are fleeing.
-
-`make test`, `make check`, `scripts/test-build`, the mdBook build and whitespace
-checks passed. Generic browser input tests cover actual keyboard/pointer/native
-form input and injected gamepad samples; no physical controller was used.
-
-Compilation remains a development cost. The first successful staffed-colony build
-spent about 7 minutes 32 seconds between shader and simulation output. The final
-game build, concurrent with seven game-linked fixtures, took about 10 minutes
-7 seconds; fixtures completed over about 8 minutes 47 seconds to 9 minutes
-33 seconds. Each compiler process used approximately one CPU at the last sample.
-These are wall-clock observations, not profiling evidence. Several generic runtime
-failure fixtures currently import the whole game and repeat its compilation.
-A follow-up can use a small application for generic contract failures while
-retaining a smaller real-game integration set; this change does not restructure
-the tests while validating the deployment.
-
-## Previous smooth-camera checkpoint
-
-Smooth camera follow-up: compiled colony scenarios verify frame-time partitioning,
-negative fractional camera flooring, all four overscroll bounds and margin rejection.
-Actual Chromium 152 input on isolated port 4177 recorded subcell movement while
-holding D, stopped on release, and placed the starter extractor at (12,20) after a
-fractional negative pan. GPU readback and a screenshot passed. The generic input
-suite separately covered variable frames, capped stalls, axis magnitudes, focus,
-visibility, reconnect and legacy controls; no physical gamepad was used.
-The 4175 update retained every authoritative world word, revision and receipt;
-only the local client schema changed from 3 to 4, requiring a page refresh.
-
-# Earlier colony checkpoint
-
-The 2026-10-17 colony checkpoint uses generation `c0e0045c96df267e73aef205`,
-world/client schema 3, Node 24.19.0 and Chromium 152.0.7977.82 with real WebGPU
-on the isolated SwiftShader software Vulkan adapter. This is correctness and
-playability evidence, not hardware performance or Firefox stability evidence.
-
-The compiled colony scenarios cover two mine deliveries, completed-tower discovery,
-radius upgrades, surveyed-route rejection, remembered geography after destruction,
-interrupted kit ownership, bounded repairs, actual raid targeting and rebuilding,
-malformed claims/routes, an undefended healthy-hub finale, all four camera margins,
-manual pause/planning and fixed shot endpoints. A defended fixed layout exterminates
-the final threat at tick 4504 (7:30.4), with ore balance checked across kills. Kills
-produce no resources. This establishes a possible win, not balanced difficulty.
-
-Actual keyboard and pointer play on disposable port 4176 verified worker-built
-construction, shared Pause/Resume semantics, queued work while paused, camera
-overscroll, rejected margin placement and GPU-rendered map/minimap boundaries.
-A compiled firing checkpoint rendered its traveling shot in the same browser.
-The complete two-client browser runner also passed shared purchases, active hauling
-and combat, pause across visibility changes, identical paused colony/camera/pending
-requests through changed compatible Wasm, invalid-WGSL/schema rejection, continued
-GPU rendering and resumed simulation. `make test`, `make check`, `scripts/test-build`,
-the mdBook build and whitespace checks passed for this checkpoint.
-The generic input runner also passed focus/native controls, held repeats,
-injected controller axes/reconnect, scaled pointer and responsive-layout checks.
-No physical controller was used. Screenshots are local evidence under
-`build/playtest/boundary-pause.png` and `build/playtest/shot.png`.
-
-The live 4175 colony was stopped and backed up before an explicit schema-2 to
-schema-3 conversion. The new codec validated the saved colony; only its schema
-word changed. Revision 9059, tick 4568, epoch/retry receipts, 1679 ore, 20 structures
-and 12 workers were retained. The old package and SQLite database remain together
-in `build/siegework-backup-schema2-20261017`; 4173's earlier prototype was untouched.
-This was a deliberate local upgrade, not automatic/general schema migration.
-
-A fresh no-history Astra Max explained the colony ownership and route contract
-without source access. The focused simplify debate replaced split assignment
-checks with one prepared assignment that owns its checked path before reserving
-materials, replaced a hardcoded worker reservation with a dynamic hauling reserve,
-removed unused enemy cooldown state, and strengthened the snapshot decoder's
-cross-record kit/path checks. Record/codec rows, exhaustive transitions and view
-composition retain cohesive exceptions to the ten-line target. A separate input
-explanation pass established per-trigger deadlines, no catch-up, and release
-latches after focus/device/settings changes.
-
-A fresh Astra low newcomer read only the public interface, screenshot and then
-player guide. It correctly understood tower discovery, physical delivery, pooled
-labor, upgrades and zero kill income. Its confusion led to a visible legend and
-first-action cue, hover/cursor selection instructions, explicit range hints,
-installed-upgrade labels, and a separately labeled last-order result. The guide
-now explicitly distinguishes mine stock from spendable delivered ore.
-
-The older two-minute prototype's validation remains below as historical evidence.
-
-## Earlier two-minute prototype
-
-The browser checkpoint on 2026-10-16 used compiler base `4525dda7` and packaged
-artifact generation `8c6d44d9733225ec5c8b9da4`. Later library checks are recorded
-below.
-These are correctness checks, with no performance or hardware-GPU claims.
-
-| Environment | Observed |
-| --- | --- |
-| Compiler host | Chibi 0.12.0, Binaryen 132 |
-| Authority/runtime | Node 24.19.0, generated WasmGC, private `snail.reducer` scalar provider |
-| Browser | Chromium 152.0.7977.82, `http://127.0.0.1:4173`, two independent sessions |
-| GPU | Real WebGPU using Google's SwiftShader software Vulkan adapter |
-
-`scripts/test-applications` builds the real game and small fixtures. The runtime
-checks cover shared Scheme/Lofi APIs, retained immutable snapshots, automatic
-hauling, pure view, declarative client effects, compatible reload with changed
-behavior, hostile candidates and views, rejection of invalid encoded states,
-startup checks before publication, rollback after staged writes/effects,
-ordered submissions, contested purchases, durable failure, SQLite restart/retry,
-and deterministic losing and winning runs. Compile-negative fixtures reject a
-wrong state result, wrong payload and command from the wrong application owner.
-
-The suite has 19 runtime checks and three compile-negative cases. The
-[browser runner](../../tests/applications/README.md) verifies actual GPU
-pixels, independent shader candidate validation, two-client purchases and
-convergence, stale snapshot rejection, combat and cargo in transit, changed Wasm
-behavior after reload, exact pending-request preservation, and continued
-rendering after invalid WGSL or an
-incompatible schema. A Chromium window on an isolated Xvfb display was also
-visually inspected. The headless compositor's screenshot is not used as evidence
-of GPU rendering; GPU texture readback is.
-
-Formatting, changed Markdown links, `git diff --check`, and the mdBook build pass.
-The parent PR owns compiler/backend validation; this app does not repeat the
-performance suite or change the compiler implementation.
-
-Two independent Luna builders started from public libraries, documentation and
-the game contract at `228076e5`, without reading the reference implementation.
-Their experimental apps remain on local branches rather than becoming extra
-reference games in this PR:
-
-| Experiment | Local commit | Observed result |
-| --- | --- | --- |
-| `experiment/siegework-newcomer-a-20261016` | `0ce891a3` | App-local build, Scheme victory/loss/reset and upgrade income, two clients, real WebGPU pixels, changed module replacement with identical world/client snapshots. |
-| `experiment/siegework-newcomer-b-20261016` | `c375d62d` | App-local build, Scheme extractor income/artillery/victory/reset, two clients, real WebGPU pixels and reconnect to the retained match. |
-
-Each experiment records commands and failures in its app's `NEWCOMER.md`. The
-feedback exposed missing import guidance, `I64` vector indices versus `I32`
-snapshot words, the limited arithmetic surface, constructor-name collisions,
-owner/handler settings wiring and unlinked browser flags. The chapter now covers
-those boundaries and includes a runnable immutable-state codec. A mismatched
-codec length also motivated the executable packaging preflight and a regression
-that rejects invalid encoded replacements before durability. These small
-experiments test usability; they do not establish full Scheme conformance or
-replace the reference game's integration checks. One builder used the shared
-replacement API manually after a server restart; automatic polling during live
-combat is covered by the reference browser runner.
-
-A fresh, no-history **gpt-6-astra at low effort** understanding check started from
-`3e9e1435`. It ran the documented counter and its own immutable stock/typed send
-test as actual Wasm; both returned `42`. It found no functional reducer defect.
-Its need to inspect source for initializers and effect tags led to the runnable
-`testing.sld` example and named `effect-send?`/`effect-notice?` predicates. Its
-missing-parenthesis typo also exposed an opaque parse diagnostic. Parent commit
-`4525dda7` now reports its filename, line/column and expected closing delimiter.
-This check did not exercise the browser, durability or reload.
-
-A separate fresh, no-history **gpt-6-astra at max effort** explained the state
-commit, reload and packaging contract without repository access, then debated
-the implementation observations. The focused simplify pass fixed abandoned
-first-candidate buffers reserving a state shape: preparation now validates with
-temporary buffers and installation rebuilds from current snapshots. Regression
-checks cover discarded/out-of-order candidates, state advancing before
-installation, and an observer throwing after a committed receipt. The pass kept
-synchronous transitions and trusted immutable application discipline; fresh Wasm
-instances per message, an async lock and an outbox would add unrelated machinery.
-Atomic commit/validation and publication operations remain cohesive even where
-they exceed the ten-line target. No broader refactoring was needed once those
-boundaries and their failure cases were explicit.
-
-A second fresh, no-history **gpt-6-astra at max effort** explained only the
-application declaration/dispatch and shader construction/emission contracts,
-without repository access. Debate established that the private one-field
-`Handler` record added no invariant beyond its function type. Applications now
-hold the annotated reducer functions directly; nominal owner types, arity
-adapters, delayed initialization and slot bounds checks remain. The shader's
-successful stage/width checks already dominate emission of the same immutable
-trees, so a second checked AST or combined width/text result would add machinery
-without strengthening the boundary. The two passes remain, with that invariant
-beside emission. Ordinary functions fit the ten-line target. The 13-line arity
-macro and 11-line declaration expansion remain cohesive exhaustive cases.
-
-This pass rebuilt generation `f66f0e7aae927dd5d58f580b` and passed all 19 runtime
-checks, three compile-negative cases, `make check` and `git diff --check`.
-Strengthened fixtures cover zero/one/two arguments, payload order, request reuse
-with different states, an unforced trapping initializer, nested shader widths,
-fragment-stage rejection even beneath multiplication by zero, and matching
-macro/constructor output. Handler identities, effect schema, settings and WGSL
-text match the published build. A direct reload from the browser checkpoint's
-Wasm into this generation retained both active-combat and client snapshots
-exactly and executed the next tick. Browser checks were not repeated for this
-library-only pass. It stops here because the remaining representation and checks
-serve explicit contracts; no public API, runtime or compiler change was needed.
-
-The scope remains one local authority, bounded scalar snapshot copying, a small
-shader vocabulary and the current typed Scheme subset. There is no automatic
-schema migration, durable external-effect outbox, distributed writer protocol,
-GPU device recovery or model checker. Host JavaScript/HTML/CSS changes require a
-restart; Scheme modules and shader pipelines have the state-preserving path.
+Headed evidence was recorded under `/tmp/snail-hosting-8ztcj8/`; screenshots use
+a private Xvfb display and software GPU, not hardware performance measurements.
+Earlier validation records are preserved under [`doc/history`](../../doc/history).

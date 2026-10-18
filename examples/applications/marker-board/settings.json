@@ -8,8 +8,6 @@
   "owners": {"board-app": "match", "cursor-app": "client"},
   "tick": "idle",
   "reset": "clear",
-  "remoteHandlers": ["place", "clear"],
   "pointer": {"move": "move", "confirm": "confirm"},
-  "keys": {"Enter": ["confirm"], "r": ["restart"]},
-  "controller": {}
+  "keys": {"Enter": ["confirm"], "r": ["restart"]}
 }

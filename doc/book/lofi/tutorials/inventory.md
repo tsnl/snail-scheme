@@ -43,7 +43,7 @@ stock. This is a rule enforced by this operation, not something implied by
 the `I32` field type.
 
 In an application with fixed prices, accept a product choice
-and look up its cost on the authority. This example accepts the price directly
+and look up its cost in the inventory handler. This example accepts the price directly
 to make the arithmetic visible.
 
 ## Run the checkpoint
