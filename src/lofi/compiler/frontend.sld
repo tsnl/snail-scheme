@@ -23,7 +23,7 @@
     (define keywords
       '(def lambda if let begin library-begin ann inst match import export define-library
             data datatype typeclass instance define-overload define-extern
-            : All => -> Ref List Vector Rest Type Constraint Kind-> Evidence
+            : All requires => -> Ref List Vector Rest Type Constraint Kind-> Evidence
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define unsupported-keywords
       '(define-syntax syntax-rules let-syntax letrec-syntax cond-expand include
@@ -490,7 +490,7 @@
     (define (parse-compound-type form environment)
       (let ((items (parts form)) (tag (head form)))
         (case tag
-          ((All =>) (fail form "All and constraints belong to an attached binding signature"))
+          ((All requires =>) (fail form "All and constraints belong to an attached binding signature"))
           ((Ref List Vector Rest) (list tag (parse-type (car (arguments form 1)) environment)))
           ((->)
            (when (null? (cdr items)) (fail form "function type requires a result"))
@@ -502,22 +502,36 @@
     (define (parse-signature form environment)
       (if (eq? (head form) 'All) (parse-all form environment) (parse-type form environment)))
     (define (parse-all form environment)
-      (let* ((items (arguments form 2)) (variables (type-variables (parts (car items)) form))
-             (scope (extend-types environment variables))
-             (body (if (eq? (head (cadr items)) '=>) (parse-qualified (cadr items) scope)
-                       (parse-type (cadr items) scope))))
-        (list 'All (map cdr variables) body)))
+      (let ((items (cdr (parts form))))
+        (unless (memv (length items) '(2 3))
+          (fail form "All expects parameters, an optional requires clause, and a type"))
+        (let* ((variables (type-variables (parts (car items)) form))
+               (scope (extend-types environment variables)))
+          (list 'All (map cdr variables) (parse-all-tail (cdr items) scope)))))
+    ;; Both source spellings use the same declared signature and checker path.
+    (define (parse-all-tail items environment)
+      (let ((first (car items)))
+        (if (null? (cdr items))
+            (if (eq? (head first) '=>) (parse-qualified first environment) (parse-type first environment))
+            (begin
+              (unless (eq? (head first) 'requires) (fail first "expected a requires clause before the type"))
+              (list '=> (map (lambda (requirement) (parse-constraint requirement environment)) (cdr (parts first)))
+                    (parse-type (cadr items) environment))))))
     (define (parse-constraint form environment)
       (let ((items (parts form)))
         (when (null? items) (fail form "constraint requires a class"))
         (cons (constraint-definition (car items) environment)
               (map (lambda (type) (parse-type type environment)) (cdr items)))))
     (define (constraint-definition form scope)
-      (let ((definition (lookup (identifier form) (scope-types scope))))
-        (when (and definition (not (and (value-definition? definition)
-                                        (memq (binding-kind definition) '(typeclass overload)))))
-          (fail form "constraint requires a typeclass or overload family"))
-        (or (atom-syntax-reference form) definition (import-reference form scope 'constraint))))
+      ;; A macro's definition-site reference takes precedence over a local
+      ;; declaration that happens to have the same printed name.
+      (let ((name (identifier form)))
+        (or (atom-syntax-reference form)
+            (let ((definition (lookup name (scope-types scope))))
+              (when (and definition (not (and (value-definition? definition)
+                                              (memq (binding-kind definition) '(typeclass overload)))))
+                (fail form "constraint requires a typeclass or overload family"))
+              (or definition (import-reference form scope 'constraint))))))
     (define (parse-qualified form environment)
       (let ((items (arguments form 2)))
         (list '=> (map (lambda (constraint) (parse-constraint constraint environment)) (parts (car items)))
@@ -847,6 +861,57 @@
                (function (value-binding-initializer item)) (annotation (lambda-body function)))
           (expect (eq? (annotation-type annotation) (car (all-variables signature))) #t)
           (expect (eq? (name-definition (annotation-expression annotation)) (car (lambda-parameters function))) #t)))
+      (define (test-requirement-scope)
+        (for-each
+         (lambda (text)
+           (let* ((library (test-source
+                            (string-append "(typeclass Identity (A) (: identity (-> A A)))
+                                             (typeclass Relation (A B) (: relate (-> A B)))
+                                             (def f " text " (lambda (T) (ann T T)))")))
+                  (items (library-body library)) (binding (caddr items))
+                  (signature (type-declaration-type (binding-declaration (value-binding-definition binding))))
+                  (variable (car (all-variables signature))) (requirements (type-constraints signature)))
+             (expect (length requirements) 2)
+             (expect (eq? (caar requirements) (class-declaration-definition (car items))) #t)
+             (expect (eq? (caadr requirements) (class-declaration-definition (cadr items))) #t)
+             (expect (eq? (cadar requirements) variable) #t)
+             (expect (eq? (cadadr requirements) variable) #t)
+             (expect (eq? (cadr (all-body signature)) variable) #t)
+             (expect (eq? (annotation-type (lambda-body (value-binding-initializer binding))) variable) #t)))
+         '("(All (T) (requires (Identity T) (Relation T T)) (-> T T))"
+           "(All (T) (=> ((Identity T) (Relation T T)) (-> T T)))")))
+      (define (test-empty-requirements)
+        (for-each
+         (lambda (text)
+           (let* ((binding (car (library-body (test-source (string-append "(def value " text " 42)")))))
+                  (signature (type-declaration-type (binding-declaration (value-binding-definition binding)))))
+             (expect (all-variables signature) '())
+             (expect (type-constraints signature) '())
+             (expect (all-body signature) 'I32)))
+         '("(All () I32)" "(All () (requires) I32)" "(All () (=> () I32))")))
+      (define (test-invalid-requirements)
+        (for-each
+         (lambda (signature) (test-rejected (string-append "(def bad " signature " (lambda (value) value))")))
+         '("(All)" "(All (T))" "(All T T)" "(All (T T) T)"
+           "(All (T) (requires))" "(All (T) (requires . T) T)"
+           "(All (T) (requires T) T)" "(All (T) (requires (C (All (U) U))) T)"
+           "(All (T) T (requires (C T)))" "(All (T) (requires (C T)) (requires (D T)) T)"
+           "(All (T) (requires (C T)) (=> ((D T)) T))" "(All (T) (=> ((C T)) T) T)"
+           "(All (T) (=> ((C T)) (requires (D T))))" "(All (T) (requires) (All (U) U))"
+           "(-> (requires (C I32)) I32)")))
+      (define (test-requirement-head-diagnostics)
+        (for-each
+         (lambda (text)
+           (expect (guard (failure
+                           (else (let ((location (car (error-object-irritants failure))))
+                                   (list (error-object-message failure) (loc-filename location)
+                                         (loc-line location) (loc-column location)))))
+                     (test-parsed text) #f)
+                   '("expected an identifier" "parsed-test.sld" 2 1)))
+         '("(def bad (All (T) (requires (\n(C) T)) (-> T T)) (lambda (value) value))"
+           "(def bad (All (T) (requires (\n42 T)) (-> T T)) (lambda (value) value))"
+           "(def bad (All (T) (=> ((\n(C) T)) (-> T T))) (lambda (value) value))"
+           "(def bad (All (T) (=> ((\n42 T)) (-> T T))) (lambda (value) value))")))
       (define (test-library-body-scope)
         (let* ((library (test-source "(define-library (test clauses) (export answer)
                                       (begin (def answer later)) (begin (def later 42)))"))
@@ -922,6 +987,10 @@
         (run-test test-sequential-scope)
         (run-test test-recursive-scope)
         (run-test test-quantifier-scope)
+        (run-test test-requirement-scope)
+        (run-test test-empty-requirements)
+        (run-test test-invalid-requirements)
+        (run-test test-requirement-head-diagnostics)
         (run-test test-library-body-scope)
         (run-test test-static-kinds)
         (run-test test-cached-overload-identity)
