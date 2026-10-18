@@ -11,7 +11,7 @@
    (scheme base)
    (scheme immutable)
    (lofi sexp)
-   (only (lofi core) data deriving typeclass instance def ann inst match All => ->
+   (only (lofi core) data deriving typeclass instance def ann inst match All requires ->
          Ref List Vector I32 I64 F32 F64 Bool Char Unit Any String Bytevector
          identifier-name type-name)
    (only (lofi base) Default default ref ref-get ref-set! ref-eq? vector-eq? empty-vector

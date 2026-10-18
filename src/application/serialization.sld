@@ -8,7 +8,7 @@
    (application bridge)
    (browser application)
    (lofi serialization)
-   (only (lofi core) def ann All => -> I32 I64 Vector)
+   (only (lofi core) def ann All requires -> I32 I64 Vector)
    (only (lofi base) i32->i64 i64->i32 i32-bitwise-and i32-shift-right/logical unreachable)
    (only (lofi bytes) make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set!))
   (begin
