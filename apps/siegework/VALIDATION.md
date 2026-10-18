@@ -20,48 +20,48 @@ compiler benchmarks.
 
 ## Executed checks
 
-The current viewport revision uses `renderScale: 0.25`: each 3D backing dimension
-is one quarter of its native physical-pixel extent, with pixelated scaling and
-single-sample rendering. DOM controls and text retain native HiDPI resolution.
-The orthographic camera has 30° elevation and diagonal quarter-turn snaps for
-2:1 dimetric ground diamonds. Intermediate rotations remain smooth; picking,
-pan and camera-relative light continue using the same camera basis.
+The current viewport revision restores native HiDPI world rendering, with no
+MSAA. The canvas backing dimensions follow the device-pixel ratio; DOM controls
+and text also retain native HiDPI resolution. The orthographic camera keeps 30°
+elevation and diagonal quarter-turn snaps for 2:1 dimetric ground diamonds.
+Intermediate rotations remain smooth; picking, pan and camera-relative light
+continue using the same camera basis.
 
-The canonical debug build is `build/siegework-dimetric-pixels/solo`, generation
-`76028643ef515259bfdc74bb`. Its 543,943-byte simulation has SHA-256
-`2d2cc87e239d10965ee85dc2ac7eb7813c15b82ed83fbc0d630b7a463f9f2192`.
-Compilation took 217.189 seconds on the shared host; this is a wall-time
-observation, not a controlled performance comparison.
+The native host checkpoint is `build/siegework-native/solo`, generation
+`97a05e81371239ddd43bad09`. It repackages the existing canonical debug Wasm with
+the updated settings and browser host. Its 542,560-byte simulation has SHA-256
+`2a3b5ea33b3801da5d8c90c84a2efafd108276237ee4f87cea4fba56777cb82d`.
+No compiler, Scheme scene or shader source changed for this checkpoint.
 
 That exact module passes 190 actual-Wasm application checks and 21 presentation
 groups, including all four 2:1 camera snaps, projected picking, screen-aligned
-drag and camera-relative lighting. All 19 hosting sections pass against the same
-generation, including actual persistence and product-browser input/GPU checks.
-The saved-pause assertion waits for Resume to render after startup restores
-the World; exposing the application object alone does not establish UI readiness.
-Rebuilt 3D fixtures pass eight groups, with
-native-default and quarter-resolution settings, DPR-only changes, stale and
-accepted generation installation, rollback and one-pixel bounds.
+drag and camera-relative lighting. Eight scene-fixture groups pass, including
+native DPR 1, 1.25, 2, 3 and 4 at odd viewport dimensions, DPR-only resizing,
+stale and accepted generation installation, rollback and one-pixel bounds.
+Fixture Wasm is reused because its Scheme source and execution ABI are unchanged.
 
-Private Chromium/SwiftShader checks pass ten renderer groups and nine product
-browser groups. The renderer probes binary edge coverage, sample count one,
-one main depth texture plus two textures per inset, reuse, queued readback,
-resize, shader replacement/rollback and exactly-once destruction. Product
-checks verify quarter-resolution backing dimensions, unchanged logical input,
-native HiDPI DOM screenshot dimensions at DPR 2 and 3, pixelated canvas filtering,
-accepted and rejected settings replacement, touch construction, menus and saved
-reopen. Additional browser probes pass for live attack thumbnails at all three
-viewports and continuous screen-aligned keyboard pan, bounds and edit focus.
-These software GPU checks do not establish hardware frame rate or
-thermal behavior.
+Private headed Chromium with Xvfb and Vulkan SwiftShader passes ten renderer
+groups and nine product-browser groups. Renderer checks cover single-sample
+coverage, inset cameras, shader replacement and rollback, queued readback,
+resize, retained animation, and exactly-once texture destruction. Product checks
+verify native world and DOM screenshot dimensions at DPR 1, 2 and 3 on an odd
+1101×761 CSS viewport, unchanged logical input, accepted and rejected code
+replacement, touch construction, menus and saved reopen. These software GPU
+checks do not establish hardware frame rate or thermal behavior.
 
-The same 18-file package was published on port 4212 with its manifest last.
-HTTP reads matched the manifest, Wasm, stylesheet, renderer and browser/input
-hosts to the tested package, including `renderScale: 0.25`. World10 saves were
-preserved. The original invalid-transition and Firefox QueueId reports remain
-unreproduced; this rendering revision does not claim to fix them.
+The earlier quarter-resolution package was published on port 4212;
+this native checkpoint has not yet been published. World10 saves remain
+compatible. The original invalid-transition and Firefox QueueId reports remain
+unreproduced; this revision does not claim to fix them.
 
 ### Earlier checkpoints
+
+The superseded quarter-resolution viewport package was generation
+`76028643ef515259bfdc74bb`, with a 543,943-byte simulation and SHA-256
+`2d2cc87e239d10965ee85dc2ac7eb7813c15b82ed83fbc0d630b7a463f9f2192`.
+It passed 190 application, 21 presentation, 19 hosting, ten renderer and nine
+product-browser groups. Its publication preserved World10 saves. That reduced
+resolution policy has been removed in favor of the native dimetric view.
 
 The earlier Pause-menu checkpoint was generation
 `843e8f05dadb6b5f55434e6c`. It passed 182 application checks, 18 presentation

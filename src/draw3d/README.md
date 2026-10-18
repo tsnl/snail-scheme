@@ -153,11 +153,10 @@ geometry, and omitted or fully clipped insets release their GPU resources.
 Explicit previous/current motion remains authoritative when a view reappears.
 Animation in an inset redraws the complete frame without rerunning Scheme.
 
-The browser defaults to the full native device-pixel ratio for the main canvas
-and insets. Responsive applications may declare `renderScale` between zero
-(exclusive) and one to scale both physical dimensions. A scale below one uses
-pixelated canvas filtering; DOM UI and logical input coordinates retain their
-normal resolution. Requested physical sizes exceeding the device's texture limit fail
+The browser uses the full native device-pixel ratio for the main canvas and
+insets, with single-sample rendering and no MSAA. DOM UI stays native HiDPI;
+camera and input coordinates use the logical CSS viewport. There is no reduced
+world target or enlarged-pixel presentation pass. Requested physical sizes exceeding the device's texture limit fail
 before target allocation. Insets use GPU texture copies, with no per-frame
 readback or additional device requests. Close drains pending readbacks and
 releases every view's resources.
@@ -262,7 +261,7 @@ in `build/draw3d-tests/`. Serve that directory, then run
 `node tests/draw3d/browser.mjs FIXTURE_URL DEVTOOLS_URL` against an isolated
 Chromium instance. GPU checks cover intermediate and final motion pixels,
 independent durations, shared reveal clocks, fragment opacity, inset cameras,
-native and scaled DPR, single-sample edge coverage, shader replacement, buffer/target
+native DPR, single-sample edge coverage, shader replacement, buffer/target
 reuse and resource cleanup.
 The product surface does not currently support
 `cond-expand`; test entry points follow the existing Lofi library convention,

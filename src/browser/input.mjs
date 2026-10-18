@@ -35,12 +35,10 @@ function controllerAxis(value) {
   return result;
 }
 export function parseInputSettings(settings) {
-  const {width, height, cellSize, pointer, renderScale = 1, inputRepeatMilliseconds: interval = 160} = settings;
+  const {width, height, cellSize, pointer, inputRepeatMilliseconds: interval = 160} = settings;
   if ([width, height, cellSize, interval].some(x => !Number.isSafeInteger(x) || x <= 0) ||
       !pointer || [pointer.move, pointer.confirm].some(x => typeof x !== 'string' || !x))
     throw new Error('input requires positive dimensions, repeat interval, and pointer handlers');
-  if (!Number.isFinite(renderScale) || renderScale <= 0 || renderScale > 1)
-    throw new Error('render scale must be a finite number greater than zero and at most one');
   const coordinates = pointer.coordinates ?? 'cells';
   if (coordinates !== 'cells' && coordinates !== 'pixels') throw new Error('pointer coordinates must be cells or pixels');
   const {zoomHandler, dragHandler} = settings;
@@ -57,7 +55,7 @@ export function parseInputSettings(settings) {
   if (settings.controllerAxes !== undefined && !Array.isArray(settings.controllerAxes)) throw new Error('controller axes require an array');
   const axes = (settings.controllerAxes ?? []).map(controllerAxis);
   if (new Set(axes.map(value => value.axis)).size !== axes.length) throw new Error('controller axes must be unique');
-  return {width, height, cellSize, renderScale, pointer: {...pointer, coordinates}, zoomHandler, dragHandler, interval, keys, buttons, axes,
+  return {width, height, cellSize, pointer: {...pointer, coordinates}, zoomHandler, dragHandler, interval, keys, buttons, axes,
     repeatKeys, continuousKeys, repeatButtons: mappedInputs(settings.repeatButtons, buttons)};
 }
 

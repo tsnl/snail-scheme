@@ -99,40 +99,35 @@ console.log('ok - nested motion transforms copy corresponding endpoints; static 
 console.log('ok - typed inset scenes retain independent cameras and scope equal batch keys by stable view identity');
 
 const settings={width:960,height:640,cellSize:40,pointer:{move:'move',confirm:'confirm'},viewportHandler:'viewport'};
-const native=parseInputSettings(settings),quarter=parseInputSettings({...settings,renderScale:.25});
-assert.equal(native.renderScale,1);
-for(const renderScale of [0,-1,1.01,NaN,Infinity,null,'0.25'])
-  assert.throws(()=>parseInputSettings({...settings,renderScale}),/render scale/);
-const resizeCalls=[],surface={style:{},getBoundingClientRect:()=>({width:1920,height:1080})};
+const native=parseInputSettings(settings);
+const resizeCalls=[],surface={style:{},getBoundingClientRect:()=>({width:1921,height:1081})};
 const application=Object.assign(Object.create(BrowserApplication.prototype),
   {canvas:surface,inputSettings:native,manifest:{settings},local:(...args)=>resizeCalls.push(args),note:()=>{}});
 const oldRatio=globalThis.devicePixelRatio;
 try {
-  globalThis.devicePixelRatio=2; application.resizeViewport();
-  assert.deepEqual([surface.width,surface.height],[3840,2160]);
-  application.resizeViewport();assert.equal(resizeCalls.length,1);
-  globalThis.devicePixelRatio=3;application.resizeViewport();
-  assert.deepEqual([surface.width,surface.height],[5760,3240]);
-  application.applySettings(quarter);assert.deepEqual([surface.width,surface.height],[1440,810]);
-  assert.deepEqual(application.viewport,[1920,1080]);assert.equal(surface.style.imageRendering,'pixelated');
-  assert.deepEqual([application.inputSettings.width,application.inputSettings.height],[1920,1080]);
-  globalThis.devicePixelRatio=2;application.resizeViewport();assert.deepEqual([surface.width,surface.height],[960,540]);
-  globalThis.devicePixelRatio=4;application.resizeViewport();
-  globalThis.devicePixelRatio=1;application.applySettings(native);
-  assert.deepEqual([surface.width,surface.height],[1920,1080]);assert.equal(surface.style.imageRendering,'');
-  assert.equal(resizeCalls.length,1,'DPR and resolution changes do not dispatch logical viewport commands');
-  const earlier={generation:'native',settings},next={generation:'quarter',settings:{...settings,renderScale:.25}};
+  for(const ratio of [1,1.25,2,3,4]) {
+    globalThis.devicePixelRatio=ratio;application.resizeViewport();application.resizeViewport();
+    assert.deepEqual([surface.width,surface.height],[Math.round(1921*ratio),Math.round(1081*ratio)]);
+  }
+  assert.deepEqual(application.viewport,[1921,1081]);
+  assert.deepEqual([application.inputSettings.width,application.inputSettings.height],[1921,1081]);
+  assert.equal(resizeCalls.length,1,'DPR-only changes do not dispatch logical viewport commands');
+  const earlier={generation:'native',settings},next={generation:'replacement',settings:{...settings,width:640,height:480}};
+  const replacement=parseInputSettings(next.settings);
   let discarded=0;application.reloadTicket=2;
   application.runtime={manifest:earlier,replace:async candidate=>{application.runtime.manifest=candidate;},
     initialize:async()=>{},discard:()=>discarded++};
-  await application.install(next,undefined,quarter,1);assert.equal(discarded,1);assert.equal(application.inputSettings.renderScale,1);
-  await application.install(next,undefined,quarter,2);assert.deepEqual([surface.width,surface.height],[480,270]);
+  const priorSettings=application.inputSettings;
+  await application.install(next,undefined,replacement,1);assert.equal(discarded,1);assert.equal(application.inputSettings,priorSettings);
+  await application.install(next,undefined,replacement,2);assert.deepEqual([surface.width,surface.height],[7684,4324]);
   application.runtime.manifest=earlier;application.reconcileGeneration();
-  assert.deepEqual([surface.width,surface.height],[1920,1080]);assert.equal(surface.style.imageRendering,'');
-  surface.getBoundingClientRect=()=>({width:3.9,height:1.9});application.applySettings(quarter);
-  assert.deepEqual([surface.width,surface.height],[1,1]);assert.deepEqual(application.viewport,[3,1]);
+  assert.deepEqual([surface.width,surface.height],[7684,4324]);assert.equal(application.generation,'native');
+  surface.getBoundingClientRect=()=>({width:3.9,height:1.9});application.applySettings(native);
+  assert.deepEqual([surface.width,surface.height],[12,4]);assert.deepEqual(application.viewport,[3,1]);
+  surface.getBoundingClientRect=()=>({width:.4,height:.2});globalThis.devicePixelRatio=1;application.resizeViewport();
+  assert.deepEqual([surface.width,surface.height],[1,1]);assert.deepEqual(application.viewport,[1,1]);
 } finally { if(oldRatio===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=oldRatio; }
-console.log('ok - checked resolution settings scale physical pixels, preserve logical coordinates and follow accepted generations and rollback');
+console.log('ok - native backing pixels follow DPR at odd and tiny sizes while logical input survives replacement and rollback');
 
 const boundaryInstance={},boundaryBridge=createSceneBridge(functions=>functions,()=>tx),host=boundaryBridge.provider;
 function beginBoundary() { tx={readOnly:true,instance:boundaryInstance,snapshots:owners}; }

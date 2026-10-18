@@ -138,8 +138,8 @@ async function checkResolution(width,height,dpr) {
       uiTransform:getComputedStyle(ui).transform,labelSize:getComputedStyle(label).fontSize};})()`);
   actual.css=actual.css.map(Math.floor); // The host preserves its existing integer CSS viewport contract.
   assert.ok(Math.abs(ratio-dpr)<.000001,'emulation reports the requested DPR within its floating-point precision');
-  assert.deepEqual(actual,{backing:[Math.round(width*ratio/4),Math.round(height*ratio/4)],logical:[width,height],
-    input:[width,height],css:[width,height],canvasFilter:'pixelated',uiFilter:'auto',uiTransform:'none',labelSize:'11px'});
+  assert.deepEqual(actual,{backing:[Math.round(width*ratio),Math.round(height*ratio)],logical:[width,height],
+    input:[width,height],css:[width,height],canvasFilter:'auto',uiFilter:'auto',uiTransform:'none',labelSize:'11px'});
   const shot=Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64');
   assert.deepEqual([shot.readUInt32BE(16),shot.readUInt32BE(20)],[width*dpr,height*dpr],'DOM composition retains native HiDPI pixels');
 }
@@ -159,22 +159,22 @@ try {
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
   await resize(1100,760);if(await has('pause-dialog'))await command('resume');
   await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
-  for(const dpr of [2,3]){await resize(1100,760,dpr);await checkResolution(1100,760,dpr);}
+  for(const dpr of [1,2,3]){await resize(1101,761,dpr);await checkResolution(1101,761,dpr);}
   await resize(1100,760);
   const replacement=await evaluate(`(async()=>{const app=snailApp,manifest=app.manifest,renderer=app.renderer;
     clearTimeout(app.session.reloading);const state=()=>JSON.stringify([app.runtime.snapshot(1),app.runtime.snapshot(2)]),before=state();
-    const next={...manifest,generation:manifest.generation+'-native',settings:{...manifest.settings,renderScale:1}};
+    const next={...manifest,generation:manifest.generation+'-replacement',settings:{...manifest.settings,width:640,height:480}};
     try{app.session.checkManifest(next);await app.prepareGeneration(next,++app.reloadTicket);
       const native=[app.canvas.width,app.canvas.height],filter=app.canvas.style.imageRendering;
-      let rejected=false;try{await app.prepareGeneration({...next,generation:'invalid-scale',settings:{...next.settings,renderScale:0}},++app.reloadTicket);}catch{rejected=true;}
-      const retained=app.generation===next.generation&&app.inputSettings.renderScale===1;
+      let rejected=false;try{await app.prepareGeneration({...next,generation:'invalid-settings',settings:{...next.settings,width:0}},++app.reloadTicket);}catch{rejected=true;}
+      const retained=app.generation===next.generation&&app.inputSettings.width===1100;
       await app.prepareGeneration(manifest,++app.reloadTicket);
       return{native,filter,rejected,retained,sameState:state()===before,sameRenderer:renderer===app.renderer,
         restored:[app.canvas.width,app.canvas.height],restoredFilter:app.canvas.style.imageRendering};
     }finally{await app.session.reload();}})()`);
   assert.deepEqual(replacement,{native:[1100,760],filter:'',rejected:true,retained:true,sameState:true,sameRenderer:true,
-    restored:[275,190],restoredFilter:'pixelated'});
-  console.log('ok - quarter physical-pixel canvas keeps native HiDPI DOM and logical input through DPR-only changes and accepted/rejected hot replacement');
+    restored:[1100,760],restoredFilter:''});
+  console.log('ok - native HiDPI world and DOM keep logical input at odd sizes through DPR-only changes and accepted/rejected hot replacement');
   assert.equal((await world()).buildings.length,0);assert.equal(await has('context'),false);
   assert.equal(await evaluate('!!snailApp.manifest.settings.controller || !!snailApp.manifest.settings.controllerAxes'),false);
   assert.equal(await evaluate('snailApp.manifest.settings.rotationHandler??null'),null);

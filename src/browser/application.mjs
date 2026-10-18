@@ -75,7 +75,6 @@ export class BrowserApplication {
   }
   applySettings(settings) {
     this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
-    this.canvas.style.imageRendering = settings.renderScale < 1 ? 'pixelated' : '';
     if (this.viewport) this.resizeViewport();
   }
   start(session) {
@@ -103,7 +102,7 @@ export class BrowserApplication {
   resizeViewport() {
     const rect = this.canvas.getBoundingClientRect();
     const width = Math.max(1, Math.floor(rect.width)), height = Math.max(1, Math.floor(rect.height));
-    const scale = (devicePixelRatio || 1) * this.inputSettings.renderScale;
+    const scale = devicePixelRatio || 1;
     const changed = this.viewport?.[0] !== width || this.viewport?.[1] !== height;
     if (!changed && this.viewportScale === scale) return;
     // Only the backing buffer uses physical pixels. Input, camera and DOM keep CSS units.
@@ -161,7 +160,7 @@ export class BrowserApplication {
   frame(time) {
     if (this.closing) return;
     this.reconcileGeneration();
-    if (this.viewport && this.viewportScale !== (devicePixelRatio || 1) * this.inputSettings.renderScale) this.resizeViewport();
+    if (this.viewport && this.viewportScale !== (devicePixelRatio || 1)) this.resizeViewport();
     if (!this.localWork) this.input.frame(time);
     else this.input.time = time; // Never accumulate held-input catch-up behind a save.
     const elapsed = this.animationTime === undefined ? 0 : Math.max(0, Math.min(50, Math.round(time - this.animationTime)));

@@ -3,7 +3,6 @@
   "title": "Siegework",
   "width": 960,
   "height": 640,
-  "renderScale": 0.25,
   "cellSize": 40,
   "tickMilliseconds": 100,
   "source": "src/siegework/game.sld",

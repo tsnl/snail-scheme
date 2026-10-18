@@ -388,13 +388,13 @@ no keydown command. A key cannot be both continuous and repeated.
 `pointer.coordinates: "pixels"` sends logical-canvas integer pixels instead of
 cells. Scheme owns speed, camera bounds, projection and gameplay.
 
-Responsive canvases with a `viewportHandler` default to native device-pixel
-resolution. Optional `renderScale` must be finite, greater than zero and at most
-one. It scales each physical backing dimension after applying the device-pixel
-ratio: `0.25` renders one sixteenth as many pixels, with pixelated canvas
-filtering. CSS sizing, DOM text, logical viewport dimensions and pointer
-coordinates stay unchanged. The policy follows accepted generations and rollback;
-device-pixel-ratio changes resize the backing buffer even at an unchanged CSS size.
+Responsive canvases with a `viewportHandler` render at native device-pixel
+resolution. Each backing dimension is the rounded product of the logical CSS
+dimension and device-pixel ratio, with a minimum of one pixel. CSS sizing, DOM
+text, logical viewport dimensions and pointer coordinates retain their own
+units. Device-pixel-ratio changes resize the backing buffer even at an unchanged
+CSS size, without dispatching another logical viewport command. Accepted code
+replacement and rollback preserve the current viewport dimensions.
 
 `zoomHandler` optionally names a client endpoint with one `I32` argument. Wheel
 and two-finger pinch input over the canvas supply a signed logarithmic scale

@@ -92,10 +92,10 @@ visible shortcut keys on every screen. The pause menu uses labeled rows. Names
 remain available to assistive tools and tooltips; construction choices use icons
 rather than visible building names.
 They never scroll or resize the full-screen world. HUD text and controls retain
-native HiDPI resolution. The 3D world renders without MSAA at one quarter of the
-physical device-pixel width and height (one sixteenth as many pixels), then scales
-up with pixelated filtering. The camera, pointer coordinates and callout anchors
-continue using the full logical viewport.
+native HiDPI resolution. The 3D world also renders at native device-pixel
+resolution, without MSAA. Its 2:1 dimetric camera retains smooth orthographic
+rotation and zoom. Pointer coordinates and callout anchors use the full logical
+viewport.
 
 Drag the world with one finger, a mouse or a pen to pan. A tap selects only when
 released; moving more than eight CSS pixels turns the gesture into a drag and
