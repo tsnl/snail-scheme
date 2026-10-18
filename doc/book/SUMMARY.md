@@ -6,6 +6,7 @@
   - [Terms](lofi/terms.md)
   - [Types](lofi/types.md)
   - [Formal summary](lofi/reference.md)
+  - [Ott and Rocq](lofi/mechanized.md)
   - [Macros and Scheme libraries](lofi/macros.md)
   - [Libraries](lofi/libraries.md)
   - [Compilers as libraries](lofi/compilers.md)

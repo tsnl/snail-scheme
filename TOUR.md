@@ -105,6 +105,7 @@ composition for a native build.
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
 | [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
+| [`doc/spec/`](doc/spec/README.md) | Ott language syntax and formation rules, generated Rocq definitions, and checked formation proofs; an incremental draft alongside the book. |
 | [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
 
 Within the native package, `src/native/llvm.sld` publishes live references
