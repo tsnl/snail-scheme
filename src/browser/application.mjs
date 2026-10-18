@@ -1,5 +1,5 @@
 // Shared browser presentation and client-owner transitions. A session supplies
-// the concrete authoritative submission: local durable commit or cloud request.
+// local durable game transitions. All simulation runs in this browser.
 import {ReducerRuntime} from '../application/runtime.mjs';
 import {createRenderer} from '../webgpu/quads.mjs';
 import {createSceneRenderer} from '../webgpu/scene.mjs';
@@ -22,7 +22,6 @@ export class BrowserApplication {
     }
   }
   get revision() { return this.session?.revision ?? -1; }
-  get pending() { return this.session?.pending ?? []; }
   note(text, state = 'quiet') {
     if (this.connection.textContent !== text) this.connection.textContent = text;
     this.connection.dataset.state = state;
@@ -68,8 +67,7 @@ export class BrowserApplication {
     this.manifest = this.runtime.manifest; this.generation = this.manifest.generation;
     this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
     await this.runtime.initialize(1); await this.runtime.initialize(2); this.dirty = true;
-    this.note(`LIVE · ${this.pending.length ? `${this.pending.length} unsaved orders retained in this tab` : 'state preserved'} · ${this.generation.slice(0, 7)}`,
-      this.pending.length ? 'pending' : 'quiet');
+    this.note(`LIVE · state preserved · ${this.generation.slice(0, 7)}`);
   }
   start(session) {
     this.session = session;
@@ -108,7 +106,6 @@ export class BrowserApplication {
     }
     this.dirty = true;
   }
-  acceptSnapshot(snapshot) { return this.session.acceptSnapshot(snapshot); }
   reconcileGeneration() {
     if (this.manifest && this.generation !== this.runtime.manifest.generation) {
       this.manifest = this.runtime.manifest; this.generation = this.manifest.generation; this.renderer?.rollback();

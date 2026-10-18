@@ -9,8 +9,7 @@ import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {Authority} from '../../src/application/authority.mjs';
-import {openStore} from '../../src/application/sqlite.mjs';
+import {LocalState} from '../../src/application/local.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
 
@@ -121,16 +120,16 @@ await test('an invalid encoded replacement cannot become committed or durable st
   await assert.rejects(() => r.dispatch(1, r.command('match', 'extract', [12, 20]), {persist: () => committed = true}), WebAssembly.RuntimeError);
   assert.equal(committed, false); assert.deepEqual(r.snapshot(1), world); assert.equal(r.instance, previous); await r.close();
 });
-await test('invalid transition output fails before durable state or epoch publication', async () => {
+await test('invalid transition output fails before durable state or revision publication', async () => {
   const r=new ReducerRuntime(), contract={version:1,applications:[
     {owner:'match',schema:1,handlers:[{binding:'change',id:'change',slot:0,payload:[]}]},
     {owner:'client',schema:1,handlers:[]} ]};
   await r.replace(r.prepare(fixture('invalid-output'),contract)); await r.initialize(1); await r.initialize(2);
-  let writes=0,published=0; const authority=new Authority(r,{runMarker:1,commit:()=>writes++,publish:()=>published++});
-  const before=authority.snapshot();
-  await assert.rejects(() => authority.submit({client:'one',sequence:1,epoch:authority.epoch,command:r.command('match','change')}),RangeError);
-  assert.deepEqual(authority.snapshot(),before); assert.equal(writes,0); assert.equal(published,0);
-  assert.deepEqual(authority.clients,{}); await r.close();
+  let writes=0,published=0; const local=new LocalState(r,{commit:()=>writes++,publish:()=>published++});
+  const before=local.snapshot();
+  await assert.rejects(() => local.submit(r.command('match','change')),RangeError);
+  assert.deepEqual(local.snapshot(),before); assert.equal(writes,0); assert.equal(published,0);
+  await r.close();
 });
 await test('packaging catches a declared/encoded size mismatch before publishing a manifest', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'snail-preflight-')), root = resolve(import.meta.dirname, '../..');
@@ -141,55 +140,23 @@ await test('packaging catches a declared/encoded size mismatch before publishing
   assert.equal(readFileSync(join(directory, 'manifest.json'), 'utf8'), 'previous manifest');
   rmSync(directory, {recursive: true});
 });
-await test('serial concurrent submissions, consumed retries and after-commit observation', async () => {
-  const r = await fresh(); const authority = new Authority(r, {publish: value => {
-    if (value.type === 'snapshot') assert.deepEqual(value.state, r.snapshot(1));
-  }});
-  const epoch = authority.epoch;
-  await Promise.all(Array.from({length: 40}, (_, i) => authority.submit({
-    client: 'one', sequence: i + 1, epoch, command: r.command('match', 'advance')})));
-  assert.equal(colony(r.snapshot(1)).tick, 40); assert.equal(authority.revision, 40);
-  assert.equal((await authority.submit({client: 'one', sequence: 40, epoch, command: r.command('match', 'advance')})).duplicate, true);
-  assert.equal(colony(r.snapshot(1)).tick, 40);
-  await assert.rejects(() => authority.submit({client: 'one', sequence: 40, epoch, command: r.command('match', 'new-run')}), /identity reused/); await r.close();
+await test('local submissions serialize, publish only durable state, and resume from old browser saves', async () => {
+  const r = await fresh(); let durable, published = 0;
+  const local = new LocalState(r, {commit: (snapshot, expected) => {
+    assert.equal(snapshot.revision, expected + 1); durable = structuredClone(snapshot);
+  }, publish: () => { assert.deepEqual(local.snapshot(), durable); published++; }});
+  await Promise.all(Array.from({length: 40}, () => local.submit(r.command('match', 'advance'))));
+  assert.equal(colony(r.snapshot(1)).tick, 40); assert.equal(local.revision, 40); assert.equal(published, 40);
+  const copy = await fresh(), restored = await LocalState.open(copy, {saved: {...durable, epoch: 'legacy', clients: {solo: {sequence: 40}}}});
+  assert.deepEqual(restored.snapshot(), local.snapshot());
+  await restored.submit(copy.command('match', 'pause-colony', [1])); assert.equal(restored.revision, 41);
+  assert.equal(colony(copy.snapshot(1)).paused, 1); await r.close(); await copy.close();
 });
-await test('failed durable commit publishes neither state nor revision nor effects', async () => {
+await test('failed local persistence leaves state, revision and effects unchanged', async () => {
   const r = await fresh(), before = r.snapshot(1); let published = 0;
-  const authority = new Authority(r, {commit: () => { throw new Error('disk failure'); }, publish: () => published++});
-  await assert.rejects(() => authority.submit({client: 'one', sequence: 1, epoch: authority.epoch,
-    command: r.command('match', 'extract', [12, 20])}), /disk failure/);
-  assert.deepEqual(r.snapshot(1), before); assert.equal(authority.revision, 0); assert.equal(published, 0); await r.close();
-});
-await test('observer failure after commit retains the receipt and never repeats the handler', async () => {
-  const r = await fresh(); let published = 0;
-  const authority = new Authority(r, {publish: () => { published++; throw new Error('observer unavailable'); }});
-  const command = {client: 'one', sequence: 1, epoch: authority.epoch, command: r.command('match', 'extract', [12, 20])};
-  await assert.rejects(() => authority.submit(command), /observer unavailable/);
-  assert.equal(authority.revision, 1); assert.equal(colony(r.snapshot(1)).ore, 120);
-  const retry = await authority.submit(command);
-  assert.equal(retry.duplicate, true); assert.equal(retry.receipt.revision, 1);
-  assert.equal(published, 1); assert.equal(colony(r.snapshot(1)).ore, 120); await r.close();
-});
-await test('concurrent purchases from distinct players cannot spend the same resources', async () => {
-  const r = await fresh(); await call(r, 'extract', [12, 20]); await call(r, 'observe', [10, 16]); await call(r, 'observe', [14, 20]);
-  const authority = new Authority(r);
-  await Promise.all([[10,20], [10,24]].map((site, index) => authority.submit({
-    client: `player-${index}`, sequence: 1, epoch: authority.epoch, command: r.command('match', 'fortify', site)})));
-  const world = colony(r.snapshot(1));
-  assert.equal(world.ore, 20); assert.equal(world.buildings.filter(b => b.kind === 2).length, 1);
-  assert.equal(authority.revision, 2); await r.close();
-});
-await test('SQLite restart recovers unacknowledged commit and deduplicates retry', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'snail-durable-')), path = join(directory, 'match.sqlite');
-  let db = openStore(path), r = await fresh(), authority = new Authority(r, {commit: (s, rev) => db.commit(s, rev)});
-  await authority.submit({client:'one', sequence:1, epoch:authority.epoch, command:r.command('match','pause-colony',[1])});
-  const command = {client: 'one', sequence: 2, epoch: authority.epoch, command: r.command('match', 'extract', [12, 20])};
-  await authority.submit(command); const accepted = authority.snapshot(); db.close(); await r.close();
-  db = openStore(path); r = await fresh(); authority = await Authority.open(r, {saved: db.load(), commit: (s, rev) => db.commit(s, rev)});
-  assert.deepEqual(authority.snapshot(), accepted); assert.equal((await authority.submit(command)).duplicate, true);
-  assert.equal(colony(r.snapshot(1)).ore, 120); assert.equal(colony(r.snapshot(1)).paused, 1);
-  await call(r, 'advance'); assert.deepEqual(authority.snapshot(), accepted);
-  db.close(); await r.close(); rmSync(directory, {recursive: true});
+  const local = new LocalState(r, {commit: () => { throw new Error('disk failure'); }, publish: () => published++});
+  await assert.rejects(() => local.submit(r.command('match', 'extract', [12, 20])), /disk failure/);
+  assert.deepEqual(r.snapshot(1), before); assert.equal(local.revision, 0); assert.equal(published, 0); await r.close();
 });
 await test('unprotected run loses; a fortified colony reaches a successful finale without kill income', async () => {
   const r = await fresh(); for (let i = 0; i < 4800; i++) await call(r, 'advance');
@@ -208,31 +175,6 @@ await test('unprotected run loses; a fortified colony reaches a successful final
     if (after.kills > before.kills) sawKill = true;
   }
   assert.ok(sawKill); assert.ok([2,3].includes(colony(r.snapshot(1)).outcome)); await r.close();
-});
-await test('Scheme run markers atomically bind accepted restarts, epochs and retry receipts', async () => {
-  const r = await fresh(); let durable, rejectCommit = false;
-  const authority = new Authority(r, {runMarker:1, commit:snapshot => {
-    if (rejectCommit) throw new Error('disk unavailable'); durable=structuredClone(snapshot);
-  }});
-  const envelope = (client, sequence, command, epoch=authority.epoch) => ({client,sequence,epoch,command});
-  const oldEpoch=authority.epoch, first=envelope('a',1,r.command('match','new-run-seed',[1]));
-  await authority.submit(first); assert.notEqual(authority.epoch,oldEpoch); assert.equal(colony(r.snapshot(1)).runMarker,1);
-  const accepted=authority.snapshot(), receipt=structuredClone(authority.clients.a);
-  assert.equal((await authority.submit(first)).duplicate,true); assert.deepEqual(authority.snapshot(),accepted);
-  assert.deepEqual(authority.clients.a,receipt);
-  await assert.rejects(() => authority.submit(envelope('b',1,r.command('match','extract',[12,20]),oldEpoch)),/stale match epoch/);
-  const beforeInvalid=authority.snapshot(); await authority.submit(envelope('a',2,r.command('match','new-run-seed',[65536])));
-  assert.equal(authority.epoch,beforeInvalid.epoch); const unchanged=colony(beforeInvalid.state); unchanged.notice=16;
-  assert.deepEqual(colony(r.snapshot(1)),unchanged);
-  const beforeFailure=authority.snapshot(), oldClients=structuredClone(authority.clients), oldDurable=durable;
-  const next=envelope('a',3,r.command('match','new-run-seed',[1])); rejectCommit=true;
-  await assert.rejects(() => authority.submit(next),/disk unavailable/); assert.deepEqual(authority.snapshot(),beforeFailure);
-  assert.deepEqual(authority.clients,oldClients); assert.deepEqual(durable,oldDurable);
-  rejectCommit=false; await authority.submit(next); assert.notEqual(authority.epoch,beforeFailure.epoch);
-  const copy=await fresh(), recovered=await Authority.open(copy,{saved:durable,runMarker:1});
-  assert.deepEqual(recovered.snapshot(),authority.snapshot()); assert.equal((await recovered.submit(next)).duplicate,true);
-  for (const runMarker of [0,-1,1.5,r.snapshot(1).length]) assert.throws(()=>new Authority(r,{runMarker}),/run marker/);
-  await r.close(); await copy.close();
 });
 await checkColony(test, fresh, call);
 await checkEncounters(test, fresh, call);

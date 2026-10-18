@@ -12,20 +12,6 @@
   },
   "tick": "advance",
   "reset": "new-run",
-  "remoteHandlers": [
-    "extract",
-    "fortify",
-    "observe",
-    "upgrade",
-    "fabricate-worker",
-    "new-run",
-    "pause-colony",
-    "new-run-seed",
-    "cancel-building",
-    "arm-tower",
-    "set-focus",
-    "relocate-building"
-  ],
   "pointer": {
     "move": "move",
     "confirm": "confirm",

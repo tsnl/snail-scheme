@@ -1,4 +1,4 @@
-// One durable authority record per origin/application. A generation or mount
+// One durable game record per origin/application. A generation or mount
 // path never names a save; compatible deployments reopen the same record.
 import {endpoint, protocolContract} from './runtime.mjs';
 
@@ -11,7 +11,7 @@ export function saveContract(manifest) {
   return JSON.stringify([protocolContract(manifest), manifest.settings.runMarker ?? null,
     endpoint(manifest, 'match', manifest.settings.reset).id]);
 }
-function readRecord(record, application, contract) {
+export function readRecord(record, application, contract) {
   if (record === undefined) return undefined;
   if (record?.format !== 1 || record.application !== application || record.contract !== contract)
     throw new Error('Saved game is incompatible with this package. Reopen the previous compatible package; the save has been retained.');
@@ -58,6 +58,7 @@ export async function openStore(manifest) {
   return {
     load() { return load(db, application, contract); },
     commit(snapshot, expected) { return commit(db, application, contract, snapshot, expected); },
+    record(snapshot) { return {format: 1, application, contract, snapshot}; },
     close() { db.close(); },
   };
 }

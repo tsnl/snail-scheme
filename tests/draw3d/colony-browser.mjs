@@ -25,7 +25,7 @@ async function until(test, message, timeout = 30000) {
   throw new Error(message);
 }
 const world = async () => colony(await evaluate('snailApp.runtime.snapshot(1)'));
-const settled = () => until(() => evaluate('!snailApp.localWork && !snailApp.dirty && !snailApp.session.sending && !snailApp.pending.length'), 'input did not settle');
+const settled = () => until(() => evaluate('!snailApp.localWork && !snailApp.dirty'), 'input did not settle');
 async function press(position) {
   await call('Input.dispatchMouseEvent', {type: 'mousePressed', ...position, button: 'left', clickCount: 1});
   await call('Input.dispatchMouseEvent', {type: 'mouseReleased', ...position, button: 'left', clickCount: 1}); await settled();
@@ -59,6 +59,14 @@ try {
   await call('Page.bringToFront'); await until(() => evaluate('!!globalThis.snailApp'), '3D startup');
   await evaluate('snailApp.local("restart-seed",[1])'); await settled();
   await click('pause'); assert.equal((await world()).paused, 1); assert.equal((await world()).buildings.length, 0);
+  await evaluate('snailApp.session.stopClock(); snailApp.runtime.message(() => {})');
+  const uploads = await evaluate('globalThis.retainedScene = snailApp.runtime.view().scene; snailApp.renderer.resources.uploads');
+  await evaluate('snailApp.local("pan",[1,0])'); await settled();
+  assert.equal(await evaluate('snailApp.renderer.resources.uploads'), uploads);
+  assert.equal(await evaluate('snailApp.runtime.view().scene.batches.every((batch,index) => batch === retainedScene.batches[index])'), true);
+  await evaluate('snailApp.local("home")'); await settled();
+  await evaluate('snailApp.session.faulted = false; snailApp.session.startClock()');
+  console.log('ok - camera-only pan reuses every scene batch and performs zero geometry uploads');
   await key('Enter','Enter'); assert.equal((await world()).paused,0); assert.equal((await world()).buildings.length,0);
   await key(' ','Space'); assert.equal((await world()).paused,1); assert.equal((await world()).buildings.length,0);
   await pointCell(12, 20);

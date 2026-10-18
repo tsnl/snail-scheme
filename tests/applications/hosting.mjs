@@ -1,4 +1,4 @@
-// Owns private servers, Chromium profile and SQLite copy. Never targets a live game.
+// Owns static hosts, optional checkpoint service and a private Chromium profile.
 import assert from 'node:assert/strict';
 import {colony} from './colony-state.mjs';
 import {createServer} from 'node:http';
@@ -11,10 +11,13 @@ import {packageApplication} from '../../src/browser/build.mjs';
 
 const artifacts = resolve(process.argv[2]), root = resolve(import.meta.dirname, '../..');
 const work = mkdtempSync(join(tmpdir(), 'snail-hosting-'));
-const soloPort = Number(process.env.TEST_SOLO_PORT ?? 4182), cloudPort = Number(process.env.TEST_CLOUD_PORT ?? 4183);
+const soloPort = Number(process.env.TEST_SOLO_PORT ?? 4282), syncedPort = Number(process.env.TEST_SYNCED_PORT ?? 4283);
+const servicePort = Number(process.env.TEST_SAVE_PORT ?? 4294);
 const debugPort = Number(process.env.TEST_CDP_PORT ?? 9346), devtools = `http://127.0.0.1:${debugPort}`;
-const origin = `http://127.0.0.1:${soloPort}`, base = `${origin}/games/siegework/`, cloud = `http://127.0.0.1:${cloudPort}`;
-for (const target of ['solo', 'cloud']) cpSync(join(artifacts, target), join(work, target), {recursive: true});
+const origin = `http://127.0.0.1:${soloPort}`, base = `${origin}/games/siegework/`, synced = `http://127.0.0.1:${syncedPort}`, serviceURL = `http://127.0.0.1:${servicePort}/saves/`;
+cpSync(join(artifacts, 'solo'), join(work, 'solo'), {recursive: true});
+const sourceManifest = JSON.parse(readFileSync(join(work, 'solo/manifest.json')));
+await packageApplication(root, join(root, sourceManifest.settings.renderer === 'scene3d' ? 'apps/siegework/three' : 'apps/siegework'), artifacts, {output: join(work, 'synced'), saveServiceURL: serviceURL});
 const original = JSON.parse(readFileSync(join(work, 'solo/manifest.json'))), requests = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(check, message, milliseconds = 20000) {
@@ -43,13 +46,13 @@ function chromium() {
     '--enable-features=Vulkan', '--use-angle=vulkan', '--use-vulkan=swiftshader', '--use-webgpu-adapter=swiftshader',
     '--disable-vulkan-surface', `--remote-debugging-port=${debugPort}`, `--user-data-dir=${join(work, 'profile')}`, 'about:blank']);
 }
-function serve(request, response) {
+function serve(request, response, target = 'solo') {
   const path = new URL(request.url, origin).pathname; requests.push(path);
   if (path === '/fixture.html') { response.end('<!doctype html><title>Storage checks</title>'); return; }
   const relative = path.replace(/^\/(games|moved)\/siegework\//, ''), mounted = relative !== path;
   const file = path === '/test/indexeddb-browser.mjs' ? join(import.meta.dirname, 'indexeddb-browser.mjs')
-    : mounted ? resolve(work, 'solo', relative || 'index.html') : '';
-  if (!file || !existsSync(file) || (mounted && !file.startsWith(join(work, 'solo') + '/'))) {
+    : mounted ? resolve(work, target, relative || 'index.html') : '';
+  if (!file || !existsSync(file) || (mounted && !file.startsWith(join(work, target) + '/'))) {
     response.writeHead(404); response.end('not found'); return;
   }
   const type = {'.html':'text/html', '.mjs':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.wgsl':'text/plain'}[extname(file)];
@@ -89,30 +92,32 @@ async function gpuReady(page) {
 }
 async function paused(page) {
   await page.evaluate("snailApp.local('suspend',[1])");
-  await until(async () => await page.evaluate('snailApp.pending.length === 0') && (await state(page)).paused === 1, 'pause not committed');
+  await until(async () => await page.evaluate('snailApp.localWork === 0') && (await state(page)).paused === 1, 'pause not committed');
 }
 const state = async page => colony(await page.evaluate('snailApp.runtime.snapshot(1)'));
-let browser, server;
-const staticServer = createServer(serve);
+let browser;
+const staticServer = createServer((req, res) => serve(req, res));
+const syncedServer = createServer((req, res) => serve(req, res, 'synced'));
+const saveProcess = child(process.execPath, [join(root, 'src/save/server.mjs'), join(work, 'saves.sqlite')],
+  {PORT: String(servicePort), SAVE_ORIGIN: synced});
 try {
-  const cloudManifest = JSON.parse(readFileSync(join(work, 'cloud/manifest.json')));
-  assert.deepEqual(readFileSync(join(work, 'solo', original.module)), readFileSync(join(work, 'cloud', cloudManifest.module)));
-  assert.equal(original.target, 'solo'); assert.equal(cloudManifest.target, 'cloud');
-  for (const file of readdirSync(join(work, 'solo'), {recursive: true}).filter(file => file.endsWith('.mjs')))
-    assert.doesNotMatch(readFileSync(join(work, 'solo', file), 'utf8'), /(?:from\s+|import\s*)['"]node:/);
-  assert.equal(existsSync(join(work, 'solo/lib/browser/server.mjs')), false);
-  assert.equal(existsSync(join(work, 'solo/lib/application/sqlite.mjs')), false);
-  writeFileSync(join(work, 'cloud/match.sqlite'), 'sentinel save');
-  await assert.rejects(() => packageApplication(root, join(root, 'apps/siegework'), artifacts,
-    {output: join(work, 'cloud'), target: 'solo'}), /Cannot change an installed package target/);
-  assert.equal(readFileSync(join(work, 'cloud/match.sqlite'), 'utf8'), 'sentinel save');
-  // Keep the sentinel fixture separate from the fresh authority's actual database.
-  cpSync(join(artifacts, 'cloud'), join(work, 'hosted'), {recursive: true});
-  console.log('ok - distinct packages share exact Wasm; solo has no Node runtime; target switch preserves save');
-  await requireFreePort(cloudPort); await requireFreePort(debugPort);
-  await new Promise((resolve, reject) => { staticServer.once('error', reject); staticServer.listen(soloPort, '127.0.0.1', resolve); });
-  server = child(process.execPath, [join(work, 'hosted/lib/browser/server.mjs'), join(work, 'hosted')], {PORT: String(cloudPort)});
-  await until(() => reachable(`${cloud}/snapshot`), 'private cloud server did not start');
+  const syncedManifest = JSON.parse(readFileSync(join(work, 'synced/manifest.json')));
+  assert.deepEqual(readFileSync(join(work, 'solo', original.module)), readFileSync(join(work, 'synced', syncedManifest.module)));
+  assert.equal(original.target, 'solo'); assert.equal(syncedManifest.target, 'solo');
+  assert.equal(original.saveService, undefined); assert.equal(syncedManifest.saveService.url, serviceURL);
+  for (const target of ['solo', 'synced']) {
+    for (const file of readdirSync(join(work, target), {recursive: true}).filter(file => file.endsWith('.mjs')))
+      assert.doesNotMatch(readFileSync(join(work, target, file), 'utf8'), /(?:from\s+|import\s*)['"]node:/);
+    for (const file of ['browser/server.mjs', 'browser/cloud.mjs', 'application/sqlite.mjs', 'application/authority.mjs'])
+      assert.equal(existsSync(join(work, target, 'lib', file)), false);
+  }
+  assert.equal(existsSync(join(work, 'solo/lib/application/remote-saves.mjs')), false);
+  assert.equal(existsSync(join(work, 'synced/lib/application/remote-saves.mjs')), true);
+  console.log('ok - static packages share exact Wasm; local build omits remote saves and both omit server execution');
+  await requireFreePort(debugPort);
+  await new Promise(resolve => staticServer.listen(soloPort, '127.0.0.1', resolve));
+  await new Promise(resolve => syncedServer.listen(syncedPort, '127.0.0.1', resolve));
+  await until(async () => { try { return (await fetch(serviceURL + original.settings.id)).status === 404; } catch { return false; } }, 'save service did not start');
   browser = chromium(); await until(() => reachable(`${devtools}/json/version`), 'private Chromium did not start');
   const storage = await page(`${origin}/fixture.html`);
   const checks = await storage.evaluate(`import('/test/indexeddb-browser.mjs').then(m => m.checkIndexedDB(${JSON.stringify(base)}))`);
@@ -123,15 +128,14 @@ try {
   const start = requests.length, a = await page(base); await ready(a); await paused(a);
   await a.evaluate("snailApp.local('choose',[2]); snailApp.local('pan',[1,1])");
   const local = await a.evaluate('snailApp.runtime.snapshot(2)'), saved = await state(a);
-  const epoch = await a.evaluate('snailApp.session.authority.epoch');
+  const savedRevision = await a.evaluate('snailApp.revision');
   const b = await page(base);
   await until(() => b.evaluate("document.querySelector('[data-connection]')?.textContent.includes('open in another tab')"), 'second writer was not rejected');
   assert.equal(await b.evaluate('!!globalThis.snailApp'), false);
   await a.evaluate('snailApp.session.close()'); await a.close();
   await b.call('Page.reload'); await ready(b);
-  assert.deepEqual(await state(b), saved); assert.equal(await b.evaluate('snailApp.session.authority.epoch'), epoch);
+  assert.deepEqual(await state(b), saved); assert.ok(await b.evaluate('snailApp.revision') >= savedRevision);
   assert.notDeepEqual(await b.evaluate('snailApp.runtime.snapshot(2)'), local);
-  assert.equal(await b.evaluate('snailApp.pending.length'), 0);
   console.log('ok - one solo tab owns the save; close releases lock; match/pause restore while local UI restarts');
 
   await b.evaluate(`(() => {
@@ -173,9 +177,11 @@ try {
   console.log('ok - aborted solo write stops clock; retry and visibility resume without catch-up');
 
   const beforeReload = {world: await state(b), local: await b.evaluate('snailApp.runtime.snapshot(2)')};
+  await b.evaluate('globalThis.previousInstance = snailApp.runtime.instance');
   writeFileSync(join(work, 'solo/manifest.json'), JSON.stringify({...original, generation: 'compatible-static-reload'}));
   await until(() => b.evaluate("snailApp.generation === 'compatible-static-reload'"), 'static polling did not install compatible assets');
   assert.deepEqual({world: await state(b), local: await b.evaluate('snailApp.runtime.snapshot(2)')}, beforeReload);
+  assert.equal(await b.evaluate('snailApp.runtime.instance !== previousInstance'), true);
   writeFileSync(join(work, 'solo/manifest.json'), JSON.stringify({...original, generation: 'incompatible-static-reload', settings: {...original.settings, runMarker: 24}}));
   await until(() => b.evaluate("document.querySelector('[data-connection]').textContent.includes('incompatible solo save contract')"), 'incompatible static update was not rejected');
   assert.equal(await b.evaluate('snailApp.generation'), 'compatible-static-reload');
@@ -187,7 +193,7 @@ try {
   const warmup = await page(`${origin}/fixture.html`); await gpuReady(warmup); await warmup.close();
   const reopened = await page(`${origin}/moved/siegework/`); await ready(reopened);
   assert.deepEqual(await state(reopened), restartedState);
-  assert.equal(await reopened.evaluate('snailApp.session.authority.epoch'), epoch);
+  assert.ok(await reopened.evaluate('snailApp.revision') >= savedRevision);
   const soloRequests = requests.slice(start);
   assert.equal(soloRequests.some(path => /\/(session|command|events|presence|snapshot)$/.test(path)), false);
   assert.equal(soloRequests.some(path => /^\/(lib|manifest\.json|simulation\.|shader\.|style\.css)/.test(path)), false);
@@ -226,22 +232,56 @@ try {
   const recovered = await page(base); await ready(recovered); assert.deepEqual(await state(recovered), restartedState);
   console.log('ok - incompatible startup and leaving during open close resources, release ownership and retain the saved match');
 
-  const cloudA = await page(cloud); await ready(cloudA); await paused(cloudA);
-  const cloudState = await state(cloudA), clientA = await cloudA.evaluate('snailApp.session.client');
-  await cloudA.close(); await stop(server);
-  server = child(process.execPath, [join(work, 'hosted/lib/browser/server.mjs'), join(work, 'hosted')], {PORT: String(cloudPort)});
-  await until(() => reachable(`${cloud}/snapshot`), 'cloud restart failed');
-  const cloudB = await page(cloud); await ready(cloudB);
-  assert.notEqual(await cloudB.evaluate('snailApp.session.client'), clientA);
-  assert.deepEqual(await state(cloudB), cloudState);
-  const cloudC = await page(cloud); await ready(cloudC); assert.deepEqual(await state(cloudC), cloudState);
-  await cloudB.evaluate("snailApp.local('suspend',[0])");
-  await until(async () => { const world = await state(cloudC); return world.tick > cloudState.tick && world.paused === 0; }, 'independent cloud client did not resume saved match');
-  await paused(cloudB);
-  console.log('ok - cloud solo save survives server restart; independent clients resume the same hosted match');
+  const remote = await page(`${synced}/games/siegework/`); await ready(remote); await paused(remote);
+  await until(() => remote.evaluate('!!snailApp.session.saves'), 'online controls missing');
+  const remoteState = await state(remote), remoteRevision = await remote.evaluate('snailApp.revision');
+  await remote.evaluate('snailApp.session.saves.run(() => snailApp.session.saves.save())');
+  assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /saved online/);
+  const uploaded = await (await fetch(serviceURL + original.settings.id)).json();
+  assert.deepEqual(colony(uploaded.snapshot.state), remoteState);
+  await remote.evaluate("snailApp.local('restart-seed',[42])"); await paused(remote);
+  assert.notEqual((await state(remote)).seed, remoteState.seed);
+  await remote.evaluate('globalThis.confirm = () => true; snailApp.session.saves.run(() => snailApp.session.saves.load())');
+  assert.deepEqual(await state(remote), remoteState); assert.ok(await remote.evaluate('snailApp.revision') > remoteRevision);
+  const current = await fetch(serviceURL + original.settings.id);
+  await fetch(serviceURL + original.settings.id, {method: 'PUT', headers: {'if-match': current.headers.get('etag')}, body: JSON.stringify(uploaded)});
+  const knownTag = await remote.evaluate('snailApp.session.saves.etag');
+  await remote.evaluate('globalThis.confirm = () => false; snailApp.session.saves.run(() => snailApp.session.saves.load())');
+  assert.equal(await remote.evaluate('snailApp.session.saves.etag'), knownTag);
+  await remote.evaluate('snailApp.session.saves.run(() => snailApp.session.saves.save())');
+  assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /online save changed/);
+  assert.deepEqual(await state(remote), remoteState);
+  const latest = await fetch(serviceURL + original.settings.id);
+  await fetch(serviceURL + original.settings.id, {method: 'PUT', headers: {'if-match': latest.headers.get('etag')},
+    body: JSON.stringify({...uploaded, snapshot: {revision: 9, state: [99]}})});
+  await remote.evaluate('globalThis.confirm = () => true; snailApp.session.saves.run(() => snailApp.session.saves.load())');
+  assert.deepEqual(await state(remote), remoteState);
+  assert.equal(await remote.evaluate('snailApp.session.saves.etag'), knownTag);
+  assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /invalid snapshot/i);
+  await stop(saveProcess);
+  const beforeOffline = await remote.evaluate('snailApp.revision');
+  await remote.evaluate("snailApp.local('suspend',[0])");
+  await until(() => remote.evaluate(`snailApp.revision > ${beforeOffline + 2}`), 'service outage stalled local simulation');
+  await paused(remote);
+  await remote.evaluate('snailApp.session.saves.run(() => snailApp.session.saves.save())');
+  assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /Local progress is saved/);
+  const offlineState = await state(remote); await remote.call('Page.reload'); await ready(remote);
+  assert.deepEqual(await state(remote), offlineState);
+  console.log('ok - online checkpoint save/load, stale-write rejection, service outage and local reopen use real browser state');
+  await recovered.evaluate('snailApp.session.close()'); await recovered.close();
+  await remote.evaluate('snailApp.session.close()'); await remote.close();
+  if (original.settings.renderer === 'scene3d') {
+    for (const runner of ['persistence-browser.mjs', 'colony-browser.mjs']) {
+      const test = child(process.execPath, [join(root, 'tests/draw3d', runner), base, devtools, join(work, 'static-playtest.png')]);
+      const [code] = await once(test, 'exit');
+      if (code !== 0) throw new Error(`Mouse/GPU test failed: ${runner}; see node.log`);
+      console.log(`ok - ${runner}: actual static-game input and GPU checks`);
+    }
+  }
   console.log(JSON.stringify({work, browser: (await (await fetch(`${devtools}/json/version`)).json()).Browser, checks: checks.length + 8}));
 } catch (error) { console.error(`Private test artifacts: ${work}`); throw error; }
 finally {
-  await stop(browser); await stop(server);
+  await stop(browser); await stop(saveProcess);
   staticServer.closeAllConnections(); await new Promise(resolve => staticServer.close(resolve));
+  syncedServer.closeAllConnections(); await new Promise(resolve => syncedServer.close(resolve));
 }

@@ -23,7 +23,7 @@ async function until(expression) {
   while (Date.now() < deadline) { if (await evaluate(expression)) return; await pause(50); }
   throw new Error(`Did not settle: ${expression}`);
 }
-const settled = () => until('!snailApp.localWork && !snailApp.dirty && !snailApp.session.sending && !snailApp.pending.length');
+const settled = () => until('!snailApp.localWork && !snailApp.dirty');
 const command = async (binding, args = []) => { await evaluate(`snailApp.local(${JSON.stringify(binding)},${JSON.stringify(args)})`); await settled(); };
 const landmark = () => evaluate(`(async()=>{await snailApp.updates;const m=snailApp.runtime.view().scene.uniforms,[w,h]=snailApp.viewport;
   return[(m[0]*8-m[4]*22+m[8]+m[12]+1)*w/2,(1-(m[1]*8-m[5]*22+m[9]+m[13]))*h/2]})()`);

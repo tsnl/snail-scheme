@@ -22,8 +22,8 @@ function endpointAction(action, kind, manifest) {
   const owner = action.owner === 1 ? 'match' : 'client';
   const endpoint = manifest?.applications.find(app => app.owner === owner)?.handlers[action.slot];
   if (!endpoint || ![1, 2].includes(action.owner)) throw new Error('invalid UI endpoint');
-  // A cloud match submission predicts before the authority acknowledges it.
-  // Integer drafts currently settle only against durable client transitions.
+  // Number editors bind to presentation state; that handler can enqueue a
+  // separate game command after validating the submitted value.
   if (kind === 3 && (action.owner !== 2 || endpoint.payload.length !== 1))
     throw new Error('number input requires a client endpoint with one I32 payload');
   return {owner: action.owner, command: {handler: endpoint.id, args: action.args.slice(0, endpoint.payload.length)}};

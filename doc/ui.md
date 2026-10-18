@@ -94,12 +94,9 @@ must belong to the client and have exactly one I32 payload; the host checks this
 against the generated manifest. Invalid or out-of-range text displays an accessible
 error and sends no command. Other controls carry the supplied request unchanged.
 
-Server-owned integer editing is not implemented: cloud submission first queues and
-predicts a command, while authority acknowledgement arrives later. Forwarding a
-match request from a client handler does not add that acknowledgement guarantee;
-the form's displayed value should belong to the client state that handler commits.
-Direct match number fields reject the presentation, while match buttons retain the
-normal cloud prediction and acknowledgement behavior.
+Integer editors currently bind to presentation state. Their client handler can
+validate the value and enqueue a game command. Direct match number fields reject
+the presentation; match buttons submit directly to the local durable game model.
 
 These bounds constrain form submissions, not other application handlers; durable
 state bounds belong in the reducer. The example enforces 0–100 in all its handlers.

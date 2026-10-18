@@ -1,3 +1,42 @@
+# Current static-client validation — 2026-10-18
+
+The latest build runs the entire Scheme simulation in the browser. It emits a
+static `solo/` directory and, with `SAVE_SERVICE_URL`, a static `synced/` directory
+with explicit checkpoint save/load. Both contain identical 459,944-byte Wasm,
+SHA-256 `bff4d41184601187f9f10300f40ab12267c0cb76b15161c2ea06eaa46a403adb`,
+generation `fe563ae209ee25c00932bb42`. World schema 7 and client schema 1 remain
+compatible. Prior browser records reopen; old game-server databases are retained
+and are not automatically imported.
+
+Passed `make test`, `make check`, ten linked-Wasm asynchronous runtime checks,
+opaque HTTP/SQLite service tests, compiled 3D contextual controls and onboarding.
+The private hosting runner passed in headless and headed Chromium 152 with
+SwiftShader: real IndexedDB legacy records, transaction aborts, tab ownership,
+slow/failed persistence, visibility, hot replacement, browser restart, moved
+subpaths, optional online save/load, stale writes, canceled/invalid imports and
+service outage. Local-only packages made no gameplay-server requests.
+
+Actual mouse/touch/injected-controller playtests built and completed a tower and
+extractor, upgraded the extractor, moved freight, canceled moves and restored the
+colony after reload. WebGPU readback produced 73 distinct channel values on the
+headed run, with 2,564 vertices and 1,272 triangles. A camera-only pan preserved
+all batch identities and performed **zero geometry uploads**. This is a concrete
+work-avoidance check, not an end-to-end frame-time speedup claim.
+
+Focused simplification reviewed local publication, independent HTTP revisions,
+load consent, shutdown and the bounded request parser. The runtime remains free
+of UI callbacks; online requests never hold its message lane. The full 3D cold
+build still took minutes; compiler latency remains separate work.
+
+Headed evidence was recorded under `/tmp/snail-hosting-JH7FXP/`; screenshots use
+a private Xvfb display and software GPU, not hardware performance measurements.
+
+---
+
+The entries below archive the earlier cloud and prototype architecture. Their
+commands and results describe those revisions; current setup is in the
+[static save guide](../../../doc/static-saves.md).
+
 # 3D prototype validation
 
 The initial integrated artifact is generation `0fc45bae47dae09add19f7f0`.

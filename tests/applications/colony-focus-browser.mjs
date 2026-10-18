@@ -27,7 +27,7 @@ async function evaluate(expression) {
 const state=async()=>colony(await evaluate('snailApp.runtime.snapshot(1)'));
 async function settled() {
   // Cloud removes the pending envelope before its accepted snapshot is restored.
-  await until(()=>evaluate('!snailApp.localWork && !snailApp.session.sending && snailApp.pending.length===0'),
+  await until(()=>evaluate('!snailApp.localWork'),
     'input was not committed and restored');
 }
 async function click(selector) {

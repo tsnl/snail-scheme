@@ -40,7 +40,7 @@ The [player guide](README.md) describes the implemented controls and costs.
   not a globally optimal strategy. Completed towers/guns can queue a two-cell,
   five-ore correction that drains supplies and preserves damage and identity.
 - Rocks block direct artillery fire. There is no automatic repair.
-- Shared explicit Pause/Resume freezes simulation while allowing inspection and
+- Explicit Pause/Resume freezes simulation while allowing inspection and
   paid planning. It survives durable restart and compatible reload.
 - Top-down 2D, continuous WASD/left-stick camera pan with a three-cell exterior margin,
   pointer/arrow/D-pad cursor and snapped
@@ -48,13 +48,12 @@ The [player guide](README.md) describes the implemented controls and costs.
   show each actual firing without changing immediate damage.
   The compact status shows the current plan, economy and rejected orders;
   selected structures expose their staffing, materials and freight. A numeric seed form starts
-  a reproducible new shared run only when explicitly submitted.
+  a reproducible new run only when explicitly submitted.
 
 The world must use **real WebGPU** and shaders compiled from Scheme expressions.
 Colored quads and DOM status text are sufficient. No Canvas2D substitute and no
 JavaScript copy of the simulation rules. The browser loads Snail-generated Wasm
-and runs client reducers, pure presentation and speculative command transitions;
-one server runs the same artifact for accepted world transitions.
+and runs client reducers, pure presentation and all world transitions, saving them locally.
 
 ## Public application model
 
@@ -91,18 +90,17 @@ the current state at a message boundary; it does not rerun game initialization.
 A bad candidate, trap, invalid shader or incompatible schema must not corrupt the
 last accepted state. GPU pipeline creation completes before replacement.
 
-Keep three lifetimes distinct:
+Keep state lifetimes explicit:
 
-1. The authoritative match survives code reload in its stable host.
-2. A durable snapshot survives an authority process restart. The first SQLite
-   adapter has one authority; it is not a distributed shared-writer solution.
-3. Browser selection/cursor/pending input survives code reload independently of
-   incoming world snapshots. A full page reset is not hot reload.
+1. The browser-owned game survives compatible code reload and completed local saves.
+2. IndexedDB checkpoints survive browser restart; optional explicit online copies
+   can be loaded on another device. No game process runs on the save service.
+3. Camera, cursor and input survive code replacement but reset with a full page load.
 
-A durable transition includes state, revision, consumed retry sequence and match
-epoch before acknowledgment/publication. Repeating a request cannot spend twice.
-A stale-run command cannot affect a new run. External effects still need explicit
-idempotency; do not claim universal exactly-once execution.
+A local transition writes state and a monotonically increasing revision before
+publication. A failed write preserves the previous state. Online checkpoint ETags
+version remote replacement separately and reject stale writes. External effects
+still need their own delivery contract.
 
 The colony uses world/client schema 7 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload. Earlier
@@ -144,7 +142,7 @@ upstream tree. Tracks follow surveyed walking routes and reconnect after
 an endpoint is lost or relocated. One bounded shuttle per link models throughput; there is no
 manual track placement, rail collision or intermediate track damage.
 Richer payload codecs, migrations, broader shader syntax, browser device recovery,
-structural sharing and a server database with fencing are library milestones.
+structural sharing and explicit opaque checkpoint save/load are library milestones.
 GPU tensors/PyTorch integration is a possible future motivating use case, not a
 required dependency.
 

@@ -27,12 +27,12 @@ try {
   assert.notEqual(await evaluate('snailApp.generation'),generation);
   await evaluate('snailApp.local("suspend",[1])');
   await evaluate('snailApp.local("pan",[1,-1])');
-  await until('!snailApp.localWork&&!snailApp.dirty&&!snailApp.session.sending&&!snailApp.pending.length');
+  await until('!snailApp.localWork&&!snailApp.dirty');
   const before=await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})');
   await evaluate('globalThis.retainedRenderer=snailApp.renderer');
   console.log(`READY for compatible publication at ${origin}`);
   await until(`snailApp.generation===${JSON.stringify(generation)}`);
-  await until('!snailApp.localWork&&!snailApp.dirty&&!snailApp.session.sending&&!snailApp.pending.length');
+  await until('!snailApp.localWork&&!snailApp.dirty');
   assert.deepEqual(await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})'),before);
   assert.equal(await evaluate('snailApp.renderer===retainedRenderer'),true);
   const pixels=await evaluate('(async()=>{const p=await snailApp.renderer.readPixels(snailApp.runtime.view().scene);return p.bytes.length})()');

@@ -6,7 +6,7 @@ top-level [`src/`](../src/). An app demonstrates how those tools compose.
 
 | Application | Purpose | Status |
 | --- | --- | --- |
-| [Siegework](siegework/README.md) | Short cooperative runs of automated extraction, logistics and siege defense. | Scheme/WebGPU prototype with a local authority and state-preserving module reload. |
+| [Siegework](siegework/README.md) | Single-player runs of automated extraction, logistics and siege defense. | Scheme/WebGPU prototype with local IndexedDB saves and state-preserving module reload. |
 
 ## Ownership and layout
 

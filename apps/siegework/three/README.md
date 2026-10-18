@@ -10,14 +10,16 @@ Build from the repository root:
 ```sh
 chibi-scheme -I bootstrap apps/siegework/three/build.scm "$PWD" "$PWD/build/siegework-3d"
 python3 -m http.server 4191 --directory build/siegework-3d/solo
-PORT=4200 node build/siegework-3d/cloud/lib/browser/server.mjs build/siegework-3d/cloud
 ```
 
-Use a Chromium browser with WebGPU and WasmGC support. Solo runs from static
-files with IndexedDB persistence; cloud uses the same compiled Scheme module
-with a Node/SQLite authority. The application ID is `siegework-3d`, and the
-cloud build has its own database. Existing 2D packages and saves are separate.
-Compatible code and shader reloads retain the world, client selection and camera.
+Use Chromium with WebGPU and WasmGC support. The entire simulation runs in the
+browser and saves to IndexedDB. The application ID is `siegework-3d`; 2D saves are
+separate. Compatible code and shader reloads retain the world, selection and camera.
+
+For optional explicit Save online / Load online controls, set
+`SAVE_SERVICE_URL=http://127.0.0.1:4174/saves/` when building and serve the additional
+`build/siegework-3d/synced` static directory. The [save service guide](../../../doc/static-saves.md)
+explains setup. Gameplay and automatic local saves work while that service is down.
 
 ## Contextual controls
 
@@ -52,11 +54,8 @@ Compatible code and shader reloads retain the world, client selection and camera
 The canvas fills the viewport. Projection and pointer rays use its current
 logical dimensions, while the GPU target follows the physical pixel size.
 HUD controls consume their own input and preserve native keyboard focus.
-Cloud orders show a visible waiting notice until the server acknowledges them.
-An unsaved order is retained across reload in the same tab and retried with its
-original sequence; the small "Saved on server" footer confirms acknowledgement.
-Closing the tab discards its unsaved queue. Orders from a previous colony are
-not applied after a restart. Solo publishes changes after its local save commits.
+Game commands publish after their local IndexedDB transaction completes. No game
+commands or tick snapshots travel over the network.
 
 ## Follow the implementation
 
@@ -81,22 +80,18 @@ node tests/draw3d/colony.mjs build/siegework-3d/solo
 node tests/draw3d/onboarding.mjs build/siegework-3d/solo /tmp/siegework-onboarding-fixtures
 # With a separately launched Chromium CDP browser:
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
-node tests/draw3d/colony-browser.mjs http://127.0.0.1:4200 http://127.0.0.1:9452
 # Movement checks pause a test match: use an isolated package/save.
 node tests/draw3d/pan-browser.mjs http://127.0.0.1:4201 http://127.0.0.1:9452
 # These checks reset disposable test saves; never point them at a player's save.
-node tests/applications/cloud-outbox.mjs
+node tests/applications/save-service.mjs
 node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4205 http://127.0.0.1:9452
-node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4206 http://127.0.0.1:9452
-node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4207 http://127.0.0.1:9452 /tmp/onboarding-cloud
 node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4208 http://127.0.0.1:9452 /tmp/onboarding-solo
 ```
 
 The onboarding fixture's optional fourth argument is a previous compatible
 package for exact protocol and snapshot checks. For the defeated browser case,
 pass the generated `defeated.json` as the browser runner's fourth argument:
-solo installs it in its disposable IndexedDB save; cloud must already be
-serving a disposable SQLite save seeded with that fixture.
+the runner installs it in its disposable IndexedDB save.
 
 The fixture executes the actual Scheme math, geometry, shader and scene bridge
 in Wasm. Browser checks use pointer/key input, GPU readback, moving freight,

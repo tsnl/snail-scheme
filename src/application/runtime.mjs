@@ -80,7 +80,7 @@ export function parseCommand(manifest, owner, command) {
 }
 
 // Contracts may reorder slots, but a live replacement cannot add/remove/change
-// endpoint identities. Pending envelopes remain encoded under their old contract.
+// endpoint identities. Lexical requests retain their identity across reloads.
 export function protocolContract(manifest) {
   return JSON.stringify({effects: manifest.effects,
     applications: manifest.applications.map(app => ({owner: app.owner, state: app.state, schema: app.schema,
@@ -143,7 +143,7 @@ export class ReducerRuntime {
     this.#tail = result.catch(() => {}); // One failed message cannot poison the lane.
     return result;
   }
-  // Authority admission uses the supplied dispatcher inside this same message.
+  // An admitted operation uses the supplied dispatcher inside this same message.
   // Awaiting another queued mutation here would wait on the current message.
   message(operation) {
     if (this.#closing) return Promise.reject(new Error('runtime is closing'));
@@ -279,7 +279,7 @@ export class ReducerRuntime {
     // receives an immutable copy, never the buffer that will become committed.
     if (persist) await persist(Object.freeze(Array.from(staged.next ?? this.stores.get(owner))), staged.output.effects);
     if (staged.next) this.stores = new Map(this.stores).set(owner, staged.next);
-    if (publish) publish(staged.output); // Authority metadata joins this synchronous publication turn.
+    if (publish) publish(staged.output); // Local revision joins this synchronous publication turn.
     return staged.output;
   }
   #recoverCode(error) {
@@ -305,18 +305,20 @@ export class ReducerRuntime {
       .finally(() => this.#recoveries.delete(activation));
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
-  async restore(owner, words) {
+  async restore(owner, words, {persist, publish} = {}) {
     words = structuredClone(words);
-    return this.message(() => this.#restoreState(owner, words));
+    return this.message(() => this.#restoreState(owner, words, {persist, publish}));
   }
-  #restoreState(owner, words) {
+  async #restoreState(owner, words, {persist, publish}) {
     if (!Array.isArray(words) || words.length < 1 || words.length > 65536 || !words.every(i32)
         || (this.sizes[owner - 1] && words.length !== this.sizes[owner - 1])) throw new Error('invalid snapshot');
     const schema = this.manifest.applications.find(app => app.owner === (owner === 1 ? 'match' : 'client')).schema;
     if (words[0] !== schema) throw new Error('invalid snapshot schema');
     const snapshots = new Map(this.stores).set(owner, Int32Array.from(words));
     this.validateState(this.instance, snapshots);
+    if (persist) await persist(Object.freeze(words), []);
     this.stores = snapshots;
+    if (publish) publish({effects: []});
   }
 
   close() {

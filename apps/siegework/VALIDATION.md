@@ -1,3 +1,7 @@
+> Historical prototype evidence follows. Current Siegework uses static browser
+> execution and optional explicit checkpoint save/load; see the
+> [current validation](three/VALIDATION.md) and [save guide](../../doc/static-saves.md).
+
 # Siegework validation
 
 ## Optional colony direction, physical supply and harder attacks

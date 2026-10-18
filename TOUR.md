@@ -90,10 +90,11 @@ composition for a native build.
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
 | [`examples/`](examples/) | Programs and explicit build/generation examples. |
 | [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, optional colony planning, typed reducers, shaders and browser packages. |
-| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived binary snapshots, one async message lane, durable authority receipts, SQLite and [IndexedDB saves with tab ownership](src/application/indexeddb.mjs). |
-| [`src/browser/`](src/browser/application.sld) | Immutable view data, [continuous input and typed forms](src/browser/input.mjs), shared presentation/reload, separate [solo](src/browser/solo.mjs) and [cloud](src/browser/cloud.mjs) sessions with a [reload-safe pending queue](src/browser/cloud-outbox.mjs), two-target packaging and the Node authority server. |
+| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived snapshots, one async message lane, [local durable state](src/application/local.mjs), IndexedDB tab ownership and optional online checkpoint transfer. |
+| [`src/browser/`](src/browser/application.sld) | Immutable view data, continuous input, typed forms, presentation/reload and static browser packaging. All game logic runs locally. |
+| [`src/save/`](src/save/service.mjs) | Optional HTTP save/load service over opaque checkpoints, with conditional ETags and SQLite storage; no game simulation. |
 | [`src/ui/`](doc/ui.md) | Immutable typed controls, one top-down Scheme rectangle allocation, copied endpoint events and stable DOM controls; [UI lab](apps/ui-lab/src/ui-lab/game.sld) is the standalone runnable example. |
-| [`src/draw3d/`](src/draw3d/README.md) | Checked indexed geometry, affine scene hierarchies, cameras and ray picking; Scheme resolves transforms and copies complete frames to the GPU host. |
+| [`src/draw3d/`](src/draw3d/README.md) | Checked indexed geometry, affine scene hierarchies, cameras and ray picking; Scheme declares lazy retained batches; the host reuses unchanged geometry and GPU buffers. |
 | [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler, the quad adapter, and a depth-tested 3D adapter with explicit buffer/texture lifetime. |
 | [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement, attached deriving and small immutable list operations. |
 | [`src/lofi/serialization.sld`](src/lofi/serialization.sld) | Separate checked serialization capabilities, derived data instances and traversal-local graph identities. |

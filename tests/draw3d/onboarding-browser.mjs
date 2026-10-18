@@ -32,7 +32,7 @@ async function until(test, message, timeout = 30000) {
 }
 const world = async () => colony(await evaluate('snailApp.runtime.snapshot(1)'));
 const local = async () => client(await evaluate('snailApp.runtime.snapshot(2)'));
-const settled = () => until(() => evaluate('!snailApp.localWork && !snailApp.dirty && !snailApp.session.sending && !snailApp.pending.length'), 'input did not settle');
+const settled = () => until(() => evaluate('!snailApp.localWork && !snailApp.dirty'), 'input did not settle');
 const has = key => evaluate(`!!document.querySelector('[data-ui-key="${key}"]')`);
 const title = () => evaluate('document.querySelector("[data-ui-key=context-title]").textContent');
 async function ready() {
