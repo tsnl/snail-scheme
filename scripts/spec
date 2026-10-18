@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$project_dir"
+output="$project_dir/build/spec"
+mkdir -p "$output/ott" "$output/generated" "$output/html"
+
+# Ott's generated Coq imports these helpers; compile the pinned upstream sources.
+: "${OTT_COQ_LIB:?Use nix-shell doc/spec/shell.nix or set OTT_COQ_LIB to the Ott coq directory}"
+for source in ott_list_eq_dec ott_list_core; do
+  install -m 644 "$OTT_COQ_LIB/$source.v" "$output/ott/"
+  rocq compile -Q "$output/ott" Ott "$output/ott/$source.v"
+done
+
+# A malformed Ott rule must fail the build, even if other rules generate.
+ott -signal_parse_errors true -i doc/spec/lofi.ott \
+  -o "$output/generated/Lofi.v" -o "$output/lofi.tex"
+cp doc/spec/Proofs.v "$output/generated/Proofs.v"
+load_path=(-Q "$output/ott" Ott -Q "$output/generated" LofiSpec)
+for source in Lofi Proofs; do
+  rocq compile "${load_path[@]}" "$output/generated/$source.v"
+done
+rocqchk "${load_path[@]}" LofiSpec.Proofs > "$output/kernel-check.log" 2>&1
+
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory="$output" \
+  "$output/lofi.tex" > "$output/latex-build.log"
+rocq doc --html --utf8 --toc --interpolate --no-lib-name \
+  "${load_path[@]}" -d "$output/html" \
+  "$output/generated/Lofi.v" "$output/generated/Proofs.v"
+printf 'Checked definitions and proofs: %s\nTypeset Ott grammar and rules: %s\n' \
+  "$output/html/toc.html" "$output/lofi.pdf"
