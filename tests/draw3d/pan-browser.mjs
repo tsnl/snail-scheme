@@ -1,7 +1,7 @@
 // Run against an isolated 3D test package/save: this pauses its test match.
 // Actual held browser inputs must move projected landmarks along screen axes.
 import assert from 'node:assert/strict';
-import {colony} from '../applications/colony-state.mjs';
+import {colony, client} from '../applications/colony-state.mjs';
 const [origin, devtools = 'http://127.0.0.1:9452'] = process.argv.slice(2);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method:'PUT'})).json();
@@ -51,16 +51,14 @@ async function holdKeys(keys, ms = 600) {
   await settled(); return {initial, before, middle, after, stopped:await landmark()};
 }
 async function center() {
-  await command('home'); await evaluate('snailApp.canvas.focus();snailApp.input.reset()'); await pause(50);
+  await command('home');
+  for(let i=0;i<100&&client(await evaluate('snailApp.runtime.snapshot(2)')).homing;i++)await pause(50);
+  assert.equal(client(await evaluate('snailApp.runtime.snapshot(2)')).homing,false);
+  await command('dismiss');await evaluate('snailApp.canvas.focus();snailApp.input.reset()');
 }
 async function nearBound(screen) {
   await center(); await command('pan', screen.map(value => value * 10000));
   await command('pan', screen.map(value => -value));
-}
-async function holdAxes(axes, ms = 600) {
-  const before = await landmark(); await evaluate(`testPad.axes=${JSON.stringify(axes)}`);
-  await pause(ms); await evaluate('testPad.axes=[0,0]'); await settled();
-  return difference(before, await landmark());
 }
 try {
   await call('Network.enable'); await call('Network.setCacheDisabled', {cacheDisabled:true});
@@ -83,21 +81,12 @@ try {
     assert.ok(Math.hypot(...difference(motion.middle,motion.after)) < .1, `${value} slid along the bound`);
   }
   console.log('ok - held WASD stays screen-aligned, open diagonals combine, and cardinal travel stops at the first bound', evidence);
-  await center(); await evaluate(`(()=>{globalThis.testPad={index:0,id:'pan fixture',connected:true,axes:[0,0],buttons:Array.from({length:16},()=>({pressed:false}))};
-    Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[testPad]});})()`); await pause(100);
-  for (const [,screen] of directions) {
-    await center(); await pause(100); aligned(await holdAxes(screen.map(value=>value*.7)),screen,'analog axis');
-    await nearBound(screen); await pause(100); aligned(await holdAxes(screen.map(value=>value*.7)),screen,'analog bound');
-    assert.ok(Math.hypot(...await holdAxes(screen.map(value=>value*.7),250)) < .1, 'analog axis slid along the bound');
-  }
-  await center(); await pause(100); aligned(await holdAxes([.7,-.7]),[1,-1],'analog diagonal');
-  await evaluate('delete navigator.getGamepads');
   await center(); await evaluate(`(()=>{globalThis.panField=document.createElement('input');panField.setAttribute('aria-label','Pan focus fixture');
     document.body.append(panField);panField.focus()})()`);
   const focused = await holdKeys(['w']); assert.ok(Math.hypot(...difference(focused.initial,focused.stopped)) < .1);
   assert.equal(await evaluate('panField.value'), 'w'); await evaluate('panField.remove()');
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'), committed);
-  await center(); console.log('ok - analog screen axes/diagonal/bounds, native edit focus and match ownership are preserved');
+  await center(); console.log('ok - native edit focus and match ownership are preserved');
 } finally {
   await evaluate("dispatchEvent(new PageTransitionEvent('pagehide'))").catch(()=>{});
   ws.close(); await fetch(`${devtools}/json/close/${target.id}`);

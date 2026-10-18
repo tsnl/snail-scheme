@@ -52,7 +52,7 @@
     (define (alive? world) (= (world-outcome world) 0))
     (define (line key height text tone) (ui-label key (grow 1) (px height) text tone))
     (define (action-button key text help enabled request)
-      (ui-button key (px 84) (px 84) text help enabled #f request))
+      (ui-button key (grow 1) (px 84) text help enabled #f request))
     (define (priced-help price description)
       (string-append (integer-text price) " ore · " description))
 
@@ -92,11 +92,11 @@
                 (list (ui-panel "readouts" (px 180) (px 64) 6 0
                                 (list (ui-row "readout-row" (px 168) (px 52) 6
                                               (list (ore-dial world) (workers-dial world) (difficulty-readout world)))))
-                      (ui-at 188 10 (ui-button "home" (px 44) (px 44) "H Home" "Select the hub" #t #f (action-home actions)))
+                      (ui-at 188 10 (ui-button "home" (px 44) (px 44) "H" "Home: select the hub" #t #f (action-home actions)))
                       (ui-at 240 10 (ui-button "pause" (px 44) (px 44)
-                                               (if (= (world-paused world) 1) "P Play" "P Pause") "Pause or resume"
+                                               "P" (if (= (world-paused world) 1) "Resume the colony" "Pause the colony")
                                                #t (= (world-paused world) 1) ((action-suspend actions) -1)))
-                      (ui-at 288 10 (ui-button "restart-header" (px 44) (px 44) "N Reset" "Restart colony"
+                      (ui-at 288 10 (ui-button "restart-header" (px 44) (px 44) "N" "Restart colony"
                                                #t #f (action-restart actions))))))
 
     ;; ---- A selected subject explains the available action ----
@@ -210,8 +210,8 @@
       (let ((area (orbit-bounds context)))
         (ui-at (rect-x area) (rect-y area)
                (ui-button "orbit" (px 104) (px 44)
-                          (if (>= (hud-scale context) 4000) "V · Regular" "V · Orbital")
-                          "Switch view; wheel or pinch also zooms" #t (>= (hud-scale context) 4000) (action-orbit actions)))))
+                          (if (>= (hud-scale context) 4000) "V Near" "V Orbit")
+                          "Switch regular/orbital view; wheel or pinch also zooms" #t (>= (hud-scale context) 4000) (action-orbit actions)))))
     (define (target-bounds world context)
       (let* ((cell (larger 10 (smaller 42 (quotient (* (hud-height context) 1000) (* 18 (hud-scale context))))))
              (tall (or (hub-selected? world context) (not (null? (selected-building world context)))))
@@ -223,13 +223,14 @@
                       292 204 52))
     (define (context-heading world context actions)
       (ui-row "context-heading" (grow 1) (px 44) 8
-              (list (line "context-title" 44 (context-title world context) 2)
-                    (ui-button "close-context" (px 44) (px 44) "Esc" "Close this selection"
-                               #t #f (action-dismiss actions)))))
+              (cons (line "context-title" 44 (context-title world context) 2)
+                    (if (alive? world)
+                        (list (ui-button "close-context" (px 44) (px 44) "Esc" "Close this selection"
+                                         #t #f (action-dismiss actions))) (empty-list)))))
     (define (context-card world context actions layout)
       (let ((area (callout-rect layout)) (controls (context-actions world context actions)))
         (ui-pointing-panel (if (alive? world) "context" "result")
-                           (px 292) (px (rect-height area)) 12 8 (callout-side layout)
+                           (px 292) (px (rect-height area)) 12 8 (if (alive? world) (callout-side layout) 0)
                            (callout-offset layout (- (hud-anchor-x context) 12) (- (hud-anchor-y context) 12))
                            (append (list (context-heading world context actions)
                                          (line "context-description" 36 (context-description world context) 0))
@@ -252,6 +253,6 @@
         (ui-layer "hud" (grow 1) (grow 1)
                   (append (list (header world actions) (orbit-control context actions))
                           (if (> (hud-restart-mode context) 0) (restart-overlay context actions)
-                              (append (if (hud-chooser context)
+                              (append (if (or (hud-chooser context) (not (alive? world)))
                                           (list (ui-at (rect-x area) (rect-y area) (context-card world context actions layout)))
                                           (empty-list)) alerts))))))))

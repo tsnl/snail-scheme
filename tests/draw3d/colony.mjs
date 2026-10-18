@@ -78,7 +78,7 @@ try {
   console.log('ok - smooth home, screen-aligned bounded pan, retained entities and orthographic zoom preserve match state and look-at');
 
   await point(11.8,20,.63);cursorAt(12,20);assert.equal(node('context'),undefined);
-  await command('fabricate');assert.deepEqual(runtime.snapshot(1),fresh);
+  await command('fabricate');await command('preview',[2]);assert.equal(local().preview,0);assert.deepEqual(runtime.snapshot(1),fresh);
   await command('confirm');assert.equal(local().chooser,true);assert.deepEqual(runtime.snapshot(1),fresh);
   assert.match(node('context-title').text,/deposit/i);assert.ok(node('extractor'));assert.equal(node('build-chooser'),undefined);
   await command('confirm');assert.deepEqual(runtime.snapshot(1),fresh);
@@ -102,6 +102,13 @@ try {
   await point(13,22);await command('confirm');await command('choose',[2]);assert.equal(siteAt(world(),13,22)?.kind,3);assert.equal(siteAt(world(),13,22)?.level,2);
   await point(13,22);await command('confirm');await command('cancel');assert.equal(siteAt(world(),13,22),undefined);
   console.log('ok - one context card remains anchored to its selected cell while hover moves and explicit choices target that cell');
+
+  await runtime.restore(1,fresh);await home();await point(9,23);await command('confirm');await command('choose',[1]);await advance(140);
+  assert.equal(siteAt(world(),9,23).stage,2);assert.ok(world().ore>=50);await point(9,23,1.35);await command('confirm');await command('dismiss');
+  const unselectedTower=runtime.snapshot(1);await command('arm');await command('improve');await command('cancel');await command('preview',[2]);
+  assert.deepEqual(runtime.snapshot(1),unselectedTower);assert.equal(local().preview,0);
+  await command('confirm');await command('arm');assert.notDeepEqual(runtime.snapshot(1),unselectedTower);
+  console.log('ok - unselected structures ignore arm, improve, cancel and preview commands');
 
   await runtime.restore(1,fresh);await home();const unselected=runtime.snapshot(1);await command('fabricate');assert.deepEqual(runtime.snapshot(1),unselected);
   await command('home');await animate();const count=world().bots.length;await command('fabricate');await command('fabricate');
@@ -127,6 +134,8 @@ try {
 
   await command('suspend',[0]);await command('restart');assert.equal(world().paused,1);assert.ok(node('restart-dialog'));
   const modal=runtime.snapshot(1);await command('suspend',[-1]);assert.deepEqual(runtime.snapshot(1),modal);
+  const restartCamera=[local().cameraX,local().cameraY];await command('viewport',[700,420]);
+  assert.equal(local().restartMode,1);assert.deepEqual([local().cameraX,local().cameraY],restartCamera);assert.ok(node('restart-dialog'));
   await command('dismiss');assert.equal(world().paused,0);assert.equal(node('restart-dialog'),undefined);
   await command('suspend',[1]);await command('restart');await command('dismiss');assert.equal(world().paused,1);
   const committed=runtime.snapshot(1),selection=runtime.snapshot(2);

@@ -46,10 +46,10 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 [data-ui-key="context"][data-panel="1"], [data-ui-key="result"][data-panel="1"] { border: 1px solid #c99f58; box-shadow: 0 8px 28px #092c4d55; }
 .snail-ui-node[data-ui-key="context-title"] { display: flex; align-items: center; color: #244b59; font-size: 16px; line-height: 20px; font-weight: 800; }
 [data-ui-key="context-description"] { font-size: 12px; line-height: 18px; }
-[data-ui-key="context-actions"] .snail-ui-button { text-align: center; padding: 7px 4px; }
+[data-ui-key="context-actions"] .snail-ui-button { text-align: center; padding: 4px; }
 [data-ui-key="context-actions"] .snail-ui-button::before { width: 28px; height: 28px; margin-bottom: 4px; }
 [data-ui-key="context-actions"] .snail-ui-button-label { font-size: 12px; line-height: 18px; }
-[data-ui-key="context-actions"] .snail-ui-button-detail { font-size: 10px; line-height: 14px; }
+[data-ui-key="context-actions"] .snail-ui-button-detail { font-size: 10px; line-height: 12px; white-space: normal; max-height: 24px; text-overflow: clip; }
 [data-ui-key="result"][data-panel="1"] { border-color: var(--ui-danger); }
 [data-ui-key="result"] [data-ui-key="context-title"] { color: var(--ui-danger); }
 

@@ -3,10 +3,12 @@
 Run `scripts/test-application-tutorials` for the smaller tutorial checkpoints.
 It compiles the counter, inventory and local-controls examples and the marker
 board, then executes input boundaries, explicit effect delivery, quad output,
-compatible replacement, schema rejection and SQLite close/reopen restoration.
-It uses a temporary database and leaves an existing tutorial match untouched.
-The [tutorials](../../doc/book/lofi/tutorials/index.md) include the two-tab browser
-and live-rebuild exercises; Node checks do not establish GPU rendering.
+compatible replacement, schema rejection and `LocalState` checkpoint restoration.
+A temporary file-backed adapter checks failed-write rollback, explicit retry and
+revision conflicts without touching an existing tutorial save. The
+[tutorials](../../doc/book/lofi/tutorials/index.md) include browser writer-lock,
+IndexedDB and live-rebuild exercises; Node checks do not establish GPU rendering
+or browser storage behavior.
 
 Run `scripts/test-applications` with Chibi, Binaryen and Node 24. It compiles
 Siegework into a static `build/application-tests/siegework/solo` package and builds

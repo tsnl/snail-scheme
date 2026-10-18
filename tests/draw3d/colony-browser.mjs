@@ -46,6 +46,16 @@ async function pointCell(x, y, click = false, z = 0) {
   if (click) await press(position);
   return position;
 }
+async function frameCell(x,y) {
+  const hub=(await world()).surveys.find(s=>s.radius===9);
+  await command('inspect-attack',[hub.x+x-8,hub.y+y-22]);
+  await until(async()=>!(await local()).homing,'frame selected test cell');
+}
+async function capture(suffix='') {
+  if(!process.argv[4])return;
+  const shot=await call('Page.captureScreenshot',{format:'png'});
+  writeFileSync(process.argv[4].replace('.png',`${suffix}.png`),Buffer.from(shot.data,'base64'));
+}
 async function touchAt(position) {
   await call('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{...position,id:1}]});await displayFrame();
   await call('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});await displayFrame();await settled();
@@ -81,7 +91,7 @@ async function key(key, code) {
   await pointCell(12,20);assert.equal(await has('context'),false);
   const beforeSelect=await evaluate('snailApp.runtime.snapshot(1)');await key('Enter','Enter');
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeSelect);assert.equal((await world()).paused,1);
-  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/deposit/i);
+  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/deposit/i);await capture('-deposit');
   await key('Escape','Escape');assert.equal(await has('context'),false);await key(' ','Space');assert.equal(await has('context'),true);
   assert.equal((await world()).buildings.length,0);await click('extractor');
   assert.equal((await world()).buildings.length,1);assert.equal(await has('context'),false);
@@ -99,6 +109,7 @@ async function key(key, code) {
       arrow:Number(panel.dataset.arrow),overlap:r.left<h.right&&h.left<r.right&&r.top<h.bottom&&h.top<r.bottom};})()`);
   const dx=Math.max(chooser.left-chosenSite.x,chosenSite.x-chooser.right,0),dy=Math.max(chooser.top-chosenSite.y,chosenSite.y-chooser.bottom,0);
   assert.ok(dx>0||dy>0);assert.ok(chooser.arrow>0);assert.equal(chooser.overlap,false);
+  await capture('-build-boundary');await call('Input.dispatchMouseEvent',{type:'mouseMoved',...await evaluate(`(()=>{const r=document.querySelector('[data-ui-key=artillery]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`)});await settled();assert.equal((await local()).preview,2);await capture('-build-preview');
   await pointCell(13,21);assert.deepEqual(await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="context"]').getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom};})()`),
     {left:chooser.left,top:chooser.top,right:chooser.right,bottom:chooser.bottom});
   await key('1','Digit1');assert.equal(siteAt(await world(),12,21)?.kind,3);
@@ -120,7 +131,7 @@ async function key(key, code) {
   await key('q','KeyQ');await until(async()=>(await local()).turnElapsed===300,'return rotation');
   await key('Escape','Escape');await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');
   assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/hub/i);
-  const bank=(await world()).ore;await click('worker');assert.equal((await world()).ore,bank-25);assert.equal(await has('context'),true);
+  const bank=(await world()).ore;await click('worker');assert.equal((await world()).ore,bank-25);assert.equal(await has('context'),true);await capture('-hub-hire');
   assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/hub/i);
   await key('Escape','Escape');const afterHire=await evaluate('snailApp.runtime.snapshot(1)');await key('f','KeyF');assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),afterHire);
   console.log('ok - gamepad input is unmapped; rotation preserves picking; Escape dismisses, C cancels, and hub hiring keeps its card open');
@@ -132,11 +143,11 @@ async function key(key, code) {
   await until(()=>evaluate('!globalThis.fixtureReload && !!globalThis.snailApp'),'durable reopen');await settled();
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),committed);
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:3,mobile:true});await pause(250);await settled();await command('center');
-  await pointCell(12.4,20,true,.94);
+  await frameCell(12,20);await pointCell(12.4,20,true,.94);
   const mobile=await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="pause"]').getBoundingClientRect(),card=document.querySelector('[data-ui-key="context"]').getBoundingClientRect();
-    return{width:innerWidth,scrollWidth:document.documentElement.scrollWidth,canvasWidth:snailApp.canvas.width,canvasHeight:snailApp.canvas.height,
+    return{width:innerWidth,clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,cssWidth:snailApp.canvas.getBoundingClientRect().width,canvasWidth:snailApp.canvas.width,canvasHeight:snailApp.canvas.height,
       buttonOnscreen:r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight,cardOnscreen:card.x>=0&&card.right<=innerWidth&&card.y>=0&&card.bottom<=innerHeight};})()`);
-  assert.equal(mobile.width,390);assert.ok(mobile.scrollWidth<=mobile.width);assert.equal(mobile.canvasWidth,1170);assert.equal(mobile.canvasHeight,2532);assert.ok(mobile.buttonOnscreen&&mobile.cardOnscreen);
+  assert.ok(Math.abs(mobile.width-390)<=1);assert.equal(mobile.scrollWidth,mobile.clientWidth);assert.ok(Math.abs(mobile.cssWidth-mobile.width)<=1);assert.equal(mobile.canvasWidth,1170);assert.equal(mobile.canvasHeight,2532);assert.ok(mobile.buttonOnscreen&&mobile.cardOnscreen);
   await call('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});await key('Escape','Escape');
   await touchAt(await pointCell(13,22));assert.equal(await has('context'),true);assert.equal(siteAt(await world(),13,22),undefined);
   await touchControl('tower');assert.equal(siteAt(await world(),13,22)?.kind,3);
@@ -146,13 +157,13 @@ async function key(key, code) {
   await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:125,y:600},{id:2,x:265,y:600}]});await displayFrame();
   await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await displayFrame();await settled();
   assert.ok((await local()).scale<beforeScale);assert.equal((await local()).chooser,false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforePinch);
-  await call('Emulation.setTouchEmulationEnabled',{enabled:false});await command('orbit');await command('orbit');await command('center');await pointCell(12.4,20,true,.94);
-  if(process.argv[4]){const shot=await call('Page.captureScreenshot',{format:'png'});writeFileSync(process.argv[4].replace('.png','-mobile.png'),Buffer.from(shot.data,'base64'));}
+  await call('Emulation.setTouchEmulationEnabled',{enabled:false});await command('orbit');await command('orbit');await command('center');await frameCell(12,20);await pointCell(12.4,20,true,.94);
+  await capture('-mobile');
   await call('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:2,mobile:true});await pause(250);await settled();
   assert.ok(await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="context"]').getBoundingClientRect();return r.x>=0&&r.right<=innerWidth&&r.y>=0&&r.bottom<=innerHeight;})()`));
-  if(process.argv[4]){const shot=await call('Page.captureScreenshot',{format:'png'});writeFileSync(process.argv[4].replace('.png','-landscape.png'),Buffer.from(shot.data,'base64'));}
-  await call('Emulation.clearDeviceMetricsOverride');await pause(250);await settled();await command('center');await pointCell(12.4,20,true,.94);
-  if(process.argv[4]){const shot=await call('Page.captureScreenshot',{format:'png'});writeFileSync(process.argv[4],Buffer.from(shot.data,'base64'));}
+  await capture('-landscape');
+  await call('Emulation.clearDeviceMetricsOverride');await pause(250);await settled();await command('center');await frameCell(12,20);await pointCell(12.4,20,true,.94);
+  await capture();
   console.log('ok - restart pause restoration, durable reopen, full native DPR, explicit touch actions and pinch without accidental selection',origin);
   await evaluate("dispatchEvent(new PageTransitionEvent('pagehide'))");
   await until(()=>evaluate('snailApp.renderer.resources.closed && snailApp.renderer.resources.textures===0'),'page exit did not drain GPU resources');

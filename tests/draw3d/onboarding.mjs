@@ -24,7 +24,12 @@ function node(key, value = runtime.view().ui) {
   if (value.key === key) return value;
   for (const child of value.children) { const found = node(key, child); if (found) return found; }
 }
-const onboarding = () => !!node('onboarding');
+async function home() {
+  await command('home');
+  for(let i=0;i<80&&local().homing;i++)await command('animate',[50]);
+  assert.equal(local().homing,false);
+}
+function cursor(x,y) { assert.equal(local().cursorX,x);assert.equal(local().cursorY,y); }
 function project(x, y, z = 0) {
   ({x,y}=at(world(),x,y));
   const scene = runtime.view().scene, m = scene.uniforms, state = local(), v = scene.viewport ?? [0, 0, state.width, state.height];
@@ -38,60 +43,63 @@ function save(name) {
   writeFileSync(join(fixtures, name + '.json'), JSON.stringify({revision: 1, epoch: name, clients: {}, state: runtime.snapshot(1)}));
 }
 try {
-  const fresh = runtime.snapshot(1);
-  assert.ok(onboarding()); assert.equal(node('context-title').text, 'START: BUILD AN EXTRACTOR');
-  await command('pan', [20, -20]); await command('home');
-  assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20); assert.deepEqual(runtime.snapshot(1), fresh);
-  await runtime.replace(runtime.prepare(bytes, manifest));
-  assert.ok(onboarding()); assert.deepEqual(runtime.snapshot(1), fresh);
-  // This tallest visible tip projects onto the adjacent ground cell (11, 19).
-  await point(11.8, 20, 0.63); assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20);
-  await command('confirm'); assert.equal(world().buildings[0].kind, 1); assert.equal(onboarding(), false);
-  await point(11.8, 20, 0.63); assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20);
-  await command('cancel'); assert.equal(world().buildings.length, 0); assert.ok(onboarding());
-  await command('confirm'); await advance(140); assert.equal(world().buildings[0].stage, 2);
-  assert.ok(world().surveys.some(s => s.x === at(world(),12,20).x && s.y === at(world(),12,20).y)); assert.equal(onboarding(), false);
-  await command('suspend', [1]); const established = runtime.snapshot(1), selection = runtime.snapshot(2); save('established');
-  await runtime.replace(runtime.prepare(bytes, manifest)); assert.equal(onboarding(), false);
-  assert.deepEqual(runtime.snapshot(1), established); assert.deepEqual(runtime.snapshot(2), selection);
-  console.log('ok - fresh/reloaded guidance, crystal-tip order, cancellation and completed survey history');
+  const fresh=runtime.snapshot(1);
+  assert.equal(node('onboarding'),undefined);assert.equal(node('context'),undefined);
+  await command('center');cursor(12,20);
+  await command('pan',[20,-20]);await home();cursor(8,22);
+  assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
+  await command('dismiss');await command('center');cursor(12,20);
+  await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),fresh);
+  // The tallest visible tip projects onto an adjacent ground cell.
+  await point(11.8,20,.63);cursor(12,20);assert.equal(node('context'),undefined);
+  await command('confirm');assert.match(node('context-title').text,/deposit/i);
+  assert.deepEqual(runtime.snapshot(1),fresh);await command('choose',[1]);assert.equal(world().buildings[0].kind,1);
+  await point(11.8,20,.63);cursor(12,20);await command('confirm');await command('cancel');
+  assert.equal(world().buildings.length,0);await command('center');cursor(12,20);
+  await command('confirm');await command('choose',[1]);await advance(140);assert.equal(world().buildings[0].stage,2);
+  assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
+  await command('center');cursor(8,22);await command('suspend',[1]);
+  const established=runtime.snapshot(1),selection=runtime.snapshot(2);save('established');
+  if(fixtures){
+    const encounters=world();encounters.alerts=[[12,20,1],[8,22,0],[10,22,4]].map(([x,y,kind])=>({...at(encounters,x,y),kind,tick:encounters.tick}));
+    await restoreColony(runtime,encounters);save('alerts');await runtime.restore(1,established);
+  }
+  await runtime.replace(runtime.prepare(bytes,manifest));assert.equal(node('context'),undefined);
+  assert.deepEqual(runtime.snapshot(1),established);assert.deepEqual(runtime.snapshot(2),selection);
+  console.log('ok - fresh guidance centers a deposit; H selects the hub; crystal-tip selection, explicit order and cancellation preserve intent');
 
-  if (previous) {
-    const old = JSON.parse(readFileSync(join(previous, 'manifest.json')));
-    assert.equal(protocolContract(manifest), protocolContract(old));
-    const oldBytes = readFileSync(join(previous, old.module)); assert.notDeepEqual(oldBytes, bytes);
-    await runtime.replace(runtime.prepare(oldBytes, old));
-    assert.deepEqual(runtime.snapshot(1), established); assert.deepEqual(runtime.snapshot(2), selection);
-    await runtime.replace(runtime.prepare(bytes, manifest));
-    assert.deepEqual(runtime.snapshot(1), established); assert.deepEqual(runtime.snapshot(2), selection);
-    assert.equal(onboarding(), false);
-    console.log('ok - previous code and current code share exact owner/handler contracts and preserve both snapshots');
+  if(previous){
+    const old=JSON.parse(readFileSync(join(previous,'manifest.json')));
+    assert.equal(protocolContract(manifest),protocolContract(old));
+    const oldBytes=readFileSync(join(previous,old.module));assert.notDeepEqual(oldBytes,bytes);
+    await runtime.replace(runtime.prepare(oldBytes,old));assert.deepEqual(runtime.snapshot(1),established);assert.deepEqual(runtime.snapshot(2),selection);
+    await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),established);assert.deepEqual(runtime.snapshot(2),selection);
+    console.log('ok - compatible old and current modules preserve exact owner snapshots');
   }
 
-  const attacked = world(); attacked.buildings[0].hp = 1; attacked.paused = 0;
-  await restoreColony(runtime, attacked); await addEnemy(runtime, {x: 12, y: 20, target: attacked.buildings[0].id});
-  await advance(20); assert.equal(world().buildings.length, 0); assert.equal(world().outcome, 0);
-  assert.ok(world().surveys.some(s => s.x === at(world(),12,20).x && s.y === at(world(),12,20).y)); assert.equal(onboarding(), false);
-  console.log('ok - actual enemy destruction retains completion evidence and never restores onboarding');
+  const attacked=world();attacked.buildings[0].hp=1;attacked.paused=0;
+  await restoreColony(runtime,attacked);await addEnemy(runtime,{x:12,y:20,target:attacked.buildings[0].id});await advance(20);
+  assert.equal(world().buildings.length,0);assert.equal(world().outcome,0);
+  assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
+  await command('center');cursor(8,22);
+  console.log('ok - actual enemy destruction retains completion history and does not restore first-extractor guidance');
 
-  await runtime.restore(1, fresh);
-  for (const y of [15, 9]) {
-    const site=at(world(),10,y); await runtime.dispatch(1, runtime.command('match', 'observe', [site.x,site.y])); await advance(180);
+  await runtime.restore(1,fresh);
+  for(const y of [15,9]){
+    const site=at(world(),10,y);await runtime.dispatch(1,runtime.command('match','observe',[site.x,site.y]));await advance(180);
   }
-  await command('home'); assert.equal(local().cursorX, 5); assert.equal(local().cursorY, 5);
-  await command('confirm'); await advance(10);
-  const planned = world().buildings.find(b => b.kind === 1);
-  assert.ok(planned); assert.equal(planned.x, at(world(),5,5).x); assert.equal(planned.y, at(world(),5,5).y);
-  console.log('ok - guidance finds the richer deposit after tower exploration; building remains an explicit choice');
+  await command('center');cursor(5,5);const explored=runtime.snapshot(1);
+  await command('confirm');assert.deepEqual(runtime.snapshot(1),explored);await command('choose',[1]);await advance(10);
+  const planned=siteAt(world(),5,5);assert.ok(planned);assert.equal(planned.kind,1);
+  console.log('ok - explored richer deposits become the guidance target while construction stays explicit');
 
-  await runtime.restore(1, fresh); const unsafe = world();
-  await addEnemy(runtime, {x: 12, y: 20}); await command('home');
-  assert.ok(onboarding()); assert.match(node('context-description').text, /No free/);
-  assert.equal(local().cursorX, 8); assert.equal(local().cursorY, 22);
-  await restoreColony(runtime, {...unsafe, hull: 1}); await addEnemy(runtime, {x: 8, y: 22}); await advance(20);
-  assert.equal(world().outcome, 1); assert.equal(onboarding(), false);
-  assert.ok(node('result')); assert.equal(node('context-title').text, 'COLONY LOST'); assert.equal(node('restart').properties[1], 1);
-  save('defeated');
-  await command('restart'); assert.equal(world().outcome, 0); assert.ok(onboarding());
-  console.log('ok - no safe target falls back to hub; actual defeat shows restart and suppresses onboarding');
+  await runtime.restore(1,fresh);const unsafe=world();await addEnemy(runtime,{x:12,y:20});await command('center');cursor(8,22);
+  await restoreColony(runtime,{...unsafe,hull:1});await addEnemy(runtime,{x:8,y:22});await advance(20);
+  assert.equal(world().outcome,1);assert.ok(node('result'));assert.match(node('context-title').text,/colony lost/i);
+  assert.equal(node('restart').properties[1],1);
+  await restoreColony(runtime,{...world(),bots:[]});assert.ok(node('workers'));assert.equal(world().bots.length,0);runtime.view();save('defeated');
+  await command('restart');assert.equal(world().outcome,1);assert.ok(node('restart-dialog'));
+  await command('accept-restart');assert.equal(world().outcome,0);assert.equal(node('restart-dialog'),undefined);
+  await command('center');cursor(12,20);
+  console.log('ok - unsafe guidance falls back to the hub, a zero-worker HUD renders, and defeat requires explicit restart confirmation');
 } finally { await runtime.close(); }
