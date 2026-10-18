@@ -59,7 +59,6 @@ signature, sg :: S_ ::=
   | T :: :: mono
   | ( All ( a1 .. ar ) T ) :: :: all
   | ( All ( a1 .. ar ) ( requires q1 .. qu ) T ) :: :: requires
-  | ( All ( a1 .. ar ) ( => ( q1 .. qu ) T ) ) :: :: legacy
 %% ANCHOR_END: types-ok
 
 %% ANCHOR: terms
@@ -265,13 +264,6 @@ defn Delta ; Xi ; A |- sg signature-ok :: :: wf_signature :: WF_signature_ by
   Delta ; Xi ; A + a1 .. ar |- [ q1 .. qu ] requirements-ok
   --------------------------------------------------------------------- :: requires
   Delta ; Xi ; A |- ( All ( a1 .. ar ) ( requires q1 .. qu ) T ) signature-ok
-
-  distinct a1 .. ar
-  a1 .. ar fresh in A
-  Delta ; A + a1 .. ar |- T type
-  Delta ; Xi ; A + a1 .. ar |- [ q1 .. qu ] requirements-ok
-  --------------------------------------------------------------------- :: legacy
-  Delta ; Xi ; A |- ( All ( a1 .. ar ) ( => ( q1 .. qu ) T ) ) signature-ok
 
 defns InstanceHeads :: '' ::=
 defn Delta ; Xi |- q instance-head-ok :: :: wf_instance_head :: WF_instance_ by

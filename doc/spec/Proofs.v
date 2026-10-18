@@ -55,12 +55,7 @@ Theorem requirement_arity : forall ds cs scope c args,
   cs c = Some (length args).
 Proof. intros; inversion H; assumption. Qed.
 
-(** Compatibility is a theorem about the same generated formation rules. *)
-Theorem requires_legacy_agree : forall ds cs scope vars reqs t,
-  wf_signature ds cs scope (S_requires vars reqs t) <->
-  wf_signature ds cs scope (S_legacy vars reqs t).
-Proof. split; intros H; inversion H; subst; constructor; assumption. Qed.
-
+(** Omitting requirements is the same as an empty requires clause. *)
 Theorem omitted_requires_agree : forall ds cs scope vars t,
   wf_signature ds cs scope (S_all vars t) <->
   wf_signature ds cs scope (S_requires vars [] t).
@@ -131,5 +126,4 @@ Print Assumptions instance_head_closed.
 Print Assumptions datatype_application_arity.
 Print Assumptions bare_datatype_arity.
 Print Assumptions requirement_arity.
-Print Assumptions requires_legacy_agree.
 Print Assumptions omitted_requires_agree.

@@ -38,12 +38,13 @@ Ott source using anchors, so those excerpts cannot drift from the checked file.
 
 The grammar covers the formal summary's canonical library/import/export forms,
 expressions, definitions, datatype/class/instance declarations, and types. It
-also includes `define-extern`, `define-overload`, current rest forms, and legacy
-`=>` signatures. It separates library statements from expression-block
-statements, and ordinary types from schemes and class requirements.
-`syntax-rules` expansion, staging, and older static-declaration compatibility
-forms are outside this grammar. This is symbolic syntax, not a replacement for
-the compiler's reader or hygienic name resolver.
+also includes `define-extern`, `define-overload`, and current rest forms. It
+separates library statements from expression-block statements, and ordinary
+types from schemes and class requirements. Legacy `=>` signatures and kind
+annotations are excluded, matching the compiler. `syntax-rules` expansion,
+staging, and expanded core declaration forms are outside this grammar. This is
+symbolic syntax, not a replacement for the compiler's reader or hygienic name
+resolver.
 
 The five name categories have distinct Rocq types, each with an unbounded
 natural-number supply. Reader token categories are abstract payloads: the
@@ -62,11 +63,11 @@ The generated judgments check:
   well-formed requirements in the extended scope, including empty lists.
 - Closed instance heads, using an empty type-variable scope.
 
-The eight proved properties are scope weakening, scope containment for all
+The seven proved properties are scope weakening, scope containment for all
 nested variable occurrences, closed instance heads, nonzero and zero datatype
-application arity, class arity, canonical/legacy requirement formation
-equivalence, and omitted/empty requirement formation equivalence. `Print
-Assumptions` reports each closed under the global context: no additional axioms
+application arity, class arity, and omitted/empty requirement formation
+equivalence. `Print Assumptions` reports each closed under the global context:
+no additional axioms
 or admitted proofs. Examples also reject an open instance, wrong class arity,
 unbound variables, repeated binders, nested schemes, requirements used as types,
 and class names used as datatype names.
