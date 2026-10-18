@@ -1,4 +1,4 @@
-// One durable authority record per origin/application. A generation or mount
+// One durable game record per origin/application. A generation or mount
 // path never names a save; compatible deployments reopen the same record.
 import {endpoint, protocolContract} from './runtime.mjs';
 
@@ -8,12 +8,23 @@ export function saveName(application) {
   return `snail.application:${application}`;
 }
 export function saveContract(manifest) {
-  return JSON.stringify([protocolContract(manifest), manifest.settings.runMarker ?? null,
+  // Only match state is persisted. Adding a camera control must not invalidate
+  // a colony; the in-memory runtime still checks the complete live protocol.
+  const persistent = {...manifest, applications: manifest.applications.filter(app => app.owner === 'match')};
+  return JSON.stringify([protocolContract(persistent), manifest.settings.runMarker ?? null,
     endpoint(manifest, 'match', manifest.settings.reset).id]);
 }
-function readRecord(record, application, contract) {
+function persistentContract(contract) {
+  try {
+    const [encoded, marker, reset] = JSON.parse(contract), protocol = JSON.parse(encoded);
+    protocol.applications = protocol.applications.filter(app => app.owner === 'match');
+    return JSON.stringify([JSON.stringify(protocol), marker, reset]);
+  } catch { return undefined; }
+}
+export function readRecord(record, application, contract) {
   if (record === undefined) return undefined;
-  if (record?.format !== 1 || record.application !== application || record.contract !== contract)
+  if (record?.format !== 1 || record.application !== application ||
+      (record.contract !== contract && persistentContract(record.contract) !== contract))
     throw new Error('Saved game is incompatible with this package. Reopen the previous compatible package; the save has been retained.');
   if (!Number.isSafeInteger(record.snapshot?.revision) || record.snapshot.revision < 0)
     throw new Error('Invalid saved revision; the save has been retained.');
@@ -58,6 +69,9 @@ export async function openStore(manifest) {
   return {
     load() { return load(db, application, contract); },
     commit(snapshot, expected) { return commit(db, application, contract, snapshot, expected); },
+    record(snapshot) { return {format: 1, application, contract, snapshot}; },
+    failure() { return failureRecord(db); },
+    recordFailure(failure) { return failureRecord(db, failure); },
     close() { db.close(); },
   };
 }
@@ -90,5 +104,17 @@ function commit(db, application, contract, snapshot, expected) {
         store.put(record, 'match');
       } catch (error) { failure = error; transaction.abort(); }
     };
+  });
+}
+
+// Keep one reproduction beside the save. A failed reducer never overwrites the
+// committed match; diagnostics cannot change its revision or compatibility.
+function failureRecord(db, failure) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('authority', failure === undefined ? 'readonly' : 'readwrite');
+    const store = transaction.objectStore('authority');
+    const request = failure === undefined ? store.get('last-failure') : store.put(failure, 'last-failure');
+    transaction.oncomplete = () => resolve(failure === undefined ? request.result : undefined);
+    transaction.onabort = () => reject(transaction.error ?? new Error('Diagnostic write aborted'));
   });
 }

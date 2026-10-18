@@ -575,11 +575,13 @@
                 (scheme-constraints (binding-scheme binding))))
     (define (check-skolem-escape binding scope)
       (let ((variables (scheme-variables (binding-scheme binding))))
-        (for-each (lambda (scheme)
-                    (for-each (lambda (variable)
-                                (when (memq variable variables)
-                                  (strict-error (node-loc (source-initializer binding)) "rigid type escapes its declaration")))
-                              (free-scheme-variables scheme))) (lexical-schemes scope (list binding)))))
+        ;; A monomorphic declaration has no rigid binders that could escape.
+        (unless (null? variables)
+          (for-each (lambda (scheme)
+                      (for-each (lambda (variable)
+                                  (when (memq variable variables)
+                                    (strict-error (node-loc (source-initializer binding)) "rigid type escapes its declaration")))
+                                (free-scheme-variables scheme))) (lexical-schemes scope (list binding))))))
     (define (group-environment group scope)
       ;; Freeze every expansive member before any sibling can generalize.
       (append (environment-schemes scope group) (expansive-schemes group)))

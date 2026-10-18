@@ -87,7 +87,7 @@
          (settle-summary-obligations! #t) (plan-bindings #t)
          (check-obligations #f) (concrete-scope #f) (apply-typing-rule #f) (probe-expression #f))
         ("lofi/compiler/specialize.sld"
-         (activation-values #f) (type-arm #f) (finish-generation #f)
+         (activation-value-index #f) (type-arm #f) (finish-generation #f)
          (call-demand #f) (request-function #f) (request-value #f) (concrete #f))
         ("lofi/compiler/overloads.sld"
          (improve-overloads! #f) (select-overload-view #f) (compatible? #f))

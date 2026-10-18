@@ -128,7 +128,7 @@ errors with `await` or another promise consumer; commands can be admitted
 concurrently and awaited together.
 `prepare`, `snapshot` and `view` remain synchronous. During a save, queries see
 the previous committed snapshots, and the scalar execution scope is inactive.
-Queued commands, authority envelopes and restored snapshots capture their inputs
+Queued commands and restored snapshots capture their inputs
 when called, so later caller edits cannot change an admitted message.
 
 Reduction, candidate validation, text conversion and effect routing finish
@@ -136,121 +136,58 @@ synchronously before persistence starts. The saver receives an immutable copy
 of the candidate snapshot and materialized effects. Send effects carry stable
 handler identities from their originating generation, so a later slot reorder
 cannot reinterpret them. The runtime awaits the saver before publishing state;
-authority metadata and receipts join that publication in the same synchronous
-turn. A rejected save publishes nothing and does not roll back code. A failed
+the local save revision joins that publication in the same synchronous turn. A rejected save publishes nothing and does not roll back code. A failed
 message rejects its own promise without poisoning the FIFO.
 
-`Authority.open(runtime, {saved, commit, publish, ...options})` asynchronously
-restores a saved authority after runtime initialization. Use `new Authority`
-only for an already initialized fresh owner; passing saved data to that
-constructor is rejected. `commit(snapshot, expectedRevision)` may return a
-promise or complete synchronously, and must atomically save state, revision,
-epoch and client receipts. Its rejection must mean that the candidate was not
-durably accepted; ambiguous outcomes require adapter-specific reconciliation.
-The SQLite adapter still performs blocking synchronous I/O. The browser
-IndexedDB adapter awaits transaction completion. Both use the same authority
-and Web Crypto receipt implementation.
+`LocalState.open(runtime, {saved, commit, publish})` restores the game's saved
+`{revision, state}` checkpoint after initializing both runtime owners. `state` is
+an array of signed 32-bit words. `commit(checkpoint, expectedRevision)` must
+atomically compare the stored revision and write the replacement. It can return a
+promise; the browser's IndexedDB adapter resolves only when its transaction
+completes. `submit(command)` invokes the typed game handler through the same
+runtime FIFO and advances the revision only after that write succeeds.
 
-The host-only `runtime.message(operation)` boundary lets authority receipt checks
-and reduction occupy the same FIFO entry. Its supplied dispatcher permits one
-transition and expires when the callback finishes; the runtime drains that
-transition even if its promise is not returned. Return or await that dispatcher,
-never another queued runtime mutation from inside the message or persistence
-callback: waiting for work behind the current message would deadlock.
-The runtime's synchronous publication hook installs prepared authority metadata,
-then calls the authority's `publish` observer. Asynchronous external effect
-delivery needs its own adapter.
-
-Here is a minimal Node host, run from the repository root with an already built
-package at `build/siegework/cloud`. The same runtime and authority imports work in the
-browser; file loading and the storage adapter belong to the host.
-
-```js
-import {readFile} from 'node:fs/promises';
+```javascript
 import {ReducerRuntime} from './src/application/runtime.mjs';
-import {Authority} from './src/application/authority.mjs';
-import {openStore} from './src/application/sqlite.mjs';
+import {LocalState} from './src/application/local.mjs';
+import {acquireWriter, openStore} from './src/application/indexeddb.mjs';
 
-const directory = 'build/siegework/cloud';
-const manifest = JSON.parse(await readFile(`${directory}/manifest.json`, 'utf8'));
-const bytes = await readFile(`${directory}/${manifest.module}`);
-const runtime = new ReducerRuntime(), store = openStore(`${directory}/match.sqlite`);
+// Browser code: initialize from this static package's bytes and manifest.
+const runtime = new ReducerRuntime();
+await runtime.replace(runtime.prepare(bytes, manifest));
+await runtime.initialize(1); await runtime.initialize(2);
+const release = await acquireWriter(manifest.settings.id);
+const store = await openStore(manifest);
 try {
-  await runtime.replace(runtime.prepare(bytes, manifest));
-  await runtime.initialize(1); // Match owner; only initializes absent state.
-  await runtime.initialize(2); // Local client owner.
-  const authority = await Authority.open(runtime, {
-    saved: await store.load(), runMarker: manifest.settings.runMarker,
-    resetHandler: runtime.command('match', manifest.settings.reset).handler,
-    commit: (snapshot, expectedRevision) => store.commit(snapshot, expectedRevision),
-    publish: notification => console.log(notification),
+  const local = await LocalState.open(runtime, {
+    saved: await store.load(),
+    commit: (checkpoint, expected) => store.commit(checkpoint, expected),
+    publish: output => console.log(output.effects),
   });
-  const client = crypto.randomUUID(), epoch = authority.epoch;
-  const command = runtime.command('match', manifest.settings.tick);
-  const first = authority.submit({client, sequence: 1, epoch, command});
-  const second = authority.submit({client, sequence: 2, epoch, command});
-  await Promise.all([first, second]); // Admission order is retained.
-  console.log(authority.snapshot()); // {revision, epoch, state}
-  console.log(runtime.view()); // {result, effects, quads, label}
-
-  // For reload, pass newly loaded compatible bytes and manifest here.
-  const candidate = runtime.prepare(bytes, manifest);
-  try { await runtime.replace(candidate); }
-  catch (error) { runtime.discard(candidate); throw error; }
+  await local.submit(runtime.command('match', 'pause-colony', [1]));
+  console.log(local.snapshot()); // {revision, state}
 } finally {
-  await runtime.close(); // Finish admitted saves before closing their store.
-  store.close();
+  await runtime.close(); store.close(); await release();
 }
 ```
 
-The saved record is `{state, revision, epoch, clients}`. `state` is an ordinary
-array of signed 32-bit words, not an `Int32Array` or an opaque state object.
-Each `clients[client]`
-contains `{sequence, fingerprint, receipt: {revision, epoch}}`; persist and
-restore this record together. Fresh initialization and `Authority.open` do not
-save an initial snapshot: durability begins with the first accepted command.
-Before that commit, restart creates a fresh initialized owner and epoch.
-`submit` resolves to `{revision, epoch, state}`; a consumed retry also includes
-`duplicate: true` and its original `receipt`. The observer receives
-`{type: 'snapshot', revision, epoch, state}` followed by ordered
-`{type: 'effect', revision, effect}` notifications. Materialized notices contain
-`{kind: 'notice', text}`; sends contain
-`{kind: 'send', owner, command: {handler, args}}`, where owner is 1 or 2.
+The application manifest preserves state/schema identity, handler identity,
+argument types and generated dispatch slots. Requests carry stable identities and
+structured scalar payloads. They never carry a closure or a Wasm function pointer.
+Reordering declarations changes private slots without changing public identities;
+renaming a handler or changing its schema/payload changes its identity.
 
-Siegework's local server assigns a revision to each accepted command, including
-commands that make no gameplay change. It commits the state, revision, match
-epoch, and each client's consumed sequence together. A retry of the latest sequence must match its original request fingerprint and
-does not spend resources twice. Older consumed sequences are rejected; this small
-adapter retains the latest receipt per client. Commands from an earlier run are rejected. The browser
-only accepts snapshots whose revisions are at least its latest accepted revision.
-Effects become observable after this commit. This does **not** promise universal
-exactly-once external effects: a future payment, email or remote service needs an
-idempotency key or a transactional outbox appropriate to that service. This first
-adapter has no durable effect outbox; Siegework authoritative handlers produce
-state only. Its client send effects use the explicit in-memory retry queue.
-If an observer throws after commit, state and the receipt remain committed even
-though the caller receives an error. An immediate identical retry returns that
-receipt without rerunning the handler or redelivering its effects. This can lose
-an external notification; it does not undo a successful transition.
+Both game and presentation execute in the browser. There is no replicated match,
+network command queue, player session, presence tracking or server-owned clock.
+`runtime.message(operation)` remains a low-level host facility for serialized
+operations; use the supplied dispatcher once inside it and do not await another
+queued mutation from that callback. Ordinary callers use `dispatch` or `LocalState`.
 
-The public protocol preserves application/schema identity, handler identity,
-argument types and generated dispatch slots. Network requests carry the stable
-identity and structured scalar payload; they never carry a Scheme closure or a
-Wasm function pointer. Slots are private to a compiled generation. Reordering
-handlers changes slots but does not change stable identities. Renaming a handler
-or changing its schema/payload changes its identity.
-
-The local authority also accepts an optional `runMarker` setting: a positive
-word offset within the encoded match snapshot. Scheme changes that scalar only
-when it accepts a new run, including replaying the same map seed. During the
-same durable commit, a changed marker rotates the network epoch and records the
-request receipt. Rejected seed input leaves the marker and epoch unchanged;
-retrying an accepted restart returns its receipt. Apps without this setting keep
-the named `reset` handler behavior. The marker offset cannot change during a
-compatible reload. SQLite cold starts must retain matching package settings and
-saved state. The browser store additionally records the save compatibility
-contract and refuses incompatible deployments without changing the record. The
-marker describes a lifecycle boundary, not game rules in JavaScript.
+Optional online save/load transfers complete checkpoints outside the reducer lane.
+A load validates and persists its replacement through `local.restore(state)`;
+failed validation or storage leaves the previous game intact. Effects are emitted
+after a committed transition. The runtime does not promise exactly-once external
+effects; a future payment or other remote effect needs its own delivery contract.
 
 The initial build inspects literal `application` declarations inside a library's
 outer `begin`. `(application manifest bootstrap)` reads the exact parsed library
@@ -265,8 +202,7 @@ another library must call, just as with other library bindings.
 
 ## Assembling a browser application
 
-The initial host is a two-owner adapter: one authoritative match and one local
-client. Declare both with `application`, derive `Serialize` and `Deserialize`
+The initial host is a two-owner adapter: one game model and one presentation model, both in the browser. Declare both with `application`, derive `Serialize` and `Deserialize`
 for their state records, then import `(application serialization)` and compose:
 
 ```scheme
@@ -283,7 +219,7 @@ for their state records, then import `(application serialization)` and compose:
 The adapter serializes through the shared S-expression representation and its
 compact binary encoding. Its envelope carries schema version, byte length and
 four bytes per `I32` word, with checked final zero padding. Snapshots may grow or
-shrink within the host's 65,536-word bound. Schema zero marks an absent owner only
+shrink within the host's 1,048,576-word bound. Schema zero marks an absent owner only
 inside the host; restoring a committed snapshot requires its declared positive
 schema. Neither derive implements migration between incompatible schemas.
 
@@ -327,6 +263,32 @@ retains a small explicit adapter example. Vector lengths and indices use `I64`.
 Import `(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-text`,
 and `(application bridge)` for `run-program`.
 
+### Previous snapshots for presentation
+
+`(application bridge)` exports `(read-snapshot owner)` and
+`(read-previous-snapshot owner)`, where owner is `1` for the game model or `2` for
+the presentation model. Each call copies an encoded snapshot into a Wasm-owned
+`(Vector I32)`. Decode that vector with the application's snapshot codec before
+reading typed fields. Previous and current snapshots can have different lengths.
+
+The runtime retains one prior committed snapshot per owner. After a successful
+state change, the current snapshot becomes the prior snapshot in the same
+publication turn that installs its replacement, after validation and any durable
+save. Pending saves, rejected saves and failed transitions advance neither
+snapshot. A byte-identical transition preserves both identities and their history;
+it still follows the existing persistence and effect-publication contract.
+
+Initialization and explicit `restore` set previous and current to the same
+snapshot, so presentation starts at the loaded state. If no prior snapshot exists,
+the previous read uses the current snapshot. History is transient runtime data
+and is not part of a saved checkpoint. Compatible code replacement preserves it.
+
+A presentation query can decode the prior world once and match entities by ID
+to supply `moving-group` transforms in a [`motion-batch`](../../../src/draw3d/README.md#motion-between-committed-states).
+Use current transforms for newly created entities or discontinuities such as a
+new run. The GPU advances the supplied transition on display frames; this does
+not increase the reducer tick rate or rerun Scheme layout for entity motion.
+
 ### Packaging the compiled application
 
 The app-local `build.scm` compiles that entry through `(lofi compiler bootstrap)`
@@ -335,10 +297,11 @@ queries length). It then calls `src/browser/build.mjs REPOSITORY APP OUTPUT` to
 package already-built `simulation.wasm`, `shader.wasm`, and the
 `application.syntax.json` emitted by that host helper from the selected parsed
 library. The compiler writes these raw inputs once into `OUTPUT`; packaging
-emits two independent distributions, `OUTPUT/solo` and `OUTPUT/cloud`, with
-identical simulation bytes. `solo` contains the browser authority and IndexedDB
-adapter; `cloud` contains the HTTP/SSE server and SQLite adapter. Their entrypoints
-are `lib/browser/solo.mjs` and `lib/browser/cloud.mjs`. Build outputs must stay
+emits `OUTPUT/solo`, a static distribution with a browser-local simulation and
+IndexedDB saves. With `SAVE_SERVICE_URL` set, it also emits `OUTPUT/synced`, a
+static distribution with optional explicit online save/load. Both use identical
+simulation bytes and `lib/browser/solo.mjs`. Disabled builds omit the online
+save module entirely. Build outputs must stay
 outside source directories. The shader entry signals a diagnostic by returning a
 negative length; the build refuses to publish it. Packaging also executes isolated
 initial states and the pure view before publishing the manifest. Vector lengths
@@ -353,7 +316,7 @@ selects the application source. Use relative HTML asset URLs and one
 replaces it with the selected relative entrypoint. Settings require a stable
 lowercase `id` (letters, digits, dots and hyphens, starting with a letter), map
 bindings to `match`/`client`; name the
-clock/reset handlers; enumerate remotely permitted match handlers; and map input
+clock/reset handlers; and map input
 to client handler bindings. These names resolve against the generated manifest
 at the host boundary, not through runtime evaluation of arbitrary Scheme names.
 Buttons can use `data-handler` and JSON `data-args`; keyboard/controller mappings
@@ -371,7 +334,7 @@ configuration. Every named binding must exist in the generated manifest.
   "title": "Counter board", "width": 640, "height": 360, "cellSize": 40,
   "tickMilliseconds": 100,
   "owners": {"world-app": "match", "local-app": "client"},
-  "tick": "tick", "reset": "reset", "remoteHandlers": ["add", "reset"],
+  "tick": "tick", "reset": "reset",
   "pointer": {"move": "move", "confirm": "confirm"},
   "keys": {"Enter": ["confirm"]}, "controller": {"0": ["confirm"]}
 }
@@ -393,6 +356,45 @@ no keydown command. A key cannot be both continuous and repeated.
 `pointer.coordinates: "pixels"` sends logical-canvas integer pixels instead of
 cells. Scheme owns speed, camera bounds, projection and gameplay.
 
+`zoomHandler` optionally names a client endpoint with one `I32` argument. Wheel
+and two-finger pinch input over the canvas supply a signed logarithmic scale
+delta in thousandths: positive zooms out, negative zooms in. A client can apply
+`scale * exp(delta / 1000)`, or an approximation appropriate to its numeric
+representation, then enforce its own scale bounds. The host never changes the
+camera center or projection.
+
+Wheel pixel deltas use CSS pixels directly; line deltas multiply by 16 and page
+deltas by the canvas's CSS height. A 100-pixel wheel delta therefore sends 100.
+Trackpad pinch events delivered as Ctrl+wheel follow the same rule. Two-touch
+pinches use `1000 * log(previousDistance / currentDistance)`, so spreading fingers
+to twice their prior distance contributes approximately -693. Pinch distances
+use CSS coordinates independently of canvas resolution.
+
+Input accumulates until the next available display frame, sends at most one zoom
+command bounded to -1000 through 1000, and keeps fractional units. Excess whole
+units are discarded; a delayed frame does not replay a backlog. Focus loss,
+editing and settings changes discard queued zoom and active touch gestures.
+Without `zoomHandler`, wheel input retains its browser behavior. With it, the
+canvas owns wheel and pinch gestures and uses `touch-action: none`; surrounding
+controls retain their native behavior.
+
+By default mouse and pen confirmation occurs on press. A touch confirms only on
+release of a single-finger tap, after sending its final pointer coordinates.
+Moving more than eight CSS pixels or adding another finger permanently cancels
+that gesture's confirmation, even if the finger later returns to its start.
+Exactly two tracked touches can pinch. Additional fingers suspend zoom, and
+returning to two starts a fresh distance baseline. Cancellation, lost pointer
+capture or a reset cannot produce a confirmation.
+
+An optional `dragHandler` names a client handler taking two `I32` values: signed
+CSS-pixel displacement, positive right/down. It opts the canvas into dragging for
+mouse, pen and touch, coalesced on the existing display frame. All three then
+confirm only on release of a tap. Movement beyond eight CSS pixels begins a drag
+and permanently cancels that tap; a second contact suppresses dragging until all
+contacts release, so a pinch cannot end with a camera jump. The application owns
+the displacement-to-camera conversion. Without this setting, dragging does not
+implicitly pan the view.
+
 `controllerAxes` optionally maps each axis to negative and positive commands:
 `{"axis":0,"negative":["pan",-1,0],"positive":["pan",1,0],"deadzone":0.35}`.
 Axis commands repeat; the deadzone defaults to 0.35. Settings parsing checks these
@@ -400,9 +402,11 @@ bindings and typed payloads both when packaging and in the browser. After focus,
 device or generation changes, held controls must be released before activating
 again. Native controls and editable elements retain their keyboard behavior.
 
-The current UI shell is ordinary HTML/CSS, with application state and behavior
-in Scheme; there is no Scheme widget DSL. A form can bind one or two text fields
-to a typed client handler. Put `data-handler` on the form, `data-i32` on each
+Applications can use the [Scheme UI library](../../ui.md) to declare typed
+controls and allocate their rectangles in one top-down pass. Its browser adapter
+maintains semantic DOM controls; Siegework's HUD uses this path. A handwritten
+HTML form can also bind one or two text fields to a typed client handler.
+Put `data-handler` on the form, `data-i32` on each
 input, and a `data-input-error` element in the form. Fields become I32 arguments
 in document order. The submit button uses ordinary native form behavior:
 
@@ -443,117 +447,77 @@ The shader compiler, pure application API and immutable record library are
 independent of this two-owner host. Broader owner routing and richer wire codecs
 can be added without making them game-specific.
 
-## Solo and cloud saves
+## Static hosting and optional online saves
 
-Free solo runs the shared authority in the browser and saves to IndexedDB.
-Serve only `OUTPUT/solo` using an ordinary static server over HTTPS or localhost;
-it works under a subpath such as `/games/siegework/` and makes no application
-server requests. WebGPU, WasmGC, IndexedDB, Web Crypto and Web Locks are required.
-The cloud package runs the authority on Node and stores `match.sqlite` beside its
-manifest. It supports a single player resuming on another browser as well as
-multiple players sharing the match. This is the server-save foundation for the
-premium product; accounts, billing, authentication and per-user save routing
-are not implemented. The supplied server binds localhost and hosts one save.
-Internet deployment needs separate routing and access control.
+Compile and serve `OUTPUT/solo` over HTTPS or localhost. It works under a subpath,
+runs all game logic locally, and automatically saves to IndexedDB. For explicit
+cross-device checkpoint transfer, build with `SAVE_SERVICE_URL`; the additional
+`OUTPUT/synced` directory is also entirely static. A service outage does not stop
+gameplay or local saving. See the [static save guide](../../static-saves.md) for
+complete build, service and API examples.
 
-```sh
-# Compile once; both directories are produced.
-chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
-# Free solo: serve build/siegework/solo from a static HTTPS or localhost server.
-# Cloud: one persistent hosted match, usable by one or multiple clients.
-node build/siegework/cloud/lib/browser/server.mjs "$PWD/build/siegework/cloud"
-```
+`packageApplications(root, app, artifacts, {saveServiceURL})` packages already
+compiled inputs once. Without the option it produces only `solo`; with the option
+it also produces `synced`. `packageApplication(root, app, artifacts,
+{output, saveServiceURL})` writes a single static bundle to an explicit directory.
+Both manifests have target `solo`; the enabled build also declares `saveService`.
+An existing cloud or unversioned output requires a fresh destination. Old output
+directories and SQLite databases are retained and must not be published as static
+files. Existing browser saves remain compatible.
 
-For already compiled inputs, `node src/browser/build.mjs REPOSITORY APP OUTPUT`
-repackages both targets without compiling Scheme. The JavaScript API is
-`await packageApplications(root, app, artifacts)`; for one explicit destination,
-`await packageApplication(root, app, artifacts, {output, target: 'solo'})`.
-An existing manifest must declare the same target. Changing target, or reusing a
-legacy package without a target, requires a new output directory. Packaging does
-not delete old saves to make a directory publishable as static files.
+An origin/application pair owns database `snail.application:<settings.id>` and
+Web Lock `snail.application:<settings.id>:writer`. Build hash and mount path do
+not name the save. Moving a package on the same origin retains its save. A second
+tab explains which tab must be closed; no unsafe lock fallback is provided.
+Clearing site data or browser eviction can remove a local save.
 
-Solo uses database `snail.application:<settings.id>` and an exclusive Web Lock
-`snail.application:<settings.id>:writer`. Origin and application ID define the
-save; build hash and mount path do not. Moving the package on the same origin
-retains the save. Different origins have separate saves. A second tab shows an
-ownership error; close the first tab and reload to acquire the save. There is no
-unsafe fallback when Web Locks are unavailable. Browser site-data removal or
-storage eviction can remove local saves; solo does not provide cross-device sync.
+The IndexedDB database retains version 1, its `authority` object store and `match`
+key so older browser saves reopen. Records remain
+`{format: 1, application, contract, snapshot}`. A new snapshot contains only
+`{revision, state}`; obsolete epoch/client receipt fields are ignored on read and
+dropped by the next successful commit. The save compatibility contract retains
+the match schema, handler identities, effect ABI, reset identity and run-marker
+policy. Client-only controls do not invalidate the saved world. Live replacement
+still checks both owners' contracts, and the Scheme decoder validates loaded
+state. An incompatible save is preserved with an explanation rather than erased.
 
-`src/application/indexeddb.mjs` exports `acquireWriter(applicationId)`,
-`openStore(manifest)`, `saveName(applicationId)` and `saveContract(manifest)`.
-Acquire the writer before opening/restoring the authority. `await store.load()`
-returns the ordinary authority snapshot object described above or `undefined`.
-`await store.commit(snapshot, expectedRevision)` compares the stored revision
-and writes state, epoch, revision and receipts in one read/write transaction.
-It resolves on transaction `complete`, not on `put` success; `abort` rejects.
-Strict durability is requested as a browser hint, not a universal power-loss
-guarantee. See [IndexedDB transactions](https://www.w3.org/TR/IndexedDB/) and
-[Web Lock lifetimes](https://www.w3.org/TR/web-locks/).
+`store.commit(checkpoint, expectedRevision)` compares and writes in one read/write
+transaction. Transaction `complete` is the success boundary; a successful `put`
+followed by an abort still fails. Strict durability is a browser hint, not a
+universal power-loss guarantee. `store.record(checkpoint)` supplies the versioned
+envelope used by online transfers.
 
-The database has version 1 and an `authority` store with key `match`. Its record
-is `{format: 1, application, contract, snapshot}`. The contract conservatively
-includes both owners' state schemas and typed endpoint contracts, effect ABI,
-reset identity and run-marker policy. Handler slot order and content generation
-are excluded. Restore also runs the current Scheme decoder against the snapshot.
-Incompatible database versions, record formats, policies or snapshots fail
-visibly and preserve the existing data. Reopen the previous compatible package;
-there is no automatic migration or erase-on-error recovery. Authors must change
-the schema when changing the meaning of encoded words; unchanged declarations
-cannot prove semantic compatibility.
+Rejected reducers never replace the committed save. The browser retains one
+separate failure reproduction, readable with `store.failure()`: generation,
+command, committed owner snapshots and any staged candidate. This local record
+supports debugging without changing the match revision or uploading diagnostics.
 
-Both hosts schedule the next tick after the preceding tick completes and the
-interval elapses. Solo skips ticks while its page is hidden; cloud skips them
-when no connected client reports visibility. Reopening never replays elapsed
-wall time. Manual pause is Scheme match state and survives restart. The generic
-clock still submits ticks while manually paused; Scheme may produce an unchanged
-snapshot, which still receives a committed revision. A solo command failure
-stops its clock and reports retry/reload guidance. A successful manual retry
-resumes the clock; a durable revision conflict needs reopening the authoritative
-save rather than silently overwriting it.
+The browser schedules a tick only after the preceding tick settles and the
+interval elapses. Hidden pages skip ticks; reopening never catches up elapsed
+wall time. Manual pause belongs to game state and survives restart. A failed
+local commit stops the clock and explains how to retry; a successful manual
+retry restarts it. Slow storage slows simulation without accumulating tick work.
 
-Solo polls its static manifest once per second after the previous poll settles.
-Compatible Wasm/shader updates preserve both owners in place. Save compatibility
-is checked before activation; a rejected update keeps the prior code and save.
-A full page/browser restart restores the committed match, pause, epoch and
-receipts. Cursor, camera, tool selection, pending requests and notices have page
-lifetime. Fixed solo and clock client identities continue their saved receipt
-sequences on reopen. There is no durable command or effect outbox.
+The browser polls its static manifest once per second after the previous poll
+settles. Compatible application and shader replacement preserves both models.
+Full reload restores the saved game and pause; camera and selection start anew.
+Changing the online-save build configuration requires a page reload.
 
-Normal solo close stops admission and timers, drains accepted transitions, closes
-the renderer and database, then releases the Web Lock. Leaving during startup
-cleans up after the in-flight open finishes. A document restored from the browser
-back/forward cache reloads to acquire fresh resources. Abrupt termination need
-not finish asynchronous cleanup: only completed transactions are recoverable.
-Fresh startup alone has no durable record until the first accepted command/tick.
+Closing stops admission and timers, drains accepted transitions, closes GPU and
+storage resources, then releases the writer lock. Leaving during startup performs
+cleanup when the pending open settles. Abrupt termination recovers only completed
+transactions. Startup alone does not fabricate a durable checkpoint.
 
-## Three state lifetimes
-
-| Owner | Survives compatible code reload | Survives process/tab restart |
-| --- | --- | --- |
-| Authoritative match in stable host | Yes | Through committed durable snapshot |
-| Durable aggregate in IndexedDB or SQLite | Yes | Yes, completed commits |
-| Browser selection/cursor/pending requests | Yes | Not promised; a full page load creates a new local model |
-
-The demo's SQLite backend has **one authority process**. Its revision compare
-and swap rejects conflicting durable writes; it does not make multiple game
-servers into a distributed authority. A shared backend must provide serializable
-commit or a single fenced writer with explicit revision retry. Authority transfer,
-replication and distributed effects are future work.
-
-A replacement Wasm module has a fresh managed heap. No WasmGC object pointer is
-transferred between instances. Derived deserialization constructs a fresh typed
-graph, then the application establishes its semantic invariants. One transition
-produces a candidate snapshot and materialized effect descriptions. Validation
-reads that candidate through its own read-only map while queries retain the
-committed snapshots. A successful durable save publishes the replacement.
-The host may reuse a Wasm instance between calls; fresh decoding and application
-discipline protect snapshots without recreating a module per message.
+A replacement Wasm module has its own heap. The shared scalar snapshot codec
+reconstructs typed values, and application validation establishes semantic
+invariants. No managed pointer crosses module instances or reaches the save
+service. The optional service stores opaque envelopes using HTTP GET/PUT and
+conditional ETags; it never runs game code.
 
 ## Reload boundary
 
 A successful build writes content-addressed Wasm and WGSL, then publishes its
-manifest atomically. The running authority validates a candidate at a message
+manifest atomically. The browser runtime validates a candidate at a message
 boundary. The browser prepares a new GPU pipeline while the old one remains
 active, then revalidates the candidate against the *current* state before swapping.
 Initialization only runs for an absent state owner. Compatible reload consumes no
@@ -564,11 +528,12 @@ candidate cannot reserve its proposed state shape. Installation checks current
 snapshots again before publishing any new owner buffers with the code.
 
 Live reload also requires the same endpoint contracts. Reordering declarations
-is compatible; adding, removing or changing an endpoint requires an explicit
-protocol migration or a separate fresh save. Restart alone cannot make an
-incompatible solo record readable: reopen the previous compatible package, or
-use a deliberately distinct application ID for a separate application. Pending requests retain their original
-encoded identities and payloads.
+is compatible. Adding, removing or changing a client endpoint requires a page
+reload, which initializes presentation state but can reopen the same saved world.
+Changing the match contract requires an explicit save migration or a separate
+application identity. Restart alone cannot make an incompatible saved world
+readable: reopen the previous compatible package, or use a distinct application
+ID. Pending requests retain their original encoded identities and payloads.
 
 State schemas version meaning, not just byte length. A changed schema is rejected
 until an explicit migration exists; automatic migrations are not implemented.
@@ -585,13 +550,12 @@ already admitted messages; the recovery is tagged with its code activation and
 cannot roll back a later installation. The browser reconciles its GPU pipeline
 and input settings after that deferred recovery. `close()` immediately rejects
 new messages, `view` and `prepare`, drains accepted messages and saves, then
-disposes code. `snapshot` remains readable. The server closes SQLite after draining.
+disposes code. `snapshot` remains readable. The browser closes IndexedDB after draining.
 
 Each host schedules its next tick only after the previous tick settles and the
 tick interval elapses. Slow persistence slows the simulation instead of creating
-a backlog of catch-up ticks. Browser snapshot application, local effects and
-session renewal are ordered; new envelopes wait for renewed sequence/epoch
-metadata. Held movement pauses while earlier local work is pending and does not
+a backlog of catch-up ticks. Local effects, state imports and code replacement share the same ordered
+message lane. Held movement pauses while earlier local work is pending and does not
 repay elapsed time after it completes.
 
 HTML, CSS and the JavaScript platform adapter are presently restarted with a
@@ -624,10 +588,8 @@ capabilities. The dialect's public name remains provisional.
 `(application serialization)` provides derived state transport; `(application bridge)`
 composes typed applications, a pure quad view and
 status text into a scalar entry. The browser adapter forwards input, performs
-local or network submission, copies quad data and calls WebGPU. Game rules live
-entirely in Scheme. Solo commits through the browser authority. Cloud runs the
-same generated simulation for speculative feedback in the browser; server
-validation determines accepted state.
+local durable submission, copies quad data and calls WebGPU. Game rules live
+entirely in Scheme and execute in the browser.
 
 See the [Siegework build instructions](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/README.md) and
 [prototype contract](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/PROTOTYPE.md). The
@@ -644,7 +606,7 @@ The generated manifest is inspectable input for future analysis, not a current
 model-checking guarantee. Handlers, schemas and effect destinations should remain
 typed and identifiable as the API grows. Optional invariants and bounded trace
 exploration could check, for example, that Siegework never has negative resources,
-that a duplicate command never purchases two turrets, and that an invalid reload
+that a rejected checkpoint never replaces valid state, and that an invalid reload
 never changes the accepted world.
 
 Safety asks what must never happen; liveness asks what eventually happens.
