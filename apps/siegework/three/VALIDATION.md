@@ -97,3 +97,50 @@ snapshot, including its pause state, and both live preview manifests accepted
 the new generation. The existing solo IndexedDB and cloud SQLite were not
 replaced. The bright combined scene passed the contextual desktop/portrait/
 landscape browser checks and an independent UI visual review.
+
+## Construction feedback and pending-order recovery
+
+Final cloud and solo packages share generation `ada252d67a0c413a4eacacb0` and
+the same 426,113-byte Wasm module (SHA-256
+`2cfd7b5ae2e748ebd900e5a5c1ce6dad14dbf4942763fc47c644892d83b1f165`).
+Both final packages passed the headed Chromium/SwiftShader persistence flow on
+isolated ports 4205 and 4206. Cloud completed two towers and an extractor with
+90 ore spent; solo completed a tower and extractor with 65 ore spent. Their
+active-game reloads retained the structures and expenditure while the clock
+continued normally. The browser traces contained no uncaught runtime exception.
+`make check`, the queue boundary checks, and the actual linked-Wasm colony
+checks passed. Replacing the previous bright-palette Wasm and restoring the
+new module retained exact snapshots for both owners.
+
+The ordinary fresh cloud and solo mouse flow both constructed a tower, delivered
+its paid kit with a worker, completed it, and retained it across an active-game
+reload. The reported failure was reproduced at a narrower cloud boundary: a
+delayed command produced a local tower and spent ore, but the in-memory queue
+disappeared on reload before the server had received it. The reopened server
+snapshot therefore contained neither that tower nor its expenditure. This is a
+demonstrated failure path, not evidence of the original player's network state.
+
+`tests/draw3d/persistence-browser.mjs` uses disposable saves and actual Chromium
+mouse input. The cloud checks block `/command` with DevTools, reload while the
+order is unavailable, then unblock it; the retained order commits once. A second
+case holds a response after the server commits, then reloads and verifies that
+the server's next sequence consumes the stored prefix without another purchase.
+Acknowledged commands remove their storage record. A stale-epoch rejection
+retains the server save, clears unsaved orders visibly, and stays visible after
+the event stream reconnects. The fresh session check also verifies that opening
+a session before its first command returns the same live client identity.
+
+The executable queue-boundary checks in
+`tests/applications/cloud-outbox.mjs` cover protocol incompatibility, malformed
+payloads, sequence gaps, epoch replacement, fresh-identity recovery, and failed
+storage writes/acknowledgement cleanup. They run from `scripts/test-applications`.
+The independent source-free simplify review confirmed the FIFO and exact-head
+acknowledgement model; it identified the need to retain live session identities
+while a first request can still be in flight. No generic migration or background
+coordination layer was added.
+
+World schema 7, client schema 1, application ID and durable save formats remain
+compatible. Deployment needs a cloud server restart for the session rule and a
+browser page reload for the host code. Pending queues survive same-tab reload;
+closing the tab and duplicated tabs sharing one client UUID are outside this
+slice. This validation did not modify the player's live previews or saves.

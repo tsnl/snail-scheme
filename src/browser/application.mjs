@@ -23,7 +23,10 @@ export class BrowserApplication {
   }
   get revision() { return this.session?.revision ?? -1; }
   get pending() { return this.session?.pending ?? []; }
-  note(text) { this.connection.textContent = text; }
+  note(text, state = 'quiet') {
+    if (this.connection.textContent !== text) this.connection.textContent = text;
+    this.connection.dataset.state = state;
+  }
   update(operation) {
     // Browser operations may await network renewal or GPU preparation. They
     // call into the runtime FIFO; runtime messages never wait on this lane.
@@ -65,7 +68,8 @@ export class BrowserApplication {
     this.manifest = this.runtime.manifest; this.generation = this.manifest.generation;
     this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
     await this.runtime.initialize(1); await this.runtime.initialize(2); this.dirty = true;
-    this.note(`LIVE · ${this.pending.length ? `${this.pending.length} pending` : 'state preserved'} · ${this.generation.slice(0, 7)}`);
+    this.note(`LIVE · ${this.pending.length ? `${this.pending.length} unsaved orders retained in this tab` : 'state preserved'} · ${this.generation.slice(0, 7)}`,
+      this.pending.length ? 'pending' : 'quiet');
   }
   start(session) {
     this.session = session;
@@ -115,7 +119,7 @@ export class BrowserApplication {
   }
   report(error) {
     this.reconcileGeneration(); this.dirty = true;
-    this.note(`Transition rejected; committed state retained: ${error.message}`);
+    this.note(`Transition rejected; committed state retained: ${error.message}`, 'error');
   }
   frame(time) {
     if (this.closing) return;

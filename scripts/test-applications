@@ -4,6 +4,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 output="$root/build/application-tests"
 mkdir -p "$output"
+node "$root/tests/applications/cloud-outbox.mjs"
 chibi-scheme -I "$root/bootstrap" \
   "$root/apps/siegework/build.scm" "$root" "$output/siegework"
 for fixture in counter state testing counter-lofi immutable terrain invalid-output async-boundary async-view shader shader-lofi compatible trap invalid-candidate invalid-view invalid-state invalid-initial current-state; do

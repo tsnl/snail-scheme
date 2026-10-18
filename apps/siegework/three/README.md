@@ -27,7 +27,8 @@ Compatible code and shader reloads retain the world, client selection and camera
   so clicking a roof selects the building rather than the ground behind it.
 - Click empty ground to lock a site and choose Tower or Artillery. Press `1`
   or `2`, controller X or Y, or the corresponding touch control. Moving the
-  pointer while choosing does not move the locked site. Escape/B cancels.
+  pointer while choosing does not move the locked site. Selecting a site alone
+  creates no build order and spends no ore. Escape/B cancels.
 - WASD or the left stick pans in screen directions, with pitch compensation
   keeping vertical and horizontal travel consistent. Each pan stops at the
   first camera bound; independent held directions can still slide along it.
@@ -40,6 +41,11 @@ Compatible code and shader reloads retain the world, client selection and camera
 The canvas fills the viewport. Projection and pointer rays use its current
 logical dimensions, while the GPU target follows the physical pixel size.
 HUD controls consume their own input and preserve native keyboard focus.
+Cloud orders show a visible waiting notice until the server acknowledges them.
+An unsaved order is retained across reload in the same tab and retried with its
+original sequence; the small "Saved on server" footer confirms acknowledgement.
+Closing the tab discards its unsaved queue. Orders from a previous colony are
+not applied after a restart. Solo publishes changes after its local save commits.
 
 ## Follow the implementation
 
@@ -66,6 +72,10 @@ node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4200 http://127.0.0.1:9452
 # Movement checks pause a test match: use an isolated package/save.
 node tests/draw3d/pan-browser.mjs http://127.0.0.1:4201 http://127.0.0.1:9452
+# These checks reset disposable test saves; never point them at a player's save.
+node tests/applications/cloud-outbox.mjs
+node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4205 http://127.0.0.1:9452
+node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4206 http://127.0.0.1:9452
 ```
 
 The fixture executes the actual Scheme math, geometry, shader and scene bridge

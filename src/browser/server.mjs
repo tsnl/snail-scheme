@@ -35,7 +35,10 @@ async function route(request, response) {
   const url = new URL(request.url, `http://127.0.0.1:${port}`);
   if (request.method === 'POST' && url.pathname === '/session') {
     const input = await body(request);
-    const client = typeof input.client === 'string' && /^[0-9a-f-]{36}$/.test(input.client) && Object.hasOwn(authority.clients, input.client) ? input.client : randomUUID();
+    // A first command can still be in flight when its tab reloads. Reuse that
+    // live session too, so reload cannot turn one purchase into two identities.
+    const client = typeof input.client === 'string' && /^[0-9a-f-]{36}$/.test(input.client)
+      && (sessions.has(input.client) || Object.hasOwn(authority.clients, input.client)) ? input.client : randomUUID();
     sessions.add(client); send(response, 200, {client, next: (authority.clients[client]?.sequence ?? 0) + 1, ...authority.snapshot()}); return;
   }
   if (url.pathname === '/events') {

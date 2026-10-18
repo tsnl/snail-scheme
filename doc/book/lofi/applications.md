@@ -223,7 +223,26 @@ Effects become observable after this commit. This does **not** promise universal
 exactly-once external effects: a future payment, email or remote service needs an
 idempotency key or a transactional outbox appropriate to that service. This first
 adapter has no durable effect outbox; Siegework authoritative handlers produce
-state only. Its client send effects use the explicit in-memory retry queue.
+state only. Its client send effects use a per-tab retry queue retained in
+`sessionStorage` before prediction or network submission. A page reload opens
+the server session first, removes the queue prefix already consumed by that
+client's sequence, and retries only the remaining current-epoch orders. A lost
+response after commit therefore does not spend resources twice. Orders from
+an earlier colony are discarded visibly; incompatible queue records are kept
+and require the previous compatible package. A successful acknowledgement
+removes its stored envelope. The server reuses live session identities even
+before their first commit, so a delayed first order cannot race a new identity
+issued by page reload. After an authority process restart, an identity with no
+durable history may be rebound only from sequence one.
+
+This queue is scoped by application ID and client UUID within the tab. It survives
+same-tab reload, not closing the tab, and assumes one tab owns that UUID. Browser
+tab duplication can copy `sessionStorage`; independent writers sharing an identity
+are not supported. The queue contains typed requests, never an authoritative
+snapshot or a promise that an unsaved prediction has committed. The browser shows
+waiting/retry feedback until acknowledgement. A storage failure admits no new
+prediction or network request. Solo continues to publish only after its IndexedDB
+transaction commits.
 If an observer throws after commit, state and the receipt remain committed even
 though the caller receives an error. An immediate identical retry returns that
 receipt without rerunning the handler or redelivering its effects. This can lose

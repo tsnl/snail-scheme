@@ -130,7 +130,7 @@
     (define (hover-title world context)
       (let ((found (selected-building world context)))
         (cond ((moving-context? context) "MOVE STRUCTURE · 5 ORE")
-              ((hud-chooser context) "CHOOSE A STRUCTURE")
+              ((hud-chooser context) "SITE SELECTED · CHOOSE A STRUCTURE")
               ((not (null? found))
                (cond ((= (building-kind (car found)) 1) "EXTRACTOR")
                      ((= (building-kind (car found)) 2) "ARTILLERY") (else "OBSERVATION TOWER")))
@@ -142,7 +142,7 @@
                (if (= (pending-move-reason world context) 0)
                    "Click to queue this move. Deliveries drain before the structure relocates."
                    (reason-text (pending-move-reason world context))))
-              ((hud-chooser context) "Choose below, press 1 / 2, or controller X / Y. Escape cancels.")
+              ((hud-chooser context) "No build order yet. Choose Tower or Artillery below (1 / 2, X / Y).")
               ((not (null? found))
                (if (= (building-kind (car found)) 1) (upgrade-message world (car found))
                    (if (moving? (car found)) "Move queued. Current deliveries drain before relocation."
