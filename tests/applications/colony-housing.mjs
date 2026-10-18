@@ -6,7 +6,13 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {colony,restoreColony,fixtureCall,setWorker,at,pixelAt} from './colony-state.mjs';
 const state=r=>colony(r.snapshot(1));
 function node(r,key,value=r.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(r,key,child);if(found)return found;}}
-function population(world,count){while(world.bots.length<count){world.bots.push({...world.bots[0],id:world.nextId++});setWorker(world,world.bots.length-1);}return world;}
+function population(world,count){
+  while(world.bots.length<count){
+    world.bots.push({...world.bots[0],id:world.nextId++});setWorker(world,world.bots.length-1);
+    world.started=true;world.spent+=25;world.produced+=25;world.delivered+=25;
+  }
+  return world;
+}
 async function advance(r,count=1){for(let i=0;i<count;i++)await fixtureCall(r,'advance');}
 async function house(r){await fixtureCall(r,'build-house',[10,22]);for(let i=0;i<100&&state(r).buildings[0].stage!==2;i++)await advance(r);assert.equal(state(r).buildings[0].stage,2);}
 export async function checkHousing(test,fresh){
