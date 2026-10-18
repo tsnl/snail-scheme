@@ -221,7 +221,7 @@
                                        (function-type (list type) #f (cadr field)) '())
                           #f 'data (list 'access schema index field-index))))
 
-    ;; ---- Native foreign declarations ----
+    ;; ---- Scalar foreign declarations ----
 
     (define (extern-binding node)
       (let ((loc (node-loc node)) (definition (ir:extern-declaration-definition node)))

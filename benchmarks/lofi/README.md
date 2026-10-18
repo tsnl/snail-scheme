@@ -28,8 +28,8 @@ Chudnovsky. Cat and WC have complete direct Lofi character loops and file
 lifecycles and matching adapted Chez controls. CTak and Fibc preserve call/cc behavior with explicit immutable continuation
 variants and matching original call/cc traces. Dynamic and Scheme retain complete
 benchmark-local typed implementations with separate original/adapted Chez controls.
-SLaTeX now passes its complete 500-iteration workload, all 28,500 output files and
-resource checks on the current source. Compiler retains all 1,343 kernel forms,
+The recorded SLaTeX checkpoint passed its complete 500-iteration workload, all
+28,500 output files and resource checks. Compiler retains all 1,343 kernel forms,
 its 2,000-compilation canonical input and complete 497-line assembly predicate;
 all six canonical routes pass on the recorded compiler snapshot. The runner
 registers all 57 sources. Recorded Dynamic and Scheme campaigns passed their
@@ -72,14 +72,15 @@ fresh temporaries before aliases bind the original names. Numeric spellings,
 algorithms, canonical inputs, counts, predicates and external controls are unchanged.
 
 Historical executed checkpoints below retain their older surfaces and compilers.
-The manifest's current status comes from the full57 freeze; per-case
-`historical_evidence` preserves earlier links and measured routes. Current
-surface-validation checkpoint is complete with Ack's Wasm failure retained,
+The manifest's recorded validation and measurement statuses come from the
+full57 freeze, not the current compiler; per-case
+`historical_evidence` preserves earlier links and measured routes. That
+surface-validation checkpoint was complete with Ack's Wasm failure retained,
 rather than inferred from historical Ack success. Older records remain verbatim.
 The later named-declaration syntax reserves `data`; the preserved FFT source
 currently fails to compile because it uses that name for a value binding. The
-full57 checkpoint does not establish correctness on this newer compiler. The
-native-package reorganization rechecked Ack: native, Chez and Rust native pass,
+full57 checkpoint does not establish correctness on this newer compiler. A
+historical native-package reorganization rechecked Ack: native, Chez and Rust native pass,
 while both Wasm routes retain their default-stack exhaustion. Benchmark sources,
 inputs and published evidence remain unchanged. The standard formatter covers
 libraries, tests and examples. Benchmark layout remains token-preserving because
@@ -115,30 +116,18 @@ and retains both raw and optimized Wasm. Every process has a terminal record,
 including stdout, stderr, duration, failure and timeout. Timeout cleanup kills
 and drains the process group. A successful compile does not establish successful
 execution. The integrated routes handle scalar/typed-container kernels and Datum/I/O
-programs with their complete predicates. Native builds require the retained raw
-Lofi Wasm. The helper's mandatory Binaryen pass must produce byte-identical
-optimized guest Wasm to the V8 program before native execution is accepted.
-`native-parity.json` retains raw/program/native-optimized/LLVM/executable hashes,
-the actual build command and configuration, including failed build or parity
-outcomes. This equality concerns the guest program, with separate target runtime
-providers. Earlier freezes supplied already optimized input and ran Binaryen
-twice on the native route; their effective optimized modules differ. The
-[retrospective audit](evidence/20261015-native-optimization-audit.json) records
-this for all six measured workloads. Runtime-backed Wasm supplies concrete scalar
-services from a separately pruned Rust provider; the retained provider imports
-exclude the legacy Root ABI. Each target and external control runs in a fresh
-working directory. Per-stage records preserve successful Wasm evidence if a
-later native or comparison step fails. FFT uses a separate scalar Rust sine provider; Tail, Ray and Nucleic use
-concrete runtime services. Pi and Chudnovsky check their entire decimal output
-after running the unchanged canonical count.
+programs with their complete predicates. Runtime-backed Wasm supplies concrete
+scalar services from a separately pruned Rust provider. Each route and external
+control runs in a fresh working directory. Per-stage records preserve successful
+Wasm evidence if a later comparison step fails. FFT uses a separate scalar Rust
+sine provider; Tail, Ray and Nucleic use concrete runtime services. Pi and
+Chudnovsky check their entire decimal output after the unchanged canonical count.
 
-Dynamic and Scheme use local `verify.mjs` and `native-entry.rs` files with the
-shared frozen build and artifact-parity protocol. Their explicit `execution_files`
-lists copy only declared case fixtures into fresh target working directories;
-escaping paths are rejected. The [current-source checkpoint](evidence/20261015-dynamic-scheme.md)
-records all six canonical routes passing for each workload, all 26 supported
-interpreter probes, and the precise Wasm/native resource evidence. Those runs
-added correctness coverage while both workloads were unmeasured at that checkpoint.
+Dynamic and Scheme use local `verify.mjs` files. Their explicit `execution_files`
+lists copy only declared case fixtures into fresh working directories; escaping
+paths are rejected. The historical [2026-10-15 checkpoint](evidence/20261015-dynamic-scheme.md)
+records the then-supported six routes, interpreter probes and resource evidence.
+It does not validate today's compiler or provide a current timing sample.
 
 ## Clean timing protocol
 
@@ -147,7 +136,7 @@ chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm prepare --out
   --benchmarks all --compile-timeout 1800 --run-timeout 1800 --cpu 2
 chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm verify --output /tmp/lofi-full57
 # Run only after coordinating a quiet machine with every active worker.
-SNAIL_NATIVE_SUPERVISOR=/tmp/lofi-full57/toolchain/snail-native-supervisor \
+SNAIL_PROCESS_SUPERVISOR=/tmp/lofi-full57/toolchain/snail-process-supervisor \
 chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/timing.scm measure --output /tmp/lofi-full57 \
   --quiet-window 'Coordinator, confirmation time, and scope of the quiet interval'
 ```
@@ -156,44 +145,29 @@ Set the frozen supervisor path before starting the measurement driver; the
 supervisor setting in each child environment does not initialize the parent
 Chibi process launcher.
 
-The harness supports all 57 registered workloads and all six target/control
-routes; a named subset can still be selected explicitly. The plan retains
-unavailable adapted Chez controls and every failed preparation or execution.
-Support establishes no new correctness or measurement result: each frozen
-campaign earns its own route statuses. Preparation rebuilds all available
-routes, then builds a separate native entry/provider with observation counters
-disabled. Each actual clean
-executable/provider must pass its complete canonical predicate before it earns
-a place in the frozen schedule. Its native build also consumes the copied raw
-sidecar and independently verifies optimized-program parity; the plan preserves
-that proof and checks its artifacts before execution. All original validation
-outcomes remain visible. Preparation and clean-artifact validation are never
-timing samples.
+The harness supports all 57 registered workloads and five target/control routes:
+Lofi/Wasm, original/adapted Chez, Rust/Wasm and Rust/native. A named subset can
+still be selected explicitly. The plan retains unavailable adapted controls and
+every failed preparation or execution. Support establishes no new correctness or
+measurement result: each frozen campaign earns its own route statuses.
 
-Native providers pass their scalar inputs, expected values, counts and hide
-returns through Rust's `black_box`, including generated pathname accessors.
-This preserves value opacity with the tested Rust/LLVM toolchain when shared
-LTO can see both provider and guest. Observation counters remain disabled in
-clean builds. Correctness predicates and hook counts are separate from evidence
-that repeated work survives optimization; timing claims must check the actual
-clean executable's work too. Existing frozen campaigns retain their copied
-providers; this change applies to newly prepared native artifacts.
+Preparation rebuilds all available routes and validates the actual clean
+executables/providers against their complete canonical predicates before admitting
+them to the frozen schedule. Validation-only observation counters and diagnostic
+probes stay outside clean execution. All validation outcomes remain visible;
+preparation and clean-artifact validation are never timing samples.
 
 Clean Wasm hosts preserve the scalar, typed sequence, decimal Integer,
 Datum/runtime, Nucleic, Tail and Ray interfaces explicitly. Compiler, Dynamic,
-Scheme and SLaTeX use the uninstrumented runtime host and scalar native entry;
-their validation-only diagnostic probes remain outside clean execution. FFT
-retains its separate Rust sine provider on both targets. Every clean attempt
-copies declared execution fixtures and starts in a fresh working directory.
-New native builds use the collector's fixed production policy; historical
-`native_heap_bytes` fields no longer configure them. Frozen campaigns retain
-their original executables and recorded environments. The plan hashes implicit math providers
-as well as files named directly on the command line.
+Scheme and SLaTeX use the uninstrumented runtime host. FFT retains its separate
+Rust sine provider. Every clean attempt copies declared fixtures and starts in a
+fresh working directory. The plan hashes implicit math providers as well as files
+named directly on the command line.
 
 Sequence workers compare every existing expected element inside `bench` and
 return a success flag. Pi and Chudnovsky compare every expected decimal
 character there, then serialize the complete observed result after the clock;
-all six routes must emit the exact canonical decimal bytes. Their original
+all available routes must emit the exact canonical decimal bytes. Their original
 and adapted Chez controls have untimed drivers, so preparation retains derived
 timing artifacts that replace only that driver with a monotonic clock around
 the same worker loop and complete predicate. Frozen control sources remain
@@ -248,18 +222,16 @@ tampering, checkout independence, escaping/symlinked dependencies, timeout
 configuration, and a process with a live child. No generic callback or plugin
 framework was introduced.
 
-The full-corpus timing extension used a fresh no-files explainer and informed
-critique to retain one scalar native entry and one decimal entry. Run the
-bounded harness checks with
-`chibi-scheme -D snail-tests -I bootstrap -I tests -I tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
-dependency and scheduling tests, reduced synthetic Wasm/Rust/Chez probes execute
+Run the harness checks under the local resource budget with
+`chibi-scheme -D snail-tests -I bootstrap -I tests -I benchmarks tests/lofi-benchmarks.scm`. Besides frozen
+dependency and scheduling tests, reduced synthetic Wasm/Chez probes execute
 every host category, typed sequence/decimal/math interfaces, failed predicates,
 declared fixture copies and explicit environment propagation. Their command records and
 artifacts remain in `build/lofi-timing-probes`; these probes establish harness
 behavior and are neither canonical corpus correctness nor timing samples.
-Pass `--execute` to that command to run the actual Wasm, Cargo-native and Chez
+Pass `--execute` to that command to run the actual Wasm and Chez
 harness probes. The short invocation runs the pure contract and fixture checks.
-The [full-corpus harness checkpoint](evidence/20261015-full57-timing-harness.md)
+The historical [full-corpus harness checkpoint](evidence/20261015-full57-timing-harness.md)
 records all six canonical and clean-artifact routes passing for FFT, Pi, Tail
 and Equal, plus the exact frozen revision. It adds no measurements.
 

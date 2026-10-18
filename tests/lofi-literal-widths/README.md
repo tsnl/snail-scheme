@@ -1,10 +1,9 @@
 # Numeric literal representation
 
-Run `chibi-scheme -I bootstrap -I tests tests/lofi-literal-widths/check.scm`. Every attempt retains commands,
-located rejection diagnostics, inference traces and actual raw/optimized Wasm
-and native outcomes under `build/lofi-literal-widths`. Native builds consume the
-retained raw guest and must produce the same optimized guest bytes as V8. Native
-execution forces GC and verifies the effect before either the result or trap.
+Run `chibi-scheme -I bootstrap -I tests tests/lofi-literal-widths/check.scm`.
+Every attempt retains commands, located rejection diagnostics, inference traces
+and actual raw/optimized Wasm outcomes under `build/lofi-literal-widths`.
+Execution verifies the effect before either the result or trap.
 
 `defaults.sld` checks I32 and F64 synthesis, direct `ann`, direct `def` and `let`
 annotations, an I64 value outside I32's range, exact source-to-F32 rounding,
@@ -52,9 +51,10 @@ same 19 target values as the migrated fixture. This preserves the earlier exact
 decimal fix, including its F32 tie boundary, F64 rounding, largest finite value
 and smallest subnormal.
 
-[Validation evidence](validation.json) records the complete checks, retained
-attempts and their artifact hashes. The existing 315 target contracts and the
-public CLI, library, native, instance and recursive-group suites pass. Canonical
+The historical [validation evidence](validation.json), recorded before the native
+backend was retired, retains the complete checks, attempts and artifact hashes.
+At that checkpoint the 315 target contracts and public CLI, library, native,
+instance and recursive-group suites passed. Canonical
 benchmark runtime validation and new timing campaigns remain separate work.
 
 An additional [artifact comparison](artifact-parity.json) checks `ack`, `fibfp`,

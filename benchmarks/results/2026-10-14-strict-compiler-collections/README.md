@@ -51,7 +51,7 @@ The lexical operation audit accounts for all 1,345 source forms and records
 108 external names / 4,580 references, each with its containing definition,
 source line, ASCII byte offset, and call/value role. The complete inventory and
 its small source-specific audit script are retained in the archive. The
-[port contract](../../strict-suite/compiler-port.md) groups those operations
+[port contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/compiler-port.md) groups those operations
 and identifies the exact library and source-adaptation boundaries.
 
 ## I/O scope and failure ownership

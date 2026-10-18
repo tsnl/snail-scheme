@@ -1,5 +1,9 @@
 # SLaTeX
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` retains all 183 kernel forms after flattening the upstream top-level
 blocks. It runs the complete source-processing algorithm 500 times against the
 unchanged `inputs/slatex-data/test` input. The original result predicate accepts
@@ -28,7 +32,7 @@ numbers advance by two per iteration. The recorded complete worker opens and
 closes 94,501 resources; setup closes one configuration input and cleanup has no
 remaining resource to close.
 
-The current `def`/`let` source passed all 500 iterations on optimized V8,
+The recorded `def`/`let` source passed all 500 iterations on optimized V8,
 native64, original Chez and adapted Chez. Each produced all 28,500 exact output
 files. V8 checked every ordered resource cycle; native checked one setup close,
 94,501 worker closes and zero cleanup closes. The native build consumed retained
@@ -38,7 +42,8 @@ artifact hashes, compiler snapshot, terminal results and the parity proof.
 Both frozen Rust routes also passed the canonical 500 and every output file.
 These concurrent correctness executions are not performance samples.
 
-The [public runner replay and integration check](integration.json) also pass.
+The historical [public runner replay and integration check](integration.json)
+also passed.
 The public build reproduces the validated raw and optimized Wasm exactly and
 executes the full Wasm/native workload through the shared runner. Rebuilding
 against the later library-builder and book-example updates retains those exact
@@ -48,9 +53,9 @@ The syntax-only migration preserves literal spellings. Its checked numeric
 inventory accounts for all 373 literals; 338 explicit I64 annotations preserve
 the old widths, and every current typed value matches at its target IEEE width.
 [`literal-migration.json`](literal-migration.json) records the source locations.
-The shared runner invokes `verify.mjs` for the complete V8 resource/file proof,
-`native-entry.rs` for native worker/cleanup checks, and checks every output file
-for native, both Chez controls and the Rust routes.
+The current runner invokes `verify.mjs` for the complete V8 resource/file proof
+and checks every output file for both Chez controls and the Rust routes. The
+native entry used by the archived validation has been retired.
 
 Earlier attempts remain retained: one old-surface build failed in emission;
 an instrumented inspection and an unmodified identical-source rebuild succeeded,

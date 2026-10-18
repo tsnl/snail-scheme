@@ -17,7 +17,7 @@ member hashes are listed in `manifest.json`.
 
 ## Source equivalence and scope
 
-[earley_port.py](../../strict-suite/earley_port.py) applies 93 counted reversible
+[earley_port.py](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/earley_port.py) applies 93 counted reversible
 edit rules, matching 190 occurrences. Reversing them restores the complete
 original kernel byte for byte. Both source forms retain the original author
 header, comments and loops. The complete original Chez program uses the untouched

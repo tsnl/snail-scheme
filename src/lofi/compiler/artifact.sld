@@ -1,5 +1,5 @@
 ;; Lofi compilation produces optimized Wasm with an explicit scalar entry.
-;; Native lowering and provider linkage are separate libraries.
+;; Provider linkage is separate from compiler artifact construction.
 (define-library (lofi compiler artifact)
   (export make-entry entry? entry-library entry-export
           artifact? artifact-entry artifact-parameters artifact-result artifact-bytes

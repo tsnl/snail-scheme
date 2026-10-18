@@ -1,5 +1,9 @@
 # Dynamic type inference
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` contains all 229 kernel forms of the upstream dynamic type inferencer.
 Each of the 500 canonical iterations reads the complete 83,872-byte
 `inputs/dynamic.data`, parses its source forms, constructs and normalizes type
@@ -32,14 +36,14 @@ its optimized module was checked byte-for-byte against V8's program module. V8
 resource tracing confirmed all input bytes and EOF reads; native release counts
 confirmed setup, worker and cleanup ownership. These were concurrent correctness
 runs, without a clean timing claim. The later
-[current-source frozen checkpoint](../evidence/20261015-dynamic-scheme.md)
-compiles the unchanged current source and passes all six canonical routes,
+[2026-10-15 frozen checkpoint](../evidence/20261015-dynamic-scheme.md)
+compiled the source recorded there and passed all six canonical routes,
 including both Rust controls, with the same complete lifecycle checks. Rust
 buffers and closes each input during parsing; its resource strategy remains
-distinct from the source's retained ports. The case remains unmeasured.
+distinct from the source's retained ports. That checkpoint added no timing samples.
 
 The [integration review](../evidence/20261015-two-ports-review.json) repeats the
-complete worker with the current scalar runtime and native lowering. It verifies
+complete worker with the scalar runtime and native lowering recorded there. It verifies
 source-form identity and optimized guest byte equality, including all 41,936,000
 input bytes, 500 EOF reads, no worker closes, and 500 cleanup closes.
 

@@ -19,8 +19,9 @@ The initial scheduling baseline on 2026-10-17 was a successful 29-suite run with
 3,432.268 seconds of summed constituent command duration, including 1,632.856
 seconds in integration. That is 57.20 minutes of recorded command time, not a
 measured GitHub Actions wall time. That historical integration attempt passed 356
-cases; the current manifest contains 396. Sharding preserves the current cases,
-including expected compile rejections and both Wasm forms for executable cases.
+cases; the current inventory is `lofi-integration/cases.json`. Sharding preserves
+those cases, including expected compile rejections and both Wasm forms for
+executable cases.
 The separate 57-workload benchmark comparison remains unchanged.
 
 A matched local sample at `c9a1c05d` selected 32 evenly spaced integration cases
@@ -40,8 +41,9 @@ Those recorded suite durations motivated nine backend groups: their longest
 summed suite time would be 570.513 seconds, compared with 987.916 seconds in the
 original four-group assignment. That calculation excludes setup and is a
 scheduling estimate, not an observed speedup. Nine backend, eight integration
-and three host/public jobs fit 20 simultaneous runners without another scheduling
-algorithm.
+and three host/public jobs fit 20 simultaneous runners at that checkpoint.
+The current matrix uses two host/public jobs after retiring the native suite;
+`ci.mjs` derives its assignments from the suite inventories.
 
 `scripts/test-lofi-serialization` checks the complete fixture inventory in
 `serialization/cases.json`: derived graphs, nominal type tags, malformed input,
@@ -52,7 +54,8 @@ names to select cases.
 
 Lofi fixtures use `.sld` files and `(lofi ...)` imports. Frozen migration,
 validation and oracle-provenance records retain the SFIR names and paths from
-their recorded revisions; they are historical evidence, not current commands.
+their recorded revisions, including retired native-backend execution and source
+paths. They are historical evidence, not current commands or supported targets.
 
 `tests/Cargo.toml` owns independent transport-data, optimizer and adversarial
 compiler-process probes. `tools/host/process-supervisor.rs` enforces command

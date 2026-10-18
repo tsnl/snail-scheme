@@ -1,5 +1,5 @@
 ;; Concrete scalar operations and homogeneous collection libraries.
-;; Static overloads specialize ordinary Lofi functions over native storage.
+;; Static overloads specialize ordinary Lofi functions over concrete storage.
 (define-library (lofi base)
   (export Default default
           + - * / sqrt truncate round floor ceiling quotient remainder = < <= > >= not unit unreachable
@@ -151,7 +151,7 @@
                          (loop (ann 1 I64))))))))
 
     ;; These are ordinary polymorphic Lofi functions. Specialization keeps
-    ;; each element type through native allocation and bulk copying. Constructors
+    ;; each element type through Wasm allocation and bulk copying. Constructors
     ;; return fresh vectors while preserving the identity of referenced elements.
     (def vector
          (lambda elements (list->vector elements)))
@@ -205,7 +205,7 @@
                                result))))))
     (def appended-length
          (lambda (sources)
-           ;; Check every prefix before adding another bounded native length.
+           ;; Check every prefix before adding another bounded Wasm length.
            ;; The addition is at most twice U32_MAX, so it cannot overflow I64.
            (begin
              (def loop

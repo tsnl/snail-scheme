@@ -61,7 +61,7 @@ The complete canonical streams and the listed edge cases agree; arbitrary
 out-of-domain error wording and every Unicode-version classification are not
 claimed equivalent.
 
-The [implemented library contract](../../../doc/strict-reader.md) explicitly
+The [implemented library contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/doc/strict-reader.md) explicitly
 bounds numbers, syntax, equality and identity. Exact numbers fit I64; inexact
 components use binary64. Rational/bignum values, datum labels, cycles and case
 directives remain unsupported. Malformed number tokens do not become symbols.

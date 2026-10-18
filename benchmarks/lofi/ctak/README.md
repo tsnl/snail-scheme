@@ -1,5 +1,9 @@
 # CTAK
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` ports the complete upstream `ctak` and `ctak-aux` algorithm.
 The canonical input remains one invocation with `(32, 16, 8)`, with result `9`.
 The benchmark driver hides all three arguments separately and checks the final
@@ -31,8 +35,9 @@ and 373 invocations, and returns 4. No event calls occur in `main.sld`.
 The frozen corpus runner passed the complete canonical predicate on Lofi/V8,
 Lofi/native64, original/adapted Chez, and Rust Wasm/native. That native preparation
 optimized an already optimized module again, so its program bytes differ from
-V8's input; it establishes correctness, not module parity. The runner is correcting
-that preparation separately. These validation runs are not clean timing data.
+V8's input; it establishes correctness, not module parity. The later historical
+[parity audit](../evidence/20261015-native-optimization-audit.json) records that
+preparation error separately. These validation runs are not clean timing data.
 
 The focused simplify review used a fresh explanation without repository access,
 followed by a critique of the closed-program invariant. Each incoming continuation

@@ -42,7 +42,7 @@
       (newline port))
 
     ;; Scheme quotes the WAT token -inf as a symbol. Only definitions containing
-    ;; that exceptional leaf need a Scheme walk; the ordinary path stays native.
+    ;; that exceptional leaf need a Scheme walk; the ordinary path uses Chibi's built-in writer.
     (define (negative-infinity? datum)
       (cond ((pair? datum) (or (negative-infinity? (car datum)) (negative-infinity? (cdr datum))))
             ((symbol? datum) (eq? datum (string->symbol "-inf")))

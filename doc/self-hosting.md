@@ -1,37 +1,25 @@
-# Native self-hosting investigation
+# Self-hosting investigation
 
-> Historical investigation: the LLVM backend and custom native runtime have been
-> removed. Commands and native-bootstrap plans below describe earlier revisions.
-> The current self-hosting target is WasmGC on an engine such as V8; that milestone
-> remains unimplemented. See [the current build contract](backend.md).
+The compiler remains hosted by Chibi. The execution target is WasmGC; the LLVM
+backend and custom collector have been retired. A compiled compiler could reduce
+Scheme pass costs, but there is no self-hosted compiler or measured self-hosting
+speedup yet. The observations below are historical diagnostics, followed by the
+current bootstrap boundaries and proposed acceptance criteria.
 
+## Current boundary
 
-A native compiler could reduce Siegework's build time by running its Scheme
-passes as compiled code. Compiling a command that calls the current public
-`(lofi compiler)` service would still run those passes in Chibi. There is no
-self-hosted compiler or measured self-hosting speedup yet.
+The product [`(scheme base)`](../src/scheme/base.sld) expands an initial typed
+Scheme subset into Lofi. It shares hygienic macro expansion, resolution, checking
+and the WasmGC backend. It does not implement the full Scheme environment used
+by the compiler itself. [`bootstrap/`](../bootstrap/README.md) keeps Chibi's
+implementation libraries separate from product imports.
 
-This is a design and measurement milestone. It adds a reproducible measurement
-command, compatibility probes and a bootstrap plan. It does not change the
-compiler, its language contract, or the default `lofi` command.
+The public [`(lofi compiler)`](../src/lofi/compiler.sld) is a scalar service
+interface; [`CompilerHost`](../src/lofi/compiler/service.mjs) starts Chibi to
+implement it. Compiling a caller of that service does not compile the compiler
+passes. A launcher that still invokes Chibi is not self-hosting.
 
-## What works today
-
-The product [`(scheme base)`](../src/scheme/base.sld) expands typed Scheme forms
-into Lofi. Scheme programs already use the Wasm and native backends: building
-`examples/scheme-fibonacci.sld` with `scripts/build-native` and executing the
-result prints `832040` with exit status zero.
-
-The compiler implementation uses Chibi's considerably larger Scheme environment.
-[`bootstrap/`](../bootstrap/README.md) deliberately keeps that environment separate
-from the product Scheme libraries. The public
-[`(lofi compiler)`](../src/lofi/compiler.sld) is a scalar service interface;
-[`CompilerHost`](../src/lofi/compiler/service.mjs) starts Chibi to implement it.
-A native provider for that service is not currently supplied. Making that
-provider start Chibi would provide a useful adapter, but would not move checking,
-specialization or emission into native code.
-
-## Build observations
+## Historical build observations
 
 On 2026-10-17, Linux x86-64, Intel Core Ultra 7 270K Plus, Chibi 0.12.0,
 Binaryen 132 and Node 24.19.0, with `BINARYEN_CORES=1`:
@@ -115,9 +103,8 @@ Binaryen traces as `artifact-*.trace.json`. `instrumentation.json` hashes the
 original and copied sources. Inspect `result.json` for phase totals and load the
 raw trace files in the existing trace viewer.
 
-The current recorder follows the `src/lofi/compiler/` layout and imports native
-trace utilities through `bootstrap/`. That include root also exposes `src/native/`;
-no separate legacy package search path is needed. The retained observations above
+The current recorder follows the `src/lofi/compiler/` layout and imports
+`(lofi host chromium-trace)` through `bootstrap/`. The retained observations above
 belong to their recorded revisions before this layout change.
 
 The [profiling helper](../src/lofi/compiler/profile.sld) now also instruments
@@ -152,7 +139,7 @@ runs are diagnostics, not clean timing samples. Compare the two Wasm hashes
 between modes to check whether the decorations changed generated artifacts;
 matching bytes do not prove every runtime behavior correct.
 
-## Why checking and emission are expensive
+## Historical overload diagnosis
 
 The [follow-up profile record](measurements/overload-profile-2026-10-17.json)
 contains operation totals, the experimental patch, and artifact hashes.
@@ -179,131 +166,57 @@ A private overlay experiment added a conservative type-shape filter before the
 existing trial. Variables still pass through to the original unifier; only
 already contradictory shapes are rejected early. Its complete build took 38.557
 seconds, with identical shader and simulation Wasm. Simulation checking took
-12.518 seconds and emission 11.876. This is an instrumented experiment, separate
-from the original baseline; a production optimization and clean measurements
-belong in the follow-up fix PR. It identifies avoidable host work without needing
-to self-host first. The existing unifier must remain responsible for rigid
-variables, repeated-variable consistency, occurs checks and diagnostics.
+12.518 seconds and emission 11.876. This was an instrumented experiment, separate
+from the original baseline. The later [production filter](overload-performance.md)
+and [3D compilation changes](compilation-performance.md) have their own ordinary
+build measurements. They demonstrate avoidable host work before self-hosting.
+The unifier remains responsible for rigid variables, repeated-variable consistency,
+occurs checks and diagnostics.
 
-## Reproduce the readiness probes
+## Remaining dependencies
 
-These commands use today's tools; the `snail` interface below is proposed.
-Run from the repository root. Each negative probe stops at its first failure,
-so this is evidence of blockers, not an exhaustive language conformance audit.
+The old native readiness probes and native bootstrap proposal are preserved in
+[the pre-removal investigation](https://github.com/tsnl/snail-scheme/blob/e528eb28f07650b8f61046572feb233fec9a9fe5/doc/self-hosting.md).
+Their first-failure diagnostics belong to those revisions; they are not a current
+compatibility inventory. In particular, `scripts/build-native` is no longer a
+command in this checkout.
 
-```sh
-mkdir -p build/self-hosting-probes
-scripts/build-native examples/scheme-fibonacci.sld build/self-hosting-probes/fibonacci
-build/self-hosting-probes/fibonacci
-scripts/build-lofi src/lofi/compiler/bootstrap.sld build/self-hosting-probes/compiler.wasm
-```
+Compiling the hosted Scheme sources requires broader support for records,
+heterogeneous data, general truthiness, exceptions, multiple values, parameters,
+identity tables, exact numeric decoding and host I/O. Each dependency needs an
+explicit representation and actual execution evidence. `Any` is the dynamic
+option: projections must be checked until the compiler proves them safe. It does
+not by itself supply Scheme data operations, mutable-pair semantics or libraries.
+The scope of a typed port versus broader Scheme support remains a separate
+implementation decision; neither route is complete today.
 
-The native control prints `832040`. Compiling the compiler currently fails in the
-reader at `compiler/bootstrap.sld:30:23`, at the `library:` identifier prefix.
-A smaller independent import probe reaches the explicit unsupported-modifier
-error:
+## Proposed bootstrap
 
-```sh
-cat > build/self-hosting-probes/prefix.sld <<'SCHEME'
-(import
- (prefix (scheme base) s:))
-42
-SCHEME
-scripts/build-lofi build/self-hosting-probes/prefix.sld build/self-hosting-probes/prefix.wasm
-```
+`bootstrap` is proposed, not implemented. It should use Chibi as stage 0 to
+compile the compiler passes to WasmGC and leave an executable launcher in the
+current directory. That launcher needs an engine and explicit host services;
+bundling the engine is a separate packaging decision. The compiler it runs must
+execute the passes itself instead of forwarding them to Chibi.
 
-A native service probe reaches the missing provider declaration for
-`("lofi.compiler" "result-ok")`:
-
-```sh
-cat > build/self-hosting-probes/service.sld <<'SCHEME'
-(import
- (scheme base)
- (only (lofi compiler) empty-library-map))
-(define libraries (empty-library-map))
-42
-SCHEME
-scripts/build-native build/self-hosting-probes/service.sld build/self-hosting-probes/service
-```
-
-Source inspection identifies larger compatibility decisions behind these first
-errors:
-
-| Compiler use | Current product boundary | Port decision |
-| --- | --- | --- |
-| `define-record-type`, field setters and object identity in `types.sld` and `ir.sld` | Typed data declarations and explicit mutable storage | Give solver holes, bindings and IR nodes concrete types and preserve identity. |
-| Quoted/quasiquoted heterogeneous data throughout types, macros and WAT emission | Typed homogeneous lists; no general Scheme datum syntax | Use explicit datum values where data is genuinely heterogeneous; use typed records/unions for compiler structures. |
-| Object-or-`#f` lookups and general truthiness | Conditions require `Bool` | Represent absence explicitly and preserve lookup/equality semantics. |
-| Parameters, `guard`, variadic/multiple-value helpers and mutable pairs | Initial Scheme surface, not the complete Chibi environment | Audit actual uses; port to explicit compiler context/results or implement a deliberately scoped library capability. |
-| Identity hash tables and comparators in inference/library resolution | Chibi/SRFI imports do not become product libraries automatically | Supply typed tables with stable binding identity and measured costs. |
-| Exact integers and rationals in `numeric-literals.sld` | Fixed-width default arithmetic plus explicit numeric libraries | Preserve exact source decoding and IEEE rounding with deliberate numeric representations. |
-| Files, ports, temporary directories and subprocesses | Chibi orchestration plus Rust scalar services | Give the native command explicit resource-owning host operations. |
-| Wasm construction, WAT reading/writing and LLVM emission | Native lowering is also implemented in hosted Scheme | Port the full native build closure, including the backend libraries, not just its command wrapper. |
-
-Extending the Scheme frontend is one possible approach. Compiling the compiler
-unchanged would require a substantially wider Scheme implementation, beyond
-fixing an import spelling or adding `define-record-type`. The proposed first port
-keeps the typed language and gives compiler data concrete representations, using
-Scheme surface forms where they fit. It should not silently introduce universal
-dynamic values or change existing Scheme numeric behavior to get a bootstrap.
-The exact port scope needs a separate implementation review.
-
-## Proposed `snail` command and bootstrap
-
-The eventual command is a native executable containing the compiler passes.
-These commands are proposed, not implemented:
-
-```sh
-snail run program.sld -- argument
-snail build program.sld -o program
-```
-
-`run` resolves the source graph, checks and specializes it, emits Wasm, lowers it
-through the native backend, links the selected providers and executes the native
-program immediately. `build` performs the same compilation without executing the
-result and is also used to rebuild the compiler. Keep map-based Wasm compilation
-available for shader and browser build composition. Hosting the compiler natively
-can produce the same Wasm artifacts measured here; `snail run` additionally pays
-for native lowering and linking and needs its own timing. Preserve explicit
-library roots, provider choices, located diagnostics and the existing initialization/exit-status
-rules. The first implementation can execute a linked child executable; an
-in-process native loader is a separate optimization. Report compile/link and
-program execution time separately.
-
-External Binaryen, LLVM and Rust tools remain allowed. The self-hosted command
-must not invoke Chibi or delegate compiler passes back through the current
-compiler service. A compiled launcher or a native provider that invokes Chibi is
-not bootstrap completion.
-
-1. **Measure the existing host.** Retain the current baseline and profile, identify
-   expensive passes and add representative compiler-scale correctness inputs.
-2. **Port one dependency closure.** Start with located syntax and compiler data,
-   then resolution/expansion, inference, concrete preparation and Wasm emission.
-   Keep pass boundaries and frontend behavior stable. Compare their results with
-   Chibi before making native execution the default. Port host I/O and native
-   build orchestration with explicit handles and cleanup.
-3. **Build stage 1 with Chibi.** Stage 0 is the existing Chibi-hosted compiler;
-   it compiles the ported compiler through Wasm and the native backend into
-   `snail.stage1`. Execute it on real programs, including Siegework.
-4. **Rebuild the compiler natively.** Stage 1 builds stage 2 from the same sources;
-   stage 2 builds stage 3. Verify both generations execute the compiler passes
-   themselves with Chibi unavailable. Compare deterministic Wasm/IR outputs;
-   account explicitly for native build metadata before requiring binary equality.
-5. **Gate the switch with evidence.** Run the relevant correctness suites and
-   actual native execution, including macro identity, located failures, numeric
-   edge cases, proper tail calls, collector roots and foreign resource ownership.
-   Preserve the complete 57-workload comparison and its existing limitations.
-   Measure clean end-to-end builds with matched inputs and a recorded cache policy.
-
-Compiler modules allocate many short-lived objects and depend heavily on identity.
-A successful bootstrap alone would not establish good native GC behavior or a
-speedup. Profile the native compiler before changing collector or representation
-policy. Keep any such implementation work in follow-up PRs.
+1. Port or implement the compiler's actual dependency closure, keeping located
+   syntax, resolved IR, type evidence and pass boundaries visible. Compare each
+   pass with Chibi on the same inputs before switching hosts.
+2. Build stage 1 with Chibi, then execute it on real programs, including Siegework.
+   Keep external tool execution and scalar-resource ownership explicit.
+3. Have stage 1 compile stage 2 and stage 2 compile stage 3 from the same sources.
+   Run with Chibi unavailable and compare deterministic Wasm/IR outputs. Record
+   launcher and engine metadata separately from generated program bytes.
+4. Run correctness checks for macro identity, located failures, numeric boundaries,
+   initialization, proper tail calls and foreign resources. Preserve the complete
+   57-workload comparison, failures and historical limitations.
+5. Measure clean end-to-end builds with matched inputs, tool versions and cache
+   policy. Profile allocation and engine behavior before changing representations.
 
 ## What would count as a speedup?
 
 Measure the Chibi and stage-2 compiler against the same Siegework revision,
-optimization flags and provider/tool versions, with several sequential samples.
+optimization flags, engine and provider/tool versions, with several sequential
+samples.
 Include every stage needed by the requested command. Report the distribution of
 compiler-pass time, external tool/link time and total time, alongside correctness
 and artifact evidence. A faster kernel microbenchmark or faster launcher startup

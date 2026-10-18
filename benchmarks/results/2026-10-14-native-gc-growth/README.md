@@ -42,7 +42,7 @@ a smaller start for tuning and deterministic growth tests. Both round down to
 32-KiB blocks; allocation extents round up, including their header and alignment.
 Configuration, cap remainders and object sizes are checked before arithmetic or
 publication. C metadata and root storage are outside the managed-byte cap.
-See [`doc/native.md`](../../../doc/native.md) for the complete configuration and
+See [`doc/native.md`](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/doc/native.md) for the complete configuration and
 statistics contract.
 
 ## Diagnostic comparison

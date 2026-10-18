@@ -81,8 +81,8 @@ Additional local checks passed:
 - `make test` and `make check`.
 - 105 selected overload, class and Scheme integration fixtures on raw/optimized Wasm.
 - All 20 focused contract fixtures on raw/optimized Wasm.
-- Actual native execution of generic overload rows, returned closures and
-  qualified overloads, returning the expected 42 with collection forced at every
+- Before native backend retirement, actual native execution of generic
+  overload rows, returned closures and qualified overloads, returning the expected 42 with collection forced at every
   allocation. These are correctness checks, not native timing measurements.
 
 The measurement record includes the exact selected case inventory and completion

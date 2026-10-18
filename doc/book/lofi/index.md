@@ -115,7 +115,7 @@ input handling would check those conditions before calling `channel-hex`.
 
 The repository checks both examples directly from this chapter with
 `scripts/test-lofi-book`, using `-I examples` to find the formatting library.
-The checks execute raw and optimized Wasm and the native target.
+The checks execute raw and optimized Wasm.
 
 `data` covers both structs and closed unions: one constructor makes a
 struct, and several constructors make a union. `primary` and `rgb` explicitly

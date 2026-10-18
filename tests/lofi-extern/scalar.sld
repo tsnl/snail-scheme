@@ -2,8 +2,8 @@
 (import
  (lofi base))
 (def Combine (typeclass ( T) (: combine (-> T T T))))
-(def lofi-migration-instance-1 (instance (Combine I32) (combine native-add)))
-(define-extern native-add "probe" "add" (-> I32 I32 I32))
+(def lofi-migration-instance-1 (instance (Combine I32) (combine foreign-add)))
+(define-extern foreign-add "probe" "add" (-> I32 I32 I32))
 (define-extern mark "probe" "mark" (-> I32 Unit))
 (define-extern id-i64 "probe" "id64" (-> I64 I64))
 (define-extern id-f32 "probe" "idf32" (-> F32 F32))
@@ -62,6 +62,6 @@
 
 (def char-worker (-> Char Char)
      id-char)
-((begin (mark (ann 3 I32)) native-add)
+((begin (mark (ann 3 I32)) foreign-add)
  (begin (mark (ann 1 I32)) (ann 20 I32))
  (begin (mark (ann 2 I32)) (ann 22 I32)))

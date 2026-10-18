@@ -1,11 +1,9 @@
 # Recursive group contracts
 
-Run `chibi-scheme -I bootstrap -I tests tests/lofi-recursion/check.scm`. Each attempt retains exact commands,
-outcomes, inference traces, raw/optimized Wasm, native lowering and guest hashes
-under `build/lofi-recursion`. Native builds consume retained raw Wasm; the runner
-requires their optimized guest bytes to equal the module executed by V8. Native
-runs force GC at allocation boundaries. The scalar effect provider and bounded
-process supervisor are shared with the instance-initialization fixtures.
+Run `chibi-scheme -I bootstrap -I tests tests/lofi-recursion/check.scm`.
+Each attempt retains exact commands, outcomes, inference traces, raw/optimized
+Wasm and guest hashes under `build/lofi-recursion`. The scalar effect provider and
+bounded process supervisor are shared with the instance-initialization fixtures.
 
 `generic-groups.sld` exercises independently annotated mutual functions,
 permuted quantifiers, an inferred peer shared by two annotated functions,
@@ -16,7 +14,7 @@ concrete calls; the I64/Bool mixed group checks distinct specializations.
 `safe-values.sld` executes self and mutual value cycles whose chosen branches
 avoid premature reads, plus a computed local closure capturing its recursive
 peer. `early-value.sld` and `early-capture.sld` must trap on actual premature
-reads after exactly the recorded preceding effects, on both execution targets.
+reads after exactly the recorded preceding effects, on both Wasm forms.
 
 The negative sources stop at `source-file->core`: no specialization or Wasm
 emission runs. They reject inferred and annotated type-changing self/mutual

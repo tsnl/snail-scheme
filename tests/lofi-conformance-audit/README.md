@@ -6,6 +6,11 @@ integration harness and checks every listed source on raw and optimized Wasm:
 chibi-scheme -I bootstrap -I tests tests/lofi-conformance-audit/check.scm --output /tmp/lofi-conformance
 ```
 
+## Historical executable audit
+
+The native backend used by this audit has been retired. The table below records
+execution at the archived revision, not the current test runner.
+
 The [2026-10-15 audit index](evidence/20261015-book-contracts.json) records a
 separate executable audit against the Lofi book. Its
 [source and log bundle](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/tests/sfir-conformance-audit/evidence/20261015-book-contracts.tar.gz) preserves

@@ -1,5 +1,9 @@
 # Complete compiler workload
 
+Current runs use Lofi/Wasm and the independent Chez/Rust controls. Native Lofi
+results below are historical; see [the archive guide](../../history.md) for the
+recorded source revisions and retired build tools.
+
 `main.sld` retains all 1,343 kernel forms from the upstream compiler, including
 the frontend, optimization passes, virtual machine representation, register
 allocation and target assembly generation. `source-coverage.json` records the
@@ -46,7 +50,7 @@ source uses would require a new control representation or proof. The Value/graph
 layer also received an independent explanation and critique. A fresh no-files
 initialization review checked exactly-once writes, aliases, nested RHS failures,
 and earlier effects surviving an abort. Its targeted positive regression runs
-on raw/optimized Wasm and native; the original Unit-as-Value form is rejected.
+on raw/optimized Wasm; the original Unit-as-Value form is rejected.
 
 `probes.scm` adds 15 untimed control observations. `observe` combines those with
 real internal-error and limit-error reporters, five malformed compiler inputs,
@@ -56,9 +60,8 @@ mutation trace, handler restoration and all 497 recovery assembly lines. The two
 operand-order probes explicitly choose the same permitted left-to-right order in
 the original observer. `chez-original.scm` remains unchanged.
 
-`verify.mjs` runs those observations and the complete canonical worker on V8;
-`native-entry.rs` supplies the corresponding native invocation. Each accepts a
-separate `fatal` invocation that must exit unsuccessfully through the initial
+`verify.mjs` runs those observations and the complete canonical worker on V8.
+It accepts a separate `fatal` invocation that must exit unsuccessfully through the initial
 handler. The runner requires exit 1, the exact source diagnostic, and the expected
 runtime error; signals or a returning handler cannot pass. The current directory
 supplies `input.txt`, `error-inputs.scm`, and
@@ -81,7 +84,7 @@ confirming the inventory walk did not change compilation. Later compiler revisio
 need separate evidence.
 
 The retained fourth historical draft attempt diagnosed the Unit/Value authoring
-error. The first current frozen build lost its terminal session during
+error. The first recorded frozen build lost its terminal session during
 coordination; its exit status is explicitly unknown. The identical-source restart
 completed successfully. The focused initialization regressions supplement the
 full canonical execution. No timing claim is made from these concurrent
@@ -91,7 +94,7 @@ Upstream algorithm functions and coherent exhaustive dispatch may exceed the
 repository's ten-line target. Their source identities and representation/control
 boundaries remain visible instead of splitting them into numbered fragments.
 
-To reproduce all six correctness routes from a fresh freeze:
+To validate the five supported correctness routes in a fresh freeze:
 
 ```sh
 chibi-scheme -I bootstrap -I benchmarks benchmarks/lofi/runner.scm prepare --benchmarks compiler \

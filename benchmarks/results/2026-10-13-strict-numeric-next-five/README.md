@@ -69,7 +69,7 @@ or collector mechanism.
 Cumulative coverage is now **18 passing measured ports/slices**, including
 cat/wc, with Ackermann's prior default-stack failure and **38 unported** out of
 57. [Coverage](coverage.json) preserves that partition. The
-[43-workload capability inventory](../../strict-suite/capabilities.md) is the
+[43-workload capability inventory](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/capabilities.md) is the
 historical cut after array1; its five selected cases are measured here. Existing
 frozen reports remain unchanged.
 

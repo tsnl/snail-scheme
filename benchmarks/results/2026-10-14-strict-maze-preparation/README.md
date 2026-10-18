@@ -20,7 +20,7 @@ input SHA-256 is 90874004ae477b9a77164e83459454490a6da66a29cca6cb5d1f71e2b04bb1a
 
 ## Source operations and explicit representation changes
 
-The [adapter](../../strict-suite/maze_port.py) applies 68 counted reversible
+The [adapter](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/maze_port.py) applies 68 counted reversible
 ledger entries. They restore the complete original kernel byte for byte.
 Original and adapted Chez retain their complete corresponding benchmark bodies,
 and the adapted kernel is identical to the one compiled by Snail. A fresh
@@ -66,7 +66,7 @@ count with the normal list, negative count with false, and six positive grids:
 1 × 1, 1 × 2, 2 × 1, 2 × 2, 3 × 3 and 4 × 4. Their complete expectations come
 from the original Chez source. All 85 required fixture executions pass.
 
-The separate [observation program](../../../tests/strict-maze/probe.scm)
+The separate [observation program](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/tests/strict-maze/probe.scm)
 executes signed integer helper cases, ten RNG values, set identity and
 compression checks, mutable cell/wall alias checks, complete constructed and
 shuffled wall vectors, the exact visited reverse prefix, all cell/parent/set

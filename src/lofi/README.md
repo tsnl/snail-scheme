@@ -44,7 +44,7 @@ at commit `2db2216b32254bbaf9b49ebed30e0bca495ec6c2`. `strict` becomes
 nominal data declarations, 126 overload signatures and 44 typed foreign
 declarations were retained by the initial extraction. It preserved foreign
 module/provider strings and scalar signatures. The scalar-services crate in
-[`src/runtime/`](../native/runtime/Cargo.toml) serves both Wasm and native execution;
+[`src/runtime/`](../runtime/Cargo.toml) supplies scalar services for linked Wasm;
 the input packet extension is described below.
 
 The libraries retain concrete storage and explicit mutation. Integer limb arrays
@@ -86,7 +86,7 @@ once, and later operands run only on the required branch. Count/range checks,
 mutation order and foreign-call order are unchanged. In particular, default
 vectors validate before invoking user code, zero invokes no default, and the
 first default value initializes private storage before later slots are replaced.
-File close detaches the shared handle before a potentially failing native close;
+File close detaches the shared handle before a potentially failing host close;
 closing borrowed standard streams remains a no-op. Callback helpers close after normal
 return without adding exception recovery.
 
@@ -98,11 +98,11 @@ instead of introducing helpers solely to reduce a line count.
 
 ## Text input cursor
 
-An owned `InputPort` contains shared mutable cells for its native handle and
+An owned `InputPort` contains shared mutable cells for its host handle and
 pending input packet. All aliases share both cells. Character, line and datum
 readers consume that cursor, including CR/LF/CRLF lookahead. The handle is
 checked before pending input: explicit close clears the packet and detaches
-the handle before closing the native resource, so cached characters and cached
+the handle before closing the host resource, so cached characters and cached
 EOF cannot be read after close. Callback cleanup still occurs on normal return;
 terminal trap cleanup releases owned Rust resources.
 
@@ -123,13 +123,11 @@ so its aliases and direct foreign scalar reads share lookahead. Closing stdin
 remains a no-op. Owned file handles remain private to their Lofi wrappers; no
 public operation exposes a raw handle that could bypass pending input.
 
-`scripts/test-lofi-input-packets` exercises raw linked Wasm, optimized linked
-Wasm, and native execution with collection forced at allocation opportunities.
-It checks that native lowering consumes exactly the same mandatory-Binaryen
-guest bytes, retains all command attempts and source/tool/artifact identities,
-and verifies packet boundaries, Unicode buffer splits, aliases, mixed readers,
+`scripts/test-lofi-input-packets` exercises raw and optimized linked Wasm,
+retains all command attempts and source/tool/artifact identities, and verifies
+packet boundaries, Unicode buffer splits, aliases, mixed readers,
 borrowed scalar interoperation, closed cached input, file growth after EOF,
-valid output before malformed input, and resource release. The separate
+valid output before malformed input, and resource release. The historical
 [paired Cat/WC measurement](../../benchmarks/lofi/evidence/20261015-input-packets.md)
 retains the original sources, count 50 and full predicates. Median scalar/packet
 workload-time ratios were 1.49×/1.51× for Cat and 2.31×/1.80× for WC (V8/native);
@@ -191,7 +189,7 @@ The focused `core`/`io` clarity review used the pinned
 [simplify skill](../../.agents/skills/simplify/SKILL.md), a fresh explainer without
 repository access, and informed debate about scope, initialization, short-circuit
 behavior and port lifetime. It supported the explicit control forms above and
-retaining native bulk copies, initialized vector storage, CR/LF/CRLF behavior,
+retaining Wasm bulk copies, initialized vector storage, CR/LF/CRLF behavior,
 empty-write lifetime checks and the existing minimum-I64 formatting algorithm.
 
 The former `artifacts.sld` belonged to the removed Scheme build machinery.

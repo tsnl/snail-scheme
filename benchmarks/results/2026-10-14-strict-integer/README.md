@@ -11,7 +11,7 @@ fixed-width fallback was added.
 The public methods provide exact signed arithmetic, comparison, truncating
 quotient/remainder, exponentiation, floor square root, and checked I64/decimal
 conversion. Integer source literals still mean I64 until explicitly lifted.
-See [the API and invariants](../../../doc/strict-integer.md).
+See [the API and invariants](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/doc/strict-integer.md).
 
 ## Executed checks
 

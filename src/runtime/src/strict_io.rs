@@ -163,7 +163,7 @@ pub extern "C" fn read_code(id: u32) -> i32 {
 }
 
 // Only owned files use packets. Their private Lofi wrapper owns the pending
-// characters; borrowed stdin keeps its shared native scalar cursor instead.
+// characters; borrowed stdin keeps its shared host scalar cursor instead.
 #[unsafe(export_name = "snail:io/read-packet")]
 pub extern "C" fn read_packet(id: u32) -> i64 {
     let result = FILES.with_borrow_mut(|files| files.get(id)?.text_input()?.read_packet());
