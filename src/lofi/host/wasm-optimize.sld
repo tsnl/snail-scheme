@@ -1,7 +1,8 @@
 ;; Binaryen optimizes guest Wasm before the complete program is linked.
 ;; Importing this library performs no tool checks or compilation.
 (define-library (lofi host wasm-optimize)
-  (export wasm-features check-binaryen-tools assemble-wasm optimize-wasm)
+  (export wasm-features check-binaryen-tools assemble-wasm optimize-wasm
+          wasm-release-optimization?)
   (import
    (scheme base)
    (scheme file)
@@ -32,6 +33,10 @@
 
     ;; ---- Shared Wasm optimization ----
 
+    ;; Library callers retain release artifacts. Build recipes scope the chosen
+    ;; profile around compilation so generated dependencies inherit it too.
+    (define wasm-release-optimization? (make-parameter #t))
+
     (define wasm-features
       '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
         "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"
@@ -44,10 +49,14 @@
 
     ;; Exports are the ABI link contract. Preserve them here; complete Wasm
     ;; programs receive a separate optimization after linking the Rust runtime.
+    ;; Debug keeps basic cleanup: unused closure initializers must disappear
+    ;; before unreachable foreign imports can be removed.
     (define (optimize-wasm input output)
       (run-command "build.optimize-wasm"
                    (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
-                           (list "-O3" "--closed-world" "--always-inline-max-function-size=40"
-                                 "--converge" input "-o" output))))
+                           (if (wasm-release-optimization?)
+                               '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge")
+                               '("-O1" "--closed-world"))
+                           (list input "-o" output))))
 
     ))

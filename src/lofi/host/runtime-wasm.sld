@@ -61,8 +61,10 @@
                                 (list source "snail.abi" provider "snail.library" adapter-wasm "snail.platform" "-o" linked)))
           (run-command! (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
                                 '("--remove-exports" "--pass-arg=remove-exports@snail:*,diagnostics/*")
-                                (if diagnostic? '("--remove-unused-module-elements")
-                                    '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge"))
+                                (cond (diagnostic? '("--remove-unused-module-elements"))
+                                      ((wasm-release-optimization?)
+                                       '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge"))
+                                      (else '("-O1" "--closed-world")))
                                 (list linked "-o" output)))
           (when (unresolved-runtime-import? (disassemble output (string-append output ".wat")))
             (error "linked program retains an unresolved runtime import")))

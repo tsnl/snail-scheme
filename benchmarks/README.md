@@ -31,7 +31,8 @@ the canonical validator. UTF-8 decoding, blank lines, LF termination and
 rejection of CR remain explicit; the host's internal failure mechanism is unresolved.
 
 Preparation copies checked-in target sources. The compiler runs Binaryen and
-retains raw and optimized Wasm. Historical six-route measurements below include
+retains raw and optimized Wasm. The runner explicitly requests the release
+Binaryen profile; public debug defaults do not change benchmark optimization. Historical six-route measurements below include
 the retired Lofi/native backend and remain unchanged. The
 [complete 57-workload report](lofi/evidence/20261015-full57.md) records 326 measured
 routes and all 1,956 scheduled processes passing their full predicates at frozen
