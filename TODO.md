@@ -98,7 +98,8 @@ the supported game is the static client-side 3D bundle.
 - [x] Translucent turquoise shield walls and vivid violet/indigo gemstones.
 - [x] Persistent difficulty indicator inside the next-wave ring.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
-- [x] Tower progression: Lv1 sight, Lv2 artillery, Lv3 cart station replacing gun.
+- [ ] Separate artillery and observation/logistics upgrade trees. Preserve all
+      existing offensive capabilities when upgrading either structure.
 - [x] Workers use cart stations and rails for fast personal/cargo travel.
 - [x] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
 - [x] Touch, mouse and pen drag the map; taps select and pinches never select.
@@ -112,6 +113,18 @@ source edits remain unchecked until compiled and exercised.
 
 ## Final integration checklist
 
+- [ ] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
+- [ ] Give artillery a distinct gun silhouette and improve the Orbit icon.
+- [ ] Make the wave/difficulty display easier to interpret.
+- [ ] Keep a touch-sized New worker control anchored above the hub.
+- [ ] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
+- [ ] Outline the combined range of active artillery on the map.
+- [ ] Enemies under fire pursue the attacker, with walls still blocking them.
+- [x] Spread nearby enemies across open approaches without crossing terrain or
+      bypassing walls; verify crowd movement and saved-route invariants.
+- [x] Exercise new orders on surveyed but currently hidden tiles, stale menus,
+      observer destruction and fogged kit delivery in actual Wasm. Five checks
+      pass; the reported rejected transition remains unreproduced.
 - [x] Weighted worker routes account for walking versus cart travel time.
 - [x] Enemies may attack a wall instead of always detouring around it.
 - [x] Worker sight reveals a small radius without unbounded survey history.

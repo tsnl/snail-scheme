@@ -1,5 +1,27 @@
 # Release validation — 2026-10-18
 
+## Crowd and visibility checkpoint
+
+`build/siegework-crowd-final/solo` passes 137 actual-Wasm application checks.
+Generation `5abe5ae9c1f5fda7b44a34fb` contains a 648,530-byte simulation with
+SHA-256 `036bc7377807933793dff78161fd254ddcd42675d3d63517d2620da05bca39f7`.
+Crowds use bounded parallel ground lanes: the overlap fixture measures 40px
+for two enemies and 80px for sixteen, while both reach their target. Tests cover
+fast-enemy detour commitment, saved/hot-replaced movement, water, walls, digging,
+path limits and the 128-enemy cap. Five new visibility checks cover every build
+kind, stale menus, observer destruction and fogged kit deliveries. These cases
+do not reproduce the reported transition crash.
+
+The serialization CI harness now traps both animation-history host imports.
+All 15 serialization fixtures pass, including raw/optimized linked Wasm, native
+execution, malformed-input probes and compile rejections. Local evidence is in
+`/tmp/siegework-crowd-final-runtime.log` and
+`/tmp/siegework-serialization-ci-repair-20261018.log`.
+The newer 3×3 hub, separate upgrade trees and playtest UI revisions remain in
+progress; this checkpoint does not claim them.
+
+## Touch release
+
 The consolidated PR #334 is based on main `9bdee767`, including rank-one
 `All ... requires` and the compiler-performance changes from PR #331.
 The canonical build is `apps/siegework/build.scm`; there is one static 3D game.

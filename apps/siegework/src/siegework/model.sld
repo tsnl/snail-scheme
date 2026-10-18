@@ -1309,6 +1309,55 @@
                      (or (null? (enemy-path enemy))
                          (< (enemy-path-cost world enemy (enemy-path candidate)) (enemy-path-cost world enemy (enemy-path enemy))))) candidate enemy))
           enemy))
+
+    ;; ---- Crowds spread into neighboring walking lanes ----
+
+    ;; Pressure uses the same unmoved population for every enemy. IDs break an
+    ;; exact overlap; no random state or additional saved fields are needed.
+    (define (neighbor-pressure enemy other horizontal)
+      (let ((gap (distance (enemy-x enemy) (enemy-y enemy) (enemy-x other) (enemy-y other)))
+            (side (if horizontal (- (enemy-y enemy) (enemy-y other)) (- (enemy-x enemy) (enemy-x other)))))
+        (if (or (= (enemy-id enemy) (enemy-id other)) (<= (enemy-hp other) 0) (>= gap 120)) 0
+            (* (- 120 gap) (if (or (> side 0) (and (= side 0) (> (enemy-id enemy) (enemy-id other)))) 1 -1)))))
+    (define (crowd-pressure enemy enemies horizontal pressure)
+      (if (null? enemies) pressure
+          (crowd-pressure enemy (cdr enemies) horizontal
+                          (+ pressure (neighbor-pressure enemy (car enemies) horizontal)))))
+    (define (enemy-lane-cell? world cell side)
+      (let* ((next (+ cell side))
+             (sites (building-at (world-buildings world) (index-x next) (index-y next))))
+        (and (= (distance (index-x cell) (index-y cell) (index-x next) (index-y next)) 1)
+             (world-ground? world (index-x cell) (index-y cell))
+             (world-ground? world (index-x next) (index-y next))
+             (or (null? sites) (not (and (= (building-kind (car sites)) 4) (ready? (car sites))))))))
+    ;; Require nine straight steps, replace the first eight with a parallel
+    ;; lane, then reconnect. Its eight-step straight prefix cannot accept a
+    ;; nested detour, so even fast enemies finish the lane before spreading
+    ;; again. Every edge stays adjacent; blocked lanes fail as a whole.
+    (define (parallel-enemy-path world path previous step side remaining)
+      (cond ((= remaining 0)
+             (if (and (not (null? path)) (= (car path) (+ previous step))) (cons previous path) (empty-list)))
+            ((or (null? path) (not (= (car path) (+ previous step)))
+                 (not (enemy-lane-cell? world (car path) side))) (empty-list))
+            (else (let ((tail (parallel-enemy-path world (cdr path) (car path) step side (- remaining 1))))
+                    (if (null? tail) tail (cons (+ (car path) side) tail))))))
+    (define (spread-enemy-route world enemy cell step pressure)
+      (let ((side (* (if (or (= step 1) (= step -1)) map-width 1) (if (> pressure 0) 1 -1))))
+        (if (or (= step 0) (and (<= pressure 40) (>= pressure -40))
+                (> (list-size (enemy-path enemy)) 1022) (not (enemy-lane-cell? world cell side))) enemy
+                (let ((path (parallel-enemy-path world (enemy-path enemy) cell step side 8)))
+                  (if (null? path) enemy (enemy-path-set enemy (cons (+ cell side) path)))))))
+    ;; Stagger the bounded neighbor scans across eight-tick windows. All lane
+    ;; decisions happen at cell centers; a lone enemy keeps its exact path.
+    (define (spread-enemy world enemy)
+      (if (and (= (remainder (enemy-x enemy) cell-size) 20)
+               (= (remainder (enemy-y enemy) cell-size) 20)
+               (= (remainder (+ (quotient (world-tick world) 8) (remainder (enemy-id enemy) 4)) 4) 0))
+          (let* ((cell (cell-index (quotient (enemy-x enemy) cell-size) (quotient (enemy-y enemy) cell-size)))
+                 (step (- (car (enemy-path enemy)) cell)))
+            (spread-enemy-route world enemy cell step
+                                (crowd-pressure enemy (world-enemies world) (or (= step 1) (= step -1)) 0)))
+          enemy))
     (define (walk-enemy world enemy)
       (let* ((next (car (enemy-path enemy))) (x (cell-x (index-x next))) (y (cell-y (index-y next)))
              (speed (if (= (enemy-kind enemy) 1) 7 5))
@@ -1323,7 +1372,8 @@
                  (enemy (if (and (> (enemy-target enemy) 0)
                                  (null? (find-building (world-buildings world) (enemy-target enemy))))
                             (route-enemy world (enemy-target-set enemy 0)) (refresh-enemy-route world enemy))))
-            (cons (if (or (null? (enemy-path enemy)) (encounter? world enemy)) enemy (walk-enemy world enemy))
+            (cons (if (or (null? (enemy-path enemy)) (encounter? world enemy)) enemy
+                      (walk-enemy world (spread-enemy world enemy)))
                   (march-enemies world (cdr enemies))))))
     (define (enemy-visible? world enemy)
       (visible? world (quotient (enemy-x enemy) cell-size) (quotient (enemy-y enemy) cell-size)))
