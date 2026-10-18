@@ -1,5 +1,9 @@
 # Applications, state, and hot reload
 
+For a guided introduction, follow the [five small application tutorials](tutorials/index.md):
+a counter, immutable inventory, local commands, a shared marker board, and saving
+and reloading that board. This chapter is the reference for their contracts.
+
 An application is a collection of typed handlers over one state type. A handler
 receives a stable state value and its payload, then returns a replacement state
 and effect descriptions. It does no asynchronous work. The runtime owns storage,
@@ -11,8 +15,8 @@ handlers, codecs and views must not retain hidden mutable state between calls.
 Start with the [documented Scheme subset](macros.md#initial-scheme-base), rather
 than assuming Chibi's complete standard library is compiled into the application.
 The product exports are listed in
-[`(scheme base)`](../../../src/scheme/base.sld) and
-[`(lofi base)`](../../../src/lofi/base.sld). The current arithmetic surface includes
+[`(scheme base)`](https://github.com/tsnl/snail-scheme/blob/main/src/scheme/base.sld) and
+[`(lofi base)`](https://github.com/tsnl/snail-scheme/blob/main/src/lofi/base.sld). The current arithmetic surface includes
 `quotient` and `remainder`; `min`, `max` and `modulo` are not provided. Small
 application helpers can use comparisons. `remainder` is useful for nonnegative
 tick cycles, but is not a general replacement for Scheme's `modulo` on negative
@@ -42,14 +46,14 @@ both use `I32` state cannot be mixed. There is no manually maintained message
 enum. Generated constructors occupy ordinary lexical names: a helper named
 `add` in the same scope would collide with this handler, so give it a distinct
 name. The complete executable example is
-[`examples/applications/counter.sld`](../../../examples/applications/counter.sld).
+[`examples/applications/counter.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/counter.sld).
 Build and execute it from the repository root:
 
 ```sh
 mkdir -p build/examples
 chibi-scheme -I bootstrap tests/applications/build.scm \
   "$PWD" "$PWD/examples/applications/counter.sld" "$PWD/build/examples/counter.wasm"
-node --input-type=module -e 'import {readFileSync} from "node:fs"; import {loadWasm, instantiate, invokeEntry} from "./src/lofi/compiler/execute.mjs"; console.log(invokeEntry(instantiate(loadWasm(readFileSync("build/examples/counter.wasm"))), []));'
+node examples/applications/run.mjs build/examples/counter.wasm
 ```
 
 It prints `42`. The small build helper selects the exported `answer` procedure;
@@ -101,7 +105,7 @@ a notice. Dispatch does not deliver the effect. The generated `effect-slot` and
 numeric `effect-kind` serve the private scalar bridge; tests should not depend
 on those wire details.
 
-The complete [`testing.sld`](../../../examples/applications/testing.sld) example
+The complete [`testing.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/testing.sld) example
 checks an immutable prior stock value, a replacement value, local state and a
 typed send description. Compile and run it with the same commands as the counter,
 substituting `testing.sld` and `testing.wasm`; it prints `42`. This exercises pure
@@ -318,7 +322,7 @@ containers, graph identities and initialization evidence.
 The lower-level `(application bridge)` still provides `program` for explicit
 `State -> (Vector I32)` encoders and reverse decoders. Positive word counts
 require exactly that fixed length; zero requests variable size. The runnable
-[`examples/applications/state.sld`](../../../examples/applications/state.sld)
+[`examples/applications/state.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/state.sld)
 retains a small explicit adapter example. Vector lengths and indices use `I64`.
 Import `(browser application)` for `Quad`, `quad`, `text-scalar` and `integer-text`,
 and `(application bridge)` for `run-program`.
@@ -625,9 +629,9 @@ entirely in Scheme. Solo commits through the browser authority. Cloud runs the
 same generated simulation for speculative feedback in the browser; server
 validation determines accepted state.
 
-See the [Siegework build instructions](../../../apps/siegework/README.md) and
-[prototype contract](../../../apps/siegework/PROTOTYPE.md). The
-[browser validation guide](../../../tests/applications/README.md) records the
+See the [Siegework build instructions](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/README.md) and
+[prototype contract](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/PROTOTYPE.md). The
+[browser validation guide](https://github.com/tsnl/snail-scheme/blob/main/tests/applications/README.md) records the
 tested Chromium/SwiftShader setup, GPU pixel readback and headless screenshot
 limitations. Its flags are for an isolated software-GPU test process, not normal
 hardware-WebGPU browser use. The host APIs used here

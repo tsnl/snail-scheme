@@ -1,5 +1,13 @@
 # Application integration checks
 
+Run `scripts/test-application-tutorials` for the smaller tutorial checkpoints.
+It compiles the counter, inventory and local-controls examples and the marker
+board, then executes input boundaries, explicit effect delivery, quad output,
+compatible replacement, schema rejection and SQLite close/reopen restoration.
+It uses a temporary database and leaves an existing tutorial match untouched.
+The [tutorials](../../doc/book/lofi/tutorials/index.md) include the two-tab browser
+and live-rebuild exercises; Node checks do not establish GPU rendering.
+
 Run `scripts/test-applications` from any directory. It builds the actual Siegework
 artifacts into `build/application-tests/siegework` with `solo` and `cloud` packages, plus
 small public-API fixtures, checks compile-negative state/payload/

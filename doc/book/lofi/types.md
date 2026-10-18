@@ -554,7 +554,7 @@ that a decoded world is a valid game state.
 This facility is separate from the existing `(lofi read)`/`(lofi write)` datum
 format. It does not add datum-label reading to `(lofi read)`, derive constrained
 generic instances, serialize arbitrary values, or migrate incompatible schemas.
-The [roadmap](../../roadmap.md#data-graph-serialization) tracks remaining work.
+The [roadmap](https://github.com/tsnl/snail-scheme/blob/main/doc/roadmap.md#data-graph-serialization) tracks remaining work.
 
 ## Any, Never and subtyping
 

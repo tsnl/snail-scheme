@@ -29,7 +29,7 @@ The shared checks are `make test`, `make check`,
 `cargo fmt --manifest-path src/native/Cargo.toml --all -- --check`,
 `scripts/test-backend` and `scripts/test-build`.
 The public command and linked Wasm must actually execute; compilation alone is
-not target validation. See [build requirements](../../backend.md).
+not target validation. See [build requirements](https://github.com/tsnl/snail-scheme/blob/main/doc/backend.md).
 
 ## Stress execution
 

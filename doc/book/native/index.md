@@ -1,6 +1,6 @@
 # Native execution
 
-The [native package](../../../src/native/README.md) consumes Binaryen-optimized
+The [native package](https://github.com/tsnl/snail-scheme/blob/main/src/native/README.md) consumes Binaryen-optimized
 WebAssembly and produces LLVM and native artifacts. Lofi always emits Wasm;
 a build script explicitly composes the compiler and native libraries.
 

@@ -85,6 +85,7 @@ jobs:
             applications)
               scripts/test-build
               scripts/test-applications
+              scripts/test-application-tutorials
               ;;
             *) node tests/ci.mjs run "$SUITE" ;;
           esac

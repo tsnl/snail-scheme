@@ -4,6 +4,11 @@ An application owns a runnable product and the recipe that assembles it from
 libraries. Reusable languages, compilers and frameworks belong in the repository's
 top-level [`src/`](../src/). An app demonstrates how those tools compose.
 
+Start with the [five small application tutorials](../doc/book/lofi/tutorials/index.md)
+to learn state, effects, rendering and reload separately before reading Siegework.
+Their [marker board](../examples/applications/marker-board/README.md) is a minimal
+browser composition using the same shared libraries.
+
 | Application | Purpose | Status |
 | --- | --- | --- |
 | [Siegework](siegework/README.md) | Short cooperative runs of automated extraction, logistics and siege defense. | Scheme/WebGPU prototype with a local authority and state-preserving module reload. |
