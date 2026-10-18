@@ -75,30 +75,47 @@ rendering algorithm used here.
 
 ## Rendering and ownership
 
-`present-scene!` walks the hierarchy, transforms positions and normals, and
-copies a single indexed frame through `snail.scene`. It never transfers a
-managed reference or stores GPU handles in a game snapshot. The bridge parses
-finite scalar values, complete uniforms and bounded indices before exposing a
-frame. The shaders use the camera matrix and Lambert lighting on the GPU.
+`scene` eagerly describes one uncached batch. For a retained scene, use
+`batched-scene` with the same camera/light/ambient/background arguments and a list
+of lazy batches:
 
-`src/webgpu/scene.mjs` owns one device, a growable vertex/index buffer pair, a
-uniform buffer, and multisampled color/depth targets. Normal draws reuse them.
-Resize releases replaced targets; shader reload preserves the buffers and
-retains the preceding pipeline for rollback. Close stops new work, drains
-preparation/readback and submitted work, unconfigures the canvas, then destroys
-the owned resources. Scene values do not need individual GPU disposal.
-An embedding host creates this owner with `await createSceneRenderer(canvas,
-onError)` and must call `await renderer.close()` when it ends the session.
-The shared browser application's `close()` includes this step; Scheme code
-only calls `present-scene!` and does not acquire that host resource.
-This follows the explicit resource model and depth attachment contract in the
-[WebGPU specification](https://www.w3.org/TR/webgpu/).
+```scheme
+(retained-batch 3 1 (empty-list) (lambda () (world-nodes world)))
+```
 
-The current renderer uploads transformed geometry per frame. Instanced GPU
-transforms, textures, glTF import, transparent sorting, shadow maps, richer
-materials, animation assets, and path tracing are future features. They are not
-required for the initial Siegework scene. Picking intersects ground planes and
-axis-aligned boxes; it does not perform arbitrary mesh ray intersection.
+The arguments are a stable nonnegative key, an owner dependency mask, a list of
+`I32` dependencies and a zero-argument node builder. Mask 1 depends on game state,
+2 on presentation state, 3 on both, and 0 on neither. The bridge compares exact
+immutable owner identities and scalar dependency sequences before invoking the
+builder. Dependencies must cover every input that changes geometry. The compiler
+does not prove that declaration complete. Use a fixed, small key set, unique
+within each frame; changing a key deliberately starts a different retained batch.
+
+A mask-zero batch can depend on selected scalar fields instead of a whole owner.
+Siegework does this for terrain visibility and rail paths, while workers, enemies
+and shuttles depend on game state. Camera movement changes uniforms and reuses
+all five geometry batches. No managed reference or GPU handle enters the cache:
+retained data consists of copied vertices and indices, scoped to one Wasm instance.
+Replacing the module starts fresh geometry caches while preserving typed state.
+
+`present-scene!` transforms positions and normals only for changed batches.
+The host validates finite scalars, complete uniforms and bounded indices. The
+shaders apply the camera matrix and Lambert lighting. `src/webgpu/scene.mjs`
+uploads only changed batch objects and draws current batches in one render pass.
+It owns one high-performance adapter/device, one growable buffer pair per batch,
+one uniform buffer and one single-sample depth target. Resize releases the old
+depth target; shader replacement preserves buffers and retains the prior pipeline
+for rollback.
+
+Close stops admission, drains preparation/readback and submitted work,
+unconfigures the canvas and destroys all owned resources. An embedding host uses
+`await createSceneRenderer(canvas, onError)` and `await renderer.close()`; the
+shared browser session includes cleanup. Scheme scene values require no GPU
+resource disposal. See the [WebGPU specification](https://www.w3.org/TR/webgpu/).
+
+Instanced GPU transforms, textures, glTF import, transparent sorting, shadow maps,
+richer materials, animation assets and path tracing remain future features.
+Picking currently intersects ground planes and axis-aligned boxes.
 
 ## Checks
 
