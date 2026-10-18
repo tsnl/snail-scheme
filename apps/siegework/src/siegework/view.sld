@@ -38,7 +38,9 @@
       (let* ((target (vec3 (/ (scalar cx) 1000.0) (- 0.0 (/ (scalar cy) 1000.0)) 0.0))
              (sine (heading-sine heading)) (cosine (heading-sine (remainder (+ heading 90000) 360000)))
              (factor (/ (scalar scale) 1000.0))
-             (offset (v* (vec3 (+ (* 12.0 cosine) (* 18.0 sine)) (- (* 12.0 sine) (* 18.0 cosine)) 22.0) factor)))
+             ;; Equal horizontal components give diagonal quarter-turn snaps.
+             ;; Height sqrt((18² + 18²) / 3) gives 30° elevation and 2:1 ground diamonds.
+             (offset (v* (vec3 (* 18.0 (+ cosine sine)) (* 18.0 (- sine cosine)) (sqrt 216.0)) factor)))
         (orthographic-camera (v+ target offset) target (vec3 0.0 0.0 1.0)
                              (* 18.0 factor) (/ (scalar width) (scalar height)) 0.1 (* 120.0 factor))))
     ;; Move in screen-right/down units, then project parallel to the viewing
@@ -115,8 +117,8 @@
             (nearer-box pointer (bounds (v+ center (vec3 -0.38 -0.33 0.0))
                                         (v+ center (vec3 0.35 0.27 0.64)))
                         (cell-index x y) nearest))))
-    ;; At this fixed camera pitch, a crystal's tip projects less than one cell
-    ;; from its ground footprint. Nine cells cover every regional deposit too.
+    ;; At 30° pitch, height 0.64 shifts the ground hit by at most 1.109 cells.
+    ;; With the 0.38 horizontal half-width it stays below 1.5: nine cells suffice.
     (define (nearest-deposit world pointer ground dx dy nearest)
       (cond ((or (< ground 0) (> dy 1)) nearest)
             ((> dx 1) (nearest-deposit world pointer ground -1 (+ dy 1) nearest))

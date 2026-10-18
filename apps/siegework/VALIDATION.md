@@ -20,12 +20,55 @@ compiler benchmarks.
 
 ## Executed checks
 
-The previous published checkpoint is the Pause-menu package, generation
+The current viewport revision uses `renderScale: 0.25`: each 3D backing dimension
+is one quarter of its native physical-pixel extent, with pixelated scaling and
+single-sample rendering. DOM controls and text retain native HiDPI resolution.
+The orthographic camera has 30° elevation and diagonal quarter-turn snaps for
+2:1 dimetric ground diamonds. Intermediate rotations remain smooth; picking,
+pan and camera-relative light continue using the same camera basis.
+
+The canonical debug build is `build/siegework-dimetric-pixels/solo`, generation
+`76028643ef515259bfdc74bb`. Its 543,943-byte simulation has SHA-256
+`2d2cc87e239d10965ee85dc2ac7eb7813c15b82ed83fbc0d630b7a463f9f2192`.
+Compilation took 217.189 seconds on the shared host; this is a wall-time
+observation, not a controlled performance comparison.
+
+That exact module passes 190 actual-Wasm application checks and 21 presentation
+groups, including all four 2:1 camera snaps, projected picking, screen-aligned
+drag and camera-relative lighting. All 19 hosting sections pass against the same
+generation, including actual persistence and product-browser input/GPU checks.
+The saved-pause assertion waits for Resume to render after startup restores
+the World; exposing the application object alone does not establish UI readiness.
+Rebuilt 3D fixtures pass eight groups, with
+native-default and quarter-resolution settings, DPR-only changes, stale and
+accepted generation installation, rollback and one-pixel bounds.
+
+Private Chromium/SwiftShader checks pass ten renderer groups and nine product
+browser groups. The renderer probes binary edge coverage, sample count one,
+one main depth texture plus two textures per inset, reuse, queued readback,
+resize, shader replacement/rollback and exactly-once destruction. Product
+checks verify quarter-resolution backing dimensions, unchanged logical input,
+native HiDPI DOM screenshot dimensions at DPR 2 and 3, pixelated canvas filtering,
+accepted and rejected settings replacement, touch construction, menus and saved
+reopen. Additional browser probes pass for live attack thumbnails at all three
+viewports and continuous screen-aligned keyboard pan, bounds and edit focus.
+These software GPU checks do not establish hardware frame rate or
+thermal behavior.
+
+The same 18-file package was published on port 4212 with its manifest last.
+HTTP reads matched the manifest, Wasm, stylesheet, renderer and browser/input
+hosts to the tested package, including `renderScale: 0.25`. World10 saves were
+preserved. The original invalid-transition and Firefox QueueId reports remain
+unreproduced; this rendering revision does not claim to fix them.
+
+### Earlier checkpoints
+
+The earlier Pause-menu checkpoint was generation
 `843e8f05dadb6b5f55434e6c`. It passed 182 application checks, 18 presentation
 groups, seven product-browser groups and all 19 hosting sections. Its World10
 save remains compatible with this prototype; the transient Client schema is now 7.
 
-The final direct-construction package is `build/siegework-direct-build-settled/solo`,
+The earlier direct-construction package is `build/siegework-direct-build-settled/solo`,
 generation `b5c163ca67346083fc50b78b`. Its 543,980-byte simulation has SHA-256
 `3305cb1b213ea0e6c517c27d1f9406034836f7899d015e4f1b3cd272c8e88a11`.
 The canonical build took 139.257 seconds on the shared host; this is an
@@ -109,11 +152,12 @@ in [the measurement notes](../../doc/measurements/scene-finalization-2026-10-18.
 and their raw JSON. Geometry stays frozen; wrappers and reveal metadata retain
 recursive finalization. Resolution and animation scheduling are unchanged.
 
-Private Chromium/SwiftShader resource checks used native DPR 3, including a
+Before the quarter-resolution viewport revision, private Chromium/SwiftShader
+resource checks used native DPR 3, including a
 1170×2532 backing canvas. Buffer/texture counts stayed bounded in the measured
 windows, and close released the tracked resources. They do not establish phone
 frame rate, thermal behavior or the absence of a long-session leak. Full snapshot
-encoding/decoding, garbage collection and animated high-resolution views remain
+encoding/decoding, garbage collection and animated views remain
 measured costs; the finalization change is not a complete mobile performance fix.
 
 ## Saves, replacement and diagnosis
@@ -139,7 +183,5 @@ separate command/snapshot reproduction. Inspect it with
 `await snailApp.session.store.failure()` in developer tools.
 
 Destructive browser tests use private profiles, hosts and saves. The user preview
-remains on port 4212, with private mobile HTTPS on port 8443. The final package
-above was published as 18 files with its manifest last. HTTP checks matched the
-served manifest, simulation, CSS, renderer and browser hosts to that package;
-the user's saved colony was preserved.
+remains on port 4212, with private mobile HTTPS on port 8443. Publication details
+for the current viewport revision are recorded above.

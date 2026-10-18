@@ -109,10 +109,9 @@ The host validates finite scalars, complete uniforms and bounded indices. The
 shaders apply the camera matrix and Lambert lighting. `src/webgpu/scene.mjs`
 uploads only changed batch geometry and draws each view in its own render pass.
 It owns one high-performance adapter/device, growable vertex/index buffers per
-batch, a shared uniform buffer and four-sample color/depth attachments. Every
-pipeline uses 4× MSAA at the full device-pixel resolution. The main pass resolves
-color into the single-sample canvas output and discards its multisample contents;
-the attachments are reused across frames. Motion batches
+batch, a shared uniform buffer and one depth texture for the main canvas.
+Every pipeline and target is single-sample. The main pass stores color directly
+in the canvas output; its depth texture is reused across frames. Motion batches
 also own previous positions and a uniform buffer; translucent batches own a
 uniform buffer for their opacity. Resize releases the old
 attachments; shader replacement preserves buffers and retains the prior pipeline
@@ -145,17 +144,20 @@ complete inset before copying its visible rectangle preserves its projection
 when the right or bottom edge extends beyond the canvas.
 
 All views share one adapter, device and submission. Each inset owns a camera
-uniform, four-sample color/depth attachments and a single-sample resolved color
-texture for copying to the canvas. Resource diagnostics count two owned textures
-for the main view plus three per inset. Batch keys are scoped to their view, so two
+uniform, a depth texture and a color texture for copying to the canvas.
+Resource diagnostics count one owned texture for the main view plus two per
+inset. Batch keys are scoped to their view, so two
 cameras may both use batch key 3. The bridge validates every view before
 publishing any retained batch changes. Resize replaces targets while preserving
 geometry, and omitted or fully clipped insets release their GPU resources.
 Explicit previous/current motion remains authoritative when a view reappears.
 Animation in an inset redraws the complete frame without rerunning Scheme.
 
-The browser uses the full native device-pixel ratio for the main canvas and
-insets. Requested physical sizes exceeding the device's texture limit fail
+The browser defaults to the full native device-pixel ratio for the main canvas
+and insets. Responsive applications may declare `renderScale` between zero
+(exclusive) and one to scale both physical dimensions. A scale below one uses
+pixelated canvas filtering; DOM UI and logical input coordinates retain their
+normal resolution. Requested physical sizes exceeding the device's texture limit fail
 before target allocation. Insets use GPU texture copies, with no per-frame
 readback or additional device requests. Close drains pending readbacks and
 releases every view's resources.
@@ -260,7 +262,7 @@ in `build/draw3d-tests/`. Serve that directory, then run
 `node tests/draw3d/browser.mjs FIXTURE_URL DEVTOOLS_URL` against an isolated
 Chromium instance. GPU checks cover intermediate and final motion pixels,
 independent durations, shared reveal clocks, fragment opacity, inset cameras,
-native DPR, resolved MSAA edge coverage, shader replacement, buffer/attachment
+native and scaled DPR, single-sample edge coverage, shader replacement, buffer/target
 reuse and resource cleanup.
 The product surface does not currently support
 `cond-expand`; test entry points follow the existing Lofi library convention,

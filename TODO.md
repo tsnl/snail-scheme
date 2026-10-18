@@ -159,7 +159,11 @@ source edits remain unchecked until compiled and exercised.
       titles, small live thumbnails and a dismiss action; inspect portrait and
       landscape layouts, and permit later attacks to alert again.
 - [x] Profile representative mobile-sized simulation, view and GPU work;
-      preserve native pixel density and avoid claiming an unproved thermal cause.
+      record the earlier native-resolution baseline without claiming a thermal cause.
+- [x] Render only the 3D canvas at one quarter of physical width and height,
+      with pixelated scaling and no MSAA; retain native HiDPI HUD and logical input.
+- [x] Use 2:1 dimetric ground diamonds at quarter-turn camera snaps, with 30°
+      elevation and smooth intermediate rotation, pan and zoom.
 - [x] Add the max-dps-test using actual model facts, three-minute discovery and
       0.5 utilization; report its optimistic assumptions and finite horizon.
 - [x] Spread nearby enemies across open approaches without crossing terrain or

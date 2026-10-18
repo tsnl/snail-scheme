@@ -107,7 +107,7 @@ try {
   const green=[0,255,0,255],white=[255,255,255,255],viewPixels=[red,blue,white,green,red];
   assert.deepEqual(insets,{initial:viewPixels,replaced:viewPixels,resizedPixels:[blue,green],clipped:[red,blue],
     reused:true,resizeReused:true,resizePixels:34560,requests:{adapters:1,devices:1},
-    active:{insets:2,textures:8,batches:3,pixels:55296},hidden:{insets:0,textures:2,batches:1},errors:[]});
+    active:{insets:2,textures:5,batches:3,pixels:55296},hidden:{insets:0,textures:1,batches:1},errors:[]});
   console.log('ok - native-DPR inset cameras copy exact pixels with one device, isolated batch keys, cached geometry and released hidden resources');
   const reveal = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
     const before={width:canvas.width,height:canvas.height,cssWidth:canvas.style.width,cssHeight:canvas.style.height};
@@ -208,7 +208,7 @@ try {
     }finally{if(original)Object.defineProperty(performance,'now',original);else delete performance.now;renderer.draw(frame);}})()`);
   assert.deepEqual(insetMotion,{animated:true,pixel:red,terminal:true,stopped:true,errors:[]});
   console.log('ok - inset-only motion drives display redraw and presents its terminal frame while the main scene is static');
-  const msaa = await evaluate(`(async()=>{const {createSceneRenderer}=await import('./lib/webgpu/scene.mjs');
+  const singleSample = await evaluate(`(async()=>{const {createSceneRenderer}=await import('./lib/webgpu/scene.mjs');
     const canvas=document.createElement('canvas');canvas.style.width='128px';canvas.style.height='96px';
     canvas.width=256;canvas.height=192;document.body.append(canvas);
     const errors=[],renderer=await createSceneRenderer(canvas,error=>errors.push(error.message)),textures=[];
@@ -229,7 +229,7 @@ try {
           if(r===255&&g===255&&b===255&&a===255)white++;
           else if(r===0&&g===0&&b===0&&a===255)black++;
           else if(r===g&&g===b&&a===255){partial++;values.add(r);}
-          else throw new Error('unexpected MSAA edge color');}
+          else throw new Error('unexpected single-sample edge color');}
         return{partial,white,black,values:[...values].sort((a,b)=>a-b)};});}
     try{const source=await(await fetch('./shader.wgsl')).text();renderer.replace(await renderer.prepare(source));
       const first=await coverage(),initial=owned(),uploads=renderer.resources.uploads,count=textures.length;
@@ -245,19 +245,19 @@ try {
         closed:renderer.resources.closed&&renderer.resources.textures===0&&owned().length===0,
         destroyedOnce:textures.every(texture=>texture.destroyed===1),errors};
     }finally{await renderer.close();canvas.remove();}})()`);
-  for(const view of [...msaa.first,...msaa.resized]){
-    assert.ok(view.white>0&&view.black>0&&view.partial>10,'each view must contain resolved partial edge coverage');
-    assert.ok(view.values.every(value=>[64,128,191].some(expected=>Math.abs(value-expected)<=1)),`expected quarter-sample coverage: ${view.values}`);
+  for(const view of [...singleSample.first,...singleSample.resized]){
+    assert.ok(view.white>0&&view.black>0,'each view must contain foreground and background');
+    assert.equal(view.partial,0,'single-sample edges have no fractional coverage');assert.deepEqual(view.values,[]);
   }
-  assert.deepEqual(msaa.replaced,msaa.first);assert.deepEqual(msaa.rolledBack,msaa.first);
-  const targets=scale=>[[128*scale,96*scale,4],[128*scale,96*scale,4],
-    ...[[48,40],[24,20],[16,18]].flatMap(([width,height])=>[1,4,4].map(samples=>[width*scale,height*scale,samples]))];
-  assert.deepEqual(msaa.initial,targets(2));assert.deepEqual(msaa.resizedOwned,targets(3));
-  assert.deepEqual(msaa.fullResolution,{width:384,height:288,insetPixels:24192,textures:11});
-  assert.deepEqual(msaa.omitted,{owned:[[384,288,4],[384,288,4]],textures:2});
-  for(const flag of ['reused','replacedTargets','closed','destroyedOnce'])assert.equal(msaa[flag],true,flag);
-  assert.deepEqual(msaa.errors,[]);
-  console.log('ok - 4× MSAA resolves fractional edges for main and three inset views at full DPR, reuses attachments and destroys every texture once');
+  assert.deepEqual(singleSample.replaced,singleSample.first);assert.deepEqual(singleSample.rolledBack,singleSample.first);
+  const targets=scale=>[[128*scale,96*scale,1],
+    ...[[48,40],[24,20],[16,18]].flatMap(([width,height])=>[[width*scale,height*scale,1],[width*scale,height*scale,1]])];
+  assert.deepEqual(singleSample.initial,targets(2));assert.deepEqual(singleSample.resizedOwned,targets(3));
+  assert.deepEqual(singleSample.fullResolution,{width:384,height:288,insetPixels:24192,textures:7});
+  assert.deepEqual(singleSample.omitted,{owned:[[384,288,1]],textures:1});
+  for(const flag of ['reused','replacedTargets','closed','destroyedOnce'])assert.equal(singleSample[flag],true,flag);
+  assert.deepEqual(singleSample.errors,[]);
+  console.log('ok - single-sample main and three inset views retain hard edges at DPR 2/3, reuse targets and destroy every texture once');
   const lifetime = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture;
     const source=await(await fetch('./shader.wgsl')).text(),preparing=renderer.prepare(source);
     const closingFrame={...frame,insets:[{...frame,key:9,rect:[10,10,96,72]}]};

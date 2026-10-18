@@ -147,7 +147,8 @@ try {
   await b.call('Page.reload'); await ready(b);
   assert.deepEqual(await state(b), saved); assert.ok(await b.evaluate('snailApp.revision') >= savedRevision);
   assert.notDeepEqual(await b.evaluate('snailApp.runtime.snapshot(2)'), local);
-  assert.equal(await b.evaluate("!!document.querySelector('[data-ui-key=resume]')"),true,'saved pause visibly offers Resume');
+  // Startup exposes the app before its saved-pause presentation reaches the next frame.
+  await until(() => b.evaluate("!!document.querySelector('[data-ui-key=resume]')"), 'saved pause did not visibly offer Resume');
   console.log('ok - one solo tab owns the save; close releases lock; match/pause restore while local UI restarts');
 
   await b.evaluate(`(() => {

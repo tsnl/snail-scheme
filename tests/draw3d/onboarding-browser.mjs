@@ -91,18 +91,20 @@ async function markerPixels() {
       if(r>220&&g>205&&b>95&&b<205)bright++;}return bright;})()`);
 }
 async function checkAttackToasts() {
+  await command('resume');await evaluate('snailApp.session.stopClock()');await command('dismiss');
   const saved=await evaluate('snailApp.runtime.snapshot(1)');
   for(const[width,height]of[[1100,760],[390,844],[844,390]]){
     await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:2,mobile:width<900});await pause(250);await settled();
-    const count=Math.min(3,Math.floor((height-120)/104));
+    const count=3; // This fixture has three alerts and each viewport fits three 88px cards.
     const frame=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene;return{insets:scene.insets.map(view=>({key:view.key,rect:view.rect})),
       resources:snailApp.renderer.resources,cards:[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(e=>e.getBoundingClientRect().toJSON())};})()`);
-    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,2+3*count);
-    assert.equal(frame.resources.insetPixels,112*80*4*count);
+    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,1+2*count);
+    assert.equal(frame.resources.insetPixels,32*24*count);
     for(const rect of frame.cards)assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1);
-    for(const{rect:[x,y,w,h]}of frame.insets)assert.ok(x>=0&&y>=0&&x+w<=width&&y+h<=height);
+    for(const{rect:[x,y,w,h]}of frame.insets){assert.deepEqual([w,h],[64,48]);assert.ok(x>=0&&y>=0&&x+w<=width&&y+h<=height);}
     const colors=await evaluate(`(async()=>{const scene=snailApp.runtime.view().scene,p=await snailApp.renderer.readPixels(scene),[x,y,w,h]=scene.insets[0].rect;
-      const colors=new Set();for(let py=Math.ceil(y*2);py<(y+h)*2;py++)for(let px=Math.ceil(x*2);px<(x+w)*2;px++){
+      const sx=snailApp.canvas.width/snailApp.viewport[0],sy=snailApp.canvas.height/snailApp.viewport[1];
+      const colors=new Set();for(let py=Math.ceil(y*sy);py<(y+h)*sy;py++)for(let px=Math.ceil(x*sx);px<(x+w)*sx;px++){
         const i=py*p.bytesPerRow+px*4;colors.add(Array.from(p.bytes.subarray(i,i+3)).join(','));}return colors.size;})()`);
     assert.ok(colors>12,'live thumbnail must contain rendered world geometry');await capture(`attacks-${width}x${height}`);
   }

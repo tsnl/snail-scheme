@@ -130,6 +130,19 @@ async function resize(width,height,dpr=1) {
   await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:dpr,mobile:width<700});
   await pause(200);await settled();
 }
+async function checkResolution(width,height,dpr) {
+  const {ratio,...actual}=await evaluate(`(()=>{const canvas=snailApp.canvas,ui=document.querySelector('[data-ui]'),label=document.querySelector('.snail-ui-button-label');
+    const box=canvas.getBoundingClientRect();return{ratio:devicePixelRatio,backing:[canvas.width,canvas.height],logical:snailApp.viewport,
+      input:[snailApp.inputSettings.width,snailApp.inputSettings.height],css:[box.width,box.height],
+      canvasFilter:getComputedStyle(canvas).imageRendering,uiFilter:getComputedStyle(ui).imageRendering,
+      uiTransform:getComputedStyle(ui).transform,labelSize:getComputedStyle(label).fontSize};})()`);
+  actual.css=actual.css.map(Math.floor); // The host preserves its existing integer CSS viewport contract.
+  assert.ok(Math.abs(ratio-dpr)<.000001,'emulation reports the requested DPR within its floating-point precision');
+  assert.deepEqual(actual,{backing:[Math.round(width*ratio/4),Math.round(height*ratio/4)],logical:[width,height],
+    input:[width,height],css:[width,height],canvasFilter:'pixelated',uiFilter:'auto',uiTransform:'none',labelSize:'11px'});
+  const shot=Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64');
+  assert.deepEqual([shot.readUInt32BE(16),shot.readUInt32BE(20)],[width*dpr,height*dpr],'DOM composition retains native HiDPI pixels');
+}
 async function holdNextSave() {
   await evaluate(`(()=>{const store=snailApp.session.store,commit=store.commit;globalThis.menuWriteCount=0;delete globalThis.releaseMenuSave;
     store.commit=(...args)=>{menuWriteCount++;return new Promise(resolve=>{globalThis.releaseMenuSave=()=>{store.commit=commit;resolve(commit.apply(store,args));};});};})()`);
@@ -146,6 +159,22 @@ try {
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
   await resize(1100,760);if(await has('pause-dialog'))await command('resume');
   await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
+  for(const dpr of [2,3]){await resize(1100,760,dpr);await checkResolution(1100,760,dpr);}
+  await resize(1100,760);
+  const replacement=await evaluate(`(async()=>{const app=snailApp,manifest=app.manifest,renderer=app.renderer;
+    clearTimeout(app.session.reloading);const state=()=>JSON.stringify([app.runtime.snapshot(1),app.runtime.snapshot(2)]),before=state();
+    const next={...manifest,generation:manifest.generation+'-native',settings:{...manifest.settings,renderScale:1}};
+    try{app.session.checkManifest(next);await app.prepareGeneration(next,++app.reloadTicket);
+      const native=[app.canvas.width,app.canvas.height],filter=app.canvas.style.imageRendering;
+      let rejected=false;try{await app.prepareGeneration({...next,generation:'invalid-scale',settings:{...next.settings,renderScale:0}},++app.reloadTicket);}catch{rejected=true;}
+      const retained=app.generation===next.generation&&app.inputSettings.renderScale===1;
+      await app.prepareGeneration(manifest,++app.reloadTicket);
+      return{native,filter,rejected,retained,sameState:state()===before,sameRenderer:renderer===app.renderer,
+        restored:[app.canvas.width,app.canvas.height],restoredFilter:app.canvas.style.imageRendering};
+    }finally{await app.session.reload();}})()`);
+  assert.deepEqual(replacement,{native:[1100,760],filter:'',rejected:true,retained:true,sameState:true,sameRenderer:true,
+    restored:[275,190],restoredFilter:'pixelated'});
+  console.log('ok - quarter physical-pixel canvas keeps native HiDPI DOM and logical input through DPR-only changes and accepted/rejected hot replacement');
   assert.equal((await world()).buildings.length,0);assert.equal(await has('context'),false);
   assert.equal(await evaluate('!!snailApp.manifest.settings.controller || !!snailApp.manifest.settings.controllerAxes'),false);
   assert.equal(await evaluate('snailApp.manifest.settings.rotationHandler??null'),null);
@@ -275,8 +304,7 @@ try {
     assert.equal((await local()).heading,(heading+90000)%360000);
     await touchControl('rotate-left');await until(async()=>(await local()).turnElapsed===300,'touch counterclockwise turn');
     assert.equal((await local()).heading,heading);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),turnWorld);
-    const native=await evaluate('({width:snailApp.canvas.width,height:snailApp.canvas.height})');
-    assert.deepEqual(native,{width:width*dpr,height:height*dpr});
+    await checkResolution(width,height,dpr);
     await touchControl('pause');await capture(`-${width}x${height}-pause`);
     await touchControl('handedness');assert.equal((await local()).leftHanded,true);await touchControl('resume');await capture(`-${width}x${height}-left`);
     await touchControl('pause');await touchControl('handedness');await touchControl('resume');await key('Escape','Escape');
@@ -330,7 +358,7 @@ try {
   assert.ok((await local()).scale<beforeScale);assert.equal((await local()).chooser,false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforePinch);
   assert.deepEqual([(await local()).cameraX,(await local()).cameraY],pinchCenter);
   await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);await command('center');await capture();
-  console.log('ok - centered Pause preserves selection; paused reopen, native DPR, touch repeat construction and mirrored popups fit 320–1100px');
+  console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, touch repeat construction and mirrored popups fit 320–1100px');
   await click('pause');await click('restart-menu');const oldMarker=(await world()).runMarker;await holdNextSave();
   await evaluate(`document.querySelector('[data-ui-key="accept-restart"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Restart save');
   assert.equal((await local()).dialogPending,3);assert.equal((await world()).runMarker,oldMarker);await until(()=>evaluate(`document.querySelector('[data-ui-key="accept-restart"]').textContent.includes('Restarting')`),'pending Restart label did not render');

@@ -78,7 +78,9 @@ and touch-sized buttons appear on desktop and mobile.
   Pending Resume and Restart show progress and disable duplicate actions until
   saving finishes; a failed save leaves the action available to retry.
 - WASD pans in screen directions. Q/E smoothly rotates between quarter turns,
-  always using an orthographic camera. Lighting rotates with the camera. Mouse
+  always using an orthographic camera at 30° elevation. Each resting quarter
+  turn gives a 2:1 dimetric ground diamond; intermediate turns remain smooth.
+  Lighting rotates with the camera. Mouse
   wheel or two-finger pinch zooms without moving the view center. Two on-screen
   arrow buttons provide quarter turns on touchscreens, without changing the
   world-drag gesture.
@@ -89,8 +91,11 @@ Pill-shaped cards use equally sized circular action buttons, icons, costs and
 visible shortcut keys on every screen. The pause menu uses labeled rows. Names
 remain available to assistive tools and tooltips; construction choices use icons
 rather than visible building names.
-They never scroll or resize the full-screen world. WebGPU renders at native
-pixel density, including HiDPI displays.
+They never scroll or resize the full-screen world. HUD text and controls retain
+native HiDPI resolution. The 3D world renders without MSAA at one quarter of the
+physical device-pixel width and height (one sixteenth as many pixels), then scales
+up with pixelated filtering. The camera, pointer coordinates and callout anchors
+continue using the full logical viewport.
 
 Drag the world with one finger, a mouse or a pen to pan. A tap selects only when
 released; moving more than eight CSS pixels turns the gesture into a drag and

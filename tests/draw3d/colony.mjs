@@ -160,9 +160,14 @@ try {
   for(let turn=0;turn<4;turn++){
     await command('rotate',[0,1]);assert.equal(runtime.view().scene.requestFrame,true);await command('animate',[50]);assert.ok(local().heading%90000!==0);
     await animate();await point(12,20);cursorAt(12,20);
+    const m=runtime.view().scene.uniforms,{width,height}=local();
+    const x=[m[0]*width,m[1]*height],y=[m[4]*width,m[5]*height];
+    for(const axis of [x,y])assert.ok(Math.abs(Math.abs(axis[0]/axis[1])-2)<.0001,'quarter-turn ground edges have 2:1 screen slopes');
+    assert.ok(Math.abs(Math.abs(x[0])-Math.abs(y[0]))<.0001,'diagonal yaw gives symmetric diamonds');
     const start=project(12,20);await command('drag',[32,-24]);const dragged=project(12,20);
     assert.ok(Math.abs(dragged[0]-start[0]-32)<=1&&Math.abs(dragged[1]-start[1]+24)<=1);await command('drag',[-32,24]);
   }
+  console.log('ok - all four dimetric snaps project 2:1 ground diamonds with shared picking and smooth screen-space drag');
   for(const[width,height]of[[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]){
     await command('viewport',[width,height]);await home();controlsFit(width,height);
     const right=placed('rail').left;await command('pause-menu');controlsFit(width,height);assert.ok(node('resume')&&node('restart-menu')&&node('handedness'));

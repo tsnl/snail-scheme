@@ -69,9 +69,14 @@ export class BrowserApplication {
     if (ticket !== this.reloadTicket) { this.runtime.discard(candidate); return; }
     await this.runtime.replace(candidate); this.renderer?.replace(pipeline);
     this.manifest = this.runtime.manifest; this.generation = this.manifest.generation;
-    this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+    this.applySettings(settings);
     await this.runtime.initialize(1); await this.runtime.initialize(2); this.dirty = true;
     this.note(`LIVE · state preserved · ${this.generation.slice(0, 7)}`);
+  }
+  applySettings(settings) {
+    this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+    this.canvas.style.imageRendering = settings.renderScale < 1 ? 'pixelated' : '';
+    if (this.viewport) this.resizeViewport();
   }
   start(session) {
     this.session = session;
@@ -98,11 +103,17 @@ export class BrowserApplication {
   resizeViewport() {
     const rect = this.canvas.getBoundingClientRect();
     const width = Math.max(1, Math.floor(rect.width)), height = Math.max(1, Math.floor(rect.height));
-    const scale = devicePixelRatio || 1;
-    if (this.viewport?.[0] === width && this.viewport?.[1] === height && this.viewportScale === scale) return;
-    this.viewport = [width, height]; this.inputSettings = {...this.inputSettings, width, height};
+    const scale = (devicePixelRatio || 1) * this.inputSettings.renderScale;
+    const changed = this.viewport?.[0] !== width || this.viewport?.[1] !== height;
+    if (!changed && this.viewportScale === scale) return;
+    // Only the backing buffer uses physical pixels. Input, camera and DOM keep CSS units.
     this.viewportScale = scale;
-    this.canvas.width = Math.round(width * scale); this.canvas.height = Math.round(height * scale);
+    const pixelsWide = Math.max(1, Math.round(width * scale)), pixelsHigh = Math.max(1, Math.round(height * scale));
+    if (this.canvas.width !== pixelsWide) this.canvas.width = pixelsWide;
+    if (this.canvas.height !== pixelsHigh) this.canvas.height = pixelsHigh;
+    this.dirty = true;
+    if (!changed) return;
+    this.viewport = [width, height]; this.inputSettings = {...this.inputSettings, width, height};
     void this.local(this.manifest.settings.viewportHandler, [width, height]);
   }
   async localTransition(command) {
@@ -138,8 +149,7 @@ export class BrowserApplication {
   reconcileGeneration() {
     if (this.manifest && this.generation !== this.runtime.manifest.generation) {
       this.manifest = this.runtime.manifest; this.generation = this.manifest.generation; this.renderer?.rollback();
-      const settings = parseInputSettings(this.manifest.settings);
-      this.inputSettings = this.viewport ? {...settings, width: this.viewport[0], height: this.viewport[1]} : settings;
+      this.applySettings(parseInputSettings(this.manifest.settings));
       this.dirty = true;
     }
   }
@@ -151,7 +161,7 @@ export class BrowserApplication {
   frame(time) {
     if (this.closing) return;
     this.reconcileGeneration();
-    if (this.viewport && this.viewportScale !== (devicePixelRatio || 1)) this.resizeViewport();
+    if (this.viewport && this.viewportScale !== (devicePixelRatio || 1) * this.inputSettings.renderScale) this.resizeViewport();
     if (!this.localWork) this.input.frame(time);
     else this.input.time = time; // Never accumulate held-input catch-up behind a save.
     const elapsed = this.animationTime === undefined ? 0 : Math.max(0, Math.min(50, Math.round(time - this.animationTime)));
