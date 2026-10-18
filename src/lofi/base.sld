@@ -130,7 +130,7 @@
 
     (define-overload make-vector (All (T) (-> I64 T (Vector T))) make-filled-vector)
     ;; Returning storage from the loop keeps every fill step in tail position.
-    (define-overload make-vector (All (T) (=> ((Default T)) (-> I64 (Vector T))))
+    (define-overload make-vector (All (T) (requires (Default T)) (-> I64 (Vector T)))
       (lambda (count)
         ;; Validate before user code runs; zero invokes no default. WasmGC
         ;; roots the private vector and every unfinished slot holds the first

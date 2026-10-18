@@ -36,10 +36,6 @@ binding traps instead of forcing its initializer early.
 
 The following changes are planned, not accepted compiler syntax:
 
-- Use `requires` to state a scheme's class requirements. The final arrangement
-  of `All`, requirements, implicit instantiation, and checking remains open.
-  The current compiler uses `All` with `=>`; the formal summary explains that
-  implementation without committing to its replacement.
 - Give the Lofi kernel fixed-arity functions. Scheme variadic procedures will
   need lowering to an explicit packed argument representation and fixed-arity
   calls. The current kernel still accepts dotted and rest-only lambdas and
