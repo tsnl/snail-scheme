@@ -64,6 +64,7 @@
     (define (run-serialization-suite)
       (let* ((cases (rows (read-json (path "tests/serialization/cases.json"))))
              (selected (argument-positionals)))
+        (when (argument-present? "--only") (error "unknown serialization option" "--only"))
         (check-inventory cases)
 
         (for-each (lambda (name) (assert-that (any (lambda (case) (string=? name (field case 'name))) cases) "unknown serialization case" name)) selected)
