@@ -1,13 +1,12 @@
 # Send a command from local controls
 
-Build a local control that records how many times it was used and asks a shared
-inventory to deposit ore. This separates two events that a large app can make
-hard to distinguish: calculating a request and delivering it.
+Build a local control that counts its uses and asks a shared inventory to
+deposit ore. You will return a request from one handler, then deliver it to
+another.
 
 The complete source is
-[`testing.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/testing.sld). Despite its
-name, it is an ordinary compiled application example with a runnable checkpoint.
-It uses the immutable `Stock` pattern from [the inventory lesson](inventory.md).
+[`testing.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/testing.sld).
+It uses the immutable `Stock` record from [the inventory tutorial](inventory.md).
 
 ## Define the receiving application
 
@@ -19,9 +18,7 @@ It uses the immutable `Stock` pattern from [the inventory lesson](inventory.md).
 ```
 
 `destination` attaches this typed application to an owner understood by the host.
-The browser host calls the shared owner `match` and exposes its attachment as
-`match-owner`. The word “match” is a host name; this application can be a stock
-counter rather than a game.
+The browser host names the shared owner `match` and exposes it as `match-owner`.
 
 For this lesson deposits are small positive constants. A real deposit service
 would also establish an amount bound and handle addition overflow.
@@ -96,14 +93,5 @@ identity; do not build a router by treating every effect as a deposit.
 Change `(confirm 7)` to `(confirm 9)` and expect `19`. Restore the finished
 checkpoint after the exercise.
 
-## Find this in Siegework
-
-In [`game.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/game.sld), client
-`confirm` uses `place-order` to turn the selected tool into a request for
-`extract`, `fortify` or `observe`. That local handler cannot spend the
-authoritative world's ore.
-The authoritative handler checks the request against the state current when
-it is processed, which may have changed since the player saw it.
-
-Next: [put the same boundary on screen](board.md). The browser host will deliver
-the effects, so you can see a local cursor and a shared marker behave differently.
+Next: [build a shared marker board](board.md). The browser host delivers the
+requests so you can see local and shared state respond to input.
