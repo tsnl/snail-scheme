@@ -1,0 +1,334 @@
+%% Canonical documented Lofi syntax and type formation.
+%% Reader tokens and resolved binding identities are separate categories.
+embed {{ coq
+Inductive ValueName : Set := ValueId : nat -> ValueName.
+Inductive TypeVariable : Set := TypeId : nat -> TypeVariable.
+Inductive DatatypeName : Set := DataId : nat -> DatatypeName.
+Inductive ClassName : Set := ClassId : nat -> ClassName.
+Inductive InstanceName : Set := InstanceId : nat -> InstanceName.
+}}
+metavar name, l ::= {{ coq nat }} {{ coq-equality }}
+metavar value_name, x ::= {{ coq ValueName }} {{ coq-equality }}
+metavar type_variable, a ::= {{ coq TypeVariable }} {{ coq-equality }}
+metavar datatype_name, D ::= {{ coq DatatypeName }} {{ coq-equality }}
+metavar class_name, C ::= {{ coq ClassName }} {{ coq-equality }}
+metavar instance_name, d ::= {{ coq InstanceName }} {{ coq-equality }}
+metavar integer_literal, zi ::= {{ coq nat }}
+metavar float_literal, zf ::= {{ coq nat }}
+metavar boolean_literal, zb ::= {{ coq bool }}
+metavar character_literal, zc ::= {{ coq nat }}
+metavar string_literal, zs ::= {{ coq nat }}
+metavar bytevector_literal, zv ::= {{ coq list nat }}
+metavar datatype_scope, Delta ::= {{ coq datatype_name -> option nat }}
+metavar class_scope, Xi ::= {{ coq class_name -> option nat }}
+indexvar n, r, u ::= {{ coq nat }}
+
+grammar
+%% ANCHOR: types-ok
+primitive, p :: P_ ::=
+  | I32 :: :: i32
+  | I64 :: :: i64
+  | F32 :: :: f32
+  | F64 :: :: f64
+  | Bool :: :: bool
+  | Char :: :: char
+  | Unit :: :: unit
+  | String :: :: string
+  | Bytevector :: :: bytevector
+  | Never :: :: never
+  | Any :: :: any
+
+ty, T :: T_ ::=
+  | p :: :: primitive
+  | a :: :: variable
+  | D :: :: nominal_zero
+  | ( D T T1 .. Tn ) :: :: nominal
+  | ( Ref T ) :: :: ref
+  | ( List T ) :: :: list_type
+  | ( Vector T ) :: :: vector
+  | ft :: :: function
+
+function_type, ft :: F_ ::=
+  | ( -> T1 .. Tn T ) :: :: fixed
+  | ( -> T1 .. Tn ( Rest T' ) T ) :: :: rest
+
+requirement, q :: Q_ ::=
+  | ( C T1 .. Tn ) :: :: class
+
+signature, sg :: S_ ::=
+  | T :: :: mono
+  | ( All ( a1 .. ar ) T ) :: :: all
+  | ( All ( a1 .. ar ) ( requires q1 .. qu ) T ) :: :: requires
+  | ( All ( a1 .. ar ) ( => ( q1 .. qu ) T ) ) :: :: legacy
+%% ANCHOR_END: types-ok
+
+%% ANCHOR: terms
+literal, z :: Z_ ::=
+  | zi :: :: integer
+  | zf :: :: float
+  | zb :: :: boolean
+  | zc :: :: character
+  | zs :: :: string
+  | zv :: :: bytevector
+
+expression, e :: E_ ::=
+  | z :: :: literal
+  | x :: :: name
+  | ( e e1 .. en ) :: :: call
+  | ( if e1 e2 e3 ) :: :: if
+  | ( lambda ( x1 .. xn ) e ) :: :: lambda
+  | ( lambda ( x x1 .. xn . x' ) e ) :: :: dotted_lambda
+  | ( lambda x e ) :: :: rest_lambda
+  | ( begin s1 .. sn e ) :: :: block
+  | ( match e m m1 .. mn ) :: :: match
+  | ( ann e T ) :: :: annotation
+  | ( inst x T T1 .. Tn ) :: :: instantiation
+
+statement, s :: St_ ::=
+  | ( def x e ) :: :: def
+  | ( def x sg e ) :: :: def_signature
+  | ( let x e ) :: :: let
+  | ( let x sg e ) :: :: let_signature
+  | e :: :: expression
+
+match_arm, m :: M_ ::=
+  | ( ( x x1 .. xn ) e ) :: :: arm
+%% ANCHOR_END: terms
+
+%% ANCHOR: declarations
+static_definition, sd :: SD_ ::=
+  | ( data D ( a1 .. ar ) k1 .. kn ) :: :: data
+  | ( data D ( a1 .. ar ) ( deriving l1 .. lu ) k1 .. kn ) :: :: deriving
+  | ( typeclass C ( a1 .. ar ) ms1 .. msn ) :: :: typeclass
+  | ( instance d q mi1 .. min ) :: :: instance
+
+constructor_clause, k :: K_ ::=
+  | ( x f1 .. fn ) :: :: constructor
+
+field_clause, f :: Field_ ::=
+  | ( l T ) :: :: field
+  | ( l T x ) :: :: accessor
+
+method_signature, ms :: MS_ ::=
+  | ( : x ft ) :: :: method
+
+method_implementation, mi :: MI_ ::=
+  | ( x e ) :: :: implementation
+
+extension, ext :: Ext_ ::=
+  | ( define-extern x zs1 zs2 ft ) :: :: extern
+  | ( define-overload x sg e ) :: :: overload
+%% ANCHOR_END: declarations
+
+%% ANCHOR: libraries
+library_name, L :: LN_ ::=
+  | ( l l1 .. ln ) :: :: name
+
+library_file, lf :: LF_ ::=
+  | ( define-library L lc1 .. lcn ) :: :: library
+
+library_clause, lc :: LC_ ::=
+  | ( import is1 .. isn ) :: :: import
+  | ( export es1 .. esn ) :: :: export
+  | ( begin ls1 .. lsn ) :: :: body
+
+library_statement, ls :: LS_ ::=
+  | s :: :: statement
+  | sd :: :: static
+  | ext :: :: extension
+  | ( begin ls1 .. lsn ) :: :: begin
+  | ( library-begin ls1 .. lsn ) :: :: splice
+
+import_set, is :: IS_ ::=
+  | L :: :: library
+  | ( only is l1 .. ln ) :: :: only
+  | ( rename is rp1 .. rpn ) :: :: rename
+
+rename_pair, rp :: RP_ ::=
+  | ( l1 l2 ) :: :: pair
+
+export_spec, es :: ES_ ::=
+  | l :: :: name
+  | ( rename l1 l2 ) :: :: rename
+%% ANCHOR_END: libraries
+
+%% Lists and scopes below are mathematical notation, not extra source forms.
+type_scope, A :: A_ ::= {{ coq list type_variable }}
+  | empty :: :: empty {{ coq nil }}
+  | A + a1 .. ar :: :: extend {{ coq (List.app [[a1 .. ar]] [[A]]) }}
+
+types, Ts :: Ts_ ::= {{ coq list ty }}
+  | nil :: :: nil {{ coq nil }}
+  | T , Ts :: :: cons {{ coq (cons [[T]] [[Ts]]) }}
+  | [ T1 .. Tn ] :: M :: list {{ coq [[T1 .. Tn]] }}
+
+requirements, Q :: Qs_ ::= {{ coq list requirement }}
+  | nil :: :: nil {{ coq nil }}
+  | q , Q :: :: cons {{ coq (cons [[q]] [[Q]]) }}
+  | [ q1 .. qu ] :: M :: list {{ coq [[q1 .. qu]] }}
+
+formula :: formula_ ::=
+  | judgement :: :: judgement
+  | a in A :: :: member {{ coq (List.In [[a]] [[A]]) }}
+  | D has Ts in Delta :: :: data_arity
+      {{ coq ([[Delta]] [[D]] = Some (@List.length ty [[Ts]])) }}
+  | C has Ts in Xi :: :: class_arity
+      {{ coq ([[Xi]] [[C]] = Some (@List.length ty [[Ts]])) }}
+  | distinct a1 .. ar :: :: distinct {{ coq (List.NoDup [[a1 .. ar]]) }}
+  | a1 .. ar fresh in A :: :: fresh
+      {{ coq (forall a, List.In a [[a1 .. ar]] -> ~ List.In a [[A]]) }}
+
+%% ANCHOR: formation
+defns Formation :: '' ::=
+defn Delta ; A |- T type :: :: wf_type :: WF_ by
+  ---------------- :: primitive
+  Delta ; A |- p type
+
+  a in A
+  ---------------- :: variable
+  Delta ; A |- a type
+
+  D has nil in Delta
+  ---------------- :: nominal_zero
+  Delta ; A |- D type
+
+  D has T , [ T1 .. Tn ] in Delta
+  Delta ; A |- T , [ T1 .. Tn ] types-ok
+  --------------------------------- :: nominal
+  Delta ; A |- ( D T T1 .. Tn ) type
+
+  Delta ; A |- T type
+  ---------------------- :: ref
+  Delta ; A |- ( Ref T ) type
+
+  Delta ; A |- T type
+  ---------------------- :: list
+  Delta ; A |- ( List T ) type
+
+  Delta ; A |- T type
+  ---------------------- :: vector
+  Delta ; A |- ( Vector T ) type
+
+  Delta ; A |- [ T1 .. Tn ] types-ok
+  Delta ; A |- T type
+  --------------------------------- :: function
+  Delta ; A |- ( -> T1 .. Tn T ) type
+
+  Delta ; A |- [ T1 .. Tn ] types-ok
+  Delta ; A |- T' type
+  Delta ; A |- T type
+  ------------------------------------------- :: rest_function
+  Delta ; A |- ( -> T1 .. Tn ( Rest T' ) T ) type
+
+defn Delta ; A |- Ts types-ok :: :: wf_types :: WF_types_ by
+  ------------------ :: nil
+  Delta ; A |- nil types-ok
+
+  Delta ; A |- T type
+  Delta ; A |- Ts types-ok
+  ----------------------- :: cons
+  Delta ; A |- T , Ts types-ok
+
+defns Requirements :: '' ::=
+defn Delta ; Xi ; A |- q requirement-ok :: :: wf_requirement :: WF_requirement_ by
+  C has [ T1 .. Tn ] in Xi
+  Delta ; A |- [ T1 .. Tn ] types-ok
+  ---------------------------------------------- :: class
+  Delta ; Xi ; A |- ( C T1 .. Tn ) requirement-ok
+
+defn Delta ; Xi ; A |- Q requirements-ok :: :: wf_requirements :: WF_requirements_ by
+  ---------------------------------- :: nil
+  Delta ; Xi ; A |- nil requirements-ok
+
+  Delta ; Xi ; A |- q requirement-ok
+  Delta ; Xi ; A |- Q requirements-ok
+  ------------------------------------- :: cons
+  Delta ; Xi ; A |- q , Q requirements-ok
+%% ANCHOR_END: formation
+
+%% ANCHOR: schemes
+defns Schemes :: '' ::=
+defn Delta ; Xi ; A |- sg signature-ok :: :: wf_signature :: WF_signature_ by
+  Delta ; A |- T type
+  ----------------------------- :: mono
+  Delta ; Xi ; A |- T signature-ok
+
+  distinct a1 .. ar
+  a1 .. ar fresh in A
+  Delta ; A + a1 .. ar |- T type
+  ------------------------------------------------- :: all
+  Delta ; Xi ; A |- ( All ( a1 .. ar ) T ) signature-ok
+
+  distinct a1 .. ar
+  a1 .. ar fresh in A
+  Delta ; A + a1 .. ar |- T type
+  Delta ; Xi ; A + a1 .. ar |- [ q1 .. qu ] requirements-ok
+  --------------------------------------------------------------------- :: requires
+  Delta ; Xi ; A |- ( All ( a1 .. ar ) ( requires q1 .. qu ) T ) signature-ok
+
+  distinct a1 .. ar
+  a1 .. ar fresh in A
+  Delta ; A + a1 .. ar |- T type
+  Delta ; Xi ; A + a1 .. ar |- [ q1 .. qu ] requirements-ok
+  --------------------------------------------------------------------- :: legacy
+  Delta ; Xi ; A |- ( All ( a1 .. ar ) ( => ( q1 .. qu ) T ) ) signature-ok
+
+defns InstanceHeads :: '' ::=
+defn Delta ; Xi |- q instance-head-ok :: :: wf_instance_head :: WF_instance_ by
+  Delta ; Xi ; empty |- q requirement-ok
+  ------------------------------------ :: closed
+  Delta ; Xi |- q instance-head-ok
+%% ANCHOR_END: schemes
+
+%% Occurrence is structural; ordinary types contain no binders.
+%% ANCHOR: occurrence
+defns Occurrence :: '' ::=
+defn a occurs-in T :: :: occurs_type :: Occurs_ by
+  ---------------- :: variable
+  a occurs-in a
+
+  a occurs-in-list T , [ T1 .. Tn ]
+  -------------------------------- :: nominal
+  a occurs-in ( D T T1 .. Tn )
+
+  a occurs-in T
+  ---------------------- :: ref
+  a occurs-in ( Ref T )
+
+  a occurs-in T
+  ---------------------- :: list
+  a occurs-in ( List T )
+
+  a occurs-in T
+  ---------------------- :: vector
+  a occurs-in ( Vector T )
+
+  a occurs-in-list [ T1 .. Tn ]
+  -------------------------------- :: parameters
+  a occurs-in ( -> T1 .. Tn T )
+
+  a occurs-in T
+  -------------------------------- :: result
+  a occurs-in ( -> T1 .. Tn T )
+
+  a occurs-in-list [ T1 .. Tn ]
+  ------------------------------------------- :: rest_parameters
+  a occurs-in ( -> T1 .. Tn ( Rest T' ) T )
+
+  a occurs-in T'
+  ------------------------------------------- :: rest_element
+  a occurs-in ( -> T1 .. Tn ( Rest T' ) T )
+
+  a occurs-in T
+  ------------------------------------------- :: rest_result
+  a occurs-in ( -> T1 .. Tn ( Rest T' ) T )
+
+defn a occurs-in-list Ts :: :: occurs_types :: Occurs_types_ by
+  a occurs-in T
+  ----------------------- :: head
+  a occurs-in-list T , Ts
+
+  a occurs-in-list Ts
+  ----------------------- :: tail
+  a occurs-in-list T , Ts
+%% ANCHOR_END: occurrence

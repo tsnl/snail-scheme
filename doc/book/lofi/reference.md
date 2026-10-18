@@ -8,6 +8,10 @@ This is the compact companion to [Terms and definitions](terms.md) and
 an abstract syntax tree (AST), a structured value representing the program.
 Name resolution replaces textual references with binding identities.
 
+The [Ott and Rocq draft](mechanized.md) generates the documented grammar and
+the first formation rules from Ott, with Rocq proofs over the generated
+definitions. The typing and evaluation rules below remain handwritten.
+
 <!-- For agents editing this specification: keep the explanatory chapters and
 this summary synchronized. Include the named anchors rather than copying their
 grammar and rules. If a rule changes, update its surrounding explanation too. -->
