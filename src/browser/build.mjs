@@ -41,6 +41,8 @@ function checkSettings(settings, protocol) {
     throw new Error('animation handler requires elapsed milliseconds');
   if (input.zoomHandler && select('client', input.zoomHandler).payload.length !== 1)
     throw new Error('zoom handler requires one I32 scale delta');
+  if (input.dragHandler && select('client', input.dragHandler).payload.length !== 2)
+    throw new Error('drag handler requires two I32 CSS-pixel deltas');
   if (settings.resetPresentation && select('client', settings.resetPresentation).payload.length)
     throw new Error('reset presentation handler requires no payload');
   if (settings.randomSeed && select('match', settings.randomSeed.handler).payload.length !== 1)

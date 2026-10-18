@@ -103,6 +103,12 @@
                              (camera-coordinate (+ y (* my fraction))))))
     (define (clear-choice state)
       (client-homing-set (client-preview-set (client-chooser-set state #f) 0) #f))
+    ;; CSS-pixel drag follows the finger at every display density and zoom.
+    ;; Camera pan uses thousandths of the unscaled 18-cell viewport height.
+    (define (drag-client state dx dy)
+      (let ((factor (/ -18000.0 (scalar (client-height state)))))
+        (shift-camera state (camera-coordinate (* factor (scalar (clamp dx -8192 8192))))
+                      (camera-coordinate (* factor (scalar (clamp dy -8192 8192)))))))
     (define (choose-site state)
       (client-preview-set
        (client-target-y-set (client-target-x-set (client-chooser-set state #t) (client-x state)) (client-y state)) 0))
@@ -194,6 +200,8 @@
                  (orbit (state) (no-effects (client-scale-set state (if (>= (client-scale state) 4000) 1000 12000))))
                  (pan (state (dx I32) (dy I32)) (no-effects (shift-camera state (* dx 1000) (* dy 1000))))
                  (drift (state (dx I32) (dy I32)) (no-effects (shift-camera state (* (clamp dx -50 50) 9) (* (clamp dy -50 50) 9))))
+                 (drag (state (dx I32) (dy I32))
+                       (no-effects (if (> (client-restart-mode state) 0) state (drag-client state dx dy))))
                  (fabricate (state) (if (hub-selected? (context-world) state) (send-request state (fabricate-worker)) (no-effects state)))
                  (focus (state (value I32)) (send-request (clear-choice state) (set-focus value)))
                  (relocate (state) (no-effects (clear-choice state)))

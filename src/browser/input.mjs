@@ -41,9 +41,11 @@ export function parseInputSettings(settings) {
     throw new Error('input requires positive dimensions, repeat interval, and pointer handlers');
   const coordinates = pointer.coordinates ?? 'cells';
   if (coordinates !== 'cells' && coordinates !== 'pixels') throw new Error('pointer coordinates must be cells or pixels');
-  const zoomHandler = settings.zoomHandler;
+  const {zoomHandler, dragHandler} = settings;
   if (zoomHandler !== undefined && (typeof zoomHandler !== 'string' || !zoomHandler))
     throw new Error('zoom handler must name a client endpoint');
+  if (dragHandler !== undefined && (typeof dragHandler !== 'string' || !dragHandler))
+    throw new Error('drag handler must name a client endpoint');
   const keys = commands(settings.keys), buttons = commands(settings.controller, true);
   const repeatKeys = mappedInputs(settings.repeatKeys, keys), continuousKeys = mappedInputs(settings.continuousKeys, keys);
   for (const key of continuousKeys) {
@@ -53,7 +55,7 @@ export function parseInputSettings(settings) {
   if (settings.controllerAxes !== undefined && !Array.isArray(settings.controllerAxes)) throw new Error('controller axes require an array');
   const axes = (settings.controllerAxes ?? []).map(controllerAxis);
   if (new Set(axes.map(value => value.axis)).size !== axes.length) throw new Error('controller axes must be unique');
-  return {width, height, cellSize, pointer: {...pointer, coordinates}, zoomHandler, interval, keys, buttons, axes,
+  return {width, height, cellSize, pointer: {...pointer, coordinates}, zoomHandler, dragHandler, interval, keys, buttons, axes,
     repeatKeys, continuousKeys, repeatButtons: mappedInputs(settings.repeatButtons, buttons)};
 }
 
@@ -64,7 +66,7 @@ export class BrowserInput {
   // Replacing that object only resets physical input latches, never app state.
   constructor(canvas, readSettings, dispatch) {
     this.canvas = canvas; this.readSettings = readSettings; this.dispatch = dispatch;
-    this.keys = new Map(); this.controls = new Map(); this.touches = new Map();
+    this.keys = new Map(); this.controls = new Map(); this.contacts = new Map();
     this.touchAction = canvas.style.touchAction;
     this.syncSettings(); this.install();
   }
@@ -72,14 +74,14 @@ export class BrowserInput {
     const settings = this.readSettings();
     if (settings !== this.settings) {
       this.settings = settings; this.reset();
-      this.canvas.style.touchAction = settings.zoomHandler ? 'none' : this.touchAction;
+      this.canvas.style.touchAction = settings.zoomHandler || settings.dragHandler ? 'none' : this.touchAction;
     }
   }
   reset() {
     this.keys.clear(); this.controls.clear(); this.point = undefined;
     this.pad = undefined; this.baseline = true; this.time = undefined;
-    const captured = [...this.touches.keys()];
-    this.touches.clear(); this.tap = this.pinch = undefined; this.zoom = 0;
+    const captured = [...this.contacts.keys()];
+    this.contacts.clear(); this.gesture = this.pinch = undefined; this.zoom = this.dragX = this.dragY = 0;
     for (const id of captured) if (this.canvas.hasPointerCapture(id)) this.canvas.releasePointerCapture(id);
   }
   send(value) {
@@ -87,14 +89,17 @@ export class BrowserInput {
     this.dispatch(value[0], value.slice(1));
   }
   install() {
-    this.canvas.addEventListener('pointermove', event => event.pointerType === 'touch' ? this.moveTouch(event) : this.movePointer(event));
+    this.canvas.addEventListener('pointermove', event => {
+      if (this.contacts.has(event.pointerId)) this.moveContact(event);
+      else if (event.pointerType !== 'touch') this.movePointer(event);
+    });
     this.canvas.addEventListener('pointerdown', event => this.pressPointer(event));
-    this.canvas.addEventListener('pointerup', event => this.releaseTouch(event));
-    this.canvas.addEventListener('pointercancel', event => this.releaseTouch(event, true));
-    this.canvas.addEventListener('lostpointercapture', event => this.releaseTouch(event, true));
+    this.canvas.addEventListener('pointerup', event => this.releaseContact(event));
+    this.canvas.addEventListener('pointercancel', event => this.releaseContact(event, true));
+    this.canvas.addEventListener('lostpointercapture', event => this.releaseContact(event, true));
     this.canvas.addEventListener('wheel', event => this.wheel(event), {passive: false});
     document.addEventListener('pointerdown', event => {
-      if (event.pointerType === 'touch' && this.tap && this.tap.id !== event.pointerId) this.tap = undefined;
+      if (event.pointerType === 'touch' && this.gesture && this.gesture.id !== event.pointerId) this.suppressDrag();
     });
     document.addEventListener('keydown', event => this.pressKey(event));
     document.addEventListener('keyup', event => this.keys.delete(event.code || event.key));
@@ -118,7 +123,7 @@ export class BrowserInput {
     // at most 50ms once; subsequent frames never repay the missing time.
     const elapsed = this.time === undefined ? 0 : Math.max(0, Math.min(50, time - this.time));
     this.time = time;
-    this.flushZoom();
+    this.flushDrag(); this.flushZoom();
     this.pollKeys(time, elapsed); this.pollController(time, elapsed);
   }
   pollKeys(time, elapsed) {
@@ -165,34 +170,59 @@ export class BrowserInput {
     this.syncSettings();
     if (event.button !== 0) return;
     event.preventDefault(); this.canvas.focus({preventScroll: true});
-    if (event.pointerType === 'touch') { this.pressTouch(event); return; }
+    if (event.pointerType === 'touch' || this.settings.dragHandler) { this.pressContact(event); return; }
     this.movePointer(event, true); this.send([this.settings.pointer.confirm]);
   }
 
-  // ---- A touch gesture can confirm only until its first drag or second finger ----
+  // ---- One contact can tap or drag; multiple contacts can only pinch ----
 
-  pressTouch(event) {
-    this.tap = event.isPrimary && !this.touches.size ? {id: event.pointerId, x: event.clientX, y: event.clientY} : undefined;
-    this.touches.set(event.pointerId, {x: event.clientX, y: event.clientY});
-    this.canvas.setPointerCapture(event.pointerId); this.pinch = touchDistance(this.touches);
+  suppressDrag() {
+    this.gesture = undefined; this.dragX = this.dragY = 0;
   }
-  moveTouch(event) {
+  pressContact(event) {
+    if (event.isPrimary && !this.contacts.size)
+      this.gesture = {id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false};
+    else this.suppressDrag();
+    this.contacts.set(event.pointerId, {x: event.clientX, y: event.clientY, type: event.pointerType});
+    this.canvas.setPointerCapture(event.pointerId); this.pinch = touchDistance(this.contacts);
+  }
+  moveContact(event) {
     this.syncSettings();
-    if (!this.touches.has(event.pointerId)) return;
-    this.touches.set(event.pointerId, {x: event.clientX, y: event.clientY});
-    if (this.tap && Math.hypot(event.clientX - this.tap.x, event.clientY - this.tap.y) > 8) this.tap = undefined;
-    const distance = touchDistance(this.touches);
+    const previous = this.contacts.get(event.pointerId); if (!previous) return;
+    this.contacts.set(event.pointerId, {...previous, x: event.clientX, y: event.clientY});
+    if (this.gesture?.id === event.pointerId) this.moveGesture(event, previous);
+    const distance = touchDistance(this.contacts);
     if (this.pinch && distance) this.queueZoom(1000 * Math.log(this.pinch / distance));
     this.pinch = distance;
   }
-  releaseTouch(event, cancelled = false) {
+  moveGesture(event, previous) {
+    const gesture = this.gesture;
+    if (!gesture.dragging && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <= 8) return;
+    // Crossing the threshold includes the press-to-current displacement once.
+    const from = gesture.dragging ? previous : gesture;
+    this.queueDrag(event.clientX - from.x, event.clientY - from.y); gesture.dragging = true;
+  }
+  releaseContact(event, cancelled = false) {
     this.syncSettings();
-    if (!this.touches.has(event.pointerId)) return;
-    const confirm = !cancelled && this.tap?.id === event.pointerId &&
-      Math.hypot(event.clientX - this.tap.x, event.clientY - this.tap.y) <= 8;
-    this.touches.delete(event.pointerId); this.tap = undefined; this.pinch = touchDistance(this.touches);
+    if (!this.contacts.has(event.pointerId)) return;
+    if (cancelled) { this.suppressDrag(); this.zoom = 0; } else this.moveContact(event);
+    const confirm = !cancelled && this.gesture?.id === event.pointerId && !this.gesture.dragging;
+    this.contacts.delete(event.pointerId); this.gesture = undefined; this.pinch = touchDistance(this.contacts);
+    // Delete before releasing capture: its expected lost-capture event must
+    // not discard a completed drag still waiting for the next display frame.
     if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
     if (confirm) { this.movePointer(event, true); this.send([this.settings.pointer.confirm]); }
+  }
+  queueDrag(dx, dy) {
+    if (!this.settings.dragHandler || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    this.dragX = Math.max(-2147483648, Math.min(2147483647, this.dragX + dx));
+    this.dragY = Math.max(-2147483648, Math.min(2147483647, this.dragY + dy));
+  }
+  flushDrag() {
+    const dx = Math.trunc(this.dragX), dy = Math.trunc(this.dragY);
+    this.dragX -= dx; this.dragY -= dy;
+    if (!this.gesture?.dragging) this.dragX = this.dragY = 0;
+    if (dx || dy) this.send([this.settings.dragHandler, dx, dy]);
   }
 
   // ---- Zoom describes a scale change; the Scheme client owns camera policy ----
@@ -288,7 +318,9 @@ function coordinateAt(position, length, units) {
 }
 function touchDistance(touches) {
   if (touches.size !== 2) return undefined;
-  const [left, right] = touches.values(), distance = Math.hypot(left.x - right.x, left.y - right.y);
+  const [left, right] = touches.values();
+  if (left.type !== 'touch' || right.type !== 'touch') return undefined;
+  const distance = Math.hypot(left.x - right.x, left.y - right.y);
   return Number.isFinite(distance) && distance > 0 ? distance : undefined;
 }
 function scaledI32(value, scale) {

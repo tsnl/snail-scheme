@@ -63,6 +63,7 @@ try {
     const after=project(8,22),dx=after[0]-before[0],dy=after[1]-before[1];
     assert.ok(dx*direction[0]+dy*direction[1]<-20);assert.ok(Math.abs(dx*direction[1]-dy*direction[0])<=1);
     await command('pan',direction.map(v=>v*10000));const bounded=local();await command('pan',direction);
+    await command('drag',direction.map(v=>-100*v));
     assert.equal(local().cameraX,bounded.cameraX);assert.equal(local().cameraY,bounded.cameraY);
   }
   const distant=local();await command('home');const travelling=local();
@@ -121,11 +122,21 @@ try {
   for(let turn=0;turn<4;turn++){
     await command('rotate',[0,1]);assert.equal(runtime.view().scene.requestFrame,true);await command('animate',[50]);assert.ok(local().heading%90000!==0);
     await animate();assert.equal(runtime.view().scene.requestFrame,false);await point(12,20);cursorAt(12,20);
+    const start=project(12,20);await command('drag',[32,-24]);const dragged=project(12,20);
+    assert.ok(Math.abs(dragged[0]-start[0]-32)<=1&&Math.abs(dragged[1]-start[1]+24)<=1);await command('drag',[-32,24]);
     const before=project(12,20);await command('pan',[0,1]);const after=project(12,20);assert.ok(Math.abs(before[0]-after[0])<=1);assert.ok(after[1]<before[1]);
     await command('pan',[0,-1]);
   }
   assert.equal(local().heading,0);
   for(const[width,height]of[[1280,720],[390,844],[844,390],[640,360]]){
+    await command('viewport',[width,height]);await home();
+    for(const scale of [1000,12000]){
+      if(local().scale!==scale)await command('orbit');
+      const before=project(8,22);await command('drag',[60,-30]);const after=project(8,22);
+      assert.ok(Math.abs(after[0]-before[0]-60)<=1&&Math.abs(after[1]-before[1]+30)<=1);
+      await command('drag',[-60,30]);
+    }
+    await command('orbit');
     await command('viewport',[width,height]);await home();await point(9,23);await command('confirm');popupControlsFit();
     const bounds=placed('context');assert.ok(bounds.left>=0&&bounds.top>=0&&bounds.right<=width&&bounds.bottom<=height,`context fits ${width}x${height}`);
     assert.deepEqual(runtime.view().scene.viewport,[0,0,width,height]);await command('dismiss');await command('center');await point(12.4,20,.63);cursorAt(12,20);
@@ -135,6 +146,7 @@ try {
   await command('suspend',[0]);await command('restart');assert.equal(world().paused,1);assert.ok(node('restart-dialog'));
   const modal=runtime.snapshot(1);await command('suspend',[-1]);assert.deepEqual(runtime.snapshot(1),modal);
   const restartCamera=[local().cameraX,local().cameraY];await command('viewport',[700,420]);
+  await command('drag',[60,30]);
   assert.equal(local().restartMode,1);assert.deepEqual([local().cameraX,local().cameraY],restartCamera);assert.ok(node('restart-dialog'));
   await command('dismiss');assert.equal(world().paused,0);assert.equal(node('restart-dialog'),undefined);
   await command('suspend',[1]);await command('restart');await command('dismiss');assert.equal(world().paused,1);

@@ -10,6 +10,10 @@ Each isolates a piece of this app and points back to its implementation here.
 
 ## Build and play
 
+Run these commands from the repository root with Chibi, Binaryen, Node 24 and
+Python 3 available. The [repository setup](../../README.md#getting-started)
+provides the development environment; no native game server is required.
+
 ```sh
 chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
 python3 -m http.server 4191 --directory build/siegework/solo
@@ -55,6 +59,18 @@ card beside it offers explicit actions. Click away or press Escape to dismiss.
 Cards use the same icons, controls and visible shortcut keys on every screen.
 They never scroll or resize the full-screen world. WebGPU renders at native
 pixel density, including HiDPI displays.
+
+Drag the world with one finger, a mouse or a pen to pan. A tap selects only when
+released; moving more than eight CSS pixels turns the gesture into a drag and
+cancels that selection. Two-finger pinch only zooms, so lifting one finger never
+starts an accidental pan. The reusable `dragHandler` setting sends signed CSS
+pixel deltas to the Scheme camera once per display frame, independent of DPR.
+
+Canceling returns uncollected reserved materials to their source. A kit already
+on a worker stays physical and returns to the hub before its refund; delivered
+materials stay spent. Canceling a tower upgrade preserves its existing level
+and services. Clicking another world cell dismisses the old card and selects
+that cell without placing an order.
 
 ## Supply lines and threats
 

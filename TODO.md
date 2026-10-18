@@ -101,6 +101,7 @@ the supported game is the static client-side 3D bundle.
 - [x] Tower progression: Lv1 sight, Lv2 artillery, Lv3 cart station replacing gun.
 - [x] Workers use cart stations and rails for fast personal/cargo travel.
 - [x] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
+- [x] Touch, mouse and pen drag the map; taps select and pinches never select.
 - [x] Repeated focused simplification followed by a final Astra xhigh code review.
 - [x] Confirm Siegework build CI and consolidate the stack into mega-PR #334.
       The PR state records CI and landing status.

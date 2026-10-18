@@ -378,14 +378,22 @@ Without `zoomHandler`, wheel input retains its browser behavior. With it, the
 canvas owns wheel and pinch gestures and uses `touch-action: none`; surrounding
 controls retain their native behavior.
 
-Mouse and pen confirmation still occurs on press. A touch confirms only on
+By default mouse and pen confirmation occurs on press. A touch confirms only on
 release of a single-finger tap, after sending its final pointer coordinates.
 Moving more than eight CSS pixels or adding another finger permanently cancels
 that gesture's confirmation, even if the finger later returns to its start.
 Exactly two tracked touches can pinch. Additional fingers suspend zoom, and
 returning to two starts a fresh distance baseline. Cancellation, lost pointer
-capture or a reset cannot produce a confirmation. Touch dragging has no implicit
-pan behavior; that policy remains application-owned.
+capture or a reset cannot produce a confirmation.
+
+An optional `dragHandler` names a client handler taking two `I32` values: signed
+CSS-pixel displacement, positive right/down. It opts the canvas into dragging for
+mouse, pen and touch, coalesced on the existing display frame. All three then
+confirm only on release of a tap. Movement beyond eight CSS pixels begins a drag
+and permanently cancels that tap; a second contact suppresses dragging until all
+contacts release, so a pinch cannot end with a camera jump. The application owns
+the displacement-to-camera conversion. Without this setting, dragging does not
+implicitly pan the view.
 
 `controllerAxes` optionally maps each axis to negative and positive commands:
 `{"axis":0,"negative":["pan",-1,0],"positive":["pan",1,0],"deadzone":0.35}`.
@@ -394,9 +402,11 @@ bindings and typed payloads both when packaging and in the browser. After focus,
 device or generation changes, held controls must be released before activating
 again. Native controls and editable elements retain their keyboard behavior.
 
-The current UI shell is ordinary HTML/CSS, with application state and behavior
-in Scheme; there is no Scheme widget DSL. A form can bind one or two text fields
-to a typed client handler. Put `data-handler` on the form, `data-i32` on each
+Applications can use the [Scheme UI library](../../ui.md) to declare typed
+controls and allocate their rectangles in one top-down pass. Its browser adapter
+maintains semantic DOM controls; Siegework's HUD uses this path. A handwritten
+HTML form can also bind one or two text fields to a typed client handler.
+Put `data-handler` on the form, `data-i32` on each
 input, and a `data-input-error` element in the form. Fields become I32 arguments
 in document order. The submit button uses ordinary native form behavior:
 
@@ -518,11 +528,12 @@ candidate cannot reserve its proposed state shape. Installation checks current
 snapshots again before publishing any new owner buffers with the code.
 
 Live reload also requires the same endpoint contracts. Reordering declarations
-is compatible; adding, removing or changing an endpoint requires an explicit
-protocol migration or a separate fresh save. Restart alone cannot make an
-incompatible solo record readable: reopen the previous compatible package, or
-use a deliberately distinct application ID for a separate application. Pending requests retain their original
-encoded identities and payloads.
+is compatible. Adding, removing or changing a client endpoint requires a page
+reload, which initializes presentation state but can reopen the same saved world.
+Changing the match contract requires an explicit save migration or a separate
+application identity. Restart alone cannot make an incompatible saved world
+readable: reopen the previous compatible package, or use a distinct application
+ID. Pending requests retain their original encoded identities and payloads.
 
 State schemas version meaning, not just byte length. A changed schema is rejected
 until an explicit migration exists; automatic migrations are not implemented.

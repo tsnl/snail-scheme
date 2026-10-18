@@ -138,5 +138,6 @@
     "maximum": 65535
   },
   "resetPresentation": "center",
-  "zoomHandler": "zoom"
+  "zoomHandler": "zoom",
+  "dragHandler": "drag"
 }

@@ -4,11 +4,11 @@ The consolidated PR #334 is based on main `9bdee767`, including rank-one
 `All ... requires` and the compiler-performance changes from PR #331.
 The canonical build is `apps/siegework/build.scm`; there is one static 3D game.
 
-The verified release package is `build/siegework-release/solo`:
+The verified release package is `build/siegework-touch-release/solo`:
 
-- Generation: `3a4eea94481d346122de36ee`.
-- Simulation: 645,048 bytes, SHA-256
-  `8465011c38014b7db5fe247a2d2eb4de87f47da04abab05500bba43b1787c813`.
+- Generation: `bc7325e9da0aa05411935248`.
+- Simulation: 645,395 bytes, SHA-256
+  `b7b113c57b23cc2128a5d8f88262ca892bcb52629e78e1ee170d89c07090d78c`.
 - Application ID: `siegework-colony-v10`; world schema 10, client schema 4.
 - Host JavaScript, stylesheet and shader are packaged with that module. Host
   changes require a page refresh; compatible Scheme/shader replacement preserves
@@ -42,7 +42,13 @@ runners pass. No gameplay-server requests are made by the local-only build.
 Independent product browser checks pass mouse and touch select-then-action,
 repeated hub hiring, explicit upgrading/cancellation, restart confirmation and
 prior-pause restoration, screen-aligned pan, smooth Home/rotation, wheel/pinch
-zoom, and portrait/landscape card bounds. Header and action labels are checked
+zoom, and portrait/landscape card bounds. The camera drag endpoint is checked
+at all quarter turns, regular/orbital scales and portrait/landscape sizes; it
+ignores drag requests during restart confirmation. Real mouse, pen and touch
+input checks cover threshold crossing, subpixel/frame coalescing, final release,
+cancellation, blur, settings replacement and pinch handoff. A real DPR3 touch
+drag of 60×40 CSS pixels moves the map by 60×40 without selecting or changing
+the world; pinch leaves its center intact. Header and action labels are checked
 for clipping. Attack cards and live thumbnails fit portrait and landscape screens;
 omitted thumbnails release their GPU resources, and selecting an attack pans
 without changing the world. A defeated zero-worker colony retains its result
@@ -68,7 +74,7 @@ No claim is made that the unknown original cause or Firefox's queue crash is fix
 
 The live preview remains on port 4212. All destructive browser checks use private
 hosts, profiles and saves. Logs for this pass include
-`/tmp/siegework-release-runtime.log`, `/tmp/siegework-release-hosting.log`,
+`/tmp/siegework-touch-release-runtime.log`, `/tmp/siegework-touch-release-hosting.log`,
 `/tmp/siegework-application-tutorials.log`, `/tmp/siegework-reveal-fixtures.log`
 and `/tmp/siegework-reveal-gpu.log`. Temporary evidence is local; CI retains its
 own artifacts. The CI applications job builds Siegework, the application tutorials,
