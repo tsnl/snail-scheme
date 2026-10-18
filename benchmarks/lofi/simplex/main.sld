@@ -25,8 +25,6 @@
   (simplex-unbounded)
   (simplex-solved (values (List (Vector I64)) simplex-values))))
 
-(def list (lambda (first second) (cons first (cons second (empty-list )))))
-
 (define-overload - (-> F64 F64) (lambda (x.8) (f64-sub -0.0 x.8)))
 
 (define-overload / (-> F64 F64) (lambda (x.7) (f64-div 1.0 x.7)))
