@@ -1,7 +1,7 @@
 # Small application examples
 
 Start with the [five application tutorials](../../doc/book/lofi/tutorials/index.md).
-They introduce the same pieces used by Siegework in small runnable steps.
+Build a counter, an inventory and a shared browser board in small runnable steps.
 
 | Example | Purpose | Expected result |
 | --- | --- | --- |

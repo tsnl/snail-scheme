@@ -1,7 +1,6 @@
 # Marker board
 
 An 8 by 6 shared board with one orange marker and one white cursor per browser.
-It isolates the input, ownership and rendering boundaries used by Siegework.
 Follow [the board tutorial](../../../doc/book/lofi/tutorials/board.md) and
 [the reload tutorial](../../../doc/book/lofi/tutorials/reload.md) to build and
 modify it step by step.

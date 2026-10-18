@@ -1,10 +1,8 @@
 # Keep state across code changes and restarts
 
-Use the marker board to observe three lifetimes: a compiled module, a browser
-tab's local model, and the authority's durable shared state. No new application
-logic is needed. This lesson uses the finished app from
-[the board tutorial](board.md); it can also be started directly with that
-lesson's two build and server commands.
+Use the app from [the board tutorial](board.md) to see which state survives
+code changes, browser refreshes and server restarts. Start the board with that
+tutorial's build and server commands.
 
 ## Give state a portable representation
 
@@ -125,7 +123,5 @@ checks exercise retained snapshots, compatible replacement, schema rejection and
 SQLite close/reopen restoration. The steps above additionally show the real
 server, browser and pipeline behavior.
 
-In Siegework the same boundary preserves a whole world instead of one marker.
-Continue with [its code tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md), especially
-“Follow replacement and checks,” or consult the
-[full reload contract](../applications.md#reload-boundary).
+See the [reload reference](../applications.md#reload-boundary) for the full
+compatibility requirements.

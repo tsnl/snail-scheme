@@ -6,7 +6,6 @@ to move the marker for every tab. The view draws just three rectangles.
 
 The finished app is
 [`marker-board`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/marker-board/README.md).
-It uses the same two-owner host as Siegework, with no mining, combat or animation.
 Use the [shared setup](index.md#set-up-once) first.
 
 ## Run the finished board
@@ -136,13 +135,5 @@ If startup fails, read the connection text on the page and the build output.
 the settings names. A port conflict can be resolved by choosing another `PORT`
 and opening that port. Stop this server with Ctrl-C when done.
 
-## Find this in Siegework
-
-[`view.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/view.sld) returns a longer
-quad list with the same `view` contract. The client selection in `game.sld` plays the role
-of this cursor. Its shader library adds composition, but crosses the same build
-boundary. Read [Siegework's tour](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/TOUR.md) after following
-one click through this board.
-
-Next: [save and reload the board](reload.md), separating portable state from
-the lifetime of a browser tab or compiled module.
+Next: [save and reload the board](reload.md) to keep state across code changes
+and server restarts.

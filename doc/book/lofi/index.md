@@ -1,9 +1,9 @@
-# Lofi
+# LoFI: Low-Level Functional IR
 
-Lofi (Low-level Functional IR) is a typed functional language
-and a reusable compiler target. It keeps functions, algebraic data and generic
-definitions intact long enough for the compiler to reason about them. Its
-S-expression syntax is small enough to generate and practical to write by hand.
+Lofi is a typed functional language and a reusable compiler target. It preserves
+functions, algebraic data and generic definitions so the compiler can reason
+about them. Its S-expression syntax is small enough to generate and practical
+to write by hand.
 
 Languages are libraries: the typed kernel, [hygienic macros and initial Scheme
 forms](macros.md), and compiler APIs share the same library system. Source files
