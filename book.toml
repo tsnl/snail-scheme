@@ -13,5 +13,9 @@ site-url = "/snail-scheme/"
 git-repository-url = "https://github.com/tsnl/snail-scheme"
 edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"
 
+[output.html.fold]
+enable = true
+level = 0
+
 [output.html.playground]
 runnable = false

@@ -1,13 +1,10 @@
-# Build Small Applications
+# Tutorials
 
-These five tutorials take apart the ideas used by Siegework. Start with a
-counter you can run in a terminal, then build a tiny shared marker board. Each
-lesson introduces one responsibility and gives you a working checkpoint, a
-change to try, and a place to find the same idea in Siegework.
+Build a counter, an inventory and a shared browser board. Each tutorial includes
+working code, an exercise and a link to the same idea in Siegework.
 
-The first three examples run without a browser or server. The last two use the
-same 8 by 6 board, so learning persistence does not require learning another
-application first.
+The first three run in a terminal. The last two use the same 8 by 6 browser board
+to teach shared state, saving and reloading.
 
 | Tutorial | What you build | What it isolates |
 | --- | --- | --- |
