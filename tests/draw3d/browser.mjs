@@ -23,11 +23,47 @@ try {
   assert.ok(await evaluate('!!globalThis.sceneFixture'), 'scene fixture failed to start');
   const pixels = await evaluate(`(async () => { const {renderer,frame}=sceneFixture; const result=await renderer.readPixels(frame);
     return {colors: new Set(Array.from(result.bytes).filter((_,i)=>i%4!==3)).size, bytes:result.bytes.length,
-      vertices:frame.batches.reduce((n,b)=>n+b.vertices.length/10,0),
-      triangles:frame.batches.reduce((n,b)=>n+b.indices.length/3,0),errors:sceneErrors};})()`);
+      vertices:frame.batches.reduce((n,b)=>n+b.draws.reduce((sum,draw)=>sum+draw.count*draw.mesh.vertices.length/10,0),0),
+      triangles:frame.batches.reduce((n,b)=>n+b.draws.reduce((sum,draw)=>sum+draw.count*draw.mesh.indices.length/3,0),0),errors:sceneErrors};})()`);
   assert.ok(pixels.colors > 30); assert.ok(pixels.bytes > 100000); assert.deepEqual(pixels.errors, []);
   console.log('ok - actual Chromium WebGPU scene pixels', pixels);
   if (process.argv[4]) { const shot = await call('Page.captureScreenshot', {format: 'png'}); writeFileSync(process.argv[4], Buffer.from(shot.data, 'base64')); }
+  const instances=await evaluate(`(async()=>{const {renderer,frame}=sceneFixture;
+    const {hydrateFrame}=await import('./scene-tools.mjs');
+    const scene=hydrateFrame(await(await fetch('./instances.json')).json()),calls=[];
+    const original=renderer.device.createCommandEncoder;
+    renderer.device.createCommandEncoder=function(...args){const encoder=original.apply(this,args),begin=encoder.beginRenderPass.bind(encoder);
+      encoder.beginRenderPass=(...args)=>{const pass=begin(...args),draw=pass.drawIndexed.bind(pass);
+        pass.drawIndexed=(...args)=>{calls.push(args);return draw(...args);};return pass;};return encoder;};
+    try{const before=renderer.resources.meshUploads;await renderer.readPixels(scene);
+      const first=renderer.resources,initial=calls.splice(0);
+      await renderer.readPixels({...scene,uniforms:scene.uniforms.slice()});const camera=renderer.resources;
+      const moving=scene.batches[2],next={...scene,batches:[...scene.batches.slice(0,2),
+        {...moving,transforms:moving.transforms.map((value,index)=>index%12===3?value+.25:value)}]};
+      await renderer.readPixels(next);const changed=renderer.resources;
+      return{counts:initial.map(call=>call[1]),firstInstances:initial.map(call=>call[4]),
+        meshes:first.meshes,newMeshes:first.meshUploads-before,instances:first.instances,
+        instancedDraws:first.instancedDraws,cameraReuse:camera.uploads===first.uploads&&camera.meshUploads===first.meshUploads,
+        transformOnly:changed.uploads===camera.uploads+1&&changed.meshUploads===camera.meshUploads,
+        instanceBytes:first.instanceBytes,errors:sceneErrors};
+    }finally{renderer.device.createCommandEncoder=original;renderer.draw(frame);}})()`);
+  assert.deepEqual(instances.counts,[1,1,1,2,1,2]);
+  assert.deepEqual(instances.firstInstances,[0,1,2,0,2,0]);
+  for(const [key,value]of Object.entries({meshes:3,newMeshes:3,instances:8,instancedDraws:2,cameraReuse:true,transformOnly:true}))assert.equal(instances[key],value,key);
+  assert.ok(instances.instanceBytes>0);assert.deepEqual(instances.errors,[]);
+  console.log('ok - GPU indexed draws use real instance counts and shared colored model buffers; camera changes upload nothing and new ticks upload only occurrence data',instances);
+  const order=await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
+    const {identityTransform:t,identityNormal:n}=await import('./scene-tools.mjs');
+    function mesh(color){const vertices=[];for(const[x,y]of[[-.8,-.8],[.8,-.8],[0,.8]])vertices.push(x,y,.3,0,0,1,...color,1);return{vertices,indices:[0,1,2]};}
+    const a=mesh([1,0,0]),b=mesh([0,0,1]),batch={key:77,draws:[{mesh:a,first:0,count:1},{mesh:b,first:1,count:1},{mesh:a,first:2,count:1}],
+      transforms:[...t,...t,...t],normals:[...n,...n,...n]};
+    const scene={batches:[batch],background:[0,0,0],uniforms:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,1,1,0,0,0,0,0,0,-1]};
+    async function center(value){const result=await renderer.readPixels(value),at=Math.floor(canvas.height/2)*result.bytesPerRow+Math.floor(canvas.width/2)*4;
+      const pixel=Array.from(result.bytes.slice(at,at+4));if(result.format.startsWith('bgra'))[pixel[0],pixel[2]]=[pixel[2],pixel[0]];return pixel;}
+    try{return{opaque:await center(scene),alpha:await center({...scene,batches:[{...batch,opacity:.5}]}),errors:sceneErrors};}
+    finally{renderer.draw(frame);}})()`);
+  assert.deepEqual(order.opaque,[255,0,0,255]);assert.ok(Math.abs(order.alpha[0]-160)<=1&&Math.abs(order.alpha[2]-64)<=1);
+  assert.deepEqual(order.errors,[]);console.log('ok - ordered A/B/A instance runs preserve opaque tie winners and transparent blending');
   const depth = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture;
     const vertices=[];for(const [z,color] of [[.2,[1,0,0]],[.8,[0,0,1]]])
       for(const [x,y] of [[-.8,-.8],[.8,-.8],[0,.8]])vertices.push(x,y,z,0,0,1,...color,1);
@@ -231,7 +267,7 @@ try {
   const singleSample = await evaluate(`(async()=>{const {createSceneRenderer}=await import('./lib/webgpu/scene.mjs');
     const canvas=document.createElement('canvas');canvas.style.width='128px';canvas.style.height='96px';
     canvas.width=256;canvas.height=192;document.body.append(canvas);
-    const errors=[],renderer=await createSceneRenderer(canvas,error=>errors.push(error.message)),textures=[];
+    const errors=[],renderer=sceneFixture.adaptProbeRenderer(await createSceneRenderer(canvas,error=>errors.push(error.message))),textures=[];
     const createTexture=renderer.device.createTexture.bind(renderer.device);
     renderer.device.createTexture=descriptor=>{const texture=createTexture(descriptor),destroy=texture.destroy.bind(texture);
       const record={width:texture.width,height:texture.height,samples:texture.sampleCount,destroyed:0};textures.push(record);

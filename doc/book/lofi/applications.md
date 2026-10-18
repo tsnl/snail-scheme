@@ -342,6 +342,11 @@ and is not part of a saved checkpoint. Compatible code replacement preserves it.
 
 A presentation query can read the prior world and match entities by ID
 to supply `moving-group` transforms in a [`motion-batch`](../../../src/draw3d/README.md#motion-between-committed-states).
+Create fixed colored bodies once with `(model nodes)`, then place them with
+`(model-instance model transform)`. Presentation copies occurrence transforms;
+the GPU reuses each fixed model's vertex and index buffers. Ordered batches
+preserve submission order, while `unordered-batch` explicitly permits grouping
+opaque occurrences when the application accepts that order.
 Use current transforms for newly created entities or discontinuities such as a
 new run. The GPU advances the supplied transition on display frames; this does
 not increase the reducer tick rate or rerun Scheme layout for entity motion.
