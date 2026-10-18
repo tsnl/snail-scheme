@@ -1,0 +1,62 @@
+{
+  "command": [
+    "chibi-scheme",
+    "-I",
+    "/tmp/snail-land-compile-performance-20261018/bootstrap",
+    "/tmp/snail-land-perf-3d-fixture-20261018/apps/siegework/three/build.scm",
+    "/tmp/snail-land-perf-3d-fixture-20261018",
+    "/tmp/snail-land-compile-performance-20261018/build/verified-3d-release-main"
+  ],
+  "wall_seconds": 77.77220929699251,
+  "user_seconds": 76.84672,
+  "system_seconds": 0.7844439999999999,
+  "max_rss_kib": 2136676,
+  "status": 0,
+  "compiler_unchanged": true,
+  "compiler_hashes": {
+    "src/lofi/compiler/source.sld": "9e5935e13e9aa2373d4e56616b04738fe31b7eb4d96dc597cb6b9d6ca97df367",
+    "src/lofi/compiler/library.sld": "44d5832939c183ef62ca1ec6582c79c4f30d3e8a3c45dadaf2ba20f627b20ff6",
+    "src/lofi/compiler/builder.sld": "a2444e4ab5c1a909de9fce185ca97d7e393d26ee5c0de7738638ef92f6b2bb63",
+    "src/lofi/compiler/overloads.sld": "5b1a4155530281723551c967440993bd575a7e7a91e062b3a60f01ed888ce182",
+    "src/lofi/compiler/macros.sld": "acdf41000bbe7809c801b3402e174666065338a8f5ce9d91152d96fe9d1be440",
+    "src/lofi/compiler/resolved-library.sld": "74255a1ad920f22f80fc3b9607f3d3ff875ca013989f7ab052bd4c6435abba3a",
+    "src/lofi/compiler/syntax.sld": "b35b5caf5a0fa8d482f2ebfac50b1d29270f46a37844219456193d2fd7741a85",
+    "src/lofi/compiler/hashmap.sld": "27f540e32b21a4a7b1532c8c3784b55cbdec975fadfafbc99addd09b5f898a69",
+    "src/lofi/compiler/library-transfer.sld": "d46dbe4d6cc86ac295b325f5b5aeef55475da7d73f544dbd1d7b3d21cb9656c2",
+    "src/lofi/compiler/syntax-parser.sld": "9a529bec67461e01191d40602362cc638f6eda8528cbe7aacd050450a0f15489",
+    "src/lofi/compiler/checked.sld": "fa1edf84992d902b3c7f4c4768666fb4dccb7d2b8feacaaccb3cd2c2a0233f3c",
+    "src/lofi/compiler/signatures.sld": "3d6679915aa33f4c2bd8e36e698fc9b4eb28fc9dd54ae9beb55b2a8ac4b0527f",
+    "src/lofi/compiler/native.sld": "43a26a625e5eca1a5d96af2654a0c68548bbae4ec2f5fed839e5f868a7bd3b4c",
+    "src/lofi/compiler/wasm-strings.sld": "4033248a3329740814b3ca9f54a4077195eb2994d3d57c7fb370bc0b2d2f5f20",
+    "src/lofi/compiler/pass.sld": "3d9976653b4c9448844b02970a873cb67c5ed2c1f6c359636286fdd6d06b5bc9",
+    "src/lofi/compiler/artifact.sld": "5c89c8caeb3fc82d30ac5e32e2ab9946ea843bceba8bcc38ef1df637a53bc732",
+    "src/lofi/compiler/numeric-literals.sld": "e9f568751fd5a3b21e93846ca33963e675ec9fa9b82a823e2106569e78272cd4",
+    "src/lofi/compiler/data.sld": "2680fc417270d7d3268860e3385ffaaa66408eccfcc1ee2a5f4f5fff29a5e3c1",
+    "src/lofi/compiler/profile.sld": "22a48e1b7d4627479b8e60b86f94a7bc7ef28b755ba1c52c860e3b39cad8fdaa",
+    "src/lofi/compiler/ir.sld": "3844a4100d91ebfdcc19b75fa0553f893a2b6ab91ea6bebe05a83967a2c67b6d",
+    "src/lofi/compiler/frontend.sld": "b4097712de9359abff77bd149eeae606a2785d70610a2b39794ce27edc936787",
+    "src/lofi/compiler/primitives.sld": "2e78bdde1be0dc648fdd87b7c3fbf90227a927a5417d878eea94c614a740d17b",
+    "src/lofi/compiler/parser.sld": "4cf979090819150301ee2ac2757d6f9b914bd4b57f2270236b6de6ed47426730",
+    "src/lofi/compiler/types.sld": "cbff1bb78262fa91bbf40899919d15aac6166ac7dfc4e9d30318393ceab09c12",
+    "src/lofi/compiler/infer.sld": "641f2cfbadd1daac946da4272e0b1bb2170af2ab3a3cb56d047e20b856d261cd",
+    "src/lofi/compiler/emit-wasm.sld": "f20fbe7ff07294bfe62559091864feab64ea525ed0986936bf1d62527e5e24ce",
+    "src/lofi/compiler/common.sld": "482c2cbf4042e911a5c28e4cd223e66903e098968b5ab39750860dbb6d7d9a2a",
+    "src/lofi/compiler/bootstrap.sld": "74fd2ad2b69226254574edd3b38d233f737032ac8fd96efa32a98b06d5fb2e86",
+    "src/lofi/compiler/wasm-extern.sld": "6dc904f3d450f498a4705055893221203d6368c9f6f2079f2680963804d46d1d",
+    "src/lofi/compiler/source-driver.sld": "c04349fb1db2f50e74b97adbf9e94899032dd30a0f046c0a012e4543daec157c",
+    "src/lofi/compiler/reader.sld": "20016ac71881e5ae64d2461ee9e28eeb26d64881f34c34868d607f06a8da7254",
+    "src/lofi/compiler/specialize.sld": "4d86587518210f222440624b3f334b887abfa0edbd62442439b406a5c8310ceb"
+  },
+  "resource_limits": {
+    "memory_max_bytes": 4294967296,
+    "swap_max_bytes": 0,
+    "cpu_quota_cores": 2,
+    "timeout_seconds": 600
+  },
+  "source_note": "PR #322 product files with current main intrinsic core syntax manifest (requires keyword); compiler-only patch applied onto current main. Host load and caches uncontrolled; this is a correctness rebuild, not a controlled new speedup result. Direct type-query simplifications were uncommitted during the run; compiler_hashes identify the exact measured files.",
+  "artifacts": {
+    "shader.wasm": "e9bf4ca4fe8424e215f69341454354b5190397cd06b7a44632d82cbd7369c5ab",
+    "simulation.wasm": "77673e3c9d584c8e5f61bbdf2c6fec49144a00370011ececb23497e0113626ac"
+  },
+  "measured_base_commit": "1b3a240d9fb4ef5c136b2d89c962ea72d2f0df4b"
+}

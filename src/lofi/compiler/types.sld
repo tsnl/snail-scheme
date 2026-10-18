@@ -2,7 +2,7 @@
 ;; value type. Schemes quantify variables; emitted instances contain none.
 (define-library (lofi compiler types)
   (export fresh-hole hole? hole-link set-hole-link! fresh-rigid rigid?
-          fresh-variable variable? variable-rigid? resolve unify! type-equal? type-variables
+          fresh-variable variable? variable-rigid? resolve unify! type-equal? type-variables type-contains?
           substitute concrete-type? require-concrete type-datum strict-error
           make-scheme scheme? scheme-variables scheme-type scheme-constraints
           set-scheme-variables! set-scheme-type! set-scheme-constraints!
@@ -57,9 +57,15 @@
                (unify! (car left) (car right) loc) (unify! (cdr left) (cdr right) loc))
               (else (strict-error loc "type mismatch; cannot unify" left right)))))
     (define (bind-variable! variable type loc)
-      (if (memq variable (type-variables type))
+      (if (type-contains? type variable)
           (strict-error loc "occurs check: infinite type" variable type)
           (set-hole-link! variable type)))
+    ;; These queries need one answer, rather than a collected variable set.
+    (define (type-contains? type variable)
+      (let ((type (resolve type)))
+        (or (eq? type variable)
+            (and (pair? type) (or (type-contains? (car type) variable)
+                                  (type-contains? (cdr type) variable))))))
     (define (identity-union left right)
       (if (null? left) right
           (identity-union (cdr left) (if (memq (car left) right) right (cons (car left) right)))))
@@ -91,9 +97,14 @@
         (values (substitute (scheme-type scheme) substitutions)
                 (substitute (scheme-constraints scheme) substitutions) substitutions)))
     (define (generalize type constraints environment nonexpansive?)
-      (let ((free (apply identity-unions (map free-scheme-variables environment))))
-        (make-scheme (if nonexpansive? (generalizable (type-variables (cons type constraints)) free) '())
-                     type constraints)))
+      (make-scheme (if nonexpansive? (generalization-variables type constraints environment) '())
+                   type constraints))
+    ;; Closed results and expansive initializers cannot gain quantified holes.
+    ;; Avoid scanning every enclosing scheme when there is nothing to generalize.
+    (define (generalization-variables type constraints environment)
+      (let ((candidates (generalizable (type-variables (cons type constraints)) '())))
+        (if (null? candidates) '()
+            (generalizable candidates (apply identity-unions (map free-scheme-variables environment))))))
     (define (identity-unions . lists)
       (if (null? lists) '() (identity-union (car lists) (apply identity-unions (cdr lists)))))
     (define (generalizable variables free)
@@ -109,7 +120,11 @@
     (define (function-domains type) (cadr (resolve type)))
     (define (function-rest type) (caddr (resolve type)))
     (define (function-result type) (cadddr (resolve type)))
-    (define (concrete-type? type) (null? (type-variables type)))
+    (define (concrete-type? type)
+      (let ((type (resolve type)))
+        (cond ((variable? type) #f)
+              ((pair? type) (and (concrete-type? (car type)) (concrete-type? (cdr type))))
+              (else #t))))
     (define (require-concrete type loc)
       (if (concrete-type? type) (substitute type '())
           (strict-error loc "unresolved concrete representation type" type)))
@@ -142,7 +157,22 @@
     (import
      (native test-utils))
     (begin
+      (define (test-generalization)
+        (let* ((hole (fresh-hole)) (other (fresh-hole)) (rigid (fresh-rigid))
+               (type (function-type (list hole) #f rigid))
+               (constraints (list (list 'Proof other)))
+               (environment (list (make-scheme '() hole '()))))
+          (expect (scheme-variables (generalize type constraints environment #t)) (list other))
+          (expect (scheme-variables (generalize type constraints environment #f)) '())
+          (expect (scheme-variables (generalize 'I32 '() environment #t)) '())
+          (expect (scheme-variables (generalize rigid '() environment #t)) '())
+          (expect (scheme-variables (generalize hole '() (list (make-scheme (list hole) hole '())) #t)) (list hole))
+          (expect (scheme-variables (generalize hole '() (list (make-scheme '() 'I32 (list (list 'Proof hole)))) #t)) '())
+          (expect (hole-link hole) #f) (expect (hole-link other) #f)
+          (unify! hole 'I32 #f)
+          (expect (scheme-variables (generalize hole '() environment #t)) '())))
       (define (test-types)
+        (run-test test-generalization)
         (let ((hole (fresh-hole)) (rigid (fresh-rigid)))
           (expect (map variable? (list hole rigid 'Top)) '(#t #t #f))
           (expect (map hole? (list hole rigid 'Top)) '(#t #f #f))

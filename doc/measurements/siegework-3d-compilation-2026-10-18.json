@@ -1,0 +1,76 @@
+{
+  "workload": "PR #322 Siegework 3D, shader + simulation + browser packaging",
+  "original_code_revision": "69f59c3f60ce24ab4ccff7e2f2e64e78318a609e",
+  "baseline_checkout_revision": "e24ac1b82bc44e268d63e0d8e5f4244f84d404ba",
+  "improved_revision": "9537e62f",
+  "host": "Linux-7.2.3-x86_64-with-glibc2.42",
+  "binaryen_cores": 1,
+  "measurement_notes": [
+    "Ordinary original sources were loaded from a private overlay made with git show before edits; entry recipe was also frozen. The owner-review commit changes only CODEOWNERS.",
+    "Ordinary samples retain normal product tracing but no private phase, source-unit or helper instrumentation.",
+    "Host load and caches were not controlled. Some correctness checks and a separate diagnostic profile ran concurrently with the original sample; these are single-machine observations, not a controlled benchmark.",
+    "After sample used a clean tracked worktree at 9537e62f. Full Binaryen release flags retained.",
+    "The older 57-workload runtime comparison is unchanged."
+  ],
+  "samples": [
+    {
+      "revision": "e24ac1b82bc44e268d63e0d8e5f4244f84d404ba",
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "bootstrap",
+        "-I",
+        "build/original-code-loader",
+        "build/pr322-original-build.scm",
+        "$REPO",
+        "$REPO/build/pr322-ordinary-before"
+      ],
+      "wall_seconds": 560.9881522549986,
+      "user_seconds": 558.917379,
+      "system_seconds": 0.8056829999999999,
+      "exit_code": 0,
+      "binaryen_cores": 1,
+      "kind": "ordinary end-to-end sample",
+      "label": "before",
+      "artifacts": {
+        "shader.wasm": {
+          "bytes": 9622,
+          "sha256": "e9bf4ca4fe8424e215f69341454354b5190397cd06b7a44632d82cbd7369c5ab"
+        },
+        "simulation.wasm": {
+          "bytes": 442544,
+          "sha256": "77673e3c9d584c8e5f61bbdf2c6fec49144a00370011ececb23497e0113626ac"
+        }
+      }
+    },
+    {
+      "revision": "9537e62f",
+      "command": [
+        "chibi-scheme",
+        "-I",
+        "bootstrap",
+        "apps/siegework/three/build.scm",
+        "$REPO",
+        "$REPO/build/pr322-ordinary-after"
+      ],
+      "wall_seconds": 68.21816607199435,
+      "user_seconds": 67.3825,
+      "system_seconds": 0.757699,
+      "exit_code": 0,
+      "binaryen_cores": 1,
+      "kind": "ordinary end-to-end sample",
+      "label": "after",
+      "artifacts": {
+        "shader.wasm": {
+          "bytes": 9622,
+          "sha256": "e9bf4ca4fe8424e215f69341454354b5190397cd06b7a44632d82cbd7369c5ab"
+        },
+        "simulation.wasm": {
+          "bytes": 442544,
+          "sha256": "77673e3c9d584c8e5f61bbdf2c6fec49144a00370011ececb23497e0113626ac"
+        }
+      }
+    }
+  ],
+  "wall_speedup": 8.223442296337272
+}

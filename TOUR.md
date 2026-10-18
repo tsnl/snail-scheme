@@ -35,8 +35,8 @@ remains proposed.
 | 2. Description | [`frontend.sld`](src/lofi/compiler/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. |
 | 3. Resolution and expansion | [`library.sld`](src/lofi/compiler/library.sld), [`macros.sld`](src/lofi/compiler/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
 | 4. Checking | [`infer.sld`](src/lofi/compiler/infer.sld) | `infer-program` checks bodies and records types, scopes and class evidence in [`checked.sld`](src/lofi/compiler/checked.sld). |
-| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence. |
+| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures, then partitions values by activation owner. |
+| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence, indexed layouts and the prepared activation partition. |
 
 ```text
 located library source → imported identities and hygienic expansion
@@ -46,6 +46,8 @@ located library source → imported identities and hygienic expansion
 
 Macro transformers retain definition-site bindings, including private helpers.
 They can emit `begin` to introduce several declarations in one library scope.
+Scope lookup indexes names while retaining ordered binding objects; hygiene and
+namespace visibility are checked when each name is used.
 The expander normalizes named `data`, `typeclass` and `instance` declarations,
 reserving their associated bindings together. Transformers and splices disappear
 before ordinary type checking and code generation. Read the
