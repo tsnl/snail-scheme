@@ -1,4 +1,81 @@
-# Current static-client validation — 2026-10-18
+# Release validation — 2026-10-18
+
+The consolidated PR #334 is based on main `9bdee767`, including rank-one
+`All ... requires` and the compiler-performance changes from PR #331.
+The canonical build is `apps/siegework/build.scm`; there is one static 3D game.
+
+The verified release package is `build/siegework-release/solo`:
+
+- Generation: `3a4eea94481d346122de36ee`.
+- Simulation: 645,048 bytes, SHA-256
+  `8465011c38014b7db5fe247a2d2eb4de87f47da04abab05500bba43b1787c813`.
+- Application ID: `siegework-colony-v10`; world schema 10, client schema 4.
+- Host JavaScript, stylesheet and shader are packaged with that module. Host
+  changes require a page refresh; compatible Scheme/shader replacement preserves
+  both live owners. The saved world is independent of client-only controls.
+
+## Executed checks
+
+`make test`, `make check`, the CI partition tests and `mdbook build` pass.
+`scripts/test-ui` passes typed control, hover, circular-readout, layout and
+negative-owner checks. `scripts/test-draw3d` passes linked geometry, projections,
+picking, retained dependency identity, motion, inset scope and reveal contracts.
+The freshly rebuilt game passes all 123 application integration checks plus the
+headless camera/selection and onboarding/outcome runners.
+
+Those transitions exercise physical shared kits, refunds and losses, paid worker
+assembly, three-level mines/towers, cart speed and weighted assignment, persistent
+track geometry, worker sight, hidden construction, walls, excavation, rank
+introduction and the first-order clock. A model-only stress artifact built from
+the same World10 source passed 31,494 commands, 1,026 exact save round-trips and 156
+injected close encounters over four 7,200-tick seeds. Its 26 explicit repairs keep
+defeated fixtures running into later waves; this is adversarial testing, not four
+unaided winning games.
+
+The release hosting runner passes all 19 sections in Chromium 152.0.7977.82 using
+private Xvfb and SwiftShader. It exercises real IndexedDB, one-tab ownership,
+transaction abort and retry, hidden-page suspension, retained failure diagnostics,
+browser restart, changed mount paths, compatible/rejected reloads, and the optional
+checkpoint service including outage/conflicts. Both embedded product browser
+runners pass. No gameplay-server requests are made by the local-only build.
+
+Independent product browser checks pass mouse and touch select-then-action,
+repeated hub hiring, explicit upgrading/cancellation, restart confirmation and
+prior-pause restoration, screen-aligned pan, smooth Home/rotation, wheel/pinch
+zoom, and portrait/landscape card bounds. Header and action labels are checked
+for clipping. Attack cards and live thumbnails fit portrait and landscape screens;
+omitted thumbnails release their GPU resources, and selecting an attack pans
+without changing the world. A defeated zero-worker colony retains its result
+across reload and requires a confirmed restart. Native DPR is retained, including a 1170×2532 backing canvas at
+3× scale. Screenshots were inspected for the selected deposit, build boundary,
+artillery preview and hub-hire card.
+
+The reusable GPU fixture also checks fragment-level feathering, main/inset reveal
+clock sharing, native 2× DPR, resizing, camera/shader replacement, terminal-frame
+sleep, pending-readback cleanup and a single adapter/device. Camera-only changes
+retain geometry; clock-only reveal changes do not upload geometry. These are
+correctness and avoided-work checks, not hardware frame-time measurements.
+
+## Limits and reproduction
+
+The user's earlier invalid-transition crash remains unreproduced in the old
+World8 checkpoint and the new World10 stress runs. Rejected reducers now capture
+one exact local reproduction separately from the committed save. The browser
+fixture deliberately injects one invalid staged result and verifies unchanged
+save/revision, a stopped clock and retained command/candidate/prior snapshots
+across reload. Inspect with `await snailApp.session.store.failure()`.
+No claim is made that the unknown original cause or Firefox's queue crash is fixed.
+
+The live preview remains on port 4212. All destructive browser checks use private
+hosts, profiles and saves. Logs for this pass include
+`/tmp/siegework-release-runtime.log`, `/tmp/siegework-release-hosting.log`,
+`/tmp/siegework-application-tutorials.log`, `/tmp/siegework-reveal-fixtures.log`
+and `/tmp/siegework-reveal-gpu.log`. Temporary evidence is local; CI retains its
+own artifacts. The CI applications job builds Siegework, the application tutorials,
+UI and 3D fixtures. Full backend coverage remains partitioned across the existing
+jobs rather than replaced by these focused checks.
+
+# Earlier static-client checkpoint — 2026-10-18
 
 The canonical `apps/siegework/build.scm` builds the 3D game and runs the entire
 Scheme simulation in the browser. It emits static `solo/` files and, with

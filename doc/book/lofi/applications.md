@@ -465,16 +465,22 @@ The IndexedDB database retains version 1, its `authority` object store and `matc
 key so older browser saves reopen. Records remain
 `{format: 1, application, contract, snapshot}`. A new snapshot contains only
 `{revision, state}`; obsolete epoch/client receipt fields are ignored on read and
-dropped by the next successful commit. The compatibility contract retains both
-owners' schemas, handler identities, effect ABI, reset identity and run-marker
-policy. The current Scheme decoder also validates loaded state. An incompatible
-save is preserved with an explanation rather than erased.
+dropped by the next successful commit. The save compatibility contract retains
+the match schema, handler identities, effect ABI, reset identity and run-marker
+policy. Client-only controls do not invalidate the saved world. Live replacement
+still checks both owners' contracts, and the Scheme decoder validates loaded
+state. An incompatible save is preserved with an explanation rather than erased.
 
 `store.commit(checkpoint, expectedRevision)` compares and writes in one read/write
 transaction. Transaction `complete` is the success boundary; a successful `put`
 followed by an abort still fails. Strict durability is a browser hint, not a
 universal power-loss guarantee. `store.record(checkpoint)` supplies the versioned
 envelope used by online transfers.
+
+Rejected reducers never replace the committed save. The browser retains one
+separate failure reproduction, readable with `store.failure()`: generation,
+command, committed owner snapshots and any staged candidate. This local record
+supports debugging without changing the match revision or uploading diagnostics.
 
 The browser schedules a tick only after the preceding tick settles and the
 interval elapses. Hidden pages skip ticks; reopening never catches up elapsed

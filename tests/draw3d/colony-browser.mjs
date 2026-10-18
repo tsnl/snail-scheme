@@ -52,6 +52,10 @@ async function frameCell(x,y) {
   await until(async()=>!(await local()).homing,'frame selected test cell');
 }
 async function capture(suffix='') {
+  const clipped=await evaluate(`(()=>[...document.querySelectorAll('[data-ui-key=header] .snail-ui-button-label,[data-ui-key=orbit] .snail-ui-button-label,[data-ui-key=context-actions] .snail-ui-button-label')]
+    .filter(label=>label.scrollWidth>label.clientWidth+1||label.closest('button').scrollHeight>label.closest('button').clientHeight+1)
+    .map(label=>({key:label.closest('button').dataset.uiKey,text:label.textContent})))()`);
+  assert.deepEqual(clipped,[],'visible action labels must fit without ellipsis or a vertical scrollbar');
   if(!process.argv[4])return;
   const shot=await call('Page.captureScreenshot',{format:'png'});
   writeFileSync(process.argv[4].replace('.png',`${suffix}.png`),Buffer.from(shot.data,'base64'));

@@ -38,7 +38,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
-- [x] Q/E animates between90-degree snaps, preserving orthographic projection;
+- [x] Q/E animates between 90-degree snaps, preserving orthographic projection;
       panning and picking follow its orientation. Camera, picking and Chromium input verified.
 - [x] Reduce tower height so deposits behind towers remain accessible.
 - [x] Clicking outside a build chooser dismisses it and acts on the new tile.
@@ -50,7 +50,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
       one kit for a tower, two for artillery. Redirect deliveries safely.
 - [x] Adding artillery to an existing tower takes a worker and an additional kit;
       keep the existing tower useful while the upgrade is pending.
-- [x] About10% of enemies may begin a mountain excavation. Enemies stop and
+- [x] About 10% of enemies may begin a mountain excavation. Enemies stop and
       visibly break rock over several seconds, permanently opening the tile.
       Other enemies route around rock and may join an existing excavation.
 - [x] Distinct, much larger final boss silhouette.
@@ -94,15 +94,16 @@ the supported game is the static client-side 3D bundle.
 
 ## Polish pass in progress
 
-- [ ] Non-scrollable control cards with visible hotkeys beside every button.
+- [x] Non-scrollable control cards with visible hotkeys beside every button.
 - [x] Translucent turquoise shield walls and vivid violet/indigo gemstones.
 - [x] Persistent difficulty indicator inside the next-wave ring.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
 - [x] Tower progression: Lv1 sight, Lv2 artillery, Lv3 cart station replacing gun.
 - [x] Workers use cart stations and rails for fast personal/cargo travel.
-- [ ] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
-- [ ] Repeated focused simplification followed by an independent Astra xhigh pass.
-- [ ] Confirm Siegework build CI and land the verified PR stack.
+- [x] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
+- [x] Repeated focused simplification followed by a final Astra xhigh code review.
+- [x] Confirm Siegework build CI and consolidate the stack into mega-PR #334.
+      The PR state records CI and landing status.
 
 World9 checkpoint: 104 application integration checks and Chromium pointer,
 controller, touch, save/reopen, camera and GPU cleanup checks passed. Further
@@ -120,16 +121,18 @@ source edits remain unchecked until compiled and exercised.
 - [x] First accepted order starts the clock; inspection and selection do not.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.
-- [ ] Same explicit select-then-action interface for touch and desktop, including
+- [x] Same explicit select-then-action interface for touch and desktop, including
       extractor confirmation, repeated hub hiring and click-away dismissal.
-- [ ] Restart confirmation pauses, with cancellation restoring the prior pause.
-- [ ] Smoke on damage and red/white attack notifications with clickable live views.
-- [ ] Soft fragment-level fog reveal and continuous display-rate unit/freight motion.
-- [ ] Verify final exact artifact in Chromium, publish on4212 and attach a screenshot.
-- [ ] Reconcile current main, confirm CI including the Siegework build, and land.
+- [x] Restart confirmation pauses, with cancellation restoring the prior pause.
+- [x] Smoke on damage and red/white attack notifications with clickable live views.
+- [x] Soft fragment-level fog reveal and continuous display-rate unit/freight motion.
+- [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
+- [x] Reconcile current main and include the Siegework build in CI.
+      Merge only after the PR checks pass.
 
-World10 model checkpoint:123 integration checks plus31,494 stress commands,
-1,026 exact save round-trips and156 close encounters passed. The original
+World10 model checkpoint: 123 integration checks plus 31,494 stress commands,
+1,026 exact save round-trips and 156 close encounters passed. The original
 reported invalid-transition crash remains unreproduced; retained diagnostics
-are for obtaining a concrete reproduction if it recurs. UI/reviewer changes
-still require the final exact product build and browser checks.
+are for obtaining a concrete reproduction if it recurs. The final exact product build, 123 integration checks and 19 real Chromium
+hosting/storage sections now pass; current evidence is in
+[VALIDATION.md](apps/siegework/VALIDATION.md).

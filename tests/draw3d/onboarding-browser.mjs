@@ -97,7 +97,8 @@ async function checkAttackToasts() {
     const count=Math.min(3,Math.floor((height-120)/104));
     const frame=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene;return{insets:scene.insets.map(view=>({key:view.key,rect:view.rect})),
       resources:snailApp.renderer.resources,cards:[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(e=>e.getBoundingClientRect().toJSON())};})()`);
-    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);
+    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,1+2*count);
+    assert.equal(frame.resources.insetPixels,112*80*4*count);
     for(const rect of frame.cards)assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1);
     for(const{rect:[x,y,w,h]}of frame.insets)assert.ok(x>=0&&y>=0&&x+w<=width&&y+h<=height);
     const colors=await evaluate(`(async()=>{const scene=snailApp.runtime.view().scene,p=await snailApp.renderer.readPixels(scene),[x,y,w,h]=scene.insets[0].rect;
@@ -125,13 +126,13 @@ try {
     }
     if((await world()).outcome===0)await checkAttackToasts();
     else {
-    assert.equal((await world()).outcome,1);assert.equal(await has('onboarding'),false);
-    assert.match(await title(),/colony lost/i);assert.equal(await has('result'),true);
-    assert.equal(await evaluate('document.querySelector("[data-ui-key=restart]").disabled'),false);
-    await capture('defeated');await reload();assert.match(await title(),/colony lost/i);
-    await click('restart');assert.equal((await world()).outcome,1);assert.equal(await has('restart-dialog'),true);
-    await click('accept-restart');assert.equal((await world()).outcome,0);assert.equal(await has('context'),false);
-    console.log('ok - defeated durable save renders a zero-worker HUD and explicitly confirms restart',origin);
+      assert.equal((await world()).outcome,1);assert.equal(await has('onboarding'),false);
+      assert.match(await title(),/colony lost/i);assert.equal(await has('result'),true);
+      assert.equal(await evaluate('document.querySelector("[data-ui-key=restart]").disabled'),false);
+      await capture('defeated');await reload();assert.match(await title(),/colony lost/i);
+      await click('restart');assert.equal((await world()).outcome,1);assert.equal(await has('restart-dialog'),true);
+      await click('accept-restart');assert.equal((await world()).outcome,0);assert.equal(await has('context'),false);
+      console.log('ok - defeated durable save renders a zero-worker HUD and explicitly confirms restart',origin);
     }
   } else {
     await command('restart-seed',[1]);await command('suspend',[1]);await command('center');

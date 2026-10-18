@@ -61,6 +61,7 @@ try {
   await command('center');cursor(8,22);await command('suspend',[1]);
   const established=runtime.snapshot(1),selection=runtime.snapshot(2);save('established');
   if(fixtures){
+    // Bounded known-location alerts exercise live cameras without revealing fog.
     const encounters=world();encounters.alerts=[[12,20,1],[8,22,0],[10,22,4]].map(([x,y,kind])=>({...at(encounters,x,y),kind,tick:encounters.tick}));
     await restoreColony(runtime,encounters);save('alerts');await runtime.restore(1,established);
   }
