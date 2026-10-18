@@ -61,7 +61,7 @@ export async function checkVisibility(test,fresh) {
       await settleOrder(r,await prepareOrder(r,choice),1);
       const ordered=state(r),project=ordered.buildings[0];
       assert.equal(ordered.notice,10); assert.equal(ordered.ore,160-cost); assert.equal(project.stage,3);
-      assert.equal(ordered.rails.length,name==='observe'?1:0);
+      assert.equal(ordered.rails.length,0,'only completed depots enter the current transport tree');
       assert.notEqual(ordered.bots[0].order,project.id,'the scout is separate from the reserved builder');
       setWorker(ordered,0); await restoreColony(r,ordered); await advance(r,10);
       assert.equal(state(r).buildings[0].stage,0); assert.equal(state(r).spent,cost);

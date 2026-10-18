@@ -116,7 +116,7 @@ the supported game is the static client-side 3D bundle.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
 - [x] Separate artillery and observation/logistics upgrade trees. Preserve all
       existing offensive capabilities when upgrading either structure.
-- [x] Workers use cart stations and rails for fast personal/cargo travel.
+- [x] Every completed tower supplies worker carts; each upgrade doubles link speed, limited by the slower endpoint.
 - [x] Wheel/pinch zoom preserving look-at center.
 - [x] Touch, mouse and pen drag the map; taps select and pinches never select.
 - [x] Repeated focused simplification followed by a final Astra xhigh code review.
@@ -137,9 +137,9 @@ source edits remain unchecked until compiled and exercised.
       matching high-contrast labels or badges.
 - [x] Quote hub repairs to the highest affordable percentage, spending only the
       ore needed or available; complete the paid work with a worker.
-- [x] Allow buildings on laid tracks and intersections, retaining the rail network.
-- [x] Join adjacent and diagonally adjacent shield walls; use rail-aware structure
-      bases and junction meshes instead of tracks piercing solid foundations.
+- [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
+- [x] Give every tower and artillery a shared stone plinth with open arches on
+      all four sides, and replace connected shield geometry with solid houses.
 - [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
 - [x] Give artillery a distinct gun silhouette.
 - [x] Count down to the next difficulty increase, never to an unseen wave spawn;
@@ -176,8 +176,8 @@ source edits remain unchecked until compiled and exercised.
 - [x] Worker sight reveals a small radius without unbounded survey history.
 - [x] Hidden construction stalls new assignments/pickup and explains why;
       existing carriers can reveal their destination while following a known route.
-- [x] Physical rails remain after stations disappear; active freight ownership
-      and reserved ground remain separate and checked.
+- [x] Obsolete track geometry disappears; source-owned freight is conserved
+      across reroutes and counted once when its source is destroyed.
 - [x] First accepted order starts the clock; inspection and selection do not.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.

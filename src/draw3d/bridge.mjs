@@ -117,9 +117,9 @@ export function createSceneBridge(provider, transaction) {
     },
     opacity(bits, pulse) {
       const open = frame().open, opacity = scalar(bits);
-      if (!open || open.ready || opacity <= 0 || opacity > 1 || ![0, 1].includes(pulse))
+      if (!open || open.ready || opacity <= 0 || opacity > 1 || !Number.isInteger(pulse) || pulse < 0 || pulse > 360000)
         throw new Error('invalid batch opacity');
-      open.opacity = opacity; open.pulse = !!pulse;
+      open.opacity = opacity; open.pulse = !!pulse; open.pulsePhase = pulse ? (pulse - 1) * Math.PI / 180000 : 0;
       open.dependencies.push(bits, pulse);
     },
     motion(duration) {
@@ -148,7 +148,7 @@ export function createSceneBridge(provider, transaction) {
       if (cached && sameSnapshots(cached.states, open.states) && sameValues(cached.dependencies, open.dependencies)) {
         open.batch = revealGeometry(cached.batch,open.reveal); open.reused = true; return 1;
       }
-      open.batch = {key: open.key, vertices: [], indices: [], opacity: open.opacity, pulse: open.pulse,
+      open.batch = {key: open.key, vertices: [], indices: [], opacity: open.opacity, pulse: open.pulse, pulsePhase: open.pulsePhase ?? 0,
         ...(open.duration ? {duration: open.duration, previous: []} : {}), ...(open.reveal ? {reveal:open.reveal} : {})};
       return 0;
     },

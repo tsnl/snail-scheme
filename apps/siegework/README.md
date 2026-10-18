@@ -56,8 +56,8 @@ and touch-sized buttons appear on desktop and mobile.
 - Select an existing building for **Upgrade** (`U`) or **Cancel** (`C`) on its
   pending order. Repeated tile taps only inspect an existing building; they do
   not upgrade or cancel it. Dismissing selection does not cancel construction.
-  Buildings may occupy tracks and railway intersections; their foundations
-  leave clearance for the rails.
+  Completed towers and artillery always stand on the same stone plinth, with
+  corner supports and open arches on all four faces. Workers and carts pass underneath.
 - Select the hub or open **Workers** (`G`), then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
   worker assembles each recruit. The hub occupies nine tiles.
@@ -128,17 +128,33 @@ reach. Artillery and observation/logistics towers have separate upgrade trees:
 
 | Level | Observation/logistics tower | Artillery |
 | --- | --- | --- |
-| 1 | Sight, resource depot and automatic railway connection. | Gun with six-cell range. |
-| 2 | Greater sight; retains its depot. | 1.5× damage; retains its range. |
-| 3 | Adds worker carts; retains sight and depot. | 2× damage; retains its range. |
+| 1 | Sight, depot and worker carts. | One gun assembly with six-cell range. |
+| 2 | Greater sight and twice the cart speed. | Two stacked gun assemblies; 1.5× damage. |
+| 3 | Twice the cart speed again; retains sight and depot. | Three stacked gun assemblies; 2× damage. |
 
 Each upgrade needs another delivered 25-ore kit and keeps the current level
 working until delivery completes. Artillery starts with two kits; a tower starts
 with one. Existing tower-mounted guns remain functional when their towers are
-upgraded. Workers and their cargo travel five times faster on links whose
-ends are both cart stations or the hub. Ordinary resource freight already uses
-completed depot links. Laid tracks remain after a station is destroyed, but an
-abandoned track alone cannot transport anything.
+upgraded. Every completed tower provides carts. Links run at the slower tower's
+level; the hub supports level three. Workers travel 2, 4 or 8 cells per tick
+(10×, 20× or 40× walking speed); freight moves 32, 64 or 128 world units per
+tick and carries up to 32 ore. These are movement speeds, not extra deliveries
+or production within one tick.
+
+The transport network is a deterministic minimum spanning tree rebuilt from
+scratch each simulation tick over the hub and completed towers. Its edge cost
+is squared straight-line cell distance, restricted to links with a known,
+passable route of at most 1024 steps. It does not minimize terrain travel
+length. Walls and extractors obstruct freight paths; tower and artillery
+plinths permit crossings. Unreachable depots keep their stock.
+
+Dotted lights pulse toward the hub at display rate. They show only the current
+network, with cyan identifying available worker cart service. Terrain maps and
+legal paths are cached by their inputs; tree selection itself runs afresh.
+Unchanged routes retain shuttle progress and cargo. Rerouting returns a
+shuttle's cargo once to its surviving source and resets that shuttle; destroying
+the source loses its stock and undelivered freight. Old World10 saves remain
+readable, and obsolete saved track cells never render, even while paused.
 
 Workers reveal a small nearby radius. New work and supply pickup at an unseen
 construction site stall until it is visible again; a yellow warning marks the

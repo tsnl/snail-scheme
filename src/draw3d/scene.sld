@@ -4,8 +4,8 @@
   (export Vertex vertex vertex-position vertex-normal Geometry indexed-geometry
           geometry-vertex-count geometry-index-count geometry-vertex geometry-index
           box-geometry plane-geometry pyramid-geometry Material material material-rgb material-emission
-          Node mesh group moving-group SceneBatch retained-batch translucent-batch motion-batch reveal-batch dynamic-batch
-          BatchReveal no-reveal radial-reveal batch-reveal batch-key batch-state-mask batch-opacity batch-pulse batch-duration
+          Node mesh group moving-group SceneBatch retained-batch translucent-batch phased-batch motion-batch reveal-batch dynamic-batch
+          BatchReveal no-reveal radial-reveal batch-reveal batch-key batch-state-mask batch-opacity batch-pulse batch-phase batch-duration
           batch-dependencies batch-nodes Scene scene batched-scene scene-camera scene-batches
           scene-light scene-ambient scene-background
           DirectionalLight directional-light light-direction light-intensity test-scene)
@@ -143,20 +143,27 @@
          (dependencies (List I32) batch-dependencies)
          (opacity F64 batch-opacity)
          (pulse Bool batch-pulse)
+         (phase I32 batch-phase)
          (duration I32 batch-duration)
          (reveal BatchReveal batch-reveal)
          (nodes (-> (List Node)) batch-nodes))))
     (define (retained-batch key state-mask dependencies nodes)
       (if (and (>= key 0) (>= state-mask 0) (<= state-mask 3))
-          (render-batch key state-mask dependencies 1.0 #f 0 (no-reveal) nodes) (unreachable)))
+          (render-batch key state-mask dependencies 1.0 #f 0 0 (no-reveal) nodes) (unreachable)))
     (define (translucent-batch key state-mask dependencies opacity pulse nodes)
       (if (and (>= key 0) (>= state-mask 0) (<= state-mask 3) (> opacity 0.0) (< opacity 1.0))
-          (render-batch key state-mask dependencies opacity pulse 0 (no-reveal) nodes) (unreachable)))
+          (render-batch key state-mask dependencies opacity pulse 0 0 (no-reveal) nodes) (unreachable)))
+    ;; Millidegree offsets share the display clock without regenerating meshes.
+    ;; Increasing phase along a path makes its bright crest travel forward.
+    (define (phased-batch key state-mask dependencies opacity phase nodes)
+      (if (and (>= key 0) (>= state-mask 0) (<= state-mask 3) (> opacity 0.0) (< opacity 1.0)
+               (>= phase 0) (< phase 360000))
+          (render-batch key state-mask dependencies opacity #t phase 0 (no-reveal) nodes) (unreachable)))
     ;; A motion batch supplies both transformed positions for each current
     ;; vertex. Its duration is measured by the display clock after publication.
     (define (motion-batch key state-mask dependencies duration nodes)
       (if (and (>= key 0) (>= state-mask 0) (<= state-mask 3) (> duration 0))
-          (render-batch key state-mask dependencies 1.0 #f duration (no-reveal) nodes) (unreachable)))
+          (render-batch key state-mask dependencies 1.0 #f 0 duration (no-reveal) nodes) (unreachable)))
     ;; The radius encloses all supplied geometry in world XY. A stable identity
     ;; shares one display-clock transition across batches and camera views.
     ;; Edge zero clips sharply per fragment; a positive width feathers the front.
@@ -164,9 +171,9 @@
       (unless (and (>= identity 0) (finite? x) (finite? y) (finite? radius) (finite? edge)
                    (>= radius 0.0) (>= edge 0.0) (>= elapsed 0) (> duration 0)) (unreachable))
       (render-batch (batch-key batch) (batch-state-mask batch) (batch-dependencies batch)
-                    (batch-opacity batch) (batch-pulse batch) (batch-duration batch)
+                    (batch-opacity batch) (batch-pulse batch) (batch-phase batch) (batch-duration batch)
                     (radial-reveal identity x y radius edge elapsed duration) (batch-nodes batch)))
-    (define (dynamic-batch nodes) (render-batch -1 0 (empty-list) 1.0 #f 0 (no-reveal) nodes))
+    (define (dynamic-batch nodes) (render-batch -1 0 (empty-list) 1.0 #f 0 0 (no-reveal) nodes))
     (define Scene
       (datatype ()
         (scene-description

@@ -153,7 +153,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       batch.bindings = device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:batch.uniform}}]});
     }
     const values = Float32Array.from(scene.uniforms);
-    values[23] = (batch.source.opacity ?? 1) * (batch.source.pulse ? 0.72 + 0.28 * Math.sin((time % 1570.796327) * 0.004) : 1);
+    values[23] = (batch.source.opacity ?? 1) * (batch.source.pulse ? 0.72 + 0.28 * Math.sin((time % 1570.796327) * 0.004 - (batch.source.pulsePhase ?? 0)) : 1);
     values[24] = batch.fraction = motionFraction(batch, time);
     if (batch.source.reveal) values.set(revealUniform(reveals.get(batch.source.reveal.id)),28);
     device.queue.writeBuffer(batch.uniform, 0, values); return batch.bindings;

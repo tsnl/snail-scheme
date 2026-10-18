@@ -313,8 +313,18 @@
         (check-enemies! world (cdr enemies))))
     (define (rail-sources rails)
       (if (null? rails) (empty-list) (cons (rail-source (car rails)) (rail-sources (cdr rails)))))
+    (define (saved-rail rails source)
+      (cond ((null? rails) (empty-list)) ((= (rail-source (car rails)) source) (list (car rails)))
+            (else (saved-rail (cdr rails) source))))
+    (define (rooted-rail? rails parent remaining)
+      (or (= parent 0)
+          (and (> remaining 0)
+               (let ((found (saved-rail rails parent)))
+                 (and (not (null? found)) (rooted-rail? rails (rail-parent (car found)) (- remaining 1)))))))
     (define (check-rail-parent! world rail)
-      (require! (bounded? (rail-parent rail) 0 (- (rail-source rail) 1)))
+      (require! (and (bounded? (rail-parent rail) 0 (- (world-next-id world) 1))
+                     (not (= (rail-parent rail) (rail-source rail)))
+                     (rooted-rail? (world-rails world) (rail-parent rail) (list-size (world-rails world)))))
       (if (= (rail-parent rail) 0) (require! (= (last-cell (rail-path rail)) (cell-index (world-hub-x world) (world-hub-y world))))
           (let ((found (find-building (world-buildings world) (rail-parent rail))))
             (require! (and (not (null? found)) (tower? (car found)) (ready? (car found))))
@@ -337,7 +347,8 @@
       (unless (null? rails)
         (check-rail! world (car rails)) (check-rails! world (cdr rails))))
 
-    ;; The permanent geometric map is sorted and has reciprocal connections.
+    ;; Legacy World10 geometry is still checked on input, but no longer drawn.
+    ;; A simulation tick clears this resource-free compatibility field.
     ;; Two ordered passes prove links without quadratic neighbor searches or a
     ;; full-map scratch allocation. No track entry participates in ore totals.
     (define (check-tracks! world tracks previous)

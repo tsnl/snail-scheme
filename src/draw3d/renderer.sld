@@ -89,7 +89,7 @@
                        (float-bits edge) elapsed duration))))
     (define (batch! value)
       (stage-batch (batch-key value) (batch-state-mask value))
-      (stage-opacity (float-bits (batch-opacity value)) (if (batch-pulse value) 1 0))
+      (stage-opacity (float-bits (batch-opacity value)) (if (batch-pulse value) (+ (batch-phase value) 1) 0))
       (stage-motion (batch-duration value))
       (reveal! (batch-reveal value))
       (dependencies! (batch-dependencies value))

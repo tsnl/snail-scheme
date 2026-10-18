@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,client,at,siteAt,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
+import {colony,client,at,siteAt,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
 const bytes=readFileSync(join(output,manifest.module));
@@ -31,6 +31,33 @@ function project(r,x,y,z=0) {
 }
 const batch=(r,key)=>r.view().scene.batches.find(value=>value.key===key);
 const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batch.vertices.slice(index*10,index*10+3));
+function cross2(a,b,c){return(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);}
+function overlapArea(left,right) {
+  let polygon=left;const direction=Math.sign(cross2(...right));
+  for(let edge=0;edge<3&&polygon.length;edge++) {
+    const a=right[edge],b=right[(edge+1)%3],clipped=[];
+    for(let i=0;i<polygon.length;i++) {
+      const p=polygon[i],q=polygon[(i+1)%polygon.length],dp=direction*cross2(a,b,p),dq=direction*cross2(a,b,q);
+      if(dp>=0)clipped.push(p);
+      if((dp>=0)!==(dq>=0)){const t=dp/(dp-dq);clipped.push(p.map((v,axis)=>v+t*(q[axis]-v)));}
+    }
+    polygon=clipped;
+  }
+  return Math.abs(polygon.reduce((area,p,i)=>area+cross2([0,0],p,polygon[(i+1)%polygon.length]),0))/2;
+}
+function overlappingTowerFaces(mesh,site) {
+  const faces=[];
+  for(let i=0;i<mesh.indices.length;i+=3) {
+    const vertices=mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+10));
+    if(!vertices.every(([x,y,z])=>Math.abs(x-site.x)<.7&&Math.abs(y+site.y)<.7&&z>=1.3))continue;
+    const axis=[0,1,2].find(axis=>Math.abs(vertices[0][axis+3])>.9999);if(axis===undefined)continue;
+    if(!vertices.every(v=>Math.abs(v[axis]-vertices[0][axis])<1e-6))continue;
+    faces.push({axis,sign:Math.sign(vertices[0][axis+3]),plane:vertices[0][axis],
+      points:vertices.map(vertex=>vertex.slice(0,3).filter((_,i)=>i!==axis))});
+  }
+  return faces.flatMap((a,i)=>faces.slice(i+1).filter(b=>a.axis===b.axis&&a.sign===b.sign&&Math.abs(a.plane-b.plane)<1e-6
+    &&overlapArea(a.points,b.points)>1e-5).map(b=>({axis:a.axis,plane:a.plane,area:overlapArea(a.points,b.points)})));
+}
 
 {
   const r=await fresh();
@@ -95,28 +122,55 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
   const r=await fresh();
   try {
     for(const [x,y] of [[13,24],[14,24],[15,25]]){await fixtureCall(r,'build-wall',[x,y]);await complete(r);}
-    assert.equal(batch(r,8).vertices.length/10,48,'one cardinal and one diagonal shield panel');
+    const roofs=()=>Array.from({length:batch(r,3).vertices.length/10},(_,i)=>batch(r,3).vertices.slice(i*10,i*10+10))
+      .filter(vertex=>Math.abs(vertex[6]-245/255)<1e-6&&Math.abs(vertex[7]-99/255)<1e-6);
+    assert.equal(roofs().length,3*16,'each house owns a separate solid roof');
     await fixtureCall(r,'build-wall',[14,25]);await complete(r);
-    assert.equal(batch(r,8).vertices.length/10,72,'cardinal corner replaces the redundant diagonal');
-    const opaque=batch(r,13),glass=batch(r,8),terrain=batch(r,1),rails=batch(r,2),next=world(r);
+    assert.equal(roofs().length,4*16,'neighboring houses add no joining panels');
+    assert.equal(batch(r,8),undefined);assert.equal(batch(r,13),undefined);
+    const terrain=batch(r,1),rails=batch(r,20),next=world(r);
     next.tick++;next.ore++;next.delivered++;next.produced++;await restoreColony(r,next);
-    assert.equal(batch(r,13),opaque);assert.equal(batch(r,8),glass);
-    assert.equal(batch(r,1),terrain);assert.equal(batch(r,2),rails);
-    console.log('ok - cardinal and diagonal walls join as thin panels; unchanged topology retains both wall meshes');
+    assert.equal(batch(r,1),terrain);assert.equal(batch(r,20),rails);
+    console.log('ok - houses have separate solid roofs without shield or joining geometry; unrelated ground and transport meshes remain retained');
   } finally {await r.close();}
 }
 {
   const r=await fresh();
   try {
     await fixtureCall(r,'observe',[12,22]);await complete(r);
-    const tracks=world(r).tracks.slice(),railMesh=batch(r,2);
+    const tracks=world(r).tracks.slice(),railMesh=batch(r,20);
     await fixtureCall(r,'fortify',[10,22]);await complete(r);
     assert.equal(siteAt(world(r),10,22).kind,2);assert.deepEqual(world(r).tracks,tracks);
-    assert.equal(batch(r,2),railMesh,'building atop the route retains the entire physical rail mesh');
+    assert.equal(batch(r,20),railMesh,'building atop the route retains the phased path mesh');
     const gun=siteAt(world(r),10,22),vertices=points(batch(r,3));
     assert.ok(vertices.some(([x,y,z])=>Math.abs(x-gun.x)<.5&&Math.abs(y+gun.y)<.5&&z>1.8),
-      'the gun body is raised over the continuous track');
-    console.log('ok - artillery can occupy an existing railway with a raised body and unchanged rail geometry');
+      'the gun body is raised over its open plinth');
+    let previousTop=0;
+    for(const level of [1,2,3]) {
+      if(level>1){const next=world(r),site=siteAt(next,10,22);site.level=level;next.spent+=25;next.ore-=25;await restoreColony(r,next);}
+      const visible=points(batch(r,3)).filter(([x,y])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3);
+      const top=Math.max(...visible.map(point=>point[2]));assert.ok(top>previousTop+0.45);previousTop=top;
+      const mesh=batch(r,3).vertices,stones=Array.from({length:mesh.length/10},(_,i)=>mesh.slice(i*10,i*10+10))
+        .filter(vertex=>Math.abs(vertex[6]-186/255)<1e-6&&Math.abs(vertex[7]-190/255)<1e-6);
+      assert.ok(stones.filter(([x,y,z])=>Math.abs(x-gun.x)<0.3&&Math.abs(y+gun.y)<0.3&&z>0.1&&z<1.0).length===0,
+        'the stone mesh leaves its center open below the deck');
+      await r.restore(1,r.snapshot(1));
+    }
+    console.log('ok - artillery has an open stone plinth and retains the current transport lights');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
+    await fixtureCall(r,'observe',[12,22]);await complete(r);
+    for(const level of [1,2,3]) {
+      const next=world(r),site=siteAt(next,12,22);site.level=level;
+      if(level>1){next.spent+=25;next.ore-=25;next.surveys.push({x:site.x,y:site.y,radius:10});}
+      next.bots.forEach((bot,i)=>{assert.equal(bot.cargo,0);setWorker(next,i);});await restoreColony(r,next);
+      assert.deepEqual(overlappingTowerFaces(batch(r,3),site),[],`level ${level} has no overlapping coplanar outward faces`);
+    }
+    console.log('ok - all tower levels avoid overlapping coplanar outward faces above the shared plinth');
   } finally {await r.close();}
 }
 
@@ -132,7 +186,7 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
         const value=row.reduce((sum,part,index)=>sum+part*light[index],0)/length;
         assert.ok(Math.abs(value-expected[axis])<.00001,`camera-space light axis ${axis} at ${heading}`);
       }
-      for(const key of [0,3,8,13])assert.equal(frame.batches.find(b=>b.key===key),base.batches.find(b=>b.key===key));
+      for(const key of [0,3,20,21])assert.equal(frame.batches.find(b=>b.key===key),base.batches.find(b=>b.key===key));
       assert.deepEqual(r.snapshot(1),committed);
     }
     fixedLight(0);await command(r,'rotate',[0,1]);

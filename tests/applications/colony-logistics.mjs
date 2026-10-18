@@ -247,7 +247,7 @@ export async function checkLogistics(test, fresh, call) {
     await r.restore(1, saved); await advance(r, 20);
     assert.deepEqual(r.snapshot(1), saved); assert.deepEqual(r.view().scene, frame);
     await call(r, 'pause-colony', [0]);
-    await advance(r, 10); assert.equal(state(r).delivered, 0);
+    await advance(r, 5); assert.equal(state(r).delivered, 0);
     assert.notDeepEqual(r.view().scene, frame);
     assert.equal(state(r).rails.find(link => link.source === parent.id).cargo, 32);
     assert.equal(state(r).rails.find(link => link.source === parent.id).progress, 0);
@@ -257,7 +257,7 @@ export async function checkLogistics(test, fresh, call) {
     await r.close();
   });
 
-  await test('legacy armed towers retain their gun, sight and depot when upgrading to carts', async () => {
+  await test('legacy armed towers retain their gun, sight and depot when upgrading cart speed', async () => {
     const r = await fresh(), towerSite = await tower(r, 12,21);
     await call(r,'upgrade',[12,21]); await until(r,world=>world.buildings[0].level===2);
     const world = state(r); world.produced = 16;
@@ -272,20 +272,22 @@ export async function checkLogistics(test, fresh, call) {
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved);
     const supplied = state(r);
     await addEnemy(r, {x:14,y:21,hp:10}); await advance(r);
-    assert.equal(state(r).kills, 1); assert.equal(state(r).ore, supplied.ore);
+    assert.equal(state(r).kills, 1);
+    assert.equal(state(r).ore-supplied.ore,state(r).delivered-supplied.delivered,'combat grants no ore beyond arriving freight');
     assert.equal(state(r).buildings[0].cooldown, 8); balanced(r); await r.close();
   });
 
-  await test('destroyed rail endpoints lose each in-flight load once and reconnect surviving depots', async () => {
+  await test('destroyed sources lose their freight once while children recover cargo and reconnect', async () => {
     const r = await fresh(); await tower(r, 12,21); const child = await tower(r, 16,21);
     const world = state(r); world.tick = 9; world.lastRevealTick=-100; world.produced = 48;
     for (let i = 0; i < 3; i++) setWorker(world, i, {id:i+1});
     setBuilding(world, 0, {hp:7}); setRail(world, 0, {cargo:16}); setRail(world, 1, {cargo:32});
     await restoreColony(r, world); await addEnemy(r, {x:12,y:21}); await advance(r);
-    const destroyed = state(r); assert.equal(destroyed.lost, 1); assert.equal(destroyed.lostOre, 48);
+    const destroyed = state(r); assert.equal(destroyed.lost, 1); assert.equal(destroyed.lostOre, 16);
     assert.equal(destroyed.rails.length, 1); assert.equal(destroyed.rails[0].source, child.id);
     assert.equal(destroyed.rails[0].parent, 0); assert.equal(destroyed.rails[0].cargo, 0);
-    assert.equal(destroyed.delivered, 0); await advance(r, 15); assert.equal(state(r).lostOre, 48);
+    assert.equal(destroyed.buildings[0].stock,32);
+    assert.equal(destroyed.delivered, 0); await advance(r, 15); assert.equal(state(r).lostOre, 16);
     await r.close();
   });
 

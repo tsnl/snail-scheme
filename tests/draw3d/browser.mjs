@@ -78,6 +78,26 @@ try {
   assert.deepEqual(motion, {start:[red,blue],halfway:[red,blue,black],replacement:[red,blue],
     separated:[red,blue],endpoint:[red,blue],animated:true,terminal:true,stopped:true,motionBuffers:true,reused:true,errors:[]});
   console.log('ok - GPU motion reaches intermediate and final pixels with independent clocks, reused buffers and shader replacement');
+  const phases = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
+    const original=Object.getOwnPropertyDescriptor(performance,'now');let time=Math.PI/2/.004;
+    Object.defineProperty(performance,'now',{configurable:true,value:()=>time});
+    const batches=Array.from({length:8},(_,i)=>{const vertices=[],x=-.84+i*.24;
+      for(const[dx,y]of[[-.07,-.08],[.07,-.08],[.07,.08],[-.07,.08]])vertices.push(x+dx,y,.3,0,0,1,1,1,1,1);
+      return{key:60+i,vertices,indices:[0,1,2,0,2,3],opacity:.9,pulse:true,pulsePhase:i*Math.PI/4};});
+    const scene={batches,background:[0,0,0],uniforms:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,1,1,0,0,0,0,0,0,-1]};
+    async function sample(){const result=await renderer.readPixels(scene);return batches.map((_,i)=>{
+      const x=Math.floor((1-.84+i*.24)*canvas.width/2),y=Math.floor(canvas.height/2);
+      return result.bytes[y*result.bytesPerRow+x*4];});}
+    try{const first=await sample(),uploads=renderer.resources.uploads;time+=16;
+      const frames=renderer.resources.frames;renderer.animate(time);const between=await sample();
+      time=Math.PI*3/4/.004;const second=await sample();time=Math.PI/.004;const third=await sample();
+      return{first,between,second,third,animated:renderer.resources.frames>frames,reused:renderer.resources.uploads===uploads,errors:sceneErrors};
+    }finally{if(original)Object.defineProperty(performance,'now',original);else delete performance.now;renderer.draw(frame);}})()`);
+  for(const [values,index] of [[phases.first,0],[phases.second,1],[phases.third,2]])
+    assert.equal(values.indexOf(Math.max(...values)),index,'the brightness crest advances through increasing path phases');
+  assert.notDeepEqual(phases.between,phases.first,'display time advances the glow between simulation ticks');
+  assert.equal(phases.animated,true);assert.equal(phases.reused,true);assert.deepEqual(phases.errors,[]);
+  console.log('ok - retained phase groups animate between ticks and move their glow upstream without geometry uploads');
   const insets = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');
     const before={width:canvas.width,height:canvas.height,cssWidth:canvas.style.width,cssHeight:canvas.style.height};
     canvas.style.width='960px';canvas.style.height='640px';canvas.width=1920;canvas.height=1280;

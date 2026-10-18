@@ -102,9 +102,9 @@
                                " · upgrade after construction")))))
     (define (tower-sight-text building)
       (string-append " · sight " (integer-text (building-radius building)) " cells"
-                     (cond ((= (building-level building) 3) " · cart station installed")
-                           ((= (building-level building) 2) " · U: add carts / 25 ore")
-                           ((ready? building) " · U: sight 10 / 25 ore")
+                     (cond ((= (building-level building) 3) " · cart speed ×4")
+                           ((= (building-level building) 2) " · cart speed ×2 · U: double cart speed / 25 ore")
+                           ((ready? building) " · worker carts · U: double cart speed + sight 10 / 25 ore")
                            (else " · upgrade after construction"))))
     (define (tower-artillery-text building)
       (if (= (building-armed building) 1) " · retained artillery · 6-cell range · visible threats" ""))

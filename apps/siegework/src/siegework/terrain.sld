@@ -7,7 +7,7 @@
           next-map-seed spawn-x spawn-y nest-x nest-y northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
           walking-path tunneling-path avoiding-path escape-path clear-shot? observed-shot?
           open-ground? walking-open-path avoiding-open-path escape-open-path clear-open-shot? observed-open-shot?
-          rail-edge rail-step? cart-path cart-escape-path)
+          CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path)
   (import
    (scheme base)
    (scheme immutable)
@@ -213,7 +213,7 @@
     (define-immutable-record Search make-search
       (seed I32 search-seed search-seed-set)
       (opened (List I32) search-opened search-opened-set)
-      (fast (List I32) search-fast search-fast-set)
+      (fast (List CartEdge) search-fast search-fast-set)
       (walking-cost I32 search-walking-cost search-walking-cost-set)
       (target I32 search-target search-target-set)
       (weight I32 search-weight search-weight-set)
@@ -315,9 +315,21 @@
     ;; south. Cart search and physical motion consult the same edge identities.
     (define (rail-edge a b)
       (+ (* (if (< a b) a b) 2) (if (= (index-y a) (index-y b)) 0 1)))
-    (define (rail-step? fast a b)
-      (and (= (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
-           (opened-cell? fast (rail-edge a b))))
+    ;; Costs share a forty-unit walking scale. Tower levels supply costs
+    ;; 4, 2 and 1; overlapping links offer the fastest available service.
+    (define-immutable-record CartEdge make-cart-edge
+      (id I32 cart-edge-id cart-edge-id-set)
+      (cost I32 cart-edge-cost cart-edge-cost-set))
+    (define (cart-edge-price fast edge fallback)
+      (if (null? fast) fallback
+          (let ((service (car fast)))
+            (cart-edge-price (cdr fast) edge
+                             (if (and (= (cart-edge-id service) edge) (< (cart-edge-cost service) fallback))
+                                 (cart-edge-cost service) fallback)))))
+    (define (cart-step-cost fast a b)
+      (if (= (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
+          (cart-edge-price fast (rail-edge a b) 40) 40))
+    (define (rail-step? fast a b) (< (cart-step-cost fast a b) 40))
     (define (traversable? seed opened x y tunneling)
       (and (inside? x y) (if tunneling (not (water? seed x y)) (open-ground? seed opened x y))))
     (define (search-enter? search x y)
@@ -344,7 +356,7 @@
         (let* ((cell (cell-index x y)) (slot (find-slot search cell))
                (previous (read-cell (search-cells search) parent))
                (steps (+ (read-cell (search-steps search) parent)
-                         (if (rail-step? (search-fast search) previous cell) 1 (search-walking-cost search)))))
+                         (cart-edge-price (search-fast search) (rail-edge previous cell) (search-walking-cost search)))))
           (if (= (read-cell (search-cells search) slot) -1)
               (discover-cell! search slot cell parent steps)
               (improve-cell! search slot parent steps)))))
@@ -400,7 +412,7 @@
     (define (avoiding-path seed x y a b surveys hazards)
       (avoiding-open-path seed (empty-list) x y a b surveys hazards))
     (define (cart-path seed opened fast x y a b surveys hazards)
-      (find-path seed opened fast (if (null? fast) 1 5) x y a b surveys hazards #f #f))
+      (find-path seed opened fast (if (null? fast) 1 40) x y a b surveys hazards #f #f))
 
     ;; ---- Emergency escape crosses warnings but not enemy positions ----
 
@@ -416,7 +428,7 @@
           (search-path seed opened (empty-list) 1 (cell-index x y) -1 surveys (occupied-hazards hazards) hazards #f #f 512)))
     (define (cart-escape-path seed opened fast x y surveys hazards)
       (if (not (open-ground? seed opened x y)) (empty-list)
-          (search-path seed opened fast (if (null? fast) 1 5) (cell-index x y) -1 surveys
+          (search-path seed opened fast (if (null? fast) 1 40) (cell-index x y) -1 surveys
                        (occupied-hazards hazards) hazards #f #f 512)))
     (define (escape-path seed x y surveys hazards)
       (escape-open-path seed (empty-list) x y surveys hazards))))

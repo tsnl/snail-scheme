@@ -186,7 +186,12 @@ fraction from 0 to 1 using elapsed display time from its first draw. The vertex
 shader mixes those positions before camera projection. The browser's animation
 frame loop redraws active motion without running the Scheme view, reducers or UI
 layout again. After drawing the final fraction once, motion stops redrawing.
-Existing pulse animation can continue independently.
+Existing pulse animation can continue independently. `phased-batch` takes the
+same key, state mask, dependencies and opacity as `translucent-batch`, followed
+by a phase in millidegrees (`0..359999`) and the node thunk. Increasing phase
+along static geometry makes the bright crest travel forward. All phases share
+the browser display clock; only opacity uniforms change. Ordinary
+`translucent-batch` pulse behavior retains phase zero.
 
 Reusing the same immutable batch preserves its clock and GPU buffers, including
 during camera changes or shader replacement. A new batch value starts a new

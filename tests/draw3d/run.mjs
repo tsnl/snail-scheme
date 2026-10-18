@@ -171,3 +171,17 @@ assert.equal(boundaryBridge.finish(tx).batches[0].reveal.edge,0);
 beginBoundary();assert.throws(()=>boundaryView(0,32,{...reveal,edge:-.1}),/reveal extent/);
 beginBoundary();assert.throws(()=>boundaryView(0,32,{...reveal,elapsed:-1}),/invalid scene reveal/);
 console.log('ok - reveal wrappers preserve copied geometry and validate shared identities before publishing any view');
+
+function phasedBoundary(pulse) {
+  beginBoundary();for(let index=0;index<32;index++)host.uniform(index,0);
+  host.background(0);host.batch(9,0);host.opacity(floatBits(.8),pulse);
+  const reused=host.reuse();if(!reused)host.vertex(0,0,0,0,0,0,0,0);
+  return boundaryBridge.finish(tx).batches[0];
+}
+for(const pulse of [0,1,45001,360000]) {
+  const batch=phasedBoundary(pulse);assert.equal(batch.pulse,pulse!==0);
+  assert.equal(batch.pulsePhase,pulse?(pulse-1)*Math.PI/180000:0);
+  assert.equal(phasedBoundary(pulse),batch);
+}
+for(const pulse of [-1,360001,.5])assert.throws(()=>phasedBoundary(pulse),/invalid batch opacity/);
+console.log('ok - bounded pulse phases retain their exact dependency and preserve legacy phase-zero behavior');

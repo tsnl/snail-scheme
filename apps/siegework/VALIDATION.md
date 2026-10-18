@@ -1,5 +1,75 @@
 # Release validation — 2026-10-18
 
+## Live transport source checkpoint — combined validation pending
+
+This checkpoint replaces persistent track geometry with a fresh deterministic
+rooted transport tree each tick, adds display-clock path phases and shared open
+stone plinths, makes every completed tower a cart station, and doubles both cart
+speeds at each tower level. The slower endpoint sets the link speed; the hub is
+level three. Artillery levels show one, two or three stacked gun assemblies.
+Kind-four buildings now have house geometry; house population rules and the
+native-resolution host are separate integration changes.
+
+The canonical debug build in `build/siegework/solo` produced generation
+`36ce0edd407b8069deda2284`, a 560,887-byte simulation with SHA-256
+`df383ddeb6c3f7c76fc4ef66064a4e2873bbe2e11dccd54816dfdce839f40c6c`.
+It passes 199 actual-Wasm application checks, eight existing presentation groups,
+and ten focused transport checks (the final cycle/missing-parent case was added
+after the full 199-check run). The transport checks include a separate Kruskal
+cost oracle, stable topology, newer parents, disconnection, source-owned cargo
+refunds, destruction, saved alternative routes, graded movement across corners,
+an eight-cell U-shaped ride, pause and legacy track geometry removal.
+
+Nine generic scene/bridge groups pass using the existing linked primitive
+fixtures with the current JavaScript hosts. Eleven private Chromium/SwiftShader
+renderer groups pass, including a phase crest moving along eight retained
+groups, pixel changes between simulation ticks and no additional geometry
+uploads. These use the actual WebGPU API with a software adapter, not hardware
+frame-rate measurements. Generic inset contracts remain tested independently of
+the product's separate notification changes.
+
+The new mesh regression passes house roofs, shared plinth clearance and all
+three artillery stacks. It also detected a remaining coplanar overlap between
+the level-three tower support and its brass decoration. The source moves that
+decoration into the front bay; **this last geometry-only correction has not yet
+been compiled**. The combined build must rerun `tests/draw3d/playtest.mjs`, check
+the result at native resolution through all camera snaps, and complete the
+fresh informed review before publishing this source checkpoint.
+
+`tests/applications/transport-profile.mjs` is an instrumented CPU diagnostic on
+the same module. It constructs checked 16/64/256-depot chains over seed one's
+open home terrain with two idle workers and no enemies. Decode median/p95 times
+were 0.55/1.07, 1.64/3.55 and 11.66/14.25 ms. Warm complete-tick medians were
+2.01, 6.59 and 28.48 ms; the 256-depot p95 was 29.27 ms and its first tick took
+31.89 ms. Complete ticks include both fresh tree computations, worker dispatch,
+serialization and boundary validation. These shared-host observations are not
+isolated MST benchmarks or a claim about a full combat colony.
+
+The focused simplify pass used an independent behavioral explanation and
+debated infeasible graph edges and cargo ownership before implementation.
+Path-map and canonical-route caches reuse only exact passability inputs;
+topology itself is recomputed. A restored legal directed route retains its
+own progress instead of being replaced by a warm cached alternative. One
+bounded movement operation spans several segments without processing another
+job. The existing two-pose renderer still interpolates a chord across a corner
+for up to 100 ms; authoritative movement follows every route segment.
+
+Reproduction commands:
+
+```sh
+chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+node tests/applications/runtime.mjs build/siegework/solo /path/to/application-tests build/siegework
+node tests/applications/colony-transport.mjs build/siegework/solo
+node tests/applications/transport-profile.mjs build/siegework/solo
+node tests/draw3d/colony.mjs build/siegework/solo
+node tests/draw3d/playtest.mjs build/siegework/solo
+node tests/draw3d/run.mjs build/transport-draw3d
+node tests/draw3d/browser.mjs http://127.0.0.1:4237/transport-draw3d/ http://127.0.0.1:9477
+```
+
+The historical checkpoints below describe their own rendering policies and
+published packages, not the pending combined release.
+
 ## Scope and checkpoints
 
 The static 3D game is the only Siegework implementation. Parent PR
