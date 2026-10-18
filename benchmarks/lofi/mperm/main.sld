@@ -65,7 +65,9 @@
       (empty-list ))))
 
 (def tenperm
-  (lambda rest ((lambda (n.2) (MpermNKL-benchmark (ann 10 I64) n.2 (ann 2 I64) (ann 1 I64))) (if (null? rest) (ann 9 I64) (car rest)))))
+  (syntax-rules () ((_ values ...) (tenperm-list (list values ...)))))
+(def tenperm-list
+  (lambda (rest) ((lambda (n.2) (MpermNKL-benchmark (ann 10 I64) n.2 (ann 2 I64) (ann 1 I64))) (if (null? rest) (ann 9 I64) (car rest)))))
 
 (def MpermNKL-benchmark
   (lambda (m n k ell)

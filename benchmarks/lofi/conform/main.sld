@@ -99,7 +99,10 @@
         (conform-eq? value.17 (car values.6)))
       #f)))
 
-(def conform-list (All (T) (-> (Rest T) (List T))) (lambda values.5 values.5))
+(def conform-list
+     (syntax-rules ()
+       ((_) (empty-list))
+       ((_ first rest ...) (cons first (conform-list rest ...)))))
 
 (def conform-map (All (A B) (-> (-> A B) (List A) (List B)))
   (lambda (procedure.1 values.4)
@@ -209,8 +212,11 @@
 (def set-internal-node-blue-edges!
   (lambda (node.14 edges.2) (ref-set! (node-blue-cell node.14) edges.2)))
 
-(def make-node (-> Name (Rest BlueState) Node)
-  (lambda (name . blue-edges.1)
+(def make-node
+  (syntax-rules ()
+    ((_ name blue ...) (make-node-list name (conform-list blue ...)))))
+(def make-node-list (-> Name (List BlueState) Node)
+  (lambda (name blue-edges.1)
     ((lambda (name.1 blue-edges.2) (make-internal-node name.1 (empty-list ) (empty-list ) blue-edges.2))
       (name-string name)
       (if (null? blue-edges.1) (blue-unresolved) (car blue-edges.1)))))
@@ -299,8 +305,9 @@
 (def set-internal-graph-nodes!
   (lambda (graph.7 nodes.5) (ref-set! (graph-node-cell graph.7) nodes.5)))
 
-(def make-graph (-> (Rest Node) Graph)
-  (lambda nodes.4 (make-internal-graph nodes.4 (make-empty-table) (make-empty-table))))
+(def make-graph
+  (syntax-rules ()
+    ((_ nodes ...) (make-internal-graph (conform-list nodes ...) (make-empty-table) (make-empty-table)))))
 
 (def graph-nodes internal-graph-nodes)
 

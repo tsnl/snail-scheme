@@ -57,7 +57,7 @@
 
 (def caar (lambda (values.3) (car (car values.3))))
 
-(def list (All (T) (-> (Rest T) (List T))) (lambda values.2 values.2))
+
 
 (def reverse (All (T) (-> (List T) (List T)))
   (lambda (values.1)

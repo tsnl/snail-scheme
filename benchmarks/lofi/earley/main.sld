@@ -159,7 +159,10 @@
         (same-symbol? value.3 (car values.4)))
       #f)))
 
-(def earley-list (All (T) (-> (Rest T) (List T))) (lambda values.3 values.3))
+(def earley-list
+     (syntax-rules ()
+       ((_) (empty-list))
+       ((_ first rest ...) (cons first (earley-list rest ...)))))
 
 (def earley-append (All (T) (-> (List T) (List T) (List T)))
   (lambda (first last)
