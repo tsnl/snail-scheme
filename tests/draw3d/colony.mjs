@@ -8,6 +8,8 @@ const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
 const world = () => colony(runtime.snapshot(1)), local = () => client(runtime.snapshot(2));
+const geometry = scene => ({vertices: scene.batches.reduce((total, batch) => total + batch.vertices.length, 0),
+  indices: scene.batches.reduce((total, batch) => total + batch.indices.length, 0)});
 async function command(binding, args = []) {
   const result = await runtime.dispatch(2, runtime.command('client', binding, args));
   for (const effect of result.effects) if (effect.kind === 'send') await runtime.dispatch(1, runtime.effectCommand(effect));
@@ -32,9 +34,10 @@ function placed(key, value = runtime.view().ui, x = 0, y = 0) {
 }
 try {
   const snapshot = runtime.snapshot(1); const frame = runtime.view();
-  assert.ok(frame.scene.vertices.length > 1000); assert.ok(frame.ui); assert.deepEqual(runtime.snapshot(1), snapshot);
+  assert.ok(geometry(frame.scene).vertices > 1000); assert.ok(frame.ui); assert.deepEqual(runtime.snapshot(1), snapshot);
   for (const direction of [[1,0],[-1,0],[0,1],[0,-1],[1,-1]]) {
-    await command('home'); const before = project(8,22); await command('pan', direction);
+    await command('home'); const retained = runtime.view().scene, before = project(8,22); await command('pan', direction);
+    assert.ok(runtime.view().scene.batches.every((batch, index) => batch === retained.batches[index]));
     const after = project(8,22), dx = after[0] - before[0], dy = after[1] - before[1];
     assert.ok(dx * direction[0] + dy * direction[1] < -20);
     assert.ok(Math.abs(dx * direction[1] - dy * direction[0]) <= 1);
@@ -55,8 +58,7 @@ try {
   const selectedPoint = project(12, 21, .08); await command('confirm');
   assert.equal(local().chooser, true); assert.deepEqual(runtime.snapshot(1), beforeChoice);
   assert.equal(node('context'), undefined); assert.ok(node('build-chooser'));
-  assert.equal(runtime.view().scene.vertices.length, beforeScene.vertices.length);
-  assert.equal(runtime.view().scene.indices.length, beforeScene.indices.length);
+  assert.deepEqual(geometry(runtime.view().scene), geometry(beforeScene));
   const chooser = placed('build-chooser');
   const dx = Math.max(chooser.left - selectedPoint[0], selectedPoint[0] - chooser.right, 0);
   const dy = Math.max(chooser.top - selectedPoint[1], selectedPoint[1] - chooser.bottom, 0);

@@ -4,14 +4,16 @@
   (export Vertex vertex vertex-position vertex-normal Geometry indexed-geometry
           geometry-vertex-count geometry-index-count geometry-vertex geometry-index
           box-geometry plane-geometry pyramid-geometry Material material material-rgb material-emission
-          Node mesh group Scene scene scene-camera scene-nodes scene-light scene-ambient scene-background
+          Node mesh group SceneBatch retained-batch dynamic-batch batch-key batch-state-mask
+          batch-dependencies batch-nodes Scene scene batched-scene scene-camera scene-batches
+          scene-light scene-ambient scene-background
           DirectionalLight directional-light light-direction light-intensity test-scene)
   (import
    (scheme base)
    (scheme immutable)
    (draw3d math)
    (only (lofi base) vector-copy list->vector i32->i64 i64->i32 unreachable)
-   (only (lofi core) datatype match ann I32 I64 F64))
+   (only (lofi core) datatype match ann -> I32 I64 F64))
   (begin
 
     ;; ---- Indexed geometry establishes finite vertices and in-range triangles ----
@@ -114,14 +116,32 @@
     (define (directional-light direction intensity)
       (if (and (finite? intensity) (>= intensity 0.0))
           (sun (normalize direction) intensity) (unreachable)))
+    ;; A retained batch is a pure, lazy declaration. State-mask bit zero names
+    ;; match state and bit one names client state. The host may reuse geometry
+    ;; only while those immutable snapshots and every scalar dependency match.
+    (define SceneBatch
+      (datatype ()
+        (render-batch
+         (key I32 batch-key)
+         (state-mask I32 batch-state-mask)
+         (dependencies (List I32) batch-dependencies)
+         (nodes (-> (List Node)) batch-nodes))))
+    (define (retained-batch key state-mask dependencies nodes)
+      (if (and (>= key 0) (>= state-mask 0) (<= state-mask 3))
+          (render-batch key state-mask dependencies nodes) (unreachable)))
+    (define (dynamic-batch nodes) (render-batch -1 0 (empty-list) nodes))
     (define Scene
       (datatype ()
-        (scene
+        (scene-description
          (camera Camera scene-camera)
-         (nodes (List Node) scene-nodes)
+         (batches (List SceneBatch) scene-batches)
          (light DirectionalLight scene-light)
          (ambient Vec3 scene-ambient)
          (background I32 scene-background))))
+    (define (batched-scene camera batches light ambient background)
+      (scene-description camera batches light ambient background))
+    (define (scene camera nodes light ambient background)
+      (batched-scene camera (list (dynamic-batch (lambda () nodes))) light ambient background))
 
     ;; ---- Tests ----
 

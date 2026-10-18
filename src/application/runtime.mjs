@@ -45,7 +45,9 @@ function diagnosticProvider() {
 // ---- Manifest establishes endpoint identity and payload shape ----
 
 function freezeValue(value) {
-  if (value && typeof value === 'object') { Object.values(value).forEach(freezeValue); Object.freeze(value); }
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.values(value).forEach(freezeValue); Object.freeze(value);
+  }
   return value;
 }
 export function validateManifest(input) {
@@ -162,7 +164,7 @@ export class ReducerRuntime {
 
   #stage(instance, args, {owner, readOnly = false, snapshots = this.stores, manifest = this.manifest} = {}) {
     if (this.active) throw new Error('nested transition');
-    this.active = {owner, readOnly, snapshots, effects: [], output: {quads: []}};
+    this.active = {owner, readOnly, snapshots, instance, effects: [], output: {quads: []}};
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
@@ -192,7 +194,7 @@ export class ReducerRuntime {
     // Candidate validation receives its own read-only map. Committed snapshots
     // remain visible even while preparing a replacement or awaiting a save.
     const snapshots = new Map(tx.snapshots).set(tx.owner, tx.next);
-    this.active = {readOnly: true, snapshots, effects: [], output: {quads: []}};
+    this.active = {readOnly: true, snapshots, instance, effects: [], output: {quads: []}};
     try {
       if (!invokeEntry(instance, [10, 0, 0, 0])) throw new Error('invalid replacement snapshot');
     } finally { this.active = tx; }

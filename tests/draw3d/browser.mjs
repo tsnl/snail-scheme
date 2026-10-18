@@ -23,21 +23,22 @@ try {
   assert.ok(await evaluate('!!globalThis.sceneFixture'), 'scene fixture failed to start');
   const pixels = await evaluate(`(async () => { const {renderer,frame}=sceneFixture; const result=await renderer.readPixels(frame);
     return {colors: new Set(Array.from(result.bytes).filter((_,i)=>i%4!==3)).size, bytes:result.bytes.length,
-      vertices:frame.vertices.length/10,triangles:frame.indices.length/3,errors:sceneErrors};})()`);
+      vertices:frame.batches.reduce((n,b)=>n+b.vertices.length/10,0),
+      triangles:frame.batches.reduce((n,b)=>n+b.indices.length/3,0),errors:sceneErrors};})()`);
   assert.ok(pixels.colors > 30); assert.ok(pixels.bytes > 100000); assert.deepEqual(pixels.errors, []);
   console.log('ok - actual Chromium WebGPU scene pixels', pixels);
   if (process.argv[4]) { const shot = await call('Page.captureScreenshot', {format: 'png'}); writeFileSync(process.argv[4], Buffer.from(shot.data, 'base64')); }
   const depth = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture;
     const vertices=[];for(const [z,color] of [[.2,[1,0,0]],[.8,[0,0,1]]])
       for(const [x,y] of [[-.8,-.8],[.8,-.8],[0,.8]])vertices.push(x,y,z,0,0,1,...color,1);
-    const probe={vertices,indices:[0,1,2,3,4,5],background:[0,0,0],
+    const probe={batches:[{key:-1,vertices,indices:[0,1,2,3,4,5]}],background:[0,0,0],
       uniforms:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,1]};
     const result=await renderer.readPixels(probe),canvas=document.querySelector('canvas');
     const at=Math.floor(canvas.height/2)*result.bytesPerRow+Math.floor(canvas.width/2)*4;
     const pixel=Array.from(result.bytes.slice(at,at+4));if(result.format.startsWith('bgra'))[pixel[0],pixel[2]]=[pixel[2],pixel[0]];
     let rejected=false;try{await renderer.prepare('invalid shader');}catch{rejected=true;}
-    const before=renderer.resources;await renderer.readPixels(frame);const after=renderer.resources;
-    return{pixel,rejected,reused:before.vertexBytes===after.vertexBytes&&before.indexBytes===after.indexBytes};})()`);
+    await renderer.readPixels(frame);const before=renderer.resources;await renderer.readPixels(frame);const after=renderer.resources;
+    return{pixel,rejected,reused:before.uploads===after.uploads};})()`);
   assert.deepEqual(depth, {pixel:[255,0,0,255], rejected:true, reused:true});
   console.log('ok - depth rejects later hidden triangles; failed shader preparation preserves the reusable renderer');
   const resizing = await evaluate(`(async()=>{const {renderer,frame}=sceneFixture,canvas=document.querySelector('canvas');

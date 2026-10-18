@@ -7,7 +7,8 @@
           Camera orthographic-camera perspective-camera camera-matrix camera-ray
           Ray ray ray-origin ray-direction ray-ground Bounds bounds ray-box
           Vertex vertex Geometry indexed-geometry box-geometry plane-geometry pyramid-geometry
-          Material material Node mesh group Scene scene directional-light present-scene!)
+          Material material Node mesh group SceneBatch retained-batch dynamic-batch
+          Scene scene batched-scene directional-light present-scene!)
   (import
    (draw3d math)
    (draw3d scene)
