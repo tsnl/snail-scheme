@@ -4,7 +4,7 @@ Build an inventory with fifty units of ore and buy something costing eight.
 The result is forty-two units, while the original inventory still contains
 fifty. An unaffordable purchase and a negative price leave the state unchanged.
 
-This uses the counter's `application`, `dispatch` and `Transition` vocabulary.
+Start with [the counter](counter.md) to learn `application` and `dispatch`.
 The complete source is
 [`inventory.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/applications/inventory.sld).
 
@@ -42,7 +42,7 @@ With nonnegative initial stock, every accepted purchase preserves nonnegative
 stock. This is a rule enforced by this operation, not something implied by
 the `I32` field type.
 
-In an application where prices are fixed by the game, accept a product choice
+In an application with fixed prices, accept a product choice
 and look up its cost on the authority. This example accepts the price directly
 to make the arithmetic visible.
 
@@ -92,12 +92,5 @@ The compiler does not prove that every handler is pure: placing a mutable
 vector inside a record and modifying that vector would require more care.
 Keep the stored values immutable for this programming model.
 
-## Find this in Siegework
-
-[`model.sld`](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/src/siegework/model.sld) has records
-for the world and its pieces. Purchase operations check ore and placement
-before building a replacement. The world is a larger version of `Stock`;
-read one purchase before following an entire simulation tick.
-
-Next: [make local controls](commands.md) that request a change from a separate
-owner without changing its state directly.
+Next: [build local controls](commands.md) that send commands to a separate
+state owner.
