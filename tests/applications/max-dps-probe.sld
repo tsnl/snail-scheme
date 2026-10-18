@@ -41,7 +41,7 @@
              (x (+ (world-hub-x world) 4)) (y (- (world-hub-y world) 2)))
         (first-production
          (world-bots-set (world-buildings-set world (list (fixture-building 1 1 x y)))
-                        (list (fixture-worker 1 x y 8 4))) 0)))
+                         (list (fixture-worker 1 x y 8 4))) 0)))
     (define (idle-workers count x y)
       (if (= count 0) (empty-list)
           (cons (fixture-worker count x y 0 0) (idle-workers (- count 1) x y))))
