@@ -1,17 +1,17 @@
-# Lofi
+# Snail-Scheme
 
-Lofi is a typed functional language and compiler target. Scheme libraries share
-its compiler and runtime, so application rules, state and presentation can be
-written together and compiled to WebAssembly.
+Snail-Scheme is a language and application toolkit built around Lofi, a typed
+functional language and compiler target. The book follows the language, the
+small applications built with its libraries, and the native backend.
 
-Start with the [five application tutorials](lofi/tutorials/index.md) to build
-a counter, an inventory and a small shared browser board. Each tutorial has
-runnable source, exercises and a connection to the larger Siegework application.
+Start with [Build Small Applications](lofi/tutorials/index.md) to make a counter,
+an inventory and a small shared browser board. Each tutorial has runnable
+source, exercises and a connection to the larger Siegework application.
 
-For the language itself, read the [overview](lofi/index.md),
+For Lofi, read the [language overview](lofi/index.md),
 [Scheme forms and macros](lofi/macros.md), and [type system](lofi/types.md).
-The [application reference](lofi/applications.md) explains state ownership,
-effects, browser hosting and reload. The [native backend guide](native/index.md)
+The application reference explains [state ownership, effects, browser hosting
+and reload](lofi/applications.md). The [native backend guide](native/index.md)
 covers lowering WebAssembly to native executables.
 
 The book is built from the repository's `main` branch. Source files and build

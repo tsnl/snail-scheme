@@ -1,6 +1,6 @@
 [book]
-title = "Lofi"
-authors = ["Lofi contributors"]
+title = "Snail-Scheme"
+authors = ["Snail-Scheme contributors"]
 language = "en"
 src = "doc/book"
 

@@ -1,4 +1,4 @@
-# Build small applications
+# Build Small Applications
 
 These five tutorials take apart the ideas used by Siegework. Start with a
 counter you can run in a terminal, then build a tiny shared marker board. Each
