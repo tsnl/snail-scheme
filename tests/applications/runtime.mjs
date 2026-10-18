@@ -18,6 +18,7 @@ import {checkRanks} from './colony-ranks.mjs';
 import {checkCarts} from './colony-carts.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
 import {checkBrowserEffects} from './browser-effects.mjs';
+import {checkColonyMenus} from './colony-menu.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
@@ -106,17 +107,22 @@ await test('dismiss closes a selected project while explicit cancellation owns i
   assert.equal(colony(r.snapshot(1)).ore,135); await r.dispatch(1,r.effectCommand(cancelled.effects[0]));
   assert.equal(colony(r.snapshot(1)).ore,160); assert.equal(colony(r.snapshot(1)).buildings.length,0); await r.close();
 });
-await test('restart confirmation pauses time and cancellation restores the previous pause state',async()=>{
+await test('pause menu stops time; restart cancellation stays paused and Resume unpauses',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  const apply=async result=>{for(const effect of result.effects)await r.dispatch(1,r.effectCommand(effect));};
-  await call(r,'fabricate-worker'); await apply(await local('restart')); assert.equal(client(r.snapshot(2)).restartMode,1);
-  const paused=r.snapshot(1); for(let i=0;i<10;i++)await call(r,'advance'); assert.deepEqual(r.snapshot(1),paused);
-  await apply(await local('dismiss')); assert.equal(colony(r.snapshot(1)).paused,0);
-  await call(r,'pause-colony',[1]); await apply(await local('restart')); assert.equal(client(r.snapshot(2)).restartMode,2);
-  assert.deepEqual((await local('dismiss-restart')).effects,[]); assert.equal(colony(r.snapshot(1)).paused,1);
-  const marker=colony(r.snapshot(1)).runMarker; await apply(await local('restart')); await apply(await local('accept-restart'));
-  const restarted=colony(r.snapshot(1)); assert.equal(restarted.runMarker,marker+1); assert.equal(restarted.started,false);
-  assert.equal(restarted.tick,0); assert.equal(restarted.ore,160); assert.equal(client(r.snapshot(2)).restartMode,0); await r.close();
+  const apply=async result=>{for(const effect of result.effects){
+    await apply(await r.dispatch(effect.owner,r.effectCommand(effect)));
+    if(effect.owner===1&&effect.command.handler===r.command('match','new-run').handler)await local('reset-presentation');
+  }};
+  await call(r,'fabricate-worker');await apply(await local('pause-menu'));assert.equal(client(r.snapshot(2)).dialog,1);
+  const paused=r.snapshot(1);for(let i=0;i<10;i++)await call(r,'advance');assert.deepEqual(r.snapshot(1),paused);
+  await apply(await local('restart'));assert.equal(client(r.snapshot(2)).dialog,2);
+  assert.deepEqual((await local('dismiss-restart')).effects,[]);assert.equal(client(r.snapshot(2)).dialog,1);assert.equal(colony(r.snapshot(1)).paused,1);
+  await apply(await local('resume'));assert.equal(colony(r.snapshot(1)).paused,0);
+  await call(r,'pause-colony',[1]);await local('reset-presentation');assert.equal(client(r.snapshot(2)).dialog,1);
+  await apply(await local('resume'));assert.equal(colony(r.snapshot(1)).paused,0);
+  const marker=colony(r.snapshot(1)).runMarker;await apply(await local('pause-menu'));await apply(await local('restart'));await apply(await local('accept-restart'));
+  const restarted=colony(r.snapshot(1));assert.equal(restarted.runMarker,marker+1);assert.equal(restarted.started,false);
+  assert.equal(restarted.tick,0);assert.equal(restarted.ore,160);assert.equal(restarted.paused,0);assert.equal(client(r.snapshot(2)).dialog,0);await r.close();
 });
 await test('compatible 3D reload preserves both models without consuming a tick', async () => {
   const r = await fresh(); await call(r, 'extract', [12, 20]); for (let i = 0; i < 700; i++) await call(r, 'advance');
@@ -222,4 +228,5 @@ await checkRanks(test, fresh);
 await checkCarts(test, fresh);
 await checkAsyncRuntime(test, fixture);
 await checkBrowserEffects(test, fixture);
+await checkColonyMenus(test, fresh);
 console.log(`${passed} application integration checks passed`);

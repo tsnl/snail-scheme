@@ -24,7 +24,6 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 [data-ui-key="worker"], [data-ui-key="worker-menu"] { color: #245e95; background: #e1eef8; border-color: #6290b2; }
 [data-ui-key="worker"] .snail-ui-button-label::first-letter { text-decoration: none; }
 [data-ui-key="pause"]:not([aria-pressed="true"]) { background: #ffdebc; border-color: #c98653; }
-[data-ui-key="restart-header"] { color: #8d4637; }
 
 /* Separate label pills make the ore count and the four meanings explicit. */
 [data-ui-key="readouts"] .snail-ui-kind-6 { font-size: 18px; font-weight: 850; }
@@ -45,12 +44,12 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 
 [data-ui-key="context-title"] { position: absolute; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 [data-ui-key="context-description"], [data-ui-key="plan-help"], [data-ui-key="restart-description"] { font-size: 12px; line-height: 18px; text-align: center; }
-[data-ui-key="plan-price"], [data-ui-key="brush-picker-label"], [data-ui-key="handedness-label"], [data-ui-key="worker-panel-label"] { text-align: center; font-size: 12px; font-weight: 750; line-height: 20px; }
+[data-ui-key="plan-price"], [data-ui-key="brush-picker-label"], [data-ui-key="worker-panel-label"] { text-align: center; font-size: 12px; font-weight: 750; line-height: 20px; }
 [data-ui-key="plan-price"] { color: #7432b2; font-size: 11px; }
 [data-ui-key="plan-help"] { font-size: 11px; line-height: 12px; }
 [data-ui-key="result"][data-panel="1"] { border-color: var(--ui-danger); }
-[data-ui-key="restart-backdrop"] { color: transparent; background: #0c243e80; border: 0; border-radius: 0; box-shadow: none; }
-[data-ui-key="restart-backdrop"]::before { display: none; }
+.snail-ui-button[data-ui-key="dialog-backdrop"] { position: fixed; inset: 0 !important; width: 100vw !important; height: 100vh !important; color: transparent; background: #0c243e80; border: 0; border-radius: 0; box-shadow: none; outline: 0; }
+[data-ui-key="dialog-backdrop"]::before { display: none; }
 [data-ui-key="restart-dialog"] { border-color: #b23f32; box-shadow: 0 12px 44px #123d5c66; }
 [data-ui-key="restart-title"] { font-size: 15px; line-height: 26px; font-weight: 800; text-align: center; }
 .snail-ui-node[data-ui-key^="attack-label-"] { border-radius: 10px; text-align: center; color: #fff; background: #a83f32; font-size: 12px; font-weight: 750; }
@@ -66,6 +65,7 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection { right: auto; le
 .screen-reader { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .snail-ui-node[data-ui-key="plan-status"], .snail-ui-node[data-ui-key="onboarding"] { pointer-events: none; }
+[data-ui-key="onboarding-help"] { display: flex; align-items: center; text-align: center; font-size: 12px; line-height: 16px; }
 
 /* Small native vector symbols keep the product vocabulary in its stylesheet. */
 [data-ui-key="ore"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M6%203h12l4%207-10%2012L2%2010zM2%2010h20M6%203l6%2019%206-19M6%203l6%207%206-7%22%2F%3E%3C%2Fsvg%3E"); }
@@ -73,8 +73,7 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection { right: auto; le
 [data-ui-key="difficulty"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4%203%2013%2013m-3%203%206-6M3%204l2%205%203-3zM21%203%208%2016m-3-3%206%206m10-15-2%205-3-3z%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="home"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m2%2011%2010-8%2010%208M5%209v12h14V9M9%2021v-7h6v7%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="pause"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%204v16M17%204v16%22%20stroke-width%3D%224%22%2F%3E%3C%2Fsvg%3E"); }
-[data-ui-key="restart-header"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2010a8%208%200%201%201%201%208M4%203v7h7%22%2F%3E%3C%2Fsvg%3E"); }
-[data-ui-key^="attack-dismiss-"], [data-ui-key="close-context"], [data-ui-key="dismiss-restart"], [data-ui-key="clear-plan"], [data-ui-key="settings-back"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m5%205%2014%2014M19%205%205%2019%22%2F%3E%3C%2Fsvg%3E"); }
+[data-ui-key^="attack-dismiss-"], [data-ui-key="close-context"], [data-ui-key="dismiss-restart"], [data-ui-key="clear-plan"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m5%205%2014%2014M19%205%205%2019%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="extractor"], [data-ui-key="selected-extractor"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M5%2021h14M8%2021l2-13h4l2%2013M7%208h10M12%202v6M4%204l16%204M12%2012l4%204-4%204-4-4z%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="tower"], [data-ui-key="selected-tower"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%2022V9h10v13M5%209V3h4v3h6V3h4v6zM4%2022h16M10%2013h4m-4%204h4%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="artillery"], [data-ui-key="selected-artillery"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%229%22%20cy%3D%2217%22%20r%3D%224%22%2F%3E%3Cpath%20d%3D%22m7%2013%2011-8%203%204-10%208M4%2022h16m-7-5%205%205%22%2F%3E%3C%2Fsvg%3E"); }
@@ -83,19 +82,15 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection { right: auto; le
 [data-ui-key="worker"], [data-ui-key="worker-menu"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%223%22%2F%3E%3Cpath%20d%3D%22M2%2022v-6a7%207%200%200%201%2012-5M6%2022v-5m12-5v10m-5-5h10%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="cancel-build"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m5%205%2014%2014M19%205%205%2019%22%2F%3E%3C%2Fsvg%3E"); }
 [data-ui-key="restart"], [data-ui-key="accept-restart"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%2010a8%208%200%201%201%201%208M4%203v7h7%22%2F%3E%3C%2Fsvg%3E"); }
-[data-ui-key="pause"][aria-pressed="true"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22m7%203%2014%209-14%209z%22%2F%3E%3C%2Fsvg%3E"); }
 
 [data-ui-key="health"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M20%205c-3-3-6-1-8%201-2-2-5-4-8-1-4%204%201%209%208%2015%207-6%2012-11%208-15z%22%2F%3E%3C%2Fsvg%3E"); }
 
 [data-ui-key="repair"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14%203a6%206%200%200%200-7%208L2%2018a3%203%200%200%200%204%204l7-6a6%206%200%200%200%208-7l-5%204-5-5z%22%2F%3E%3C%2Fsvg%3E"); }
 
-[data-ui-key="orbit"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M9%203H3v6m12-6h6v6M3%2015v6h6m12-6v6h-6M3%203l6%206m12-6-6%206M3%2021l6-6m12%206-6-6%22%2F%3E%3C%2Fsvg%3E"); }
 
 [data-ui-key="build-menu"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m3%2019%207-7%204%204-7%207zM11%2011l4-4m-1-4%207%207M16%202l6%206%22%2F%3E%3C%2Fsvg%3E"); }
 
-[data-ui-key="settings"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4%206h16M4%2012h16M4%2018h16%22%2F%3E%3Ccircle%20cx%3D%229%22%20cy%3D%226%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2212%22%20r%3D%222%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%2218%22%20r%3D%222%22%2F%3E%3C%2Fsvg%3E"); }
 
-[data-ui-key="handedness"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18M3%207l4-4M3%207l4%204M21%2017H3m18%200-4-4m4%204-4%204%22%2F%3E%3C%2Fsvg%3E"); }
 
 [data-ui-key="done-plan"] { --icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m4%2012%205%205L20%206%22%2F%3E%3C%2Fsvg%3E"); }
 
@@ -106,3 +101,12 @@ body:has([data-ui-key="rail"][style*="left: 0px"]) .connection { right: auto; le
   .connection { right: 196px; }
   body:has([data-ui-key="rail"][style*="left: 0px"]) .connection { left: 196px; }
 }
+
+/* The pause menu uses readable labels and large, ordinary menu buttons. */
+body:has([data-ui-key="dialog-backdrop"]) [data-ui] { z-index: 21; }
+body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { position: fixed; inset: auto 12px 6px; width: auto; max-height: 40px; overflow-y: auto; z-index: 22; padding: 3px 8px; border-radius: 8px; line-height: 16px; }
+[data-ui-key="pause-title"] { text-align: center; font-size: 20px; line-height: 28px; font-weight: 750; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button { border-radius: 10px; padding: 12px 8px; text-align: center; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button::before { display: none; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label { font-size: 14px; line-height: 20px; }
+:is([data-ui-key="pause-dialog"], [data-ui-key="restart-dialog"]) .snail-ui-button-label::first-letter { text-decoration: none; }

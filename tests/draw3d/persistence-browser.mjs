@@ -65,6 +65,7 @@ try {
   await call('Network.setCacheDisabled', {cacheDisabled:true}); await call('Page.navigate', {url:origin});
   await call('Page.bringToFront'); await ready();
 
+  if((await world()).paused===1){await evaluate('snailApp.local("resume")');await acknowledged();}
   await evaluate('snailApp.local("restart-seed",[1])'); await acknowledged();
   await click('build-menu'); await click('tower');
   await pointCell(10,21,true);

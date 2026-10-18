@@ -29,7 +29,8 @@ const local = async () => client(await evaluate('snailApp.runtime.snapshot(2)'))
 const has = key => evaluate(`!!document.querySelector('[data-ui-key="${key}"]')`);
 const command = async (binding,args=[]) => {await evaluate(`snailApp.local(${JSON.stringify(binding)},${JSON.stringify(args)})`);await settled();};
 const displayFrame = () => evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
-const settled = async () => {await evaluate('snailApp.drainUpdates()');await until(() => evaluate('!snailApp.localWork && !snailApp.dirty'), 'input did not settle');};
+// Freeze only the fixture clock; a paused World now correctly opens its menu.
+const settled = async () => {await evaluate('snailApp.drainUpdates()');await evaluate('snailApp.session.stopClock()');await until(() => evaluate('!snailApp.localWork && !snailApp.dirty'), 'input did not settle');};
 async function press(position) {
   await call('Input.dispatchMouseEvent', {type: 'mousePressed', ...position, button: 'left', clickCount: 1});
   await call('Input.dispatchMouseEvent', {type: 'mouseReleased', ...position, button: 'left', clickCount: 1}); await settled();
@@ -55,15 +56,17 @@ async function frameCell(x,y) {
     await command('drag',[0,Math.round((await local()).height*.22)]);
 }
 async function capture(suffix='') {
+  if(await has('dialog-backdrop')){await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:2,y:2});await displayFrame();}
   const layout=await evaluate(`(()=>{
-    const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="restart-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
+    const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
-      .filter(r=>r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==56||r.height!==56);
+      .filter(r=>{const menu=['resume','restart-menu','handedness','dismiss-restart','accept-restart'].includes(r.key);
+        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:56)||r.height!==(menu?48:56)});
     const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"]')]
       .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent}));
     const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
     const boxes=[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(node=>({key:node.dataset.uiKey,rect:node.getBoundingClientRect()}));
-    const obstacles=[...document.querySelectorAll('[data-ui] button:not([data-ui-key^="attack-inspect-"]):not([data-ui-key="restart-backdrop"]),[data-ui] .snail-ui-kind-6,[data-ui-key="context"],[data-ui-key="plan-status"]')];
+    const obstacles=[...document.querySelectorAll('[data-ui] button:not([data-ui-key^="attack-inspect-"]):not([data-ui-key="dialog-backdrop"]),[data-ui] .snail-ui-kind-6,[data-ui-key="context"],[data-ui-key="plan-status"],[data-ui-key="onboarding"]')];
     const covered=boxes.flatMap(box=>obstacles.filter(node=>!node.closest('[data-ui-key^="attack-toast-"]')&&overlap(box.rect,node.getBoundingClientRect())).map(node=>({toast:box.key,control:node.dataset.uiKey})));
     const insetSizes=(snailApp.runtime.view().scene.insets??[]).map(inset=>inset.rect.slice(2));
     const dismissOverlap=(snailApp.runtime.view().scene.insets??[]).filter(inset=>{const r=inset.rect,b=document.querySelector('[data-ui-key="attack-dismiss-'+inset.key+'"]')?.getBoundingClientRect();
@@ -71,8 +74,23 @@ async function capture(suffix='') {
     const escaped=(snailApp.runtime.view().scene.insets??[]).filter(inset=>{const b=boxes.find(box=>box.key==='attack-toast-'+inset.key)?.rect,r=inset.rect;
       return !b||r[0]<b.left||r[1]<b.top||r[0]+r[2]>b.right||r[1]+r[3]>b.bottom;});
     const dimAlerts=[...document.querySelectorAll('[data-ui-key^="attack-label-"]')].filter(node=>getComputedStyle(node).color!=='rgb(255, 255, 255)').map(node=>node.dataset.uiKey);
-    return{invalid,clipped,covered,escaped,dimAlerts,insetSizes,dismissOverlap,scrollWidth:document.documentElement.scrollWidth,width:document.documentElement.clientWidth};})()`);
-  assert.deepEqual(layout.invalid,[],'every visible circle is the same touch size and stays on screen');
+    const hint=document.querySelector('[data-ui-key="onboarding"]'),build=document.querySelector('[data-ui-key="build-menu"]');
+    const anchored=!hint?null:(()=>{const h=hint.getBoundingClientRect(),b=build.getBoundingClientRect(),left=hint.dataset.arrow==='1';
+      return{centerDelta:h.y+h.height/2-b.y-b.height/2,gap:left?h.left-b.right:b.left-h.right,
+        inside:h.left>=0&&h.right<=innerWidth&&h.top>=0&&h.bottom<=innerHeight};})();
+    const shade=document.querySelector('[data-ui-key="dialog-backdrop"]'),backdrop=!shade?null:(()=>{const r=shade.getBoundingClientRect(),color=getComputedStyle(shade).backgroundColor;
+      return{rect:[r.x,r.y,r.width,r.height],alpha:color.startsWith('rgba(')?parseFloat(color.split(',').at(-1)):1};})();
+    const dialog=document.querySelector('[data-ui-key="pause-dialog"],[data-ui-key="restart-dialog"]');
+    const blocked=![...document.querySelectorAll('[data-ui-key="pause-dialog"] button:enabled,[data-ui-key="restart-dialog"] button:enabled')]
+      .every(button=>{const r=button.getBoundingClientRect();return button.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});
+    const error=document.querySelector('.connection[data-state="error"]');
+    const errorCoversMenu=!!(dialog&&error&&overlap(dialog.getBoundingClientRect(),error.getBoundingClientRect()));
+    return{invalid,clipped,covered,escaped,dimAlerts,insetSizes,dismissOverlap,anchored,backdrop,blocked,errorCoversMenu,scrollWidth:document.documentElement.scrollWidth,width:document.documentElement.clientWidth};})()`);
+  assert.deepEqual(layout.invalid,[],'circles and labeled menu rows keep their touch size and stay on screen');
+  assert.equal(layout.blocked,false,'enabled menu actions remain reachable above shell overlays');
+  assert.equal(layout.errorCoversMenu,false,'save errors remain outside the menu');
+  if(layout.backdrop){assert.ok(layout.backdrop.alpha>0&&layout.backdrop.alpha<1,'hovering the backdrop keeps the world visible');const expected=await evaluate('[0,0,innerWidth,innerHeight]');assert.ok(layout.backdrop.rect.every((value,index)=>Math.abs(value-expected[index])<=1),'the dim backdrop covers the viewport within CSS subpixel rounding');}
+  if(layout.anchored)assert.deepEqual(layout.anchored,{centerDelta:0,gap:14,inside:true},'the callout points directly at Build');
   assert.deepEqual(layout.clipped,[],'visible hotkeys, costs and readout labels fit');
   assert.deepEqual(layout.dismissOverlap,[],'dismiss targets stay beside the thumbnails');
   assert.deepEqual(layout.dimAlerts,[],'attack labels retain white-on-red contrast');
@@ -101,20 +119,38 @@ async function resize(width,height,dpr=1) {
   await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:dpr,mobile:width<700});
   await pause(200);await settled();
 }
+async function holdNextSave() {
+  await evaluate(`(()=>{const store=snailApp.session.store,commit=store.commit;globalThis.menuWriteCount=0;delete globalThis.releaseMenuSave;
+    store.commit=(...args)=>{menuWriteCount++;return new Promise(resolve=>{globalThis.releaseMenuSave=()=>{store.commit=commit;resolve(commit.apply(store,args));};});};})()`);
+}
+async function failNextSave() {
+  await evaluate(`(()=>{const store=snailApp.session.store,commit=store.commit;store.commit=(...args)=>{store.commit=commit;return Promise.reject(new Error('controlled menu save failure'));};})()`);
+}
 async function complete(ticks=180) {
-  await command('suspend',[0]);
   await evaluate(`(async()=>{snailApp.session.stopClock();for(let i=0;i<${ticks};i++)await snailApp.session.local.submit(snailApp.runtime.command('match','advance'));})()`);
-  await command('suspend',[1]);
+  await settled();
 }
 try {
   await call('Runtime.enable');await call('Network.enable');await call('Network.setCacheDisabled',{cacheDisabled:true});
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
-  await resize(1100,760);await command('restart-seed',[1]);await command('suspend',[1]);await command('center');
+  await resize(1100,760);if(await has('pause-dialog'))await command('resume');
+  await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
   assert.equal((await world()).buildings.length,0);assert.equal(await has('context'),false);
   assert.equal(await evaluate('!!snailApp.manifest.settings.controller || !!snailApp.manifest.settings.controllerAxes'),false);
   assert.equal(await evaluate('snailApp.manifest.settings.rotationHandler??null'),null);
   assert.ok(await has('rotate-left')&&await has('rotate-right'),'rotation buttons are immediately available');
   await evaluate('snailApp.session.stopClock()');
+  const freshHint=await world(),hintHub=freshHint.surveys.find(s=>s.radius===9),hintAlerts=structuredClone(freshHint);
+  hintAlerts.alerts=[0,1,4].map((kind,index)=>({x:hintHub.x+index*2,y:hintHub.y,kind,tick:hintAlerts.tick}));
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(hintAlerts))})`);await settled();
+  for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
+    await resize(width,height);assert.ok(await has('onboarding'));await capture(`-hint-${width}x${height}`);
+    await click('pause');await capture(`-pause-${width}x${height}`);await click('handedness');await click('resume');
+    await capture(`-hint-${width}x${height}-left`);
+    assert.equal(await evaluate(`document.querySelector('[data-ui-key="rotate-left"]').getBoundingClientRect().left<document.querySelector('[data-ui-key="rotate-right"]').getBoundingClientRect().left`),true);
+    await click('pause');await click('handedness');await click('resume');
+  }
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
   const uploads=await evaluate('globalThis.retainedScene=snailApp.runtime.view().scene;snailApp.renderer.resources.uploads');
   await command('drift',[1,0]);assert.equal(await evaluate('snailApp.renderer.resources.uploads'),uploads);
   assert.equal(await evaluate('[0,3,10].every(key=>snailApp.runtime.view().scene.batches.find(b=>b.key===key)===retainedScene.batches.find(b=>b.key===key))'),true);
@@ -122,16 +158,40 @@ try {
   const center=[(await local()).cameraX,(await local()).cameraY],scale=(await local()).scale;
   const wheel=await pointCell(9,23);await call('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:200});
   await until(async()=>(await local()).scale>scale,'wheel zoom');
-  await click('settings');await click('orbit');assert.equal((await local()).scale,12000);await click('orbit');assert.equal((await local()).scale,1000);
+  const wheelScale=(await local()).scale;await key('v','KeyV');assert.equal((await local()).scale,wheelScale);
+  assert.equal(await has('orbit'),false);await command('zoom',[-200]);assert.ok((await local()).scale<wheelScale,'zooming back reduces scale without an Orbit reset');
   await click('rotate-right');await until(async()=>(await local()).turnElapsed===300,'visible clockwise rotation');assert.equal((await local()).heading,90000);
   await click('rotate-left');await until(async()=>(await local()).turnElapsed===300,'visible counterclockwise rotation');assert.equal((await local()).heading,0);
-  await click('settings-back');assert.deepEqual([(await local()).cameraX,(await local()).cameraY],center);
-  console.log('ok - pan retains geometry; wheel/orbit preserve look-at; visible rotation buttons make quarter turns');
+  assert.deepEqual([(await local()).cameraX,(await local()).cameraY],center);
+  console.log('ok - pan retains geometry; wheel zoom preserves look-at; visible rotation buttons make quarter turns');
 
   await pointCell(12,20,true);assert.equal(await has('context'),false);
   const unbuilt=await evaluate('snailApp.runtime.snapshot(1)');await click('build-menu');await capture('-brush-picker');await click('extractor');
   await frameCell(12,20);await pointCell(12,20,true);assert.equal((await local()).plan.length,1);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),unbuilt,'ghosts are unpaid');await capture('-planned-extractor');
+  const planned=(await local()).plan;await click('pause');assert.equal((await world()).paused,1);await capture('-pause-plan');
+  const stopped=await evaluate('snailApp.runtime.snapshot(1)'),covered=await evaluate('snailApp.runtime.snapshot(2)');
+  for(const binding of ['center','clear-plan','done-plan'])await command(binding);
+  await command('restart-seed',[42]);await key('f','KeyF');await key('e','KeyE');await key('4','Digit4');
+  assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),stopped);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(2)'),covered);
+  await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="resume"]').click()`);
+  await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Resume save');assert.equal((await local()).dialogPending,2);assert.equal((await world()).paused,1);
+  await until(()=>evaluate(`document.querySelector('[data-ui-key="resume"]').textContent.includes('Resuming')`),'pending Resume label did not render');
+  await evaluate(`void snailApp.local('restart');void snailApp.local('resume')`);await evaluate('releaseMenuSave()');await settled();
+  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).paused,0);assert.equal((await local()).dialog,0);assert.deepEqual((await local()).plan,planned);
+  await click('pause');await failNextSave();await click('resume');assert.equal((await world()).paused,1);assert.equal((await local()).dialog,1);assert.deepEqual((await local()).plan,planned);
+  await resize(568,320);await capture('-failed-resume-568x320');await click('handedness');await capture('-failed-resume-568x320-left');
+  await click('handedness');await resize(1100,760);
+  await click('resume');await click('pause');
+  await click('restart-menu');await capture('-restart-plan');await command('restart-seed',[42]);await command('resume');
+  assert.ok(await has('restart-dialog'));const beforeFailedReset=await evaluate('snailApp.runtime.snapshot(1)');
+  await failNextSave();await click('accept-restart');assert.ok(await has('restart-dialog'));assert.equal((await local()).dialogPending,0);
+  assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeFailedReset);assert.deepEqual((await local()).plan,planned);
+  await resize(568,320);await capture('-failed-restart-568x320');await click('dismiss-restart');await click('handedness');await click('restart-menu');
+  await capture('-failed-restart-568x320-left');await click('dismiss-restart');await click('handedness');await click('restart-menu');await resize(1100,760);
+  await key('Escape','Escape');assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
+  await press({x:20,y:20});assert.equal((await world()).paused,0);assert.deepEqual((await local()).plan,planned);
+  assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),unbuilt);await evaluate('snailApp.session.stopClock()');
   await pointCell(12,20,true);assert.equal((await local()).plan.length,0);await pointCell(12,20,true);
   await click('done-plan');assert.equal(siteAt(await world(),12,20)?.kind,1);assert.equal((await local()).pending.length,0);
   await click('clear-plan');await complete();assert.equal(siteAt(await world(),12,20)?.stage,2);
@@ -159,12 +219,13 @@ try {
   const pixels=await evaluate(`(async()=>{const frame=snailApp.runtime.view(),p=await snailApp.renderer.readPixels(frame.scene);return{
     vertices:frame.scene.batches.reduce((n,b)=>n+b.vertices.length/10,0),bytes:p.bytes.length,colors:new Set(Array.from(p.bytes).filter((_,i)=>i%4!==3)).size};})()`);
   assert.ok(pixels.colors>30&&pixels.vertices>1000);console.log('ok - real WebGPU scene has varied pixels and geometry',pixels);
-  await key('n','KeyN');assert.equal(await has('restart-dialog'),true);assert.equal((await world()).paused,1);await capture('-restart');
-  await key('Escape','Escape');assert.equal((await world()).paused,1);
-  await key('p','KeyP');await key('n','KeyN');assert.equal((await world()).paused,1);await key('Escape','Escape');assert.equal((await world()).paused,0);await key('p','KeyP');
+  await click('pause');await click('restart-menu');assert.equal(await has('restart-dialog'),true);assert.equal((await world()).paused,1);await capture('-restart');
+  await press({x:20,y:20});assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
   const committed=await evaluate('snailApp.runtime.snapshot(1)');await evaluate('globalThis.fixtureReload=true');await call('Page.reload');
   await until(()=>evaluate('!globalThis.fixtureReload && !!globalThis.snailApp'),'durable reopen');await settled();
-  assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),committed);
+  assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),committed);assert.ok(await has('resume'));assert.ok(await has('pause-dialog'));
+  assert.equal((await local()).dialog,1,'the restore hook synchronizes committed World pause');await capture('-paused-reload');
+  await click('resume');await evaluate('snailApp.session.stopClock()');assert.equal((await world()).paused,0);assert.equal(await has('pause-dialog'),false);
 
   const alerts=await world(),hub=alerts.surveys.find(value=>value.radius===9);
   alerts.alerts=[0,1,4].map((kind,index)=>({x:hub.x+index*2,y:hub.y,kind,tick:alerts.tick}));
@@ -180,9 +241,9 @@ try {
     assert.equal((await local()).heading,heading);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),turnWorld);
     const native=await evaluate('({width:snailApp.canvas.width,height:snailApp.canvas.height})');
     assert.deepEqual(native,{width:width*dpr,height:height*dpr});
-    await touchControl('settings');await capture(`-${width}x${height}-settings`);
-    await touchControl('handedness');assert.equal((await local()).leftHanded,true);await touchControl('settings-back');await capture(`-${width}x${height}-left`);
-    await touchControl('settings');await touchControl('handedness');await touchControl('settings-back');await key('Escape','Escape');
+    await touchControl('pause');await capture(`-${width}x${height}-pause`);
+    await touchControl('handedness');assert.equal((await local()).leftHanded,true);await touchControl('resume');await capture(`-${width}x${height}-left`);
+    await touchControl('pause');await touchControl('handedness');await touchControl('resume');await key('Escape','Escape');
     await touchControl('build-menu');await capture(`-${width}x${height}-brushes`);await touchControl('wall');
     await frameCell(15,21);const bank=(await world()).ore;await touchAt(await pointCell(15,21));
     assert.equal((await local()).plan.length,1);assert.equal((await world()).ore,bank);await capture(`-${width}x${height}-plan`);
@@ -217,7 +278,13 @@ try {
   assert.ok((await local()).scale<beforeScale);assert.equal((await local()).chooser,false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforePinch);
   assert.deepEqual([(await local()).cameraX,(await local()).cameraY],pinchCenter);
   await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);await command('center');await capture();
-  console.log('ok - restart restores pause; durable reopen, native DPR, touch plans and mirrored rail fit 320–1100px without clipping');
+  console.log('ok - centered Pause preserves plans; cancellation stays paused; durable paused reopen, native DPR, touch plans and mirrored rail fit 320–1100px without clipping');
+  await click('pause');await click('restart-menu');const oldMarker=(await world()).runMarker;await holdNextSave();
+  await evaluate(`document.querySelector('[data-ui-key="accept-restart"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Restart save');
+  assert.equal((await local()).dialogPending,3);assert.equal((await world()).runMarker,oldMarker);await until(()=>evaluate(`document.querySelector('[data-ui-key="accept-restart"]').textContent.includes('Restarting')`),'pending Restart label did not render');
+  await evaluate(`void snailApp.local('accept-restart');void snailApp.local('accept');void snailApp.local('dismiss')`);await evaluate('releaseMenuSave()');await settled();
+  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).runMarker,oldMarker+1);assert.equal((await local()).dialog,0);assert.equal((await local()).dialogPending,0);
+  console.log('ok - real IndexedDB delays keep Resume/Restart locked; failures retain the plan and repeated confirmation creates one colony');
   await evaluate("dispatchEvent(new PageTransitionEvent('pagehide'))");
   await until(()=>evaluate('snailApp.renderer.resources.closed && snailApp.renderer.resources.textures===0'),'page exit did not drain GPU resources');
   console.log('ok - page exit closes the browser session and disposes GPU resources');

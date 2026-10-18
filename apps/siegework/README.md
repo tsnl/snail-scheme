@@ -27,7 +27,7 @@ time, artifact size and runtime performance can differ.
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v10`, with world schema 10 and
-client schema 5. Earlier incompatible colonies retain their separate save identity.
+client schema 6. Earlier incompatible colonies retain their separate save identity.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
@@ -37,15 +37,16 @@ checkpoint controls. Gameplay still runs locally. See the
 
 ## One interface for mouse and touch
 
-The status dials and controls occupy one vertical edge strip. Settings switches
-between its right-handed and left-handed positions. The same icons and touch-sized
-buttons appear on desktop and mobile; uncommon controls live in Settings.
+The status dials and controls occupy one vertical edge strip. **Pause** opens a
+centered menu with Resume, Restart and the control-side setting. The same icons
+and touch-sized buttons appear on desktop and mobile.
 
 - Open **Build**, choose an extractor, tower, artillery or wall brush, then tap
   cells to plan several structures of that type. Tap a planned cell again to
   remove it. **Done** submits the orders; **Cancel** clears the plan without
   spending ore. Dotted boundaries and translucent structures show the plan.
-  Deposits require the extractor brush, including the first one.
+  Deposits require the extractor brush, including the first one. A persistent
+  callout beside Build explains the first extractor order.
 - The brush stays fixed while the plan has cells. Submitted cells are checked
   against the current colony one at a time. Accepted orders leave the plan;
   unavailable or unsaved placements remain for correction or retry. Editing
@@ -68,19 +69,24 @@ buttons appear on desktop and mobile; uncommon controls live in Settings.
   fleeing and hiding jobs from the busy count. It is not a population-cap ring.
   The difficulty ring advances toward the next strength increase, not an unseen
   enemy spawn. Home (`H`) smoothly returns to the hub.
-- Settings contains Pause (`P`), Restart (`N`) and Orbit (`V`). Restart pauses
-  and asks for confirmation; canceling restores the previous pause state.
+- **Pause** (`P`) stops the colony and opens the menu. **Resume**, Escape or a
+  tap outside resumes play. **Restart** opens a confirmation; Cancel, Escape or
+  a tap outside returns to the paused menu. A saved paused colony reopens with
+  Resume available. Pausing preserves selections and unpaid construction plans.
+  Pending Resume and Restart show progress and disable duplicate actions until
+  saving finishes; a failed save leaves the action available to retry.
 - WASD pans in screen directions. Q/E smoothly rotates between quarter turns,
   always using an orthographic camera. Lighting rotates with the camera. Mouse
-  wheel or two-finger pinch zooms; Regular/Orbital (`V`) changes scale without
-  moving the view center. Two on-screen arrow buttons provide quarter turns
-  on touchscreens, without changing the world-drag gesture.
+  wheel or two-finger pinch zooms without moving the view center. Two on-screen
+  arrow buttons provide quarter turns on touchscreens, without changing the
+  world-drag gesture.
   Arrow keys move the selected cell; Enter selects or submits a plan, while Space
   selects or toggles a planned tile. Gamepad controls are absent.
 
 Pill-shaped cards use equally sized circular action buttons, icons, costs and
-visible shortcut keys on every screen. Names remain available to assistive tools
-and tooltips; construction choices use icons rather than visible building names.
+visible shortcut keys on every screen. The pause menu uses labeled rows. Names
+remain available to assistive tools and tooltips; construction choices use icons
+rather than visible building names.
 They never scroll or resize the full-screen world. WebGPU renders at native
 pixel density, including HiDPI displays.
 

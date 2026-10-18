@@ -135,7 +135,7 @@ try {
       console.log('ok - defeated durable save renders a zero-worker HUD and explicitly confirms restart',origin);
     }
   } else {
-    await command('restart-seed',[1]);await command('suspend',[1]);await command('center');
+    await command('resume');await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
     assert.equal((await world()).buildings.length,0);assert.equal(await has('onboarding'),false);assert.equal(await has('context'),false);
     await point(8,22);assert.ok(await markerPixels()>3,'persistent deposit ring missing from GPU output');
     await visibleTarget();await capture('fresh');await reload();await visibleTarget();

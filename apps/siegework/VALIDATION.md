@@ -6,7 +6,9 @@ The static 3D game is the only Siegework implementation. Parent PR
 [#334](https://github.com/tsnl/snail-scheme/pull/334) landed as `266134fe` after
 its complete GitHub CI passed. Earlier validation and prototype history remain
 in Git and that PR. This follow-up refines colony rules, presentation boundaries,
-brush planning, mobile controls and scene finalization.
+brush planning, mobile controls and scene finalization. The latest checkpoint
+consolidates pause controls, removes the map-scale toggle and anchors the
+persistent first-extractor guidance beside Build.
 
 The canonical build is `apps/siegework/build.scm`. It defaults to debug Wasm
 optimization; `--release` selects the full optimization pipeline. Both profiles
@@ -18,25 +20,40 @@ compiler benchmarks.
 
 ## Executed checks
 
-The published package is `build/siegework-mobile-final/solo`, built on main
-`e528eb28` plus this follow-up. Generation `a0cc8ebcee596d591d3a5957` contains
-535,442 bytes of simulation Wasm, SHA-256
-`4bff25194efc129088432ad17297f21d7ceac81938dc9f0a4a14e56b689cbea3`.
-The HTTP-served module matches that hash. Publication replaced each file
-atomically, with the manifest last, and retained the previous hashed assets.
+The published package is `build/siegework-pause-menu-settled/solo`, built
+on main `e528eb28` plus this follow-up. Generation `843e8f05dadb6b5f55434e6c`
+contains 541,210 bytes of simulation Wasm, SHA-256
+`915f6c382a14911339a6084827f3ca24531e1d8d9d53844e43087381a5f6d675`.
+Its build took 111.643 seconds on the shared host. That is a wall-time observation,
+not a controlled compiler comparison. The final CSS and browser-host fixes were
+repackaged without recompiling the unchanged Wasm; the generation identifies the
+compiled modules and protocol, not every unhashed browser asset.
+All 18 served files match the checked package. Publication replaced each file
+atomically with the manifest last, retained previous hashed assets and preserved
+the user's saved colony.
 
-That exact package passes all 175 actual-Wasm application integration checks.
+That exact package passes all 182 actual-Wasm application integration checks.
 These cover the full 3×3 hub, paid worker repairs, separate
 observation/logistics and artillery upgrade trees, retained rails and compatible
 World10 saves, gentler escalation, retaliation and brush-order settlement.
+Seven new menu groups use the actual game Wasm with `BrowserApplication` and
+`LocalState`. They cover delayed and failed Pause/Resume/Restart, repeated
+confirmation producing one new run, unchanged unpaid plans, imports superseding
+older menu results, and imported pause while build replies still drain. Camera
+handler probes on an established 128-enemy colony perform no World reads.
 
-Six product-presentation groups, seven brush/client groups and four onboarding
+Six product-presentation groups, seven brush/client groups and five onboarding
 groups pass. Final Chromium checks exercise portrait widths 320, 360 and 390,
 landscape 568×320 and 640×360, a mirrored rail and native DPR 3. They cover
 rotation buttons, touch pan/pinch, paid plans, repeated hub hiring, repair,
 notification/control separation, dismissal, durable reopening and GPU disposal.
 Dismissal checks include nearby damage of another kind, a stale rendered key,
 invalid keys, expiry, pruning and the intentional four-recent-area limit.
+Seven product-browser groups also check the anchored Build callout, paused reload
+with Resume, confirmation canceling to Pause, dim backdrop under hover, and
+delayed/failed saves preserving retry controls. At 568×320 on both control sides,
+actual hit tests reach enabled menu buttons; the full error diagnostic scrolls
+in a bounded strip below the menu. The menu itself never scrolls.
 
 The final hosting runner passes all 19 sections in Chromium 152 with a private
 profile and SwiftShader. It uses real IndexedDB, transaction aborts, writer
@@ -91,7 +108,7 @@ measured costs; the finalization change is not a complete mobile performance fix
 ## Saves, replacement and diagnosis
 
 The application ID remains `siegework-colony-v10`, with world schema 10 and client
-schema 5. The new host code and client layout require a page refresh. Saved
+schema 6. The new host code and client layout require a page refresh. Saved
 colonies do not contain transient Client state. A real earlier published World10
 record is reopened through the actual IndexedDB reader and `LocalState`; additive
 game endpoints are allowed only when previous endpoint, state, effect, run-marker

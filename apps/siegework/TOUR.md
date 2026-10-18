@@ -53,6 +53,19 @@ local host preserves reply-before-completion ordering; no network receipt or
 batch protocol is implied. A rejected or unsaved cell remains planned. Code
 replacement and shutdown drain admitted commands and their queued replies.
 
+Pause presentation covers the current plan and selection without replacing them.
+Client distinguishes the closed menu, Pause and restart confirmation; committed
+World pause also supplies the Pause menu after a saved colony reloads. Resume
+unpauses explicitly, while canceling restart returns to Pause. Covered gameplay
+actions are ignored, but pending build replies and display updates still run.
+One menu operation remains pending through its ordered settlement. A committed
+reply records success without releasing that slot; a failed save returns to the
+appropriate retry state. Startup and checkpoint imports call the existing
+`resetPresentation` hook after installing the durable World. An import
+supersedes an older operation's result while retaining its pending slot until
+settlement. These boundaries keep camera guards local to Client rather than
+decoding the full colony on every drag, pan or zoom event.
+
 ## Follow the serialization boundary
 
 Persisted records explicitly derive `Serialize` and `Deserialize` from
@@ -67,7 +80,7 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 10 and client schema 5 under application ID
+The game declares world schema 10 and client schema 6 under application ID
 `siegework-colony-v10`, which starts a fresh save identity. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts and are rejected; derivation does not migrate existing saves. The browser retains

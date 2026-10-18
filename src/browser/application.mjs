@@ -107,6 +107,7 @@ export class BrowserApplication {
   }
   async localTransition(command) {
     const result = await this.runtime.dispatch(2, command);
+    this.dirty = true; // The committed Client can show progress while World saves.
     await this.routeEffects(result.effects);
     this.dirty = true;
   }

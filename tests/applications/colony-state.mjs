@@ -33,9 +33,9 @@ function typedField(field, value) {
 export const colonyWords = world => snapshotWords(10, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,...fields}=local;
-  return snapshotWords(5, typedRecord('Client', {...fields, heading:local.heading ?? 0,
+  return snapshotWords(6, typedRecord('Client', {...fields, heading:local.heading ?? 0,
     turnFrom:local.turnFrom ?? 0, turnTo:local.turnTo ?? 0, turnElapsed:local.turnElapsed ?? 300,
-    scale:local.scale ?? 1000, preview:local.preview ?? 0, restartMode:local.restartMode ?? 0,homing:local.homing ?? false,brush:local.brush ?? 0,plan:local.plan ?? [],pending:local.pending ?? [],rejected:local.rejected ?? 0,unconfirmed:local.unconfirmed ?? 0,resolution:local.resolution ?? 0,menu:local.menu ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
+    scale:local.scale ?? 1000, preview:local.preview ?? 0, dialog:local.dialog ?? 0,dialogPending:local.dialogPending ?? 0,dialogResult:local.dialogResult ?? 0,homing:local.homing ?? false,brush:local.brush ?? 0,plan:local.plan ?? [],pending:local.pending ?? [],rejected:local.rejected ?? 0,unconfirmed:local.unconfirmed ?? 0,resolution:local.resolution ?? 0,menu:local.menu ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
 };
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));

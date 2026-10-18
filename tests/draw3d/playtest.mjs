@@ -60,7 +60,7 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
     await command(r,'dismiss');
     for(const [width,height] of [[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]) {
       await command(r,'viewport',[width,height]);
-      for(const key of ['ore','health','workers','difficulty','home','build-menu','settings','worker-menu','rotate-left','rotate-right'])
+      for(const key of ['ore','health','workers','difficulty','home','build-menu','pause','worker-menu','rotate-left','rotate-right'])
         assert.deepEqual(node(r,key).rect.slice(2),[56,56],`${key} circle at ${width}×${height}`);
       assert.equal(node(r,'ore').text,'');assert.match(node(r,'ore-readout-label').text,/110 ore/);
       assert.equal(node(r,'health').properties[3],300);assert.equal(node(r,'health').properties[5],300);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony, client, at, siteAt} from '../applications/colony-state.mjs';
+import {colony, client, at, siteAt, restoreClient} from '../applications/colony-state.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
 await runtime.replace(runtime.prepare(bytes, manifest)); await runtime.initialize(1); await runtime.initialize(2);
@@ -57,6 +57,8 @@ function popupControlsFit() {
 async function effects(values) {
   for(const effect of values)if(effect.kind==='send') {
     const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);
+    if(effect.owner===1&&['new-run','new-run-seed'].some(name=>effect.command.handler===runtime.command('match',name,name==='new-run-seed'?[1]:[]).handler))
+      await command('reset-presentation');
   }
 }
 async function plan(kind,cells) {
@@ -65,9 +67,10 @@ async function plan(kind,cells) {
 function controlsFit(width,height) {
   function walk(value,x=0,y=0) {
     x+=value.rect[0];y+=value.rect[1];
-    if((value.kind===2&&value.key!=='restart-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
-      assert.deepEqual(value.rect.slice(2),[56,56],value.key);
-      assert.ok(x>=0&&y>=0&&x+56<=width-24&&y+56<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
+    if((value.kind===2&&value.key!=='dialog-backdrop'&&!value.key.startsWith('attack-inspect-'))||value.kind===6) {
+      const menu=['resume','restart-menu','handedness','dismiss-restart','accept-restart'].includes(value.key);
+      assert.deepEqual(value.rect.slice(2),menu?[208,48]:[56,56],value.key);
+      assert.ok(x>=0&&y>=0&&x+value.rect[2]<=width-24&&y+value.rect[3]<=height-32,`${value.key} fits ${width}×${height}: ${x},${y}`);
     }
     const padding=value.kind===5?value.properties[6]:0;
     for(const child of value.children)walk(child,x+padding,y+padding);
@@ -95,7 +98,9 @@ try {
   assert.deepEqual([local().cameraX,local().cameraY],[hub.x*1000,hub.y*1000]);assert.match(node('context-title').text,/hub/i);
   await command('dismiss');assert.deepEqual(runtime.snapshot(1),fresh);
   const center=[local().cameraX,local().cameraY];await command('zoom',[250]);assert.ok(local().scale>1000);
-  await command('orbit');assert.equal(local().scale,12000);await command('orbit');assert.equal(local().scale,1000);
+  await command('zoom',[-250]);assert.equal(local().scale,1000);
+  assert.equal(manifest.settings.keys.v,undefined);assert.equal(manifest.settings.keys.o,undefined);
+  assert.equal(manifest.applications.find(app=>app.owner==='client').handlers.some(h=>h.binding==='orbit'),false);
   assert.deepEqual([local().cameraX,local().cameraY],center);
   assert.ok([3,7,11].every(index=>runtime.view().scene.uniforms[index]===0));assert.equal(runtime.view().scene.uniforms[15],1);
   console.log('ok - smooth home, screen-aligned bounded pan, retained entities and orthographic zoom preserve match state and look-at');
@@ -107,6 +112,17 @@ try {
   await point(12,20);await command('confirm');assert.equal(local().plan.length,1);assert.deepEqual(runtime.snapshot(1),fresh);
   await command('confirm');assert.equal(local().plan.length,0);await command('confirm');
   await command('choose',[2]);assert.equal(local().brush,1,'a nonempty plan locks the selected type');
+  const unpaid=runtime.snapshot(2);await command('pause-menu');
+  for(const confirming of [false,true]) {
+    if(confirming)await command('restart');
+    const covered=runtime.snapshot(2),stopped=runtime.snapshot(1);
+    for(const [binding,args]of[['center',[]],['clear-plan',[]],['restart-seed',[42]],['choose',[3]],['done-plan',[]],['home',[]],['preview',[4]]]) {
+      await command(binding,args);assert.deepEqual(runtime.snapshot(2),covered,`${binding} preserves the unpaid plan behind the dialog`);
+      assert.deepEqual(runtime.snapshot(1),stopped);
+    }
+    if(confirming){await command('resume');assert.deepEqual(runtime.snapshot(2),covered);await command('dismiss');assert.equal(world().paused,1);}
+  }
+  await command('resume');assert.deepEqual(runtime.snapshot(2),unpaid);assert.deepEqual(runtime.snapshot(1),fresh);
   await command('clear-plan');assert.equal(local().plan.length,0);assert.deepEqual(runtime.snapshot(1),fresh);
   await plan(1,[[12,20]]);await command('accept');assert.equal(siteAt(world(),12,20).kind,1);assert.equal(world().ore,120);
   assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);await command('clear-plan');
@@ -121,11 +137,18 @@ try {
   for(const [binding,args]of[['clear-plan',[]],['choose',[3]],['restart',[]],['center',[]]]) {
     await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight plan`);
   }
+  await command('pause-menu');assert.equal(world().paused,1);assert.equal(node('restart-menu').properties[1],0);
+  const coveredPlan=runtime.snapshot(2),pausedPlan=runtime.snapshot(1);
+  for(const [binding,args]of[['clear-plan',[]],['center',[]],['restart-seed',[2]],['choose',[3]],['hire',[]],['pan',[1,1]],['zoom',[200]],['turn',[1]],['done-plan',[]],['build-menu',[]],['worker-menu',[]],['confirm',[]],['activate',[]]]) {
+    await command(binding,args);assert.deepEqual(runtime.snapshot(2),coveredPlan,`${binding} stays behind the pause menu`);assert.deepEqual(runtime.snapshot(1),pausedPlan);
+  }
+  await advance(10);assert.deepEqual(runtime.snapshot(1),pausedPlan,'the authoritative clock stops while the menu is open');
   const first=await runtime.dispatch(1,runtime.effectCommand(submitted.effects[0]));await effects(first.effects);
   assert.equal(local().pending.length,2,'a reply alone does not unlock the batch');
   assert.equal(local().resolution,1);await effects([submitted.effects[1]]);assert.equal(local().pending.length,1);
   await effects(submitted.effects.slice(2));assert.equal(local().pending.length,0);assert.equal(local().plan.length,0);
-  assert.ok(siteAt(world(),13,21)&&siteAt(world(),14,21));await command('clear-plan');
+  assert.ok(siteAt(world(),13,21)&&siteAt(world(),14,21));assert.equal(node('restart-menu').properties[1],1);
+  await command('resume');await command('clear-plan');
   const bank=world().ore;await plan(4,[[8,22],[15,21]]);await command('done-plan');
   assert.equal(local().pending.length,0);assert.equal(local().plan.length,1);assert.equal(local().rejected,1);
   assert.equal(world().ore,bank-8);assert.ok(siteAt(world(),15,21));await command('clear-plan');assert.equal(world().ore,bank-8);
@@ -154,7 +177,7 @@ try {
   assert.ok(node('repair')&&node('worker'));assert.equal(node('close-context'),undefined);await command('fabricate');assert.equal(world().ore,85);await command('dismiss');
   console.log('ok - worker actions open without charge; repeated F hiring and hub repair use explicit typed requests');
 
-  await command('suspend',[1]);await home();
+  await home();
   for(let turn=0;turn<4;turn++){
     await command('rotate',[0,1]);assert.equal(runtime.view().scene.requestFrame,true);await command('animate',[50]);assert.ok(local().heading%90000!==0);
     await animate();await point(12,20);cursorAt(12,20);
@@ -163,22 +186,27 @@ try {
   }
   for(const[width,height]of[[1100,760],[390,844],[640,360],[568,320],[320,568],[360,640]]){
     await command('viewport',[width,height]);await home();controlsFit(width,height);
-    const right=placed('rail').left;await command('settings');controlsFit(width,height);assert.ok(node('pause')&&node('orbit')&&node('restart-header')&&node('rotate-left')&&node('rotate-right'));
+    const right=placed('rail').left;await command('pause-menu');controlsFit(width,height);assert.ok(node('resume')&&node('restart-menu')&&node('handedness'));
     assert.deepEqual(node('rotate-left').action.command,runtime.command('client','turn',[-1]));
     assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
     await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
-    await command('settings');await command('build-menu');controlsFit(width,height);assert.ok(node('extractor')&&node('tower')&&node('artillery')&&node('wall'));
+    assert.ok(placed('rotate-left').left<placed('rotate-right').left,'Q stays physically left of E');
+    await command('resume');await command('build-menu');controlsFit(width,height);assert.ok(node('extractor')&&node('tower')&&node('artillery')&&node('wall'));
     await command('choose',[3]);controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));
-    await command('settings');controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));await command('settings');
-    await command('clear-plan');await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('settings');await command('handedness');await command('settings');
+    await command('pause-menu');controlsFit(width,height);assert.ok(node('done-plan')&&node('clear-plan'));await command('resume');
+    await command('clear-plan');await command('worker-menu');controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
   }
   console.log('ok - same 56px controls fit desktop, portrait and short landscape; handedness mirrors the entire rail and attached panels');
 
-  await command('suspend',[0]);await command('restart');assert.equal(world().paused,1);assert.ok(node('restart-dialog'));
-  const modal=runtime.snapshot(1);await command('suspend',[-1]);assert.deepEqual(runtime.snapshot(1),modal);
-  await command('dismiss');assert.equal(world().paused,0);assert.equal(node('restart-dialog'),undefined);
+  await command('pause-menu');assert.equal(world().paused,1);assert.ok(node('pause-dialog'));
+  await command('restart');assert.equal(local().dialog,2);assert.ok(node('restart-dialog'));
+  const modal=runtime.snapshot(1);await command('resume');assert.deepEqual(runtime.snapshot(1),modal);
+  await command('dismiss');assert.equal(world().paused,1);assert.ok(node('pause-dialog'));assert.equal(node('restart-dialog'),undefined);
   const committed=runtime.snapshot(1),selection=runtime.snapshot(2);await runtime.replace(runtime.prepare(bytes,manifest));
   assert.deepEqual(runtime.snapshot(1),committed);assert.deepEqual(runtime.snapshot(2),selection);
-  await command('restart');await command('accept');assert.equal(local().restartMode,0);assert.equal(world().buildings.length,0);
-  console.log('ok - restart pauses, restores pause on dismissal, accepts Enter explicitly and compatible reload preserves both owners');
+  await restoreClient(runtime,{...local(),dialog:0});await command('reset-presentation');
+  assert.equal(local().dialog,1);assert.ok(node('resume'),'the committed restore hook synchronizes saved pause');
+  await command('resume');assert.equal(world().paused,0);assert.equal(node('pause-dialog'),undefined);
+  await command('pause-menu');await command('restart');await command('accept');assert.equal(local().dialog,0);assert.equal(world().buildings.length,0);
+  console.log('ok - Pause resumes explicitly; restart cancellation returns to pause; paused reload exposes Resume and confirmation accepts Enter');
 } finally {await runtime.close();}

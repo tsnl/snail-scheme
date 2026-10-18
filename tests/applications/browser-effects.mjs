@@ -39,7 +39,8 @@ export async function checkBrowserEffects(test,fixture) {
   await test('durable replies precede authored settlements and queued incoming Client actions remain ordered',async()=>{
     const entered=deferred(),saved=deferred();let writes=0;
     const {app,runtime,events}=await host(bytes,()=>{if(++writes===1){entered.resolve();return saved.promise;}});
-    const done=app.local('done');await entered.promise;const incoming=app.local('incoming'),repeat=app.local('done');
+    const done=app.local('done');await entered.promise;assert.equal(app.dirty,true,'committed Client progress can render while its World effect saves');
+    const incoming=app.local('incoming'),repeat=app.local('done');
     assert.equal(runtime.snapshot(1)[1],0);assert.deepEqual(state(runtime),[1,3,0,0,1,0]);
     assert.deepEqual(events,[['done']]);saved.resolve();await Promise.all([done,incoming,repeat]);await app.drainUpdates();
     assert.equal(runtime.snapshot(1)[1],3);assert.deepEqual(state(runtime),[1,0,7,7,1,1]);

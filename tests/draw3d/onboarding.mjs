@@ -14,11 +14,15 @@ const world = () => colony(runtime.snapshot(1)), local = () => {
   return {...value,cursorX:value.cursorX<0?-1:value.cursorX-hub.x+8,cursorY:value.cursorY<0?-1:value.cursorY-hub.y+22};
 };
 async function command(binding, args = []) {
+  if(binding==='viewport')runtime.uiBridge.resize(args[0]-24,args[1]-32);
   const result = await runtime.dispatch(2, runtime.command('client', binding, args));
   await effects(result.effects);
 }
 async function effects(values) {
-  for(const effect of values)if(effect.kind==='send'){const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);}
+  for(const effect of values)if(effect.kind==='send'){
+    const result=await runtime.dispatch(effect.owner,runtime.effectCommand(effect));await effects(result.effects);
+    if(effect.owner===1&&['new-run','new-run-seed'].some(name=>effect.command.handler===runtime.command('match',name,name==='new-run-seed'?[1]:[]).handler))await command('reset-presentation');
+  }
 }
 async function placeExtractor() {
   await command('choose',[1]);await command('confirm');await command('done-plan');await command('clear-plan');
@@ -29,6 +33,12 @@ async function advance(ticks) {
 function node(key, value = runtime.view().ui) {
   if (value.key === key) return value;
   for (const child of value.children) { const found = node(key, child); if (found) return found; }
+}
+function placed(key,value=runtime.view().ui,x=0,y=0) {
+  x+=value.rect[0];y+=value.rect[1];
+  if(value.key===key)return{node:value,x,y,width:value.rect[2],height:value.rect[3]};
+  const pad=value.kind===5?value.properties[6]:0;
+  for(const child of value.children){const found=placed(key,child,x+pad,y+pad);if(found)return found;}
 }
 async function home() {
   await command('home');
@@ -51,6 +61,22 @@ function save(name) {
 try {
   const fresh=runtime.snapshot(1);
   assert.ok(node('onboarding'));assert.equal(node('context'),undefined);
+  for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
+    await command('viewport',[width,height]);
+    for(const left of [false,true]) {
+      if(left){await command('pause-menu');await command('handedness');await command('resume');}
+      const hint=placed('onboarding'),build=placed('build-menu');
+      assert.equal(hint.y+hint.height/2,build.y+build.height/2,'the callout points at the Build row');
+      assert.equal(hint.node.properties[9],left?1:2);
+      assert.equal(left?hint.x-(build.x+build.width):build.x-(hint.x+hint.width),14,'the pointer fits the gap');
+      assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
+      assert.ok(placed('rotate-left').x<placed('rotate-right').x,'rotation arrows keep screen order');
+      assert.deepEqual(runtime.snapshot(1),fresh,'layout and handedness leave the fresh colony unchanged');
+    }
+    await command('pause-menu');await command('handedness');await command('resume');
+  }
+  await command('viewport',[960,640]);
+  console.log('ok - first-extractor callout remains attached to Build on both edges at portrait and short landscape sizes');
   await command('center');cursor(12,20);
   await command('pan',[20,-20]);await home();cursor(8,22);
   assert.match(node('context-title').text,/hub/i);assert.deepEqual(runtime.snapshot(1),fresh);
@@ -64,7 +90,7 @@ try {
   assert.equal(world().buildings.length,0);await command('center');cursor(12,20);
   await placeExtractor();await advance(140);assert.equal(world().buildings[0].stage,2);
   assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
-  await command('center');cursor(8,22);await command('suspend',[1]);
+  await command('center');cursor(8,22);await command('pause-menu');
   const established=runtime.snapshot(1),selection=runtime.snapshot(2);save('established');
   if(fixtures){
     // Bounded known-location alerts exercise live cameras without revealing fog.
@@ -84,6 +110,7 @@ try {
     console.log('ok - compatible old and current modules preserve exact owner snapshots');
   }
 
+  await command('resume');
   const attacked=world();attacked.buildings[0].hp=1;attacked.paused=0;
   await restoreColony(runtime,attacked);await addEnemy(runtime,{x:12,y:20,target:attacked.buildings[0].id});await advance(20);
   assert.equal(world().buildings.length,0);assert.equal(world().outcome,0);

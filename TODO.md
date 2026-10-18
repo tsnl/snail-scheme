@@ -117,7 +117,7 @@ the supported game is the static client-side 3D bundle.
 - [x] Separate artillery and observation/logistics upgrade trees. Preserve all
       existing offensive capabilities when upgrading either structure.
 - [x] Workers use cart stations and rails for fast personal/cargo travel.
-- [x] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
+- [x] Wheel/pinch zoom preserving look-at center.
 - [x] Touch, mouse and pen drag the map; taps select and pinches never select.
 - [x] Repeated focused simplification followed by a final Astra xhigh code review.
 - [x] Confirm Siegework build CI and consolidate the stack into mega-PR #334.
@@ -141,7 +141,7 @@ source edits remain unchecked until compiled and exercised.
 - [x] Join adjacent and diagonally adjacent shield walls; use rail-aware structure
       bases and junction meshes instead of tracks piercing solid foundations.
 - [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
-- [x] Give artillery a distinct gun silhouette and improve the Orbit icon.
+- [x] Give artillery a distinct gun silhouette.
 - [x] Count down to the next difficulty increase, never to an unseen wave spawn;
       keep hidden enemy spawns out of the HUD and accessible status.
 - [x] Keep New worker readily available in the edge strip and selected-hub actions.
@@ -176,7 +176,7 @@ source edits remain unchecked until compiled and exercised.
 - [x] First accepted order starts the clock; inspection and selection do not.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.
-- [x] Restart confirmation pauses, with cancellation restoring the prior pause.
+- [x] Restart confirmation pauses, with cancellation returning to the Pause menu.
 - [x] Smoke on damage and red/white attack notifications with clickable live views.
 - [x] Continuous display-rate unit/freight motion; hard reveal contour checked above.
 - [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
@@ -189,3 +189,16 @@ and 156 close encounters. The original reported invalid-transition crash remains
 unreproduced; retained diagnostics can capture a recurrence. Current evidence,
 including the separately checked final mobile package, is recorded in
 [VALIDATION.md](apps/siegework/VALIDATION.md).
+
+## Focused menu simplification
+
+- [x] Remove the map-scale toggle; retain wheel/pinch zoom and Q/E buttons.
+- [x] Consolidate Pause, Resume, Restart and handedness into a labeled centered
+      menu. Restart cancellation returns to Pause; saved paused colonies expose
+      Resume. Keep unpaid plans intact and block covered gameplay controls.
+- [x] Keep first-extractor guidance visible and anchor its callout beside Build.
+- [x] Keep menu operations pending until save settlement, retain retry controls
+      after failures and synchronize paused startup/imports without adding World
+      reads to camera input.
+- [x] Verify the new menu and callout in actual Wasm and Chromium at portrait
+      and short landscape sizes, on both control sides.

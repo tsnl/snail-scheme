@@ -94,7 +94,12 @@ async function start() {
   try {
     await app.open('solo'); await session.open();
     if (session.stopping) { await session.close(); return; }
-    app.start(session); session.startClock(); void session.reload();
+    app.start(session);
+    // Restore local presentation only after the saved World is installed.
+    if (app.manifest.settings.resetPresentation) {
+      await app.local(app.manifest.settings.resetPresentation); await app.drainUpdates();
+    }
+    session.startClock(); void session.reload();
     app.note(`SOLO · saved on this browser · ${app.manifest.settings.renderer === 'dom' ? 'DOM' : 'WebGPU'}`);
     if (app.manifest.saveService) {
       const {RemoteSaves} = await import('../application/remote-saves.mjs');

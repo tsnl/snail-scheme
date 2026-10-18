@@ -44,9 +44,6 @@
     "f": [
       "hire"
     ],
-    "n": [
-      "restart"
-    ],
     "h": [
       "home"
     ],
@@ -94,8 +91,7 @@
       "dismiss"
     ],
     "p": [
-      "suspend",
-      -1
+      "pause-menu"
     ],
     "q": [
       "turn",
@@ -109,18 +105,12 @@
       "choose",
       2
     ],
-    "v": [
-      "orbit"
-    ],
     "4": [
       "choose",
       4
     ],
     "b": [
       "build-menu"
-    ],
-    "o": [
-      "settings"
     ],
     "g": [
       "worker-menu"
@@ -148,7 +138,7 @@
     "minimum": 1,
     "maximum": 65535
   },
-  "resetPresentation": "center",
+  "resetPresentation": "reset-presentation",
   "zoomHandler": "zoom",
   "dragHandler": "drag"
 }

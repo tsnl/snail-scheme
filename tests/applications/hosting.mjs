@@ -90,17 +90,19 @@ async function gpuReady(page) {
     'private Chromium WebGPU adapter did not become available');
 }
 async function paused(page) {
-  await page.evaluate("snailApp.local('suspend',[1])");
+  if((await state(page)).paused===0)await page.evaluate("snailApp.local('pause-menu')");
   await until(async () => await page.evaluate('snailApp.localWork === 0') && (await state(page)).paused === 1, 'pause not committed');
 }
 const state = async page => colony(await page.evaluate('snailApp.runtime.snapshot(1)'));
 async function startColony(page) {
   const before = await state(page); assert.equal(before.started, false); assert.equal(before.tick, 0);
+  await page.evaluate("snailApp.local('resume')");
   await page.evaluate("snailApp.local('home')");
   await page.evaluate("snailApp.local('fabricate')");
   await until(async () => (await state(page)).started, 'paid worker order did not start the colony');
   const ordered = await state(page); assert.equal(ordered.ore, before.ore - 25);
   assert.equal(ordered.spent, before.spent + 25); assert.equal(ordered.bots.length, before.bots.length);
+  await paused(page);
 }
 let browser;
 const staticServer = createServer((req, res) => serve(req, res));
@@ -145,6 +147,7 @@ try {
   await b.call('Page.reload'); await ready(b);
   assert.deepEqual(await state(b), saved); assert.ok(await b.evaluate('snailApp.revision') >= savedRevision);
   assert.notDeepEqual(await b.evaluate('snailApp.runtime.snapshot(2)'), local);
+  assert.equal(await b.evaluate("!!document.querySelector('[data-ui-key=resume]')"),true,'saved pause visibly offers Resume');
   console.log('ok - one solo tab owns the save; close releases lock; match/pause restore while local UI restarts');
 
   await b.evaluate(`(() => {
@@ -174,7 +177,7 @@ try {
   assert.match(await b.evaluate("document.querySelector('[data-connection]').textContent"), /Retry.*reload/);
   const revision = await b.evaluate('snailApp.revision'); await delay(250);
   assert.equal(await b.evaluate('snailApp.revision'), revision);
-  await b.evaluate("snailApp.local('suspend',[0])");
+  await b.evaluate("snailApp.local('resume')");
   await until(async () => (await state(b)).tick > saved.tick, 'successful retry did not resume clock');
   const cover = await page(`${origin}/fixture.html`); await delay(200);
   assert.equal(await b.evaluate('document.hidden'), true);
@@ -274,6 +277,7 @@ try {
   assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /saved online/);
   const uploaded = await (await fetch(serviceURL + original.settings.id)).json();
   assert.deepEqual(colony(uploaded.snapshot.state), remoteState);
+  await remote.evaluate("snailApp.local('resume')");
   await remote.evaluate("snailApp.local('restart-seed',[42])"); await paused(remote);
   assert.notEqual((await state(remote)).seed, remoteState.seed);
   await remote.evaluate('globalThis.confirm = () => true; snailApp.session.saves.run(() => snailApp.session.saves.load())');
@@ -295,7 +299,7 @@ try {
   assert.match(await remote.evaluate('snailApp.session.saves.status.textContent'), /invalid snapshot/i);
   await stop(saveProcess);
   const beforeOffline = await remote.evaluate('snailApp.revision');
-  await remote.evaluate("snailApp.local('suspend',[0])");
+  await remote.evaluate("snailApp.local('resume')");
   await until(() => remote.evaluate(`snailApp.revision > ${beforeOffline + 2}`), 'service outage stalled local simulation');
   await paused(remote);
   await remote.evaluate('snailApp.session.saves.run(() => snailApp.session.saves.save())');

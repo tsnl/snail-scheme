@@ -1,7 +1,7 @@
 ;; A diorama of the existing flat grid. Heights belong only to illustrations;
 ;; movement, visibility, mining, construction and combat remain the colony model.
 (define-library (siegework view)
-  (export colony-scene colony-camera orbit-camera zoom-camera camera-pan ground-cell pick-cell
+  (export colony-scene colony-camera zoom-camera camera-pan ground-cell pick-cell
           ScreenPoint projected-point-x projected-point-y cell-screen-position world-screen-position)
   (import
    (scheme base)
@@ -19,7 +19,7 @@
 
     (define (whole value) (i64->i32 (f64->i64 value)))
     (define (colony-camera cx cy width height)
-      (orbit-camera cx cy 0 width height))
+      (zoom-camera cx cy 0 1000 width height))
     ;; Quarter-circle polynomial, absolute error below 0.000004. Angles are
     ;; bounded millidegrees, so camera state stays deterministic and serializable.
     (define (quarter-sine angle)
@@ -34,8 +34,6 @@
               ((= quadrant 1) (quarter-sine (- 90000 part)))
               ((= quadrant 2) (- 0.0 (quarter-sine part)))
               (else (- 0.0 (quarter-sine (- 90000 part)))))))
-    (define (orbit-camera cx cy heading width height)
-      (zoom-camera cx cy heading 1000 width height))
     (define (zoom-camera cx cy heading scale width height)
       (let* ((target (vec3 (/ (scalar cx) 1000.0) (- 0.0 (/ (scalar cy) 1000.0)) 0.0))
              (sine (heading-sine heading)) (cosine (heading-sine (remainder (+ heading 90000) 360000)))
