@@ -1,24 +1,17 @@
-;; Check every source body and retain binding schemes and lexical scopes only.
-;; Expression judgments are transient: no checked or concrete expression tree
-;; survives this visit. Private unification variables belong to this check.
+;; Check source once and freeze its evidence into an immutable typed tree.
+;; Solver holes and lexical checking state belong to this visit; specialization
+;; consumes the tree instead of replaying source typing rules.
 (define-library (lofi compiler infer)
-  (export infer-program source-type replay-expression probe-expression
-          judgment-type judgment-constraints judgment-detail judgment-nonexpansive?
-          scope-bindings scope-types scope-assumptions scope-classes scope-instances
-          checked-scope binding-summary binding-checking-scope source-initializer
-          call-signature concrete-scope infer-literal conform typing-pass
-          apply-typing-rule checked-function-type type-judgment)
+  (export infer-program infer-literal judgment-type judgment-detail)
   (import
    (scheme base)
    (scheme cxr)
    (lofi compiler types)
+   (lofi compiler typed)
    (lofi compiler checked)
    (lofi compiler overloads)
    (lofi compiler primitives)
    (lofi compiler data)
-   (lofi compiler pass)
-   (lofi compiler hashmap)
-   (only (srfi 128) make-eq-comparator)
    (lofi compiler numeric-literals)
    (only (srfi 69) make-hash-table hash-table-ref hash-table-ref/default hash-table-set! hash-table-exists?)
    (lofi compiler wasm-extern)
@@ -34,16 +27,13 @@
     ;; ---- Lexical checking scopes ----
 
     (define-record-type <scope>
-      (new-scope bindings types assumptions classes instances recursive function) scope?
+      (make-scope bindings types assumptions classes instances recursive) scope?
       (bindings scope-bindings)
       (types scope-types)
       (assumptions scope-assumptions)
       (classes scope-classes)
       (instances scope-instances)
-      (recursive scope-recursive)
-      (function scope-function))
-    (define (make-scope bindings types assumptions classes instances recursive)
-      (new-scope bindings types assumptions classes instances recursive #f))
+      (recursive scope-recursive))
     (define (lookup key entries) (let ((entry (assq key entries))) (and entry (cdr entry))))
     (define (visible-binding definition bindings)
       (and (memq definition bindings) definition))
@@ -72,70 +62,32 @@
               ((assumed? (car remaining) unique) (collect (cdr remaining) unique))
               (else (collect (cdr remaining) (cons (car remaining) unique))))))
     ;; The solver may link holes, but it never writes expression fields. A
-    ;; judgment contains this arm's result, not judgments for its subexpressions.
+    ;; judgment owns this arm's result and provisional typed children.
     (define-record-type <judgment>
-      (make-judgment type constraints source detail nonexpansive?) judgment?
+      (make-judgment type constraints source detail nonexpansive? expression) judgment?
       (type judgment-type)
       (constraints judgment-constraints)
       (source judgment-source)
       (detail judgment-detail)
-      (nonexpansive? judgment-nonexpansive?))
+      (nonexpansive? judgment-nonexpansive?)
+      (expression judgment-expression))
     (define (judgment-loc result) (node-loc (judgment-source result)))
     (define (constraints results) (proof-set (apply append (map judgment-constraints results))))
     (define (result source type detail inert? . children)
-      (make-judgment type (constraints children) source detail inert?))
-    (define (type-judgment source type) (result source type #f #t))
+      (let ((obligations (constraints children)))
+        (make-judgment type obligations source detail inert?
+                       (make-typed-expression source type '() detail (map judgment-expression children)))))
     (define-record-type <binding-summary>
-      (make-binding-summary result scope) binding-summary?
-      (result summary-result)
-      (scope summary-scope))
-    ;; Only lexical scope owners and bindings are retained. The parameter is
-    ;; private solver state; the completed persistent map is in the program.
-    ;; Persistent map lookup and update use explicit tail loops, independent
-    ;; of the increasingly deep source visitor's continuation.
-    (define checking-scopes (make-parameter #f))
+      (make-binding-summary result scope expression) binding-summary?
+      (result summary-result set-summary-result!)
+      (scope summary-scope set-summary-scope!)
+      (expression summary-expression set-summary-expression!))
     (define checking-summaries (make-parameter '()))
-    (define replay-mapping (make-parameter #f))
-    (define (save-scope! source scope)
-      (checking-scopes (hashmap-set (checking-scopes) source scope)) scope)
-    (define (checked-scope source scopes)
-      (hashmap-ref/default scopes source #f))
-    (define (save-function-type! source type)
-      (let ((scope (checked-scope source (checking-scopes))))
-        (save-scope! source (new-scope (scope-bindings scope) (scope-types scope) (scope-assumptions scope)
-                                       (scope-classes scope) (scope-instances scope) (scope-recursive scope) type))))
-    (define (checked-function-type source scopes substitutions)
-      (substitute (scope-function (checked-scope source scopes)) substitutions))
     (define (binding-summary binding) (caddr (binding-payload binding)))
-    (define (binding-checking-scope binding) (summary-scope (binding-summary binding)))
     (define (binding-judgment result)
       (make-judgment (judgment-type result) (judgment-constraints result) (judgment-source result)
-                     #f (judgment-nonexpansive? result)))
+                     #f (judgment-nonexpansive? result) #f))
     (define (binding-result binding) (summary-result (binding-summary binding)))
-    (define (concrete-scope scope substitutions)
-      (make-scope (scope-bindings scope)
-                  (map (lambda (entry) (cons (car entry) (substitute (cdr entry) substitutions))) (scope-types scope))
-                  (substitute (scope-assumptions scope) substitutions)
-                  (scope-classes scope) (scope-instances scope) '()))
-    (define (replay-expression node scope expected substitutions scopes)
-      (parameterize ((replay-mapping substitutions) (checking-scopes scopes))
-        (infer node (concrete-scope scope substitutions) expected)))
-    (define (probe-expression node scope expected substitutions scopes)
-      (parameterize ((replay-mapping substitutions) (checking-scopes scopes))
-        (let* ((scope (concrete-scope scope substitutions)) (result (infer-rule node scope expected)))
-          (improve-overloads! (judgment-constraints result) (scope-assumptions scope)
-                              (scope-classes scope) (scope-instances scope) (node-loc node))
-          result)))
-    ;; Generation supplies immediate child judgments. This operation never
-    ;; walks source children; only explicit constraint probes use probe-expression.
-    (define (apply-typing-rule node scope expected substitutions children)
-      (parameterize ((replay-mapping substitutions))
-        (let* ((scope (concrete-scope scope substitutions))
-               (result (visit-pass typing-pass node scope expected children)))
-          (improve-overloads! (judgment-constraints result) (scope-assumptions scope)
-                              (scope-classes scope) (scope-instances scope) (node-loc node))
-          result)))
-
     ;; ---- Source signatures and rigid quantified binders ----
 
     (define (source-type type variables loc)
@@ -542,7 +494,7 @@
         (when annotation
           (pending-declarations (cons (make-declaration-check binding scope) (pending-declarations))))
         (prepare-binding! binding (binding-scheme binding) (source-initializer binding) 'value
-                          (list (source-initializer binding) annotation (make-binding-summary (binding-judgment value) checking)))
+                          (list (source-initializer binding) annotation (make-binding-summary (binding-judgment value) checking (judgment-expression value))))
         (checking-summaries (cons (binding-summary binding) (checking-summaries)))))
     (define (infer-initializer binding scope)
       (let* ((source (source-initializer binding)) (type (scheme-type (binding-scheme binding)))
@@ -672,8 +624,7 @@
     (define (solve-recursive-template group scope)
       ;; These copies solve a monomorphic relation; only the original bodies
       ;; retain declaration proofs for the final rigid checking judgment.
-      (parameterize ((pending-declarations '()) (checking-summaries '())
-                     (checking-scopes (checking-scopes)))
+      (parameterize ((pending-declarations '()) (checking-summaries '()))
         (let* ((template (new-recursive-template group scope)) (checking (template-scope template scope)))
           (for-each (lambda (entry) (check-initializer! (cdr entry) checking)) (template-bindings template))
           (let ((frozen (environment-variables (template-environment template scope))))
@@ -751,7 +702,8 @@
               ((or (eq? actual 'Never) (eq? expected 'Top) (and projection? (eq? actual 'Top)))
                (make-judgment expected (judgment-constraints value) (judgment-source value)
                               (judgment-detail value)
-                              (and (judgment-nonexpansive? value) (not (eq? actual 'Top)))))
+                              (and (judgment-nonexpansive? value) (not (eq? actual 'Top)))
+                              (make-typed-conversion (judgment-source value) actual expected (judgment-expression value))))
               (else (unify! actual expected (judgment-loc value)) value))))
     (define (literal-type value selected loc)
       (cond ((boolean? value) 'Bool) ((char? value) 'Char) ((string? value) 'String)
@@ -768,30 +720,24 @@
         (result node type
                 (if (memq type '(F32 F64)) (rounded-float-literal value spelling type (node-loc node)) value) #t)))
     (define (rule-literal node scope expected children) (infer-literal node #f))
-    (define (lookup-scheme binding)
-      (let ((scheme (binding-scheme binding)) (mapping (replay-mapping)))
-        (if (not mapping) scheme
-            (let ((free (let remove ((mapping mapping))
-                          (cond ((null? mapping) '())
-                                ((memq (caar mapping) (scheme-variables scheme)) (remove (cdr mapping)))
-                                (else (cons (car mapping) (remove (cdr mapping))))))))
-              (make-scheme (scheme-variables scheme) (substitute (scheme-type scheme) free)
-                           (substitute (scheme-constraints scheme) free))))))
     (define (rule-name node scope expected children)
       (let ((binding (visible-binding (ir:name-definition node) (scope-bindings scope))))
         (unless binding (strict-error (node-loc node) "missing strict binding" (ir:value-definition-name (ir:name-definition node))))
         (let ((view (lookup binding (scope-recursive scope))))
           (if view (recursive-name node binding view)
-              (let-values (((type obligations substitutions) (instantiate (lookup-scheme binding))))
-                (make-judgment type obligations node (list binding substitutions) #t))))))
+              (let-values (((type obligations substitutions) (instantiate (binding-scheme binding))))
+                (make-judgment type obligations node (list binding substitutions) #t
+                               (make-typed-expression node type obligations (list binding substitutions) '())))))))
     (define (recursive-name node binding view)
       (make-judgment (view-type view) (view-constraints view) node
-                     (list binding (view-substitutions view)) #t))
+                     (list binding (view-substitutions view)) #t
+                     (make-typed-expression node (view-type view) (view-constraints view)
+                                            (list binding (view-substitutions view)) '())))
     (define (rule-instantiation node scope expected children)
       (let ((source (ir:instantiation-expression node)))
         (unless (ir:name? source) (strict-error (node-loc node) "explicit instantiation requires a named scheme"))
         (let* ((binding (visible-binding (ir:name-definition source) (scope-bindings scope)))
-               (scheme (and binding (lookup-scheme binding))) (view (lookup binding (scope-recursive scope)))
+               (scheme (and binding (binding-scheme binding))) (view (lookup binding (scope-recursive scope)))
                (variables (if view (map car (view-substitutions view)) (and scheme (scheme-variables scheme))))
                (types (map (lambda (type) (source-type type (scope-types scope) (node-loc node))) (ir:instantiation-types node))))
           (unless (and scheme (= (length types) (length variables)))
@@ -800,12 +746,13 @@
               (begin (for-each (lambda (actual entry) (unify! actual (cdr entry) (node-loc node))) types (view-substitutions view))
                      (recursive-name node binding view))
               (let* ((mapping (map cons variables types)) (type (substitute (scheme-type scheme) mapping)))
-                (make-judgment type (substitute (scheme-constraints scheme) mapping) node (list binding mapping) #t))))))
+                (make-judgment type (substitute (scheme-constraints scheme) mapping) node (list binding mapping) #t
+                               (make-typed-expression node type (substitute (scheme-constraints scheme) mapping)
+                                                      (list binding mapping) '())))))))
     (define (rule-lambda node scope expected children)
       (let ((type (function-type
-                   (map (lambda (binding) (scheme-type (lookup-scheme binding))) (ir:lambda-parameters node))
+                   (map (lambda (binding) (scheme-type (binding-scheme binding))) (ir:lambda-parameters node))
                    (judgment-type (car children)))))
-        (unless (replay-mapping) (save-function-type! node type))
         (result node type #f #t (car children))))
     (define (rule-call node scope expected children)
       (let* ((operator (car children)) (signature (resolve (judgment-type operator))))
@@ -820,23 +767,24 @@
       (let* ((child (car children))
              (value (conform child (source-type (ir:annotation-type node) (scope-types scope) (node-loc node)) #t)))
         (make-judgment (judgment-type value) (judgment-constraints value) node
-                       (judgment-type child) (judgment-nonexpansive? value))))
+                       (judgment-type child) (judgment-nonexpansive? value)
+                       (make-typed-expression node (judgment-type value) '()
+                                              (judgment-type child) (list (judgment-expression child))))))
     (define (rule-match node scope expected children)
       (let ((type (let join ((arms (cdr children)))
                     (if (null? arms) 'Never (join-types (judgment-type (car arms)) (join (cdr arms)) (node-loc node))))))
         (apply result node type (judgment-type (car children)) #f children)))
     (define (rule-binding node scope expected children)
       (let ((binding (ir:value-binding-definition node)))
-        (make-judgment 'Unit (substitute (initialization-constraints binding) (or (replay-mapping) '())) node binding #f)))
-    (define typing-pass
-      (make-pass rule-literal rule-name rule-lambda rule-call rule-block rule-conditional
-                 rule-annotation rule-instantiation rule-match rule-binding conform))
-
+        (let ((obligations (initialization-constraints binding)))
+          (make-judgment 'Unit obligations node binding #f
+                         (make-typed-expression node 'Unit '() binding
+                                                (list (summary-expression (binding-summary binding))))))))
     ;; ---- Structural visit and inherited expectations ----
 
     ;; Each rule above receives completed children. This walker owns ordering,
-    ;; lexical scope construction, and expected types; generation uses the same
-    ;; rule operations explicitly instead of a generic pass interleaver.
+    ;; lexical scope construction, and expected types. Later passes consume the
+    ;; resulting immutable tree instead of replaying these rules.
     (define (infer-rule node scope expected)
       (let ((children
              (case (node-kind node)
@@ -847,17 +795,26 @@
                ((annotation) (visit-annotation node scope))
                ((match) (visit-match node scope expected))
                (else '()))))
-        (visit-pass typing-pass node scope expected children)))
+        (case (node-kind node)
+          ((literal) (rule-literal node scope expected children))
+          ((name) (rule-name node scope expected children))
+          ((lambda) (rule-lambda node scope expected children))
+          ((call) (rule-call node scope expected children))
+          ((block) (rule-block node scope expected children))
+          ((if) (rule-conditional node scope expected children))
+          ((annotation) (rule-annotation node scope expected children))
+          ((instantiation) (rule-instantiation node scope expected children))
+          ((match) (rule-match node scope expected children))
+          ((bind) (rule-binding node scope expected children))
+          (else (strict-error (node-loc node) "unsupported checked expression" (node-kind node))))))
     (define (parameter-binding definition type)
-      (if (replay-mapping)
-          (unify! (scheme-type (lookup-scheme definition)) type (ir:value-definition-loc definition))
-          (begin (unify! (scheme-type (binding-scheme definition)) type (ir:value-definition-loc definition))
-                 (prepare-binding! definition (mono-scheme type) #f 'parameter #f))) definition)
+      (unify! (scheme-type (binding-scheme definition)) type (ir:value-definition-loc definition))
+      (prepare-binding! definition (mono-scheme type) #f 'parameter #f))
     (define (lambda-signature node expected)
       (let* ((signature (and expected (function-type? expected) (resolve expected)))
              (parameters (ir:lambda-parameters node))
              (types (if signature (function-domains signature)
-                        (map (lambda (binding) (if (replay-mapping) (scheme-type (lookup-scheme binding)) (fresh-variable))) parameters))))
+                        (map (lambda (binding) (fresh-variable)) parameters))))
         (unless (= (length types) (length parameters))
           (strict-error (node-loc node) "lambda and annotation arity mismatch"))
         (function-type types (and signature (function-result signature)))))
@@ -865,7 +822,6 @@
       (let* ((signature (lambda-signature node expected))
              (parameters (map parameter-binding (ir:lambda-parameters node) (function-domains signature)))
              (inner (extend-scope scope parameters)))
-        (unless (replay-mapping) (save-scope! node inner))
         (list (infer (ir:lambda-body node) inner (function-result signature)))))
     (define (call-signature operator count loc)
       (let ((type (resolve (judgment-type operator))))
@@ -913,7 +869,7 @@
         (check-match-constructors arms (node-loc node))
         (cons subject (map (lambda (arm) (visit-match-arm arm (judgment-type subject) scope expected)) arms))))
     (define (visit-match-arm arm subject scope expected)
-      (let-values (((type obligations substitutions) (instantiate (lookup-scheme (car arm)))))
+      (let-values (((type obligations substitutions) (instantiate (binding-scheme (car arm)))))
         (unify! subject (function-result type) (node-loc (cadr arm)))
         (car (visit-lambda (cadr arm) scope (function-type (function-domains type) expected)))))
 
@@ -931,12 +887,9 @@
         (check-declaration-owners items)
         (let* ((data (prepare-data-schemas! items)) (bindings (definition-bindings items scope))
                (foreign (extern-bindings items)) (inner (extend-scope scope (append bindings foreign data))))
-          (save-scope! source inner) (check-bindings! bindings inner) inner)))
+          (check-bindings! bindings inner) inner)))
     (define (visit-block node scope expected)
-      (let ((inner (if (replay-mapping)
-                       (concrete-scope (checked-scope node (checking-scopes)) (replay-mapping))
-                       (prepare-block-scope node scope))))
-        (infer-items (ir:block-items node) inner expected)))
+      (infer-items (ir:block-items node) (prepare-block-scope node scope) expected))
     (define (infer-items items scope expected)
       (cond ((null? items) '())
             ((memq (node-kind (car items)) '(type-declaration extern-declaration data-schema))
@@ -950,8 +903,7 @@
       (let ((owned (copy-ir-graph (list items primitive-bindings))))
         (infer-owned-program (car owned) (cadr owned) loc)))
     (define (infer-owned-program items primitive-bindings loc)
-      (parameterize ((pending-declarations '()) (checking-summaries '())
-                     (checking-scopes (hashmap (make-eq-comparator))) (replay-mapping #f))
+      (parameterize ((pending-declarations '()) (checking-summaries '()))
         (let* ((primitives (map (lambda (entry) (prepare-binding! (car entry) (primitive-scheme (cdr entry)) #f 'primitive (cdr entry))) primitive-bindings))
                (data (prepare-data-schemas! items)) (classes (collect-program-classes items)))
           (check-overload-names items classes primitives)
@@ -961,21 +913,28 @@
                    (source (ir:make-block items loc)) (body (infer source scope #f))
                    (globals (map ir:value-binding-definition (filter-bindings items)))
                    (members (resolve-instance-members instances (append globals primitives data) scope)))
-              (settle-summary-obligations! (cons (make-binding-summary (binding-judgment body) scope) (checking-summaries)))
+              (settle-summary-obligations! (cons (make-binding-summary (binding-judgment body) scope #f) (checking-summaries)))
               (for-each finish-declaration-check! (reverse (pending-declarations)))
               (check-obligations (judgment-constraints body) scope loc #f)
               (require-overloads! (judgment-constraints body) classes instances loc)
-              (make-program source globals classes members (judgment-type body) (checking-scopes)))))))
+              (let ((expression (freeze-typed-expression (judgment-expression body))))
+                ;; Solver-owned construction roots are no longer needed. Neither
+                ;; provisional nor frozen expression records are ever mutated.
+                (for-each (lambda (summary)
+                            (set-summary-expression! summary #f)
+                            (set-summary-result! summary #f)
+                            (set-summary-scope! summary #f)) (checking-summaries))
+                (make-program source globals classes members (judgment-type body) expression)))))))
     (define (filter-bindings items)
       (cond ((null? items) '())
             ((ir:value-binding? (car items)) (cons (car items) (filter-bindings (cdr items))))
             (else (filter-bindings (cdr items)))))
     (define (settle-summary-obligations! summaries)
-      (let ((before (map (lambda (summary) (type-datum (judgment-constraints (summary-result summary)))) summaries)))
+      (let ((before (type-holes (map (lambda (summary) (judgment-constraints (summary-result summary))) summaries))))
         (for-each (lambda (summary)
                     (let ((result (summary-result summary)))
                       (check-obligations (judgment-constraints result) (summary-scope summary) (judgment-loc result) #f))) summaries)
-        (unless (equal? before (map (lambda (summary) (type-datum (judgment-constraints (summary-result summary)))) summaries))
+        (when (type-holes-linked? before)
           (settle-summary-obligations! summaries))))
     (define (checked-member member instance definitions scope)
       (let* ((binding (visible-binding (cdr member) definitions)) (class (instance-class instance))
@@ -1073,14 +1032,16 @@
         (let* ((program (test-infer-library (test-cached-program (test-cached-library)
                                                                  "(import (cache)) (identity (ann 42 I64))")))
                (binding (car (program-globals program))) (scheme (binding-scheme binding))
-               (variable (car (scheme-variables scheme))) (source (binding-initializer binding))
-               (scope (binding-checking-scope binding)))
-          (expect (judgment-type (replay-expression source scope (function-type '(Bool) 'Bool)
-                                                    (list (cons variable 'Bool)) (program-scopes program)))
-                  (function-type '(Bool) 'Bool))
+               (variable (car (scheme-variables scheme)))
+               (template (car (typed-children (program-expression program))))
+               (parameter (cdar (cdr (typed-detail template))))
+               (type (typed-type (car (typed-children template)))))
+          (expect (substitute type (list (cons parameter 'Bool))) (function-type '(Bool) 'Bool))
+          (expect (rigid? parameter) #t)
           (expect (eq? (binding-scheme binding) scheme) #t)
           (expect (hole-link variable) #f)
-          (expect (node-kind source) 'lambda)))
+          (expect (summary-result (binding-summary binding)) #f)
+          (expect (summary-scope (binding-summary binding)) #f)))
       (define (test-imported-declaration-owner)
         (let ((cache (syntax->ir-library
                       (car (test-forms "(define-library (cache) (export identity)

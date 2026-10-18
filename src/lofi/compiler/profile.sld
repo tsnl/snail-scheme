@@ -85,10 +85,10 @@
          (generalize-group! (node-loc (source-initializer (car group))))
          (check-skolem-escape #f) (finish-declaration-check! #t)
          (settle-summary-obligations! #t) (plan-bindings #t)
-         (check-obligations #f) (concrete-scope #f) (apply-typing-rule #f) (probe-expression #f))
+         (check-obligations #f))
         ("lofi/compiler/specialize.sld"
-         (activation-value-index #f) (type-arm #f) (finish-generation #f)
-         (call-demand #f) (request-function #f) (request-value #f) (concrete #f))
+         (activation-value-index #f) (typed-concrete-type #f) (specialize-as #f)
+         (resolve-reference #f) (request-function #f) (request-value #f) (concrete #f))
         ("lofi/compiler/overloads.sld"
          (improve-overloads! #f) (select-overload-view #f) (compatible? #f))
         ("lofi/compiler/types.sld" (generalize #f))))
