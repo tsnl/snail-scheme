@@ -81,7 +81,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.
-- [x] Add cheap walls, diverse enemy behavior, impassable water with a gentle
+- [x] Add houses, diverse enemy behavior, impassable water with a gentle
       shimmer, and less rectangular mountain ranges.
 - [x] Three extractor levels; expensive upgrades offer a fallback to exploration.
 - [x] Remove investment automation; workers retain automatic jobs and hauling.
@@ -111,7 +111,7 @@ the supported game is the static client-side 3D bundle.
 ## Polish pass in progress
 
 - [x] Non-scrollable control cards with visible hotkeys beside every button.
-- [x] Translucent turquoise shield walls and vivid violet/indigo gemstones.
+- [x] Replace shield walls with houses; keep vivid violet/indigo gemstones.
 - [x] Persistent difficulty indicator inside a circular progress readout.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
 - [x] Separate artillery and observation/logistics upgrade trees. Preserve all
@@ -140,23 +140,28 @@ source edits remain unchecked until compiled and exercised.
 - [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
 - [x] Give every tower and artillery a shared stone plinth with open arches on
       all four sides, and replace connected shield geometry with solid houses.
+- [x] Allow buildings on current transport paths and intersections.
+- [x] Replace wall drawing with ordinary house placement: 12 base worker places,
+      four per completed house, up to 64; retain World 10 material ledgers.
 - [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
 - [x] Give artillery a distinct gun silhouette.
 - [x] Count down to the next difficulty increase, never to an unseen wave spawn;
       keep hidden enemy spawns out of the HUD and accessible status.
-- [x] Keep New worker readily available in the edge strip and selected-hub actions.
+- [x] Keep repeated New worker and Repair actions in the selected hub popup;
+      retain Home on the edge strip and remove the separate worker menu.
 - [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
 - [x] Outline the combined range of active artillery on the map.
-- [x] Enemies under fire pursue the attacker, with walls still blocking them.
+- [x] Enemies under fire pursue the attacker; houses follow ordinary building
+      encounter rules and do not intercept that pursuit.
 - [x] Replace the brush planner with direct tile construction. Deposits offer
-      extractors; ordinary tiles offer tower/artillery/wall with visible costs.
+      extractors; ordinary tiles offer tower/artillery/house with visible costs.
       Repeat a tile tap to build the remembered successful type; retargeting is
       free, and failed orders retain their intended choice for retry.
 - [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
 - [x] Keep drag for panning and pinch for zoom; expose compact quarter-turn
       buttons directly on screen. Do not add twist rotation.
 - [x] Keep mobile attack notifications separate from controls, with white-on-red
-      titles, small live thumbnails and a dismiss action; inspect portrait and
+      location labels and a dismiss action, without rendered thumbnails; inspect portrait and
       landscape layouts, and permit later attacks to alert again.
 - [x] Profile representative mobile-sized simulation, view and GPU work;
       record the earlier native-resolution baseline without claiming a thermal cause.
@@ -166,13 +171,14 @@ source edits remain unchecked until compiled and exercised.
       elevation and smooth intermediate rotation, pan and zoom.
 - [x] Add the max-dps-test using actual model facts, three-minute discovery and
       0.5 utilization; report its optimistic assumptions and finite horizon.
-- [x] Spread nearby enemies across open approaches without crossing terrain or
-      bypassing walls; verify crowd movement and saved-route invariants.
+- [x] Spread nearby enemies across open approaches without crossing terrain;
+      verify crowd movement and saved-route invariants.
 - [x] Exercise new orders on surveyed but currently hidden tiles, stale menus,
       observer destruction and fogged kit delivery in actual Wasm. Five checks
       pass; the reported rejected transition remains unreproduced.
 - [x] Weighted worker routes account for walking versus cart travel time.
-- [x] Enemies may attack a wall instead of always detouring around it.
+- [x] Houses can be destroyed; over-capacity colonies retain workers and paid
+      recruits, and only new hiring waits for capacity.
 - [x] Worker sight reveals a small radius without unbounded survey history.
 - [x] Hidden construction stalls new assignments/pickup and explains why;
       existing carriers can reveal their destination while following a known route.
@@ -182,7 +188,8 @@ source edits remain unchecked until compiled and exercised.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.
 - [x] Restart confirmation pauses, with cancellation returning to the Pause menu.
-- [x] Smoke on damage and red/white attack notifications with clickable live views.
+- [x] Smoke on damage and compact red/white attack notifications with location
+      and dismiss actions.
 - [x] Continuous display-rate unit/freight motion; hard reveal contour checked above.
 - [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
 - [x] Reconcile current main and include the Siegework build in CI.

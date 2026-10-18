@@ -7,7 +7,7 @@ import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {colony,client,colonyBalance,restoreColony,restoreClient,fixtureCall,at,setWorker,pixelAt} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1));
-const orders=[['extract',5,5,40,1],['observe',12,11,25,3],['fortify',12,11,50,2],['build-wall',12,11,8,4]];
+const orders=[['extract',5,5,40,1],['observe',12,11,25,3],['fortify',12,11,50,2],['build-house',12,11,8,4]];
 async function advance(r,count=1) {
   for(let i=0;i<count;i++) {
     await fixtureCall(r,'advance'); const world=state(r),balance=colonyBalance(world);
@@ -33,7 +33,7 @@ async function prepareOrder(r,kind) {
 async function settleOrder(r,result,accepted) {
   const pending=client(r.snapshot(2)),cell=pending.buildCell;
   const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));
-  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,accepted])}]);
+  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,accepted ? 0 : state(r).notice])}]);
   await r.dispatch(2,r.effectCommand(committed.effects[0]));assert.equal(client(r.snapshot(2)).buildKind,pending.buildKind);
   await r.dispatch(2,r.effectCommand(result.effects[1]));const settled=client(r.snapshot(2));
   assert.equal(settled.buildKind,0);assert.equal(settled.buildCell,-1);assert.equal(settled.chooser,!accepted);

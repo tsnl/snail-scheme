@@ -42,7 +42,7 @@
       "repair"
     ],
     "f": [
-      "hire"
+      "fabricate"
     ],
     "h": [
       "home"
@@ -104,9 +104,6 @@
     "3": [
       "choose",
       3
-    ],
-    "g": [
-      "worker-menu"
     ]
   },
   "inputRepeatMilliseconds": 140,

@@ -9,10 +9,10 @@ export async function checkConstructionOrders(test,fresh) {
   const state=r=>colony(r.snapshot(1));
   async function place(r,kind,cell,accepted) {
     const result=await r.dispatch(1,r.command('match','build-cell',[kind,cell]));
-    assert.deepEqual(result.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,accepted])}]);
+    assert.deepEqual(result.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,accepted ? 0 : kind < 1 || kind > 4 ? 15 : state(r).notice])}]);
   }
   await test('each construction kind pays and reserves exactly the same order as its direct command',async()=>{
-    for(const [kind,name,x,y] of [[1,'extract',12,20],[2,'fortify',12,22],[3,'observe',12,22],[4,'build-wall',12,22]]) {
+    for(const [kind,name,x,y] of [[1,'extract',12,20],[2,'fortify',12,22],[3,'observe',12,22],[4,'build-house',12,22]]) {
       const direct=await fresh(),placed=await fresh(),cell=routeCell(state(placed),x,y);
       await fixtureCall(direct,name,[x,y]);await place(placed,kind,cell,1);
       assert.deepEqual(placed.snapshot(1),direct.snapshot(1));

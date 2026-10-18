@@ -81,7 +81,7 @@
             ((= reason 31) "Hub repair ordered · purchased health returns after three seconds of work")
             (else "Ready to place · workers build, mine and haul")))
     (define (building-name kind)
-      (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") ((= kind 4) "SHIELD WALL") (else "OBSERVATION TOWER")))
+      (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") ((= kind 4) "HOUSE") (else "OBSERVATION TOWER")))
     (define (mine-production-text world building staff)
       (cond ((not (ready? building)) " · production starts after construction and staffing")
             ((= staff 0) " · no miners: no production")
@@ -183,7 +183,8 @@
                                (reason-text (placement-reason world tool x y)))))))
     (define (economy-text world)
       (string-append (integer-text (world-credits world)) " SPENDABLE ORE · HUB " (integer-text (world-hull world)) "/300 · "
-                     "Workers " (integer-text (list-size (world-bots world))) " · "
+                     "Workers " (integer-text (list-size (world-bots world))) " / " (integer-text (worker-capacity world))
+                     " capacity · queued " (integer-text (pending-workers (world-bots world))) " · "
                      (clock-text (world-tick world)) " elapsed · seed " (integer-text (world-seed world)) "\n"
                      "Mine stock " (integer-text (stock-total (world-buildings world) 1))
                      " · depot stock " (integer-text (stock-total (world-buildings world) 3))

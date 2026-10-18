@@ -32,10 +32,10 @@ function typedField(field, value) {
 }
 export const colonyWords = world => snapshotWords(10, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
-  const {originX,originY,...fields}=local;
-  return snapshotWords(7, typedRecord('Client', {...fields, heading:local.heading ?? 0,
+  const {originX,originY,menu,...fields}=local;
+  return snapshotWords(8, typedRecord('Client', {...fields, heading:local.heading ?? 0,
     turnFrom:local.turnFrom ?? 0, turnTo:local.turnTo ?? 0, turnElapsed:local.turnElapsed ?? 300,
-    scale:local.scale ?? 1000, preview:local.preview ?? 0, dialog:local.dialog ?? 0,dialogPending:local.dialogPending ?? 0,dialogResult:local.dialogResult ?? 0,homing:local.homing ?? false,lastKind:local.lastKind ?? 3,choiceKind:local.choiceKind ?? 3,buildKind:local.buildKind ?? 0,buildCell:local.buildCell ?? -1,buildResult:local.buildResult ?? 0,menu:local.menu ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
+    scale:local.scale ?? 1000, preview:local.preview ?? 0, dialog:local.dialog ?? 0,dialogPending:local.dialogPending ?? 0,dialogResult:local.dialogResult ?? 0,homing:local.homing ?? false,lastKind:local.lastKind ?? 3,choiceKind:local.choiceKind ?? 3,buildKind:local.buildKind ?? 0,buildCell:local.buildCell ?? -1,buildResult:local.buildResult ?? 0,failure:local.failure ?? 0,leftHanded:local.leftHanded ?? false,dismissed:local.dismissed ?? []}));
 };
 export const restoreColony = (runtime, world) => runtime.restore(1, colonyWords(world));
 export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(local));
@@ -51,7 +51,7 @@ export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:c
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
 export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 384; }
 export function fixtureArguments(world, name, args = []) {
-  if (['extract','fortify','observe','build-wall','upgrade','arm-tower','cancel-building'].includes(name)) {
+  if (['extract','fortify','observe','build-wall','build-house','upgrade','arm-tower','cancel-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];
   }
   if (name === 'relocate-building') return args.map(index => routeCell(world, index % 48, Math.floor(index / 48)));

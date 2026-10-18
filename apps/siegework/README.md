@@ -27,7 +27,7 @@ time, artifact size and runtime performance can differ.
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v10`, with world schema 10 and
-client schema 7. Earlier incompatible colonies retain their separate save identity.
+client schema 8. Earlier incompatible colonies retain their separate save identity.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
@@ -45,22 +45,32 @@ and touch-sized buttons appear on desktop and mobile.
   are not part of the ordinary construction choices. Persistent first-extractor
   guidance points toward the highlighted deposit.
 - Tap an empty tile to open its construction popup: **Tower** (`1`),
-  **Artillery** (`2`) or **Wall** (`3`), with ore costs shown before ordering.
+  **Artillery** (`2`) or **House** (`3`), with ore costs shown before ordering.
   The hologram uses this session’s last successfully ordered ordinary building, starting
   with a tower. Tap that same tile again, or double-click it, to order that type.
   Tapping a different tile only moves the selection; it does not spend ore.
 - One order saves at a time. Accepted orders close the popup and update the next
   hologram; an extractor leaves the ordinary choice unchanged. A rejected or
   unsaved order keeps its selected site and attempted type available for retry.
-  Selection alone never starts the colony clock.
+  Selection alone never starts the colony clock. The popup keeps the actual
+  rejection reason, including missing tower coverage, gaps in the surveyed
+  walking route, inaccessible pickup supplies and failed saves.
 - Select an existing building for **Upgrade** (`U`) or **Cancel** (`C`) on its
   pending order. Repeated tile taps only inspect an existing building; they do
   not upgrade or cancel it. Dismissing selection does not cancel construction.
   Completed towers and artillery always stand on the same stone plinth, with
   corner supports and open arches on all four faces. Workers and carts pass underneath.
-- Select the hub or open **Workers** (`G`), then choose **New worker** (`F`)
+  An animated indicator above a tower or artillery shows that it is waiting
+  for upgrade materials; current services stay active.
+  Buildings may occupy transport paths and intersections; their foundations
+  leave clearance for the carts.
+- Select the hub, then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
-  worker assembles each recruit. The hub occupies nine tiles.
+  worker assembles each recruit. The hub occupies nine tiles. Worker capacity
+  starts at 12; each completed house adds four places, up to 64. Queued recruits
+  count toward that limit. The readout shows working/total workers and a separate
+  capacity count. Losing housing preserves all existing workers and paid recruits,
+  but blocks further hiring until capacity is available.
 - **Repair** (`R`) quotes the hub's affordable target percentage and ore cost.
   It reserves only the needed or available ore, at two health per ore. A worker
   returns to the hub and works for three seconds; further damage can reduce
@@ -103,8 +113,8 @@ cancels that selection. Two-finger pinch only zooms, so lifting one finger never
 starts an accidental pan. The reusable `dragHandler` setting sends signed CSS
 pixel deltas to the Scheme camera once per display frame, independent of DPR.
 
-Attack notifications appear beside the edge strip, with white text on red and
-a small live view. Tap the notification to inspect its location, or its close
+Attack notifications appear beside the edge strip as compact white-on-red
+labels. Tap the notification to inspect its location, or its close
 button to silence the area. The four most recently dismissed areas stay muted
 for up to eight seconds of game time, including nearby worker damage. Other
 locations still alert.
@@ -161,9 +171,12 @@ construction site stall until it is visible again; a yellow warning marks the
 site and its card explains the delay. Existing carriers can finish their known
 route, revealing their destination as they approach.
 
-Walls are cheap translucent turquoise shields. Enemies can stop to attack them
-rather than always finding a long detour. Neighboring walls join across edges and
-diagonals. Water blocks movement. About one in ten
+Houses cost eight ore and add four worker places after a delivery finishes.
+They are ordinary attackable buildings with no upgrades or shield behavior.
+World 10 saves keep their existing IDs, construction jobs, materials and health:
+former kind-four walls become houses, preserving the eight-ore ledger. An
+unfinished former wall grants housing only when its existing work completes.
+Water blocks movement. About one in ten
 spawned enemies may begin excavating a mountain; others can join an existing
 excavation. They stop and chip away before a permanent opening appears.
 
@@ -175,11 +188,12 @@ apart, strength steps are three minutes apart, and the first boss spawns at
 18 minutes. The nest remains the objective; time never grants a victory.
 Artillery has limited range and deals more damage at close range. The map outlines
 the combined range of operational guns. Enemies wounded by a gun pursue that
-attacker, while walls still block them. Crowds spread into nearby walking lanes.
+attacker. Houses follow the same encounter rules as other ordinary buildings.
+Crowds spread into nearby walking lanes.
 Defeated enemies
 award no ore: extraction and defending your supply lines remain necessary.
 
-Attacks produce smoke and red notifications with live views. Select a notification
+Attacks produce smoke and compact red notifications. Select a notification
 to move to that attack. Newly surveyed ground unveils with a sharp, expanding
 fragment-level contour rather than a tile-aligned edge. The simulation and durable saves run at 10Hz; moving units
 and freight interpolate at display frame rate.

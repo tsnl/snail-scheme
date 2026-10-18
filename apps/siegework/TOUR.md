@@ -9,14 +9,14 @@ Scheme owns the game rules and presentation executed in the browser.
 | Module | Responsibility |
 | --- | --- |
 | [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, house capacity, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal shared open stone plinths, stacked artillery level cues, display-clock transport pulses and nearest-building/crystal/ground picking over the existing grid. |
-| [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, local attack mutes, restart/pause handling and HUD/inset composition. |
+| [`view.sld`](src/siegework/view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan, animated 90-degree Q/E rotation, scale-only zoom, fragment reveal, shared open stone plinths, stacked artillery level cues, display-clock transport pulses and nearest-building/crystal/ground picking over the existing grid. |
+| [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
 | [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
@@ -87,7 +87,7 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 10 and client schema 7 under application ID
+The game declares world schema 10 and client schema 8 under application ID
 `siegework-colony-v10`, which starts a fresh save identity. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts and are rejected; derivation does not migrate existing saves. The browser retains
@@ -166,7 +166,8 @@ eight retained groups of glowing dots whose phases travel toward the hub on the
 display clock. Old track bitmasks remain readable in World10 saves but never
 produce geometry. Both towers and artillery reuse one stone plinth mesh, with
 four corner pillars and an open arch on each face. Houses use ordinary solid
-building geometry; they have no connecting shield panels.
+building geometry; they have no connecting shield panels. Buildings can occupy
+transport paths and intersections without removing their connections.
 
 Unchanged directed routes preserve freight progress. Changed routes return the
 load once to its surviving source; a destroyed source loses its own cargo.
@@ -179,3 +180,19 @@ command, committed snapshots and any staged candidate; the browser retains one
 latest reproduction beside the save. Inspect it with
 `await snailApp.session.store.failure()` in developer tools. Capturing a failure
 does not advance the game revision or replace its last committed state.
+
+The construction command returns its decision with the tentative World, so the
+selected-site popup retains a precise rejection even after a later notice.
+One placement still owns its pending slot through reply and authored settlement;
+a failed durable save releases the slot without reporting success. Client 8
+stores that rejection and removes the former worker-menu state.
+
+Completed kind-four houses add four worker places to the hub's base 12, capped
+at 64. Hiring counts both living workers and paid queued recruits. World 10's
+decoder enforces the hard bound, allowing housing destruction to leave a valid
+over-capacity colony. Old kind-four records keep their eight-ore material ledger,
+health, IDs and unfinished jobs while acquiring house semantics.
+
+Attack alerts are ordinary location/dismiss controls and create no scene insets.
+Upgrade waiting labels project above their buildings through the shared camera;
+CSS animates their rings without requesting additional Scheme or scene frames.

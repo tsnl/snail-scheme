@@ -88,6 +88,21 @@ Those are not Siegework build timings. Full game compilation still takes much
 longer; per-build wall observations on this shared host are not controlled
 compiler benchmarks.
 
+## House and contextual feedback source checkpoint
+
+The source now replaces walls with houses (12 base worker places, four per
+completed house, maximum 64), keeps repeated hiring in the selected hub, retains
+actual construction rejection reasons in the selected popup, shows CSS upgrade
+waiting indicators, and removes product attack thumbnails. World remains schema
+10; transient Client is schema 8. Old kind-four saves retain their eight-ore
+ledger and become houses. The abandoned wall planner and contact-input extension
+are absent from this checkpoint.
+
+Scheme source parsing and JavaScript syntax checks passed. Actual Wasm, product
+browser and hosting validation for the combined transport, housing, feedback and
+native-resolution package are pending integration; the earlier unpublished wall
+prototype build is not validation of this source and must not be published.
+
 ## Executed checks
 
 The current viewport revision restores native HiDPI world rendering, with no

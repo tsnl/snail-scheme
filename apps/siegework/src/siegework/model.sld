@@ -1,7 +1,8 @@
 ;; The colony is one immutable authoritative value. Jobs reserve a project before
 ;; another worker can choose it; ore moves through workers and depot freight to hub.
 (define-library (siegework model)
-  (export World make-world initial-world advance-world extract-world observe-world wall-world place-cell-world
+  (export World make-world initial-world advance-world extract-world observe-world house-world wall-world place-cell-world
+          ConstructionOutcome construction-world construction-reason place-cell-outcome
           fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
           cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
           DifficultyWindow difficulty-window difficulty-window-for difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
@@ -31,6 +32,7 @@
           world-plan-set world-focus-set safe-site? affordable-kit? local-affordable? count-mines pending-build? pending-move? pending-move-count reserved-stock construction-cache
           bot-path-set enemy-path-set ore-cargo? kit-carrier?
           worker-cost worker-assembly-ticks production-worker? pending-workers fabrication-reason
+          base-worker-capacity house-worker-capacity maximum-workers worker-capacity
           hub-cell? repair-world repair-reason repair-cost repair-target repair-percent repair-ticks repair-health repair-worker? pending-repair?
           arming? construction-stage construction-cost construction-kit-size uncollected-supplies raw-stock)
   (import
@@ -44,7 +46,9 @@
 
     ;; ---- Colony values ----
 
-    ;; Kind: 1 extractor, 2 artillery, 3 observation/depot tower, 4 wall.
+    ;; Kind: 1 extractor, 2 artillery, 3 observation/depot tower, 4 house.
+    ;; World 10's former kind-four walls become houses without changing paid
+    ;; materials, health, jobs or IDs; their eight-ore construction stays valid.
     ;; Artillery upgrades strengthen its gun; tower upgrades extend sight then
     ;; double cart speed at each level. Every completed tower supplies worker carts.
     ;; Each upgrade retains prior functions until its kit arrives.
@@ -298,36 +302,52 @@
             ((or (>= (list-size (world-buildings world)) maximum-buildings)
                  (>= (list-size (world-surveys world)) maximum-surveys)) 8)
             (else 0)))
+    ;; Command replies carry the decision made by this transition. World keeps
+    ;; its existing notice vocabulary; a later tick cannot overwrite the reply.
+    (define-immutable-record ConstructionOutcome make-construction-outcome
+      (world World construction-world construction-world-set)
+      (reason I32 construction-reason construction-reason-set))
+    (define (reject-construction world reason)
+      (make-construction-outcome (world-notice-set world (if (> reason 31) 6 reason)) reason))
     (define (queue-building world kind x y reserve)
+      (construction-world (queue-building-outcome world kind x y reserve)))
+    (define (queue-building-outcome world kind x y reserve)
       (let ((reason (placement-reason world kind x y)))
-        (cond ((not (= reason 0)) (world-notice-set world reason))
+        (cond ((not (= reason 0)) (reject-construction world reason))
               ((null? (walking-open-path (world-seed world) (world-breaches world) (world-hub-x world) (world-hub-y world) x y (world-surveys world) #f))
-               (world-notice-set world 6))
-              (else (accept-building world kind x y reserve)))))
-    (define (accept-building world kind x y reserve)
+               (reject-construction world 32))
+              (else (accept-building-outcome world kind x y reserve)))))
+    (define (accept-building-outcome world kind x y reserve)
       (let* ((building (make-building (world-next-id world) kind x y 1
                                       (building-health kind) 0 0 0 (cell-x x) (cell-y y) 0 -1 -1 -1))
              (choice (choose-builder world building (world-bots world) (empty-list) reserve))
              (source (if (null? choice) (waiting-source world building reserve) (builder-source (car choice)))))
-        (if (< source 0) (world-notice-set world 6)
+        (if (< source 0) (reject-construction world 33)
             (let* ((building (building-source-set building source))
                    (world (world-started-set (pay-kit world source (building-cost kind)) #t))
                    (world (world-next-id-set
                            (world-buildings-set world
                                                 (append (world-buildings world) (list building)))
                            (+ (world-next-id world) 1))))
-              (world-notice-set (if (null? choice) world (reserve-builder world building (car choice))) 10)))))
+              (make-construction-outcome
+               (world-notice-set (if (null? choice) world (reserve-builder world building (car choice))) 10) 0)))))
     (define (automatic-world world kind x y) (queue-building world kind x y 40))
     (define (extract-world world x y) (queue-building world 1 x y 0))
     (define (fortify-world world x y) (queue-building world 2 x y 0))
     (define (observe-world world x y) (queue-building world 3 x y 0))
-    (define (wall-world world x y) (queue-building world 4 x y 0))
+    (define (house-world world x y) (queue-building world 4 x y 0))
+    ;; Retain the old library API for existing compiled callers.
+    (define (wall-world world x y) (house-world world x y))
     ;; Construction requests use absolute map cells. Validate the kind and whole index
     ;; before converting coordinates, then use the ordinary paid placement path.
     (define (place-cell-world world kind cell)
-      (cond ((or (< kind 1) (> kind 4)) world)
-            ((or (< cell 0) (>= cell (* map-width map-height))) (world-notice-set world 15))
-            (else (queue-building world kind (index-x cell) (index-y cell) 0))))
+      (construction-world (place-cell-outcome world kind cell)))
+    (define (map-cell? cell) (and (>= cell 0) (< cell (* map-width map-height))))
+    (define (place-cell-outcome world kind cell)
+      (cond ((or (< kind 1) (> kind 4)) (make-construction-outcome world 15))
+            ((not (map-cell? cell)) (reject-construction world 15))
+            (else (queue-building-outcome world kind (index-x cell) (index-y cell) 0))))
+
     (define (upgrade-world world x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (or (not (active? world)) (null? found)) (world-notice-set world 11)
@@ -356,6 +376,15 @@
           (and (= (bot-job bot) 7) (= (bot-timer bot) 4))))
     (define (pending-workers bots)
       (if (null? bots) 0 (+ (if (production-worker? (car bots)) 1 0) (pending-workers (cdr bots)))))
+    (define base-worker-capacity 12)
+    (define house-worker-capacity 4)
+    (define maximum-workers 64)
+    (define (house-capacity buildings)
+      (if (null? buildings) 0
+          (+ (if (and (= (building-kind (car buildings)) 4) (ready? (car buildings))) house-worker-capacity 0)
+             (house-capacity (cdr buildings)))))
+    (define (worker-capacity world)
+      (minimum maximum-workers (+ base-worker-capacity (house-capacity (world-buildings world)))))
     (define (assembler-eligible? world bot)
       (and (= (bot-order bot) 0)
            (or (<= (bot-job bot) 2) (= (bot-job bot) 8) (= (bot-job bot) 9) (= (bot-job bot) 10))
@@ -370,7 +399,7 @@
           (choose-assembler world (cdr bots) (best-builder (prepare-assembler world (car bots)) best))))
     (define (fabrication-reason world)
       (cond ((not (active? world)) 9)
-            ((>= (+ (list-size (world-bots world)) (pending-workers (world-bots world))) 12) 8)
+            ((>= (+ (list-size (world-bots world)) (pending-workers (world-bots world))) (worker-capacity world)) 8)
             ((< (world-credits world) worker-cost) 7)
             ((null? (choose-assembler world (world-bots world) (empty-list))) 27)
             (else 0)))
@@ -1570,12 +1599,10 @@
           (crowd-pressure enemy (cdr enemies) horizontal
                           (+ pressure (neighbor-pressure enemy (car enemies) horizontal)))))
     (define (enemy-lane-cell? world cell side)
-      (let* ((next (+ cell side))
-             (sites (building-at (world-buildings world) (index-x next) (index-y next))))
+      (let ((next (+ cell side)))
         (and (= (distance (index-x cell) (index-y cell) (index-x next) (index-y next)) 1)
              (world-ground? world (index-x cell) (index-y cell))
-             (world-ground? world (index-x next) (index-y next))
-             (or (null? sites) (not (and (= (building-kind (car sites)) 4) (ready? (car sites))))))))
+             (world-ground? world (index-x next) (index-y next)))))
     ;; Require nine straight steps, replace the first eight with a parallel
     ;; lane, then reconnect. Its eight-step straight prefix cannot accept a
     ;; nested detour, so even fast enemies finish the lane before spreading
@@ -1690,7 +1717,7 @@
       (if (null? enemies) enemies
           (if (> (enemy-hp (car enemies)) 0) (cons (car enemies) (enemy-survivors (cdr enemies)))
               (enemy-survivors (cdr enemies)))))
-    ;; ---- Encounters respect walls and a committed attacker's priority ----
+    ;; ---- Encounters respect a committed attacker's priority ----
 
     ;; The nine hub tile centers form a square; their outer attack boundary
     ;; keeps the same rounded 45-pixel reach as the former single-cell hub.
@@ -1715,19 +1742,12 @@
                      (within? (enemy-x enemy) (enemy-y enemy)
                               (cell-x (building-x building)) (cell-y (building-y building)) 56))
                 (list building) (near-building enemy (cdr buildings))))))
-    (define (near-wall enemy buildings)
-      (if (null? buildings) (empty-list)
-          (let ((site (car buildings)))
-            (if (and (= (building-kind site) 4) (ready? site)
-                     (within? (enemy-x enemy) (enemy-y enemy) (cell-x (building-x site)) (cell-y (building-y site)) 56))
-                (list site) (near-wall enemy (cdr buildings))))))
     (define (encounter? world enemy)
       (let ((target (enemy-target-building world enemy)))
-        (or (not (null? (near-wall enemy (world-buildings world))))
-            (if (null? target)
-                (or (near-hub? world enemy) (not (null? (near-worker world enemy (world-bots world))))
-                    (not (null? (near-building enemy (world-buildings world)))))
-                (not (null? (near-building enemy target)))))))
+        (if (null? target)
+            (or (near-hub? world enemy) (not (null? (near-worker world enemy (world-bots world))))
+                (not (null? (near-building enemy (world-buildings world)))))
+            (not (null? (near-building enemy target))))))
     (define attack-alert-ticks 80)
     (define attack-alert-radius 4)
     (define (retained-alerts alerts x y tick remaining)
@@ -1741,12 +1761,10 @@
                                     (retained-alerts (world-alerts world) x y (world-tick world) 3))))
     (define (attack-target world enemy)
       (let* ((damage (enemy-rank-damage (enemy-rank enemy)))
-             (wall (near-wall enemy (world-buildings world)))
              (target (enemy-target-building world enemy))
              (worker (near-worker world enemy (world-bots world)))
              (site (near-building enemy (if (null? target) (world-buildings world) target))))
-        (cond ((not (null? wall)) (damage-building world (car wall) damage))
-              ((not (null? target)) (if (null? site) world (damage-building world (car site) damage)))
+        (cond ((not (null? target)) (if (null? site) world (damage-building world (car site) damage)))
               ((and (near-hub? world enemy) (> (world-hull world) 0))
                (record-attack (world-hull-set world (maximum 0 (- (world-hull world) damage))) (world-hub-x world) (world-hub-y world) 0))
               ((not (null? worker))

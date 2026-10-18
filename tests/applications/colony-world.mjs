@@ -71,8 +71,8 @@ export async function checkWorld(test,fresh) {
     await restoreColony(r,world); const saved=r.snapshot(1); assert.ok(saved.length>65536&&saved.length<=1048576);
     await r.restore(1,saved); await advance(r); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
-  await test('cheap walls require worker delivery and absorb enemy attacks without extending sight',async()=>{
-    const r=await fresh(),point=at(state(r),10,22); await call(r,'build-wall',[point.x,point.y]);
+  await test('houses require worker delivery and remain ordinary attackable structures without extending sight',async()=>{
+    const r=await fresh(),point=at(state(r),10,22); await call(r,'build-house',[point.x,point.y]);
     assert.equal(state(r).ore,152); assert.notEqual(state(r).buildings[0].stage,2); await advance(r);
     assert.equal(state(r).bots.find(bot=>bot.job===3).cargo,8);
     for(let i=0;i<40&&state(r).buildings[0].stage!==2;i++)await advance(r);
@@ -82,7 +82,7 @@ export async function checkWorld(test,fresh) {
     const vanishedTarget=world.nextId++;
     world.enemies.push({id:world.nextId++,...pixelAt(world,14,22),hp:80,kind:0,target:vanishedTarget,path:[]});
     await restoreColony(r,world); await advance(r);
-    assert.ok(state(r).enemies[0].path.includes(routeCell(world,10,22)),'enemy chooses the direct route through the wall');
+    assert.ok(state(r).enemies[0].path.includes(routeCell(world,10,22)),'enemy chooses a direct route past the house');
     await advance(r,29); assert.equal(state(r).enemies[0].y,pixelAt(world,14,22).y);
     assert.equal(state(r).buildings[0].hp,213); assert.equal(state(r).hull,300);
     assert.ok(state(r).bots.every(bot=>bot.hp===14)); assert.equal(state(r).alerts[0].kind,5); await r.close();

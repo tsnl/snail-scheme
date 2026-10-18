@@ -79,9 +79,11 @@
        ((= (world-outcome world) 1) (require! (and (= (world-hull world) 0) (> (world-nest-hp world) 0))))
        ((= (world-outcome world) 3) (require! (= (world-nest-hp world) 0)))
        (else (require! #f))))
+    ;; Housing loss never invalidates surviving workers or paid recruits. Only
+    ;; the hard bound constrains snapshots; hiring checks current house capacity.
     (define (check-world-counts! world)
       (require! (and (<= (list-size (world-buildings world)) maximum-buildings)
-                     (<= (+ (list-size (world-bots world)) (pending-workers (world-bots world))) 12)
+                     (<= (+ (list-size (world-bots world)) (pending-workers (world-bots world))) maximum-workers)
                      (<= (list-size (world-enemies world)) maximum-enemies) (bounded? (list-size (world-surveys world)) 1 maximum-surveys)
                      (<= (list-size (world-alerts world)) 4) (<= (list-size (world-rails world)) maximum-buildings))))
     (define (check-surveys! world surveys)
