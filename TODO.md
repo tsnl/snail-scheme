@@ -6,8 +6,9 @@ Continue improving the existing [book](doc/book/SUMMARY.md) and
 [formal summary](doc/book/lofi/reference.md) incrementally. Keep descriptions
 of implemented behavior separate from proposed language changes.
 
-- [ ] Settle the arrangement of `All`, `requires`, implicit instantiation, and
-  checking before changing the corresponding rules or syntax.
+- [x] Specify and implement rank-one `All` with an optional `requires` clause:
+  rigid variables and assumptions while checking a definition, fresh inference
+  holes or explicit type arguments at each use. Retain `=>` as input compatibility.
 - [ ] Specify fixed-arity Lofi functions and explicit argument packing for
   Scheme variadic procedures before removing the documented rest forms.
 
