@@ -13,6 +13,9 @@ both builds. Solo runs its authority in the browser with IndexedDB; cloud runs
 the same generated Wasm on Node and commits to SQLite. The
 [prototype contract](PROTOTYPE.md) separates this experiment from future ideas.
 
+For smaller steps first, follow the [five application tutorials](../../doc/book/lofi/tutorials/index.md).
+Each isolates a piece of this app and points back to its implementation here.
+
 ## Build and play
 
 From the repository root, with Chibi, Binaryen and Node 24 available:

@@ -18,7 +18,7 @@ scripts/build-native --wasm --entry-rust tests/native-runner.rs \
 With its default command host, `scripts/build-native` accepts a final result of
 `Unit`, `I32` or `I64`. Unit produces status zero;
 integers in 0..255 become the process status and other integers produce status
-one. `-I DIRECTORY` selects Lofi libraries. See [command options](../../options.md).
+one. `-I DIRECTORY` selects Lofi libraries. See [command options](https://github.com/tsnl/snail-scheme/blob/main/doc/options.md).
 
 The helper also accepts `--llvm` and `--object` inputs, `--export NAME`, and
 `--entry-rust FILE`. Object input requires an explicit Rust entry point. A custom
@@ -34,11 +34,11 @@ executable. Configuration, commands, hashes and compiler traces remain beside
 the output in its uniquely named build directory. Binaryen is mandatory even
 for `--wasm` inputs. Raw Wasm is retained only for diagnostic comparisons.
 
-[`build.scm`](../../../build.scm) shows the ordinary library calls for a selected public
+[`build.scm`](https://github.com/tsnl/snail-scheme/blob/main/build.scm) shows the ordinary library calls for a selected public
 entry. It accepts `REPOSITORY SOURCE EXPORT RUST-ENTRY OUTPUT` and works with
 absolute paths from any working directory; its first comment runs the
-[`answer.sld`](../../../examples/native/answer.sld) and
-[`entry.rs`](../../../examples/native/entry.rs) example, which prints `42`.
+[`answer.sld`](https://github.com/tsnl/snail-scheme/blob/main/examples/native/answer.sld) and
+[`entry.rs`](https://github.com/tsnl/snail-scheme/blob/main/examples/native/entry.rs) example, which prints `42`.
 
 `(native)` reads a Wasm file through `wasm-binary->llvm`, with explicit
 physical `make-native-import` declarations and build paths. `llvm-bitcode` retains

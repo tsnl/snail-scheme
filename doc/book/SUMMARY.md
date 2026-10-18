@@ -1,7 +1,8 @@
 # Summary
 
-[Lofi](lofi/index.md)
+[Lofi](index.md)
 
+- [Language overview](lofi/index.md)
 - [Terms and definitions](lofi/terms.md)
 - [Types](lofi/types.md)
 - [Formal summary](lofi/reference.md)
@@ -9,6 +10,12 @@
 - [Libraries](lofi/libraries.md)
 - [Compilers as libraries](lofi/compilers.md)
 - [Applications, state, and hot reload](lofi/applications.md)
+- [Build small applications](lofi/tutorials/index.md)
+  - [Make a counter with typed commands](lofi/tutorials/counter.md)
+  - [Make an immutable inventory](lofi/tutorials/inventory.md)
+  - [Send a command from local controls](lofi/tutorials/commands.md)
+  - [Draw a shared marker board](lofi/tutorials/board.md)
+  - [Keep state across code changes and restarts](lofi/tutorials/reload.md)
 - [Notable omissions](lofi/omissions.md)
 - [Implementation extensions](lofi/extensions.md)
 - [References](lofi/references.md)
