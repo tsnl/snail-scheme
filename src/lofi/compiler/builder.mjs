@@ -110,8 +110,7 @@ const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'condi
   'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match', 'number-literal'];
 const staticKinds = ['datatype', 'typeclass', 'instance'];
 const declarationKinds = ['definition', 'inferred-definition', 'local-binding', 'inferred-local-binding',
-  'expression-statement', 'extern', 'overload', ...staticKinds, 'kind-annotation'];
-const kindKinds = ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence'];
+  'expression-statement', 'extern', 'overload', ...staticKinds];
 const selectionKinds = ['all', 'only', 'rename'];
 const sequenceKinds = ['nil', 'cons'];
 
@@ -125,8 +124,6 @@ const syntaxForms = [
   ['nominal-type', ['binding-reference', 'types']],
   ['constraint', ['binding-reference', 'types', 'span']],
   ['all-signature', ['child-scope', 'variables', 'constraints', 'type', 'span']],
-  ['kind-type', []], ['kind-constraint', []], ['kind-function', ['kinds', 'kind']],
-  ['kind-evidence', ['constraint']],
   ['string-literal', ['name', 'span']], ['bytevector-literal', ['bytes', 'span']],
   ['rest-lambda', ['child-scope', 'bindings', 'binding', 'expression', 'span']],
   ['block', ['child-scope', 'declarations', 'expression', 'span']],
@@ -146,7 +143,6 @@ const syntaxForms = [
   ['typeclass', ['binding', 'child-scope', 'variables', 'methods', 'span']],
   ['method-implementation', ['binding-reference', 'expression', 'span']],
   ['instance', ['binding', 'constraint', 'implementations', 'span']],
-  ['kind-annotation', ['kind', 'static-declaration', 'span']],
   ['extern', ['binding', 'name', 'name', 'type', 'span']],
   ['overload', ['binding', 'signature', 'expression', 'span']],
   ['number-literal', ['name', 'span']], ['rest-type', ['type']],
@@ -154,10 +150,10 @@ const syntaxForms = [
 const categories = {
   'scope-id': ['scope', 'child-scope'], type: typeKinds, signature: signatureKinds,
   'binding-reference': referenceKinds, expression: expressionKinds, declaration: declarationKinds,
-  kind: kindKinds, 'static-declaration': staticKinds, 'data-field': ['data-field', 'accessor-field'],
+  'data-field': ['data-field', 'accessor-field'],
 };
 const sequences = {
-  types: 'type', variables: 'variable-id', constraints: 'constraint', kinds: 'kind', bytes: 'byte',
+  types: 'type', variables: 'variable-id', constraints: 'constraint', bytes: 'byte',
   bindings: 'binding', declarations: 'declaration', arms: 'match-arm', fields: 'data-field',
   cases: 'data-case', methods: 'class-method', implementations: 'method-implementation',
 };
@@ -366,10 +362,17 @@ function receivePacket(arena, text) {
 
 // ---- Inspection copies values and preserves child identities ----
 
+// Inspection tags match builder.sld. Removed kind forms leave holes so existing
+// constructors keep their tags; the closed packet schema rejects removed forms.
 const nodeTags = ['name', 'span', 'scope', 'child-scope', 'binding', 'nil', 'cons', 'scalar-type',
   'function-type', 'local-reference', 'import-reference', 'reference', 'literal', 'lambda', 'application',
   'conditional', 'definition', 'all', 'only', 'rename-pair', 'rename', 'import', 'export', 'library', 'byte',
-  ...syntaxForms.map(([kind]) => kind)];
+  'variable-id', 'variable-type', 'reference-type', 'list-type', 'vector-type', 'rest-function-type',
+  'nominal-type', 'constraint', 'all-signature', null, null, null, null,
+  'string-literal', 'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation',
+  'match-arm', 'match', 'inferred-definition', 'local-binding', 'inferred-local-binding',
+  'expression-statement', 'data-field', 'accessor-field', 'data-case', 'datatype', 'class-method',
+  'typeclass', 'method-implementation', 'instance', null, 'extern', 'overload', 'number-literal', 'rest-type'];
 
 function addInspection(arena, add) {
   add('inspect-tag', ['i64'], handle => nodeTags.indexOf(arena.get(handle)[0]), 'i32');

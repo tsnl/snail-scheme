@@ -5,7 +5,7 @@
 (def identity
      (lambda (value) value))
 
-(def constrained (All (T) (=> ((choose (-> T T))) (-> T T)))
+(def constrained (All (T) (requires (choose (-> T T))) (-> T T))
      (lambda (value) (choose value)))
 (def unary
      (ann choose (-> Bool Bool)))

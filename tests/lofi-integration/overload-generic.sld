@@ -2,10 +2,10 @@
  (lofi base))
 (define-overload promote (-> I64 F64) i64->f64)
 
-(def combine (All (A B R) (=> ((+ (-> A B R))) (-> A B R)))
+(def combine (All (A B R) (requires (+ (-> A B R))) (-> A B R))
      (lambda (left right) (+ left right)))
 
-(def discard (All (A B R) (=> ((+ (-> A B R))) (-> A B Unit)))
+(def discard (All (A B R) (requires (+ (-> A B R))) (-> A B Unit))
      (lambda (left right)
        (begin (+ left right) (unit))))
 (def nested

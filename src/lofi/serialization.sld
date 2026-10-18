@@ -11,7 +11,7 @@
    (scheme base)
    (scheme immutable)
    (lofi sexp)
-   (only (lofi core) data deriving typeclass instance def ann inst match All => ->
+   (only (lofi core) data deriving typeclass instance def ann inst match All requires ->
          Ref List Vector I32 I64 F32 F64 Bool Char Unit Any String Bytevector
          identifier-name type-name)
    (only (lofi base) Default default ref ref-get ref-set! ref-eq? vector-eq? empty-vector
@@ -48,10 +48,10 @@
     (data DeserializeContext ()
       (deserialize-context
        (objects (Ref (List DeserializedObject)) deserialized-objects)))
-    (def serialize (All (T) (=> ((Serialize T)) (-> T Sexp)))
+    (def serialize (All (T) (requires (Serialize T)) (-> T Sexp))
          (lambda (value)
            (serialize-with (serialize-context (ref (empty-list)) (ref (ann 0 I64))) value)))
-    (def deserialize (All (T) (=> ((Deserialize T)) (-> Sexp T)))
+    (def deserialize (All (T) (requires (Deserialize T)) (-> Sexp T))
          (lambda (value) (deserialize-with (deserialize-context (ref (empty-list))) value)))
 
     ;; ---- Parse wire shapes before using their contents ----

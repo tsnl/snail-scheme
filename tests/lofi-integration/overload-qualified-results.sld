@@ -3,7 +3,7 @@
 (define-overload view (-> I64 I64) (lambda (value) value))
 (define-overload view (-> I64 F64) i64->f64)
 
-(def pair-views (All (A R S) (=> ((view (-> A R)) (view (-> A S))) (-> A R S S)))
+(def pair-views (All (A R S) (requires (view (-> A R)) (view (-> A S))) (-> A R S S))
      (lambda (input left right)
        (begin
          (if #f left (view input))

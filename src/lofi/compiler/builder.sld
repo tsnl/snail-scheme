@@ -13,15 +13,15 @@
           literal-number view-number-literal rest-type view-rest-type
           signature-location signature-location-set)
   (export
-   DataField Signature MatchArm KindSyntax MethodImplementation
+   DataField Signature MatchArm MethodImplementation
    DataCase ClassMethod ConstraintSyntax TypeVariableId type-variable
    variable-type reference-type list-type vector-type rest-function-type
-   nominal-type constraint all-signature kind-type kind-constraint
-   function-kind evidence-kind literal-string literal-bytevector rest-lambda-expression
+   nominal-type constraint all-signature
+   literal-string literal-bytevector rest-lambda-expression
    block-expression annotation-expression instantiation-expression match-arm match-expression
    inferred-definition local-binding inferred-local-binding expression-statement data-field
    accessor-field data-constructor datatype-definition class-method typeclass-definition
-   method-implementation instance-definition kind-annotated-definition extern-definition overload-definition
+   method-implementation instance-definition extern-definition overload-definition
    type-string type-bytevector type-never type-any
    binding-signature signature-definition builder-name-text same-binding? same-scope?
    same-type-variable? SourceSpanView view-span inspect-span ScopeIdView
@@ -36,15 +36,14 @@
    view-conditional view-string-literal view-bytevector-literal view-rest-lambda view-block
    view-annotation view-instantiation view-match inspect-expression DeclarationView
    view-definition view-inferred-definition view-local-binding view-inferred-local-binding view-expression-statement
-   view-datatype view-typeclass view-instance view-kind-annotation view-extern
+   view-datatype view-typeclass view-instance view-extern
    view-overload inspect-declaration ImportRenameView view-rename-pair
    inspect-import-rename ImportSelectionView view-all view-only view-rename
    inspect-import-selection ImportView view-import inspect-import ExportView
    view-export inspect-export LofiLibraryView view-library inspect-library
    TypeVariableIdView view-variable-id inspect-type-variable ConstraintSyntaxView view-constraint
    inspect-constraint SignatureView view-binding-signature view-all-signature inspect-signature
-   KindSyntaxView view-kind-type view-kind-constraint view-kind-function view-kind-evidence
-   inspect-kind MatchArmView view-match-arm inspect-match-arm DataFieldView
+   MatchArmView view-match-arm inspect-match-arm DataFieldView
    view-data-field view-accessor-field inspect-data-field DataCaseView view-data-case
    inspect-data-constructor ClassMethodView view-class-method inspect-class-method MethodImplementationView
    view-method-implementation inspect-method-implementation
@@ -106,9 +105,6 @@
     (def Signature (datatype ()
                      (wrap-signature
                       (token I64 signature-token))))
-    (def KindSyntax (datatype ()
-                      (wrap-kind
-                       (token I64 kind-token))))
     (def MatchArm (datatype ()
                     (wrap-arm
                      (token I64 arm-token))))
@@ -172,10 +168,6 @@
     (define-extern raw-nominal-type "lofi.builder" "nominal-type" (-> I64 I64 I64))
     (define-extern raw-constraint "lofi.builder" "constraint" (-> I64 I64 I64 I64))
     (define-extern raw-all-signature "lofi.builder" "all-signature" (-> I64 I64 I64 I64 I64 I64))
-    (define-extern raw-kind-type "lofi.builder" "kind-type" (-> I64))
-    (define-extern raw-kind-constraint "lofi.builder" "kind-constraint" (-> I64))
-    (define-extern raw-kind-function "lofi.builder" "kind-function" (-> I64 I64 I64))
-    (define-extern raw-kind-evidence "lofi.builder" "kind-evidence" (-> I64 I64))
     (define-extern raw-string-literal "lofi.builder" "string-literal" (-> I64 I64 I64))
     (define-extern raw-bytevector-literal "lofi.builder" "bytevector-literal" (-> I64 I64 I64))
     (define-extern raw-rest-lambda "lofi.builder" "rest-lambda" (-> I64 I64 I64 I64 I64 I64))
@@ -196,7 +188,6 @@
     (define-extern raw-typeclass "lofi.builder" "typeclass" (-> I64 I64 I64 I64 I64 I64))
     (define-extern raw-method-implementation "lofi.builder" "method-implementation" (-> I64 I64 I64 I64))
     (define-extern raw-instance "lofi.builder" "instance" (-> I64 I64 I64 I64 I64))
-    (define-extern raw-kind-annotation "lofi.builder" "kind-annotation" (-> I64 I64 I64 I64))
     (define-extern raw-extern "lofi.builder" "extern" (-> I64 I64 I64 I64 I64 I64))
     (define-extern raw-overload "lofi.builder" "overload" (-> I64 I64 I64 I64 I64))
     (define-extern raw-byte "lofi.builder" "byte" (-> I64 I64))
@@ -250,10 +241,6 @@
     (def tag-nominal-type I32 31)
     (def tag-constraint I32 32)
     (def tag-all-signature I32 33)
-    (def tag-kind-type I32 34)
-    (def tag-kind-constraint I32 35)
-    (def tag-kind-function I32 36)
-    (def tag-kind-evidence I32 37)
     (def tag-string-literal I32 38)
     (def tag-bytevector-literal I32 39)
     (def tag-rest-lambda I32 40)
@@ -274,7 +261,6 @@
     (def tag-typeclass I32 55)
     (def tag-method-implementation I32 56)
     (def tag-instance I32 57)
-    (def tag-kind-annotation I32 58)
     (def tag-extern I32 59)
     (def tag-overload I32 60)
     (def tag-number-literal I32 61)
@@ -363,14 +349,6 @@
          (lambda (token)
            (if (i32-eq (raw-inspect-tag token) tag-nil) (empty-list)
                (cons (wrap-constraint (raw-inspect-field token 0)) (decode-constraints (raw-inspect-field token 1))))))
-    (def encode-kinds (-> (List KindSyntax) I64)
-         (lambda (items)
-           (if (null? items) (raw-nil)
-               (raw-cons (kind-token (car items)) (encode-kinds (cdr items))))))
-    (def decode-kinds (-> I64 (List KindSyntax))
-         (lambda (token)
-           (if (i32-eq (raw-inspect-tag token) tag-nil) (empty-list)
-               (cons (wrap-kind (raw-inspect-field token 0)) (decode-kinds (raw-inspect-field token 1))))))
     (def encode-arms (-> (List MatchArm) I64)
          (lambda (items)
            (if (null? items) (raw-nil)
@@ -554,18 +532,6 @@
              (encode-constraints constraints)
              (type-token type)
              (span-token span)))))
-    (def kind-type (-> KindSyntax)
-         (lambda ()
-           (wrap-kind (raw-kind-type))))
-    (def kind-constraint (-> KindSyntax)
-         (lambda ()
-           (wrap-kind (raw-kind-constraint))))
-    (def function-kind (-> (List KindSyntax) KindSyntax KindSyntax)
-         (lambda (parameters result)
-           (wrap-kind (raw-kind-function (encode-kinds parameters) (kind-token result)))))
-    (def evidence-kind (-> ConstraintSyntax KindSyntax)
-         (lambda (requirement)
-           (wrap-kind (raw-kind-evidence (constraint-token requirement)))))
     (def literal-string (-> String SourceSpan Expression)
          (lambda (value span)
            (wrap-expression (raw-string-literal (name-token (builder-name value)) (span-token span)))))
@@ -655,9 +621,6 @@
     (def instance-definition (-> BindingId ConstraintSyntax (List MethodImplementation) SourceSpan Declaration)
          (lambda (binding head methods span)
            (wrap-declaration (raw-instance (binding-token binding) (constraint-token head) (encode-implementations methods) (span-token span)))))
-    (def kind-annotated-definition (-> KindSyntax Declaration SourceSpan Declaration)
-         (lambda (kind declaration span)
-           (wrap-declaration (raw-kind-annotation (kind-token kind) (declaration-token declaration) (span-token span)))))
     (def extern-definition (-> BindingId String String TypeSyntax SourceSpan Declaration)
          (lambda (binding module symbol type span)
            (wrap-declaration
@@ -1066,10 +1029,6 @@
             (head ConstraintSyntax)
             (methods (List MethodImplementation))
             (span SourceSpan))
-           (view-kind-annotation
-            (kind KindSyntax)
-            (declaration Declaration)
-            (span SourceSpan))
            (view-extern
             (binding BindingId)
             (module String)
@@ -1129,27 +1088,22 @@
                                                    (wrap-constraint (raw-inspect-field token 1))
                                                    (decode-implementations (raw-inspect-field token 2))
                                                    (wrap-span (raw-inspect-field token 3)))
-                                                  (if (i32-eq tag tag-kind-annotation)
-                                                      (view-kind-annotation
-                                                       (wrap-kind (raw-inspect-field token 0))
-                                                       (wrap-declaration (raw-inspect-field token 1))
-                                                       (wrap-span (raw-inspect-field token 2)))
-                                                      (if (i32-eq tag tag-extern)
-                                                          (view-extern
+                                                  (if (i32-eq tag tag-extern)
+                                                      (view-extern
+                                                       (wrap-binding (raw-inspect-field token 0))
+                                                       (builder-name-text
+                                                        (wrap-name (raw-inspect-field token 1)))
+                                                       (builder-name-text
+                                                        (wrap-name (raw-inspect-field token 2)))
+                                                       (wrap-type (raw-inspect-field token 3))
+                                                       (wrap-span (raw-inspect-field token 4)))
+                                                      (if (i32-eq tag tag-overload)
+                                                          (view-overload
                                                            (wrap-binding (raw-inspect-field token 0))
-                                                           (builder-name-text
-                                                            (wrap-name (raw-inspect-field token 1)))
-                                                           (builder-name-text
-                                                            (wrap-name (raw-inspect-field token 2)))
-                                                           (wrap-type (raw-inspect-field token 3))
-                                                           (wrap-span (raw-inspect-field token 4)))
-                                                          (if (i32-eq tag tag-overload)
-                                                              (view-overload
-                                                               (wrap-binding (raw-inspect-field token 0))
-                                                               (wrap-signature (raw-inspect-field token 1))
-                                                               (wrap-expression (raw-inspect-field token 2))
-                                                               (wrap-span (raw-inspect-field token 3)))
-                                                              (unreachable)))))))))))))))
+                                                           (wrap-signature (raw-inspect-field token 1))
+                                                           (wrap-expression (raw-inspect-field token 2))
+                                                           (wrap-span (raw-inspect-field token 3)))
+                                                          (unreachable))))))))))))))
     (def ImportRenameView
          (datatype ()
            (view-rename-pair
@@ -1288,28 +1242,6 @@
                        (wrap-type (raw-inspect-field token 3))
                        (wrap-span (raw-inspect-field token 4)))
                       (view-binding-signature (wrap-type token))))))
-    (def KindSyntaxView
-         (datatype ()
-           (view-kind-type)
-           (view-kind-constraint)
-           (view-kind-function
-            (parameters (List KindSyntax))
-            (result KindSyntax))
-           (view-kind-evidence
-            (requirement ConstraintSyntax)) ))
-    (def inspect-kind (-> KindSyntax KindSyntaxView)
-         (lambda (value)
-           (begin (let token (kind-token value))
-                  (let tag (raw-inspect-tag token))
-                  (if (i32-eq tag tag-kind-type)
-                      (view-kind-type)
-                      (if (i32-eq tag tag-kind-constraint)
-                          (view-kind-constraint)
-                          (if (i32-eq tag tag-kind-function)
-                              (view-kind-function (decode-kinds (raw-inspect-field token 0)) (wrap-kind (raw-inspect-field token 1)))
-                              (if (i32-eq tag tag-kind-evidence)
-                                  (view-kind-evidence (wrap-constraint (raw-inspect-field token 0)))
-                                  (unreachable))))))))
     (def MatchArmView
          (datatype ()
            (view-match-arm

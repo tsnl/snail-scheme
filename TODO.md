@@ -8,7 +8,10 @@ of implemented behavior separate from proposed language changes.
 
 - [x] Specify and implement rank-one `All` with an optional `requires` clause:
   rigid variables and assumptions while checking a definition, fresh inference
-  holes or explicit type arguments at each use. Retain `=>` as input compatibility.
+  holes or explicit type arguments at each use.
+- [x] Remove legacy `=>` signatures and kind annotations from source, library
+  builders, and transfer packets. Store schemes directly as variables,
+  requirements, and an ordinary type; derive category and arity from declarations.
 - [ ] Specify fixed-arity Lofi functions and explicit argument packing for
   Scheme variadic procedures before removing the documented rest forms.
 
@@ -17,19 +20,19 @@ of implemented behavior separate from proposed language changes.
 Formalization and proof tooling are deferred. They are not prerequisites for
 landing documentation improvements.
 
-- [ ] Revisit Ott for the grammar and named inference rules, starting with a
-  small fragment of the existing reference.
+- [ ] Review the Ott grammar and named inference rules in the draft against
+  the implemented language.
 - [ ] Generate the corresponding book sections from that source once the
   workflow is established, keeping explanations and examples alongside the rules.
-- [ ] Choose a proof assistant and check its integration with Ott. Generating
+- [ ] Review the Ott-to-Rocq build before landing the proof tooling. Generating
   definitions does not itself prove properties of the language or compiler.
 - [ ] Add machine-checked proofs incrementally, beginning with variable scope,
   name categories, application arity, and closed instance heads. State each
   fragment's assumptions and proved properties before expanding its coverage.
 
-The [Agda experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
-is parked for reference. It does not replace the book or commit the project to
-Agda as its eventual proof assistant.
+The [Ott/Rocq experiment in draft PR #325](https://github.com/tsnl/snail-scheme/pull/325)
+explores generated definitions and formation proofs. It remains separate from
+the landed compiler and book; it does not prove compiler correctness.
 
 ## Siegework iteration
 

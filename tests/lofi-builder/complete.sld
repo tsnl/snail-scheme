@@ -76,28 +76,25 @@
            (begin
              (let types (nested-scope scope))
              (let t (type-variable types (builder-name "T") span))
-             (kind-annotated-definition (function-kind (items (kind-type)) (kind-type))
-                                        (datatype-definition box-type types (items t)
-                                                             (items (data-constructor box
-                                                                                      (items (accessor-field (builder-name "value") (variable-type t) accessor span)) span)) span) span))))
+             (datatype-definition box-type types (items t)
+                                  (items (data-constructor box
+                                                           (items (accessor-field (builder-name "value") (variable-type t) accessor span)) span)) span))))
     (def value-class (-> ScopeId BindingId BindingId Declaration)
          (lambda (scope class method)
            (begin
              (let types (nested-scope scope))
              (let t (type-variable types (builder-name "T") span))
-             (kind-annotated-definition (function-kind (items (kind-type)) (kind-constraint))
-                                        (typeclass-definition class types (items t)
-                                                              (items (class-method method (function-type (items (variable-type t)) (type-i32)) span)) span) span))))
+             (typeclass-definition class types (items t)
+                                   (items (class-method method (function-type (items (variable-type t)) (type-i32)) span)) span))))
     (def value-instance (-> ScopeId BindingId BindingId BindingId Declaration)
          (lambda (scope instance-binding class method)
            (begin
              (let head (constraint (local-reference class span) (items (type-i32)) span))
              (let body (nested-scope scope))
              (let x (named body "value"))
-             (kind-annotated-definition (evidence-kind head)
-                                        (instance-definition instance-binding head
-                                                             (items (method-implementation (local-reference method span)
-                                                                                           (lambda-expression body (items x) (use x) span) span)) span) span))))
+             (instance-definition instance-binding head
+                                  (items (method-implementation (local-reference method span)
+                                                                (lambda-expression body (items x) (use x) span) span)) span))))
     (def rest-definition (-> ScopeId BindingId Declaration)
          (lambda (scope binding)
            (begin

@@ -37,8 +37,8 @@ The entry point is `library_file`. Its body admits `static_definition` through
 declarations therefore require library scope, including when produced by a
 macro. Library splices preserve that scope.
 
-This grammar uses `All` with an optional `requires` clause. The earlier `=>`
-spelling remains an input compatibility form, as described in [Types](types.md).
+This grammar uses `All` with an optional `requires` clause, as implemented by
+the compiler. Legacy `=>` signatures and static kind annotations are rejected.
 Typed rest parameters are still implemented; their planned replacement is
 recorded under [planned simplification](omissions.md#planned-language-simplification).
 

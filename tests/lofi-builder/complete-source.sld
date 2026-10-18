@@ -4,11 +4,11 @@
    (rename (complete provider) (operation choose)))
   (export run literals Box box)
   (begin
-    (def Box (Kind-> Type Type) (datatype (T)
-                                  (box
-                                   (value T box-value))))
-    (def Value (Kind-> Type Constraint) (typeclass (T) (: value (-> T I32))))
-    (def int-value (Evidence (Value I32)) (instance (Value I32) (value (lambda (value) value))))
+    (def Box (datatype (T)
+               (box
+                (value T box-value))))
+    (def Value (typeclass (T) (: value (-> T I32))))
+    (def int-value (instance (Value I32) (value (lambda (value) value))))
     (def identity (All (T) (-> T T)) (lambda (value) value))
     (def nested (All (Outer) (-> Outer Outer))
          (lambda (value)
@@ -16,7 +16,7 @@
              (def inner (All (T) (-> T T))
                   (lambda (item) (begin (ann value Outer) item)))
              (inner value))))
-    (def read-value (All (T) (=> ((Value T)) (-> T I32))) (lambda (input) (value input)))
+    (def read-value (All (T) (requires (Value T)) (-> T I32)) (lambda (input) (value input)))
     (def first-two (-> I32 (Rest I32) I32) (lambda (first . rest) (i32-add first (car rest))))
     (define-overload choose (-> I32 I32) (lambda (value) value))
     (define-overload choose (-> Bool Bool) (lambda (value) (if value #f #t)))

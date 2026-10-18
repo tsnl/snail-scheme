@@ -23,12 +23,11 @@ Lofi lists; their contents are copied into immutable host sequences.
 | `BindingReference` | `local-reference`, `import-reference` |
 | `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `rest-type`, `function-type`, `rest-function-type`, `nominal-type`, `variable-type` |
 | `Signature`, `ConstraintSyntax` | `binding-signature`, `all-signature`, `constraint` |
-| `KindSyntax` | `kind-type`, `kind-constraint`, `function-kind`, `evidence-kind` |
 | `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `literal-number`, `reference-expression`, `lambda-expression`, `rest-lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
 | `MatchArm` | `match-arm` |
 | `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
 | `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
-| `ClassMethod`, `MethodImplementation`, static `Declaration` | `class-method`, `typeclass-definition`, `method-implementation`, `instance-definition`, `kind-annotated-definition` |
+| `ClassMethod`, `MethodImplementation`, static `Declaration` | `class-method`, `typeclass-definition`, `method-implementation`, `instance-definition` |
 | Extension `Declaration` | `extern-definition`, `overload-definition` |
 | `ImportSelection`, `ImportRename` | `all-imports`, `only-imports`, `import-rename`, `rename-imports` |
 | `Import`, `Export`, `LofiLibrary` | `library-import`, `library-export`, `lofi-library` |
@@ -88,7 +87,8 @@ are rejected. Reuse of a scope by two binding owners is rejected. Shared
 reference/type syntax is checked at each occurrence against that occurrence's
 visible identities, even when the same node was valid elsewhere.
 
-Kind annotations describe expected static kinds. A producer cannot manufacture
+Declaration forms establish their categories and parameter counts. Kind syntax
+and kind-annotation packets are rejected. A producer cannot manufacture
 checked types, inferred schemes or instance evidence. Constructor arities,
 nominal identities, class membership, exhaustiveness, foreign ABIs and overload
 selection remain the ordinary resolver and checker's responsibility.
@@ -101,7 +101,7 @@ Constructed declarations without that optional field use their declaration span.
 
 ## Inspecting and transforming syntax
 
-`inspect-type`, `inspect-signature`, `inspect-kind`, `inspect-expression` and
+`inspect-type`, `inspect-signature`, `inspect-expression` and
 `inspect-declaration` return their corresponding public `…View` datatypes.
 Their variants expose every constructor's fields and can be matched normally.
 `inspect-library`, `inspect-import`, `inspect-export`, `inspect-import-selection`

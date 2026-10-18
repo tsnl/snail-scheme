@@ -47,10 +47,6 @@ const mutations = [
   }],
   ['byte-range', nodes => { first(nodes, 'byte')[1] = 256; }],
   ['duplicate-static-binding', nodes => { first(nodes, 'class-method')[1] = binding(nodes, 'box'); }],
-  ['kind-mismatch', nodes => {
-    const annotation = first(nodes, 'kind-annotation');
-    annotation[1] = nodes.findIndex(node => node[0] === 'kind-constraint');
-  }],
   ['forged-evidence', nodes => { first(nodes, 'scalar-type')[1] = 'CheckedI32'; }],
   ['surrogate-text', nodes => { nodes[first(nodes, 'string-literal')[1]][1] = '\ud800'; }],
   ['reserved-binding', nodes => { nodes[nodes[binding(nodes, 'text')][2]][1] = 'def'; }],
@@ -81,6 +77,13 @@ for (const [name, mutate] of mutations) {
 // Inspection uses the same arena ownership and category checks as construction.
 const arena = openLibraryBuilder(), other = openLibraryBuilder();
 const api = arena.provider.exports, foreign = other.provider.exports['name-empty']();
+for (const kind of ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence', 'kind-annotation']) {
+  assert.equal(api[kind], undefined);
+  const removed = structuredClone(packet);
+  removed.nodes.push([kind]);
+  assert.throws(() => arena.receive(JSON.stringify(removed)), /unsupported transfer node/);
+  writeFileSync(join(directory, `bad-${kind}.json`), JSON.stringify(removed));
+}
 const name = api['name-character'](api['name-empty'](), 0x1f642);
 assert.equal(api['name-length'](name), 1n);
 assert.equal(api['name-ref'](name, 0n), 0x1f642);
