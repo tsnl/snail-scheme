@@ -34,7 +34,10 @@
 (def base-code
   (lambda (base) (match base ((adenine) (ann 0 I64)) ((cytosine) (ann 1 I64)) ((guanine) (ann 2 I64)) ((uracil) (ann 3 I64)))))
 
-(def nucleic-list (lambda elements elements))
+(def nucleic-list
+     (syntax-rules ()
+       ((_) (empty-list))
+       ((_ first rest ...) (cons first (nucleic-list rest ...)))))
 
 (def nucleic-append (All (T) (-> (List T) (List T) (List T)))
   (lambda (first last) (if (null? first) last (cons (car first) (nucleic-append (cdr first) last)))))

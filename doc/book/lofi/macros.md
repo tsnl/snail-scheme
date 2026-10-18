@@ -217,12 +217,41 @@ This is a **typed Scheme subset**, not an R7RS implementation:
   `begin` splices into its surrounding scope, including in macro expansion.
 - `cond` supports clauses with body expressions and an optional final `else`.
   It does not implement test-only or `=>` clauses.
-- Lists and vectors are homogeneous, numeric representations follow Lofi, and
-  variadic functions use Lofi's typed rest rules. There is no automatic dynamic
-  Scheme representation or general numeric tower behind these forms.
+- Functions have fixed arity; `define` and `lambda` require proper parameter
+  lists. General first-class Scheme variadic procedures remain deferred.
+- Lists and vectors are homogeneous and numeric representations follow Lofi.
+  There is no automatic dynamic Scheme representation or general numeric tower
+  behind these forms.
 - Quote/quasiquote, `set!`, multiple values, continuations, Scheme ports and the
   rest of R7RS are future work. Existing `(lofi ...)` libraries expose additional
   runtime services explicitly.
+
+### Packing macros and first-class workers
+
+`(list a b)`, `(vector a b)` and `(string a b)` are hygienic syntax from
+`(lofi base)`, also re-exported by `(scheme base)`. They construct a homogeneous
+list with `cons`/`empty-list`; the vector and string forms then call the ordinary
+`list->vector` and `list->string` functions. Arguments run once, left-to-right.
+No runtime function has an optional argument or a rest parameter.
+
+The same distinction applies to these libraries:
+
+| Packing macro | Fixed-arity worker | Library |
+| --- | --- | --- |
+| `vector` | `list->vector` | `(lofi base)` |
+| `vector-append` | `vector-concatenate` | `(lofi base)` |
+| `string` | `list->string` | `(lofi base)` |
+| `string-append` | `string-concatenate` | `(lofi base)` |
+| `bytevector` | `list->bytevector` | `(lofi bytes)` |
+| `bytevector-append` | `bytevector-concatenate` | `(lofi bytes)` |
+| `datum-list` | `list->datum` | `(lofi datum)` |
+
+Each worker takes one list argument and can be passed as a function value.
+The macros cannot be used as runtime values; replace a former first-class
+constructor with its worker, or write a lambda with an explicit parameter list.
+An empty packing macro still needs enough type context to determine its element
+representation. General Scheme variadic calling needs a separately specified
+lowering convention; these macros do not implement that convention.
 
 ## Library values and bootstrap
 

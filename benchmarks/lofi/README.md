@@ -9,6 +9,13 @@ Preparation checks `lofi_sha256`. Frozen reports, raw records
 and their `sfir-*` route labels retain the names used by the measured revision;
 the rename does not establish new validation or performance results.
 
+The fixed-arity migration replaces source rest procedures with explicit list
+parameters and packing macros. Redundant local list constructors use the shared
+`(lofi base)` macro. Each affected `migration.json` records before/after hashes
+under `fixed_arity_migration`; `lofi_sha256` identifies the current main source.
+Algorithms, inputs, numeric representations and external controls are preserved.
+These source updates do not replace any frozen correctness or timing campaign.
+
 The corpus keeps all 57 workloads from R7RS benchmarks revision
 `85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1`. Each directory contains the
 canonical input, an external original Chez program, source provenance, and a
@@ -45,8 +52,8 @@ The later [packet-input measurements](evidence/20261015-input-packets.md) cover
 Cat/WC separately and do not replace this frozen baseline.
 
 `lambda` has one body expression, `let` is a sequential statement, `if` has both
-branches, and sequencing uses lexical `begin`. No target macro or derived Scheme form runs
-during preparation. The one-off conversion expanded macros with the old
+branches, and sequencing uses lexical `begin`. Current collection packing macros
+expand as part of ordinary compilation. The one-off conversion expanded macros with the old
 frontend outside the product, then retained resolved binding identities with
 unique local names. Administrative lambda applications from that expansion
 remain visible. Literal constants retain their original representation.

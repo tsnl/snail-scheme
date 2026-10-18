@@ -10,14 +10,14 @@
           lambda-expression application-expression conditional-expression definition
           all-imports only-imports import-rename rename-imports library-import
           library-export lofi-library library-token checked-library
-          literal-number view-number-literal rest-type view-rest-type
+          literal-number view-number-literal
           signature-location signature-location-set)
   (export
    DataField Signature MatchArm MethodImplementation
    DataCase ClassMethod ConstraintSyntax TypeVariableId type-variable
-   variable-type reference-type list-type vector-type rest-function-type
+   variable-type reference-type list-type vector-type
    nominal-type constraint all-signature
-   literal-string literal-bytevector rest-lambda-expression
+   literal-string literal-bytevector
    block-expression annotation-expression instantiation-expression match-arm match-expression
    inferred-definition local-binding inferred-local-binding expression-statement data-field
    accessor-field data-constructor datatype-definition class-method typeclass-definition
@@ -30,10 +30,10 @@
    TypeSyntaxView view-type-i32 view-type-i64 view-type-f32 view-type-f64
    view-type-bool view-type-char view-type-unit view-type-string view-type-bytevector
    view-type-never view-type-any view-function-type view-variable-type view-reference-type
-   view-list-type view-vector-type view-rest-function-type view-nominal-type inspect-type
+   view-list-type view-vector-type view-nominal-type inspect-type
    ExpressionView view-literal-i32 view-literal-i64 view-literal-f32 view-literal-f64
    view-literal-bool view-literal-char view-reference view-lambda view-application
-   view-conditional view-string-literal view-bytevector-literal view-rest-lambda view-block
+   view-conditional view-string-literal view-bytevector-literal view-block
    view-annotation view-instantiation view-match inspect-expression DeclarationView
    view-definition view-inferred-definition view-local-binding view-inferred-local-binding view-expression-statement
    view-datatype view-typeclass view-instance view-extern
@@ -127,7 +127,6 @@
     (define-extern raw-signature-location-set "lofi.builder" "signature-location-set" (-> I64 I64 I64))
     (define-extern raw-checked-library "lofi.builder" "checked-library" (-> I64 I64))
     (define-extern raw-number-literal "lofi.builder" "number-literal" (-> I64 I64 I64))
-    (define-extern raw-rest-type "lofi.builder" "rest-type" (-> I64 I64))
     (define-extern raw-name-empty "lofi.builder" "name-empty" (-> I64))
     (define-extern raw-name-character "lofi.builder" "name-character" (-> I64 Char I64))
     (define-extern raw-span "lofi.builder" "span" (-> I64 I32 I32 I64))
@@ -164,13 +163,11 @@
     (define-extern raw-reference-type "lofi.builder" "reference-type" (-> I64 I64))
     (define-extern raw-list-type "lofi.builder" "list-type" (-> I64 I64))
     (define-extern raw-vector-type "lofi.builder" "vector-type" (-> I64 I64))
-    (define-extern raw-rest-function-type "lofi.builder" "rest-function-type" (-> I64 I64 I64 I64))
     (define-extern raw-nominal-type "lofi.builder" "nominal-type" (-> I64 I64 I64))
     (define-extern raw-constraint "lofi.builder" "constraint" (-> I64 I64 I64 I64))
     (define-extern raw-all-signature "lofi.builder" "all-signature" (-> I64 I64 I64 I64 I64 I64))
     (define-extern raw-string-literal "lofi.builder" "string-literal" (-> I64 I64 I64))
     (define-extern raw-bytevector-literal "lofi.builder" "bytevector-literal" (-> I64 I64 I64))
-    (define-extern raw-rest-lambda "lofi.builder" "rest-lambda" (-> I64 I64 I64 I64 I64 I64))
     (define-extern raw-block "lofi.builder" "block" (-> I64 I64 I64 I64 I64))
     (define-extern raw-annotation "lofi.builder" "annotation" (-> I64 I64 I64 I64))
     (define-extern raw-instantiation "lofi.builder" "instantiation" (-> I64 I64 I64 I64))
@@ -237,13 +234,11 @@
     (def tag-reference-type I32 27)
     (def tag-list-type I32 28)
     (def tag-vector-type I32 29)
-    (def tag-rest-function-type I32 30)
     (def tag-nominal-type I32 31)
     (def tag-constraint I32 32)
     (def tag-all-signature I32 33)
     (def tag-string-literal I32 38)
     (def tag-bytevector-literal I32 39)
-    (def tag-rest-lambda I32 40)
     (def tag-block I32 41)
     (def tag-annotation I32 42)
     (def tag-instantiation I32 43)
@@ -264,7 +259,6 @@
     (def tag-extern I32 59)
     (def tag-overload I32 60)
     (def tag-number-literal I32 61)
-    (def tag-rest-type I32 62)
 
     ;; ---- Ordinary lists are copied into immutable sequence nodes ----
 
@@ -445,8 +439,6 @@
     (def literal-number (-> String SourceSpan Expression)
          (lambda (spelling span)
            (wrap-expression (raw-number-literal (name-token (builder-name spelling)) (span-token span)))))
-    (def rest-type (-> TypeSyntax TypeSyntax)
-         (lambda (element) (wrap-type (raw-rest-type (type-token element)))))
     (def literal-i32 (-> I32 SourceSpan Expression)
          (lambda (value span) (wrap-expression (raw-literal-I32 value (span-token span)))))
     (def literal-i64 (-> I64 SourceSpan Expression)
@@ -514,9 +506,6 @@
     (def vector-type (-> TypeSyntax TypeSyntax)
          (lambda (element)
            (wrap-type (raw-vector-type (type-token element)))))
-    (def rest-function-type (-> (List TypeSyntax) TypeSyntax TypeSyntax TypeSyntax)
-         (lambda (parameters rest result)
-           (wrap-type (raw-rest-function-type (encode-types parameters) (type-token rest) (type-token result)))))
     (def nominal-type (-> BindingReference (List TypeSyntax) TypeSyntax)
          (lambda (reference arguments)
            (wrap-type (raw-nominal-type (reference-token reference) (encode-types arguments)))))
@@ -538,15 +527,6 @@
     (def literal-bytevector (-> Bytevector SourceSpan Expression)
          (lambda (value span)
            (wrap-expression (raw-bytevector-literal (encode-bytes value) (span-token span)))))
-    (def rest-lambda-expression (-> ScopeId (List BindingId) BindingId Expression SourceSpan Expression)
-         (lambda (scope parameters rest body span)
-           (wrap-expression
-            (raw-rest-lambda
-             (scope-token scope)
-             (encode-bindings parameters)
-             (binding-token rest)
-             (expression-token body)
-             (span-token span)))))
     (def block-expression (-> ScopeId (List Declaration) Expression SourceSpan Expression)
          (lambda (scope statements result span)
            (wrap-expression (raw-block (scope-token scope) (encode-declarations statements) (expression-token result) (span-token span)))))
@@ -770,8 +750,6 @@
            (view-function-type
             (parameters (List TypeSyntax))
             (result TypeSyntax))
-           (view-rest-type
-            (element TypeSyntax))
            (view-variable-type
             (variable TypeVariableId))
            (view-reference-type
@@ -780,10 +758,6 @@
             (element TypeSyntax))
            (view-vector-type
             (element TypeSyntax))
-           (view-rest-function-type
-            (parameters (List TypeSyntax))
-            (rest TypeSyntax)
-            (result TypeSyntax))
            (view-nominal-type
             (reference BindingReference)
             (arguments (List TypeSyntax))) ))
@@ -814,30 +788,23 @@
          (lambda (value)
            (begin (let token (type-token value))
                   (let tag (raw-inspect-tag token))
-                  (if (i32-eq tag tag-rest-type)
-                      (view-rest-type (wrap-type (raw-inspect-field token 0)))
-                      (if (i32-eq tag tag-scalar-type)
-                          (inspect-scalar-type (raw-scalar-index token))
-                          (if (i32-eq tag tag-function-type)
-                              (view-function-type (decode-types (raw-inspect-field token 0)) (wrap-type (raw-inspect-field token 1)))
-                              (if (i32-eq tag tag-variable-type)
-                                  (view-variable-type (wrap-variable (raw-inspect-field token 0)))
-                                  (if (i32-eq tag tag-reference-type)
-                                      (view-reference-type (wrap-type (raw-inspect-field token 0)))
-                                      (if (i32-eq tag tag-list-type)
-                                          (view-list-type (wrap-type (raw-inspect-field token 0)))
-                                          (if (i32-eq tag tag-vector-type)
-                                              (view-vector-type (wrap-type (raw-inspect-field token 0)))
-                                              (if (i32-eq tag tag-rest-function-type)
-                                                  (view-rest-function-type
-                                                   (decode-types (raw-inspect-field token 0))
-                                                   (wrap-type (raw-inspect-field token 1))
-                                                   (wrap-type (raw-inspect-field token 2)))
-                                                  (if (i32-eq tag tag-nominal-type)
-                                                      (view-nominal-type
-                                                       (wrap-reference (raw-inspect-field token 0))
-                                                       (decode-types (raw-inspect-field token 1)))
-                                                      (unreachable)))))))))))))
+                  (if (i32-eq tag tag-scalar-type)
+                      (inspect-scalar-type (raw-scalar-index token))
+                      (if (i32-eq tag tag-function-type)
+                          (view-function-type (decode-types (raw-inspect-field token 0)) (wrap-type (raw-inspect-field token 1)))
+                          (if (i32-eq tag tag-variable-type)
+                              (view-variable-type (wrap-variable (raw-inspect-field token 0)))
+                              (if (i32-eq tag tag-reference-type)
+                                  (view-reference-type (wrap-type (raw-inspect-field token 0)))
+                                  (if (i32-eq tag tag-list-type)
+                                      (view-list-type (wrap-type (raw-inspect-field token 0)))
+                                      (if (i32-eq tag tag-vector-type)
+                                          (view-vector-type (wrap-type (raw-inspect-field token 0)))
+                                          (if (i32-eq tag tag-nominal-type)
+                                              (view-nominal-type
+                                               (wrap-reference (raw-inspect-field token 0))
+                                               (decode-types (raw-inspect-field token 1)))
+                                              (unreachable)))))))))))
     (def ExpressionView
          (datatype ()
            (view-number-literal
@@ -882,12 +849,6 @@
             (span SourceSpan))
            (view-bytevector-literal
             (value Bytevector)
-            (span SourceSpan))
-           (view-rest-lambda
-            (scope ScopeId)
-            (parameters (List BindingId))
-            (rest BindingId)
-            (body Expression)
             (span SourceSpan))
            (view-block
             (scope ScopeId)
@@ -961,35 +922,28 @@
                                                   (view-bytevector-literal
                                                    (decode-bytes (raw-inspect-field token 0))
                                                    (wrap-span (raw-inspect-field token 1)))
-                                                  (if (i32-eq tag tag-rest-lambda)
-                                                      (view-rest-lambda
+                                                  (if (i32-eq tag tag-block)
+                                                      (view-block
                                                        (wrap-scope (raw-inspect-field token 0))
-                                                       (decode-bindings (raw-inspect-field token 1))
-                                                       (wrap-binding (raw-inspect-field token 2))
-                                                       (wrap-expression (raw-inspect-field token 3))
-                                                       (wrap-span (raw-inspect-field token 4)))
-                                                      (if (i32-eq tag tag-block)
-                                                          (view-block
-                                                           (wrap-scope (raw-inspect-field token 0))
-                                                           (decode-declarations (raw-inspect-field token 1))
-                                                           (wrap-expression (raw-inspect-field token 2))
-                                                           (wrap-span (raw-inspect-field token 3)))
-                                                          (if (i32-eq tag tag-annotation)
-                                                              (view-annotation
-                                                               (wrap-expression (raw-inspect-field token 0))
-                                                               (wrap-type (raw-inspect-field token 1))
+                                                       (decode-declarations (raw-inspect-field token 1))
+                                                       (wrap-expression (raw-inspect-field token 2))
+                                                       (wrap-span (raw-inspect-field token 3)))
+                                                      (if (i32-eq tag tag-annotation)
+                                                          (view-annotation
+                                                           (wrap-expression (raw-inspect-field token 0))
+                                                           (wrap-type (raw-inspect-field token 1))
+                                                           (wrap-span (raw-inspect-field token 2)))
+                                                          (if (i32-eq tag tag-instantiation)
+                                                              (view-instantiation
+                                                               (wrap-reference (raw-inspect-field token 0))
+                                                               (decode-types (raw-inspect-field token 1))
                                                                (wrap-span (raw-inspect-field token 2)))
-                                                              (if (i32-eq tag tag-instantiation)
-                                                                  (view-instantiation
-                                                                   (wrap-reference (raw-inspect-field token 0))
-                                                                   (decode-types (raw-inspect-field token 1))
+                                                              (if (i32-eq tag tag-match)
+                                                                  (view-match
+                                                                   (wrap-expression (raw-inspect-field token 0))
+                                                                   (decode-arms (raw-inspect-field token 1))
                                                                    (wrap-span (raw-inspect-field token 2)))
-                                                                  (if (i32-eq tag tag-match)
-                                                                      (view-match
-                                                                       (wrap-expression (raw-inspect-field token 0))
-                                                                       (decode-arms (raw-inspect-field token 1))
-                                                                       (wrap-span (raw-inspect-field token 2)))
-                                                                      (unreachable)))))))))))))))))
+                                                                  (unreachable))))))))))))))))
     (def DeclarationView
          (datatype ()
            (view-definition

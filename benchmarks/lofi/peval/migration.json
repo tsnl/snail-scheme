@@ -51,7 +51,7 @@
       "annotations_added": 197
     }
   },
-  "lofi_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+  "lofi_sha256": "b5492cd20f73069ab82a353e1cb58eb7ea2598721d84a36676ae6371a56ac72d",
   "language_rename": {
     "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
     "before_sha256": "9cc2dc2b5eb0af289957c024fc75c2533d89e2e4e8f552d82ea07c0133d6facb",
@@ -65,5 +65,22 @@
     "before_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
     "after_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
     "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  },
+  "fixed_arity_migration": {
+    "source_revision": "e528eb28f07650b8f61046572feb233fec9a9fe5",
+    "files": {
+      "main.sld": {
+        "before_sha256": "5440bde726b7c7fa3b2625f65cbb9b3703569f708e89ccee0421f6b32cac8b5c",
+        "after_sha256": "b5492cd20f73069ab82a353e1cb58eb7ea2598721d84a36676ae6371a56ac72d",
+        "change": "Replace rest functions with fixed list parameters and hygienic packing macros; algorithms, numeric representations, canonical inputs and controls unchanged.",
+        "validation": "Compiled to raw and optimized Wasm. Canonical execution and performance measurements are separate; frozen campaign results are unchanged."
+      },
+      "observe.sld": {
+        "before_sha256": "6ad6a24f2e3bac14c85cb01cbff9666edc5da2262e340bce71565712600dc38f",
+        "after_sha256": "d0501848584d445bc1185d55c0b01ed8b46302b3b7ee26e8091cdccb5eb36258",
+        "change": "Replace rest functions with fixed list parameters and hygienic packing macros; algorithms, numeric representations, canonical inputs and controls unchanged.",
+        "validation": "Compiled to raw and optimized Wasm. Canonical execution and performance measurements are separate; frozen campaign results are unchanged."
+      }
+    }
   }
 }

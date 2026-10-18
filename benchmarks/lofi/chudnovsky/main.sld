@@ -8,7 +8,7 @@
 
 (def square (lambda (value.2) (* value.2 value.2)))
 
-(def list (lambda values.3 values.3))
+
 
 (def cadr (lambda (values.2) (car (cdr values.2))))
 

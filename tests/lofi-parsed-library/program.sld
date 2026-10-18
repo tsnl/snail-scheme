@@ -126,10 +126,8 @@
                                                   "(define-library (wide) (export run) (begin (def run (-> I64) (lambda () 9223372036854775808))))")))
              (let too-wide (require (library-map-insert base (key "wide") invalid)))
              (reject (compile too-wide (entry (key "wide") "run")))
-             (let rest (require (parse-library "rest-error.sld"
-                                               "(define-library (rest) (export run) (begin (def run (Rest I32) 1)))")))
-             (let wrong-rest (require (library-map-insert base (key "rest") rest)))
-             (reject (compile wrong-rest (entry (key "rest") "run")))
+             (reject (parse-library "rest-error.sld"
+                                    "(define-library (rest) (export run) (begin (def run (Rest I32) 1)))"))
              (reject (parse-library "vector-error.sld" "(define-library (bad) (begin (def value #(1 2))))"))
              (reject (parse-library "grammar-error.sld" "(define-library (bad) (wrong))"))
              (reject (parse-library "multiple.sld" "(define-library (one)) (define-library (two))")))))

@@ -17,7 +17,7 @@
                   (lambda (item) (begin (ann value Outer) item)))
              (inner value))))
     (def read-value (All (T) (requires (Value T)) (-> T I32)) (lambda (input) (value input)))
-    (def first-two (-> I32 (Rest I32) I32) (lambda (first . rest) (i32-add first (car rest))))
+    (def first-two (-> I32 (List I32) I32) (lambda (first rest) (i32-add first (car rest))))
     (define-overload choose (-> I32 I32) (lambda (value) value))
     (define-overload choose (-> Bool Bool) (lambda (value) (if value #f #t)))
     (let counter (ref 0))
@@ -40,7 +40,7 @@
              (let matched (match boxed ((box field) field)))
              (ref-set! counter 3)
              (unit)
-             (external (first-two (read-value ((inst identity I32) (nested (choose matched)))) (captured))
+             (external (first-two (read-value ((inst identity I32) (nested (choose matched)))) (cons (captured) (empty-list)))
                        (i32-add (i64->i32 (choose (i32->i64 (ann dynamic I32))))
                                 (i32-add (ref-get cell)
                                          (i32-add shadow
