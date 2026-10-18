@@ -77,7 +77,7 @@
       '(def lambda if let begin library-begin ann inst match data deriving datatype typeclass instance
             identifier-name library-name type-name
             define-overload define-extern syntax-rules define-syntax
-            : All requires -> Ref List Vector Rest
+            : All requires -> Ref List Vector
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define (make-core-definition name loc)
       (let ((definition (make-value-definition name loc)))
@@ -459,7 +459,9 @@
 
     ;; ---- Expansion follows the core's lexical scopes ----
 
-    (define expansion-budget (make-parameter 10000))
+    ;; Packing expands once per list element. Large data-heavy libraries need
+    ;; room for those finite expansions; keep a total work cap for runaway macros.
+    (define expansion-budget (make-parameter 20000))
     (define (expand-head form environment)
       (let* ((operator (head form)) (binding (and operator (syntax-identifier? operator) (lookup operator environment)))
              (transformer (and binding (lexical-transformer binding))))
@@ -820,7 +822,7 @@
                   (when (or (headed? form 'import) (headed? form 'export) (headed? form 'define-library))
                     (fail form "library directives are not allowed in expanded library bodies"))) forms))
     (define (expand-library-body forms imports . names)
-      (parameterize ((expansion-budget 10000) (next-name 0)
+      (parameterize ((expansion-budget 20000) (next-name 0)
                      (current-library-name (and (pair? names) (car names)))
                      (current-library-types '()) (claimed-type-names '()))
         (let ((environment (extend-environment (import-environment imports) (extend-environment (core-environment) #f))))

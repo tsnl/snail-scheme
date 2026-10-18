@@ -10,6 +10,9 @@ Start with [`examples/fibonacci.sld`](examples/fibonacci.sld), then compare
 `832040`. The first uses the typed Lofi kernel; the second imports the initial
 [`(scheme base)`](src/scheme/base.sld), whose hygienic macros produce that kernel.
 Both reach the same type checker, specialization pass and Wasm backend.
+Functions have fixed parameter lists. Collection syntax such as `(vector a b)`
+expands into an explicit list passed to a fixed-arity worker before checking;
+the shared compiler has no rest-argument representation or call-site packing.
 
 The public [`(lofi compiler)`](src/lofi/compiler.sld) is usable by either surface.
 It supplies parsing, explicit library maps, compilation and Wasm execution through

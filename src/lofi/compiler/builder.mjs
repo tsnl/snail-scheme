@@ -102,12 +102,12 @@ class Arena {
 
 // ---- A fixed scalar constructor protocol ----
 
-const typeKinds = ['scalar-type', 'function-type', 'rest-function-type', 'reference-type', 'list-type',
-  'vector-type', 'nominal-type', 'variable-type', 'rest-type'];
+const typeKinds = ['scalar-type', 'function-type', 'reference-type', 'list-type',
+  'vector-type', 'nominal-type', 'variable-type'];
 const signatureKinds = [...typeKinds, 'all-signature'];
 const referenceKinds = ['local-reference', 'import-reference'];
 const expressionKinds = ['literal', 'reference', 'lambda', 'application', 'conditional', 'string-literal',
-  'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation', 'match', 'number-literal'];
+  'bytevector-literal', 'block', 'annotation', 'instantiation', 'match', 'number-literal'];
 const staticKinds = ['datatype', 'typeclass', 'instance'];
 const declarationKinds = ['definition', 'inferred-definition', 'local-binding', 'inferred-local-binding',
   'expression-statement', 'extern', 'overload', ...staticKinds];
@@ -120,12 +120,10 @@ const syntaxForms = [
   ['variable-id', ['scope-id', 'name', 'span']],
   ['variable-type', ['variable-id']],
   ['reference-type', ['type']], ['list-type', ['type']], ['vector-type', ['type']],
-  ['rest-function-type', ['types', 'type', 'type']],
   ['nominal-type', ['binding-reference', 'types']],
   ['constraint', ['binding-reference', 'types', 'span']],
   ['all-signature', ['child-scope', 'variables', 'constraints', 'type', 'span']],
   ['string-literal', ['name', 'span']], ['bytevector-literal', ['bytes', 'span']],
-  ['rest-lambda', ['child-scope', 'bindings', 'binding', 'expression', 'span']],
   ['block', ['child-scope', 'declarations', 'expression', 'span']],
   ['annotation', ['expression', 'type', 'span']],
   ['instantiation', ['binding-reference', 'types', 'span']],
@@ -145,7 +143,7 @@ const syntaxForms = [
   ['instance', ['binding', 'constraint', 'implementations', 'span']],
   ['extern', ['binding', 'name', 'name', 'type', 'span']],
   ['overload', ['binding', 'signature', 'expression', 'span']],
-  ['number-literal', ['name', 'span']], ['rest-type', ['type']],
+  ['number-literal', ['name', 'span']],
 ];
 const categories = {
   'scope-id': ['scope', 'child-scope'], type: typeKinds, signature: signatureKinds,
@@ -362,17 +360,17 @@ function receivePacket(arena, text) {
 
 // ---- Inspection copies values and preserves child identities ----
 
-// Inspection tags match builder.sld. Removed kind forms leave holes so existing
+// Inspection tags match builder.sld. Removed kind/rest forms leave holes so existing
 // constructors keep their tags; the closed packet schema rejects removed forms.
 const nodeTags = ['name', 'span', 'scope', 'child-scope', 'binding', 'nil', 'cons', 'scalar-type',
   'function-type', 'local-reference', 'import-reference', 'reference', 'literal', 'lambda', 'application',
   'conditional', 'definition', 'all', 'only', 'rename-pair', 'rename', 'import', 'export', 'library', 'byte',
-  'variable-id', 'variable-type', 'reference-type', 'list-type', 'vector-type', 'rest-function-type',
+  'variable-id', 'variable-type', 'reference-type', 'list-type', 'vector-type', null,
   'nominal-type', 'constraint', 'all-signature', null, null, null, null,
-  'string-literal', 'bytevector-literal', 'rest-lambda', 'block', 'annotation', 'instantiation',
+  'string-literal', 'bytevector-literal', null, 'block', 'annotation', 'instantiation',
   'match-arm', 'match', 'inferred-definition', 'local-binding', 'inferred-local-binding',
   'expression-statement', 'data-field', 'accessor-field', 'data-case', 'datatype', 'class-method',
-  'typeclass', 'method-implementation', 'instance', null, 'extern', 'overload', 'number-literal', 'rest-type'];
+  'typeclass', 'method-implementation', 'instance', null, 'extern', 'overload', 'number-literal', null];
 
 function addInspection(arena, add) {
   add('inspect-tag', ['i64'], handle => nodeTags.indexOf(arena.get(handle)[0]), 'i32');

@@ -117,8 +117,8 @@ builds direct dependencies once and groups mutually recursive bindings. Group
 members retain source order. Every overload row supplies an explicit signature,
 so checking can use the complete family before checking implementation bodies.
 Ordinary groups are checked once in dependency order. Mutable allocations obey
-the value restriction. Concrete calls have positional arguments
-and an optional typed rest parameter. Declared initializer proofs retain their
+the value restriction. Concrete calls have a fixed list of positional arguments;
+surface packing macros use ordinary lists. Declared initializer proofs retain their
 lexical scope until enclosing monotypes settle. Their own quantified requirements
 must then hold; obligations on captured monotypes remain with enclosing inference.
 

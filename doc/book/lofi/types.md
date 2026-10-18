@@ -58,7 +58,6 @@ primitive_type ::= "I32" | "I64"
                  | "Never" | "Any"
 
 function_type ::= "(" "->" type … type ")"
-                | "(" "->" type … "(" "Rest" type ")" type ")"
 <!-- ANCHOR_END: types -->
 ```
 
@@ -251,9 +250,11 @@ T₁, …, Tₙ fresh     Γ, x₁:T₁, …, xₙ:Tₙ ⊢ body ::↑ R ; requi
 
 When a lambda has no expected type, give each parameter a fresh inference
 variable and infer its body. Solving constraints determines those types.
-A rest signature, `(-> I32 (Rest String) Unit)`, checks the first argument as
-I32 and each remaining argument as String. The rest parameter is bound to an
-immutable `(List String)` containing those remaining arguments.
+Every arrow has a fixed number of parameters: `(-> I32 (List String) Unit)`
+takes exactly two arguments, an I32 and a list of strings. `(-> Unit)` takes no
+arguments. Too few or too many arguments are static errors for direct calls,
+function values, recursive calls and typeclass methods alike. `Rest` types are
+rejected; packing uses ordinary `List` values before checking and emission.
 
 A generic binding can be used at several types. `All` binds type parameters:
 

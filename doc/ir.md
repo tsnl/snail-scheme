@@ -41,7 +41,7 @@ an expression `begin` remains a nested scope.
 | Expression | Source location, operation and source children |
 | Source literal | Decoded value and original numeric spelling; transient typing selects and rounds its representation |
 | Reference | The resolved binding being read |
-| Lambda | Positional parameters, optional rest parameter and body |
+| Lambda | Fixed positional parameters and body |
 | Application | Operator and ordered argument expressions |
 | Block | Lexically scoped definitions, declarations and ordered expressions |
 | Conditional | Boolean condition and both result branches |

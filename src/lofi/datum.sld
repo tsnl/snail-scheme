@@ -12,7 +12,7 @@
           datum-set-car! datum-set-cdr! datum-number? datum-number-value datum-string-value datum-symbol-value
           datum-null? datum-pair? datum-truth? datum-eq? datum-kind
           datum-boolean-value datum-character-value datum-vector-values datum-bytevector-values
-          datum-list datum-length datum-append datum-assq datum-map
+          datum-list list->datum datum-length datum-append datum-assq datum-map
           test-datum)
   (import
    (lofi base)
@@ -292,8 +292,11 @@
 
     ;; ---- Proper list operations preserve elements and shared suffixes ----
 
-    (def datum-list (-> (Rest Datum) Datum)
-         (lambda values
+    (def datum-list
+         (syntax-rules ()
+           ((_ values ...) (list->datum (list values ...)))))
+    (def list->datum (-> (List Datum) Datum)
+         (lambda (values)
            (begin
              (def loop
                   (lambda (values)

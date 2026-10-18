@@ -23,7 +23,7 @@
     (define keywords
       '(def lambda if let begin library-begin ann inst match import export define-library
             data datatype typeclass instance define-overload define-extern
-            : All requires -> Ref List Vector Rest
+            : All requires -> Ref List Vector
             I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))
     (define unsupported-keywords
       '(define-syntax syntax-rules let-syntax letrec-syntax cond-expand include
@@ -450,19 +450,14 @@
                           (parse-expression (cadr items) environment)
                           (parse-expression (caddr items) environment) (syntax-loc form))))
     (define (lambda-bindings form)
-      (cond ((syntax-identifier? form) (values '() (new-binding form)))
-            ((list-syntax? form)
-             (let* ((required (new-bindings (list-syntax-elements form) form))
-                    (tail (list-syntax-improper-tail form)) (rest (and (not (null? tail)) (new-binding tail))))
-               (unique-names (append (map car required) (if rest (list (car rest)) '())) form)
-               (values required rest)))
-            (else (fail form "expected lambda parameters"))))
+      (unless (and (list-syntax? form) (null? (list-syntax-improper-tail form)))
+        (fail form "lambda requires a proper fixed-arity parameter list"))
+      (new-bindings (list-syntax-elements form) form))
     (define (parse-lambda form environment)
-      (let ((items (arguments form 2)))
-        (let-values (((required rest) (lambda-bindings (car items))))
-          (make-lambda (map cdr required) (and rest (cdr rest))
-                       (parse-expression (cadr items) (extend-scope environment (append required (if rest (list rest) '()))))
-                       (syntax-loc form)))))
+      (let* ((items (arguments form 2)) (parameters (lambda-bindings (car items))))
+        (make-lambda (map cdr parameters)
+                     (parse-expression (cadr items) (extend-scope environment parameters))
+                     (syntax-loc form))))
     (define (parse-annotation form environment)
       (let ((items (arguments form 2)))
         (make-annotation (parse-expression (car items) environment)
@@ -492,7 +487,8 @@
         (case tag
           ((All requires) (fail form "All and requirements belong to an attached binding signature"))
           ((=>) (fail form "use a requires clause in the All signature"))
-          ((Ref List Vector Rest) (list tag (parse-type (car (arguments form 1)) environment)))
+          ((Rest) (fail form "Rest types are not supported; pass an explicit List argument"))
+          ((Ref List Vector) (list tag (parse-type (car (arguments form 1)) environment)))
           ((->)
            (when (null? (cdr items)) (fail form "function type requires a result"))
            (cons '-> (map (lambda (type) (parse-type type environment)) (cdr items))))
@@ -558,8 +554,7 @@
           (when (null? pattern) (fail form "match pattern requires a constructor"))
           (let ((bindings (new-bindings (cdr pattern) (car items))))
             (list (resolve (car pattern) environment)
-                  (make-lambda (map cdr bindings) #f
-                               (parse-expression (cadr items) (extend-scope environment bindings)) (syntax-loc form)))))))
+                  (make-lambda (map cdr bindings) (parse-expression (cadr items) (extend-scope environment bindings)) (syntax-loc form)))))))
     (define (parse-class form environment)
       (let* ((items (class-parts form)) (variables (type-variables (cadr items) form))
              (scope (extend-types environment variables)))

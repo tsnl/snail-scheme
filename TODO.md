@@ -12,8 +12,12 @@ of implemented behavior separate from proposed language changes.
 - [x] Remove legacy `=>` signatures and kind annotations from source, library
   builders, and transfer packets. Store schemes directly as variables,
   requirements, and an ordinary type; derive category and arity from declarations.
-- [ ] Specify fixed-arity Lofi functions and explicit argument packing for
-  Scheme variadic procedures before removing the documented rest forms.
+- [x] Make Lofi functions fixed-arity throughout source, builders, inference,
+  specialization and emission. Replace collection rest functions with explicit
+  list workers and hygienic packing macros.
+- [ ] Specify general first-class Scheme variadic procedures and their lowering
+  to fixed-arity calls. The current typed Scheme subset requires proper parameter
+  lists; collection packing macros are implemented separately.
 
 ## Deferred: Ott formalization and proofs
 

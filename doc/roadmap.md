@@ -195,6 +195,11 @@ are historical evidence, not a current Lofi score.
 - [x] Add hygienic declarative `syntax-rules` to Lofi, including imported and
   exported transformers, definition-site private bindings and nested repetition.
 - [x] Implement an initial `(scheme base)` using those macros and the typed core.
+- [x] Make kernel functions fixed-arity and expand collection packing macros
+  into ordinary list-taking calls before checking. Remove rest fields and packing
+  from the compiler and structured builder protocol.
+- [ ] Specify general first-class Scheme variadic procedures and explicit
+  argument packing without adding rest parameters back to the kernel.
 - [ ] Extend Scheme beyond the documented typed subset: quoted data, general
   truthiness, mutation, richer runtime interfaces and other R7RS requirements.
 - [ ] Specify procedural transformer evaluation and phase interfaces separately.

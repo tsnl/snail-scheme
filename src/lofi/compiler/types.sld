@@ -7,7 +7,7 @@
           make-scheme scheme? scheme-variables scheme-type scheme-constraints
           set-scheme-variables! set-scheme-type! set-scheme-constraints!
           instantiate generalize free-scheme-variables identity-union
-          function-type function-type? function-domains function-rest function-result
+          function-type function-type? function-domains function-result
           scalar-types subtype? join-types)
   (import
    (scheme base)
@@ -109,11 +109,10 @@
     ;; ---- Concrete shape and explicit lattice boundaries ----
 
     (define scalar-types '(I32 I64 F32 F64 Bool Char Unit Top Never))
-    (define (function-type domains rest result) (list 'Function domains rest result))
+    (define (function-type domains result) (list 'Function domains result))
     (define (function-type? type) (let ((type (resolve type))) (and (pair? type) (eq? (car type) 'Function))))
     (define (function-domains type) (cadr (resolve type)))
-    (define (function-rest type) (caddr (resolve type)))
-    (define (function-result type) (cadddr (resolve type)))
+    (define (function-result type) (caddr (resolve type)))
     (define (concrete-type? type) (null? (type-variables type)))
     (define (require-concrete type loc)
       (if (concrete-type? type) (substitute type '())
@@ -149,7 +148,7 @@
     (begin
       (define (test-generalization)
         (let* ((hole (fresh-hole)) (other (fresh-hole)) (rigid (fresh-rigid))
-               (type (function-type (list hole) #f rigid))
+               (type (function-type (list hole) rigid))
                (constraints (list (list 'Proof other)))
                (environment (list (make-scheme '() hole '()))))
           (expect (scheme-variables (generalize type constraints environment #t)) (list other))
@@ -180,7 +179,7 @@
           (expect (guard (failure (else 'occurs)) (unify! a (list 'Ref a) #f)) 'occurs))
         (let ((a (fresh-variable #t)))
           (expect (guard (failure (else 'rigid)) (unify! a 'I64 #f)) 'rigid))
-        (let* ((a (fresh-variable)) (type (function-type (list a) #f a))
+        (let* ((a (fresh-variable)) (type (function-type (list a) a))
                (scheme (generalize type '() '() #t)))
           (let-values (((first checks substitutions) (instantiate scheme))
                        ((second other mapping) (instantiate scheme)))

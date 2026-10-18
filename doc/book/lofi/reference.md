@@ -39,8 +39,9 @@ macro. Library splices preserve that scope.
 
 This grammar uses `All` with an optional `requires` clause, as implemented by
 the compiler. Legacy `=>` signatures and static kind annotations are rejected.
-Typed rest parameters are still implemented; their planned replacement is
-recorded under [planned simplification](omissions.md#planned-language-simplification).
+Every function has a fixed arity. Dotted/rest-only lambdas and `Rest` types are
+rejected. Collection macros expand into explicit list construction and ordinary
+fixed-arity calls before checking.
 
 ## Core typing rules
 

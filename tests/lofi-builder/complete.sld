@@ -7,7 +7,10 @@
    (builder rebuild))
   (export build)
   (begin
-    (def items (All (T) (-> (Rest T) (List T))) (lambda values values))
+    (def items
+         (syntax-rules ()
+           ((_) (empty-list))
+           ((_ first rest ...) (cons first (items rest ...)))))
     (def span (source-span (builder-name "complete-generated.sld") 17 3))
     (def named (-> ScopeId String BindingId)
          (lambda (scope text) (binding scope (builder-name text) span)))
@@ -15,8 +18,9 @@
          (lambda (binding) (reference-expression (local-reference binding span))))
     (def imported (-> ScopeId String Expression)
          (lambda (scope text) (reference-expression (import-reference scope (builder-name text) span))))
-    (def call (-> Expression (Rest Expression) Expression)
-         (lambda (operator . arguments) (application-expression operator arguments span)))
+    (def call
+         (syntax-rules ()
+           ((_ operator arguments ...) (application-expression operator (items arguments ...) span))))
     (def integer (-> I32 Expression) (lambda (value) (literal-i32 value span)))
 
     ;; Generic schemes bind fresh type identities even when their names agree.
@@ -95,15 +99,15 @@
              (instance-definition instance-binding head
                                   (items (method-implementation (local-reference method span)
                                                                 (lambda-expression body (items x) (use x) span) span)) span))))
-    (def rest-definition (-> ScopeId BindingId Declaration)
+    (def packed-definition (-> ScopeId BindingId Declaration)
          (lambda (scope binding)
            (begin
              (let body (nested-scope scope))
              (let first (named body "first"))
-             (let rest (named body "rest"))
-             (definition binding (rest-function-type (items (type-i32)) (type-i32) (type-i32))
-               (rest-lambda-expression body (items first) rest
-                                       (call (imported scope "i32-add") (use first) (call (imported scope "car") (use rest))) span) span))))
+             (let remaining (named body "remaining"))
+             (definition binding (function-type (items (type-i32) (list-type (type-i32))) (type-i32))
+               (lambda-expression body (items first remaining)
+                                  (call (imported scope "i32-add") (use first) (call (imported scope "car") (use remaining))) span) span))))
     (def integer-overload (-> ScopeId BindingId Declaration)
          (lambda (scope family)
            (begin
@@ -168,7 +172,7 @@
                                                                 (call (use reader)
                                                                       (call (instantiation-expression (local-reference identity span) (items (type-i32)) span)
                                                                             (call (use nested) (call (use family) (use matched)))))
-                                                                (call (use captured)))
+                                                                (call (imported scope "cons") (call (use captured)) (call (imported scope "empty-list"))))
                                                           (call (imported scope "i32-add")
                                                                 (call (imported scope "i64->i32")
                                                                       (call (use family) (call (imported scope "i32->i64")
@@ -198,7 +202,6 @@
                ((view-bytevector-literal value location) (unreachable))
                ((view-reference reference) (unreachable))
                ((view-lambda scope parameters body location) (unreachable))
-               ((view-rest-lambda scope parameters rest body location) (unreachable))
                ((view-application operator arguments location) (unreachable))
                ((view-conditional test yes no location) (unreachable))
                ((view-block scope statements result location) (unreachable))
@@ -217,7 +220,6 @@
                ((view-string-literal value location) (unreachable))
                ((view-reference reference) (unreachable))
                ((view-lambda scope parameters body location) (unreachable))
-               ((view-rest-lambda scope parameters rest body location) (unreachable))
                ((view-application operator arguments location) (unreachable))
                ((view-conditional test yes no location) (unreachable))
                ((view-block scope statements result location) (unreachable))
@@ -250,7 +252,7 @@
                                (items (box-definition scope box-type box accessor) (value-class scope class method)
                                       (value-instance scope instance-binding class method)
                                       (identity-definition scope identity) (nested-definition scope nested) (reader-definition scope reader class method)
-                                      (rest-definition scope rest) (integer-overload scope family) (boolean-overload scope family)
+                                      (packed-definition scope rest) (integer-overload scope family) (boolean-overload scope family)
                                       (inferred-local-binding counter (call (imported scope "ref") (integer 0)) span)
                                       (definition text (type-string) text-value span)
                                       (definition bytes (type-bytevector) byte-value span)

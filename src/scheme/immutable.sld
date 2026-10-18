@@ -30,8 +30,6 @@
              (constructor
               (field type getter) ...))
            (record-updaters constructor () ((field type getter replace) ...))))))
-    (define-syntax list
-      (syntax-rules () ((_) (empty-list)) ((_ first rest ...) (cons first (list rest ...)))))
     (define (append left right)
       (if (null? left) right (cons (car left) (append (cdr left) right))))
     (define (reverse source)

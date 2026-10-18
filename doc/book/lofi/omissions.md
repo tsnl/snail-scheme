@@ -32,15 +32,17 @@ a driver, and instantiation is explicit. Library dependency cycles and
 generation dependency cycles are rejected. Reading an uninitialized recursive
 binding traps instead of forcing its initializer early.
 
-## Planned language simplification
+## Fixed-arity kernel and Scheme scope
 
-The following changes are planned, not accepted compiler syntax:
+Lofi functions have fixed arity. Dotted/rest-only lambdas and `Rest` types are
+rejected in source and constructive library syntax. Collection convenience
+macros pack values into ordinary homogeneous lists before checking; the backend
+has no variadic calling convention.
 
-- Give the Lofi kernel fixed-arity functions. Scheme variadic procedures will
-  need lowering to an explicit packed argument representation and fixed-arity
-  calls. The current kernel still accepts dotted and rest-only lambdas and
-  `Rest` function types. Polymorphism handles variation in types; packing is
-  still needed for variation in runtime argument count.
+The current typed Scheme subset follows the same function rule. General
+first-class Scheme variadic procedures remain deferred until their argument
+packing and calling convention are specified separately. Polymorphism covers
+variation in types, not in a function's runtime argument count.
 
 ## Implementation and open work
 
@@ -74,7 +76,7 @@ loader](https://github.com/tsnl/snail-scheme/blob/main/doc/lofi-native-loading.m
 current interfaces and restrictions.
 
 > TODO: Complete the formal rules for nominal declarations, exhaustive matching,
-> rest arguments, datatype and typeclass formers, instance checking, affine ownership,
+> datatype and typeclass formers, instance checking, affine ownership,
 > and target interfaces. The earlier chapters state their intended behavior;
 > the formal summary currently covers the unrestricted functional core.
 

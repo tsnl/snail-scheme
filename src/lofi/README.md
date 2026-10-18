@@ -7,6 +7,10 @@ sources use `.sld`. Import `(lofi core)` for named kernel syntax and `(lofi base
 for scalar operators and homogeneous collections. The sibling `(scheme base)`
 library adds Scheme forms through hygienic macros.
 
+All functions have fixed arity. Collection conveniences such as `vector` and
+`string-append` are packing macros; their list-taking workers are ordinary
+first-class functions. See [packing macros and workers](../../doc/book/lofi/macros.md#packing-macros-and-first-class-workers).
+
 Builtin types such as `I64`, `String`, `Ref` and `Vector` are Lofi type syntax.
 They are exported by `(lofi core)` and remain intrinsic in the low-level kernel
 for existing direct source/constructed-library APIs. Nominal types
