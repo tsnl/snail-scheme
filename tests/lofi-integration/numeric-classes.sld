@@ -1,7 +1,7 @@
 (import
  (lofi base))
 
-(def square (All (T) (=> ((* (-> T T T))) (-> T T)))
+(def square (All (T) (requires (* (-> T T T))) (-> T T))
      (lambda (x) (* x x)))
 (def distance
      (lambda (a b) (if (< a b) (- b a) (- a b))))

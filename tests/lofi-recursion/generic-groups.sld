@@ -51,13 +51,13 @@
        (if (i64-eq n (ann 0 I64)) value (boxed-left (i64-sub n (ann 1 I64)) value))))
 (def Identity (typeclass (T) (: identity (-> T T))))
 (def identity-i64 (instance (Identity I64) (identity (lambda (value) value))))
-(def class-left (All (T) (=> ((Identity T)) (-> I64 T T)))
+(def class-left (All (T) (requires (Identity T)) (-> I64 T T))
      (lambda (n value)
        (if (i64-eq n (ann 0 I64)) (identity value) (class-middle (i64-sub n (ann 1 I64)) value))))
 (def class-middle
      (lambda (n value)
        (if (i64-eq n (ann 0 I64)) (identity value) (class-right (i64-sub n (ann 1 I64)) value))))
-(def class-right (All (U) (=> ((Identity U)) (-> I64 U U)))
+(def class-right (All (U) (requires (Identity U)) (-> I64 U U))
      (lambda (n value)
        (if (i64-eq n (ann 0 I64)) (identity value) (class-left (i64-sub n (ann 1 I64)) value))))
 

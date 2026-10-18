@@ -2,7 +2,7 @@
  (lofi primitive))
 (def Equal (typeclass (T) (: same? (-> T T Bool))))
 (def equal-i64 (instance (Equal I64) (same? i64-eq)))
-(def outer (All (T) (=> ((Equal T)) (-> T Bool)))
+(def outer (All (T) (requires (Equal T)) (-> T Bool))
      (lambda (value)
        (begin
          (def even (-> I64 Bool)
