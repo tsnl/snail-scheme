@@ -45,9 +45,6 @@ The following changes are planned, not accepted compiler syntax:
   calls. The current kernel still accepts dotted and rest-only lambdas and
   `Rest` function types. Polymorphism handles variation in types; packing is
   still needed for variation in runtime argument count.
-- Move the language specification into a formal source, with prose and examples
-  alongside checked definitions and named rules. The generated reference should
-  replace the corresponding handwritten book content as coverage becomes complete.
 
 ## Implementation and open work
 
@@ -56,6 +53,10 @@ responsibilities. The [implementation
 roadmap](https://github.com/tsnl/snail-scheme/blob/main/doc/roadmap.md#align-with-the-lofi-book)
 distinguishes implemented language and library contracts from remaining adapter and validation work.
 Each execution adapter documents its supported targets and entry ABI.
+
+Ott formalization and machine-checked proofs are deferred in
+[TODO.md](https://github.com/tsnl/snail-scheme/blob/main/TODO.md#deferred-ott-formalization-and-proofs).
+The existing book and formal summary will continue to improve incrementally.
 
 Literal defaults are I32 and F64, with explicit annotations for other widths.
 Ordinary fixed-width arithmetic uses wrapping integer and IEEE floating-point
