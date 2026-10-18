@@ -347,12 +347,12 @@
     ;; ---- Expression scopes carry values and declared type variables ----
 
     (define (lower-lambda state node context)
-      (let* ((scope (field node 0)) (parameters (sequence-items state (field node 1) 'binding))
+      (let* ((scope (field node 0)) (ids (sequence-items state (field node 1) 'binding))
              (location (get-location state (field node 3))))
         (claim-scope state scope (lexical-scope context))
-        (declare-bindings state parameters scope location)
-        (make-lambda (map (lambda (id) (vector-ref (decoding-bindings state) id)) parameters)
-                     (lower-expression state (field node 2) (nested-context context scope parameters)) location)))
+        (let ((parameters (declare-bindings state ids scope location)))
+          (make-lambda parameters
+                       (lower-expression state (field node 2) (nested-context context scope ids)) location))))
     (define (lower-block state node context)
       (let ((scope (field node 0)) (location (get-location state (field node 3))))
         (claim-scope state scope (lexical-scope context))

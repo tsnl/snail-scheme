@@ -1,4 +1,7 @@
 (import
  (lofi base))
-(def identity (All (T) (-> T T)) (lambda (value) value))
-(identity 1 2)
+;; The first call fixes the parameter's callable type to one argument.
+(def invoke
+     (lambda (function)
+       (begin (function 1) (function 1 2))))
+42
