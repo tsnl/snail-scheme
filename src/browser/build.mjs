@@ -1,7 +1,7 @@
 // Package browser libraries and build a finite protocol manifest from literal
 // application declarations retained by the compiler. It does not reparse a
 // potentially edited file or expand arbitrary user macros independently.
-import {readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync, existsSync} from 'node:fs';
+import {readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync, existsSync, rmSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
@@ -35,7 +35,16 @@ function checkSettings(settings, protocol) {
   for (const binding of [settings.tick, settings.reset]) {
     if (select('match', binding).payload.length) throw new Error('clock and reset handlers require no payload');
   }
-  for (const binding of settings.remoteHandlers) select('match', binding);
+  if (settings.viewportHandler && select('client', settings.viewportHandler).payload.length !== 2)
+    throw new Error('viewport handler requires width and height I32 arguments');
+  if (settings.animationHandler && select('client', settings.animationHandler).payload.length !== 1)
+    throw new Error('animation handler requires elapsed milliseconds');
+  if (input.zoomHandler && select('client', input.zoomHandler).payload.length !== 1)
+    throw new Error('zoom handler requires one I32 scale delta');
+  if (settings.resetPresentation && select('client', settings.resetPresentation).payload.length)
+    throw new Error('reset presentation handler requires no payload');
+  if (settings.randomSeed && select('match', settings.randomSeed.handler).payload.length !== 1)
+    throw new Error('random seed handler requires one I32 seed');
   for (const [binding, arity] of [[input.pointer.move, 2], [input.pointer.confirm, 0]]) {
     if (select('client', binding).payload.length !== arity) throw new Error('pointer handler payload does not match its input');
   }
@@ -81,42 +90,54 @@ function readShell(app) {
     throw new Error('index.html must contain one data-application-entry module script');
   return html;
 }
-function checkOutput(output, target) {
-  if (!['solo', 'cloud'].includes(target)) throw new Error('package target must be solo or cloud');
+function checkOutput(output) {
   const existing = join(output, 'manifest.json');
-  if (existsSync(existing) && JSON.parse(readFileSync(existing)).target !== target)
+  if (existsSync(existing) && JSON.parse(readFileSync(existing)).target !== 'solo')
     throw new Error('Cannot change an installed package target. Choose a new output directory; existing files and saves were retained.');
 }
-function copyLibraries(root, output, target) {
-  const host = target === 'solo' ? ['application/indexeddb.mjs', 'browser/solo.mjs']
-    : ['application/sqlite.mjs', 'browser/cloud.mjs', 'browser/server.mjs'];
-  for (const path of ['lofi/compiler/execute.mjs', 'application/runtime.mjs', 'application/authority.mjs',
-    'webgpu/quads.mjs', 'browser/application.mjs', 'browser/input.mjs', ...host]) {
+function copyLibraries(root, output, saveService) {
+  // Incremental packaging removes only retired code, never private save data.
+  for (const path of ['application/authority.mjs', 'application/sqlite.mjs', 'browser/cloud.mjs',
+    'browser/cloud-outbox.mjs', 'browser/server.mjs', ...(!saveService ? ['application/remote-saves.mjs'] : [])])
+    rmSync(join(output, 'lib', path), {force: true});
+  for (const path of ['lofi/compiler/execute.mjs', 'application/runtime.mjs', 'application/local.mjs',
+    'webgpu/quads.mjs', 'webgpu/scene.mjs', 'draw3d/bridge.mjs', 'browser/application.mjs', 'browser/input.mjs',
+    'ui/bridge.mjs', 'ui/dom.mjs', 'ui/style.css', 'application/indexeddb.mjs', 'browser/solo.mjs',
+    ...(saveService ? ['application/remote-saves.mjs'] : [])]) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
 }
-function writePackage(root, app, output, target, {manifest: source, wasm, shader, html}) {
-  checkOutput(output, target);
-  const manifest = {...source, target}; mkdirSync(output, {recursive: true});
+function saveSettings(url) {
+  if (!url) return undefined;
+  const parsed = new URL(url, 'https://static.invalid');
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash
+      || !parsed.pathname.endsWith('/')) throw new Error('Save service URL must be an HTTP(S) base ending in / without credentials, query or fragment');
+  return {url};
+}
+function writePackage(root, app, output, saveService, {manifest: source, wasm, shader, html}) {
+  checkOutput(output);
+  const manifest = {...source, target: 'solo', ...(saveService ? {saveService} : {})}; mkdirSync(output, {recursive: true});
   writeFileSync(join(output, manifest.module), wasm); writeFileSync(join(output, manifest.shader), shader);
-  copyLibraries(root, output, target);
+  copyLibraries(root, output, saveService);
   writeFileSync(join(output, 'index.html'), html.replace('<script type="module" data-application-entry></script>',
-    `<script type="module" src="./lib/browser/${target}.mjs"></script>`));
+    '<script type="module" src="./lib/browser/solo.mjs"></script>'));
   copyFileSync(join(app, 'style.css'), join(output, 'style.css'));
   // Versioned artifacts become reachable only after complete successful packaging.
   writeFileSync(join(output, 'manifest.next.json'), JSON.stringify(manifest, null, 2));
   renameSync(join(output, 'manifest.next.json'), join(output, 'manifest.json'));
   return manifest;
 }
-export async function packageApplication(root, app, artifacts, {output = artifacts, target = 'cloud'} = {}) {
-  return writePackage(root, app, output, target, await readApplication(app, artifacts));
+export async function packageApplication(root, app, artifacts, {output = artifacts, saveServiceURL} = {}) {
+  return writePackage(root, app, output, saveSettings(saveServiceURL), await readApplication(app, artifacts));
 }
-export async function packageApplications(root, app, artifacts) {
+export async function packageApplications(root, app, artifacts, {saveServiceURL} = {}) {
   const product = await readApplication(app, artifacts);
-  return ['solo', 'cloud'].map(target => writePackage(root, app, join(artifacts, target), target, product));
+  const local = writePackage(root, app, join(artifacts, 'solo'), undefined, product);
+  return saveServiceURL ? [local, writePackage(root, app, join(artifacts, 'synced'), saveSettings(saveServiceURL), product)] : [local];
 }
 if (process.argv[1] && resolve(process.argv[1]) === import.meta.filename) {
   const [, , root, app, output] = process.argv;
-  const [manifest] = await packageApplications(root, app, output);
-  console.log(`Built ${manifest.settings.title}\nSolo static files: ${join(output, 'solo')}\nCloud: node ${join(output, 'cloud/lib/browser/server.mjs')} ${join(output, 'cloud')}`);
+  const manifests = await packageApplications(root, app, output, {saveServiceURL: process.env.SAVE_SERVICE_URL});
+  console.log(`Built ${manifests[0].settings.title}\nStatic files: ${join(output, 'solo')}`);
+  if (manifests.length > 1) console.log(`Static files with optional save/load: ${join(output, 'synced')}`);
 }

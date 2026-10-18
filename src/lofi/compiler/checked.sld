@@ -3,6 +3,7 @@
 (define-library (lofi compiler checked)
   (export make-program program? program-body program-globals program-classes program-instances program-type program-scopes
           make-class class? class-definition class-variables class-methods class-overload?
+          class-instance-cache set-class-instance-cache!
           make-instance instance? instance-class instance-types instance-members instance-scheme instance-row)
   (import
    (scheme base)
@@ -23,11 +24,14 @@
     ;; ---- Static class evidence ----
 
     (define-record-type <class>
-      (make-class definition variables methods overload?) class?
+      (new-class definition variables methods overload? instance-cache) class?
       (definition class-definition)
       (variables class-variables)
       (methods class-methods)
-      (overload? class-overload?))
+      (overload? class-overload?)
+      (instance-cache class-instance-cache set-class-instance-cache!))
+    (define (make-class definition variables methods overload?)
+      (new-class definition variables methods overload? #f))
     ;; Ordinary instances have a concrete head. An overload row has one complete
     ;; declared function scheme; its source row retains member identity and
     ;; location separately from runtime bindings.

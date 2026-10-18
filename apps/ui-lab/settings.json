@@ -1,0 +1,8 @@
+{
+  "id": "snail-ui-lab-v1", "title": "Snail UI laboratory", "renderer": "dom",
+  "width": 1, "height": 1, "cellSize": 1, "tickMilliseconds": 1000,
+  "source": "src/ui-lab/game.sld", "owners": {"match-app": "match", "client-app": "client"},
+  "tick": "advance", "reset": "reset",
+  "pointer": {"move": "move", "confirm": "increment"},
+  "keys": {"+": ["increment"], "-": ["decrement"]}, "controller": {}
+}

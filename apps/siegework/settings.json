@@ -1,5 +1,5 @@
 {
-  "id": "siegework",
+  "id": "siegework-colony-v10",
   "title": "Siegework",
   "width": 960,
   "height": 640,
@@ -12,23 +12,9 @@
   },
   "tick": "advance",
   "reset": "new-run",
-  "remoteHandlers": [
-    "extract",
-    "fortify",
-    "observe",
-    "upgrade",
-    "fabricate-worker",
-    "prioritize-building",
-    "repair",
-    "new-run",
-    "pause-colony",
-    "new-run-seed",
-    "cancel-building",
-    "arm-tower"
-  ],
   "pointer": {
     "move": "move",
-    "confirm": "confirm",
+    "confirm": "activate",
     "coordinates": "pixels"
   },
   "keys": {
@@ -39,10 +25,6 @@
     "2": [
       "choose",
       2
-    ],
-    "3": [
-      "choose",
-      3
     ],
     " ": [
       "confirm"
@@ -61,12 +43,6 @@
     ],
     "f": [
       "fabricate"
-    ],
-    "p": [
-      "prioritize"
-    ],
-    "r": [
-      "mend"
     ],
     "n": [
       "restart"
@@ -113,6 +89,30 @@
       "nudge",
       0,
       1
+    ],
+    "Escape": [
+      "dismiss"
+    ],
+    "p": [
+      "suspend",
+      -1
+    ],
+    "q": [
+      "rotate",
+      0,
+      -1
+    ],
+    "e": [
+      "rotate",
+      0,
+      1
+    ],
+    "3": [
+      "choose",
+      3
+    ],
+    "v": [
+      "orbit"
     ]
   },
   "inputRepeatMilliseconds": 140,
@@ -122,110 +122,21 @@
     "ArrowUp",
     "ArrowDown"
   ],
-  "controller": {
-    "0": [
-      "confirm"
-    ],
-    "1": [
-      "choose",
-      3
-    ],
-    "2": [
-      "choose",
-      1
-    ],
-    "3": [
-      "choose",
-      2
-    ],
-    "4": [
-      "improve"
-    ],
-    "5": [
-      "mend"
-    ],
-    "6": [
-      "fabricate"
-    ],
-    "7": [
-      "prioritize"
-    ],
-    "8": [
-      "home"
-    ],
-    "9": [
-      "restart"
-    ],
-    "10": [
-      "cancel"
-    ],
-    "11": [
-      "arm"
-    ],
-    "12": [
-      "nudge",
-      0,
-      -1
-    ],
-    "13": [
-      "nudge",
-      0,
-      1
-    ],
-    "14": [
-      "nudge",
-      -1,
-      0
-    ],
-    "15": [
-      "nudge",
-      1,
-      0
-    ]
-  },
-  "repeatButtons": [
-    12,
-    13,
-    14,
-    15
-  ],
-  "controllerAxes": [
-    {
-      "axis": 0,
-      "negative": [
-        "drift",
-        -1,
-        0
-      ],
-      "positive": [
-        "drift",
-        1,
-        0
-      ],
-      "deadzone": 0.35,
-      "continuous": true
-    },
-    {
-      "axis": 1,
-      "negative": [
-        "drift",
-        0,
-        -1
-      ],
-      "positive": [
-        "drift",
-        0,
-        1
-      ],
-      "deadzone": 0.35,
-      "continuous": true
-    }
-  ],
   "continuousKeys": [
     "w",
     "a",
     "s",
     "d"
   ],
-  "runMarker": 1
+  "runMarker": 1,
+  "renderer": "scene3d",
+  "viewportHandler": "viewport",
+  "animationHandler": "animate",
+  "randomSeed": {
+    "handler": "new-run-seed",
+    "minimum": 1,
+    "maximum": 65535
+  },
+  "resetPresentation": "center",
+  "zoomHandler": "zoom"
 }

@@ -1,9 +1,12 @@
 // Browser input contracts without a running Scheme authority or GPU adapter.
 // Start Chromium with a DevTools port, then pass its URL as the first argument.
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, writeFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {createServer} from 'node:http';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {parseInputSettings} from '../../src/browser/input.mjs';
+import {packageApplication} from '../../src/browser/build.mjs';
 
 const root = new URL('../../', import.meta.url), devtools = process.argv[2] ?? 'http://127.0.0.1:9336';
 // Keep the old discrete contract explicit even when Siegework opts into
@@ -25,6 +28,7 @@ const continuous = {...settings, pointer: {...settings.pointer, coordinates: 'pi
   repeatKeys: ['ArrowDown'], continuousKeys: ['w', 'a', 's', 'd'],
   controllerAxes: settings.controllerAxes.map(axis => ({...axis, continuous: true,
     negative: ['drift', ...axis.negative.slice(1)], positive: ['drift', ...axis.positive.slice(1)]}))};
+const zoom = {...continuous, zoomHandler: 'zoom'};
 const shell = readFileSync(new URL('apps/siegework/index.html', root), 'utf8').replace('<script type="module" data-application-entry></script>', '');
 const page = `<!doctype html><html><body style="margin:0;min-height:3000px">
 <canvas width="960" height="640" tabindex="0" style="display:block;width:480px;height:320px"></canvas>
@@ -44,16 +48,19 @@ const page = `<!doctype html><html><body style="margin:0;min-height:3000px">
 import {BrowserInput,parseInputSettings} from '/input.mjs';
 globalThis.settings=${JSON.stringify(settings)};
 globalThis.continuous=${JSON.stringify(continuous)};
+globalThis.zoomSettings=${JSON.stringify(zoom)};
 globalThis.configuration=parseInputSettings(settings);
 globalThis.dispatches=[];globalThis.keys=[];globalThis.pads=[];
 Object.defineProperty(navigator,'getGamepads',{value:()=>pads});
 globalThis.input=new BrowserInput(document.querySelector('canvas'),()=>configuration,(binding,args)=>dispatches.push([binding,...args]));
+document.querySelector('canvas').addEventListener('pointerdown',event=>{if(event.pointerType==='touch')globalThis.lastTouch=event.pointerId});
 document.addEventListener('keydown',event=>keys.push({key:event.key,prevented:event.defaultPrevented}));
 globalThis.replaceSettings=value=>configuration=parseInputSettings(value);
 document.querySelector('canvas').focus();globalThis.ready=true;
 </script></body></html>`;
 const server = createServer((request, response) => {
-  const paths = {'/input.mjs': ['src/browser/input.mjs', 'text/javascript'], '/style.css': ['apps/siegework/style.css', 'text/css']};
+  const paths = {'/input.mjs': ['src/browser/input.mjs', 'text/javascript'], '/style.css': ['apps/siegework/style.css', 'text/css'],
+    '/lib/ui/style.css': ['src/ui/style.css','text/css']};
   const asset = paths[request.url];
   response.setHeader('content-type', asset?.[1] ?? 'text/html');
   response.end(asset ? readFileSync(new URL(asset[0], root)) : request.url === '/shell' ? shell : page);
@@ -90,6 +97,22 @@ async function press(key, code, number, extra) {
   await down(key, code, number, extra); await up(key, code, number);
 }
 async function take() { return read('dispatches.splice(0)'); }
+async function touch(type, points = []) {
+  await call('Input.dispatchTouchEvent', {type, touchPoints: points.map(([id, x, y]) => ({id, x, y}))});
+  await read('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))');
+}
+async function checkZoomEndpoint() {
+  const directory = mkdtempSync(join(tmpdir(), 'snail-zoom-input-'));
+  const handlers = [{binding:'tick',payload:[]},{binding:'move',payload:['I32','I32']},{binding:'confirm',payload:[]}];
+  const source = {library:['test'],applications:[{binding:'world',state:'World',schema:1,handlers},
+    {binding:'client',state:'Client',schema:1,handlers}]};
+  writeFileSync(join(directory,'application.syntax.json'),JSON.stringify(source));
+  try { for (const binding of ['confirm','move','missing']) {
+    const input = {...settings,id:'zoom-test',owners:{world:'match',client:'client'},tick:'tick',reset:'tick',zoomHandler:binding};
+    writeFileSync(join(directory,'settings.json'),JSON.stringify(input));
+    await assert.rejects(packageApplication(root.pathname,directory,directory),/zoom handler requires one I32|unknown client handler/);
+  }} finally { rmSync(directory,{recursive:true,force:true}); }
+}
 
 try {
   assert.equal(parseInputSettings(settings).axes.length, 2);
@@ -97,6 +120,7 @@ try {
   assert.equal(parseInputSettings(settings).pointer.coordinates, 'cells');
   assert.equal(parseInputSettings(continuous).continuousKeys.size, 4);
   assert.equal(parseInputSettings(continuous).axes.every(axis => axis.continuous), true);
+  assert.equal(parseInputSettings(zoom).zoomHandler, 'zoom');
   const legacy = {...settings, controllerAxes: undefined, repeatKeys: undefined, repeatButtons: undefined};
   assert.equal(parseInputSettings(legacy).buttons.get(0)[0], 'confirm');
   for (const broken of [
@@ -110,8 +134,10 @@ try {
     {...continuous, repeatKeys: ['d']},
     {...continuous, controllerAxes: [{...continuous.controllerAxes[0], continuous: 'yes'}]},
     {...continuous, controllerAxes: [{...continuous.controllerAxes[0], negative: ['confirm']}]},
-    {...continuous, pointer: {...continuous.pointer, coordinates: 'tiles'}}
+    {...continuous, pointer: {...continuous.pointer, coordinates: 'tiles'}},
+    {...settings, zoomHandler: ''}, {...settings, zoomHandler: 1}, {...settings, zoomHandler: null}
   ]) assert.throws(() => parseInputSettings(broken));
+  await checkZoomEndpoint();
   console.log('ok - settings retain legacy maps and reject malformed repeat/continuous/axis/I32/pointer declarations');
 
   target = await (await fetch(`${devtools}/json/new?${encodeURIComponent(origin)}`, {method: 'PUT'})).json();
@@ -280,6 +306,69 @@ try {
   assert.deepEqual(await take(), [['move', 0, 0], ['move', 959, 639]]);
   console.log('ok - continuous payloads stay I32; opt-in pointer pixels scale, floor, coalesce, clamp, and precede confirmation');
 
+  await read(`replaceSettings(zoomSettings);input.frame(time=0);
+    globalThis.wheel=(deltaY,deltaMode=0,extra={})=>{const event=new WheelEvent('wheel',{deltaY,deltaMode,bubbles:true,cancelable:true,...extra});
+      document.querySelector('canvas').dispatchEvent(event);return event.defaultPrevented;}`);
+  await call('Input.dispatchMouseEvent', {type:'mouseWheel',x:170,y:70,deltaX:0,deltaY:100});
+  await until(() => read('input.zoom!==0'), 'real wheel event did not reach the zoom handler');
+  assert.deepEqual(await take(), []);
+  await read('input.frame(time+=16);input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',100]]);
+  assert.equal(await read('wheel(3,1)'),true);
+  await read('input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',48]]);
+  await read('wheel(1,2);input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',320]]);
+  assert.equal(await read('wheel(-75,0,{ctrlKey:true})'),true);
+  await read('input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',-75]]);
+  await read('wheel(-.6);input.frame(time+=16)'); assert.deepEqual(await take(), []);
+  await read('wheel(-.6);input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',-1]]);
+  await read('wheel(.2);wheel(2500);wheel(-1500);input.frame(time+=16);input.frame(time+=16)');
+  assert.deepEqual(await take(), [['zoom',1000]]);
+  await read('wheel(5000);input.frame(time+=16);input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',1000]]);
+  await read('wheel(-5000);input.frame(time+=16);input.frame(time+=16)'); assert.deepEqual(await take(), [['zoom',-1000]]);
+  await read('wheel(30);replaceSettings({...zoomSettings});input.frame(time+=16)'); assert.deepEqual(await take(), []);
+  await read("document.querySelector('#integer').focus()"); assert.equal(await read('wheel(100)'),false);
+  await read("document.querySelector('canvas').focus();replaceSettings(continuous);input.frame(time+=16)");
+  assert.equal(await read('wheel(100)'),false); assert.deepEqual(await take(), []);
+  console.log('ok - wheel zoom is opt-in, typed, normalized across units, coalesced, fractional and bounded without catch-up');
+
+  await read('replaceSettings(zoomSettings);input.frame(time=0)');
+  await touch('touchStart',[[1,120,100]]); assert.deepEqual(await take(), []);
+  await touch('touchEnd'); assert.deepEqual(await take(), [['move',240,200],['confirm']]);
+  await touch('touchStart',[[1,120,100]]);
+  await touch('touchMove',[[1,140,100]]); await touch('touchMove',[[1,120,100]]);
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  await touch('touchStart',[[1,120,100]]); await touch('touchCancel'); assert.deepEqual(await take(), []);
+  await touch('touchStart',[[1,120,100]]);
+  await read('replaceSettings({...zoomSettings});input.frame(time+=16)');
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  await touch('touchStart',[[1,120,100]]); await touch('touchStart',[[1,120,100],[2,600,100]]);
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  await touch('touchStart',[[1,600,100]]); await touch('touchStart',[[1,600,100],[2,120,100]]);
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  console.log('ok - real single-finger taps confirm on release; drag, cancellation and settings replacement cannot build');
+
+  await touch('touchStart',[[1,140,100]]); await touch('touchStart',[[1,140,100],[2,240,100]]);
+  await touch('touchMove',[[1,90,100],[2,290,100]]); await read('input.frame(time+=16)');
+  assert.deepEqual(await take(), [['zoom',-693]]);
+  // CDP touchEnd releases every contact. Inject one observed pointer's release
+  // to check the surviving finger before completing the native touch sequence.
+  await read("document.querySelector('canvas').dispatchEvent(new PointerEvent('pointerup',{pointerType:'touch',pointerId:lastTouch,clientX:290,clientY:100}))");
+  await touch('touchMove',[[1,90,100],[2,290,100]]); await touch('touchMove',[[1,110,100],[2,290,100]]);
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  await read('replaceSettings({...zoomSettings});input.frame(time+=16)');
+  await touch('touchStart',[[1,100,100],[2,300,100]]);
+  await touch('touchStart',[[1,100,100],[2,300,100],[3,200,200]]);
+  await touch('touchMove',[[1,110,100],[2,290,100],[3,200,210]]); await read('input.frame(time+=16)');
+  assert.deepEqual(await take(), []);
+  await read("document.querySelector('canvas').dispatchEvent(new PointerEvent('pointercancel',{pointerType:'touch',pointerId:lastTouch}))");
+  await touch('touchMove',[[1,110,100],[2,290,100],[3,200,210]]); await read('input.frame(time+=16)');
+  assert.deepEqual(await take(), []);
+  await touch('touchMove',[[1,155,100],[2,245,100],[3,200,210]]); await read('input.frame(time+=16)');
+  assert.deepEqual(await take(), [['zoom',693]]);
+  await touch('touchEnd'); assert.deepEqual(await take(), []);
+  await touch('touchStart',[[1,120,100]]); await touch('touchEnd');
+  assert.deepEqual(await take(), [['move',240,200],['confirm']]);
+  console.log('ok - real pinches preserve scale ratios and suppress builds; individual release/cancel signals rebase surviving contacts');
+
   await read("document.querySelector('#integer').focus()");
   for (const value of ['', ' ', '1.5', '1e2', '0x2a', '1_000', 'NaN', 'Infinity', '2147483648', '-2147483649']) {
     await read(`document.querySelector('#integer').value=${JSON.stringify(value)}`);
@@ -335,17 +424,17 @@ try {
   console.log('ok - form fields and submit-button focus suspend gameplay, including edits between frames, and require fresh input afterward');
 
   await call('Page.navigate', {url: `${origin}/shell`});
-  await until(() => read("document.querySelector('.commands') !== null"), 'Siegework shell did not load');
+  await until(() => read("document.readyState==='complete' && document.querySelector('[data-ui]') !== null"), 'Siegework shell did not load');
   for (const width of [360, 680, 900, 1280]) {
     await call('Emulation.setDeviceMetricsOverride', {width, height: 1000, deviceScaleFactor: 1, mobile: false});
-    const layout = await read("(()=>{const c=document.querySelector('canvas').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,ratio:c.width/c.height,targets:[...document.querySelectorAll('button, input')].every(b=>{const r=b.getBoundingClientRect();return r.width>=40&&r.height>=44})}})()");
+    const layout = await read("(()=>{const c=document.querySelector('canvas').getBoundingClientRect(),ui=document.querySelector('[data-ui]'),r=ui.getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,full:c.width===innerWidth&&c.height===innerHeight,dimensions:[c.width,c.height,innerWidth,innerHeight],overlay:r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&getComputedStyle(ui).pointerEvents==='none'}})()");
     assert.equal(layout.overflow, false, `horizontal overflow at ${width}px`);
-    assert.ok(Math.abs(layout.ratio - 1.5) < 0.01, `distorted map at ${width}px`);
-    assert.equal(layout.targets, true, `small control target at ${width}px`);
+    assert.equal(layout.full,true, `world canvas does not fill the viewport at ${width}px: ${layout.dimensions}`);
+    assert.equal(layout.overlay,true, `HUD overlay intercepts the world or leaves the viewport at ${width}px`);
   }
-  assert.equal(await read("document.querySelector('form[data-handler=\"restart-seed\"] input[data-i32]').labels[0].textContent"), 'Next run seed');
+  assert.equal(await read("document.querySelector('canvas').tabIndex===0 && !!document.querySelector('canvas').getAttribute('aria-label') && !!document.querySelector('[data-ui]').getAttribute('aria-label')"),true);
   const browser = await (await fetch(`${devtools}/json/version`)).json();
-  console.log(`ok - Siegework shell fits 360/680/900/1280px with readable control targets (${browser.Browser}); no physical controller tested`);
+  console.log(`ok - Siegework shell fits 360/680/900/1280px with a full world canvas and accessible Scheme HUD region (${browser.Browser}); no physical controller tested`);
 } finally {
   ws?.close();
   for (const targetId of [...extraTargets, target?.id].filter(Boolean)) await fetch(`${devtools}/json/close/${targetId}`);
