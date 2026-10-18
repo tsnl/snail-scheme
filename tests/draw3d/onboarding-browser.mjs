@@ -97,7 +97,7 @@ async function checkAttackToasts() {
     const count=Math.min(3,Math.floor((height-120)/104));
     const frame=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene;return{insets:scene.insets.map(view=>({key:view.key,rect:view.rect})),
       resources:snailApp.renderer.resources,cards:[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(e=>e.getBoundingClientRect().toJSON())};})()`);
-    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,1+2*count);
+    assert.equal(frame.cards.length,count);assert.equal(frame.insets.length,count);assert.equal(frame.resources.insets,count);assert.equal(frame.resources.textures,2+3*count);
     assert.equal(frame.resources.insetPixels,112*80*4*count);
     for(const rect of frame.cards)assert.ok(rect.x>=0&&rect.y>=0&&rect.right<=width+1&&rect.bottom<=height+1);
     for(const{rect:[x,y,w,h]}of frame.insets)assert.ok(x>=0&&y>=0&&x+w<=width&&y+h<=height);

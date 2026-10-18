@@ -109,10 +109,13 @@ The host validates finite scalars, complete uniforms and bounded indices. The
 shaders apply the camera matrix and Lambert lighting. `src/webgpu/scene.mjs`
 uploads only changed batch geometry and draws each view in its own render pass.
 It owns one high-performance adapter/device, growable vertex/index buffers per
-batch, a shared uniform buffer and one single-sample depth target. Motion batches
+batch, a shared uniform buffer and four-sample color/depth attachments. Every
+pipeline uses 4× MSAA at the full device-pixel resolution. The main pass resolves
+color into the single-sample canvas output and discards its multisample contents;
+the attachments are reused across frames. Motion batches
 also own previous positions and a uniform buffer; translucent batches own a
 uniform buffer for their opacity. Resize releases the old
-depth target; shader replacement preserves buffers and retains the prior pipeline
+attachments; shader replacement preserves buffers and retains the prior pipeline
 for rollback.
 
 Close stops admission, drains preparation/readback and submitted work,
@@ -142,7 +145,9 @@ complete inset before copying its visible rectangle preserves its projection
 when the right or bottom edge extends beyond the canvas.
 
 All views share one adapter, device and submission. Each inset owns a camera
-uniform and color/depth targets; batch keys are scoped to their view, so two
+uniform, four-sample color/depth attachments and a single-sample resolved color
+texture for copying to the canvas. Resource diagnostics count two owned textures
+for the main view plus three per inset. Batch keys are scoped to their view, so two
 cameras may both use batch key 3. The bridge validates every view before
 publishing any retained batch changes. Resize replaces targets while preserving
 geometry, and omitted or fully clipped insets release their GPU resources.
@@ -255,7 +260,8 @@ in `build/draw3d-tests/`. Serve that directory, then run
 `node tests/draw3d/browser.mjs FIXTURE_URL DEVTOOLS_URL` against an isolated
 Chromium instance. GPU checks cover intermediate and final motion pixels,
 independent durations, shared reveal clocks, fragment opacity, inset cameras,
-native DPR, shader replacement, buffer reuse and resource cleanup.
+native DPR, resolved MSAA edge coverage, shader replacement, buffer/attachment
+reuse and resource cleanup.
 The product surface does not currently support
 `cond-expand`; test entry points follow the existing Lofi library convention,
 with private helpers in final `Tests` sections.

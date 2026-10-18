@@ -21,6 +21,7 @@ function descriptor(module, format, translucent, depthWriteEnabled) {
     {arrayStride: 40, attributes: [{shaderLocation: 3, offset: 0, format: 'float32x3'}]}]},
     fragment: {module, entryPoint: 'fragment_main', targets: [{format, ...(translucent ? {blend: {color: {srcFactor:'src-alpha',dstFactor:'one-minus-src-alpha'}, alpha: {srcFactor:'one',dstFactor:'one-minus-src-alpha'}}} : {})}]},
     primitive: {topology: 'triangle-list', cullMode: 'none'},
+    multisample: {count: 4},
     depthStencil: {format: 'depth24plus', depthWriteEnabled, depthCompare: 'less'}};
 }
 function growBuffer(device, buffer, size, usage) {
@@ -28,17 +29,22 @@ function growBuffer(device, buffer, size, usage) {
   const next = device.createBuffer({size: Math.max(4096, size * 2), usage: usage | GPUBufferUsage.COPY_DST});
   buffer?.destroy(); return next;
 }
-function depthTarget(device, width, height) {
-  const texture = device.createTexture({size: [width, height], format: 'depth24plus',
+function renderAttachments(device, width, height, format) {
+  const color = device.createTexture({size: [width, height], format, sampleCount: 4,
     usage: GPUTextureUsage.RENDER_ATTACHMENT});
-  return {width, height, texture, view: texture.createView()};
+  const depth = device.createTexture({size: [width, height], format: 'depth24plus', sampleCount: 4,
+    usage: GPUTextureUsage.RENDER_ATTACHMENT});
+  return {width, height, color, depth, colorView: color.createView(), depthView: depth.createView()};
+}
+function destroyAttachments(attachments) {
+  attachments?.color.destroy(); attachments?.depth.destroy();
 }
 function destroyGeometry(value) {
   value?.vertices?.destroy(); value?.previousVertices?.destroy(); value?.indices?.destroy(); value?.uniform?.destroy();
 }
 function geometryKey(view, batch) { return view === undefined ? batch : `${view}:${batch}`; }
 function destroyInset(view) {
-  view.texture.destroy(); view.depth.texture.destroy(); view.uniform.destroy();
+  view.texture.destroy(); destroyAttachments(view.attachments); view.uniform.destroy();
 }
 // Both bindings use the existing stride. Static batches bind their current
 // buffer twice; only moving batches copy another buffer with prior positions.
@@ -78,7 +84,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
   context.configure({device, format, alphaMode: 'opaque',
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST});
   const uniform = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
-  let current, previous, depth, closed = false, lost = false, closing, uploads = 0, frames = 0;
+  let current, previous, attachments, closed = false, lost = false, closing, uploads = 0, frames = 0;
   const geometry = new Map(), insets = new Map(), pending = new Set(); let latest, reveals = new Map();
   device.addEventListener('uncapturederror', event => { if (!closed) onError(event.error); });
   device.lost.then(info => { lost = true; if (!closed) onError(new Error(`WebGPU device lost: ${info.message}`)); });
@@ -123,9 +129,9 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     stored.source = batch; stored.count = indexData.length; geometry.set(key, stored); uploads++; return stored;
   }
   function resize() {
-    if (depth?.width === canvas.width && depth?.height === canvas.height) return;
-    const next = depthTarget(device, canvas.width, canvas.height);
-    depth?.texture.destroy(); depth = next;
+    if (attachments?.width === canvas.width && attachments?.height === canvas.height) return;
+    const next = renderAttachments(device, canvas.width, canvas.height, format);
+    destroyAttachments(attachments); attachments = next;
   }
   function insetView(key, width, height) {
     let view = insets.get(key);
@@ -134,10 +140,10 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       insets.set(key, view);
     }
     if (view.width !== width || view.height !== height) {
-      view.texture?.destroy(); view.depth?.texture.destroy(); view.width = width; view.height = height;
+      view.texture?.destroy(); destroyAttachments(view.attachments); view.width = width; view.height = height;
       view.texture = device.createTexture({size:[width,height],format,
         usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC});
-      view.depth = depthTarget(device,width,height);
+      view.attachments = renderAttachments(device,width,height,format);
     }
     if (view.pipeline !== current.pipeline) {
       view.pipeline = current.pipeline;
@@ -169,9 +175,11 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
   function drawView(commands, view, scene, logicalWidth, logicalHeight, time, present) {
     device.queue.writeBuffer(view.uniform, 0, Float32Array.from(scene.uniforms));
     const [r,g,b] = scene.background;
-    const pass = commands.beginRenderPass({colorAttachments: [{view: view.texture.createView(),
-      clearValue: {r, g, b, a: 1}, loadOp: 'clear', storeOp: 'store'}],
-      depthStencilAttachment: {view: view.depth.view, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard'}});
+    // Resolve before copying or reading the single-sample output. Multisample
+    // contents need not survive the pass; the attachments are reused next frame.
+    const pass = commands.beginRenderPass({colorAttachments: [{view: view.attachments.colorView,
+      resolveTarget: view.texture.createView(), clearValue: {r, g, b, a: 1}, loadOp: 'clear', storeOp: 'discard'}],
+      depthStencilAttachment: {view: view.attachments.depthView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard'}});
     pass.setPipeline(current.pipeline); pass.setBindGroup(0, view.bindings);
     if (scene.viewport) {
       const [x, y, width, height] = scene.viewport, sx = view.width / logicalWidth, sy = view.height / logicalHeight;
@@ -223,7 +231,7 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
     reveals = frameReveals(scene,time);
     resize(); const target = context.getCurrentTexture(), commands = device.createCommandEncoder();
     const present = new Set(), visible = new Set();
-    drawView(commands,{texture:target,depth,uniform,bindings:current.bindings,width:canvas.width,height:canvas.height},
+    drawView(commands,{texture:target,attachments,uniform,bindings:current.bindings,width:canvas.width,height:canvas.height},
       scene,logicalWidth,logicalHeight,time,present);
     for (const inset of scene.insets ?? [])
       if (copyInset(commands,target,inset,logicalWidth,logicalHeight,time,present)) visible.add(inset.key);
@@ -263,9 +271,9 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
   async function dispose() {
     await Promise.allSettled([...pending]);
     if (!lost) await device.queue.onSubmittedWorkDone().catch(() => {});
-    context.unconfigure(); depth?.texture.destroy(); for (const value of geometry.values()) destroyGeometry(value);
+    context.unconfigure(); destroyAttachments(attachments); for (const value of geometry.values()) destroyGeometry(value);
     for (const view of insets.values()) destroyInset(view);
-    uniform.destroy(); geometry.clear(); insets.clear(); reveals.clear(); latest = current = previous = depth = undefined; device.destroy();
+    uniform.destroy(); geometry.clear(); insets.clear(); reveals.clear(); latest = current = previous = attachments = undefined; device.destroy();
   }
   return {adapter: adapter.info, device, prepare, draw, animate,
     replace(candidate) { if (closed) return; previous = current; current = candidate; },
@@ -278,5 +286,5 @@ export async function createSceneRenderer(canvas, onError = () => {}) {
       indexBytes: [...geometry.values()].reduce((total, value) => total + (value.indices?.size ?? 0), 0),
       insets: insets.size, insetPixels: [...insets.values()].reduce((total,view) => total+view.width*view.height,0),
       reveals: reveals.size,
-      textures: (depth ? 1 : 0)+2*insets.size, pending: pending.size}; }};
+      textures: (attachments ? 2 : 0)+3*insets.size, pending: pending.size}; }};
 }
