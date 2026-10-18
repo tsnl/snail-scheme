@@ -8,13 +8,16 @@
   (export define define-syntax syntax-rules lambda let let* letrec letrec*
           begin if and or when unless cond else
           + - * / = < <= > >= quotient remainder not unit
-          cons car cdr null? empty-list
+          cons car cdr null? empty-list list
           vector make-vector vector-length vector-ref vector-set!
           string make-string string-length string-ref string-set!
           char=? char<? char->integer integer->char)
   (begin
 
     ;; ---- Definitions and lexical bindings ----
+
+    ;; The typed surface uses proper parameter lists, like the kernel.
+    ;; Collection syntax packs its operands before calling a fixed-arity worker.
 
     (def define
          (syntax-rules ()

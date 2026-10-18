@@ -4,5 +4,5 @@
   (export def lambda if let begin library-begin ann inst match data deriving datatype typeclass instance
           identifier-name library-name type-name
           define-overload define-extern syntax-rules define-syntax
-          : All requires -> Ref List Vector Rest
+          : All requires -> Ref List Vector
           I32 I64 F32 F64 Bool Char Unit Any Never String Bytevector))

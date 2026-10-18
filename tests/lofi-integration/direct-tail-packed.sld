@@ -26,11 +26,11 @@
                         (even (- n (ann 1 I64)))
                         (unit)))
                   (unit))))
-         (def add-first (-> I64 (Rest I64) I64)
-              (lambda (first . remaining) (+ first (car remaining))))
+         (def add-first (-> I64 (List I64) I64)
+              (lambda (first remaining) (+ first (car remaining))))
          (def stop
               (lambda () (unreachable)))
          (even (ann 100000 I64))
-         (if (= (ref-get count) (ann 100000 I64)) (add-first (ann 40 I64) (ann 2 I64) (ann 99 I64)) (stop)))))
+         (if (= (ref-get count) (ann 100000 I64)) (add-first (ann 40 I64) (list (ann 2 I64) (ann 99 I64))) (stop)))))
 
 (exercise)

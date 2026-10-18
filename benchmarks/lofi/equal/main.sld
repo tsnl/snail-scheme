@@ -75,18 +75,18 @@
     ((lambda (x.1) ((lambda (y.1) ((lambda () (iterate n.2 (hide n.2 (lambda () (datum=? x.1 y.1))))))) (equal-vector->list (equal-make-vector n.2 (make-test-tree2 (ann 3 I64))))))
       (equal-vector->list (equal-make-vector n.2 (make-test-tree2 (ann 3 I64)))))))
 
-(def equality-benchmark5 (-> I64 (Rest I64) Bool)
-  (lambda (n.1 . rest)
+(def equality-benchmark5 (-> I64 (List I64) Bool)
+  (lambda (n.1 rest)
     ((lambda (x) ((lambda (y) ((lambda (iterations) ((lambda () (iterate iterations (hide n.1 (lambda () (datum=? x y))))))) (if (null? rest) n.1 (car rest)))) (make-test-tree5 n.1)))
       (make-test-tree5 n.1))))
 
-(def equality-benchmark5short (-> I64 Bool) (lambda (n) (equality-benchmark5 n (ann 100 I64))))
+(def equality-benchmark5short (-> I64 Bool) (lambda (n) (equality-benchmark5 n (cons (ann 100 I64) (empty-list)))))
 
 (def equality-benchmarks (-> I64 I64 I64 I64 I64 I64 Bool)
   (lambda (n0 n1 n2 n3 n4 n5)
     (if (equality-benchmark1 n1)
       (if (equality-benchmark2 n2)
-        (if (equality-benchmark3 n3) (if (equality-benchmark4 n4) (equality-benchmark5 n5) #f) #f)
+        (if (equality-benchmark3 n3) (if (equality-benchmark4 n4) (equality-benchmark5 n5 (empty-list)) #f) #f)
         #f)
       #f)))
 

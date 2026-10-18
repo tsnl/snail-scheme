@@ -19,11 +19,11 @@
       (begin (mark (ann 2 I64)) (ann 0 I64))))
 ((lambda (unused) (mark (ann 6 I64)))
  (begin (mark (ann 5 I64)) (unit)))
-(def rest-result
-     ((lambda (first . rest)
+(def packed-result
+     ((lambda (first rest)
         (begin (mark (ann 8 I64)) (i64-add first (car rest))))
       (begin (mark (ann 7 I64)) (ann 20 I64))
-      (ann 22 I64)))
+      (cons (ann 22 I64) (empty-list))))
 
 ;; Sequential let may generalize an initializer independently of call typing.
 (def let-result
@@ -32,7 +32,7 @@
        (identity #t)
        (identity (ann 42 I64))))
 (if (i64-eq named-result (ann 42 I64))
-    (if (i64-eq rest-result (ann 42 I64))
+    (if (i64-eq packed-result (ann 42 I64))
         (if (i64-eq let-result (ann 42 I64))
             (if (i64-eq (observed) (ann 12345678 I64)) (ann 42 I64) (unreachable))
             (unreachable))

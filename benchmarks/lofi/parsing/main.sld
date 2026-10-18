@@ -24,7 +24,10 @@
 
 (def parsing-read-char read-char)
 
-(def parsing-list (All (T) (-> (Rest T) (List T))) (lambda values.8 values.8))
+(def parsing-list
+  (syntax-rules ()
+    ((_) (empty-list))
+    ((_ first rest ...) (cons first (parsing-list rest ...)))))
 
 (def parsing-cadr (All (T) (-> (List T) T)) (lambda (values.7) (car (cdr values.7))))
 
@@ -273,8 +276,11 @@
     parsing-symbol-number-value
     parsing-symbol-string-value))
 
-(def parsing-benchmark (-> (Rest Datum) Datum)
-  (lambda rest
+(def parsing-benchmark
+  (syntax-rules ()
+    ((_ values ...) (parsing-benchmark-list (parsing-list values ...)))))
+(def parsing-benchmark-list (-> (List Datum) Datum)
+  (lambda (rest)
     ((lambda (n) ((lambda (input) ((lambda (input-string.1) ((lambda () (((lambda () (begin (def loop.3 (lambda (i result.1) (if (= i n) result.1 (loop.3 (+ i (ann 1 I64)) (parse-string input-string.1))))) loop.3))) (ann 0 I64) (datum-boolean #f))))) (read-file-as-string input))) (datum-string-value (if ((lambda (value.315) (if value.315 value.315 (null? (cdr rest)))) (null? rest)) (datum-string "nboyer.sch") (parsing-cadr rest)))))
       (parsing-exact (if (null? rest) (parsing-integer (ann 1000 I64)) (car rest))))))
 

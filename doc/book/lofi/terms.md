@@ -29,8 +29,6 @@ expression ::= literal
              | "(" expression expression … ")"                   ; call
              | "(" "if" expression expression expression ")"      ; conditional
              | "(" "lambda" "(" value_name … ")" expression ")"   ; fixed parameters
-             | "(" "lambda" "(" value_name value_name … "." value_name ")" expression ")"
-             | "(" "lambda" value_name expression ")"             ; rest parameters
              | "(" "begin" statement … expression ")"             ; block
              | "(" "match" expression match_arm match_arm … ")"
              | "(" "ann" expression type ")"                      ; annotation
@@ -95,9 +93,19 @@ limits a string's encoded contents to `2^32 - 2` bytes; allocation can fail soon
 does not run its body. Calling it with `41` binds `x` to `41`, evaluates the body,
 and returns `42`. The body is one expression, which can be a block.
 
-The first lambda form has a fixed parameter list. The dotted form binds its
-last name to an immutable list of remaining arguments. A single name in place
-of the parameter list binds all arguments as a list. Parameter names are distinct.
+Every lambda has a proper, fixed parameter list with distinct names. The empty
+list declares a zero-argument function. Dotted and rest-only parameter lists are
+rejected, including in unused definitions. To accept a varying number of values,
+take an explicit list:
+
+```scheme
+(def first-or (All (T) (-> T (List T) T))
+  (lambda (fallback values) (if (null? values) fallback (car values))))
+(first-or 0 (list 42 99)) ; 42
+```
+
+Here `list` is a hygienic packing macro from `(lofi base)`. The function always
+receives two arguments. Polymorphism changes their types, never their count.
 
 A reference uses the binding visible where that reference is written. This is
 *lexical scope*. When a function uses a surrounding binding, it keeps access to

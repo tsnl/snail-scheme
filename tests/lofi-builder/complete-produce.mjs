@@ -77,7 +77,8 @@ for (const [name, mutate] of mutations) {
 // Inspection uses the same arena ownership and category checks as construction.
 const arena = openLibraryBuilder(), other = openLibraryBuilder();
 const api = arena.provider.exports, foreign = other.provider.exports['name-empty']();
-for (const kind of ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence', 'kind-annotation']) {
+for (const kind of ['kind-type', 'kind-constraint', 'kind-function', 'kind-evidence', 'kind-annotation',
+  'rest-type', 'rest-function-type', 'rest-lambda']) {
   assert.equal(api[kind], undefined);
   const removed = structuredClone(packet);
   removed.nodes.push([kind]);
