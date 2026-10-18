@@ -3,8 +3,8 @@
 ;; The source visitor is reused for summary discovery and Wasm generation.
 (define-library (lofi compiler specialize)
   (export prepare-generation prepare-entry-generation prepared-body prepared-functions
-          prepared-globals prepared-exports prepared-context prepared-environment
-          compilation-program compilation-definitions compilation-next context-entity activation-values
+          prepared-globals prepared-exports prepared-context prepared-environment prepared-activations
+          compilation-program compilation-definitions compilation-next context-entity concrete-key-comparator
           generate-expression generate-initializer generate-body generation-type generation-detail generation-children
           generation-environment generation-source generation-tail?
           environment-scope environment-substitutions environment-sites environment-owner
@@ -43,7 +43,7 @@
       (cond ((pair? key) (modulo (+ (* 31 (request-key-hash (car key))) (request-key-hash (cdr key))) 536870909))
             ((number? key) (number-hash key))
             (else (identity-hash key))))
-    (define request-key-comparator (make-comparator (lambda (key) #t) request-key=? #f request-key-hash))
+    (define concrete-key-comparator (make-comparator (lambda (key) #t) request-key=? #f request-key-hash))
     (define-record-type <compilation>
       (make-compilation cache entities pending definitions next program) compilation?
       (cache compilation-cache)
@@ -116,13 +116,14 @@
       (captures function-captures))
     (define (function-body function) (lambda-body (function-source function)))
     (define-record-type <program>
-      (make-prepared-program body functions globals exports context environment) prepared-program?
+      (make-prepared-program body functions globals exports context environment activations) prepared-program?
       (body prepared-body)
       (functions prepared-functions)
       (globals prepared-globals)
       (exports prepared-exports)
       (context prepared-context)
-      (environment prepared-environment))
+      (environment prepared-environment)
+      (activations prepared-activations))
     (define (concrete type environment loc)
       (require-concrete (substitute type (environment-substitutions environment)) loc))
     (define (lookup-site binding environment context)
@@ -162,12 +163,17 @@
                 (let-values (((id context) (reserve context (scope-key source parent) inner #f)))
                   (values inner context)))))))
 
-    (define (activation-values owner context)
-      (let ((values (hashmap-fold (lambda (id entity values)
-                                    (if (and (value-binding? entity)
-                                             (eqv? owner (environment-owner (value-environment entity))))
-                                        (cons entity values) values)) '() (compilation-entities context))))
-        (list-sort (lambda (left right) (< (value-id left) (value-id right))) values)))
+    ;; Partition the completed graph once. Slot zero owns initialization;
+    ;; function ID n owns slot n+1. Descending IDs cons each owner's values into
+    ;; allocation order, preserving the slot order used by emission.
+    (define (activation-value-index context)
+      (let ((index (make-vector (+ 1 (compilation-next context)) '())))
+        (do ((id (- (compilation-next context) 1) (- id 1))) ((< id 0) index)
+          (let ((entity (context-entity context id)))
+            (when (value-binding? entity)
+              (let* ((owner (environment-owner (value-environment entity)))
+                     (slot (if owner (+ owner 1) 0)))
+                (vector-set! index slot (cons entity (vector-ref index slot)))))))))
 
     ;; ---- Exactly one queued implementation per frozen request ----
 
@@ -635,7 +641,7 @@
       (prepare-selected-generation program (map (lambda (name) (legacy-export-binding name program)) names)))
     (define (prepare-entry-generation program binding) (prepare-selected-generation program (list (cons 'entry binding))))
     (define (prepare-selected-generation program entries)
-      (let* ((context (make-compilation (hashmap request-key-comparator) (hashmap (make-default-comparator)) '() '() 0 program))
+      (let* ((context (make-compilation (hashmap concrete-key-comparator) (hashmap (make-default-comparator)) '() '() 0 program))
              (source (program-body program))
              (environment (make-environment (checked-scope source (program-scopes program)) '() (hashmap (make-eq-comparator)) #f #f)))
         (let-values (((result unused context) (generate-expression summary-pass source environment (program-type program) context #f)))
@@ -643,7 +649,8 @@
                  (inner (sites-for-source source environment context))
                  (functions (map (lambda (id) (context-entity context id)) (list-sort < (compilation-definitions context))))
                  (globals (map (lambda (binding) (lookup-site binding inner context)) (scope-bindings-at source))))
-            (make-prepared-program source functions globals (map (lambda (entry) (selected-export entry inner context)) entries) context environment))))))
+            (make-prepared-program source functions globals (map (lambda (entry) (selected-export entry inner context)) entries)
+                                   context environment (activation-value-index context)))))))
 
   ;; ---- Tests ----
 
@@ -680,8 +687,22 @@
           (expect (length captures) 2)
           (expect (if (member 'I32 (map (lambda (id) (value-type (context-entity context id))) captures)) #t #f) #t)
           (expect (if (member 'Bool (map (lambda (id) (value-type (context-entity context id))) captures)) #t #f) #t)))
+      (define (reference-activation-values owner context)
+        (list-sort (lambda (left right) (< (value-id left) (value-id right)))
+                   (hashmap-fold (lambda (id entity values)
+                                   (if (and (value-binding? entity)
+                                            (eqv? owner (environment-owner (value-environment entity))))
+                                       (cons entity values) values)) '() (compilation-entities context))))
+      (define (test-activation-partition)
+        (let* ((source (test-program "(def make (lambda (x) (begin (let saved x) (lambda () saved))))
+                                     (def integer (make 42)) (def boolean (make #t)) (integer) (boolean)"))
+               (program (prepare-generation source)) (context (prepared-context program)))
+          (expect (vector-ref (prepared-activations program) 0) (reference-activation-values #f context))
+          (do ((id 0 (+ id 1))) ((= id (compilation-next context)))
+            (expect (vector-ref (prepared-activations program) (+ id 1))
+                    (reference-activation-values id context)))))
       (define (test-persistent-reservation)
-        (let* ((context (make-compilation (hashmap request-key-comparator) (hashmap (make-default-comparator)) '() '() 0 #f)))
+        (let* ((context (make-compilation (hashmap concrete-key-comparator) (hashmap (make-default-comparator)) '() '() 0 #f)))
           (let-values (((id next) (reserve context '(function sample I64) #f #t)))
             (expect id 0) (expect (cached next '(function sample I64)) 0)
             (expect (compilation-pending next) '(0))
@@ -727,6 +748,7 @@
           (expect (= (value-id (car values)) (value-id (cadr values))) #f)
           (expect (= (value-function (car values)) (value-function (cadr values))) #f)))
       (define (test-specialize)
+        (run-test test-activation-partition)
         (run-test test-persistent-reservation)
         (run-test test-colliding-reservations)
         (run-test test-source-request-identities)

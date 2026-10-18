@@ -130,7 +130,13 @@ before generalization. Representable value cycles use ordinary source-order
 initialization and retain premature-read traps.
 
 [`overloads.sld`](../src/lofi/compiler/overloads.sld) resolves complete
-argument/result constraints with coherent class requirements.
+argument/result constraints with coherent class requirements. Speculative trials
+unify private copies with a boolean result, avoiding continuation capture on
+ordinary mismatches. Classes cache family membership for an exact immutable
+instance list; compatibility and instantiated solver views remain live.
+[`types.sld`](../src/lofi/compiler/types.sld) avoids environment scans when no
+holes can be generalized. Monomorphic declarations cannot introduce escaping
+skolems.
 [`data.sld`](../src/lofi/compiler/data.sld) prepares nominal data,
 constructors and fields. Matching checks exhaustiveness and retains pattern binding
 types; generation emits field reads and branches directly from source arms.
@@ -154,7 +160,9 @@ select stable IDs before recursive requests. A site owns initialization, a value
 owns a concrete payload, and a function owns code. Summary discovery records
 reads and nested closures, then settles capture requirements without constructing
 a concrete expression tree. Source-order initialization and erased alias readiness
-checks remain separate from code demand.
+checks remain separate from code demand. After discovery settles, one pass
+partitions values by activation owner in allocation order. Emission consumes
+these buckets instead of scanning the graph for every function.
 
 [`emit-wasm.sld`](../src/lofi/compiler/emit-wasm.sld) supplies emission operations
 to the explicit source visitor. Each visit returns a transient typing judgment,
@@ -162,7 +170,10 @@ generated code and the next request context. Typing rules consume immediate chil
 judgments; separate emission rules consume generated children. Target code is
 emitted after capture and storage summaries settle. Scalars, structs, arrays,
 precise Any witnesses and tail calls retain their existing Wasm contracts.
-Emission checks that demand is already complete. The shared
+Emission checks that demand is already complete. A concrete-type index finds
+layouts while the ordered registry controls IDs and output. Layout reservation
+precedes dependency traversal, preserving recursive types. Local declarations
+accumulate in reverse and are reversed once when a function is emitted. The shared
 [`wasm.sld`](../src/native/wasm.sld) serializes Wasm data.
 
 [`wasm-strings.sld`](../src/lofi/compiler/wasm-strings.sld) owns the UTF-8 string
