@@ -1,0 +1,42 @@
+;; Orders dismiss the first step immediately; completed extractors leave a
+;; permanent deposit-centered survey, even if the structure is later destroyed.
+(define-library (siegework guidance)
+  (export extractor-start? starter-deposit)
+  (import
+   (scheme base)
+   (siegework model)
+   (siegework terrain))
+  (begin
+    (define (available-deposit? world x y)
+      (and (visible? world x y) (> (deposit-rate (world-seed world) x y) 0)
+           (null? (building-at (world-buildings world) x y)) (safe-site? world x y)))
+    (define (known-deposit world) (survey-deposits world (world-surveys world) -1))
+    (define (choose-deposit world x y best)
+      (if (and (available-deposit? world x y)
+               (or (< best 0) (> (deposit-rate (world-seed world) x y)
+                                 (deposit-rate (world-seed world) (index-x best) (index-y best)))))
+          (cell-index x y) best))
+    (define (scan-survey world survey x y best)
+      (let ((left (- (survey-x survey) (survey-radius survey)))
+            (right (+ (survey-x survey) (survey-radius survey)))
+            (bottom (+ (survey-y survey) (survey-radius survey))))
+        (cond ((> y bottom) best)
+              ((> x right) (scan-survey world survey left (+ y 1) best))
+              (else (scan-survey world survey (+ x 1) y (choose-deposit world x y best))))))
+    (define (survey-deposits world surveys best)
+      (if (null? surveys) best
+          (let ((survey (car surveys)))
+            (survey-deposits world (cdr surveys)
+                             (scan-survey world survey (- (survey-x survey) (survey-radius survey))
+                                          (- (survey-y survey) (survey-radius survey)) best)))))
+    (define (extraction-survey? seed surveys)
+      (and (not (null? surveys))
+           (or (> (deposit-rate seed (survey-x (car surveys)) (survey-y (car surveys))) 0)
+               (extraction-survey? seed (cdr surveys)))))
+    (define (extractor-start? world)
+      (and (= (world-outcome world) 0) (= (count-mines (world-buildings world)) 0)
+           (not (extraction-survey? (world-seed world) (world-surveys world)))))
+    ;; Prefer the richest safely reachable known deposit, with a stable tie break.
+    ;; The actual order still checks prices and colony capacity.
+    (define (starter-deposit world)
+      (if (extractor-start? world) (known-deposit world) -1))))

@@ -24,7 +24,7 @@
       (i64->i32 (if (> value (ann 2147483647 I64)) (- value (ann 4294967296 I64)) value)))
     (define (binary-snapshot schema bytes)
       (let ((count (bytevector-length bytes)))
-        (when (> count (ann 262136 I64)) (unreachable))
+        (when (> count (ann 4194296 I64)) (unreachable))
         (pack-snapshot schema bytes count)))
     (define (pack-snapshot schema bytes count)
       (let ((words (make-vector (+ (ann 2 I64) (quotient (+ count (ann 3 I64)) (ann 4 I64))) (ann 0 I32))))

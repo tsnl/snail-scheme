@@ -24,7 +24,7 @@ by the Book and Pages workflow. Build it locally with `scripts/book build`.
 ## Start reading
 
 For application development, start with the [five small tutorials](doc/book/lofi/tutorials/index.md).
-They build up from a counter to a shared browser board with state-preserving reload.
+They build up from a counter to a browser board with local saves and state-preserving reload.
 
 Open [`examples/fibonacci.sld`](examples/fibonacci.sld), then
 [`src/lofi/compiler/bootstrap.sld`](src/lofi/compiler/bootstrap.sld). The [short compiler tour](TOUR.md)

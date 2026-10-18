@@ -22,7 +22,8 @@
 (define root (absolute-path (car arguments)))
 (define output (absolute-path (cadr arguments)))
 (define app (path-join root "apps/siegework"))
-(define source-roots (list (path-join app "src") (path-join root "src")))
+(define game-root (path-join root "apps/siegework/src"))
+(define source-roots (list game-root (path-join root "src")))
 (when (or (string-prefix? (string-append (path-join root "src") "/") (string-append output "/"))
           (string-prefix? (string-append app "/") (string-append output "/")))
   (error "build output must be outside application and library source directories"))
@@ -32,7 +33,7 @@
 
 (define (compile-entry file selected target)
   (let-values (((key libraries)
-                (collect-source-file (path-join app "src/siegework" file) source-roots
+                (collect-source-file (path-join root file) source-roots
                                      (list (cons '(lofi primitive) (make-primitive-library primitive-names)))
                                      (make-generation-context (path-join root "scripts/run-lofi-generator.mjs") #f))))
     (when (eq? selected 'application-entry)
@@ -42,6 +43,6 @@
 (with-chromium-trace-to
  (path-join output "build.trace.json")
  (lambda ()
-   (compile-entry "shaders.sld" 'shader-entry "shader.wasm")
-   (compile-entry "game.sld" 'application-entry "simulation.wasm")))
+   (compile-entry "src/draw3d/shaders.sld" 'shader-entry "shader.wasm")
+   (compile-entry "apps/siegework/src/siegework/game.sld" 'application-entry "simulation.wasm")))
 (display (run-command! (list "node" (path-join root "src/browser/build.mjs") root app output)))

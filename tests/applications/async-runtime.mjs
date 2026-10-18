@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {Authority} from '../../src/application/authority.mjs';
+import {LocalState} from '../../src/application/local.mjs';
 
 function deferred() {
   let resolve, reject;
@@ -27,9 +27,6 @@ async function fresh(bytes) {
   return r;
 }
 const command = (binding, args = []) => ({handler: binding, args});
-const request = (authority, binding, args = [], client = 'one', sequence = 1) =>
-  ({client, sequence, epoch: authority.epoch, command: command(binding, args)});
-
 export async function checkAsyncRuntime(test, fixture) {
   const bytes = fixture('async-boundary'), viewBytes = fixture('async-view');
   await test('pending saves expose committed queries, capture commands and serialize both owners', async () => {
@@ -50,62 +47,50 @@ export async function checkAsyncRuntime(test, fixture) {
     assert.equal(r.snapshot(1)[1], 5); assert.equal(r.snapshot(2)[1], 4); assert.equal(published, 1);
     await r.close(); await independent.close();
   });
-  await test('concurrent reset retries save once and publish state, epoch and receipt together', async () => {
-    const r = await fresh(bytes), save = delayedSave(), notifications = []; let writes = 0, durable;
-    const authority = new Authority(r, {runMarker: 3, commit: (snapshot, expected) => {
-      assert.equal(expected, 0); writes++; durable = snapshot; return save.persist(snapshot);
-    }, publish: notification => {
-      assert.equal(authority.revision, 1); assert.equal(authority.epoch, durable.epoch);
-      assert.deepEqual(r.snapshot(1), durable.state); notifications.push(notification);
+  await test('async local commits serialize revisions and retain the previous state until durable', async () => {
+    const r = await fresh(bytes), save = delayedSave(); let durable, writes = 0;
+    const local = new LocalState(r, {commit: (checkpoint, expected) => {
+      assert.equal(checkpoint.revision, expected + 1); durable = checkpoint;
+      return ++writes === 1 ? save.persist(checkpoint) : undefined;
     }});
-    const envelope = request(authority, 'reset'), oldEpoch = authority.epoch;
-    const first = authority.submit(envelope), retry = authority.submit(envelope);
-    envelope.command.handler = 'trap'; envelope.sequence = 99;
-    await save.entered;
-    assert.equal(authority.epoch, oldEpoch); assert.equal(authority.revision, 0); assert.deepEqual(authority.clients, {});
-    assert.equal(r.snapshot(1)[3], 0); assert.equal(notifications.length, 0);
-    save.resolve(); const [accepted, duplicate] = await Promise.all([first, retry]);
-    assert.equal(writes, 1); assert.equal(duplicate.duplicate, true); assert.equal(duplicate.receipt.epoch, accepted.epoch);
-    assert.notEqual(accepted.epoch, oldEpoch); assert.equal(r.snapshot(1)[3], 1); assert.equal(notifications.length, 1);
-    await assert.rejects(authority.submit({...request(authority, 'add', [1], 'two'), epoch: oldEpoch}), /stale match epoch/);
-    const copy = await fresh(bytes), restored = await Authority.open(copy, {saved: durable, runMarker: 3});
-    assert.deepEqual(restored.snapshot(), authority.snapshot());
-    assert.equal((await restored.submit({client: 'one', sequence: 1, epoch: oldEpoch, command: command('reset')})).duplicate, true);
-    assert.throws(() => new Authority(copy, {saved: durable}), /Authority.open/);
-    await r.close(); await copy.close();
+    const mutable = command('add', [2]), first = local.submit(mutable), second = local.submit(command('add', [3]));
+    mutable.args[0] = 99; await save.entered;
+    assert.equal(local.revision, 0); assert.equal(r.snapshot(1)[1], 0);
+    save.resolve(); await Promise.all([first, second]); assert.equal(local.revision, 2); assert.equal(r.snapshot(1)[1], 5);
+    const copy = await fresh(bytes), restored = await LocalState.open(copy, {saved: durable});
+    assert.deepEqual(restored.snapshot(), local.snapshot()); await r.close(); await copy.close();
   });
-  await test('rejected async saves preserve code and receipts; an already queued retry can recover', async () => {
+  await test('failed async commit can retry without changing code or consuming a revision', async () => {
     const r = await fresh(bytes); await r.replace(r.prepare(bytes, contract));
-    const instance = r.instance, firstSave = delayedSave(), retrySave = delayedSave(); let writes = 0, deliveries = 0;
-    const authority = new Authority(r, {commit: (state, expected) => {
-      assert.equal(expected, 0); return (++writes === 1 ? firstSave : retrySave).persist(state);
-    }, publish: () => deliveries++});
-    const envelope = request(authority, 'add', [2]), before = authority.snapshot();
-    const first = authority.submit(envelope), failed = assert.rejects(first, /storage offline/), retry = authority.submit(envelope);
-    await firstSave.entered; firstSave.reject(new Error('storage offline')); await failed; await retrySave.entered;
-    assert.deepEqual(authority.snapshot(), before); assert.deepEqual(authority.clients, {});
-    assert.equal(deliveries, 0); assert.equal(r.instance, instance);
-    retrySave.resolve(); await retry;
-    assert.equal(r.snapshot(1)[1], 2); assert.equal(authority.revision, 1); assert.equal(writes, 2); assert.equal(deliveries, 3);
-    authority.commit = (state, expected) => assert.equal(expected, 1);
-    await authority.submit(request(authority, 'add', [3], 'one', 2)); assert.equal(r.snapshot(1)[1], 5);
-    await r.close();
+    const instance = r.instance, save = delayedSave(); let writes = 0, deliveries = 0;
+    const local = new LocalState(r, {commit: () => ++writes === 1 ? save.persist() : undefined, publish: () => deliveries++});
+    const before = local.snapshot(), first = local.submit(command('add', [2]));
+    const failed = assert.rejects(first, /storage offline/), retry = local.submit(command('add', [2]));
+    await save.entered; assert.deepEqual(local.snapshot(), before); save.reject(new Error('storage offline'));
+    await failed; await retry; assert.equal(r.instance, instance); assert.equal(r.snapshot(1)[1], 2);
+    assert.equal(local.revision, 1); assert.equal(deliveries, 1); await r.close();
   });
-  await test('restored receipts cannot be mutated through a rejected durable candidate', async () => {
-    const r = await fresh(bytes); let saved;
-    const first = new Authority(r, {commit: snapshot => saved = snapshot});
-    await first.submit(request(first, 'add', [2])); await r.close();
-    const copy = await fresh(bytes), authority = await Authority.open(copy, {saved});
-    const before = authority.snapshot(), prior = structuredClone(authority.clients);
-    authority.commit = snapshot => {
-      assert.throws(() => snapshot.clients.one.receipt.revision = 99, TypeError);
-      assert.throws(() => snapshot.clients.one.sequence = 99, TypeError);
-      assert.throws(() => snapshot.state[1] = 99, TypeError);
-      throw new Error('save rejected');
-    };
-    await assert.rejects(authority.submit(request(authority, 'add', [3], 'two')), /save rejected/);
-    assert.deepEqual(authority.snapshot(), before); assert.deepEqual(authority.clients, prior);
-    await copy.close();
+  await test('imported checkpoints validate and persist before publication, including rollback on failure', async () => {
+    const r = await fresh(bytes), save = delayedSave(), local = new LocalState(r, {commit: save.persist});
+    const before = local.snapshot(), words = [1, 8, 0, 0], importing = local.restore(words); words[1] = 99;
+    const rejected = assert.rejects(importing, /load failed/); await save.entered;
+    assert.deepEqual(local.snapshot(), before); save.reject(new Error('load failed')); await rejected;
+    assert.deepEqual(local.snapshot(), before); local.commit = () => {};
+    await local.restore([1, 8, 0, 0]); assert.equal(local.revision, 1); assert.equal(r.snapshot(1)[1], 8);
+    const accepted = local.snapshot(); await assert.rejects(() => local.restore([99, 9, 0, 0]), /schema/);
+    assert.deepEqual(local.snapshot(), accepted); await r.close();
+  });
+  await test('invalid candidates reserve no shape and encoded schema failures precede persistence', async () => {
+    const r = new ReducerRuntime();
+    assert.throws(() => r.prepare(fixture('invalid-candidate'), contract), /write outside/); assert.equal(r.stores.size, 0);
+    const abandoned = r.prepare(fixture('invalid-initial'), contract); r.discard(abandoned);
+    assert.equal(r.stores.size, 0); const stale = r.prepare(fixture('invalid-initial'), contract);
+    await r.replace(r.prepare(bytes, contract)); await r.initialize(1); await r.initialize(2);
+    await assert.rejects(() => r.replace(stale), /incompatible state shape/); r.discard(stale);
+    const before = r.snapshot(1), previous = r.instance; let persisted = false;
+    await r.replace(r.prepare(fixture('invalid-state'), contract));
+    await assert.rejects(() => r.dispatch(1, command('add', [1]), {persist: () => persisted = true}), /schema/);
+    assert.equal(persisted, false); assert.deepEqual(r.snapshot(1), before); assert.equal(r.instance, previous); await r.close();
   });
   await test('notice conversion, effect routing and reducer traps all fail before persistence', async () => {
     const r = await fresh(bytes), before = r.snapshot(1); let writes = 0, deliveries = 0;
@@ -154,12 +139,12 @@ export async function checkAsyncRuntime(test, fixture) {
     const r = await fresh(bytes), save = delayedSave(), first = r.dispatch(1, command('add', [2]), {persist: save.persist});
     await save.entered;
     const words = [1, 20, 0, 0], restore = r.restore(1, words), last = r.dispatch(1, command('add', [3])); words[1] = 99;
-    const authority = new Authority(r), admitted = authority.submit(request(authority, 'add', [4])), closing = r.close();
+    const local = new LocalState(r), admitted = local.submit(command('add', [4])), closing = r.close();
     await assert.rejects(r.dispatch(2, command('local', [1])), /closing/);
-    await assert.rejects(authority.submit(request(authority, 'add', [9], 'two')), /closing/);
+    await assert.rejects(local.submit(command('add', [9])), /closing/);
     assert.throws(() => r.view(), /closing/); assert.equal(r.snapshot(1)[1], 0);
     save.resolve(); await Promise.all([first, restore, last, admitted, closing]);
-    assert.equal(r.snapshot(1)[1], 27); assert.equal(authority.revision, 1); assert.equal(r.close(), closing);
+    assert.equal(r.snapshot(1)[1], 27); assert.equal(local.revision, 1); assert.equal(r.close(), closing);
   });
   await test('message dispatch is single use, expires, and drains an unreturned transition promise', async () => {
     const r = await fresh(bytes), save = delayedSave(); let retained, finished = false;

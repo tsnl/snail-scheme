@@ -9,7 +9,7 @@ const module = new WebAssembly.Module(readFileSync(artifact));
 // Raw snapshot helpers retain unused application declarations. Calling any
 // such hook would exceed this transport fixture's contract and must fail.
 const reducer = Object.fromEntries(
-  ['label', 'quad', 'command', 'note', 'write', 'length', 'read'].map(name => [name, () => {
+  ['label', 'quad', 'command', 'note', 'write', 'previous-length', 'previous-read', 'length', 'read'].map(name => [name, () => {
     throw new Error(`unexpected application host call: ${name}`);
   }]),
 );

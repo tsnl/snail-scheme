@@ -5,6 +5,10 @@ It separates source-labelled binding/function spans from optional hot-helper
 counts and inclusive/self timing. This fix only changes overload compatibility
 filtering; its ordinary copied unification trial remains authoritative.
 
+The later [3D compilation work](compilation-performance.md) also replaces the
+copied trial's exception handler and addresses repeated whole-environment and
+whole-program scans. The measurements below describe the earlier prototype.
+
 ## Cause
 
 The profile counted 136,363 compatibility trials in checking and 185,706 each

@@ -1,6 +1,8 @@
 // Stable owner, replaceable code. Only this private scalar bridge handles
 // mutable buffers; application handlers receive explicit immutable values.
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../lofi/compiler/execute.mjs';
+import {createUiBridge} from '../ui/bridge.mjs';
+import {createSceneBridge} from '../draw3d/bridge.mjs';
 
 // ---- Typed Wasm forwarding for host scalar functions ----
 
@@ -9,7 +11,8 @@ const uleb = value => { const bytes = []; do { const n = value & 127; value >>>=
 const name = value => { const bytes = encoder.encode(value); return [...uleb(bytes.length), ...bytes]; };
 const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
 function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
-    ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false]]) {
+    ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false],
+    ['previous-length', 1, true], ['previous-read', 2, true]]) {
   const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
   const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
   const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
@@ -19,6 +22,12 @@ function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2
   return new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from(bytes)), {host: functions});
 }
 const i32 = value => Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
+const maximumSnapshotWords = 1048576;
+function sameSnapshot(left, right) {
+  if (left?.length !== right.length) return false;
+  for (let index = 0; index < right.length; index++) if (left[index] !== right[index]) return false;
+  return true;
+}
 
 // Diagnostics transport Unicode scalars only. The provider releases its token
 // before throwing, so a malformed snapshot cannot retain a partial message.
@@ -43,7 +52,9 @@ function diagnosticProvider() {
 // ---- Manifest establishes endpoint identity and payload shape ----
 
 function freezeValue(value) {
-  if (value && typeof value === 'object') { Object.values(value).forEach(freezeValue); Object.freeze(value); }
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.values(value).forEach(freezeValue); Object.freeze(value);
+  }
   return value;
 }
 export function validateManifest(input) {
@@ -76,7 +87,7 @@ export function parseCommand(manifest, owner, command) {
 }
 
 // Contracts may reorder slots, but a live replacement cannot add/remove/change
-// endpoint identities. Pending envelopes remain encoded under their old contract.
+// endpoint identities. Lexical requests retain their identity across reloads.
 export function protocolContract(manifest) {
   return JSON.stringify({effects: manifest.effects,
     applications: manifest.applications.map(app => ({owner: app.owner, state: app.state, schema: app.schema,
@@ -87,7 +98,7 @@ export function protocolContract(manifest) {
 // ---- One message lane for the shared two-owner instance ----
 
 export class ReducerRuntime {
-  stores = new Map(); active; instance; manifest; sizes; previous;
+  stores = new Map(); previousSnapshots = new Map(); active; instance; manifest; sizes; previous;
   #tail = Promise.resolve(); #closing; #activation = 0; #recoveries = new Set();
   constructor() {
     this.provider = scalarProvider({length: id => this.bank(id).length,
@@ -95,8 +106,12 @@ export class ReducerRuntime {
       command: (owner, slot, a, b) => this.stageEffect({kind: 'send', owner, slot, args: [a, b]}),
       note: (index, value) => this.stageText('note', index, value),
       quad: (...words) => this.active.output.quads.push(words),
-      label: (index, value) => this.stageText('label', index, value)});
+      label: (index, value) => this.stageText('label', index, value),
+      'previous-length': id => this.previousBank(id).length,
+      'previous-read': (id, index) => this.previousBank(id, index)[index]});
     this.diagnostics = diagnosticProvider();
+    this.uiBridge = createUiBridge(scalarProvider, () => this.active);
+    this.sceneBridge = createSceneBridge(scalarProvider, () => this.active);
   }
   bank(id, index) {
     if (!this.active) throw new Error('snapshot bridge used outside a transaction');
@@ -104,12 +119,18 @@ export class ReducerRuntime {
     if (!bank || (index !== undefined && (index < 0 || index >= bank.length))) throw new RangeError('invalid snapshot field');
     return bank;
   }
-  read(id, index) { return this.bank(id, index)[index]; } // Always the prior snapshot.
+  read(id, index) { return this.bank(id, index)[index]; } // The staged input, never the replacement being written.
+  previousBank(id, index) {
+    const current = this.bank(id);
+    const bank = this.active.previousSnapshots?.get(id) ?? current;
+    if (index !== undefined && (index < 0 || index >= bank.length)) throw new RangeError('invalid previous snapshot field');
+    return bank;
+  }
   write(id, index, value) {
     const bank = this.bank(id);
     if (this.active.readOnly || this.active.owner !== id) throw new Error('write outside this owner transition');
     if (index === -1) {
-      if (value < 1 || value > 65536 || (this.sizes[id - 1] && value !== this.sizes[id - 1]))
+      if (value < 1 || value > maximumSnapshotWords || (this.sizes[id - 1] && value !== this.sizes[id - 1]))
         throw new Error('invalid declared/encoded snapshot size');
       this.active.next = new Int32Array(value); return;
     }
@@ -137,7 +158,7 @@ export class ReducerRuntime {
     this.#tail = result.catch(() => {}); // One failed message cannot poison the lane.
     return result;
   }
-  // Authority admission uses the supplied dispatcher inside this same message.
+  // An admitted operation uses the supplied dispatcher inside this same message.
   // Awaiting another queued mutation here would wait on the current message.
   message(operation) {
     if (this.#closing) return Promise.reject(new Error('runtime is closing'));
@@ -156,16 +177,24 @@ export class ReducerRuntime {
 
   // ---- Synchronous scalar scope; no host I/O can observe its candidate ----
 
-  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores} = {}) {
+  #stage(instance, args, {owner, readOnly = false, snapshots = this.stores, manifest = this.manifest} = {}) {
     if (this.active) throw new Error('nested transition');
-    this.active = {owner, readOnly, snapshots, effects: [], output: {quads: []}};
+    this.active = {owner, readOnly, snapshots, previousSnapshots: this.previousSnapshots,
+      instance, effects: [], output: {quads: []}};
     try {
       const result = invokeEntry(instance, args), tx = this.active;
       this.validateReplacement(instance, tx);
+      const ui = this.uiBridge.finish(tx, manifest);
+      const scene = this.sceneBridge.finish(tx);
       const output = freezeValue({result, effects: tx.effects.map(effect => this.#materializeEffect(effect)),
-        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : ''});
+        quads: tx.output.quads, label: tx.label ? String.fromCodePoint(...tx.label) : '',
+        ...(ui ? {ui} : {}), ...(scene ? {scene} : {})});
       return {next: tx.next, output};
-    } catch (error) { error.transitionPhase = 'reduce'; throw error; }
+    } catch (error) {
+      error.transitionPhase = 'reduce';
+      if (!readOnly && this.active.next) error.candidateSnapshot = Array.from(this.active.next);
+      throw error;
+    }
     finally { this.active = undefined; }
   }
   #materializeEffect(effect) {
@@ -185,7 +214,8 @@ export class ReducerRuntime {
     // Candidate validation receives its own read-only map. Committed snapshots
     // remain visible even while preparing a replacement or awaiting a save.
     const snapshots = new Map(tx.snapshots).set(tx.owner, tx.next);
-    this.active = {readOnly: true, snapshots, effects: [], output: {quads: []}};
+    this.active = {readOnly: true, snapshots, previousSnapshots: tx.previousSnapshots,
+      instance, effects: [], output: {quads: []}};
     try {
       if (!invokeEntry(instance, [10, 0, 0, 0])) throw new Error('invalid replacement snapshot');
     } finally { this.active = tx; }
@@ -197,20 +227,21 @@ export class ReducerRuntime {
     manifest = validateManifest(manifest);
     if (this.manifest && protocolContract(manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics]]));
+    const instance = instantiate(loadWasm(bytes), new Map([['snail.reducer', this.provider], ['snail.library', this.diagnostics],
+      ['snail.ui', this.uiBridge.provider], ['snail.scene', this.sceneBridge.provider]]));
     try {
       if (this.metadata(instance, 0) !== 1) throw new Error('incompatible scalar bridge ABI');
       const sizes = Object.freeze([this.metadata(instance, 1), this.metadata(instance, 2)]);
       for (const owner of [1, 2]) {
-        if (sizes[owner - 1] < 0 || sizes[owner - 1] > 65536) throw new Error('invalid declared state size');
+        if (sizes[owner - 1] < 0 || sizes[owner - 1] > maximumSnapshotWords) throw new Error('invalid declared state size');
         const app = manifest.applications.find(a => a.owner === (owner === 1 ? 'match' : 'client'));
         if (app.schema !== this.metadata(instance, owner + 2)) throw new Error('manifest/module schema mismatch');
       }
-      this.candidateStores(instance, sizes);
+      this.candidateStores(instance, sizes, manifest);
       return {instance, manifest, sizes};
     } catch (error) { closeInstance(instance); throw error; }
   }
-  candidateStores(instance, sizes) {
+  candidateStores(instance, sizes, manifest = this.manifest) {
     const proposed = new Map(this.stores);
     for (const owner of [1, 2]) {
       if (proposed.has(owner) && sizes[owner - 1] && proposed.get(owner).length !== sizes[owner - 1])
@@ -219,18 +250,18 @@ export class ReducerRuntime {
     }
     // This scope is synchronous. Preparing code never reserves an absent owner's
     // shape, and installation constructs a fresh map from the then-current state.
-    this.validateCandidate(instance, proposed); return proposed;
+    this.validateCandidate(instance, proposed, manifest); return proposed;
   }
   validateState(instance, snapshots = this.stores) {
     if (!this.#stage(instance, [10, 0, 0, 0], {readOnly: true, snapshots}).output.result)
       throw new Error('incompatible state schema; explicit migration required');
   }
-  validateCandidate(instance, snapshots = this.stores) {
+  validateCandidate(instance, snapshots = this.stores, manifest = this.manifest) {
     this.validateState(instance, snapshots);
     // Test presentation before activation too. Initial absent owners have no
     // values to render; their initialization remains a separate transition.
     if ([1, 2].every(owner => snapshots.get(owner)?.[0]))
-      this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots});
+      this.#stage(instance, [4, 0, 0, 0], {readOnly: true, snapshots, manifest});
   }
   discard(candidate) { closeInstance(candidate.instance); }
   replace(candidate) {
@@ -239,7 +270,7 @@ export class ReducerRuntime {
   #install(candidate) {
     if (this.manifest && protocolContract(candidate.manifest) !== protocolContract(this.manifest))
       throw new Error('incompatible endpoint contract; restart or explicit protocol migration required');
-    const stores = this.candidateStores(candidate.instance, candidate.sizes);
+    const stores = this.candidateStores(candidate.instance, candidate.sizes, candidate.manifest);
     if (this.previous) closeInstance(this.previous.instance);
     this.previous = this.instance ? {instance: this.instance, manifest: this.manifest, sizes: this.sizes} : undefined;
     this.stores = stores; this.instance = candidate.instance; this.manifest = candidate.manifest; this.sizes = candidate.sizes;
@@ -249,7 +280,7 @@ export class ReducerRuntime {
     return this.message(() => {
       if (this.stores.get(owner)[0]) return;
       const staged = this.#stage(this.instance, [1, owner, 0, 0], {owner});
-      if (staged.next) this.stores = new Map(this.stores).set(owner, staged.next);
+      if (staged.next) this.#commitSnapshot(owner, staged.next, true);
       return staged.output;
     });
   }
@@ -262,20 +293,32 @@ export class ReducerRuntime {
     let staged;
     try { staged = this.#stage(this.instance, [owner === 1 ? 2 : 3, handler.slot, args[0] ?? 0, args[1] ?? 0], {owner}); }
     catch (error) {
-      this.#recoverCode(error);
+      error.reproduction = this.lastFailure = {format: 1, generation: this.manifest.generation,
+        owner, command: structuredClone(command), message: error.message,
+        snapshots: [...this.stores].map(([owner, state]) => ({owner, state: Array.from(state)})),
+        ...(error.candidateSnapshot ? {candidate: error.candidateSnapshot} : {})};
+      try { this.#recoverCode(error); }
+      catch (recoveryError) { error.recoveryError = recoveryError; }
       throw error;
     }
     // The bridge is inactive and reads still see committed snapshots. A saver
     // receives an immutable copy, never the buffer that will become committed.
     if (persist) await persist(Object.freeze(Array.from(staged.next ?? this.stores.get(owner))), staged.output.effects);
-    if (staged.next) this.stores = new Map(this.stores).set(owner, staged.next);
-    if (publish) publish(staged.output); // Authority metadata joins this synchronous publication turn.
+    if (staged.next) this.#commitSnapshot(owner, staged.next, false);
+    if (publish) publish(staged.output); // Local revision joins this synchronous publication turn.
     return staged.output;
+  }
+  // Both endpoints advance in the publication turn, after validation and any
+  // durable write. Initialization and explicit restores begin without motion.
+  #commitSnapshot(owner, next, reset) {
+    if (!reset && sameSnapshot(this.stores.get(owner), next)) return;
+    this.previousSnapshots = new Map(this.previousSnapshots).set(owner, reset ? next : this.stores.get(owner));
+    this.stores = new Map(this.stores).set(owner, next);
   }
   #recoverCode(error) {
     // A trap does not commit. Persistence failures alone must not change code.
     if (error.transitionPhase !== 'reduce' || !this.previous) return;
-    this.validateCandidate(this.previous.instance);
+    this.validateCandidate(this.previous.instance, this.stores, this.previous.manifest);
     closeInstance(this.instance); this.instance = this.previous.instance;
     this.manifest = this.previous.manifest; this.sizes = this.previous.sizes; this.previous = undefined;
     this.#activation++;
@@ -295,18 +338,20 @@ export class ReducerRuntime {
       .finally(() => this.#recoveries.delete(activation));
   }
   snapshot(owner) { return Array.from(this.stores.get(owner)); }
-  async restore(owner, words) {
+  async restore(owner, words, {persist, publish} = {}) {
     words = structuredClone(words);
-    return this.message(() => this.#restoreState(owner, words));
+    return this.message(() => this.#restoreState(owner, words, {persist, publish}));
   }
-  #restoreState(owner, words) {
-    if (!Array.isArray(words) || words.length < 1 || words.length > 65536 || !words.every(i32)
+  async #restoreState(owner, words, {persist, publish}) {
+    if (!Array.isArray(words) || words.length < 1 || words.length > maximumSnapshotWords || !words.every(i32)
         || (this.sizes[owner - 1] && words.length !== this.sizes[owner - 1])) throw new Error('invalid snapshot');
     const schema = this.manifest.applications.find(app => app.owner === (owner === 1 ? 'match' : 'client')).schema;
     if (words[0] !== schema) throw new Error('invalid snapshot schema');
     const snapshots = new Map(this.stores).set(owner, Int32Array.from(words));
     this.validateState(this.instance, snapshots);
-    this.stores = snapshots;
+    if (persist) await persist(Object.freeze(words), []);
+    this.#commitSnapshot(owner, snapshots.get(owner), true);
+    if (publish) publish({effects: []});
   }
 
   close() {

@@ -1,231 +1,140 @@
 # Siegework
 
-Siegework is a colony defense game built around short, fresh runs, with browser-local
-solo saves and a shared server authority for cloud solo or cooperative play.
-Place infrastructure, let autonomous workers supply it, and protect the economy
-that pays for your defenses. The current experiment is an **eight-minute run on a seeded
-48×36 map** in top-down 2D. Three workers share mining, construction, hauling and repairs;
-observation towers reveal opportunities for expansion. There is no player avatar
-or individual worker control.
-
-Game rules, client reducers and presentation are Scheme libraries. WebGPU renders
-both builds. Solo runs its authority in the browser with IndexedDB; cloud runs
-the same generated Wasm on Node and commits to SQLite. The
-[prototype contract](PROTOTYPE.md) separates this experiment from future ideas.
+Explore a seeded world, establish a supply network and destroy the nest before
+its escalating waves overwhelm your colony. The game runs entirely in the
+browser. Scheme defines its rules, 3D scene and touch-friendly HUD; reusable
+application, UI, input and WebGPU libraries live under `src/`.
 
 For smaller steps first, follow the [five application tutorials](../../doc/book/lofi/tutorials/index.md).
 Each isolates a piece of this app and points back to its implementation here.
 
 ## Build and play
 
-From the repository root, with Chibi, Binaryen and Node 24 available:
+Run these commands from the repository root with Chibi, Binaryen, Node 24 and
+Python 3 available. The [repository setup](../../README.md#getting-started)
+provides the development environment; no native game server is required.
 
 ```sh
 chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+python3 -m http.server 4191 --directory build/siegework/solo
 ```
 
-One compilation produces two independent packages with identical simulation
-bytes. Free solo saves on this browser; serve `build/siegework/solo` as static
-files over HTTPS or localhost, including under a subpath. Open the hosted URL
-with WebGPU, WasmGC, IndexedDB, Web Crypto and Web Locks.
-One tab owns the solo save; another tab explains how
-to release it. Reopening restores the colony and manual pause. Camera, tool,
-cursor and pending input restart with the page. Saves belong to this origin and
-the stable `siegework` application ID, and can be lost if browser data is cleared
-or evicted. Solo has no server or cross-device synchronization.
+Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
+IndexedDB saves automatically. One tab owns each origin/application save.
+The current application ID is `siegework-colony-v10`, with world schema 10 and
+client schema 4. Earlier incompatible colonies retain their separate save identity.
+Compatible code and shader replacement preserves the running colony and camera;
+changes to host JavaScript require a page reload.
 
-Cloud stores the colony on the server, for either one player resuming from
-another browser or several players sharing it:
+An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
+checkpoint controls. Gameplay still runs locally. See the
+[save service guide](../../doc/static-saves.md).
+
+## One interface for mouse and touch
+
+Hover shows a dotted build boundary and construction-tool symbol. It does not
+open a dialog or spend resources. Click or tap a cell to select it; the pointing
+card beside it offers explicit actions. Click away or press Escape to dismiss.
+
+- Select a violet deposit, then choose **Extractor** (`1`). Even the first
+  extractor requires this confirmation. The clock starts only after an accepted
+  order, so you can inspect the map first.
+- Select empty ground, then choose **Tower** (`1`), **Artillery** (`2`) or
+  **Wall** (`3`). Hovering a choice previews that structure. A completed railway
+  reserves its route: buildings cannot overlap the tracks.
+- Select a building, then choose **Upgrade** (`U`) or **Cancel** (`C`) for a pending
+  order. Dismissing its card does not cancel construction.
+- Select the hub to order a paid **Worker** (`F`). Its card stays open for more
+  orders. An existing worker must assemble each recruit.
+- The header shows ore with a hub-health ring, active workers, and difficulty
+  with a next-wave ring. Its Home (`H`) button smoothly returns to the hub.
+  Pause (`P`) and Restart (`N`) sit beside it. Restart pauses the world and asks
+  for confirmation; canceling restores the previous pause state.
+- WASD pans in screen directions. Q/E smoothly rotates between quarter turns,
+  always using an orthographic camera. Mouse wheel or two-finger pinch zooms;
+  the Regular/Orbital button (`V`) changes scale without moving the view center.
+  Arrow keys move the selected cell; Enter/Space selects it. Gamepad controls
+  are intentionally absent from this game.
+
+Cards use the same icons, controls and visible shortcut keys on every screen.
+They never scroll or resize the full-screen world. WebGPU renders at native
+pixel density, including HiDPI displays.
+
+Drag the world with one finger, a mouse or a pen to pan. A tap selects only when
+released; moving more than eight CSS pixels turns the gesture into a drag and
+cancels that selection. Two-finger pinch only zooms, so lifting one finger never
+starts an accidental pan. The reusable `dragHandler` setting sends signed CSS
+pixel deltas to the Scheme camera once per display frame, independent of DPR.
+
+Canceling returns uncollected reserved materials to their source. A kit already
+on a worker stays physical and returns to the hub before its refund; delivered
+materials stay spent. Canceling a tower upgrade preserves its existing level
+and services. Clicking another world cell dismisses the old card and selects
+that cell without placing an order.
+
+## Supply lines and threats
+
+Workers choose reachable jobs using travel and completion costs. They can take
+construction supplies from nearby extractor or tower stock, preempt suitable
+jobs for construction, and flee threats. Carried gems, construction crates,
+destination markers, sweat and carts make their activity visible.
+
+A mine has one worker slot per level; upgrades increase slots and output together.
+Its three levels provide an expensive fallback when further deposits are hard to
+reach. Towers progress through three roles:
+
+| Level | Role |
+| --- | --- |
+| 1 | Visibility, resource depot and automatic railway connection. |
+| 2 | Artillery while retaining the depot. |
+| 3 | Cart station replacing the gun as the frontier moves outward. |
+
+Each tower level needs another delivered 25-ore kit. Direct artillery placement
+needs two kits. Workers and their cargo travel five times faster on links whose
+ends are both cart stations or the hub. Ordinary resource freight already uses
+completed depot links. Laid tracks remain after a station is destroyed, but an
+abandoned track alone cannot transport anything.
+
+Workers reveal a small nearby radius. New work and supply pickup at an unseen
+construction site stall until it is visible again; a yellow warning marks the
+site and its card explains the delay. Existing carriers can finish their known
+route, revealing their destination as they approach.
+
+Walls are cheap translucent turquoise shields. Enemies can stop to attack them
+rather than always finding a long detour. Water blocks movement. About one in ten
+spawned enemies may begin excavating a mountain; others can join an existing
+excavation. They stop and chip away before a permanent opening appears.
+
+The 384×288 map places the hub near its center and the nest farther away. Enemy
+approach directions help locate it. Waves introduce progressively stronger ranks
+with distinct shapes, armor and colors, including elites and a much larger boss.
+Artillery has limited range and deals more damage at close range. Defeated enemies
+award no ore: extraction and defending your supply lines remain necessary.
+
+Attacks produce smoke and red notifications with live views. Select a notification
+to move to that attack. Newly surveyed ground unveils through a soft, expanding
+fragment-level reveal. The simulation and durable saves run at 10Hz; moving units
+and freight interpolate at display frame rate.
+
+## Read and verify
+
+Start with [TOUR.md](TOUR.md), then the [application chapter](../../doc/book/lofi/applications.md),
+[UI contract](../../doc/ui.md) and [scene library](../../src/draw3d/README.md).
+No colony rules are implemented in JavaScript. Geometry is retained between
+changes; display animation does not rebuild the Scheme HUD each frame.
 
 ```sh
-node build/siegework/cloud/lib/browser/server.mjs "$PWD/build/siegework/cloud"
+scripts/test-applications
+scripts/test-ui
+scripts/test-draw3d
+node tests/draw3d/colony.mjs build/siegework/solo
+node tests/draw3d/onboarding.mjs build/siegework/solo /tmp/siegework-fixtures
+# These browser checks reset disposable saves: use an isolated test host/profile.
+node tests/applications/hosting.mjs build/siegework
+node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
 ```
 
-Open `http://127.0.0.1:4173`. A second tab joins the same colony. This implements
-the save foundation for premium/cloud hosting; accounts, billing and save routing
-are future work. The server binds localhost; public hosting and access control
-are outside this experiment. Prefix the server command with
-`PORT=4175` to use another port. Another physical device needs separately
-configured HTTPS routing to this same authority; the localhost command only
-serves browsers on this machine. The clock advances only while at least one
-connected event-stream client reports its page visible. Hiding one tab does not
-pause a colony another player is viewing; input focus is not required. The shared
-**Pause colony / Resume** buttons explicitly stop and restart simulation for all
-players. Manual pause survives visibility changes, compatible code reload and
-authority restart. Solo skips ticks while its own page is hidden; neither host
-replays elapsed ticks on return. Camera movement and orders remain available; paid construction
-and worker assembly wait until Resume; upgrades take effect immediately.
-
-This version uses **world and client schema 6**. Derived snapshots retain the
-logistics rules and use a new incompatible transport. Older prototype and colony
-matches cannot be loaded or hot-reloaded into it implicitly. Use a new output
-directory for a fresh colony, retaining the old package and `match.sqlite`
-together. For example, build to `"$PWD/build/siegework-colony"` and run its
-`cloud/lib/browser/server.mjs` with `"$PWD/build/siegework-colony/cloud"` on another port.
-Do not delete or replace a database while its authority is running. There is no
-automatic schema migration. Solo likewise retains incompatible saves and refuses
-to start; reopen the previous compatible package. A different output path on the
-same origin does not create a new solo save. Keep the application ID stable for
-updates; use a separately configured ID only for an intentionally separate app.
-
-## Your first colony
-
-The pale cross is your hub. The turquoise diamonds are deposits; outlined
-buildings are paid construction kits waiting for a worker. Small moving dots
-are workers, with turquoise cargo when hauling ore.
-
-1. Place an **extractor** on the visible turquoise deposit northeast of the hub
-   (the starting cursor is already there). A worker carries its kit from the hub.
-   Once built, one worker occupies its mining slot and produces ore into a local
-   buffer. Other workers haul it; only deliveries increase the ore you can spend.
-2. Place **artillery** along the eastern approach. It automatically aims at visible
-   enemies within eight cells. A brief muzzle flash, traveling shot and impact mark
-   show each actual firing event; damage is immediate, not a ballistics model.
-   Towers can reveal threats beyond a gun's own sight.
-3. Extend **observation towers** north or east. Their sight starts when workers
-   finish construction. Blueprints require currently visible ground and a walking
-   route through surveyed terrain. Remembered, shaded terrain stays on the map
-   after a tower falls, but it does not show current enemies or permit new orders.
-   Completed towers also accept ore. Placement chooses an automatic railway to
-   a nearby connected tower or the hub; its preview shows the proposed route.
-   Ore becomes spendable only when freight reaches the hub.
-4. Choose what the next delivery buys: another worker, a richer distant mine,
-   an extra mining slot, wider observation, or another gun. More extraction can
-   pile up at a mine when the same workers are busy building or travel is long.
-
-Northern ore is modest and relatively close; the richer eastern deposit needs a
-longer supply line through the ridge crossing. Revealing a deposit is only the
-first step: the workers still need a known route to build and service it.
-
-| Order | Cost and effect |
-| --- | --- |
-| Extractor | 40 ore; one worker slot, producing 2, 3 or 6 ore/sec when occupied; 120-ore buffer. |
-| Artillery | 50 ore; automatic visible-target fire within eight cells. |
-| Observation tower | 25 ore; seven-cell sight, ore depot and automatic upstream railway when completed. |
-| Assemble worker | 25 ore; ready at the hub after three seconds, up to 12 workers. |
-| Upgrade extractor | 40 ore; adds a second worker slot, once. Empty slots produce nothing. |
-| Upgrade tower | 35 ore; increases its sight radius from seven to ten cells, once. |
-| Arm tower | 50 ore; adds artillery while retaining its sight, depot and railway. |
-| Automatic repair | 4 ore per 25 health; keeps 40 ore in reserve, one kit at a time. |
-
-Three workers and 160 ore start each run. A worker parked in a mine produces its
-deposit's rate; a worker walking to an empty slot does not. Upgrading adds capacity,
-so two occupied slots produce twice as much. Each hauler carries up to **16 ore**.
-Growing mine stock means delivery is the bottleneck; empty slots need workers,
-and low stock at fully occupied mines calls for more extraction. A lone surviving
-worker alternates mining and hauling so recovery can continue.
-
-Workers take nearby reachable work from their actual position. Prioritizing a
-site favors its construction, staffing and collection. A new build order immediately
-reserves the closest eligible worker by safe walking distance, including a busy
-miner or hauler. The worker delivers carried ore or returns a repair kit before
-collecting the construction kit at the hub. Workers already building, assembling
-or fleeing keep their commitments; an order waits if nobody is available.
-Repairs cover the hub and structures with one paid kit at a time and a 40-ore reserve.
-
-**Cancel build** removes the unfinished site. A kit still at the hub is refunded
-immediately. A kit already being carried returns physically to the hub before its
-refund; losing that carrier also loses the refund. Cancellation releases a reserved
-worker without discarding unrelated ore or repair supplies. Completed sites cannot
-be cancelled or demolished.
-
-Haulers choose the nearest reachable connected depot or hub. Each automatic rail
-has one shuttle carrying up to **32 ore**, with a visible empty return journey.
-Freight may pass through several towers; depot stock and rail cargo are not
-spendable. A route remains fixed while its endpoints survive. When a tower falls,
-freight on its broken links is lost and surviving depots seek a new upstream
-connection. The rails themselves do not block walking or take damage. Arming a
-tower keeps all its logistics roles and uses the same eight-cell fire range as
-standalone artillery.
-
-Workers flee nearby attackers and wait when no safe route exists. Defend supply
-lines with artillery to make them usable again. Workers and completed buildings
-can be destroyed; lost ore or kits are not refunded. A living hub assembles one
-free emergency replacement in six seconds if every worker is lost. Arrival at a
-living hub shelters and heals workers; it does not replace lost mines
-or grant ore. **Defeating enemies gives no ore.** Combat protects production and
-routes. The field status separates mining, hauling, kit work, retreat, danger
-waits, idle workers and assembly. Workers physically at the hub are spread out
-visually and counted; they are not all labelled as hiding.
-
-## Choosing a map
-
-Each **New run · next seed** advances the saved map seed, wrapping after 65535.
-The starter deposit stays reachable while northern/eastern deposits, obstacles
-and crossings vary. The active seed appears in field status. To reproduce a map,
-enter a number from **1–65535** into **Next run seed** and press **Start this seed**.
-Editing does not affect the current game; submitting starts a fresh shared colony
-for everyone. The ordinary New run button ignores the draft and uses the next
-seed. Invalid input keeps the current colony. Seed 1 is the original layout.
-
-## Controls and threats
-
-| Action | Keyboard / pointer | Standard gamepad |
-| --- | --- | --- |
-| Pan camera | WASD or view buttons | Left stick |
-| Move cursor | Hover the field or arrow keys | D-pad |
-| Choose extractor / artillery / tower | 1 / 2 / 3 or buttons | X / Y / B |
-| Place at cursor | Click, Enter or Space | A |
-| Assemble worker | F | Left trigger |
-| Prioritize site under cursor | P | Right trigger |
-| Upgrade site under cursor | U | Left bumper |
-| Cancel unfinished site under cursor | C | Left stick click |
-| Arm tower under cursor | T | Right stick click |
-| Toggle automatic repairs | R | Right bumper |
-| Return camera and cursor home | H | View |
-| Pause / resume for everyone | Pause colony / Resume buttons | Use the on-screen buttons |
-| New run for everyone | N | Start |
-
-Held WASD and the left stick move the camera continuously; view buttons move it
-one cell at a time. The camera can pan three cells beyond each map edge. The plain margin and map
-perimeter show where the playable field ends; the minimap separates that boundary
-from the visible camera area. Hovering the margin is allowed, but placing there
-is rejected without moving the order onto a neighboring cell.
-
-To upgrade, prioritize, cancel or arm, **hover or move the cursor onto an existing
-site, then use U/P/C/T or its button**. Clicking is a placement command, not a selection mode.
-Field status names the site, its buffer, workers collecting from it and any
-remaining upgrade. Reserved workers retain their current job marker, with a gold
-construction commitment mark. The status separates mine stock, depot stock,
-freight and refunds still returning to the hub. It also explains placement failures and labels the last order
-separately from the current placement preview.
-
-Eastern waves arrive each minute. An announced raid at 3:30 targets an outer
-operation when one exists; otherwise it attacks the hub. The siege beast arrives
-at 7:00. Broad warnings are global even when enemies are outside active sight. Actual
-hits create named damage alerts and pulsing minimap markers, including at your
-own out-of-view assets. Nearby hits coalesce; markers retain the hit location
-when a worker or structure dies.
-Lose if the hub falls, repel the siege by surviving to 8:00, or exterminate it by
-destroying every remaining attacker after the beast arrives. The attack schedule is fixed for this experiment; the map seed varies the routes
-and expansion decisions.
-
-## Reload and implementation
-
-Rebuild while playing to replace compatible Scheme code and shader pipelines.
-The colony, local camera/cursor/tool and pending requests stay in the stable host.
-Invalid builds do not publish a manifest; failed candidates or pipelines keep the
-previous generation running. HTML/CSS/host JavaScript changes require a page or
-server restart. A page restart creates a fresh local UI model; the authoritative
-match is restored from IndexedDB in solo or the cloud package's `match.sqlite`.
-Solo polls its static manifest for compatible updates; it needs no development
-server. A failed solo save stops the clock with retry/reload guidance. A successful
-retry resumes it. A forced tab/browser termination recovers completed commits;
-it cannot guarantee that an unfinished command was saved.
-
-The [application chapter](../../doc/book/lofi/applications.md) explains typed
-handlers, state lifetimes, reload and the shader dialect. Shared code stays under
-`src/application/`, `src/browser/`, `src/webgpu/` and `src/scheme/immutable.sld`.
-This app owns `terrain.sld` (map and routes), `model.sld` (colony transitions),
-`state.sld` (derived transport and colony invariants), `view.sld` (quads/status), `game.sld` (typed commands
-and camera), shaders, settings and its [build recipe](build.scm). App HTML/CSS
-declare controls and layout; generic `src/browser/input.mjs` maps physical input
-and typed integer forms to Scheme handlers. Seed range and restart rules stay in
-Scheme.
-The [validation record](VALIDATION.md) distinguishes executed checks from limits.
-
-The broader aim remains a low-input cooperative game, with fresh runs under an
-hour and varied, fairly warned finales. Walls, a large tech tree, 3D/elevation,
-unbounded terrain generation, additional resources and manual artillery aiming are deferred.
-This experiment asks whether extending observation, paying for physical logistics
-and protecting a distant operation produce useful choices before adding systems.
+See [validation evidence](VALIDATION.md) for exact results and limitations, and
+[TODO.md](../../TODO.md) for delivery status. This is an early scene library;
+textures, arbitrary-mesh picking, shadows and full Three.js compatibility remain
+future work. Multiplayer and automatic investment are outside this iteration.

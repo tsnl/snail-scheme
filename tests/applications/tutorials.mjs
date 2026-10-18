@@ -1,12 +1,11 @@
-// Tutorial checkpoints execute compiled Scheme and the real snapshot/SQLite path.
+// Tutorial checkpoints execute compiled Scheme and LocalState persistence.
 import assert from 'node:assert/strict';
-import {readFileSync, mkdtempSync, rmSync} from 'node:fs';
+import {readFileSync, writeFileSync, renameSync, existsSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
-import {ReducerRuntime, endpoint} from '../../src/application/runtime.mjs';
-import {Authority} from '../../src/application/authority.mjs';
-import {openStore} from '../../src/application/sqlite.mjs';
+import {ReducerRuntime} from '../../src/application/runtime.mjs';
+import {LocalState} from '../../src/application/local.mjs';
 import {snapshotValue} from './snapshots.mjs';
 
 const output = resolve(process.argv[2]);
@@ -17,9 +16,13 @@ for (const name of ['counter', 'inventory', 'testing']) {
   console.log(`ok - ${name} tutorial checkpoint returns 42`);
 }
 
-const directory = join(output, 'marker-board/cloud');
+const directory = join(output, 'marker-board/solo');
 const manifest = JSON.parse(readFileSync(join(directory, 'manifest.json')));
 const bytes = readFileSync(join(directory, manifest.module));
+assert.equal(manifest.target, 'solo'); assert.equal(manifest.saveService, undefined);
+assert.match(readFileSync(join(directory, 'index.html'), 'utf8'), /lib\/browser\/solo\.mjs/);
+for (const file of ['browser/cloud.mjs', 'browser/server.mjs', 'application/authority.mjs', 'application/sqlite.mjs'])
+  assert.equal(existsSync(join(directory, 'lib', file)), false);
 async function fresh() {
   const runtime = new ReducerRuntime();
   await runtime.replace(runtime.prepare(bytes, manifest));
@@ -46,7 +49,7 @@ try {
   await runtime.dispatch(1, runtime.effectCommand(sent.effects[0]));
   assert.deepEqual(position(runtime, 1), [3, 2]);
   assert.equal(snapshotValue(before).x, 0);
-  console.log('ok - local selection emits a request; explicit delivery moves the shared marker');
+  console.log('ok - local selection emits a request; explicit delivery moves the saved marker');
 
   for (const coordinates of [[-1, 0], [8, 0], [0, -1], [0, 6]]) {
     await call(runtime, 'match', 'place', coordinates);
@@ -83,32 +86,43 @@ try {
   assert.deepEqual(position(runtime, 2), [3, 2]);
 } finally { await runtime.close(); }
 
-// Reopen an actual SQLite file and restore into a fresh Wasm instance.
+// A small file-backed fixture exercises LocalState's commit boundary in Node.
+// The static browser package uses IndexedDB, checked by the hosting suite.
 const savedDirectory = mkdtempSync(join(tmpdir(), 'marker-board-tutorial-'));
-let store, first, restored;
+const checkpointFile = join(savedDirectory, 'match.json'), nextFile = join(savedDirectory, 'match.next.json');
+let first, restored, rejectNextWrite = false, published = 0;
+function loadCheckpoint() { return existsSync(checkpointFile) ? JSON.parse(readFileSync(checkpointFile, 'utf8')) : undefined; }
+function commitCheckpoint(checkpoint, expected) {
+  if ((loadCheckpoint()?.revision ?? 0) !== expected) throw new Error('checkpoint revision conflict');
+  if (rejectNextWrite) { rejectNextWrite = false; throw new Error('fixture write failure'); }
+  writeFileSync(nextFile, JSON.stringify(checkpoint)); renameSync(nextFile, checkpointFile);
+}
 try {
-  store = openStore(join(savedDirectory, 'match.sqlite'));
   first = await fresh();
-  const authority = new Authority(first, {commit: (snapshot, expected) => store.commit(snapshot, expected),
-    resetHandler: endpoint(manifest, 'match', 'clear').id});
+  const local = await LocalState.open(first, {saved: loadCheckpoint(), commit: commitCheckpoint});
   await call(first, 'client', 'move', [5, 4]);
-  const request = {client: 'tutorial', sequence: 1, epoch: authority.epoch,
-    command: first.command('match', 'place', [6, 1])};
-  await authority.submit(request);
-  const committed = authority.snapshot();
-  await first.close(); first = undefined; store.close(); store = undefined;
+  await local.submit(first.command('match', 'place', [6, 1]));
+  const committed = local.snapshot(); assert.deepEqual(loadCheckpoint(), committed);
+  await first.close(); first = undefined;
 
-  store = openStore(join(savedDirectory, 'match.sqlite'));
   restored = await fresh();
-  const restarted = await Authority.open(restored, {saved: store.load(),
-    commit: (snapshot, expected) => store.commit(snapshot, expected)});
+  const restarted = await LocalState.open(restored, {saved: loadCheckpoint(),
+    commit: commitCheckpoint, publish: () => published++});
   assert.deepEqual(restarted.snapshot(), committed);
   assert.deepEqual(position(restored, 1), [6, 1]);
   assert.deepEqual(position(restored, 2), [0, 0]);
-  assert.equal((await restarted.submit(request)).duplicate, true);
-  assert.equal(restarted.revision, committed.revision);
-  console.log('ok - SQLite restart preserves shared position and retry receipt; local cursor starts fresh');
+  console.log('ok - LocalState reopens the saved marker and revision while the local cursor starts fresh');
+
+  const request = restored.command('match', 'place', [2, 3]); rejectNextWrite = true;
+  await assert.rejects(() => restarted.submit(request), /fixture write failure/);
+  assert.deepEqual(restarted.snapshot(), committed); assert.deepEqual(loadCheckpoint(), committed); assert.equal(published, 0);
+  await restarted.submit(request);
+  assert.deepEqual(position(restored, 1), [2, 3]); assert.equal(restarted.revision, committed.revision + 1);
+  assert.deepEqual(loadCheckpoint(), restarted.snapshot()); assert.equal(published, 1);
+  assert.throws(() => commitCheckpoint(committed, committed.revision), /revision conflict/);
+  assert.deepEqual(loadCheckpoint(), restarted.snapshot());
+  console.log('ok - failed persistence publishes nothing; explicit retry commits one revision and stale writes fail');
 } finally {
-  await first?.close(); await restored?.close(); store?.close();
+  await first?.close(); await restored?.close();
   rmSync(savedDirectory, {recursive: true, force: true});
 }

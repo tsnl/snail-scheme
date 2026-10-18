@@ -93,5 +93,5 @@ identity; do not build a router by treating every effect as a deposit.
 Change `(confirm 7)` to `(confirm 9)` and expect `19`. Restore the finished
 checkpoint after the exercise.
 
-Next: [build a shared marker board](board.md). The browser host delivers the
-requests so you can see local and shared state respond to input.
+Next: [build a saved marker board](board.md). The browser host delivers the
+requests so you can see local and saved state respond to input.

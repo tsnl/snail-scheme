@@ -110,12 +110,13 @@ function tools(environment) {
   ].map(([name, command, flag]) => [name, {command, version: capture(command, [flag])}]));
 }
 
-function buildCommand(overlay, directory, environment) {
+function buildCommand(overlay, directory, environment, threeD) {
   return [environment.CHIBI ?? 'chibi-scheme',
     '-I', join(repository, 'bootstrap'),
     // Chibi searches the last -I directory first.
     ...(overlay ? ['-I', overlay] : []),
-    join(repository, 'apps/siegework/build.scm'), repository, join(directory, 'app')];
+    join(repository, threeD ? 'apps/siegework/three/build.scm' : 'apps/siegework/build.scm'),
+    repository, join(directory, 'app')];
 }
 
 function execute(command, directory, environment) {
@@ -166,8 +167,10 @@ function profileEvidence(directory) {
 // ---- One sample per invocation; repeat samples sequentially ----
 
 function main(args) {
-  assert(args.length === 2 && ['baseline', 'profile', 'hotspots'].includes(args[0]),
-    'usage: node scripts/measure-siegework.mjs baseline|profile|hotspots NEW-OUTPUT-DIRECTORY');
+  assert(args.length >= 2 && ['baseline', 'profile', 'hotspots'].includes(args[0]) &&
+    args.slice(2).every(flag => flag === '--3d') &&
+    new Set(args.slice(2)).size === args.length - 2,
+  'usage: node scripts/measure-siegework.mjs baseline|profile|hotspots NEW-OUTPUT-DIRECTORY [--3d]');
   const [mode, output] = args;
   const directory = resolve(output);
   mkdirSync(directory); // Refuse to overwrite an existing run or create missing parents.
@@ -177,7 +180,7 @@ function main(args) {
     environment.SNAIL_PROFILE_HELPERS = mode === 'hotspots' ? '1' : '0';
   }
   const overlay = mode !== 'baseline' ? prepareOverlay(directory, environment) : undefined;
-  const command = buildCommand(overlay, directory, environment);
+  const command = buildCommand(overlay, directory, environment, args.includes('--3d'));
   const before = sourceIdentity();
   writeFileSync(join(directory, 'source.diff'), capture('git', ['diff', 'HEAD', '--binary']));
   json(join(directory, 'input.json'), runMetadata(mode, command, environment, before));

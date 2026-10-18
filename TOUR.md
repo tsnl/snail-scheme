@@ -35,8 +35,8 @@ remains proposed.
 | 2. Description | [`frontend.sld`](src/lofi/compiler/frontend.sld) | `parse-library` retains located source and imports without loading dependencies. |
 | 3. Resolution and expansion | [`library.sld`](src/lofi/compiler/library.sld), [`macros.sld`](src/lofi/compiler/macros.sld) | Resolve imported binding identities, expand `syntax-rules` and attached derive transformers, then parse the expanded kernel. |
 | 4. Checking | [`infer.sld`](src/lofi/compiler/infer.sld) | `infer-program` checks bodies and records types, scopes and class evidence in [`checked.sld`](src/lofi/compiler/checked.sld). |
-| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures. |
-| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence. |
+| 5. Concrete demand | [`specialize.sld`](src/lofi/compiler/specialize.sld) | `prepare-generation` chooses concrete implementations, storage and captures, then partitions values by activation owner. |
+| 6. Emission | [`emit-wasm.sld`](src/lofi/compiler/emit-wasm.sld) | `strict-core->wasm` emits WasmGC using established type and storage evidence, indexed layouts and the prepared activation partition. |
 
 ```text
 located library source → imported identities and hygienic expansion
@@ -46,6 +46,8 @@ located library source → imported identities and hygienic expansion
 
 Macro transformers retain definition-site bindings, including private helpers.
 They can emit `begin` to introduce several declarations in one library scope.
+Scope lookup indexes names while retaining ordered binding objects; hygiene and
+namespace visibility are checked when each name is used.
 The expander normalizes named `data`, `typeclass` and `instance` declarations,
 reserving their associated bindings together. Transformers and splices disappear
 before ordinary type checking and code generation. Read the
@@ -87,11 +89,14 @@ composition for a native build.
 | [`src/lofi/compiler/tools/`](src/lofi/compiler/tools/) | Trace viewing and Unicode generation libraries. |
 | [`bootstrap/`](bootstrap/README.md) | Chibi loader view of the implementation libraries. |
 | [`examples/`](examples/) | Programs and explicit build/generation examples. |
-| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, typed reducers, shaders and browser packages. |
-| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived binary snapshots, one async message lane, durable authority receipts, SQLite and [IndexedDB saves with tab ownership](src/application/indexeddb.mjs). |
-| [`src/browser/`](src/browser/application.sld) | Immutable view data, [continuous input and typed forms](src/browser/input.mjs), shared presentation/reload, separate [solo](src/browser/solo.mjs) and [cloud](src/browser/cloud.mjs) sessions, two-target packaging and the Node authority server. |
 | [`examples/applications/`](examples/applications/README.md) | Runnable checkpoints for the [five application tutorials](doc/book/lofi/tutorials/index.md), including a minimal marker board assembled from the shared browser host. |
-| [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler and the real WebGPU quad adapter. |
+| [`apps/`](apps/README.md) | Independent app composition and app-owned libraries; the [Siegework tour](apps/siegework/TOUR.md) follows Scheme simulation, manual investment, automatic worker logistics, typed reducers, shaders and browser packages. |
+| [`src/application/`](src/application/reducer.sld) | Typed lexical handlers, immutable transitions, derived snapshots and prior committed state, one async message lane, [local durable state](src/application/local.mjs), IndexedDB tab ownership and optional online checkpoint transfer. |
+| [`src/browser/`](src/browser/application.sld) | Immutable view data, continuous input, typed forms, presentation/reload and static browser packaging. All game logic runs locally. |
+| [`src/save/`](src/save/service.mjs) | Optional HTTP save/load service over opaque checkpoints, with conditional ETags and SQLite storage; no game simulation. |
+| [`src/ui/`](doc/ui.md) | Immutable typed controls, one top-down Scheme rectangle allocation, copied endpoint events and stable DOM controls; [UI lab](apps/ui-lab/src/ui-lab/game.sld) is the standalone runnable example. |
+| [`src/draw3d/`](src/draw3d/README.md) | Checked geometry, scene hierarchies, cameras and ray picking; Scheme declares retained batches, motion endpoints, radial reveals and inset views. One GPU device reuses geometry and advances display clocks independently of Scheme queries. |
+| [`src/webgpu/`](src/webgpu/shader.sld) | Scheme shader AST/compiler, the quad adapter, and a depth-tested 3D adapter with display-frame motion interpolation and explicit buffer/texture lifetime. |
 | [`src/scheme/immutable.sld`](src/scheme/immutable.sld) | Functional record replacement, attached deriving and small immutable list operations. |
 | [`src/lofi/serialization.sld`](src/lofi/serialization.sld) | Separate checked serialization capabilities, derived data instances and traversal-local graph identities. |
 | [`src/lofi/scalar-text.sld`](src/lofi/scalar-text.sld) | Owned scalar text tokens, interned symbols, diagnostics and exact I64 formatting without the dynamic datum/number layers. |
