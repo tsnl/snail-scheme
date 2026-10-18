@@ -1,7 +1,8 @@
 ;; A diorama of the existing flat grid. Heights belong only to illustrations;
 ;; movement, visibility, mining, construction and combat remain the colony model.
 (define-library (siegework three-view)
-  (export colony-scene colony-camera camera-pan ground-cell pick-cell)
+  (export colony-scene colony-camera camera-pan ground-cell pick-cell
+          ScreenPoint projected-point-x projected-point-y cell-screen-position)
   (import
    (scheme base)
    (scheme immutable)
@@ -10,7 +11,7 @@
    (siegework model)
    (siegework terrain)
    (siegework guidance)
-   (only (lofi base) floor f64->i64 i64->i32)
+   (only (lofi base) floor round f64->i64 i32->i64 i64->i32)
    (only (lofi core) ann datatype I32 F64))
   (begin
 
@@ -28,6 +29,25 @@
                         (v* (camera-up camera) (- 0.0 (scalar dy)))))
             (forward (camera-forward camera)))
         (v- offset (v* forward (/ (vec3-z offset) (vec3-z forward))))))
+    (define ScreenPoint
+      (datatype ()
+        (screen-point
+         (x I32 projected-point-x)
+         (y I32 projected-point-y))))
+    (define (project-row matrix row point)
+      (+ (+ (* (vector-ref matrix (i32->i64 row)) (vec3-x point))
+            (* (vector-ref matrix (i32->i64 (+ row 4))) (vec3-y point)))
+         (+ (* (vector-ref matrix (i32->i64 (+ row 8))) (vec3-z point))
+            (vector-ref matrix (i32->i64 (+ row 12))))))
+    (define (projected-pixel value extent)
+      (i64->i32 (f64->i64 (round (* value (/ (scalar extent) 2.0))))))
+    ;; UI anchors use the same matrix and cell center as the rendered cursor.
+    (define (cell-screen-position camera x y width height)
+      (let* ((matrix (camera-matrix camera)) (point (position x y 0.08))
+             (w (project-row matrix 3 point))
+             (x (/ (project-row matrix 0 point) w)) (y (/ (project-row matrix 1 point) w)))
+        (screen-point (projected-pixel (+ x 1.0) width)
+                      (projected-pixel (- 1.0 y) height))))
     (define (pointer-ray camera px py width height)
       (camera-ray camera (- (/ (* (scalar px) 2.0) (scalar width)) 1.0)
                   (- 1.0 (/ (* (scalar py) 2.0) (scalar height)))))
@@ -270,7 +290,7 @@
                                  (block lamp 0.61 0.0 0.075 0.09 1.3 0.08)
                                  (block lamp 0.0 -0.61 0.075 1.3 0.09 0.08)
                                  (block lamp 0.0 0.61 0.075 1.3 0.09 0.08)))))))
-    (define (colony-scene world camera x y chooser)
+    (define (colony-scene world camera x y)
       (scene camera
              (list (block (material (rgb 19 113 185) 0.7) 23.5 -17.5 -0.4 48.0 36.0 0.7)
                    (group identity-transform (terrain-nodes world 0 0))
@@ -281,8 +301,5 @@
                    (group identity-transform (enemy-nodes world (world-enemies world)))
                    (group identity-transform (shot-nodes (world-buildings world)))
                    (group identity-transform (cursor-nodes world x y))
-                   (group identity-transform (starter-nodes world))
-                   (group identity-transform
-                          (if (and chooser (= (placement-reason world 3 x y) 0))
-                              (rail-path-nodes (rail-preview world x y) blue) (empty-list))))
+                   (group identity-transform (starter-nodes world)))
              (directional-light (vec3 -0.5 -0.6 1.0) 0.65) (vec3 0.5 0.5 0.46) (rgb 28 151 223)))))

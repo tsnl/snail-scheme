@@ -8,8 +8,10 @@ canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%
 .snail-ui-node[data-panel="1"] { pointer-events: auto; border-color: #dfc58c; box-shadow: 0 8px 28px #123d5c44; backdrop-filter: blur(16px); }
 [data-ui-key="onboarding"][data-panel="1"] { border: 2px solid #d19b26; }
 [data-ui-key="result"][data-panel="1"] { border: 2px solid #b23f32; background: #fff0db; }
+[data-ui-key="build-chooser"][data-panel="1"] { border: 2px solid #d19b26; box-shadow: 0 10px 34px #092c4d66; }
 [data-ui-key="result"] [data-ui-key="context-title"] { color: #9f3028; font-size: 19px; line-height: 22px; font-weight: 800; }
 [data-ui-key="onboarding"] [data-ui-key="context-title"] { color: #715114; font-weight: 800; }
+[data-ui-key="build-chooser"] [data-ui-key="chooser-title"] { color: #715114; font-weight: 800; }
 .snail-ui-button, .snail-ui-number { pointer-events: auto; }
 .snail-ui-button { background: #e3f0ee; border-color: #80a9b1; }
 .snail-ui-button-detail { color: var(--ui-muted); }

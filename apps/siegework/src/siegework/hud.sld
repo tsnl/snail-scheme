@@ -1,7 +1,7 @@
 ;; Compact contextual presentation. The model owns prices, eligibility and time;
 ;; the client supplies lexical requests and the currently inspected ground cell.
 (define-library (siegework hud)
-  (export HudContext hud-context hud-move-context hud-x hud-y hud-chooser hud-width hud-height
+  (export HudContext hud-context hud-chooser-context hud-move-context hud-x hud-y hud-chooser hud-width hud-height
           HudActions hud-actions colony-hud)
   (import
    (scheme base)
@@ -27,11 +27,15 @@
          (width I32 hud-width)
          (height I32 hud-height)
          (origin-x I32 hud-origin-x)
-         (origin-y I32 hud-origin-y))))
-    (define (hud-context x y chooser width height)
-      (make-context x y chooser width height -1 -1))
+         (origin-y I32 hud-origin-y)
+         (anchor-x I32 hud-anchor-x)
+         (anchor-y I32 hud-anchor-y))))
+    (define (hud-context x y width height)
+      (make-context x y #f width height -1 -1 -1 -1))
+    (define (hud-chooser-context x y width height anchor-x anchor-y)
+      (make-context x y #t width height -1 -1 anchor-x anchor-y))
     (define (hud-move-context x y width height origin-x origin-y)
-      (make-context x y #f width height origin-x origin-y))
+      (make-context x y #f width height origin-x origin-y -1 -1))
     (define (moving-context? context) (>= (hud-origin-x context) 0))
     (define HudActions
       (datatype (Owner State)
@@ -133,7 +137,6 @@
         (cond ((= (world-outcome world) 1) "COLONY LOST")
               ((> (world-outcome world) 1) "SIEGE SURVIVED")
               ((moving-context? context) "MOVE STRUCTURE · 5 ORE")
-              ((hud-chooser context) "SITE SELECTED · CHOOSE A STRUCTURE")
               ((not (null? found))
                (cond ((= (building-kind (car found)) 1) "EXTRACTOR")
                      ((= (building-kind (car found)) 2) "ARTILLERY") (else "OBSERVATION TOWER")))
@@ -148,7 +151,6 @@
                (if (= (pending-move-reason world context) 0)
                    "Click to queue this move. Deliveries drain before the structure relocates."
                    (reason-text (pending-move-reason world context))))
-              ((hud-chooser context) "No build order yet. Choose Tower or Artillery below (1 / 2, X / Y).")
               ((not (null? found))
                (if (= (building-kind (car found)) 1) (upgrade-message world (car found))
                    (if (moving? (car found)) "Move queued. Current deliveries drain before relocation."
@@ -195,7 +197,6 @@
                (list (control "confirm-move" "Move here · 5 ore" "Enter / controller A"
                               (= (pending-move-reason world context) 0) #f (action-confirm actions))
                      (control "cancel-move" "Cancel move" "Escape / controller B" #t #f (action-cancel actions))))
-              ((hud-chooser context) (chooser-controls world context actions))
               ((not (null? found)) (building-controls world (car found) actions))
               (else (list (control "confirm-site" (if (deposit? world context) "Build extractor · 40 ore" "Choose structure")
                                    "Click ground / Enter / controller A"
@@ -226,7 +227,7 @@
                             "Last order: move route changed; 5 ore returned.") 3))
             (empty-list))))
     (define (starter-description world context)
-      (cond ((or (hud-chooser context) (moving-context? context)) (hover-description world context))
+      (cond ((moving-context? context) (hover-description world context))
             ((< (starter-deposit world) 0) "No free, safely reachable surveyed deposit. Expand your sight with a tower.")
             ((and (deposit? world context) (not (= (placement-reason world 1 (hud-x context) (hud-y context)) 0)))
              (hover-description world context))
@@ -245,11 +246,49 @@
                                                  (list (support-controls world actions) (mode-row world actions))))))))
     (define (context-height context)
       (if (< (hud-height context) 448) (- (hud-height context) 144) 304))
+    (define chooser-height 196)
+    (define (larger left right) (if (> left right) left right))
+    (define (smaller left right) (if (< left right) left right))
+    (define (clamp value low high) (larger low (smaller value high)))
+    (define (chooser-width context) (smaller 330 (larger 0 (- (hud-width context) 24))))
+    (define (hud-root-width context) (larger 0 (- (hud-width context) 24)))
+    (define (hud-root-height context) (larger 0 (- (hud-height context) 32)))
+    (define (chooser-at-side? context width)
+      (let ((anchor (- (hud-anchor-x context) 12)) (available (hud-root-width context)))
+        (or (<= (+ (+ anchor 24) width) available) (>= (- (- anchor 24) width) 0))))
+    (define (chooser-left context width)
+      (let* ((anchor (- (hud-anchor-x context) 12)) (available (hud-root-width context))
+             (right (+ anchor 24)) (left (- (- anchor 24) width)))
+        (clamp (cond ((<= (+ right width) available) right) ((>= left 0) left)
+                     (else (- anchor (quotient width 2)))) 0 (larger 0 (- available width)))))
+    (define (chooser-top context width height)
+      (let* ((anchor (- (hud-anchor-y context) 12)) (available (hud-root-height context))
+             (preferred (if (chooser-at-side? context width) (- anchor (quotient height 2))
+                            (if (<= (+ (+ anchor 24) height) available) (+ anchor 24)
+                                (- (- anchor 24) height)))))
+        (- (clamp preferred 100 (larger 100 (- available height))) 100)))
+    (define (chooser-card world context actions width height)
+      (ui-panel "build-chooser" (px width) (px height) 12 8
+                (append (list (line "chooser-title" 22 "BUILD HERE" 2)
+                              (line "chooser-description" 34 "Choose Tower or Artillery for the selected site." 0))
+                        (chooser-controls world context actions))))
+    (define (chooser-stage world context actions)
+      (let* ((width (chooser-width context)) (height (smaller chooser-height (larger 0 (- (hud-root-height context) 100))))
+             (left (chooser-left context width)) (top (chooser-top context width height)))
+        (ui-column "chooser-stage" (grow 1) (grow 1) 0
+                   (list (ui-label "chooser-top-space" (grow 1) (px top) "" 0)
+                         (ui-row "chooser-position" (grow 1) (px height) 0
+                                 (list (ui-label "chooser-left-space" (px left) (grow 1) "" 0)
+                                       (chooser-card world context actions width height)
+                                       (spacer "chooser-right-space")))
+                         (spacer "chooser-bottom-space")))))
     (define (colony-hud world context actions)
       (ui-column "hud" (grow 1) (grow 1) 12
-                 (list (header world context actions)
-                       (spacer "world-space")
-                       (ui-row "bottom" (grow 1) (px (context-height context)) 0
-                               (if (extractor-start? world)
-                                   (list (context-card world context actions) (spacer "bottom-space"))
-                                   (list (spacer "bottom-space") (context-card world context actions)))))))))
+                 (if (hud-chooser context)
+                     (list (header world context actions) (chooser-stage world context actions))
+                     (list (header world context actions)
+                           (spacer "world-space")
+                           (ui-row "bottom" (grow 1) (px (context-height context)) 0
+                                   (if (extractor-start? world)
+                                       (list (context-card world context actions) (spacer "bottom-space"))
+                                       (list (spacer "bottom-space") (context-card world context actions))))))))))

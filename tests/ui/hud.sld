@@ -18,5 +18,5 @@
       (ann (lambda ()
              (rect-width (placement-rect
                           (layout-ui 1280 800 (colony-hud (initial-world)
-                                                          (hud-context 12 20 #f 1280 800) (actions))))))
+                                                          (hud-context 12 20 1280 800) (actions))))))
            (-> I32)))))

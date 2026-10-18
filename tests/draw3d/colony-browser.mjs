@@ -66,14 +66,27 @@ try {
   await pointCell(12, 20, true); await until(async () => (await world()).buildings.length === 1, 'deposit click did not create mine');
   await click('pause'); await until(async () => (await world()).buildings[0].stage === 2, 'mine completion');
   await pointCell(12, 20, true, .94); await until(async () => (await world()).buildings[0].level === 2, 'mine roof click did not upgrade');
-  await pointCell(12, 21, true); await pointCell(13, 21); await key('1', 'Digit1');
+  const chosenSite = await pointCell(12, 21), geometry = await evaluate(`(()=>{const s=snailApp.runtime.view().scene;
+    return{vertices:s.vertices.length,indices:s.indices.length}})()`); await press(chosenSite);
+  const chooser = await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="build-chooser"]').getBoundingClientRect();
+    return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,vertices:snailApp.runtime.view().scene.vertices.length,
+      indices:snailApp.runtime.view().scene.indices.length}})()`);
+  assert.equal(chooser.vertices, geometry.vertices); assert.equal(chooser.indices, geometry.indices);
+  const chooserDx = Math.max(chooser.left-chosenSite.x, chosenSite.x-chooser.right, 0);
+  const chooserDy = Math.max(chooser.top-chosenSite.y, chosenSite.y-chooser.bottom, 0);
+  assert.ok(chooserDx > 0 || chooserDy > 0); assert.ok(Math.hypot(chooserDx, chooserDy) <= 40);
+  await pointCell(13, 21);
+  assert.deepEqual(await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="build-chooser"]').getBoundingClientRect();
+    return{left:r.left,top:r.top,right:r.right,bottom:r.bottom}})()`),
+    {left:chooser.left,top:chooser.top,right:chooser.right,bottom:chooser.bottom});
+  await key('1', 'Digit1');
   await until(async () => (await world()).buildings.some(value => value.kind === 3 && value.x === 12 && value.y === 21 && value.stage === 2), 'locked tower choice');
   await until(async () => (await world()).rails.some(value => value.cargo > 0), 'visible loaded rail shuttle', 45000);
   const pixels = await evaluate(`(async()=>{const frame=snailApp.runtime.view(),pixels=await snailApp.renderer.readPixels(frame.scene);
     return{vertices:frame.scene.vertices.length/10,indices:frame.scene.indices.length,bytes:pixels.bytes.length,
       colors:new Set(Array.from(pixels.bytes).filter((_,i)=>i%4!==3)).size};})()`);
   assert.ok(pixels.colors > 30 && pixels.vertices > 1000);
-  console.log('ok - real pointer/key contextual mine, upgrade, locked tower, moving freight and WebGPU scene', pixels);
+  console.log('ok - pointer-local chooser without rail preview, locked tower, moving freight and WebGPU scene', pixels);
   await click('pause'); await pointCell(12, 21, false, 2.1); await click('move-structure');
   assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'), /MOVE STRUCTURE/);
   await pointCell(12, 22); const beforeMove = (await world()).ore; await click('confirm-move');

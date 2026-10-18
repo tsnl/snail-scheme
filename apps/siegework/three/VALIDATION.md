@@ -202,3 +202,26 @@ selection, and kept picking as one stable nearest-hit fold. Camera framing is
 derived from the viewport and current guidance using existing client fields.
 All packages and saves used for this validation were disposable; live ports
 4200/4191 and their packages were not modified or published.
+
+## Pointer-local construction choice
+
+The final solo and cloud packages share generation
+`8dfb2e9ff30e864a08b99701` and byte-identical 442,544-byte Wasm modules
+(SHA-256 `77673e3c9d584c8e5f61bbdf2c6fec49144a00370011ececb23497e0113626ac`).
+World schema 7, client schema 1, the application identity, and both save
+contracts remain unchanged.
+
+The linked-Wasm fixture projects the locked construction cell through the same
+camera matrix used by the renderer. Opening the chooser leaves vertex and index
+counts unchanged, proving that an uncommitted choice no longer adds railway
+geometry. Moving the pointer while the chooser is open retains both its screen
+position and its original build target; keyboard selection still builds at
+that target.
+
+Actual Chromium/SwiftShader checks passed against disposable cloud port 4210
+and solo port 4211. The popup neither covered its selected cursor nor appeared
+more than 40 CSS pixels away, and both packages completed the existing pointer,
+keyboard, injected-controller, touch, move/cancel, persistence, responsive HUD,
+GPU readback, and GPU disposal checks. A completed tower still produced visible
+rail freight. The checked scene contained 2,564 vertices and 1,272 triangles.
+No live package or save was modified during these checks.

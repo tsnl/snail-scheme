@@ -34,7 +34,9 @@ Compatible code and shader reloads retain the world, client selection and camera
   their 3D forms, so roofs and crystal tips select their owning cell.
 - Click empty ground to lock a site and choose Tower or Artillery. Press `1`
   or `2`, controller X or Y, or the corresponding touch control. Moving the
-  pointer while choosing does not move the locked site. Selecting a site alone
+  pointer while choosing does not move the locked site. The compact chooser
+  opens beside that site's world cursor and does not preview a tower railway;
+  rails appear only for committed, completed depots. Selecting a site alone
   creates no build order and spends no ore. Escape/B cancels.
 - WASD or the left stick pans in screen directions, with pitch compensation
   keeping vertical and horizontal travel consistent. Each pan stops at the

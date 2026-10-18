@@ -9,5 +9,5 @@
   (begin
     (define answer
       (ann (lambda ()
-             (present-scene! (colony-scene (initial-world) (colony-camera 10000 22000 960 640) 12 20 #f)) 1)
+             (present-scene! (colony-scene (initial-world) (colony-camera 10000 22000 960 640) 12 20)) 1)
            (-> I32)))))
