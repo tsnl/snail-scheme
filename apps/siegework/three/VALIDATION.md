@@ -144,3 +144,61 @@ compatible. Deployment needs a cloud server restart for the session rule and a
 browser page reload for the host code. Pending queues survive same-tab reload;
 closing the tab and duplicated tabs sharing one client UUID are outside this
 slice. This validation did not modify the player's live previews or saves.
+
+## First extractor guidance and defeated colonies
+
+The isolated onboarding packages share generation `2062ee7c1eaf306590a6dd18`
+and byte-identical 438,079-byte solo/cloud Wasm (SHA-256
+`c9ca8e19afe27fc99593efd000475d5ebfb28ad66bcd8c515682012383161542`).
+`make test`, `make check`, the cloud-outbox boundary checks, and both compiled
+colony/onboarding fixtures passed. Replacement from the previous generation
+`ada252d67a0c413a4eacacb0` retained the exact protocol contract and snapshots
+for both owners. World schema 7, client schema 1, application identity and
+durable save formats remain unchanged; there is no saved tutorial flag.
+
+`tests/draw3d/onboarding.mjs` executes the shared compiled application. It
+checks order dismissal, cancellation recovery, completed-extractor history
+after actual enemy destruction, and an established save without guidance.
+After two towers reveal a richer northern deposit, both the guidance and the
+automatic planner choose that deposit. Unsafe deposit fallback, an actual hub
+defeat, and the enabled restart action are also covered. It writes durable
+established and defeated fixtures for browser checks.
+
+The picking fixture reproduces the previous visible-tip failure: at a 960×640
+viewport, the starter crystal tip at world `(11.8, 20, 0.63)` projects near
+pixel `(573, 287)`. Ground-only picking selected cell `(11, 19)`; the corrected
+nearest structure/crystal bounds select its owning deposit `(12, 20)`.
+Structures retain precedence for exact distance ties.
+
+Actual headed Chromium/SwiftShader checks passed against isolated cloud 4207
+and solo 4208. Each fresh colony displayed the explicit start card and bright
+ground marker, including a GPU readback with the cursor on the hub. Reloading
+before an order retained guidance. H and injected controller Back selected and
+revealed the deposit after panning. Actual crystal-tip clicks ordered an
+extractor, removed the marker/card, and retained dismissal across reload and
+completion. Cancellation restored guidance; an established colony stayed
+dismissed. The 390×844, 390×600, 844×390 and 640×390 viewport checks verified
+that the tip remained on the canvas rather than beneath a HUD control, both
+on entry and after H. Screenshots of the short portrait and landscape layouts
+were inspected for readable guidance and a clear target.
+
+The actual defeated fixture displayed **COLONY LOST** and an enabled
+**Start a new colony** action on both hosts, including a separately seeded
+cloud package on 4209. Reload retained the defeat card; activating restart
+returned to an active colony with first-extractor guidance. Both hosts also
+passed the existing pointer, keyboard, injected controller, touch, movement,
+pause, saved reopen and GPU-disposal browser regressions. Browser traces had
+no uncaught runtime exception. The persistence browser regression also passed
+on both hosts: cloud retained unavailable orders across reload, reconciled a
+lost response without another purchase, and visibly rejected stale-colony
+orders; completed structures and spending survived active reload on both.
+These checks use emulated viewports and an
+injected controller on a software GPU; they do not claim handset, physical
+controller or hardware-GPU coverage.
+
+The focused simplify review used a fresh source-free explanation and critical
+debate. It kept guidance as a pure world predicate plus the planner's existing
+selection, and kept picking as one stable nearest-hit fold. Camera framing is
+derived from the viewport and current guidance using existing client fields.
+All packages and saves used for this validation were disposable; live ports
+4200/4191 and their packages were not modified or published.

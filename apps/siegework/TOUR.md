@@ -11,12 +11,13 @@ Scheme owns the game rules and presentation executed by both browser and server.
 | [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, remembered surveys and bounded adjacent-cell pathfinding and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; worker/source completion estimates, exclusive kits, queued relocations, deliveries and combat. |
 | [`planning.sld`](src/siegework/planning.sld) | Optional Manual/Auto Explore/Defend investment policy using observed opportunities and a bounded reserve. |
+| [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, sharing the planner’s preferred known deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
 | [`view.sld`](src/siegework/view.sld) | Pure quads and status text for the colony, camera, minimap, reservations and freight. |
 | [`game.sld`](src/siegework/game.sld) | Typed match/client commands, per-browser camera and selection, derived client transport and the scalar entry point. |
 | [`shaders.sld`](src/siegework/shaders.sld) | Scheme-authored shader generation for the shared WebGPU quad adapter. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and separate solo/cloud packages. |
-| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan and nearest-building/ground picking over the existing grid. |
+| [`three-view.sld`](src/siegework/three-view.sld) | Low-poly scene composition, the overhead camera, screen-relative pan and nearest-building/crystal/ground picking over the existing grid. |
 | [`three-game.sld`](src/siegework/three-game.sld) | Separate 3D client state, contextual placement, typed HUD actions and the unchanged match reducer endpoints. |
 | [`hud.sld`](src/siegework/hud.sld) | Compact contextual controls and status through the reusable top-down Scheme UI library. |
 | [`three/build.scm`](three/build.scm) | Separate 3D solo/cloud packages using the shared Scheme scene shader. |

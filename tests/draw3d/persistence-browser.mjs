@@ -69,7 +69,7 @@ try {
   }
   await evaluate('snailApp.local("restart-seed",[1])'); await acknowledged();
   await pointCell(10,21,true);
-  assert.match(await evaluate('document.querySelector("[data-ui-key=context]").textContent'), /No build order yet/);
+  assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'), /No build order yet/);
   assert.equal((await world()).buildings.length,0);
   await capture('-selected');
   if (cloud) await call('Network.setBlockedURLs', {urls:[origin+'/command']});
@@ -108,7 +108,7 @@ try {
     console.log('ok - lost response after commit is reconciled from server sequence without a duplicate purchase');
   }
   await pointCell(12,20);
-  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'), /BUILD EXTRACTOR/);
+  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'), /BUILD (AN )?EXTRACTOR/);
   await pointCell(12,20,true); await acknowledged(); await complete(1,12,20);
   const completed=await world(); await reload(); await acknowledged(); const reopened=await world();
   assert.deepEqual(reopened.buildings.map(b=>[b.id,b.kind,b.x,b.y,b.stage]),completed.buildings.map(b=>[b.id,b.kind,b.x,b.y,b.stage]));

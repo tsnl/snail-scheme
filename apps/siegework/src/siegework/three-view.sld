@@ -9,8 +9,9 @@
    (only (draw3d math) camera-right camera-up camera-forward)
    (siegework model)
    (siegework terrain)
+   (siegework guidance)
    (only (lofi base) floor f64->i64 i64->i32)
-   (only (lofi core) ann I32))
+   (only (lofi core) ann datatype I32 F64))
   (begin
 
     ;; ---- Camera and picking share one world-space convention ----
@@ -44,17 +45,40 @@
                         (cond ((= (building-kind building) 3) 2.25)
                               ((= (building-kind building) 1) 1.02) (else 0.9)))))
         (bounds (v+ center (vec3 -0.48 -0.48 0.0)) (v+ center (vec3 0.48 0.48 height)))))
-    (define (nearest-building pointer buildings cell distance)
-      (if (null? buildings) cell
-          (let* ((building (car buildings)) (hit (ray-box pointer (building-bounds building)))
-                 (offset (if (null? hit) (vec3 1.0e30 0.0 0.0) (v- (car hit) (ray-origin pointer))))
-                 (candidate (dot offset offset)) (closer (< candidate distance)))
+    (define CellHit
+      (datatype ()
+        (cell-hit
+         (cell I32 hit-cell)
+         (distance F64 hit-distance))))
+    (define (nearer-box pointer box cell nearest)
+      (let ((hit (ray-box pointer box)))
+        (if (null? hit) nearest
+            (let* ((offset (v- (car hit) (ray-origin pointer))) (distance (dot offset offset)))
+              (if (< distance (hit-distance nearest)) (cell-hit cell distance) nearest)))))
+    (define (nearest-building pointer buildings nearest)
+      (if (null? buildings) nearest
+          (let ((building (car buildings)))
             (nearest-building pointer (cdr buildings)
-                              (if closer (cell-index (building-x building) (building-y building)) cell)
-                              (if closer candidate distance)))))
+                              (nearer-box pointer (building-bounds building)
+                                          (cell-index (building-x building) (building-y building)) nearest)))))
+    (define (pick-deposit world pointer x y nearest)
+      (if (not (surveyed? (world-surveys world) x y)) nearest
+          (let ((center (position x y 0.0)))
+            (nearer-box pointer (bounds (v+ center (vec3 -0.38 -0.33 0.0))
+                                        (v+ center (vec3 0.35 0.27 0.64)))
+                        (cell-index x y) nearest))))
+    (define (nearest-deposit world pointer nearest)
+      (let* ((seed (world-seed world))
+             (starter (pick-deposit world pointer 12 20 nearest))
+             (north (pick-deposit world pointer (northern-x seed) (northern-y seed) starter)))
+        (pick-deposit world pointer (eastern-x seed) (eastern-y seed) north)))
+    ;; The overhead ray approaches Z=0 from above. Every picked box sits on
+    ;; that plane, so ground is a fallback; the nearest structure/crystal wins.
     (define (pick-cell world camera px py width height)
-      (let ((pointer (pointer-ray camera px py width height)))
-        (nearest-building pointer (world-buildings world) (ground-ray-cell pointer) 1.0e30)))
+      (let* ((pointer (pointer-ray camera px py width height))
+             (ground (cell-hit (ground-ray-cell pointer) 1.0e30))
+             (building (nearest-building pointer (world-buildings world) ground)))
+        (hit-cell (nearest-deposit world pointer building))))
     (define (position x y z) (vec3 (scalar x) (- 0.0 (scalar y)) z))
     (define (moving-position x y z)
       (vec3 (- (/ (scalar x) 40.0) 0.5) (- 0.5 (/ (scalar y) 40.0)) z))
@@ -238,6 +262,14 @@
                                  (block surface 0.49 0.0 0.055 0.045 1.0 0.05)
                                  (block surface 0.0 -0.49 0.055 1.0 0.045 0.05)
                                  (block surface 0.0 0.49 0.055 1.0 0.045 0.05)))))))
+    (define (starter-nodes world)
+      (let ((site (starter-deposit world)))
+        (if (< site 0) (empty-list)
+            (list (at-cell (index-x site) (index-y site)
+                           (list (block lamp -0.61 0.0 0.075 0.09 1.3 0.08)
+                                 (block lamp 0.61 0.0 0.075 0.09 1.3 0.08)
+                                 (block lamp 0.0 -0.61 0.075 1.3 0.09 0.08)
+                                 (block lamp 0.0 0.61 0.075 1.3 0.09 0.08)))))))
     (define (colony-scene world camera x y chooser)
       (scene camera
              (list (block (material (rgb 19 113 185) 0.7) 23.5 -17.5 -0.4 48.0 36.0 0.7)
@@ -249,6 +281,7 @@
                    (group identity-transform (enemy-nodes world (world-enemies world)))
                    (group identity-transform (shot-nodes (world-buildings world)))
                    (group identity-transform (cursor-nodes world x y))
+                   (group identity-transform (starter-nodes world))
                    (group identity-transform
                           (if (and chooser (= (placement-reason world 3 x y) 0))
                               (rail-path-nodes (rail-preview world x y) blue) (empty-list))))

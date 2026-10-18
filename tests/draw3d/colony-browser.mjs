@@ -62,7 +62,7 @@ try {
   await key('Enter','Enter'); assert.equal((await world()).paused,0); assert.equal((await world()).buildings.length,0);
   await key(' ','Space'); assert.equal((await world()).paused,1); assert.equal((await world()).buildings.length,0);
   await pointCell(12, 20);
-  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'), /BUILD EXTRACTOR/);
+  assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'), /BUILD (AN )?EXTRACTOR/);
   await pointCell(12, 20, true); await until(async () => (await world()).buildings.length === 1, 'deposit click did not create mine');
   await click('pause'); await until(async () => (await world()).buildings[0].stage === 2, 'mine completion');
   await pointCell(12, 20, true, .94); await until(async () => (await world()).buildings[0].level === 2, 'mine roof click did not upgrade');

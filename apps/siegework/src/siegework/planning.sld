@@ -1,7 +1,7 @@
 ;; Optional colony purchasing uses only current observation and public orders.
 ;; Manual and automatic orders share prices, kit ownership, routes and workers.
 (define-library (siegework planning)
-  (export plan-world)
+  (export plan-world known-deposit)
   (import
    (scheme base)
    (scheme immutable)
@@ -22,14 +22,17 @@
       (and (>= (world-credits world) 40) (affordable-kit? world (building-cost kind))
            (or (>= (world-credits world) (+ 40 (building-cost kind)))
                (local-affordable? world (world-buildings world) (building-cost kind)))))
-    (define (known-deposit world index best)
+    (define (available-deposit? world x y)
+      (and (visible? world x y) (> (deposit-rate (world-seed world) x y) 0)
+           (null? (building-at (world-buildings world) x y)) (safe-site? world x y)))
+    (define (known-deposit world) (find-known-deposit world 0 -1))
+    (define (find-known-deposit world index best)
       (if (= index (* map-width map-height)) best
           (let ((x (index-x index)) (y (index-y index)))
-            (known-deposit world (+ index 1)
-                           (if (and (visible? world x y) (> (deposit-rate (world-seed world) x y) 0)
-                                    (null? (building-at (world-buildings world) x y)) (safe-site? world x y)
-                                    (or (< best 0) (> (deposit-rate (world-seed world) x y)
-                                                      (deposit-rate (world-seed world) (index-x best) (index-y best))))) index best)))))
+            (find-known-deposit world (+ index 1)
+                                (if (and (available-deposit? world x y)
+                                         (or (< best 0) (> (deposit-rate (world-seed world) x y)
+                                                           (deposit-rate (world-seed world) (index-x best) (index-y best))))) index best)))))
     (define (spaced? buildings kind x y)
       (or (null? buildings)
           (and (or (not (= (building-kind (car buildings)) kind))
@@ -108,4 +111,4 @@
             ((pending-build? (world-buildings world)) (world-plan-set world 1))
             ((assembling? (world-bots world)) (world-plan-set world 3))
             ((not (= (remainder (world-tick world) 10) 0)) world)
-            (else (develop-colony world (known-deposit world 0 -1)))))))
+            (else (develop-colony world (known-deposit world)))))))

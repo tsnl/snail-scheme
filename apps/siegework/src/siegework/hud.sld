@@ -11,6 +11,7 @@
    (ui core)
    (siegework model)
    (siegework terrain)
+   (siegework guidance)
    (only (lofi core) datatype -> I32)
    (only (lofi base) string-append))
   (begin
@@ -129,7 +130,9 @@
             (else "Click to upgrade · 40 ore · adds a second mining slot.")))
     (define (hover-title world context)
       (let ((found (selected-building world context)))
-        (cond ((moving-context? context) "MOVE STRUCTURE · 5 ORE")
+        (cond ((= (world-outcome world) 1) "COLONY LOST")
+              ((> (world-outcome world) 1) "SIEGE SURVIVED")
+              ((moving-context? context) "MOVE STRUCTURE · 5 ORE")
               ((hud-chooser context) "SITE SELECTED · CHOOSE A STRUCTURE")
               ((not (null? found))
                (cond ((= (building-kind (car found)) 1) "EXTRACTOR")
@@ -138,7 +141,10 @@
               (else "BUILD ON THIS GROUND"))))
     (define (hover-description world context)
       (let ((found (selected-building world context)))
-        (cond ((moving-context? context)
+        (cond ((not (alive? world))
+               (if (= (world-outcome world) 1) "The hub was destroyed. This colony has ended. Start a new colony to try again."
+                   "The final siege is over. Your colony survived! Start a new colony when ready."))
+              ((moving-context? context)
                (if (= (pending-move-reason world context) 0)
                    "Click to queue this move. Deliveries drain before the structure relocates."
                    (reason-text (pending-move-reason world context))))
@@ -206,7 +212,8 @@
       (row "support" 46
            (list (control "worker" "+ Worker · 25" (worker-help world)
                           (and (alive? world) (< (list-size (world-bots world)) 12) (>= (world-credits world) 25)) #f (action-fabricate actions))
-                 (control "home" "Find hub" "H · return camera" #t #f (action-home actions)))))
+                 (control "home" (if (extractor-start? world) "Show deposit" "Find hub")
+                          "H / Back · focus camera" #t #f (action-home actions)))))
     (define (worker-help world)
       (cond ((>= (list-size (world-bots world)) 12) "Worker limit: 12")
             ((< (world-credits world) 25) "Need 25 delivered ore")
@@ -218,12 +225,19 @@
                         (if (= notice 6) "Last order: no safe route or available material pickup."
                             "Last order: move route changed; 5 ore returned.") 3))
             (empty-list))))
+    (define (starter-description world context)
+      (cond ((or (hud-chooser context) (moving-context? context)) (hover-description world context))
+            ((< (starter-deposit world) 0) "No free, safely reachable surveyed deposit. Expand your sight with a tower.")
+            ((and (deposit? world context) (not (= (placement-reason world 1 (hud-x context) (hud-y context)) 0)))
+             (hover-description world context))
+            (else "Click the glowing turquoise deposit · 40 ore. H / Back finds it; Enter / A builds.")))
     (define (context-heading world context)
-      (append (list (line "context-title" 22 (hover-title world context) 2)
-                    (line "context-description" 42 (hover-description world context) 0))
+      (append (list (line "context-title" 22 (if (extractor-start? world) "START: BUILD AN EXTRACTOR" (hover-title world context)) 2)
+                    (line "context-description" 42 (if (extractor-start? world) (starter-description world context)
+                                                       (hover-description world context)) 0))
               (order-feedback world)))
     (define (context-card world context actions)
-      (ui-panel "context" (px (if (< (hud-width context) 434) (- (hud-width context) 24) 410))
+      (ui-panel (cond ((not (alive? world)) "result") ((extractor-start? world) "onboarding") (else "context")) (px (if (< (hud-width context) 434) (- (hud-width context) 24) 410))
                 (px (context-height context)) 12 8
                 (append (context-heading world context)
                         (list (ui-scroll "context-actions" (grow 1) (grow 1) 220 8
@@ -236,4 +250,6 @@
                  (list (header world context actions)
                        (spacer "world-space")
                        (ui-row "bottom" (grow 1) (px (context-height context)) 0
-                               (list (spacer "bottom-space") (context-card world context actions))))))))
+                               (if (extractor-start? world)
+                                   (list (context-card world context actions) (spacer "bottom-space"))
+                                   (list (spacer "bottom-space") (context-card world context actions)))))))))

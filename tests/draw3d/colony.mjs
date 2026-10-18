@@ -40,7 +40,7 @@ try {
   await command('home'); assert.deepEqual(runtime.snapshot(1), snapshot);
   console.log('ok - projected camera axes and diagonal agree with input; first-bound clipping preserves the direction');
   await point(12, 20); assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20);
-  assert.match(node('context-title').text, /BUILD EXTRACTOR/);
+  assert.match(node('context-title').text, /BUILD (AN )?EXTRACTOR/);
   await command('confirm'); assert.equal(world().buildings[0].kind, 1); assert.equal(world().ore, 120);
   await advance(140); assert.equal(world().buildings[0].stage, 2);
   await point(12, 20, 0.94); assert.equal(local().cursorX, 12); assert.equal(local().cursorY, 20);

@@ -21,10 +21,17 @@ Compatible code and shader reloads retain the world, client selection and camera
 
 ## Contextual controls
 
+- A new colony shows **START: BUILD AN EXTRACTOR** and a bright ground marker
+  around the planner's preferred visible, safely reachable turquoise deposit.
+  H or controller Back selects and reveals that deposit; resizing also keeps
+  it clear of the card while this first step is active. Ordering the first
+  extractor dismisses the card; canceling an unfinished order restores it.
+  Completed extractor survey history keeps it dismissed after reload or loss
+  of the extractor. This uses the saved world without a tutorial flag.
 - Hover to see the prospective action, cost and any blocked reason.
 - Click a mineral deposit to build an extractor. Click an existing extractor
-  to upgrade it. Buildings are selected through bounds around their 3D forms,
-  so clicking a roof selects the building rather than the ground behind it.
+  to upgrade it. Buildings and crystals are selected through bounds around
+  their 3D forms, so roofs and crystal tips select their owning cell.
 - Click empty ground to lock a site and choose Tower or Artillery. Press `1`
   or `2`, controller X or Y, or the corresponding touch control. Moving the
   pointer while choosing does not move the locked site. Selecting a site alone
@@ -33,10 +40,12 @@ Compatible code and shader reloads retain the world, client selection and camera
   keeping vertical and horizontal travel consistent. Each pan stops at the
   first camera bound; independent held directions can still slide along it.
   Arrows or the d-pad moves the selected cell;
-  Enter/Space/controller A activates it. H or controller Back returns home.
+  Enter/Space/controller A activates it. H or controller Back returns home
+  after the first extractor order.
 - P, controller Start, or the always-visible Pause control pauses/resumes.
   Context controls expose moving, arming, cancellation and worker fabrication.
 - Manual, Explore and Defend select the existing colony automation policy.
+- A defeated colony shows **COLONY LOST** and **Start a new colony**.
 
 The canvas fills the viewport. Projection and pointer rays use its current
 logical dimensions, while the GPU target follows the physical pixel size.
@@ -67,6 +76,7 @@ mesh raycasting, shadows, asset loading and instanced rendering are future work.
 ```sh
 scripts/test-draw3d
 node tests/draw3d/colony.mjs build/siegework-3d/solo
+node tests/draw3d/onboarding.mjs build/siegework-3d/solo /tmp/siegework-onboarding-fixtures
 # With a separately launched Chromium CDP browser:
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9452
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4200 http://127.0.0.1:9452
@@ -76,7 +86,15 @@ node tests/draw3d/pan-browser.mjs http://127.0.0.1:4201 http://127.0.0.1:9452
 node tests/applications/cloud-outbox.mjs
 node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4205 http://127.0.0.1:9452
 node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4206 http://127.0.0.1:9452
+node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4207 http://127.0.0.1:9452 /tmp/onboarding-cloud
+node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4208 http://127.0.0.1:9452 /tmp/onboarding-solo
 ```
+
+The onboarding fixture's optional fourth argument is a previous compatible
+package for exact protocol and snapshot checks. For the defeated browser case,
+pass the generated `defeated.json` as the browser runner's fourth argument:
+solo installs it in its disposable IndexedDB save; cloud must already be
+serving a disposable SQLite save seeded with that fixture.
 
 The fixture executes the actual Scheme math, geometry, shader and scene bridge
 in Wasm. Browser checks use pointer/key input, GPU readback, moving freight,
