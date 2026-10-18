@@ -12,8 +12,9 @@ supply the binding operations after expansion.
 Names cannot be reassigned; explicit cells represent mutable state.
 Both `def` and `let` can infer their annotations. Static declarations use
 library-level `data`, `typeclass` and `instance` forms.
-Kinds distinguish these definitions from ordinary values; dependent types and
-arbitrary computation in types are future work.
+Their name categories, scopes, and declared arities distinguish them from
+ordinary values. Type parameters stand for ordinary types; higher-kinded
+parameters, dependent types, and arbitrary computation in types are unsupported.
 
 Lambdas infer their captures. The textual core uses the spellings `lambda`,
 `All`, `->` and `<=`; the rules use Unicode mathematical notation. Additional
@@ -30,6 +31,23 @@ Imports do not secretly create running instances. Source discovery belongs to
 a driver, and instantiation is explicit. Library dependency cycles and
 generation dependency cycles are rejected. Reading an uninitialized recursive
 binding traps instead of forcing its initializer early.
+
+## Planned language simplification
+
+The following changes are planned, not accepted compiler syntax:
+
+- Use `requires` to state a scheme's class requirements. The final arrangement
+  of `All`, requirements, implicit instantiation, and checking remains open.
+  The current compiler uses `All` with `=>`; the formal summary explains that
+  implementation without committing to its replacement.
+- Give the Lofi kernel fixed-arity functions. Scheme variadic procedures will
+  need lowering to an explicit packed argument representation and fixed-arity
+  calls. The current kernel still accepts dotted and rest-only lambdas and
+  `Rest` function types. Polymorphism handles variation in types; packing is
+  still needed for variation in runtime argument count.
+- Move the language specification into Ott, with prose and examples alongside
+  generated grammar and named rules. The generated reference should replace
+  the corresponding handwritten book content as coverage becomes complete.
 
 ## Implementation and open work
 
