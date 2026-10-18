@@ -61,7 +61,7 @@
       (null? ys)
       (if (not (null? ys)) (if (= (car xs) (car ys)) (same-f64-list? (cdr xs) (cdr ys)) #f) #f))))
 
-(def uninitialized-seed-set (-> (Rest F64) Unit) (lambda state (unreachable)))
+(def uninitialized-seed-set (-> (List F64) Unit) (lambda (state) (unreachable)))
 
 (def uninitialized-seed-ref (-> (List F64)) (lambda () (unreachable)))
 
@@ -101,7 +101,7 @@
 
 (def random-flonum (ref uninitialized-random-flonum))
 
-((lambda (norm m1 m2 a12 a13n a21 a23n seed) (begin (ref-set! random-flonum (lambda () ((lambda (seed.1) ((lambda (p1 p2) ((lambda (k1 k2 ignore1 ignore3) ((lambda (p1.1 p2.1 ignore2 ignore4) ((lambda (p1.2 p2.2) (begin (vector-set! seed.1 (ann 2 I64) p1.2) (vector-set! seed.1 (ann 5 I64) p2.2) (if (<= p1.2 p2.2) (* norm (+ (- p1.2 p2.2) m1)) (* norm (- p1.2 p2.2))))) (if (< p1.1 0.0) (+ p1.1 m1) p1.1) (if (< p2.1 0.0) (+ p2.1 m2) p2.1))) (- p1 (* k1 m1)) (- p2 (* k2 m2)) (vector-set! seed.1 (ann 1 I64) (vector-ref seed.1 (ann 2 I64))) (vector-set! seed.1 (ann 4 I64) (vector-ref seed.1 (ann 5 I64))))) (truncate (/ p1 m1)) (truncate (/ p2 m2)) (vector-set! seed.1 (ann 0 I64) (vector-ref seed.1 (ann 1 I64))) (vector-set! seed.1 (ann 3 I64) (vector-ref seed.1 (ann 4 I64))))) (- (* a12 (vector-ref seed.1 (ann 1 I64))) (* a13n (vector-ref seed.1 (ann 0 I64)))) (- (* a21 (vector-ref seed.1 (ann 5 I64))) (* a23n (vector-ref seed.1 (ann 3 I64)))))) (ref-get seed)))) (ref-set! seed-ref (lambda () (vector->list (ref-get seed)))) (ref-set! seed-set! (lambda l (ref-set! seed (list->vector l))))))
+((lambda (norm m1 m2 a12 a13n a21 a23n seed) (begin (ref-set! random-flonum (lambda () ((lambda (seed.1) ((lambda (p1 p2) ((lambda (k1 k2 ignore1 ignore3) ((lambda (p1.1 p2.1 ignore2 ignore4) ((lambda (p1.2 p2.2) (begin (vector-set! seed.1 (ann 2 I64) p1.2) (vector-set! seed.1 (ann 5 I64) p2.2) (if (<= p1.2 p2.2) (* norm (+ (- p1.2 p2.2) m1)) (* norm (- p1.2 p2.2))))) (if (< p1.1 0.0) (+ p1.1 m1) p1.1) (if (< p2.1 0.0) (+ p2.1 m2) p2.1))) (- p1 (* k1 m1)) (- p2 (* k2 m2)) (vector-set! seed.1 (ann 1 I64) (vector-ref seed.1 (ann 2 I64))) (vector-set! seed.1 (ann 4 I64) (vector-ref seed.1 (ann 5 I64))))) (truncate (/ p1 m1)) (truncate (/ p2 m2)) (vector-set! seed.1 (ann 0 I64) (vector-ref seed.1 (ann 1 I64))) (vector-set! seed.1 (ann 3 I64) (vector-ref seed.1 (ann 4 I64))))) (- (* a12 (vector-ref seed.1 (ann 1 I64))) (* a13n (vector-ref seed.1 (ann 0 I64)))) (- (* a21 (vector-ref seed.1 (ann 5 I64))) (* a23n (vector-ref seed.1 (ann 3 I64)))))) (ref-get seed)))) (ref-set! seed-ref (lambda () (vector->list (ref-get seed)))) (ref-set! seed-set! (lambda (l) (ref-set! seed (list->vector l))))))
   2.328306549295728e-10
   4294967087.0
   4294944443.0
@@ -136,7 +136,7 @@
 (def quicksort-seed-probe (-> I64 I64)
   (lambda (count.2)
     (begin
-      ((ref-get seed-set!) 1.0 0.0 0.0 1.0 0.0 0.0)
+      ((ref-get seed-set!) (list 1.0 0.0 0.0 1.0 0.0 0.0))
       (if (if (same-f64-list? ((ref-get seed-ref)) (vector->list (vector 1.0 0.0 0.0 1.0 0.0 0.0))) (= (random input1) (native-expected-i64 (ann 0 I64))) #f)
         (ann 1 I64)
         (ann 0 I64)))))

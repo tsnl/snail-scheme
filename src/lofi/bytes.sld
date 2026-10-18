@@ -3,7 +3,7 @@
 (define-library (lofi bytes)
   (export make-bytevector bytevector bytevector-length
           bytevector-u8-ref bytevector-u8-set! bytevector-eq?
-          bytevector-copy bytevector-copy! bytevector-append
+          bytevector-copy bytevector-copy! bytevector-append bytevector-concatenate list->bytevector
           utf8->string string->utf8)
   (import
    (lofi base)
@@ -22,7 +22,10 @@
     (define-overload make-bytevector (-> I64 Bytevector)
       (lambda (count) (make-filled-bytevector count (ann 0 I64))))
     (def bytevector
-         (lambda bytes
+         (syntax-rules ()
+           ((_ values ...) (list->bytevector (list values ...)))))
+    (def list->bytevector
+         (lambda (bytes)
            (begin (let result (make-bytevector (byte-count bytes)))
                   (begin
                     (def loop
@@ -70,7 +73,10 @@
     (define-overload bytevector-copy (-> Bytevector Bytevector)
       (lambda (source) (bytevector-copy source (ann 0 I64) (bytevector-length source))))
     (def bytevector-append
-         (lambda sources
+         (syntax-rules ()
+           ((_ values ...) (bytevector-concatenate (list values ...)))))
+    (def bytevector-concatenate
+         (lambda (sources)
            (begin (let result (make-bytevector (appended-length sources)))
                   (begin
                     (def loop

@@ -84,7 +84,10 @@
 (def Primitive (datatype ()
   (primitive (name Datum primitive-name) (reduce (-> Datum Datum) primitive-reduce))))
 
-(def primitive-list (-> (Rest Primitive) (List Primitive)) (lambda values.1 values.1))
+(def primitive-list
+     (syntax-rules ()
+       ((_) (empty-list))
+       ((_ first rest ...) (cons first (primitive-list rest ...)))))
 
 (def primitive-lookup
   (lambda (name.4 values args.21)

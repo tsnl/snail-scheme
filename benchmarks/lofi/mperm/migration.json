@@ -36,7 +36,7 @@
     "numeric_representations": "Source-order checked widths and values preserved; exact source spellings unchanged.",
     "validation": "Inference inventory passed. Fresh canonical target execution and timing remain separate obligations; historical evidence describes its frozen sources."
   },
-  "lofi_sha256": "bf72efa5985343b84bd01e9411f446171799c2320e3da2bd6ec67d49ca7a7a5f",
+  "lofi_sha256": "21c3ea2ce4264994565acd9555583349f405eaad2ab440ea8b9d644e4eddd179",
   "language_rename": {
     "source_revision": "313cec8752b1fcd3b7a2577f3fc65b96ea1b9dd3",
     "before_sha256": "4d3346addc5625d392d69943a027aa45743ed121654dcdbe3718a32ebc11254a",
@@ -50,5 +50,16 @@
     "before_sha256": "bf72efa5985343b84bd01e9411f446171799c2320e3da2bd6ec67d49ca7a7a5f",
     "after_sha256": "bf72efa5985343b84bd01e9411f446171799c2320e3da2bd6ec67d49ca7a7a5f",
     "change": "Common .sld source extension and src/ library namespace layout; workload algorithms, canonical inputs and external controls unchanged. No new measurements claimed."
+  },
+  "fixed_arity_migration": {
+    "source_revision": "e528eb28f07650b8f61046572feb233fec9a9fe5",
+    "files": {
+      "main.sld": {
+        "before_sha256": "bf72efa5985343b84bd01e9411f446171799c2320e3da2bd6ec67d49ca7a7a5f",
+        "after_sha256": "21c3ea2ce4264994565acd9555583349f405eaad2ab440ea8b9d644e4eddd179",
+        "change": "Replace rest functions with fixed list parameters and hygienic packing macros; algorithms, numeric representations, canonical inputs and controls unchanged.",
+        "validation": "Compiled to raw and optimized Wasm. Canonical execution and performance measurements are separate; frozen campaign results are unchanged."
+      }
+    }
   }
 }

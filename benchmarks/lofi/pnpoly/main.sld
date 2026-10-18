@@ -20,7 +20,7 @@
 
 (define-extern hide-f64 "benchmark" "hide_f64" (-> F64 F64))
 
-(def list (lambda elements elements))
+
 
 (def append (lambda (xs ys) (if (null? xs) ys (cons (car xs) (append (cdr xs) ys)))))
 

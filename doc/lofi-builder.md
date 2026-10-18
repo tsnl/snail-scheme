@@ -21,9 +21,9 @@ Lofi lists; their contents are copied into immutable host sequences.
 | `Name`, `SourceSpan` | `builder-name`, `source-span` |
 | `ScopeId`, `BindingId`, `TypeVariableId` | `library-scope`, `nested-scope`, `binding`, `type-variable` |
 | `BindingReference` | `local-reference`, `import-reference` |
-| `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `rest-type`, `function-type`, `rest-function-type`, `nominal-type`, `variable-type` |
+| `TypeSyntax` | `type-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`unit`/`string`/`bytevector`/`never`/`any`, `reference-type`, `list-type`, `vector-type`, `function-type`, `nominal-type`, `variable-type` |
 | `Signature`, `ConstraintSyntax` | `binding-signature`, `all-signature`, `constraint` |
-| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `literal-number`, `reference-expression`, `lambda-expression`, `rest-lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
+| `Expression` | `literal-i32`/`i64`/`f32`/`f64`/`bool`/`char`/`string`/`bytevector`, `literal-number`, `reference-expression`, `lambda-expression`, `application-expression`, `conditional-expression`, `block-expression`, `annotation-expression`, `instantiation-expression`, `match-expression` |
 | `MatchArm` | `match-arm` |
 | `Declaration` (body statements) | `definition`, `signature-definition`, `inferred-definition`, `local-binding`, `inferred-local-binding`, `expression-statement` |
 | `DataField`, `DataCase`, static `Declaration` | `data-field`, `accessor-field`, `data-constructor`, `datatype-definition` |
@@ -54,8 +54,9 @@ Numeric scalar constructors select their width.
 unresolved numeric syntax; `view-number-literal` exposes that spelling. Its
 numeric grammar and final representation are checked in Chibi. This preserves
 source precision, exactness/radix prefixes and delayed range diagnostics without
-choosing I32 or F64 at parsing time. `rest-type` exposes the source `Rest` type
-form; ordinary checking still determines where it is permitted. `Unit` is constructed by an application of the imported `unit` operation.
+choosing I32 or F64 at parsing time. Functions have fixed parameter lists;
+`rest-type`, `rest-function-type` and `rest-lambda` packet nodes are rejected.
+`Unit` is constructed by an application of the imported `unit` operation.
 
 Every binding has an explicit scope and identity. A local reference carries
 that identity; an imported reference carries the library's import scope and a
@@ -67,9 +68,9 @@ grammar's reserved names remain invalid for binders, public exports and import
 rename destinations.
 
 Each lambda, block and match arm owns a fresh `nested-scope` whose parent is its
-enclosing lexical scope. Fixed parameters and the optional rest binding belong
-to that scope. `block-expression` takes an ordered list of declarations followed
-by a separate final expression. Its `def` bindings are visible throughout the
+enclosing lexical scope. All lambda parameters belong to that scope.
+`block-expression` takes an ordered list of declarations followed by a separate
+final expression. Its `def` bindings are visible throughout the
 block; a `let` becomes visible only after its initializer. Repeated `let` names
 have distinct identities. Datatypes, classes, instances and overloads require
 library scope; foreign declarations also work inside blocks. A repeated overload
@@ -245,7 +246,7 @@ transfer, reception and execution calls. Source reads and artifact writes occur
 in these drivers, outside resolution and compilation.
 
 The same runner builds a producer covering datatypes, classes, instances,
-quantified signatures, nested generic scopes, rest functions, inferred and
+quantified signatures, nested generic scopes, explicit list parameters, inferred and
 annotated blocks, matches, overloads extended through renamed imports, local
 foreign declarations, and string/bytevector literals. It rebuilds the result
 through typed inspection views and compares it with ordinary Lofi source on

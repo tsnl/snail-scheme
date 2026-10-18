@@ -11,7 +11,7 @@
           site-id site-source site-global? site-instances site-token site-check site-values
           value-binding? value-id value-index value-type value-site value-source value-parameter?
           value-initializer value-environment value-function value-ready-at-capture?
-          function-index function-type* function-parameters function-rest-binding function-body
+          function-index function-type* function-parameters function-body
           function-captures function-source function-environment
           site-environment sites-for-source)
   (import
@@ -104,13 +104,12 @@
     (define (value-initializer value) (binding-initializer (value-source value)))
     (define (value-ready-at-capture? value) (value-parameter? value))
     (define-record-type <function>
-      (make-function id source type environment parameters rest reads closures captures) function?
+      (make-function id source type environment parameters reads closures captures) function?
       (id function-index)
       (source function-source)
       (type function-type*)
       (environment function-environment)
       (parameters function-parameters)
-      (rest function-rest-binding)
       (reads function-reads)
       (closures function-closures)
       (captures function-captures))
@@ -247,18 +246,12 @@
              (prior (cached context key)))
         (if prior (values prior context)
             (let-values (((id context) (reserve context key #f #t)))
-              (let* ((fixed (lambda-parameters source)) (rest (lambda-opt-rest-parameter source))
-                     (bindings (append fixed (if rest (list rest) '())))
-                     (types (append (function-domains type) (if rest (list (list 'List (function-rest type))) '())))
+              (let* ((bindings (lambda-parameters source))
                      (parent (make-environment (checked-scope source (program-scopes (compilation-program context)))
-                                               (environment-substitutions environment) (environment-sites environment)
-                                               id id)))
+                                               (environment-substitutions environment) (environment-sites environment) id id)))
                 (let*-values (((inner context) (prepare-sites source bindings (environment-scope parent) parent #f context))
-                              ((parameters context) (parameter-values bindings types inner context)))
-                  (values id (context-put context id
-                                          (make-function id source type inner
-                                                         (if rest (reverse (cdr (reverse parameters))) parameters)
-                                                         (and rest (car (reverse parameters))) '() '() '())))))))))
+                              ((parameters context) (parameter-values bindings (function-domains type) inner context)))
+                  (values id (context-put context id (make-function id source type inner parameters '() '() '())))))))))
 
     ;; ---- Concrete static evidence ----
 
@@ -417,9 +410,6 @@
           (source-summary source environment context)
           (probe-expression source (environment-scope environment) expected
                             (environment-substitutions environment) (program-scopes (compilation-program context)))))
-    (define (call-domains signature count)
-      (append (function-domains signature)
-              (make-list (- count (length (function-domains signature))) (function-rest signature))))
     (define (probe-operands sources domains environment context)
       (if (null? sources) '()
           (let ((result (if (concrete-type? (car domains)) (type-judgment (car sources) (car domains))
@@ -432,7 +422,7 @@
         (unless (concrete-type? signature)
           (let ((result (type-arm source environment expected
                                   (cons operator (probe-operands (application-operands source)
-                                                                 (call-domains signature (length (application-operands source))) environment context)))))
+                                                                 (function-domains signature) environment context)))))
             (conform result expected #f)))
         (require-concrete signature (node-loc source))))
 
@@ -447,7 +437,7 @@
     ;; still evaluates operands left to right before evaluating the operator.
     (define (generate-call pass source environment expected context tail?)
       (let* ((signature (call-demand source environment expected context))
-             (domains (call-domains signature (length (application-operands source)))))
+             (domains (function-domains signature)))
         (let*-values (((arguments fragments context) (generate-operands pass (application-operands source) domains environment context))
                       ((operator value context) (generate-expression pass (application-operator source) environment signature context #f)))
           (finish-generation pass source (type-arm source environment expected (cons operator arguments))
@@ -539,7 +529,7 @@
                  (reads (function-reads function)) (closures (function-closures function)))
             (context-put context owner
                          (make-function owner (function-source function) (function-type* function) (function-environment function)
-                                        (function-parameters function) (function-rest-binding function)
+                                        (function-parameters function)
                                         (if closure? reads (identity-union (list value) reads))
                                         (if closure? (identity-union (list value) closures) closures) (function-captures function))))))
     (define (summarize-arm source generation context)
@@ -598,7 +588,7 @@
               (loop (cdr ids) (or changed? (not (equal? captures (function-captures function))))
                     (context-put context (car ids)
                                  (make-function (function-index function) (function-source function) (function-type* function)
-                                                (function-environment function) (function-parameters function) (function-rest-binding function)
+                                                (function-environment function) (function-parameters function)
                                                 (function-reads function) (function-closures function) captures)))))))
 
     ;; ---- Public scalar exports and program demand ----
@@ -609,7 +599,6 @@
         (when (memq (car names) (cdr names)) (strict-error loc "export names must be distinct" (car names)))
         (check-export-names (cdr names) loc)))
     (define (check-export-signature type loc)
-      (when (function-rest type) (strict-error loc "Wasm export requires fixed scalar parameters"))
       (guard (failure (else (strict-error loc "Wasm export requires scalar parameters and a scalar or Unit result")))
         (wasm-scalar-signature (function-domains type) (function-result type))))
     (define (selected-export entry environment context)
@@ -725,8 +714,8 @@
               (expect (cached reserved '(function second I64)) #f)))))
       (define (test-source-request-identities)
         (let* ((body (make-literal 42 #f))
-               (first (make-lambda '() #f body #f))
-               (second (make-lambda '() #f body #f))
+               (first (make-lambda '() body #f))
+               (second (make-lambda '() body #f))
                (program (infer-program (list first second first) '() #f))
                (prepared (prepare-generation program)))
           (expect (length (prepared-functions prepared)) 2)
@@ -736,7 +725,7 @@
       ;; also needs the concrete binding instance, not just that shared node.
       (define (test-shared-initializer-identities)
         (let* ((first (make-value-definition 'first #f)) (second (make-value-definition 'second #f))
-               (source (make-lambda '() #f (make-literal 42 #f) #f))
+               (source (make-lambda '() (make-literal 42 #f) #f))
                (program (infer-program
                          (list (make-value-binding first source #f) (make-value-binding second source #f)
                                (make-application (make-name first #f) '() #f)

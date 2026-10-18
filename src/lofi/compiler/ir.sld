@@ -29,7 +29,6 @@
    application-loc
    make-lambda lambda?
    lambda-parameters
-   lambda-opt-rest-parameter
    lambda-body
    lambda-loc
    make-block block?
@@ -170,12 +169,11 @@
     (define (application-operands node) (cadr (node-data node)))
     (define application-loc node-loc)
 
-    (define (make-lambda parameters opt-rest-parameter body loc)
-      (source-node 'lambda loc (list parameters opt-rest-parameter body)))
+    (define (make-lambda parameters body loc)
+      (source-node 'lambda loc (list parameters body)))
     (define (lambda? node) (kind? node 'lambda))
     (define (lambda-parameters node) (car (node-data node)))
-    (define (lambda-opt-rest-parameter node) (cadr (node-data node)))
-    (define (lambda-body node) (caddr (node-data node)))
+    (define (lambda-body node) (cadr (node-data node)))
     (define lambda-loc node-loc)
 
     (define (make-block items loc) (source-node 'block loc (list '() items)))
@@ -416,7 +414,7 @@
           (expect (hole-link (scheme-type (binding-scheme definition))) #f)))
       (define (test-copy-proof-sharing)
         (let* ((hole (fresh-hole)) (rigid (fresh-rigid))
-               (scheme (make-scheme (list rigid) (function-type (list rigid) #f hole) '()))
+               (scheme (make-scheme (list rigid) (function-type (list rigid) hole) '()))
                (substitutions (list (cons rigid hole)))
                (node (make-node 'name #f (cons hole substitutions))))
           (set-scheme-constraints! scheme (list (list 'Proof node scheme)))

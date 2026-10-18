@@ -12,12 +12,12 @@
           f32-truncate f64-truncate f32-round f64-round f32-floor f64-floor f32-ceiling f64-ceiling
           i64->f64 i32->i64 i64->i32 f32->f64 f32->i32 f64->f32 f64->i64
           f32->bits bits->f32 f64->bits bits->f64
-          ref ref-get ref-set! ref-eq? empty-list cons car cdr null?
+          ref ref-get ref-set! ref-eq? empty-list cons car cdr null? list
           empty-vector make-vector vector-length vector-ref vector-set! vector-eq? vector-copy!
-          vector vector-copy vector-append vector->list list->vector
+          vector vector-copy vector-append vector-concatenate vector->list list->vector
           char=? char<? char<=? char>? char>=? char->integer integer->char
           make-string string-length string-ref string-set! string-eq? string-copy!
-          string string-copy substring string-append string=? string->list list->string)
+          string string-copy substring string-append string-concatenate string=? string->list list->string)
   (import
    (rename (lofi primitive)
            (make-vector make-filled-vector) (make-string make-filled-string)))
@@ -150,11 +150,17 @@
                                       (loop (+ index (ann 1 I64)))))))
                          (loop (ann 1 I64))))))))
 
-    ;; These are ordinary polymorphic Lofi functions. Specialization keeps
-    ;; each element type through Wasm allocation and bulk copying. Constructors
-    ;; return fresh vectors while preserving the identity of referenced elements.
+    ;; Packing is surface syntax; workers are ordinary fixed-arity functions.
+    ;; List construction preserves left-to-right operand evaluation.
+    ;; Specialization keeps each element type through allocation and bulk copying.
+    ;; Constructors return fresh vectors and preserve referenced element identity.
+    (def list
+         (syntax-rules ()
+           ((_) (empty-list))
+           ((_ first rest ...) (cons first (list rest ...)))))
     (def vector
-         (lambda elements (list->vector elements)))
+         (syntax-rules ()
+           ((_ values ...) (list->vector (list values ...)))))
     (def list->vector
          (lambda (elements)
            (if (null? elements)
@@ -195,7 +201,10 @@
                                (vector-copy! result (ann 0 I64) source (ann 0 I64) count)
                                result))))))
     (def vector-append
-         (lambda sources
+         (syntax-rules ()
+           ((_ values ...) (vector-concatenate (list values ...)))))
+    (def vector-concatenate
+         (lambda (sources)
            (begin (let count (appended-length sources))
                   (if (= count (ann 0 I64))
                       (empty-vector)
@@ -237,7 +246,8 @@
     (define-overload make-string (-> I64 String)
       (lambda (count) (make-filled-string count #\null)))
     (def string
-         (lambda characters (list->string characters)))
+         (syntax-rules ()
+           ((_ values ...) (list->string (list values ...)))))
     (def list->string
          (lambda (characters)
            (begin (let result (make-string (element-count characters)))
@@ -260,7 +270,10 @@
     (def string-copy
          (lambda (source) (substring source (ann 0 I64) (string-length source))))
     (def string-append
-         (lambda sources
+         (syntax-rules ()
+           ((_ values ...) (string-concatenate (list values ...)))))
+    (def string-concatenate
+         (lambda (sources)
            (begin (let result (make-string (appended-string-length sources)))
                   (begin
                     (append-strings-into! result sources (ann 0 I64))

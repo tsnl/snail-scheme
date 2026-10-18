@@ -51,5 +51,7 @@
    ("kind-type" . "unsupported transfer node") ("kind-constraint" . "unsupported transfer node")
    ("kind-function" . "unsupported transfer node") ("kind-evidence" . "unsupported transfer node")
    ("kind-annotation" . "unsupported transfer node")
+   ("rest-type" . "unsupported transfer node") ("rest-function-type" . "unsupported transfer node")
+   ("rest-lambda" . "unsupported transfer node")
    ("shared-reference-first" . "escapes its lexical scope") ("shared-reference-last" . "escapes its lexical scope")))
 (display "PASS complete syntax reception, lexical/type ownership, declaration roles and unforgeable checking\n")
