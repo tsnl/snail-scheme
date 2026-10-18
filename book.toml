@@ -9,6 +9,7 @@ build-dir = "build/book"
 create-missing = false
 
 [output.html]
+site-url = "/snail-scheme/"
 git-repository-url = "https://github.com/tsnl/snail-scheme"
 edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"
 

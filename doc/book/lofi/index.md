@@ -11,6 +11,10 @@ use `.sld`; imports select their forms. `(scheme base)` expands to Lofi before
 checking and compilation. Its supported subset is documented separately from
 full Scheme, and Chibi still hosts the compiler implementation.
 
+To learn by making applications, follow the [five small tutorials](tutorials/index.md).
+They start with typed counters and immutable state, then build a shared browser
+board and explore saving and reloading it.
+
 ## A first look
 
 Parentheses enclose an operation and its arguments. `def` introduces a binding;
