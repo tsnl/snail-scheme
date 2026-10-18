@@ -154,12 +154,16 @@ const points=batch=>Array.from({length:batch.vertices.length/10},(_,index)=>batc
     await command(r,'dismiss-attack',[first]);assert.deepEqual(r.snapshot(1),before);
     assert.equal(node(r,`attack-toast-${first}`),undefined);assert.ok(node(r,`attack-toast-${second}`));
     assert.deepEqual(local(r).dismissed,[{key:first,until:180}]);
-    const hidden=r.snapshot(2);await command(r,'dismiss-attack',[-1]);assert.deepEqual(r.snapshot(2),hidden);
+    const hidden=r.snapshot(2);
+    for(const invalid of [-1,first+6,first+7,384*288*8,2147483647]){await command(r,'dismiss-attack',[invalid]);assert.deepEqual(r.snapshot(2),hidden);}
     const repeated=world(r);repeated.tick=101;repeated.alerts=repeated.alerts.map(alert=>({...alert,tick:101}));await restoreColony(r,repeated);
     assert.equal(node(r,`attack-toast-${first}`),undefined,'a repeat hit does not immediately undo dismissal');
     const nearby=world(r);nearby.alerts[0]={...nearby.alerts[0],x:hub.x+2,kind:4};await restoreColony(r,nearby);
     assert.equal(node(r,`attack-toast-${key(nearby.alerts[0])}`),undefined,'nearby worker damage shares the dismissed area');
     assert.ok(node(r,`attack-toast-${second}`),'damage beyond the coalescing radius remains visible');
+    const nearbyWorld=r.snapshot(1);await command(r,'dismiss-attack',[first]);
+    assert.deepEqual(local(r).dismissed,[{key:first,until:181}],'a valid rendered key still dismisses its area after nearby damage refreshes the toast');
+    assert.deepEqual(r.snapshot(1),nearbyWorld);await r.restore(2,hidden);
     const expired=world(r);expired.tick=180;expired.alerts=expired.alerts.map(alert=>({...alert,tick:180}));await restoreColony(r,expired);
     assert.ok(node(r,`attack-toast-${key(expired.alerts[0])}`));assert.deepEqual(r.snapshot(2),hidden,'expiry is a pure view decision');
     await command(r,'dismiss-attack',[second]);assert.deepEqual(local(r).dismissed,[{key:second,until:260}]);

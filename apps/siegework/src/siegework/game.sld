@@ -317,11 +317,12 @@
                (not (contains-cell? seen (car cells))) (valid-plan? (cdr cells) (cons (car cells) seen)))))
     (define (pending-in-plan? pending plan)
       (or (null? pending) (and (contains-cell? plan (car pending)) (pending-in-plan? (cdr pending) plan))))
+    (define (valid-attack-key? key)
+      (and (>= key 0) (< key (* (* map-width map-height) 8)) (< (remainder key 8) 6)))
     (define (valid-dismissals? entries seen)
       (or (null? entries)
           (let ((entry (car entries)))
-            (and (>= (dismissed-key entry) 0) (< (dismissed-key entry) (* (* map-width map-height) 8))
-                 (< (remainder (dismissed-key entry) 8) 6) (not (contains-cell? seen (dismissed-key entry)))
+            (and (valid-attack-key? (dismissed-key entry)) (not (contains-cell? seen (dismissed-key entry)))
                  (>= (dismissed-until entry) 0) (<= (dismissed-until entry) (+ run-end-tick attack-alert-ticks))
                  (valid-dismissals? (cdr entries) (cons (dismissed-key entry) seen))))))
     (define (validate-client client)
@@ -391,7 +392,7 @@
     ;; Each stays muted until expiry or eviction; neither needs a sync job.
     (define (dismiss-attack-client state key)
       (let* ((world (context-world)) (tick (world-tick world)))
-        (if (not (live-attack-key? (world-alerts world) key tick)) state
+        (if (not (and (valid-attack-key? key) (live-attack-key? (world-alerts world) key tick))) state
             (client-dismissed-set state
                                   (cons (make-dismissed-attack key (+ tick attack-alert-ticks))
                                         (kept-dismissals (client-dismissed state) key tick 3))))))
