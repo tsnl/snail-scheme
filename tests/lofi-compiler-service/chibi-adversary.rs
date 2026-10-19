@@ -54,7 +54,7 @@ fn main() {
         while !directory.join("release").exists() {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
-        eprintln!("{}", "x".repeat(12_000));
+        eprintln!("{}", "x".repeat(512_000));
         eprintln!("[lofi] burst completed");
         response.write_all(b"[true,1]\n").unwrap();
     }

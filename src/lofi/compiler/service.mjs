@@ -86,13 +86,14 @@ class CompilerHost {
     } finally { closeSync(errors); }
   }
 
-  forwardDiagnostics() {
+  forwardDiagnostics(deadline, end = Infinity) {
     // Poll the retained file while waiting synchronously on the response FIFO:
     // Node stream callbacks cannot run inside this blocking compiler call.
     // One bounded read per poll also preserves deadlines for a noisy host.
-    const count = readSync(this.diagnostics, this.diagnosticBuffer);
+    const count = readSync(this.diagnostics, this.diagnosticBuffer, 0,
+      Math.min(this.diagnosticBuffer.length, end - this.diagnosticOffset));
     for (let offset = 0; offset < count;)
-      offset += writeSync(2, this.diagnosticBuffer, offset, count - offset);
+      offset += retryIO(() => writeSync(2, this.diagnosticBuffer, offset, count - offset), deadline);
     this.diagnosticOffset += count;
     return count;
   }
@@ -101,7 +102,7 @@ class CompilerHost {
     // Drain the backlog present at the response, without chasing later output.
     const end = fstatSync(this.diagnostics).size;
     while (this.diagnosticOffset < end)
-      if (!retryIO(() => this.forwardDiagnostics(), deadline)) break;
+      if (!retryIO(() => this.forwardDiagnostics(deadline, end), deadline)) break;
   }
 
   diagnosticTail() {
@@ -116,7 +117,7 @@ class CompilerHost {
     for (;;) {
       const buffer = Buffer.alloc(65536);
       const count = retryIO(() => {
-        this.forwardDiagnostics();
+        this.forwardDiagnostics(deadline);
         return readSync(this.response, buffer);
       }, deadline);
       if (!count) throw new Error('compiler service closed its response stream');

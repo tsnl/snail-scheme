@@ -28,6 +28,8 @@ if (process.argv[3] === '--worker') {
     diagnostics += chunk;
     if (!released && diagnostics.includes('[lofi] blocked phase started\n')) {
       released = true;
+      worker.stderr.pause();
+      setTimeout(() => worker.stderr.resume(), 100);
       writeFileSync(join(JSON.parse(readFileSync(record, 'utf8')).directory, 'release'), '');
     }
   });
@@ -37,6 +39,7 @@ if (process.argv[3] === '--worker') {
   });
   assert.equal(status, 0, diagnostics);
   assert(released, 'compiler progress must arrive before the host can complete');
-  assert(diagnostics.includes('[lofi] burst completed\n'), 'completion drains a diagnostic burst larger than one poll');
+  assert(diagnostics.endsWith('x'.repeat(512000) + '\n[lofi] burst completed\n'),
+    'completion drains every diagnostic byte, including after stderr backpressure');
   console.log('PASS live stderr during synchronous compiler service requests');
 }
