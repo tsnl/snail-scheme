@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,client,at,siteAt,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
+import {establishColony,colony,client,at,siteAt,routeCell,setWorker,restoreColony,restoreClient,fixtureCall} from '../applications/colony-state.mjs';
 import {expandBatch} from './scene-tools.mjs';
 
 const output=process.argv[2],manifest=JSON.parse(readFileSync(join(output,'manifest.json')));
@@ -64,6 +64,30 @@ function overlappingTowerFaces(mesh,site) {
   }
   return faces.flatMap((a,i)=>faces.slice(i+1).filter(b=>a.axis===b.axis&&a.sign===b.sign&&Math.abs(a.plane-b.plane)<1e-6
     &&overlapArea(a.points,b.points)>1e-5).map(b=>({axis:a.axis,plane:a.plane,area:overlapArea(a.points,b.points)})));
+}
+const transportBatches=r=>r.view().scene.batches.filter(batch=>batch.key>=20&&batch.key<28);
+function transportMarks(r) {
+  return transportBatches(r).flatMap(batch=>batch.draws.flatMap(draw=>
+    Array.from({length:draw.count},(_,offset)=>{
+      const matrix=batch.transforms.slice((draw.first+offset)*12,(draw.first+offset+1)*12);
+      return {mesh:draw.mesh,key:batch.key,x:matrix[3],y:matrix[7],z:matrix[11],dx:matrix[0],dy:matrix[4]};
+    })));
+}
+function expectedTransport(world) {
+  const seen=new Set(),marks=[];
+  for(const rail of world.rails)for(let step=0;step<rail.path.length-1;step++) {
+    const a=rail.path[step],b=rail.path[step+1],edge=`${a},${b}`;
+    if(seen.has(edge))continue;seen.add(edge);
+    const x=a%128,y=-Math.floor(a/128),dx=b%128-x,dy=-Math.floor(b/128)-y;
+    for(const half of [0,1])marks.push([x+(half/2+.25)*dx,y+(half/2+.25)*dy,dx,dy,20+(step*2+half)%8].join(','));
+  }
+  return marks.sort();
+}
+function checkTransport(r) {
+  const marks=transportMarks(r),actual=marks.map(({x,y,dx,dy,key})=>[x,y,dx,dy,key].join(','));
+  assert.deepEqual(actual.sort(),expectedTransport(world(r)),'each directed segment appears once with source-to-parent phase and orientation');
+  assert.ok(marks.every(mark=>Math.abs(mark.z-.065)<1e-6),'chevrons sit just above the ground');
+  return marks;
 }
 
 {
@@ -148,6 +172,50 @@ function overlappingTowerFaces(mesh,site) {
       await r.restore(1,r.snapshot(1));
     }
     console.log('ok - artillery has an open stone plinth and retains the current transport lights');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
+    for(const x of [12,13]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
+    // Accepted save routes exercise bends, shared segments and opposite traffic.
+    const next=world(r),source=siteAt(next,12,22).id;
+    for(const rail of next.rails)rail.path=(rail.source===source
+      ?[[12,22],[11,22],[11,21],[12,21],[12,22],[11,22],[10,22],[9,22],[8,22]]
+      :[[13,22],[13,21],[12,21],[11,21],[11,22],[11,21],[12,21],[12,22]])
+      .map(([x,y])=>routeCell(next,x,y));
+    await restoreColony(r,next);
+    const marks=checkTransport(r),batches=transportBatches(r),meshes=new Set(marks.map(mark=>mark.mesh));
+    assert.equal(meshes.size,1,'all accelerated path occurrences share one fixed mesh');
+    assert.deepEqual([...new Set(marks.map(({dx,dy})=>`${dx},${dy}`))].sort(),['-1,0','0,-1','0,1','1,0']);
+    assert.ok(marks.some(a=>marks.some(b=>a.x===b.x&&a.y===b.y&&a.dx===-b.dx&&a.dy===-b.dy)),
+      'opposite traffic at the same location keeps both directions');
+    for(const batch of batches) {
+      assert.ok(batch.opacity>0&&batch.opacity<=.5,'transport marks remain translucent even at the pulse crest');
+      assert.equal(batch.pulse,true);assert.equal(batch.pulsePhase,(batch.key-20)*Math.PI/4);
+    }
+    const mesh=marks[0].mesh,triangles=[];
+    for(let i=0;i<mesh.indices.length;i+=3)triangles.push(mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+2)));
+    const painted=point=>triangles.some(triangle=>triangle.every((a,i)=>cross2(a,triangle[(i+1)%3],point)>=-1e-7));
+    assert.ok(painted([.12,0])&&painted([-.1,.14])&&painted([-.1,-.14]),'the mark has a forward tip and two arms');
+    assert.equal(painted([-.12,0]),false,'the open back distinguishes a chevron from a dot or solid arrow');
+    assert.ok(triangles.every(triangle=>cross2(...triangle)>0),'all ground faces point upward');
+    assert.ok(triangles.every((a,i)=>triangles.slice(i+1).every(b=>overlapArea(a,b)<1e-7)),
+      'the arms meet without double-blending at the tip');
+    const moved=world(r);moved.tick++;moved.rails[0].progress=1;moved.rails[0].returning=1;
+    await restoreColony(r,moved);const committed=r.snapshot(1);
+    await command(r,'rotate',[0,1]);await command(r,'animate',[50]);
+    transportBatches(r).forEach((batch,i)=>assert.equal(batch,batches[i],'tick, shuttle motion and camera animation reuse retained chevrons'));
+    assert.deepEqual(r.snapshot(1),committed,'display animation does not advance the colony');
+    const rerouted=world(r);rerouted.rails.find(rail=>rail.source===source).path=
+      [[12,22],[12,21],[11,21],[11,22],[12,22],[11,22],[10,22],[9,22],[8,22]].map(([x,y])=>routeCell(rerouted,x,y));
+    await restoreColony(r,rerouted);
+    assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'a route orientation change invalidates affected batches');
+    assert.ok(checkTransport(r).every(mark=>mark.mesh===mesh),'rerouting only replaces occurrences, never fixed geometry');
+    await restoreClient(r,{...local(r),cameraX:0,cameraY:0,homing:false});
+    assert.ok(transportBatches(r).every(batch=>batch.transforms.length===0),'offscreen routes allocate no occurrences');
+    console.log('ok - translucent transport chevrons share one open mesh, follow all directions and bends, deduplicate shared routes, and retain display-clock phases');
   } finally {await r.close();}
 }
 
