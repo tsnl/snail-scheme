@@ -116,13 +116,11 @@ export async function checkCarts(test,fresh) {
     await r.close();
   });
   await test('guns and towers permit existing freight paths beneath their plinths',async()=>{
-    // The kind-four command alias keeps this transport checkpoint executable
-    // before the separately owned house UI/model integration is applied.
-    const r=await fresh(); await fund(r); await build(r,'build-wall',10,22); const tower=await build(r,'observe',12,22);
-    const world=state(r),rail=world.rails.find(rail=>rail.source===tower.id),house=routeCell(world,10,22);
-    assert.ok(!rail.path.includes(house)); const cell=rail.path[1],offset=origin(world);
+    const r=await fresh(); await fund(r); await build(r,'fortify',10,22); const tower=await build(r,'observe',12,22);
+    const world=state(r),rail=world.rails.find(rail=>rail.source===tower.id),gunCell=routeCell(world,10,22);
+    assert.ok(rail.path.includes(gunCell)); const cell=rail.path[1],offset=origin(world);
     const x=cell%128-offset.x,y=Math.floor(cell/128)-offset.y,bank=world.ore;
-    for(const action of ['observe','fortify','build-wall']) {
+    for(const action of ['observe','fortify']) {
       await call(r,action,[x,y]); assert.equal(state(r).notice,10);
       assert.deepEqual(state(r).rails.find(link=>link.source===tower.id),rail);
       assert.deepEqual(state(r).tracks,world.tracks); await r.restore(1,r.snapshot(1));
@@ -151,10 +149,10 @@ export async function checkCarts(test,fresh) {
     const quiet=state(r); quiet.enemies=[]; quiet.produced+=16;
     setWorker(quiet,0,{x:12,y:22,job:2,cargo:16,path:[11,10,9,8].map(x=>x+22*48)});
     await restoreColony(r,quiet); const start=state(r).bots[0].x; await advance(r); assert.equal(state(r).bots[0].x,start-8);
-    await build(r,'build-wall',11,22); assert.deepEqual(state(r).tracks,tracks);
+    await build(r,'fortify',11,22); assert.deepEqual(state(r).tracks,tracks);
     await build(r,'observe',12,22); assert.equal(state(r).lostOre,16);
     assert.deepEqual(state(r).tracks,[]);
-    assert.ok(!state(r).rails[0].path.includes(routeCell(state(r),11,22)));
+    assert.ok(state(r).rails[0].path.includes(routeCell(state(r),11,22)));
     await advance(r,50); assert.equal(state(r).lostOre,16);
     assert.equal(new Set(state(r).tracks.map(track=>Math.floor(track/32))).size,state(r).tracks.length);
     await r.close();
@@ -165,7 +163,7 @@ export async function checkCarts(test,fresh) {
     await build(r,'observe',12,22); const before=state(r),old=routeCell(before,12,22);
     await call(r,'relocate-building',[12+22*48,13+22*48]); assert.equal(state(r).notice,21); await advance(r);
     assert.equal(siteAt(state(r),13,22)?.stage,2); assert.notEqual(state(r).rails[0].path[0],old);
-    assert.deepEqual(state(r).tracks,[]); await call(r,'build-wall',[12,22]); assert.equal(state(r).notice,10);
+    assert.deepEqual(state(r).tracks,[]); await call(r,'fortify',[12,22]); assert.equal(state(r).notice,10);
     await until(r,world=>siteAt(world,12,22)?.stage===2); await r.restore(1,r.snapshot(1)); await r.close();
   });
   await test('track decoding rejects duplicate cells, broken connections and out-of-map geometry',async()=>{

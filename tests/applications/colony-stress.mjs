@@ -34,7 +34,7 @@ for(const seed of [1,7,43,65535]) {
     switch(next(9)) {
       case 0: await action('observe',[x,y]); break;
       case 1: await action('fortify',[x,y]); break;
-      case 2: await action('build-house',[x,y]); break;
+      case 2: await action('upgrade',[8,22]); break;
       case 3: if(site)await action('upgrade',[site.x-offset.x,site.y-offset.y]); break;
       case 4: if(site)await action('cancel-building',[site.x-offset.x,site.y-offset.y]); break;
       case 5: await action('fabricate-worker'); break;

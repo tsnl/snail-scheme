@@ -31,10 +31,10 @@ async function loaded(r) {
 }
 
 export async function checkHub(test,fresh,bytes) {
-  await test('compact World11 rejects old geography and uses a distinct storage identity',async()=>{
+  await test('World12 hub capacity rejects old geography and uses a distinct storage identity',async()=>{
     const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url)));
     const saved=r.snapshot(1),record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:fixture.world}};
-    assert.equal(r.manifest.settings.id,'siegework-colony-v11');assert.equal(saved[0],11);
+    assert.equal(r.manifest.settings.id,'siegework-colony-v12');assert.equal(saved[0],12);
     assert.throws(()=>readRecord(record,r.manifest.settings.id,saveContract(r.manifest)),/incompatible/);
     await assert.rejects(()=>r.restore(1,fixture.world),/invalid snapshot schema/);
     assert.deepEqual(r.snapshot(1),saved);assert.equal(record.snapshot.state[0],10);
@@ -61,7 +61,7 @@ export async function checkHub(test,fresh,bytes) {
   });
   await test('all nine hub tiles reject new buildings and relocation without spending',async()=>{
     const r=await fresh();
-    for(let y=21;y<=23;y++)for(let x=7;x<=9;x++)for(const name of ['extract','observe','fortify','build-wall']) {
+    for(let y=21;y<=23;y++)for(let x=7;x<=9;x++)for(const name of ['extract','observe','fortify']) {
       const before=state(r); await call(r,name,[x,y]); assert.deepEqual(state(r),{...before,notice:3});
     }
     await call(r,'observe',[10,23]); await until(r,world=>world.buildings[0]?.stage===2);
@@ -74,8 +74,8 @@ export async function checkHub(test,fresh,bytes) {
     pending.ore-=5; pending.spent+=5; await restoreColony(r,pending); await roundTrip(r); await advance(r);
     assert.equal(state(r).ore,pending.ore+5); assert.equal(state(r).buildings[0].moveX,-1);
     const bank=state(r).ore; await advance(r,3); assert.equal(state(r).ore,bank); await r.close();
-    const legacy=await fresh(); await call(legacy,'build-wall',[10,23]); await until(legacy,world=>world.buildings[0]?.stage===2);
-    const world=state(legacy); Object.assign(world.buildings[0],at(world,9,23));
+    const legacy=await fresh(); await call(legacy,'fortify',[10,23]); await until(legacy,world=>world.buildings[0]?.stage===2);
+    const world=state(legacy); Object.assign(world.buildings[0],at(world,9,23));world.surveys.push({...at(world,9,23),radius:4});
     await restoreColony(legacy,world); await roundTrip(legacy); await advance(legacy);
     assert.deepEqual([state(legacy).buildings[0].x,state(legacy).buildings[0].y],Object.values(at(world,9,23)));
     await legacy.close();

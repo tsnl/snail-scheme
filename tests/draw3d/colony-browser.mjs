@@ -200,23 +200,24 @@ try {
   const repeated=structuredClone(freshHint);repeated.started=true;repeated.surveys.unshift({...repeated.surveys[0]});
   for(const x of [10,11,12]) {
     const point=at(repeated,x,22),aim=pixelAt(repeated,x,22);
-    repeated.buildings.push({id:repeated.nextId++,kind:4,...point,level:1,hp:220,stock:0,stage:2,
+    repeated.buildings.push({id:repeated.nextId++,kind:3,...point,level:1,hp:90,stock:0,stage:2,
       cooldown:0,aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1});
-    repeated.spent+=8;repeated.ore-=8;
+    repeated.surveys.push({...point,radius:7});repeated.spent+=25;repeated.ore-=25;
   }
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(repeated))})`);await settled();
+  await complete(1);
   const instanced=await evaluate(`(async()=>{const renderer=snailApp.renderer,device=renderer.device,calls=[],original=device.createCommandEncoder;
     device.createCommandEncoder=function(...args){const encoder=original.apply(this,args),begin=encoder.beginRenderPass.bind(encoder);
       encoder.beginRenderPass=(...args)=>{const pass=begin(...args),draw=pass.drawIndexed.bind(pass);
         pass.drawIndexed=(...args)=>{calls.push(args.slice(0,2));return draw(...args);};return pass;};return encoder;};
     try{await renderer.readPixels(snailApp.runtime.view().scene);return{calls,resources:renderer.resources};}
     finally{device.createCommandEncoder=original;}})()`);
-  assert.ok(instanced.calls.some(([indices,count])=>indices===270&&count===3),'three houses share one indexed GPU draw');
+  assert.ok(instanced.calls.some(([indices,count])=>indices>108&&count===3),'three towers share one indexed GPU draw');
   assert.ok(instanced.calls.some(([indices,count])=>indices===108&&count===3),'three worker bodies share one indexed GPU draw');
   assert.ok(instanced.calls.some(([indices,count])=>indices===6&&count>20),'terrain tiles use repeated fixed-mesh instances');
   await complete(1);const tickResources=await evaluate('snailApp.renderer.resources');
   assert.equal(tickResources.meshUploads,instanced.resources.meshUploads);assert.ok(tickResources.uploads>instanced.resources.uploads);
-  console.log('ok - product tile, house and worker draws share fixed GPU meshes; a new tick uploads only occurrences',
+  console.log('ok - product tile, tower and worker draws share fixed GPU meshes; a new tick uploads only occurrences',
     {draws:instanced.calls,meshes:instanced.resources.meshes,instances:instanced.resources.instances});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
   await command('home');await until(async()=>!(await local()).homing,'smooth home');await key('Escape','Escape');
@@ -264,30 +265,32 @@ try {
   const inspected=await evaluate('snailApp.runtime.snapshot(1)');await click('close-context');assert.equal(await has('context'),false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),inspected);
   console.log('ok - deposit selection exposes only its extractor; a second rendered tap builds once; explicit upgrades stay separate');
 
+  const buildingFunds=await world();buildingFunds.ore+=100;buildingFunds.produced+=100;buildingFunds.delivered+=100;
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(buildingFunds))})`);await settled();
   await frameCell(13,21);await pointCell(13,21,true);const beforeOrder=(await world()).spent;
-  assert.ok(await has('tower')&&await has('artillery')&&await has('house'));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
+  assert.ok(await has('tower')&&await has('artillery')&&!(await has('house')));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
   await click('close-context');assert.equal(await has('context'),false);await pointCell(13,21,true);assert.equal((await world()).spent,beforeOrder);
-  await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="house"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
-  assert.equal((await local()).buildKind,4);assert.equal((await world()).spent,beforeOrder);
-  await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[3])`);await evaluate('releaseMenuSave()');await settled();
-  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+8);assert.equal((await local()).lastKind,4);
-  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,4);assert.equal((await world()).spent,beforeOrder+16);
-  await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+16);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
+  await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="tower"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
+  assert.equal((await local()).buildKind,3);assert.equal((await world()).spent,beforeOrder);
+  await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[1])`);await evaluate('releaseMenuSave()');await settled();
+  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+25);assert.equal((await local()).lastKind,3);
+  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
+  await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+50);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
   await key('Escape','Escape');await pointCell(15,21,true);const free=(await world()).spent;
   await pointCell(15,22,true);assert.equal((await world()).spent,free,'a different tile retargets without charging');
-  await failNextSave();await click('artillery');assert.equal((await world()).spent,free);assert.equal((await local()).choiceKind,2);assert.equal((await local()).lastKind,4);
+  await failNextSave();await click('artillery');assert.equal((await world()).spent,free);assert.equal((await local()).choiceKind,2);assert.equal((await local()).lastKind,3);
   for(const left of [false,true]) {
     await resize(568,320);if(left){await click('pause');await click('handedness');await click('resume');}
     await frameCell(15,22);await pointCell(15,22,true);await capture(`-failed-construction-568x320${left?'-left':''}`);await tileIsTappable(15,22);
   }
   await click('pause');await click('handedness');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
-  // Re-selecting deliberately starts from the remembered house; explicit retry still names the failed gun.
+  // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
   await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
   await key('Escape','Escape');
   const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;supplied.produced+=extra;
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
   assert.equal(await has('worker-menu'),false);assert.equal(await has('worker-panel'),false);await key('f','KeyF');assert.equal((await world()).ore,hireBank);
-  await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),false);await capture('-hub');
+  await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),true);assert.equal(await has('upgrade'),true);await capture('-hub');
   await click('worker');assert.equal((await world()).ore,hireBank-25);await key('f','KeyF');assert.equal((await world()).ore,hireBank-50);assert.equal((await local()).chooser,true);
   await key('Escape','Escape');await key('e','KeyE');await until(async()=>(await local()).turnElapsed===300,'keyboard rotation');
   await frameCell(12,20);await pointCell(12,20,true,.94);assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/extractor/i);

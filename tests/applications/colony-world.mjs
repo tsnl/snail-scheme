@@ -27,7 +27,7 @@ export async function checkWorld(test,fresh) {
       assert.ok((hub.x-64)**2+(hub.y-64)**2<=8**2); spawns.add(`${hub.x},${hub.y}`);
       assert.ok(world.bots.every(bot=>bot.x===hub.x*40+20&&bot.y===hub.y*40+20));
       assert.equal(world.nestHp,1500); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
-      assert.equal(r.snapshot(1)[0],11);
+      assert.equal(r.snapshot(1)[0],12);
       const again=state(r); await call(r,'new-run-seed',[seed]); again.runMarker++;
       assert.deepEqual(state(r),again);
     }
@@ -70,22 +70,6 @@ export async function checkWorld(test,fresh) {
     for(let i=0;i<128;i++)world.enemies.push({id:world.nextId++,x:59*40+20,y:37*40+20,hp:80,kind:0,target:0,path:[...path]});
     await restoreColony(r,world); const saved=r.snapshot(1); assert.ok(saved.length>65536&&saved.length<=1048576);
     await r.restore(1,saved); await advance(r); assert.deepEqual(r.snapshot(1),saved); await r.close();
-  });
-  await test('houses require worker delivery and remain ordinary attackable structures without extending sight',async()=>{
-    const r=await fresh(),point=at(state(r),10,22); await call(r,'build-house',[point.x,point.y]);
-    assert.equal(state(r).ore,152); assert.notEqual(state(r).buildings[0].stage,2); await advance(r);
-    assert.equal(state(r).bots.find(bot=>bot.job===3).cargo,8);
-    for(let i=0;i<40&&state(r).buildings[0].stage!==2;i++)await advance(r);
-    const world=state(r); assert.equal(world.buildings[0].hp,220); assert.equal(world.surveys.length,1);
-    assert.equal(world.lastRevealTick,-100); world.tick=0;
-    for(let i=0;i<world.bots.length;i++)setWorker(world,i);
-    const vanishedTarget=world.nextId++;
-    world.enemies.push({id:world.nextId++,...pixelAt(world,14,22),hp:80,kind:0,target:vanishedTarget,path:[]});
-    await restoreColony(r,world); await advance(r);
-    assert.ok(state(r).enemies[0].path.includes(routeCell(world,10,22)),'enemy chooses a direct route past the house');
-    await advance(r,29); assert.equal(state(r).enemies[0].y,pixelAt(world,14,22).y);
-    assert.equal(state(r).buildings[0].hp,213); assert.equal(state(r).hull,300);
-    assert.ok(state(r).bots.every(bot=>bot.hp===14)); assert.equal(state(r).alerts[0].kind,5); await r.close();
   });
   await test('an expensive third extractor tier creates a third physical mining slot',async()=>{
     const r=await fresh(),point=at(state(r),12,20); await build(r,'extract',point.x,point.y);

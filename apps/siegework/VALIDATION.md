@@ -1,3 +1,24 @@
+## Unpublished hub capacity checkpoint (World12)
+
+The isolated hub-capacity revision removes constructible houses and stores an
+explicit hub capacity tier. Six paid upgrades unlock two places each, from 12 to
+24, at prices 100 through 3,200 ore. One worker returns and assembles for 30 ticks;
+pending work grants no places, and worker death refunds its reserved payment.
+Hiring remains a separate 25-ore assembly job. Transport grades are unchanged.
+
+The canonical default-O1 package is generation `b4ab4f1976625c1281f33f9f`,
+with a 590,587-byte simulation (SHA-256
+`85881a209b7863bd121a4af410342531491481da8423d647827256d2c4db3856`).
+It passes seven focused actual-Wasm groups:
+all six prices and the final cap, delayed capacity and paid queued hires,
+insufficient ore/staff, loaded travel and code/save reload, paused progress,
+fleeing/death refunds, malformed snapshot rejection and contextual controls.
+The complete application runner passes 219 checks, with unchanged shared-library
+fixtures reused from their verified builds. All 16 current product presentation
+groups, eight recording groups and `make check` pass. Actual browser proof is
+pending; this checkpoint is not published. `siegework-colony-v12` will begin a fresh colony when published;
+World11 browser records remain under their previous identity.
+
 # Release validation — 2026-10-18
 
 ## Recording checkpoint — 2026-10-18

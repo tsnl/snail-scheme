@@ -79,7 +79,7 @@ export async function checkDigging(test,fresh) {
     await restoreColony(r,world); await advance(r,79); assert.equal(state(r).enemies[0].hp,80);
     await advance(r); assert.ok(state(r).enemies[0].hp<80); assert.deepEqual(state(r).breaches,[cell]);
     const safe=state(r); safe.enemies=[]; await restoreColony(r,safe);
-    await build(r,'build-house',6,10); assert.equal(siteAt(state(r),6,10).hp,220);
+    await build(r,'observe',6,10); assert.equal(siteAt(state(r),6,10).hp,90);
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
   await test('roughly one in ten spawned enemies has the deterministic burrowing capability',async()=>{
@@ -93,11 +93,11 @@ export async function checkDigging(test,fresh) {
     }
     assert.ok(total>100); assert.ok(burrowers/total>=0.08&&burrowers/total<=0.12); await r.close();
   });
-  await test('raid targeting follows frontier exposure in every direction and excludes houses and guns',async()=>{
+  await test('raid targeting follows frontier exposure in every direction and excludes guns',async()=>{
     const r=await fresh(),funded=state(r); funded.produced+=200; funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
-    await build(r,'build-house',12,2); await build(r,'fortify',12,1);
+    await build(r,'fortify',12,1);
     const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
     assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
   });

@@ -75,8 +75,8 @@ export async function checkColonyMenus(test,fresh){
     await action(h,'resume');assert.equal(world(h).paused,0);assert.equal(state(h).dialog,0);await h.app.close();
   });
   await test('an imported paused colony synchronizes its menu while earlier build replies still drain',async()=>{
-    const h=await host(fresh);await select(h);const imported={...world(h),paused:1},gate=delaySave(h),done=h.app.local('choose',[3]);await gate.entered;
-    const importedTurn=h.app.update(async()=>{await importWorld(h,imported);assert.equal(state(h).buildKind,4);assert.equal(state(h).buildResult,3);assert.equal(state(h).dialog,1);});
+    const h=await host(fresh);await select(h);const imported={...world(h),paused:1},gate=delaySave(h),done=h.app.local('choose',[1]);await gate.entered;
+    const importedTurn=h.app.update(async()=>{await importWorld(h,imported);assert.equal(state(h).buildKind,3);assert.equal(state(h).buildResult,3);assert.equal(state(h).dialog,1);});
     gate.release();await Promise.all([done,importedTurn]);await h.app.drainUpdates();assert.equal(state(h).buildKind,0);assert.equal(world(h).paused,1);assert.equal(state(h).dialog,1);assert.equal(node(h,'resume').properties[1],1);
     await action(h,'resume');assert.equal(world(h).paused,0);assert.equal(state(h).dialog,0);await h.app.close();
   });

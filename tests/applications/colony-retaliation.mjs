@@ -66,11 +66,11 @@ export async function checkRetaliation(test,fresh,bytes) {
     next.buildings.find(site=>site.id===last.id).cooldown=8;await restoreColony(r,next);await advance(r);
     assert.equal(state(r).enemies[0].target,first.id);assert.equal(state(r).enemies[0].path.at(-1),first.x+first.y*128);await r.close();
   });
-  await test('houses do not intercept enemies pursuing their remembered artillery attacker',async()=>{
-    const r=await fresh(),house=await build(r,'build-house',12,22),gun=await build(r,'fortify',14,22);
+  await test('towers do not intercept enemies pursuing their remembered artillery attacker',async()=>{
+    const r=await fresh(),tower=await build(r,'observe',12,22),gun=await build(r,'fortify',14,22);
     const world=encounter(state(r),10,22);await restoreColony(r,world);await advance(r,22);const after=state(r);
-    assert.equal(after.enemies[0].target,gun.id);assert.ok(after.enemies[0].x>house.x*40+20-50);
-    assert.equal(after.buildings.find(site=>site.id===house.id).hp,house.hp);assert.equal(after.hull,300);
+    assert.equal(after.enemies[0].target,gun.id);assert.ok(after.enemies[0].x>tower.x*40+20-50);
+    assert.equal(after.buildings.find(site=>site.id===tower.id).hp,tower.hp);assert.equal(after.hull,300);
     await advance(r,10);assert.ok(state(r).buildings.find(site=>site.id===gun.id).hp<gun.hp);await r.close();
   });
   await test('destroying the attacker clears the commitment and resumes a valid hub route',async()=>{

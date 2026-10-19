@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony, client, at, siteAt, restoreClient} from '../applications/colony-state.mjs';
+import {colony, client, at, siteAt, restoreClient, restoreColony} from '../applications/colony-state.mjs';
 import {expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
@@ -106,13 +106,13 @@ try {
   await command('center');await point(12,20);await command('confirm');
   assert.equal(local().chooser,true);assert.deepEqual(runtime.snapshot(1),fresh);
   assert.ok(node('extractor'));assert.equal(node('tower'),undefined);popupControlsFit();
-  await point(12,22);await command('confirm');assert.ok(node('tower')&&node('artillery')&&node('house'));
+  await point(12,22);await command('confirm');assert.ok(node('tower')&&node('artillery')&&!node('house'));
   assert.equal(node('extractor'),undefined);assert.deepEqual(runtime.snapshot(1),fresh);popupControlsFit();
   const unpaid=runtime.snapshot(2);await command('pause-menu');
   for(const confirming of [false,true]) {
     if(confirming)await command('restart');
     const covered=runtime.snapshot(2),stopped=runtime.snapshot(1);
-    for(const [binding,args]of[['center',[]],['restart-seed',[42]],['choose',[3]],['home',[]],['preview',[4]],['confirm',[]]]) {
+    for(const [binding,args]of[['center',[]],['restart-seed',[42]],['choose',[1]],['home',[]],['preview',[3]],['confirm',[]]]) {
       await command(binding,args);assert.deepEqual(runtime.snapshot(2),covered,`${binding} preserves the unpaid selection behind the dialog`);
       assert.deepEqual(runtime.snapshot(1),stopped);
     }
@@ -125,25 +125,26 @@ try {
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
   console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');
 
+  const funded=world();funded.ore+=100;funded.produced+=100;funded.delivered+=100;await restoreColony(runtime,funded);
   await command('dismiss');await point(13,21);await command('confirm');
-  const before=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','choose',[3]));
-  assert.equal(submitted.effects.length,2);assert.equal(local().buildKind,4);assert.deepEqual(runtime.snapshot(1),before);
+  const before=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','choose',[1]));
+  assert.equal(submitted.effects.length,2);assert.equal(local().buildKind,3);assert.deepEqual(runtime.snapshot(1),before);
   const pending=runtime.snapshot(2);
   for(const [binding,args]of[['choose',[2]],['center',[]],['home',[]],['fabricate',[]],['confirm',[]]]) {
     await command(binding,args);assert.deepEqual(runtime.snapshot(2),pending,`${binding} cannot replace an in-flight site`);
   }
   await command('pause-menu');assert.equal(world().paused,1);assert.equal(node('restart-menu').properties[1],0);
-  await effects(submitted.effects);assert.equal(local().buildKind,0);assert.equal(local().lastKind,4);assert.ok(node('pause-dialog'));
-  await command('resume');assert.equal(siteAt(world(),13,21).kind,4);assert.equal(local().chooser,false);
-  const spent=world().spent;await point(14,21);await command('confirm');assert.equal(world().spent,spent);assert.equal(local().choiceKind,4);
-  await command('confirm');assert.equal(world().spent,spent+8);await command('confirm');await command('confirm');
-  assert.equal(world().spent,spent+8);assert.ok(node('cancel-build'),'occupied-site taps inspect without cancelling');
+  await effects(submitted.effects);assert.equal(local().buildKind,0);assert.equal(local().lastKind,3);assert.ok(node('pause-dialog'));
+  await command('resume');assert.equal(siteAt(world(),13,21).kind,3);assert.equal(local().chooser,false);
+  const spent=world().spent;await point(14,21);await command('confirm');assert.equal(world().spent,spent);assert.equal(local().choiceKind,3);
+  await command('confirm');assert.equal(world().spent,spent+25);await command('confirm');await command('confirm');
+  assert.equal(world().spent,spent+25);assert.ok(node('cancel-build'),'occupied-site taps inspect without cancelling');
   console.log('ok - one in-flight order locks its site through settlement; accepted memory drives the next second-tap build');
 
   await command('dismiss');await point(15,21);await command('confirm');
   const failedWorld=runtime.snapshot(1),outgoing=await runtime.dispatch(2,runtime.command('client','choose',[2]));
   assert.equal(local().buildKind,2);await effects(outgoing.effects.filter(effect=>effect.owner===2));
-  assert.deepEqual(runtime.snapshot(1),failedWorld);assert.equal(local().buildKind,0);assert.equal(local().choiceKind,2);assert.equal(local().lastKind,4);
+  assert.deepEqual(runtime.snapshot(1),failedWorld);assert.equal(local().buildKind,0);assert.equal(local().choiceKind,2);assert.equal(local().lastKind,3);
   assert.equal(local().chooser,true);await command('confirm');assert.equal(siteAt(world(),15,21).kind,2);assert.equal(local().lastKind,2);
   console.log('ok - settlement without a durable reply keeps the exact attempted type retryable and changes memory only on acceptance');
 
@@ -154,7 +155,7 @@ try {
   assert.deepEqual(manifest.settings.keys.f,['fabricate']);assert.equal(manifest.settings.keys.g,undefined);
   await command('fabricate');await command('fabricate');assert.equal(local().chooser,true);await command('dismiss');
   assert.equal(world().ore,110);assert.equal(local().chooser,false);await command('home');await animate();
-  assert.ok(node('repair')&&node('worker'));assert.equal(node('close-context'),undefined);await command('fabricate');assert.equal(world().ore,85);await command('dismiss');
+  assert.ok(node('repair')&&node('worker'));assert.ok(node('close-context'));await command('fabricate');assert.equal(world().ore,85);await command('dismiss');
   console.log('ok - hub actions open without charge; repeated F hiring and hub repair use explicit typed requests');
 
   await home();
@@ -176,7 +177,7 @@ try {
     assert.deepEqual(node('rotate-right').action.command,runtime.command('client','turn',[1]));
     await command('handedness');controlsFit(width,height);assert.equal(placed('rail').left,0);assert.ok(right>0);
     assert.ok(placed('rotate-left').left<placed('rotate-right').left,'Q stays physically left of E');
-    await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&node('house'));
+    await command('resume');await point(12,22);await command('confirm');controlsFit(width,height);popupControlsFit();assert.ok(node('tower')&&node('artillery')&&!node('house'));
     const target=project(12,22),card=placed('context');assert.ok(target[0]-12<card.left||target[0]-12>=card.right||target[1]-16<card.top||target[1]-16>=card.bottom,'selected tile remains outside the popup');
     await command('home');await animate();controlsFit(width,height);await command('dismiss');await command('pause-menu');await command('handedness');await command('resume');
   }

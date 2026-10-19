@@ -75,15 +75,15 @@ function overlappingTowerFaces(mesh,site) {
       assert.deepEqual([local(r).targetX,local(r).targetY],[hub.x,hub.y]);
       assert.match(node(r,'context-title').text,/hub/i);assert.ok(node(r,'repair')&&node(r,'worker'));
       assert.deepEqual(node(r,'worker').action.command,r.command('client','fabricate'));
-      assert.equal(node(r,'close-context'),undefined);
+      assert.ok(node(r,'close-context')&&node(r,'upgrade'));
     }
     assert.deepEqual(r.snapshot(1),initial);
     const damaged=world(r);damaged.hull=200;await restoreColony(r,damaged);
-    assert.match(node(r,'context-description').text,/Repair to 100% · 50 ore/);
+    assert.match(node(r,'repair').help,/Repair hub to 100%/);assert.equal(node(r,'repair-caption').text,'50 ore');
     assert.deepEqual(node(r,'repair').action.command,r.command('client','repair'));await apply(r,node(r,'repair').action);
     assert.equal(world(r).ore,110);assert.ok(world(r).bots.some(bot=>[12,13].includes(bot.job)&&bot.target===50));
     await r.restore(1,initial);const limited=world(r);limited.hull=100;limited.ore=30;limited.spent=130;limited.started=true;await restoreColony(r,limited);
-    assert.match(node(r,'context-description').text,/Repair to 53% · 30 ore/);await apply(r,node(r,'repair').action);assert.equal(world(r).ore,0);
+    assert.match(node(r,'repair').help,/Repair hub to 53%/);assert.equal(node(r,'repair-caption').text,'30 ore');await apply(r,node(r,'repair').action);assert.equal(world(r).ore,0);
     await r.restore(1,initial);await command(r,'dismiss');
     await command(r,'move',project(r,8,22));await command(r,'confirm');assert.deepEqual(r.snapshot(1),initial);
     assert.deepEqual(node(r,'worker').action.command,r.command('client','fabricate'));
@@ -123,22 +123,6 @@ function overlappingTowerFaces(mesh,site) {
     assert.equal(batch(r,4),frame,'cooldown preserves gun coverage and its retained mesh');
     assert.ok(r.view().scene.batches.filter(value=>value.reveal).every(value=>value.reveal.edge===0));
     console.log('ok - active-gun coverage is the exact grid union without internal or duplicate edges; cooldown retains it');
-  } finally {await r.close();}
-}
-{
-  const r=await fresh();
-  try {
-    for(const [x,y] of [[13,24],[14,24],[15,25]]){await fixtureCall(r,'build-wall',[x,y]);await complete(r);}
-    const roofs=()=>Array.from({length:batch(r,3).vertices.length/10},(_,i)=>batch(r,3).vertices.slice(i*10,i*10+10))
-      .filter(vertex=>Math.abs(vertex[6]-245/255)<1e-6&&Math.abs(vertex[7]-99/255)<1e-6);
-    assert.equal(roofs().length,3*16,'each house owns a separate solid roof');
-    await fixtureCall(r,'build-wall',[14,25]);await complete(r);
-    assert.equal(roofs().length,4*16,'neighboring houses add no joining panels');
-    assert.equal(batch(r,8),undefined);assert.equal(batch(r,13),undefined);
-    const terrain=batch(r,1),rails=batch(r,20),next=world(r);
-    next.tick++;next.ore++;next.delivered++;next.produced++;await restoreColony(r,next);
-    assert.equal(batch(r,1),terrain);assert.equal(batch(r,20),rails);
-    console.log('ok - houses have separate solid roofs without shield or joining geometry; unrelated ground and transport meshes remain retained');
   } finally {await r.close();}
 }
 {

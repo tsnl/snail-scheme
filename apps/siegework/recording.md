@@ -9,7 +9,10 @@ and pauses can occupy additional transitions at the same simulation tick.
 The recording is held in this page's memory. Export before closing or reloading
 the page. Reload starts from the current IndexedDB checkpoint, including a
 finished game, but cannot recover that game's earlier unrecorded history. This
-feature keeps the existing `siegework-colony-v11` save and World11/Client8 schemas.
+feature follows the application schema. The hub-capacity revision uses
+`siegework-colony-v12`, World12/Client8 and inspection projection 2, which replaces
+the obsolete house count with the completed hub capacity tier. Existing World11
+recordings remain usable with their matching package.
 
 ## What a dump means
 

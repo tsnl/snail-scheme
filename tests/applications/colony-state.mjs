@@ -1,4 +1,4 @@
-// Derived schema-11 records for assertions and bounded encounter fixtures. Only
+// Derived schema-12 records for assertions and bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -30,7 +30,7 @@ function typedField(field, value) {
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
-export const colonyWords = world => snapshotWords(11, typedRecord('World', world), world.runMarker);
+export const colonyWords = world => snapshotWords(12, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,menu,...fields}=local;
   return snapshotWords(8, typedRecord('Client', {...fields, heading:local.heading ?? 0,
@@ -51,7 +51,7 @@ export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:c
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
 export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 128; }
 export function fixtureArguments(world, name, args = []) {
-  if (['extract','fortify','observe','build-wall','build-house','upgrade','arm-tower','cancel-building'].includes(name)) {
+  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];
   }
   if (name === 'relocate-building') return args.map(index => routeCell(world, index % 48, Math.floor(index / 48)));
@@ -75,7 +75,7 @@ export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 2
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
 export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);
 export function colonyBalance(world) {
-  const cargo = world.bots.filter(bot => [2,4,12].includes(bot.job) || (bot.job === 7 && [2,4,12].includes(bot.timer)))
+  const cargo = world.bots.filter(bot => [2,4,12,14].includes(bot.job) || (bot.job === 7 && [2,4,12,14].includes(bot.timer)))
     .reduce((sum, bot) => sum + bot.cargo, 0);
   return {bank:160 + world.delivered + world.localSpent - world.spent,
     raw:world.delivered + world.localSpent + world.lostOre + cargo

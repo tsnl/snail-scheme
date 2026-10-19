@@ -32,7 +32,7 @@
     ;; Field positions and projection version are declared in settings.json.
     ;; Exhaustive scalar projection keeps this diagnostic ABI visible together.
     (define (recording-stat world index)
-      (cond ((= index -1) 1)
+      (cond ((= index -1) 2)
             ((= index 0) (world-tick world))
             ((= index 1) (world-run-marker world))
             ((= index 2) (world-seed world))
@@ -50,7 +50,7 @@
             ((= index 14) (count-kind (world-buildings world) 1))
             ((= index 15) (count-kind (world-buildings world) 3))
             ((= index 16) (count-kind (world-buildings world) 2))
-            ((= index 17) (count-kind (world-buildings world) 4))
+            ((= index 17) (world-hub-capacity-level world))
             ((= index 18) (count-pending (world-buildings world)))
             ((= index 19) (list-size (world-bots world)))
             ((= index 20) (count-busy (world-bots world)))

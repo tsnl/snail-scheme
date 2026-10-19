@@ -87,7 +87,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.
-- [x] Add houses, diverse enemy behavior, impassable water with a gentle
+- [x] Add diverse enemy behavior, impassable water with a gentle
       shimmer, and less rectangular mountain ranges.
 - [x] Three extractor levels; expensive upgrades offer a fallback to exploration.
 - [x] Remove investment automation; workers retain automatic jobs and hauling.
@@ -123,7 +123,7 @@ the supported game is the static client-side 3D bundle.
 ## Polish pass in progress
 
 - [x] Non-scrollable control cards with visible hotkeys beside every button.
-- [x] Replace shield walls with houses; keep vivid violet/indigo gemstones.
+- [x] Remove shield walls; keep vivid violet/indigo gemstones.
 - [x] Persistent difficulty indicator inside a circular progress readout.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
 - [x] Separate artillery and observation/logistics upgrade trees. Preserve all
@@ -151,10 +151,11 @@ source edits remain unchecked until compiled and exercised.
       ore needed or available; complete the paid work with a worker.
 - [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
 - [x] Give every tower and artillery a shared stone plinth with open arches on
-      all four sides, and replace connected shield geometry with solid houses.
+      all four sides.
 - [x] Allow buildings on current transport paths and intersections.
-- [x] Replace wall drawing with ordinary house placement: 12 base worker places,
-      four per completed house, up to 64; retain World 10 material ledgers.
+- [x] Replace constructible houses with six paid hub capacity upgrades: 12 base
+      places, two per tier, maximum 24; prices double from 100 through 3,200 ore.
+      A worker assembles each upgrade; World12 uses a separate save identity.
 - [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
 - [x] Give artillery a distinct gun silhouette.
 - [x] Count down to the next difficulty increase, never to an unseen wave spawn;
@@ -163,10 +164,10 @@ source edits remain unchecked until compiled and exercised.
       retain Home on the edge strip and remove the separate worker menu.
 - [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
 - [x] Outline the combined range of active artillery on the map.
-- [x] Enemies under fire pursue the attacker; houses follow ordinary building
-      encounter rules and do not intercept that pursuit.
+- [x] Enemies under fire pursue the attacker; other buildings do not intercept
+      that pursuit.
 - [x] Replace the brush planner with direct tile construction. Deposits offer
-      extractors; ordinary tiles offer tower/artillery/house with visible costs.
+      extractors; ordinary tiles offer tower/artillery with visible costs.
       Repeat a tile tap to build the remembered successful type; retargeting is
       free, and failed orders retain their intended choice for retry.
 - [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
@@ -194,8 +195,8 @@ source edits remain unchecked until compiled and exercised.
       observer destruction and fogged kit delivery in actual Wasm. Five checks
       pass; the reported rejected transition remains unreproduced.
 - [x] Weighted worker routes account for walking versus cart travel time.
-- [x] Houses can be destroyed; over-capacity colonies retain workers and paid
-      recruits, and only new hiring waits for capacity.
+- [x] Pending recruits count toward completed hub capacity; pending expansions
+      grant no places and refund their paid hub ore if the assigned worker dies.
 - [x] Worker sight reveals a small radius without unbounded survey history.
 - [x] Hidden construction stalls new assignments/pickup and explains why;
       existing carriers can reveal their destination while following a known route.

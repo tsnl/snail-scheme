@@ -12,7 +12,7 @@ export async function checkConstructionOrders(test,fresh) {
     assert.deepEqual(result.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,accepted ? 0 : kind < 1 || kind > 4 ? 15 : state(r).notice])}]);
   }
   await test('each construction kind pays and reserves exactly the same order as its direct command',async()=>{
-    for(const [kind,name,x,y] of [[1,'extract',12,20],[2,'fortify',12,22],[3,'observe',12,22],[4,'build-house',12,22]]) {
+    for(const [kind,name,x,y] of [[1,'extract',12,20],[2,'fortify',12,22],[3,'observe',12,22]]) {
       const direct=await fresh(),placed=await fresh(),cell=routeCell(state(placed),x,y);
       await fixtureCall(direct,name,[x,y]);await place(placed,kind,cell,1);
       assert.deepEqual(placed.snapshot(1),direct.snapshot(1));
@@ -25,25 +25,25 @@ export async function checkConstructionOrders(test,fresh) {
       await place(r,kind,cell,0);assert.deepEqual(state(r),base);
     }
     for(const invalid of [-2147483648,-1,128*128,2147483647]) {
-      await restoreColony(r,base);await place(r,4,invalid,0);
+      await restoreColony(r,base);await place(r,3,invalid,0);
       assert.deepEqual(state(r),{...base,notice:15});
     }
     await r.close();
   });
   await test('construction orders retain hub, deposit and current visibility placement rules',async()=>{
     const r=await fresh(),base=state(r);base.surveys.unshift({...at(base,12,14),radius:10});
-    for(const [kind,x,y,notice] of [[4,8,22,3],[1,12,22,4],[4,12,20,5],[4,12,11,1]]) {
+    for(const [kind,x,y,notice] of [[3,8,22,3],[1,12,22,4],[3,12,20,5],[3,12,11,1]]) {
       await restoreColony(r,base);await place(r,kind,routeCell(base,x,y),0);
       assert.deepEqual(state(r),{...base,notice});
     }
     await r.close();
   });
   await test('construction cells acknowledge individual success and retain prior orders when a later cell rejects',async()=>{
-    const r=await fresh(),base=state(r);base.ore=16;base.spent=144;base.started=true;await restoreColony(r,base);
-    await place(r,4,routeCell(base,10,22),1);await place(r,4,routeCell(base,11,22),1);
+    const r=await fresh(),base=state(r);base.ore=50;base.spent=110;base.started=true;await restoreColony(r,base);
+    await place(r,3,routeCell(base,10,22),1);await place(r,3,routeCell(base,11,22),1);
     const paid=state(r);assert.equal(paid.ore,0);assert.equal(paid.spent,160);assert.equal(paid.buildings.length,2);
-    await place(r,4,routeCell(base,12,22),0);assert.deepEqual(state(r),{...paid,notice:7});
-    await place(r,4,routeCell(base,10,22),0);assert.deepEqual(state(r),{...paid,notice:3});
+    await place(r,3,routeCell(base,12,22),0);assert.deepEqual(state(r),{...paid,notice:7});
+    await place(r,3,routeCell(base,10,22),0);assert.deepEqual(state(r),{...paid,notice:3});
     await r.restore(1,r.snapshot(1));await r.close();
   });
 }
