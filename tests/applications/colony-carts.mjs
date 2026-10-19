@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,origin,pixelAt,routeCell,siteAt,setWorker,addEnemy} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,origin,pixelAt,routeCell,siteAt,setWorker,addEnemy, withdrawReserves} from './colony-state.mjs';
 
 export async function checkCarts(test,fresh) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -18,7 +18,7 @@ export async function checkCarts(test,fresh) {
     assert.ok(predicate(state(r)),'the physical construction or delivery completed');
   }
   async function fund(r) {
-    const world=state(r); world.produced+=300; world.delivered+=300; world.ore+=300; await restoreColony(r,world);
+    const world=state(r); withdrawReserves(world, 300); world.delivered+=300; world.ore+=300; await restoreColony(r,world);
   }
   async function build(r,name,x,y) {
     await call(r,name,[x,y]); await until(r,world=>siteAt(world,x,y)?.stage===2); return siteAt(state(r),x,y);
@@ -29,7 +29,7 @@ export async function checkCarts(test,fresh) {
   }
   await test('delivered tower upgrades retain sight and logistics while adding longer sight and faster carts',async()=>{
     const r=await fresh(); await fund(r); const tower=await build(r,'observe',12,22);
-    const world=state(r); world.produced+=16; world.buildings[0].stock=16; await restoreColony(r,world);
+    const world=state(r); withdrawReserves(world, 16); world.buildings[0].stock=16; await restoreColony(r,world);
     const before=state(r); await call(r,'upgrade',[12,22]); const pending=state(r);
     assert.equal(pending.spent,before.spent+25); assert.equal(pending.buildings[0].level,1);
     assert.equal(pending.buildings[0].armed,0); assert.equal(pending.buildings[0].stock,16);
@@ -93,7 +93,7 @@ export async function checkCarts(test,fresh) {
   await test('every tower supplies carts and each upgrade doubles speed using the slower endpoint',async()=>{
     const r=await fresh();await fund(r);await build(r,'observe',12,22);await build(r,'observe',16,22);
     async function loaded() {
-      const world=state(r);world.produced+=16;
+      const world=state(r);withdrawReserves(world, 16);
       setWorker(world,0,{x:16,y:22,job:2,cargo:16,path:Array.from({length:8},(_,i)=>15-i+22*48)});
       await restoreColony(r,world);return {x:world.bots[0].x,bank:world.ore};
     }
@@ -131,7 +131,7 @@ export async function checkCarts(test,fresh) {
     await build(r,'fortify',13,22); await call(r,'relocate-building',[13+22*48,x+y*48]);
     assert.equal(state(r).notice,21); const moving=state(r);
     await call(r,'cancel-building',[13,22]); assert.equal(state(r).ore,moving.ore+5);
-    const freight=state(r); freight.produced+=16; freight.rails.find(link=>link.source===tower.id).cargo=16;
+    const freight=state(r); withdrawReserves(freight, 16); freight.rails.find(link=>link.source===tower.id).cargo=16;
     await restoreColony(r,freight); await call(r,'relocate-building',[13+22*48,x+y*48]); await advance(r);
     assert.equal(siteAt(state(r),x,y)?.kind,2); assert.deepEqual(state(r).tracks,world.tracks);
     assert.deepEqual(state(r).rails.find(link=>link.source===tower.id).path,rail.path);
@@ -141,12 +141,12 @@ export async function checkCarts(test,fresh) {
   await test('destroyed stations remove their light paths while source freight is lost once and workers dismount',async()=>{
     const r=await fresh(); await fund(r); await build(r,'observe',12,22); await upgrade(r,12,22); await upgrade(r,12,22);
     const world=state(r),tracks=[...world.tracks]; assert.equal(tracks.length,0);
-    world.buildings[0].hp=7; world.rails[0].cargo=16; world.produced+=16; world.tick=9; world.lastRevealTick=-100;
+    world.buildings[0].hp=7; world.rails[0].cargo=16; withdrawReserves(world, 16); world.tick=9; world.lastRevealTick=-100;
     for(let i=0;i<world.bots.length;i++)setWorker(world,i);
     await restoreColony(r,world); await addEnemy(r,{x:12,y:22}); await advance(r);
     assert.equal(state(r).buildings.length,0); assert.equal(state(r).rails.length,0); assert.equal(state(r).lostOre,16);
     assert.deepEqual(state(r).tracks,tracks); const saved=r.snapshot(1); await r.restore(1,saved);
-    const quiet=state(r); quiet.enemies=[]; quiet.produced+=16;
+    const quiet=state(r); quiet.enemies=[]; withdrawReserves(quiet, 16);
     setWorker(quiet,0,{x:12,y:22,job:2,cargo:16,path:[11,10,9,8].map(x=>x+22*48)});
     await restoreColony(r,quiet); const start=state(r).bots[0].x; await advance(r); assert.equal(state(r).bots[0].x,start-8);
     await build(r,'fortify',11,22); assert.deepEqual(state(r).tracks,tracks);

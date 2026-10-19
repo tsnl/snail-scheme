@@ -27,10 +27,11 @@
                      (integer-text (remainder (quotient tick 10) 60))))
     (define (difficulty-text world)
       (let ((readout (project-difficulty (difficulty-window (world-tick world)) (world-tick world))))
-        (string-append (difficulty-help readout) " · destroy the nest to win")))
+        (string-append (difficulty-help readout) " · " (integer-text (living-nests (world-nests world)))
+                       " / 3 nests left · destroy every nest to win")))
     (define (warning-text world)
       (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · N begins a fresh colony")
-            ((= (world-outcome world) 3) "RUN ENDED · NEST DESTROYED · the colony wins")
+            ((= (world-outcome world) 3) "RUN ENDED · ALL NESTS DESTROYED · the colony wins")
             (else (difficulty-text world))))
     (define (alert-name kind)
       (cond ((= kind 0) "HUB") ((= kind 1) "Extractor") ((= kind 2) "Artillery")
@@ -48,7 +49,8 @@
       (let ((messages (damage-messages (world-alerts world) (world-tick world) (not (= (world-outcome world) 0)))))
         (if (= (string-length messages) (i32->i64 0)) "" (string-append "RECENT DAMAGE · " messages "\n"))))
     (define (reason-text reason)
-      (cond ((= reason 1) "Outside active observation · extend a tower first")
+      (cond ((= reason 39) "Deposit depleted · explore for another reserve")
+            ((= reason 1) "Outside active observation · extend a tower first")
             ((= reason 2) "Rock or water · choose traversable ground")
             ((= reason 3) "Occupied · U: upgrade · C: cancel")
             ((= reason 4) "Extractor needs a violet gemstone deposit")
@@ -87,7 +89,8 @@
     (define (building-name kind)
       (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") (else "OBSERVATION TOWER")))
     (define (mine-production-text world building staff)
-      (cond ((not (ready? building)) " · production starts after construction and staffing")
+      (cond ((= (ore-remaining world (building-x building) (building-y building)) 0) " · depleted: workers haul the last stock and retask")
+            ((not (ready? building)) " · production starts after construction and staffing")
             ((= staff 0) " · no miners: no production")
             ((= (building-stock building) 120) " · buffer full: waiting for a hauler")
             (else (string-append " · staffed rate "
@@ -95,7 +98,8 @@
                                  " ore/sec"))))
     (define (mine-detail world building)
       (let ((staff (workers-at (world-bots world) 8 (building-id building))))
-        (string-append " · miners " (integer-text staff) "/" (integer-text (building-level building))
+        (string-append " · reserve " (integer-text (ore-remaining world (building-x building) (building-y building))) " ore"
+                       " · miners " (integer-text staff) "/" (integer-text (building-level building))
                        " (+" (integer-text (workers-at (world-bots world) 9 (building-id building))) " incoming)"
                        (mine-production-text world building staff)
                        "\nStock " (integer-text (building-stock building)) "/120"
@@ -182,7 +186,8 @@
                 (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                                (integer-text x) "," (integer-text y) "] · "
                                (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
-                                   (string-append "deposit: " (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
+                                   (string-append "deposit: " (integer-text (ore-remaining world x y)) " ore left · "
+                                                  (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
                                (if (= tool 2) "6-cell firing range · " "")
                                (reason-text (placement-reason world tool x y)))))))
     (define (economy-text world)

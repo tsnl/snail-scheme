@@ -10,7 +10,9 @@
           world-buildings world-bots world-enemies world-surveys world-focus
           world-plan world-local-spent world-delivered world-produced world-spent world-lost world-notice world-paused
           world-seed world-casualties world-lost-ore world-alerts world-run-marker world-rails world-tracks
-          world-hub-x world-hub-y world-nest-x world-nest-y world-nest-hp world-nest-hp-set world-last-reveal-tick
+          world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick
+          Nest make-nest nest-id nest-site-x nest-site-y nest-hp nest-at living-nests initial-nests
+          Deposit make-deposit deposit-cell deposit-remaining world-deposits initial-deposits ore-remaining remaining-ore
           nest-health maximum-buildings maximum-surveys upgrade-cost
           world-breaches world-excavations world-ground? world-rock-remaining rock-health
           Dig make-dig dig-cell dig-remaining enemy-burrower dig-at
@@ -144,6 +146,18 @@
       (cell I32 dig-cell dig-cell-set)
       (remaining I32 dig-remaining dig-remaining-set)
       (deriving derive-serialize derive-deserialize))
+    ;; These seed-owned sites survive building loss and nest destruction.
+    ;; Underground reserves are distinct from mined, transported and lost ore.
+    (define-immutable-record Deposit make-deposit
+      (cell I32 deposit-cell deposit-cell-set)
+      (remaining I32 deposit-remaining deposit-remaining-set)
+      (deriving derive-serialize derive-deserialize))
+    (define-immutable-record Nest make-nest
+      (id I32 nest-id nest-id-set)
+      (x I32 nest-site-x nest-site-x-set)
+      (y I32 nest-site-y nest-site-y-set)
+      (hp I32 nest-hp nest-hp-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record World make-world
       (tick I32 world-tick world-tick-set)
       (outcome I32 world-outcome world-outcome-set)
@@ -170,15 +184,16 @@
       (run-marker I32 world-run-marker world-run-marker-set)
       (rails (List Rail) world-rails world-rails-set)
       (local-spent I32 world-local-spent world-local-spent-set)
-      (nest-hp I32 world-nest-hp world-nest-hp-set)
+      (nests (List Nest) world-nests world-nests-set)
       (last-reveal-tick I32 world-last-reveal-tick world-last-reveal-tick-set)
       (breaches (List I32) world-breaches world-breaches-set)
       (excavations (List Dig) world-excavations world-excavations-set)
       (started Bool world-started world-started-set)
       (tracks (List I32) world-tracks world-tracks-set)
       (hub-capacity-level I32 world-hub-capacity-level world-hub-capacity-level-set)
+      (deposits (List Deposit) world-deposits world-deposits-set)
       (deriving derive-serialize derive-deserialize))
-    (define nest-health 1500)
+    (define nest-health 900)
     (define maximum-buildings 256)
     (define maximum-surveys 1024)
     (define (world-hub-x world) (spawn-x (world-seed world)))
@@ -188,15 +203,72 @@
     (define (hub-cell? world x y)
       (and (>= x (- (world-hub-x world) 1)) (<= x (+ (world-hub-x world) 1))
            (>= y (- (world-hub-y world) 1)) (<= y (+ (world-hub-y world) 1))))
-    (define (world-nest-x world) (nest-x (world-seed world)))
-    (define (world-nest-y world) (nest-y (world-seed world)))
+    (define (nest-at nests x y)
+      (cond ((null? nests) (empty-list))
+            ((and (= (nest-site-x (car nests)) x) (= (nest-site-y (car nests)) y)) (list (car nests)))
+            (else (nest-at (cdr nests) x y))))
+    (define (living-nests nests)
+      (if (null? nests) 0 (+ (if (> (nest-hp (car nests)) 0) 1 0) (living-nests (cdr nests)))))
+    (define (nest-hp-total nests)
+      (if (null? nests) 0 (+ (nest-hp (car nests)) (nest-hp-total (cdr nests)))))
+    (define (world-nest-hp world) (nest-hp-total (world-nests world)))
+
+    ;; ---- One trusted seed layout proves persistent site identities ----
+
+    ;; Enumerate three home deposits and sixteen regional candidates, never the
+    ;; full map. Only one derived layout is retained per Wasm instance; restored
+    ;; records can neither populate this cache nor change its capacities.
+    (define-immutable-record SeedLayout make-seed-layout
+      (seed I32 layout-seed layout-seed-set)
+      (deposits (List Deposit) layout-deposits layout-deposits-set)
+      (nests (List Nest) layout-nests layout-nests-set))
+    (define layout-cache (vector (ann (empty-list) (List SeedLayout))))
+    (define (deposit-site seed x y)
+      (make-deposit (cell-index x y) (deposit-capacity seed x y)))
+    (define (regional-deposits seed region)
+      (if (= region 16) (empty-list)
+          (let* ((x (regional-deposit-x seed (remainder region 4) (quotient region 4)))
+                 (y (regional-deposit-y seed (remainder region 4) (quotient region 4)))
+                 (rest (regional-deposits seed (+ region 1)))
+                 (hx (+ (- x (spawn-x seed)) hub-x)) (hy (+ (- y (spawn-y seed)) hub-y)))
+            (if (or (= (deposit-rate seed x y) 0) (and (>= hx 0) (< hx 48) (>= hy 0) (< hy 36)))
+                rest (cons (deposit-site seed x y) rest)))))
+    (define (new-deposits seed)
+      (cons (deposit-site seed (+ (spawn-x seed) 4) (- (spawn-y seed) 2))
+            (cons (deposit-site seed (northern-x seed) (northern-y seed))
+                  (cons (deposit-site seed (eastern-x seed) (eastern-y seed)) (regional-deposits seed 0)))))
+    (define (new-nests seed front)
+      (if (= front 3) (empty-list)
+          (cons (make-nest front (front-x seed front) (front-y seed front) nest-health) (new-nests seed (+ front 1)))))
+    (define (seed-layout seed)
+      (let ((cached (vector-ref layout-cache (i32->i64 0))))
+        (unless (and (not (null? cached)) (= (layout-seed (car cached)) seed))
+          (vector-set! layout-cache (i32->i64 0) (list (make-seed-layout seed (new-deposits seed) (new-nests seed 0)))))
+        (car (vector-ref layout-cache (i32->i64 0)))))
+    (define (initial-deposits seed) (layout-deposits (seed-layout seed)))
+    (define (initial-nests seed) (layout-nests (seed-layout seed)))
+    (define (deposit-at deposits cell)
+      (cond ((null? deposits) (empty-list))
+            ((= (deposit-cell (car deposits)) cell) (list (car deposits)))
+            (else (deposit-at (cdr deposits) cell))))
+    (define (ore-remaining world x y)
+      (let ((found (deposit-at (world-deposits world) (cell-index x y))))
+        (if (null? found) 0 (deposit-remaining (car found)))))
+    (define (remaining-ore deposits)
+      (if (null? deposits) 0 (+ (deposit-remaining (car deposits)) (remaining-ore (cdr deposits)))))
+    (define (withdraw-deposit deposits cell amount)
+      (if (null? deposits) deposits
+          (cons (if (= (deposit-cell (car deposits)) cell)
+                    (deposit-remaining-set (car deposits) (- (deposit-remaining (car deposits)) amount)) (car deposits))
+                (withdraw-deposit (cdr deposits) cell amount))))
     (define (idle-bot seed id)
       (make-bot id (cell-x (spawn-x seed)) (cell-y (spawn-y seed)) 0 0 0 0 (empty-list) 14 0 0))
     (define (new-world seed marker)
       (make-world 0 0 160 300 0 4 (empty-list)
                   (list (idle-bot seed 1) (idle-bot seed 2) (idle-bot seed 3)) (empty-list)
                   (list (make-survey (spawn-x seed) (spawn-y seed) 9))
-                  0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 nest-health -100 (empty-list) (empty-list) #f (empty-list) 0))
+                  0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 (initial-nests seed) -100
+                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed)))
     (define (initial-world) (new-world 1 0))
     (define (next-run-marker world)
       (if (= (world-run-marker world) 2147483647) 0 (+ (world-run-marker world) 1)))
@@ -299,10 +371,11 @@
             ((not (surveyed? (world-surveys world) x y)) 6)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (and (= x (world-nest-x world)) (= y (world-nest-y world)))
+                 (nest-site? (world-seed world) x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
             ((and (= kind 1) (= (deposit-rate (world-seed world) x y) 0)) 4)
+            ((and (= kind 1) (= (ore-remaining world x y) 0)) 39)
             ((and (not (= kind 1)) (> (deposit-rate (world-seed world) x y) 0)) 5)
             ((not (affordable-kit? world (building-cost kind))) 7)
             ((or (>= (list-size (world-buildings world)) maximum-buildings)
@@ -364,6 +437,8 @@
       (let ((price (upgrade-cost building)))
         (cond ((or (not (ready? building)) (>= (building-level building) 3) (arming? building) (moving? building))
                (world-notice-set world 11))
+              ((and (= (building-kind building) 1) (= (ore-remaining world (building-x building) (building-y building)) 0))
+               (world-notice-set world 39))
               ((>= (list-size (world-surveys world)) maximum-surveys) (world-notice-set world 8))
               ((or (tower? building) (= (building-kind building) 2))
                (if (affordable-kit? world price) (queue-upgrade world building) (world-notice-set world 7)))
@@ -1094,7 +1169,7 @@
             ((not (visible? world x y)) 1)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (and (= x (world-nest-x world)) (= y (world-nest-y world)))
+                 (nest-site? (world-seed world) x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
             ((> (deposit-rate (world-seed world) x y) 0) 5)
@@ -1130,30 +1205,38 @@
       (if (null? bots) 0
           (+ (if (and (= (bot-job (car bots)) job) (= (bot-target (car bots)) target)) 1 0)
              (workers-at (cdr bots) job target))))
+    (define (mining-amount world building)
+      (if (not (and (ready? building) (= (building-kind building) 1))) 0
+          (let* ((x (building-x building)) (y (building-y building))
+                 (room (- (- 120 (reserved-stock (world-buildings world) (building-id building))) (building-stock building)))
+                 (yield (* (deposit-rate (world-seed world) x y) (workers-at (world-bots world) 8 (building-id building)))))
+            (minimum (ore-remaining world x y) (minimum (maximum 0 room) yield)))))
+    ;; All occupied slots share one atomic withdrawal. Clipping the aggregate
+    ;; prevents two miners from claiming the last units, even on an upgrade tick.
+    (define (produce-building world building)
+      (let ((amount (mining-amount world building)))
+        (if (= amount 0) world
+            (world-produced-set
+             (world-deposits-set (put-building world (building-stock-set building (+ (building-stock building) amount)))
+                                 (withdraw-deposit (world-deposits world) (cell-index (building-x building) (building-y building)) amount))
+             (+ (world-produced world) amount)))))
     (define (produce-buildings world buildings)
-      (if (null? buildings) world
-          (let* ((building (car buildings))
-                 (amount (if (and (ready? building) (= (building-kind building) 1))
-                             (minimum (- (- 120 (reserved-stock (world-buildings world) (building-id building))) (building-stock building))
-                                      (* (deposit-rate (world-seed world) (building-x building) (building-y building))
-                                         (workers-at (world-bots world) 8 (building-id building)))) 0)))
-            (produce-buildings (world-produced-set
-                                (put-building world (building-stock-set building (+ (building-stock building) amount)))
-                                (+ (world-produced world) amount)) (cdr buildings)))))
+      (if (null? buildings) world (produce-buildings (produce-building world (car buildings)) (cdr buildings))))
     ;; One productive mine keeps a construction cache once initial income has
     ;; arrived. This is loose, spendable material, not a paid reservation. The
     ;; other buffers and all tower freight continue normal hauling; a low hub
     ;; balance releases the cache so rebuilding the workforce remains possible.
-    (define (best-cache buildings best seed)
+    (define (best-cache world buildings best)
       (if (null? buildings) best
           (let ((site (car buildings)))
-            (best-cache (cdr buildings)
+            (best-cache world (cdr buildings)
                         (if (and (ready? site) (= (building-kind site) 1)
-                                 (or (null? best) (> (deposit-rate seed (building-x site) (building-y site))
-                                                     (deposit-rate seed (building-x (car best)) (building-y (car best))))))
-                            (list site) best) seed))))
+                                 (> (ore-remaining world (building-x site) (building-y site)) 0)
+                                 (or (null? best) (> (deposit-rate (world-seed world) (building-x site) (building-y site))
+                                                     (deposit-rate (world-seed world) (building-x (car best)) (building-y (car best))))))
+                            (list site) best)))))
     (define (construction-cache world)
-      (let ((mine (best-cache (world-buildings world) (empty-list) (world-seed world))))
+      (let ((mine (best-cache world (world-buildings world) (empty-list))))
         (if (or (null? mine) (< (list-size (world-bots world)) 3)
                 (< (world-delivered world) 16) (< (world-credits world) 40)) 0
                 (building-id (car mine)))))
@@ -1210,12 +1293,14 @@
                (or (null? best) (< (assignment-distance (car candidate)) (assignment-distance (car best))))) candidate best))
     (define (mine-choice world bot mine safe)
       (let* ((id (building-id mine))
-             (slots (+ (workers-at (world-bots world) 8 id) (workers-at (world-bots world) 9 id))))
-        (cond ((and (< slots (building-level mine)) (< (building-stock mine) 16) (can-staff? world bot))
+             (slots (+ (workers-at (world-bots world) 8 id) (workers-at (world-bots world) 9 id)))
+             (available (and (> (ore-remaining world (building-x mine) (building-y mine)) 0)
+                             (< slots (building-level mine)) (can-staff? world bot))))
+        (cond ((and available (< (building-stock mine) 16))
                (prepare-assignment world bot 9 id (building-x mine) (building-y mine) safe))
               ((> (mine-backlog world mine) 0)
                (prepare-assignment world bot 1 id (building-x mine) (building-y mine) safe))
-              ((and (< slots (building-level mine)) (< (building-stock mine) 120) (can-staff? world bot))
+              ((and available (< (building-stock mine) 120))
                (prepare-assignment world bot 9 id (building-x mine) (building-y mine) safe))
               (else (empty-list)))))
     (define (choose-work world bot buildings safe best)
@@ -1400,12 +1485,17 @@
     (define (mine-bot world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
         (if (null? found) (put-bot world (clear-job bot))
-            (if (and (>= (haulable-stock world (car found)) 16)
-                     (not (another-hauler? (world-bots world) (bot-id bot))))
-                (collect-ore world bot) world))))
+            (let ((site (car found)))
+              (cond ((= (ore-remaining world (building-x site) (building-y site)) 0)
+                     (if (> (haulable-stock world site) 0) (collect-ore world bot) (finish-work world bot)))
+                    ((and (>= (haulable-stock world site) 16) (not (another-hauler? (world-bots world) (bot-id bot))))
+                     (collect-ore world bot))
+                    (else world))))))
     (define (outward-missing? world bot)
       (and (or (= (bot-job bot) 1) (= (bot-job bot) 8) (= (bot-job bot) 9))
-           (null? (find-building (world-buildings world) (bot-target bot)))))
+           (let ((found (find-building (world-buildings world) (bot-target bot))))
+             (or (null? found)
+                 (and (= (bot-job bot) 9) (= (ore-remaining world (building-x (car found)) (building-y (car found))) 0))))))
     (define (complete-worker world bot)
       (let ((world (world-bots-set world (append (world-bots world) (list (idle-bot (world-seed world) (bot-target bot)))))))
         (finish-work world (clear-job bot))))
@@ -1431,11 +1521,11 @@
     (define (advance-bots world bots)
       (if (null? bots) world (advance-bots (advance-bot world (car bots)) (cdr bots))))
 
-    ;; ---- The nest sends escalating attacks until destroyed ----
+    ;; ---- Independent fronts send escalating attacks until destroyed ----
 
     ;; A ten-minute expedition gets forty-five seconds to build before waves
     ;; every thirty seconds. Ranks rise every ninety seconds; the first boss
-    ;; pressures the approach at nine minutes. Only destroying the nest wins.
+    ;; pressures the approach at nine minutes. Destroying all three nests wins.
     (define simulation-ticks-per-second 10)
     (define wave-interval (* 30 simulation-ticks-per-second))
     (define first-wave-tick (+ wave-interval (quotient wave-interval 2)))
@@ -1477,9 +1567,9 @@
     (define (attack-kind tick)
       (cond ((heavy-wave? tick) 2) ((raid-wave? tick) 1) (else 0)))
     (define (attack-size tick)
-      (cond ((heavy-wave? tick) (+ 7 (minimum 17 (quotient (- tick final-siege-tick) final-siege-tick))))
-            ((raid-wave? tick) (+ 5 (minimum 19 (quotient (- tick first-raid-tick) raid-interval))))
-            ((regular-wave? tick) (+ 4 (minimum 20 (quotient (- tick first-wave-tick) (* 3 difficulty-step-ticks))))) (else 0)))
+      (cond ((heavy-wave? tick) (+ 9 (minimum 17 (quotient (- tick final-siege-tick) final-siege-tick))))
+            ((raid-wave? tick) (+ 7 (minimum 19 (quotient (- tick first-raid-tick) raid-interval))))
+            ((regular-wave? tick) (+ 6 (minimum 20 (quotient (- tick first-wave-tick) (* 3 difficulty-step-ticks))))) (else 0)))
     (define (attack-at-or-after tick)
       (if (> (attack-size tick) 0) tick
           (attack-at-or-after (+ tick (quotient wave-interval 2)))))
@@ -1500,21 +1590,26 @@
         (- (next-attack-tick tick) (maximum regular heavy))))
     (define (outpost-distance world site)
       (distance (building-x site) (building-y site) (world-hub-x world) (world-hub-y world)))
-    (define (exposed-outpost? world site best)
+    (define (nest-distance nest site)
+      (distance (building-x site) (building-y site) (nest-site-x nest) (nest-site-y nest)))
+    ;; Each raid chooses the nearest exposed operation on its own approach,
+    ;; and attacks the hub if no operation is closer. Separate fronts therefore
+    ;; cannot all chase one remote tendril merely because it is far from home.
+    (define (exposed-outpost? world nest site best)
       (and (ready? site) (or (= (building-kind site) 1) (and (tower? site) (not (armed? site)))) (> (outpost-distance world site) 9)
-           (or (null? best) (> (outpost-distance world site) (outpost-distance world (car best)))
-               (and (= (outpost-distance world site) (outpost-distance world (car best)))
-                    (< (distance (building-x site) (building-y site) (world-nest-x world) (world-nest-y world))
-                       (distance (building-x (car best)) (building-y (car best)) (world-nest-x world) (world-nest-y world)))))))
-    (define (outpost-target world buildings best)
+           (< (nest-distance nest site) (distance (nest-site-x nest) (nest-site-y nest) (world-hub-x world) (world-hub-y world)))
+           (or (null? best) (< (nest-distance nest site) (nest-distance nest (car best)))
+               (and (= (nest-distance nest site) (nest-distance nest (car best)))
+                    (< (building-id site) (building-id (car best)))))))
+    (define (outpost-target world nest buildings best)
       (if (null? buildings) best
-          (outpost-target world (cdr buildings)
-                          (if (exposed-outpost? world (car buildings) best) (list (car buildings)) best))))
+          (outpost-target world nest (cdr buildings)
+                          (if (exposed-outpost? world nest (car buildings) best) (list (car buildings)) best))))
     ;; Nest lanes touching rock breed lighter, faster raiders. The terrain
     ;; sample lies beyond the nest clearing so neighboring geology matters.
-    (define (lane-kind world kind lane)
-      (let ((x (+ (world-nest-x world) (if (= (remainder lane 3) 0) -12 12)))
-            (y (+ (world-nest-y world) (- (remainder lane 5) 2))))
+    (define (lane-kind world nest kind lane)
+      (let ((x (+ (nest-site-x nest) (if (= (remainder lane 3) 0) -12 12)))
+            (y (+ (nest-site-y nest) (- (remainder lane 5) 2))))
         (if (and (= kind 0) (not (ground? (world-seed world) x y))
                  (not (water? (world-seed world) x y))) 1 kind)))
     (define (enemy-health world kind rank)
@@ -1522,10 +1617,10 @@
         (if (= kind 1) (quotient (* 4 health) 5) health)))
     (define (burrower-id? world id)
       (= (remainder (+ (remainder (world-seed world) 10) (remainder id 10)) 10) 0))
-    (define (spawn-enemy world kind lane rank)
-      (let* ((kind (lane-kind world kind lane))
-             (target (if (= kind 1) (outpost-target world (world-buildings world) (empty-list)) (empty-list)))
-             (x (+ (world-nest-x world) (- (remainder lane 3) 1))) (y (+ (world-nest-y world) 2))
+    (define (spawn-enemy world nest kind lane rank)
+      (let* ((kind (lane-kind world nest kind lane))
+             (target (if (= kind 1) (outpost-target world nest (world-buildings world) (empty-list)) (empty-list)))
+             (x (+ (nest-site-x nest) (- (remainder lane 3) 1))) (y (+ (nest-site-y nest) 2))
              (enemy (make-enemy (world-next-id world) (cell-x x) (cell-y y)
                                 (enemy-health world kind rank) kind
                                 (if (null? target) 0 (building-id (car target))) (empty-list)
@@ -1537,15 +1632,23 @@
     (define (wave-rank rank index)
       (cond ((= index 0) rank) ((or (= rank 0) (= (remainder index 3) 2)) 0)
             ((= index 1) (- rank 1)) (else (remainder index rank))))
-    (define (spawn-wave world kind count total rank)
+    (define (front-nest nests front)
+      (if (= (nest-id (car nests)) front) (car nests) (front-nest (cdr nests) front)))
+    ;; Allocate roles by the original global index before skipping a dead front.
+    ;; A cleared front removes its own share, including its rotating strongest
+    ;; slot; survivors never inherit extra enemies or a replacement boss.
+    (define (spawn-wave world kind count total rank shift)
       (if (or (= count 0) (>= (list-size (world-enemies world)) maximum-enemies)) world
           (let* ((index (- total count)) (behavior (if (and (= kind 2) (> index 0)) 0 kind))
-                 (world (spawn-enemy world behavior (+ 14 (* 2 (remainder count 3))) (wave-rank rank index))))
-            (spawn-wave world kind (- count 1) total rank))))
+                 (nest (front-nest (world-nests world) (remainder (+ index shift) 3)))
+                 (world (if (= (nest-hp nest) 0) world
+                            (spawn-enemy world nest behavior (+ 14 (* 2 (remainder count 3))) (wave-rank rank index)))))
+            (spawn-wave world kind (- count 1) total rank shift))))
     (define (spawn-due world)
       (let* ((tick (world-tick world)) (count (attack-size tick)))
         (spawn-wave world (attack-kind tick) count count
-                    (if (heavy-wave? tick) 6 (minimum 5 (maximum-enemy-rank tick))))))
+                    (if (heavy-wave? tick) 6 (minimum 5 (maximum-enemy-rank tick)))
+                    (remainder (- (next-attack-number (- tick 1)) 1) 3))))
     ;; ---- Excavation and enemy routes ----
 
     (define rock-health 80)
@@ -1742,18 +1845,26 @@
                   (world-enemies-set (put-building world (building-cooldown-set aimed 8))
                                      (hurt-enemy world (world-enemies world) (enemy-id enemy) (building-id building)
                                                  (building-shot-damage building (enemy-x enemy) (enemy-y enemy)))))))))
-    (define (nest-in-range? world building)
-      (let ((x (cell-x (world-nest-x world))) (y (cell-y (world-nest-y world)))
+    (define (nest-in-range? world building nest)
+      (let ((x (cell-x (nest-site-x nest))) (y (cell-y (nest-site-y nest)))
             (a (cell-x (building-x building))) (b (cell-y (building-y building))))
-        (and (> (world-nest-hp world) 0) (visible? world (world-nest-x world) (world-nest-y world))
+        (and (> (nest-hp nest) 0) (visible? world (nest-site-x nest) (nest-site-y nest))
              (within? x y a b artillery-range) (clear-open-shot? (world-seed world) (world-breaches world) a b x y))))
+    (define (choose-nest world building nests)
+      (cond ((null? nests) (empty-list))
+            ((nest-in-range? world building (car nests)) (list (car nests)))
+            (else (choose-nest world building (cdr nests)))))
+    (define (hurt-nest nests id damage)
+      (if (null? nests) nests
+          (cons (if (= (nest-id (car nests)) id) (nest-hp-set (car nests) (maximum 0 (- (nest-hp (car nests)) damage))) (car nests))
+                (hurt-nest (cdr nests) id damage))))
     (define (fire-nest world building)
-      (if (not (nest-in-range? world building)) world
-          (let* ((x (cell-x (world-nest-x world))) (y (cell-y (world-nest-y world)))
-                 (aimed (building-aim-y-set (building-aim-x-set building x) y))
-                 (damage (building-shot-damage building x y)))
-            (world-nest-hp-set (put-building world (building-cooldown-set aimed 8))
-                               (maximum 0 (- (world-nest-hp world) damage))))))
+      (let ((found (choose-nest world building (world-nests world))))
+        (if (null? found) world
+            (let* ((nest (car found)) (x (cell-x (nest-site-x nest))) (y (cell-y (nest-site-y nest)))
+                   (aimed (building-aim-y-set (building-aim-x-set building x) y)))
+              (world-nests-set (put-building world (building-cooldown-set aimed 8))
+                               (hurt-nest (world-nests world) (nest-id nest) (building-shot-damage building x y)))))))
     (define (fire-buildings world buildings)
       (if (null? buildings) world
           (let* ((building (car buildings))

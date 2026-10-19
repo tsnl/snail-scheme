@@ -5,7 +5,7 @@ import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {readRecord,saveContract} from '../../src/application/indexeddb.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,setWorker,addEnemy} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,setWorker,addEnemy, withdrawReserves} from './colony-state.mjs';
 
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
 async function advance(r,count=1) {
@@ -25,7 +25,7 @@ async function damaged(r,hull=180) {
   const world=state(r); world.hull=hull; await restoreColony(r,world);
 }
 async function loaded(r) {
-  const world=state(r); world.hull=180; world.produced=16; world.bots.length=1;
+  const world=state(r); world.hull=180; withdrawReserves(world, (16) - world.produced); world.bots.length=1;
   setWorker(world,0,{x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});
   await restoreColony(r,world);
 }

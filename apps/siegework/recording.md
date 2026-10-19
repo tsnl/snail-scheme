@@ -9,9 +9,11 @@ and pauses can occupy additional transitions at the same simulation tick.
 The recording is held in this page's memory. Export before closing or reloading
 the page. Reload starts from the current IndexedDB checkpoint, including a
 finished game, but cannot recover that game's earlier unrecorded history. This
-feature follows the application schema. The hub-capacity revision uses
-`siegework-colony-v12`, World12/Client8 and inspection projection 2, which replaces
-the obsolete house count with the completed hub capacity tier. Existing World11
+feature follows the application schema. The competing-fronts revision uses
+`siegework-colony-v12`, World12/Client8 and inspection projection 3. It retains the completed
+hub capacity tier and adds living nests, individual nest health, depleted-deposit
+count, all remaining underground ore and known remaining ore. The old `nestHp`
+field is the sum of all three; known/visible nest fields are counts. Existing World11
 recordings remain usable with their matching package.
 
 ## What a dump means
@@ -99,6 +101,9 @@ outcome, ore production/delivery/commitment/loss counters, hull/nest health,
 kills/casualties, buildings, workers, enemies, permanent surveys and frontier
 distance. It also reports known versus currently visible nest state. JavaScript
 collects those values into segments, command lists and ten-second observations.
+The `siegework-observations-v2` output also records observed per-front clears and
+exhaustion-count increases between adjacent retained states. These are observations,
+not separately emitted domain events; checkpoint gaps do not invent clear dates.
 
 `firstObservedNestKnown` and `firstObservedNestDamage` are observations within
 the retained segment, not recovered dates before its first checkpoint. `spent`
@@ -122,11 +127,17 @@ player behavior. The browser check requires a disposable origin/profile and
 exercises a real IndexedDB abort, dump import, camera/gameplay input isolation
 and saved-checkpoint reload. Never run that fixture against a player's save.
 
-On the development machine, the 64-depot, 64-worker, 128-enemy fixture reaches
-95,312 bytes per World. Across 6,000 actual simulation advances with no no-op
-commands, the 64 MiB budget retains ticks 1,920–6,000 (6 minutes 48 seconds) and
-explicitly evicts 1,952 entries. Capture takes roughly 0.040 ms median and
-0.055 ms at the 95th percentile. A separate 100 KB synthetic fixture changing
-249 words per tick retains all 6,000 ticks in about 16.8 MiB. These two measured
-cases show why retention is reported rather than promised: serialization shifts
-and sustained crowd movement change the packed cost substantially.
+The current World12 dense diagnostic uses 64 depots, 24 workers, a fully paid
+level-six hub and 128 enemies. All fixture funds are withdrawn from finite
+reserves. Across 6,000 actual advances its maximum World is 88,180 bytes; the
+64 MiB recorder retains ticks 1,380–6,000 (7 minutes 42 seconds), evicting 1,403
+entries. Capture costs about 0.038 ms median and 0.050 ms at the 95th percentile.
+The matching pre-deposit hub checkpoint with the same legal population retains
+the same interval, at 86,252 maximum World bytes. These are instrumented CPU and
+retention observations, not frame rates or natural games.
+
+Historical World11 used a 64-worker fixture: 95,312 bytes per World and ticks
+1,920–6,000 retained. That population is no longer legal in World12. The separate
+100 KB synthetic fixture changing 249 words per tick retains all 6,000 ticks in
+about 16.8 MiB. Serialization shifts and crowd movement affect packed cost, so
+retention is reported rather than promised.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker, withdrawReserves} from './colony-state.mjs';
 
 export async function checkDigging(test,fresh) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -94,12 +94,13 @@ export async function checkDigging(test,fresh) {
     assert.ok(total>100); assert.ok(burrowers/total>=0.08&&burrowers/total<=0.12); await r.close();
   });
   await test('raid targeting follows frontier exposure in every direction and excludes guns',async()=>{
-    const r=await fresh(),funded=state(r); funded.produced+=200; funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
+    const r=await fresh(),funded=state(r); withdrawReserves(funded, 200); funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
     await build(r,'fortify',12,1);
     const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
-    assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
+    assert.equal(state(r).enemies.length,7); assert.ok(state(r).enemies.some(enemy=>enemy.target===north.id));
+    assert.ok(state(r).enemies.every(enemy=>enemy.target===0||state(r).buildings.some(site=>site.id===enemy.target&&site.kind===3))); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);

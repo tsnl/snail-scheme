@@ -8,14 +8,14 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/nest placement, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
-| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, combat totals, orders and frontier progress. |
+| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
@@ -99,7 +99,7 @@ that the header marker equals the marker in the deserialized `World`.
 
 The game declares world schema 12 and client schema 8 under application ID
 `siegework-colony-v12`, which starts a fresh save identity for explicit hub capacity
-and removal of house buildings. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
+removal of house buildings, finite deposits and three persistent nests. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
 layouts or geography and are rejected; derivation does not migrate existing saves. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
@@ -142,6 +142,28 @@ bank is `160 + delivered + local-spent - spent`; produced ore equals deliveries,
 local spending, raw losses and all remaining loose stock/cargo/freight. Returning
 a local paid kit to the hub transfers its cost from local spending to delivered
 ore before refunding or retaining the project's hub-backed reservation.
+
+Every deposit retains its own remaining reserve after extractor loss or depletion.
+Canonical order identifies the three home sites followed by the regional candidates.
+The parser compares that list and all three nest identities/coordinates with one
+trusted seed-derived layout, retained only for the current seed in each Wasm
+instance. Building the layout visits nineteen candidates, never 16,384 map cells.
+A restore cannot populate the cache or replenish a reserve. Exact total original
+capacity minus remaining underground ore must equal `produced`; the existing
+physical stock, cargo, freight, spending and loss equation proves where it went.
+Production clips each withdrawal before increasing the mine buffer. Exhaustion
+releases miners and the loose cache, but leaves paid kits with their owners and
+hauls the final partial load. Upgrades change slots without changing geology.
+
+Three immutable nest records retain seed-owned IDs/coordinates and individual
+health. Every scheduled wave assigns its global enemy positions to rotating
+front shares before skipping dead nests; clearing a front removes its share
+rather than reallocating it. Raids select the nearest exposed operation closer
+to their own source than the hub. Spawn precedes combat, so a nest killed on a
+spawn tick emits its last share. Clearing all three wins even if enemies remain;
+that outcome retains the existing precedence over same-tick hub destruction.
+The fixed nest model is instanced three times, and dead sites retain their seeded
+terrain clearing. Depletion changes retained terrain only on its final unit.
 
 Accepted restarts increment a bounded run marker, including replaying the same
 seed; the maximum wraps to zero. Rejected seed input retains it. The saved world

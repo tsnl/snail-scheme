@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,setWorker,addEnemy} from './colony-state.mjs';
+import {colony,colonyBalance,restoreColony,fixtureCall,setWorker,addEnemy, withdrawReserves} from './colony-state.mjs';
 const state=r=>colony(r.snapshot(1)),call=fixtureCall;
 const expanding=bot=>[14,15].includes(bot.job)||(bot.job===7&&bot.timer===14);
 function node(r,key,value=r.view().ui){if(value.key===key)return value;for(const child of value.children){const found=node(r,key,child);if(found)return found;}}
-function fund(world,amount){world.produced+=amount;world.delivered+=amount;world.ore+=amount;return world;}
+function fund(world,amount){withdrawReserves(world, amount);world.delivered+=amount;world.ore+=amount;return world;}
 function population(world,count){
   while(world.bots.length<count){world.bots.push({...world.bots[0],id:world.nextId++});setWorker(world,world.bots.length-1);world.spent+=25;fund(world,25);world.ore-=25;}
   return world;
@@ -47,7 +47,7 @@ export async function checkHubCapacity(test,fresh,bytes){
     assert.deepEqual(state(r),{...before,notice:27});assert.ok(!state(r).bots.some(expanding));await r.close();
   });
   await test('travelling expansion delivers ordinary cargo and survives reload, code replacement and pause',async()=>{
-    const r=await running(fresh),world=state(r);world.bots.length=1;world.produced=16;
+    const r=await running(fresh),world=state(r);world.bots.length=1;withdrawReserves(world, (16) - world.produced);
     setWorker(world,0,{x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});await restoreColony(r,world);await upgrade(r);
     assert.equal(state(r).bots[0].job,14);assert.equal(state(r).bots[0].cargo,16);assert.equal(state(r).ore,60);await roundTrip(r);
     const before=r.snapshot(1);await r.replace(r.prepare(bytes,r.manifest));
@@ -58,7 +58,7 @@ export async function checkHubCapacity(test,fresh,bytes){
     await call(r,'pause-colony',[0]);await advance(r,30);assert.equal(state(r).hubCapacityLevel,1);assert.equal(state(r).bots.length,1);await r.close();
   });
   await test('a fleeing expansion remains unique and death refunds its price once while carried ore is lost',async()=>{
-    const r=await running(fresh),world=state(r);world.bots.length=1;world.produced=16;
+    const r=await running(fresh),world=state(r);world.bots.length=1;withdrawReserves(world, (16) - world.produced);
     setWorker(world,0,{x:12,y:20,job:2,cargo:16,path:[971,970,969,968,1016,1064]});await restoreColony(r,world);await upgrade(r);
     const fleeing=state(r);Object.assign(fleeing.bots[0],{job:7,timer:14,path:[],hp:7});fleeing.tick=9;await restoreColony(r,fleeing);
     await upgrade(r);assert.equal(state(r).notice,35);assert.equal(state(r).spent,100);await roundTrip(r);

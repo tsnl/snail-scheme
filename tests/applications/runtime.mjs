@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
-import {colony, client, restoreColony, fixtureCall, at, establishColony} from './colony-state.mjs';
+import {establishColony,colony, client, restoreColony, fixtureCall, at, withdrawReserves} from './colony-state.mjs';
 import {checkColony} from './colony.mjs';
+import {checkReserves} from './colony-reserves.mjs';
+import {checkFronts} from './colony-fronts.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
@@ -197,7 +199,7 @@ await test('failed local persistence leaves state, revision and effects unchange
 await test('unprotected run loses; supplied defenders kill threats without generating ore', async () => {
   const r = await fresh(); await call(r,'extract',[12,20]); for (let i = 0; i < 4800; i++) await call(r, 'advance');
   assert.equal(colony(r.snapshot(1)).outcome, 1); await call(r, 'new-run-seed', [1]);
-  const supplied = colony(r.snapshot(1)); supplied.produced += 500; supplied.delivered += 500; supplied.ore += 500;
+  const supplied = colony(r.snapshot(1)); withdrawReserves(supplied, 500); supplied.delivered += 500; supplied.ore += 500;
   await restoreColony(r, supplied); await call(r, 'extract', [12,20]);
   await call(r, 'fortify', [15,20]); await call(r, 'observe', [16,21]);
   const sites = [[12,22],[12,24],[10,24],[10,22],[9,24],[8,25],[7,24],[10,20],[11,21]];
@@ -214,6 +216,8 @@ await test('unprotected run loses; supplied defenders kill threats without gener
   }
   assert.ok(sawKill); await r.close();
 });
+await checkReserves(test, fresh);
+await checkFronts(test, fresh);
 await checkOpening(test, fresh, bytes);
 await checkColony(test, established, call);
 await checkEncounters(test, established, call);

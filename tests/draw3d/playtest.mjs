@@ -263,7 +263,7 @@ function overlappingTowerFaces(mesh,site) {
   try {
     const initial=world(r),hub=at(initial,8,22);
     for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
-      const ended={...initial,outcome,started:true,hull:outcome===1?0:300,nestHp:outcome===3?0:1500,
+      const ended={...initial,outcome,started:true,hull:outcome===1?0:300,nests:initial.nests.map(nest=>({...nest,hp:outcome===3?0:900})),
         alerts:[0,1,4].map((kind,index)=>({x:hub.x+index*2,y:hub.y,kind,tick:initial.tick}))};
       await restoreColony(r,ended);await command(r,'viewport',[width,height]);await restoreClient(r,{...local(r),chooser:false,leftHanded});
       const boxes=new Map();function gather(value,x=0,y=0){x+=value.rect[0];y+=value.rect[1];boxes.set(value.key,[x,y,value.rect[2],value.rect[3]]);for(const child of value.children)gather(child,x,y);}

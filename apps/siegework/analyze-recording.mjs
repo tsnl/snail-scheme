@@ -8,11 +8,17 @@ import {SnapshotPlayback} from '../../src/application/playback.mjs';
 function segment(entry, state) {
   return {firstSequence: entry.sequence, lastSequence: entry.sequence, start: state, end: state,
     firstObservedNestKnown: state.nestKnown ? state.tick : null, firstObservedNestDamage: null,
-    peakOre: state.ore, peakEnemies: state.enemies, orders: [], observations: []};
+    peakOre: state.ore, peakEnemies: state.enemies, nestClears: [], depositExhaustions: [], orders: [], observations: []};
 }
 function observe(run, entry, state, manifest) {
   if (run.firstObservedNestKnown === null && state.nestKnown) run.firstObservedNestKnown = state.tick;
   if (run.firstObservedNestDamage === null && state.nestHp < run.end.nestHp) run.firstObservedNestDamage = state.tick;
+  for (let front = 0; front < 3; front++) {
+    const field = `nest${front}Hp`;
+    if (run.end[field] > 0 && state[field] === 0) run.nestClears.push({front, tick:state.tick, sequence:entry.sequence});
+  }
+  if (state.depositsDepleted > run.end.depositsDepleted)
+    run.depositExhaustions.push({tick:state.tick, sequence:entry.sequence, count:state.depositsDepleted - run.end.depositsDepleted});
   run.peakOre = Math.max(run.peakOre, state.ore); run.peakEnemies = Math.max(run.peakEnemies, state.enemies);
   const binding = manifest.applications.find(app => app.owner === 'match').handlers.find(handler => handler.id === entry.command?.handler)?.binding;
   if (binding && binding !== manifest.settings.tick) run.orders.push({sequence: entry.sequence, tick: state.tick, binding, args: entry.command.args, effects: entry.effects});
@@ -30,7 +36,7 @@ export async function analyzeRecording(recording, bytes, manifest) {
       }
       observe(run, entry, state, manifest);
     }
-    return {format: 'siegework-observations-v1', source: recording.stats(), startedAt: recording.startedAt,
+    return {format: 'siegework-observations-v2', source: recording.stats(), startedAt: recording.startedAt,
       rendererGeneration: manifest.generation, segments};
   } finally { await playback.close(); }
 }

@@ -1,3 +1,86 @@
+## Unpublished competing fronts and finite reserves (World12)
+
+This checkpoint extends the same unpublished World12 contract as hub capacity.
+Three seeded 900-health nests share a six-enemy opening wave; destroying a front
+removes its future share. All three must be destroyed to win. Source-local raids
+prefer the nearest exposed operation closer to that nest than the hub. The
+45-second grace, thirty-second waves and ninety-second strength cadence remain.
+Each deposit retains explicit remaining ore: 600 starter, 900 north, 1,800 east,
+and 300 times base yield regionally. Extractor upgrades never replenish reserves.
+
+The final default-O1 package is generation `d0f8feedfc68e1bd5517f668`, with a
+613,486-byte simulation (SHA-256 `99f12de0f974a27e38501ae3755f4c7728ad2cca0d0e192371b059430407df99`). It is built from the
+isolated competing-fronts worktree atop hub checkpoint `c7ddc9ae`. The opening
+purchase gate and lower/prominent models are a separately verified branch;
+they are not present in this package. Combined browser validation and publication
+remain with the integration checkpoint.
+
+All 232 actual-Wasm application groups pass, including thirteen new reserve and
+front groups. These cover canonical seed records and forged restore rejection,
+shared final-unit production, partial hauling, exhausted-worker reassignment,
+paid local-kit races, full buffers, pause, destruction/rebuilding, distinct local
+raid targets, disappearing front shares, final-spawn ordering and all-three
+victory. Compiled terrain checks cover all 65,535 seed placements and 194 sampled
+map cases with walking routes to all three fronts and the starter/north/east
+resources. Nest sites never overlap deposits, remain more than fifty cells apart,
+and retain their seed-derived clearings after destruction. Nine recording groups
+include actual depletion and nest-clear analysis; the presentation group checks
+depleted controls/pulses, the remaining-nest objective and shared nest geometry.
+Repository `make check` passes.
+
+The paid seed-one observation is deliberately reported as a loss. It issues one
+accepted placement/upgrade/hire decision at most every two seconds, uses only
+observed terrain for placement, and follows north, southeast and southwest
+search bearings. It waits for escort guns and can cancel an abandoned unseen
+project. It has no snapshot edits, injected ore or removed enemies during play.
+The northern extractor is bought and produces before it is lost. The hub falls
+at 7:34 after 813 ore produced, 646 delivered, 860 spent, 21 banked, eleven
+structures lost and 87 enemies killed. Starter exhaustion is first observed at
+4:02; no nest is discovered or cleared. These observations distinguish finite
+income and exposed expansion from the old single-front victory fixture. They do
+not establish a ten-minute win, ordinary human pacing or an effective general
+scouting policy. The agreed resource and wave values were not increased to make
+the policy win. Human placement and balance feedback remain necessary.
+
+The finite-income DPS guard reserves the next extractor kit, clips production
+against actual reserves, and pays every completed hub expansion before hiring
+beyond capacity. Its controlled maximum-population case includes all 6,300 ore
+of capacity investment. At three-minute discovery and half theoretical DPS it
+passes twenty windows through 10.25 minutes (minimum capacity/HP 3.45), and 759
+through 360.25 minutes. The ten-minute policy extracts 3,728 ore; the long policy
+exhausts all seventeen seed-one deposits after 21,000 ore. It assumes free travel,
+construction and perfect target access. Aggregate DPS cannot price coverage of
+three separated approaches and is not a survival or victory proof.
+
+The bounded parser derives at most nineteen deposit candidates and three nests
+once for its current seed, then compares the canonical records on each decode.
+It never scans the whole map to establish completeness and does not retain world
+history. A paired instrumented diagnostic compares the frozen hub generation
+`b4ab4f1976625c1281f33f9f` with gameplay generation
+`e429ef732a3dfa5e415d5aae` (before the final depleted-button UI guard):
+
+| Fixture | World bytes, hub → fronts | Fresh decode median, ms | Full tick median, ms |
+| --- | ---: | ---: | ---: |
+| Initial established | 1,672 → 3,612 | 0.120 → 0.133 | 0.165 → 0.213 |
+| 64 depots, 24 workers, fully paid hub | 32,032 → 33,956 | 0.966 → 1.034 | 2.601 → 2.818 |
+| Same colony plus 128 enemies | 73,852 → 75,776 | 2.368 → 2.809 | 4.956 → 5.291 |
+
+The measurements include real validation/serialization and ordinary runtime
+costs. Their short CPU samples are diagnostic, not isolated algorithms or FPS.
+A separate 6,000-tick dense recording run performs no no-op advances; both
+packages retain ticks 1,380–6,000 under the 64 MiB budget. The current package
+peaks at 88,180 World bytes versus 86,252; capture median/p95 is approximately
+0.038/0.050 ms. Dense fixtures pay for their completed level-six hub and all
+24 workers; current fixture ore is explicitly withdrawn from finite reserves.
+The older World11 64-worker retention figures below remain historical.
+
+The focused simplify pass used a fresh independent behavioral explanation and
+counterexamples for depletion, paid-kit ownership, persistence and front shares.
+It kept only authoritative remaining reserves and individual nest health in new
+records; capacities, depletion, living counts and wave rotation are derived.
+The paid observation policy is intentionally one readable ordered decision list,
+not a second implementation of the game.
+
 ## Unpublished extractor-first and visibility checkpoint (World12)
 
 The opening keeps all 160 starting ore available until a valid paid extractor

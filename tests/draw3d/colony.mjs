@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony, client, at, siteAt, restoreClient, restoreColony} from '../applications/colony-state.mjs';
+import {establishColony,colony, client, at, siteAt, restoreClient, restoreColony, withdrawReserves} from '../applications/colony-state.mjs';
 import {expandedVertexCount} from './scene-tools.mjs';
 const output = process.argv[2], manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
 const bytes = readFileSync(join(output, manifest.module)), runtime = new ReducerRuntime();
@@ -74,6 +74,9 @@ function controlsFit(width,height) {
     for(const child of value.children)walk(child,x+padding,y+padding);
   }
   walk(runtime.view().ui);
+  const objective=placed('nest-objective'),rail=placed('rail');
+  assert.ok(objective.left>=0&&objective.top>=0&&objective.right<=width-24&&objective.bottom<=height-32,'nest objective fits the viewport');
+  assert.ok(objective.right<=rail.left||objective.left>=rail.right,'nest objective leaves controls clear');
 }
 try {
   const fresh=runtime.snapshot(1),frame=runtime.view();
@@ -125,7 +128,7 @@ try {
   assert.ok(node('upgrade'));await command('improve');assert.equal(siteAt(world(),12,20).level,2);
   console.log('ok - selecting a deposit or empty site is free; choices and costs are contextual; existing buildings upgrade explicitly');
 
-  const funded=world();funded.ore+=100;funded.produced+=100;funded.delivered+=100;await restoreColony(runtime,funded);
+  const funded=world();funded.ore+=100;withdrawReserves(funded,100);funded.delivered+=100;await restoreColony(runtime,funded);
   await command('dismiss');await point(13,21);await command('confirm');
   const before=runtime.snapshot(1),submitted=await runtime.dispatch(2,runtime.command('client','choose',[1]));
   assert.equal(submitted.effects.length,2);assert.equal(local().buildKind,3);assert.deepEqual(runtime.snapshot(1),before);
@@ -194,4 +197,23 @@ try {
   await command('resume');assert.equal(world().paused,0);assert.equal(node('pause-dialog'),undefined);
   await command('pause-menu');await command('restart');await command('accept');assert.equal(local().dialog,0);assert.equal(world().buildings.length,0);
   console.log('ok - Pause resumes explicitly; restart cancellation returns to pause; paused reload exposes Resume and confirmation accepts Enter');
+  await runtime.restore(1,fresh);await command('reset-presentation');await home();
+  const glow=()=>runtime.view().scene.batches.filter(batch=>[7,12].includes(batch.key)).reduce((sum,batch)=>sum+expandedVertexCount(batch),0);
+  await restoreClient(runtime,{...local(),heading:0,turnFrom:0,turnTo:0,turnElapsed:300,homing:false});
+  const beforeGlow=glow(),exhausted=world(),deposit=exhausted.deposits[0];
+  exhausted.started=true;exhausted.produced+=deposit.remaining;exhausted.lostOre+=deposit.remaining;deposit.remaining=0;
+  await restoreColony(runtime,exhausted);assert.ok(glow()<beforeGlow,'exhaustion removes the crystal pulse');
+  await point(12,20,.6);assert.notEqual(local().cursorX+local().cursorY*128,deposit.cell,'a depleted site has no tall invisible picking box');
+  await point(12,20,0);cursorAt(12,20);
+  const x=deposit.cell%128,y=Math.floor(deposit.cell/128);
+  await restoreClient(runtime,{...local(),chooser:true,cursorX:x,cursorY:y,targetX:x,targetY:y,dialog:0});
+  assert.match(node('context-description').text,/Depleted/);assert.equal(node('extractor').properties[1],0);
+  const fronts=world();for(const nest of fronts.nests)fronts.surveys.push({x:nest.x,y:nest.y,radius:4});
+  fronts.nests[2].hp=0;await restoreColony(runtime,fronts);assert.equal(node('nest-objective').text,'Nests left 2 / 3');
+  const matches=runtime.view().scene.batches.filter(batch=>[3,10].includes(batch.key)).flatMap(batch=>batch.draws.flatMap(draw=>
+    Array.from({length:draw.count},(_,offset)=>({mesh:draw.mesh,index:draw.first+offset,batch})))).filter(({index,batch})=>
+      fronts.nests.some(nest=>batch.transforms[index*12+3]===nest.x&&batch.transforms[index*12+7]===-nest.y));
+  assert.equal(matches.length,3);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'three nests reuse one fixed mesh');
+  assert.ok(matches.some(({index,batch})=>Math.abs(batch.transforms[index*12+10]-.18)<1e-5),'cleared nest has a low remnant');
+  console.log('ok - depleted deposits stop pulsing and reject purchase; all nest instances share geometry and expose the remaining objective');
 } finally {await runtime.close();}

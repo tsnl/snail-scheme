@@ -113,7 +113,7 @@ export async function checkRetaliation(test,fresh,bytes) {
       const world=structuredClone(base),site=world.buildings.find(site=>site.id===gun.id),extraCost=25*(level-1);
       Object.assign(site,{kind:2,level,armed:0,x:59,y:41,cooldown:0});world.rails=[];world.tracks=[];
       world.spent+=extraCost;world.ore-=extraCost;world.surveys.unshift({x:59,y:41,radius:4});
-      await restoreColony(r,world);await advance(r);assert.equal(state(r).nestHp,1500-damage);
+      await restoreColony(r,world);await advance(r);assert.equal(state(r).nests[0].hp,900-damage);
     }
     await r.close();
   });

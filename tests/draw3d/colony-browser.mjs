@@ -1,7 +1,7 @@
 // Chromium input, WebGPU readback and durable reopen for either 3D package.
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker} from '../applications/colony-state.mjs';
+import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -283,7 +283,7 @@ try {
   const inspected=await evaluate('snailApp.runtime.snapshot(1)');await click('close-context');assert.equal(await has('context'),false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),inspected);
   console.log('ok - deposit selection exposes only its extractor; a second rendered tap builds once; explicit upgrades stay separate');
 
-  const buildingFunds=await world();buildingFunds.ore+=100;buildingFunds.produced+=100;buildingFunds.delivered+=100;
+  const buildingFunds=await world();buildingFunds.ore+=100;withdrawReserves(buildingFunds,100);buildingFunds.delivered+=100;
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(buildingFunds))})`);await settled();
   await frameCell(13,21);await pointCell(13,21,true);const beforeOrder=(await world()).spent;
   assert.ok(await has('tower')&&await has('artillery')&&!(await has('house')));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
@@ -305,7 +305,7 @@ try {
   // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
   await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
   await key('Escape','Escape');
-  const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;supplied.produced+=extra;
+  const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;withdrawReserves(supplied,extra);
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
   assert.equal(await has('worker-menu'),false);assert.equal(await has('worker-panel'),false);await key('f','KeyF');assert.equal((await world()).ore,hireBank);
   await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),true);assert.equal(await has('upgrade'),true);await capture('-hub');
@@ -452,7 +452,7 @@ try {
   console.log('ok - real IndexedDB delays keep Resume/Restart locked; failures retain the selection and repeated confirmation creates one colony');
   const finalColony=await world(),finalClient=await local(),finalHub=finalColony.surveys.find(value=>value.radius===9);
   for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
-    const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nestHp:outcome===3?0:1500,
+    const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nests:finalColony.nests.map(nest=>({...nest,hp:outcome===3?0:900})),
       alerts:[0,1,4].map((kind,index)=>({x:finalHub.x+index*2,y:finalHub.y,kind,tick:finalColony.tick}))};
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(ended))})`);
     await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords({...finalClient,chooser:false,leftHanded}))})`);

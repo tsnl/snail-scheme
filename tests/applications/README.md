@@ -24,17 +24,20 @@ fixtures without compiling the game.
 The same runner executes [`max-dps-test`](max-dps-test.md), a small model-only
 balance probe with three-minute deposit discovery and 0.5 artillery utilization.
 Its optimistic capacity result is distinct from a real-map survival playtest.
-The paid pacing fixture also executes a northward seed-one expedition through
-ordinary visible-site orders, extraction, hauling, construction and combat.
-It requires a nest victory within ten minutes, with no injected resources or
-removed enemies. Its eager two-second decisions demonstrate feasibility, not
-normal-player duration or a general scouting strategy across seeds.
+The paid pacing fixture executes a seed-one expedition with north, southeast and
+southwest search bearings through visible-site orders, extraction, hauling,
+construction and combat. It requires genuine paid expansion beyond the finite
+starter, then reports depletion, spending, losses and any front clears. It never
+injects resources or removes enemies and does not require a win. The current
+policy loses before discovering a nest; it is pressure evidence, not a victory
+proof, normal-player duration or a general scouting strategy across seeds.
 
 ```sh
 node tests/applications/save-service.mjs
 node tests/applications/async-runtime.mjs build/application-tests
 node tests/applications/snapshot-cache.mjs build/application-tests
 node tests/applications/recording.mjs build/application-tests/siegework/solo
+node tests/applications/world-profile.mjs build/application-tests/siegework/solo
 node tests/applications/runtime.mjs build/application-tests/siegework/solo build/application-tests build/application-tests/siegework
 node tests/applications/colony-pacing.mjs build/application-tests/siegework/solo build/application-tests/pacing-probe.wasm build/application-tests/pacing-report.json
 ```

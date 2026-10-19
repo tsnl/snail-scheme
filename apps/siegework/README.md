@@ -1,6 +1,6 @@
 # Siegework
 
-Explore a seeded world, establish a supply network and destroy the nest before
+Explore a seeded world, establish a supply network and destroy all three nests before
 its escalating waves overwhelm your colony. The game runs entirely in the
 browser. Scheme defines its rules, 3D scene and touch-friendly HUD; reusable
 application, UI, input and WebGPU libraries live under `src/`.
@@ -28,7 +28,8 @@ Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v12`, with world schema 12 and
 client schema 8. Hub capacity upgrades deliberately start a new colony: World12 stores a completed
-capacity tier and removes constructible houses. Old browser records
+capacity tier, finite deposit reserves and three persistent nests, and removes
+constructible houses. Old browser records
 remain under their previous identity; importing them into this version is rejected.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
@@ -191,15 +192,25 @@ Water blocks movement. About one in ten
 spawned enemies may begin excavating a mountain; others can join an existing
 excavation. They stop and chip away before a permanent opening appears.
 
-The 128×128 map places the hub within eight cells of its center and the nest
-32–41 cells away, roughly five or six observation hops. The intended ordinary
+Deposits run out. The starter holds 600 ore, the northern deposit 900, the rich
+eastern deposit 1,800, and regional deposits hold 300 times their base yield.
+Selecting a deposit or extractor shows what remains underground. Extraction
+upgrades add mining slots without replenishing the reserve. Exhausted sites stop
+pulsing; workers haul the last stock and find other work. Rebuilding an extractor
+preserves its reserve. Keep ore for the next extractor and protect its supply route.
+
+The 128×128 map places the hub within eight cells of its center and three nests
+32–41 cells away on separated bearings, roughly five or six observation hops each. The intended ordinary
 expedition lasts about ten minutes. Enemy
-approach directions help locate it. Waves introduce progressively stronger ranks
+approach directions help locate them. Waves introduce progressively stronger ranks
 with distinct shapes, armor and colors, including elites and a much larger boss.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
 at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
-2:15. Wave sizes grow more slowly than strength. The nest remains the objective;
+2:15. The opening wave has six enemies total, shared among the three fronts.
+Each nest has 900 health. Destroying one removes its share of future waves; its
+remaining enemies keep fighting. Raids prefer an exposed operation on their own
+approach. Wave sizes grow more slowly than strength. Destroy every nest to win;
 time never grants a victory, and unfinished runs continue beyond ten minutes.
 Artillery has limited range and deals more damage at close range. The map outlines
 the combined range of operational guns. Enemies wounded by a gun pursue that

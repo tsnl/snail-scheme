@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,at,setWorker,fixtureCall,pixelAt,routeCell} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,at,setWorker,fixtureCall,pixelAt,routeCell, withdrawReserves} from './colony-state.mjs';
 
 export async function checkWorld(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -20,13 +20,13 @@ export async function checkWorld(test,fresh) {
     for(let i=0;i<250&&!state(r).buildings.some(site=>site.x===x&&site.y===y&&site.stage===2);i++)await advance(r);
     const site=state(r).buildings.find(site=>site.x===x&&site.y===y); assert.equal(site.stage,2); return site;
   }
-  await test('compact worlds place reproducible central hubs and begin with a live distant nest',async()=>{
+  await test('compact worlds place reproducible central hubs and begin with three live distant nests',async()=>{
     const r=await fresh(),spawns=new Set();
     for(const seed of [1,7,43,65535]) {
       await call(r,'new-run-seed',[seed]); const world=state(r),hub=world.surveys[0];
       assert.ok((hub.x-64)**2+(hub.y-64)**2<=8**2); spawns.add(`${hub.x},${hub.y}`);
       assert.ok(world.bots.every(bot=>bot.x===hub.x*40+20&&bot.y===hub.y*40+20));
-      assert.equal(world.nestHp,1500); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
+      assert.deepEqual(world.nests.map(nest=>nest.hp),[900,900,900]); assert.equal(world.lastRevealTick,-100); assert.equal(world.outcome,0);
       assert.equal(r.snapshot(1)[0],12);
       const again=state(r); await call(r,'new-run-seed',[seed]); again.runMarker++;
       assert.deepEqual(state(r),again);
@@ -35,18 +35,18 @@ export async function checkWorld(test,fresh) {
   });
   await test('surviving ten minutes does not win and the nest continues spawning later waves',async()=>{
     const r=await fresh(),world=state(r); world.started=true; world.tick=6000; await restoreColony(r,world); await advance(r);
-    assert.equal(state(r).outcome,0); assert.equal(state(r).nestHp,1500);
+    assert.equal(state(r).outcome,0); assert.deepEqual(state(r).nests.map(nest=>nest.hp),[900,900,900]);
     const later=state(r); later.tick=6749; await restoreColony(r,later); await advance(r);
     assert.ok(state(r).enemies.length>7); assert.equal(state(r).outcome,0);
-    assert.ok(state(r).enemies.every(enemy=>Math.abs(enemy.x-(59*40+20))<=47&&Math.abs(enemy.y-(37*40+20))<=87));
+    assert.ok(state(r).enemies.every(enemy=>state(r).nests.some(nest=>Math.abs(enemy.x-(nest.x*40+20))<=47&&Math.abs(enemy.y-(nest.y*40+20))<=87)));
     await r.close();
   });
-  await test('forward artillery destroys the nest and that victory survives save and pause',async()=>{
+  await test('forward artillery destroys the final nest and that victory survives save and pause',async()=>{
     const r=await fresh(),point=at(state(r),10,23); await build(r,'fortify',point.x,point.y);
     const world=state(r),site=world.buildings[0]; Object.assign(site,{kind:2,level:1,armed:0,x:59,y:41,cooldown:0}); world.rails=[];
-    world.surveys.unshift({x:59,y:41,radius:4}); world.lastRevealTick=world.tick; world.nestHp=6;
+    world.surveys.unshift({x:59,y:41,radius:4}); world.lastRevealTick=world.tick; world.nests.forEach(nest=>nest.hp=nest.id===0?6:0);
     await restoreColony(r,world); const bank=state(r).ore; await advance(r);
-    assert.equal(state(r).nestHp,0); assert.equal(state(r).outcome,3); assert.equal(state(r).ore,bank);
+    assert.ok(state(r).nests.every(nest=>nest.hp===0)); assert.equal(state(r).outcome,3); assert.equal(state(r).ore,bank);
     assert.deepEqual([state(r).buildings[0].aimX,state(r).buildings[0].aimY],[59*40+20,37*40+20]);
     const won=r.snapshot(1); await r.restore(1,won); await advance(r,10); assert.deepEqual(r.snapshot(1),won); await r.close();
   });
@@ -75,7 +75,7 @@ export async function checkWorld(test,fresh) {
     const r=await fresh(),point=at(state(r),12,20); await build(r,'extract',point.x,point.y);
     await call(r,'upgrade',[point.x,point.y]); assert.equal(state(r).buildings[0].level,2);
     await call(r,'upgrade',[point.x,point.y]); assert.equal(state(r).notice,7);
-    const supplied=state(r); supplied.produced+=200; supplied.delivered+=200; supplied.ore+=200;
+    const supplied=state(r); withdrawReserves(supplied, 200); supplied.delivered+=200; supplied.ore+=200;
     await restoreColony(r,supplied); const bank=state(r).ore; await call(r,'upgrade',[point.x,point.y]);
     assert.equal(state(r).ore,bank-160); assert.equal(state(r).buildings[0].level,3);
     const staffed=state(r); staffed.tick=9; staffed.lastRevealTick=-100;
@@ -125,8 +125,8 @@ export async function checkWorld(test,fresh) {
   });
   await test('world decoding rejects impossible nest outcomes and future reveal timing',async()=>{
     const r=await fresh(),saved=r.snapshot(1);
-    for(const edit of [world=>world.nestHp=1501,world=>world.lastRevealTick=world.tick+1,
-      world=>world.outcome=2,world=>world.outcome=3,world=>world.nestHp=0]) {
+    for(const edit of [world=>world.nests[0].hp=901,world=>world.lastRevealTick=world.tick+1,
+      world=>world.outcome=2,world=>world.outcome=3,world=>world.nests.forEach(nest=>nest.hp=0)]) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }

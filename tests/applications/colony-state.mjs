@@ -13,7 +13,7 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest'};
 function typedRecord(type, value) {
   if (type === 'Enemy') {
     const {burrower = false, rank = value.kind === 2 ? 6 : 0, ...fields} = value;
@@ -44,6 +44,21 @@ export const restoreClient = (runtime, local) => runtime.restore(2, clientWords(
 export async function establishColony(runtime) {
   const world=colony(runtime.snapshot(1));world.started=true;
   await restoreColony(runtime,world);return runtime;
+}
+
+// Boundary fixtures may relocate mined material, but must explicitly withdraw
+// it from finite underground reserves. Remote sites drain first so a starter
+// mining scenario keeps its ordinary resource; this never runs in the product.
+export function withdrawReserves(world, amount) {
+  if (!Number.isInteger(amount) || amount < 0) throw new Error('invalid fixture withdrawal');
+  let remaining = amount;
+  for (const deposit of world.deposits.toReversed()) {
+    const take = Math.min(remaining, deposit.remaining);
+    deposit.remaining -= take; remaining -= take;
+  }
+  if (remaining) throw new Error('fixture exceeds the finite map reserves');
+  world.produced += amount;
+  return world;
 }
 
 // Established neighborhood scenarios use coordinates relative to the original
