@@ -79,14 +79,13 @@ to their origin, so a colony from localhost does not automatically move online.
 ## One interface for mouse and touch
 
 The status dials and controls occupy one vertical edge strip. **Pause** opens a
-centered menu with Resume, Restart and the control-side setting. The same icons
+centered menu with Resume, Restart, and explicit **Right-handed** and
+**Left-handed** buttons. The selected choice places the controls on that edge. The same icons
 and touch-sized buttons appear on desktop and mobile.
 
-Pause also exposes the in-memory game recorder, replay scrubber and dump
-export/import controls. Recording starts at this page's checkpoint and is
-bounded; export before reloading to keep its history. Replay preserves the saved
-colony. See [recording and analysis](recording.md) for the event contract and
-the Node analysis command.
+Recording and replay are deferred while the game stabilizes. The game saves its
+current colony normally; it does not capture per-tick history or show dump
+import/export controls. Headless current-state inspection remains available.
 
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor

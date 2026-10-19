@@ -148,3 +148,7 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 @media (prefers-reduced-motion: reduce) { [data-ui-key^="upgrade-wait-"] { animation: none; border-style: dotted; } }
 
 [data-ui-key="worker-capacity"] { text-align: center; font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; color: #2d5878; }
+
+:is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) .snail-ui-button-label { font-size: 12px; }
+[data-ui-key="controls-title"] { text-align: center; font-size: 11px; line-height: 12px; }
+.snail-ui-button:is([data-ui-key="right-handed"], [data-ui-key="left-handed"]) { padding-left: 2px; padding-right: 2px; }

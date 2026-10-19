@@ -129,6 +129,7 @@
   "dragHandler": "drag",
   "observation": {"version": 1},
   "recording": {
+    "enabled": false,
     "menuKey": "pause-dialog",
     "prepareCamera": "recording-camera",
     "cameraHandlers": ["move", "viewport", "nudge", "zoom", "pan", "drift", "drag", "turn", "rotate", "animate", "home", "center", "inspect-attack", "dismiss-attack"],

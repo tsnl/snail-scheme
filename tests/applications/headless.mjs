@@ -39,6 +39,7 @@ async function fixtureEnvironment(edit, options = {}) {
 }
 
 await test('default observations are player knowledge and the headless path does not render', async () => {
+  assert.equal(manifest.settings.recording.enabled,false,'current-state observations do not need replay enabled');
   const view = ReducerRuntime.prototype.view;
   ReducerRuntime.prototype.view = () => { throw new Error('headless rendering'); };
   try {

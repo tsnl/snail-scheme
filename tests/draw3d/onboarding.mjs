@@ -64,7 +64,7 @@ try {
   for(const [width,height]of[[320,568],[390,844],[568,320],[640,360],[1100,760]]) {
     await command('viewport',[width,height]);
     for(const left of [false,true]) {
-      if(left){await command('pause-menu');await command('handedness');await command('resume');}
+      if(left){await command('pause-menu');await command('handedness',[1]);await command('resume');}
       const hint=placed('onboarding'),rail=placed('rail');
       assert.match(node('onboarding-help').text,/extractor on the glowing deposit/);
       assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
@@ -73,7 +73,7 @@ try {
       assert.ok(placed('rotate-left').x<placed('rotate-right').x,'rotation arrows keep screen order');
       assert.deepEqual(runtime.snapshot(1),fresh,'layout and handedness leave the fresh colony unchanged');
     }
-    await command('pause-menu');await command('handedness');await command('resume');
+    await command('pause-menu');await command('handedness',[0]);await command('resume');
   }
   await command('viewport',[960,640]);
   console.log('ok - first-extractor guidance points toward the highlighted deposit on both edges at portrait and short landscape sizes');

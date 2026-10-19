@@ -113,7 +113,7 @@ enemies drop no ore, so a working supply network matters throughout the siege.
 If the hub falls, the entire map is revealed. You can pan around and inspect
 the frozen colony before restarting; construction and purchases are stopped.
 
-## Saving, help and recordings
+## Saving and help
 
 Use a current Chromium browser with **WebGPU and WasmGC** support. The hosted game
 uses HTTPS and needs no installation or game server. If it cannot start, check
@@ -127,10 +127,8 @@ automatically transfer to this website: browser storage belongs to its origin.
 Open **Pause → Help** to return to this guide in a new tab while the colony stays
 paused. Restart replaces your colony with a new seeded world after confirmation.
 
-Pause also offers an optional recorder and replay controls. **Export dump** keeps
-a `.snailrun` history you can reopen for viewing; it is not a transferable colony
-save. History starts at the page's checkpoint and is bounded, so export before
-reloading if you want to keep it. Replay leaves your live saved colony intact.
+Recording and replay are deferred while the game stabilizes. Automatic browser
+saves continue normally, without recording history or dump import/export controls.
 
 ## For developers
 

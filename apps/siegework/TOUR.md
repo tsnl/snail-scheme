@@ -14,7 +14,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
-| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
+| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for headless diagnostics and retained developer analysis; no recording storage or game transitions. |
 | [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
 | [`headless.mjs`](headless.mjs) | Node owner of the same compiled reducer, explicit simulation ticks, FIFO operations, episode horizons/reward, opaque checkpoints and optional privileged diagnostics. |
 | [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
@@ -26,9 +26,10 @@ Scheme owns the game rules and presentation executed in the browser.
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
-The [recording guide](recording.md) follows the optional publication recorder in
-`src/application/recording.mjs`, isolated snapshot player in
-`src/application/playback.mjs`, and Pause controls in `src/browser/recording.mjs`.
+Recording and replay are deferred in the Siegework package. Its disabled
+recording setting prevents browser recorder loading and per-tick history capture.
+The [recording guide](recording.md) documents retained developer libraries and
+analysis tools; current-state headless inspection remains available.
 The `solo/` package runs from static hosting and stores one game record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
 A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit

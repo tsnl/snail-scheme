@@ -72,10 +72,10 @@ async function capture(suffix='') {
   const layout=await evaluate(`(()=>{
     const controls=[...document.querySelectorAll('[data-ui] button:not([data-ui-key="dialog-backdrop"]):not([data-ui-key^="attack-inspect-"]),[data-ui] .snail-ui-kind-6')];
     const invalid=controls.map(node=>{const r=node.getBoundingClientRect();return{key:node.dataset.uiKey,x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}})
-      .filter(r=>{const menu=['resume','restart-menu','handedness','dismiss-restart','accept-restart'].includes(r.key);
-        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:56)||r.height!==(menu?48:56)});
+      .filter(r=>{const menu=['resume','restart-menu','dismiss-restart','accept-restart'].includes(r.key);
+        return r.x<0||r.y<0||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width!==(menu?208:['right-handed','left-handed'].includes(r.key)?100:56)||r.height!==(menu||['right-handed','left-handed'].includes(r.key)?48:56)});
     const clipped=[...document.querySelectorAll('.snail-ui-button-label,[data-ui-key$="-caption"],[data-ui-key$="-readout-label"],[data-ui-key="context-description"],[data-ui-key="onboarding-help"]')]
-      .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent}));
+      .filter(node=>node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1).map(node=>({key:node.closest('[data-ui-key]').dataset.uiKey,text:node.textContent,width:node.clientWidth,scrollWidth:node.scrollWidth,height:node.clientHeight,scrollHeight:node.scrollHeight,font:getComputedStyle(node).fontSize,padding:getComputedStyle(node.parentElement).padding}));
     const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
     const boxes=[...document.querySelectorAll('[data-ui-key^="attack-toast-"]')].map(node=>({key:node.dataset.uiKey,rect:node.getBoundingClientRect()}));
     const obstacles=[...document.querySelectorAll('[data-ui] button:not([data-ui-key^="attack-inspect-"]):not([data-ui-key="dialog-backdrop"]),[data-ui] .snail-ui-kind-6,[data-ui-key="context"],[data-ui-key="result"],[data-ui-key="onboarding"]')];
@@ -186,6 +186,9 @@ async function checkUnitBars() {
 try {
   await call('Runtime.enable');await call('Network.enable');await call('Network.setCacheDisabled',{cacheDisabled:true});
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
+  assert.deepEqual(await evaluate(`({recording:!!snailApp.recording,capture:!!snailApp.runtime.recording,
+    controls:!!document.querySelector('.snail-recording'),loaded:performance.getEntriesByType('resource').some(r=>r.name.includes('/recording.')||r.name.includes('/playback.'))})`),
+    {recording:false,capture:false,controls:false,loaded:false},'recording remains disabled without loading its UI or history code');
   await resize(1100,760);if(await has('pause-dialog'))await command('resume');
   await command('restart-seed',[1]);await evaluate('snailApp.session.stopClock()');await command('center');
   for(const dpr of [1,2,3]){await resize(1101,761,dpr);await checkResolution(1101,761,dpr);}
@@ -222,16 +225,22 @@ try {
     const hintPoint=await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="onboarding"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     assert.equal(await evaluate(`document.elementFromPoint(${hintPoint.x},${hintPoint.y})===snailApp.canvas`),false);await doubleClick(hintPoint);
     assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeReadout,'the painted hint consumes taps without a hidden order');
-    await click('pause');await capture(`-pause-${width}x${height}`);await click('handedness');await click('resume');
+    await click('pause');await capture(`-pause-${width}x${height}`);
+    assert.equal(await evaluate(`document.querySelector('[data-ui-key="right-handed"]').getAttribute('aria-pressed')`),'true');
+    await click('right-handed');assert.equal((await local()).leftHanded,false);
+    await click('left-handed');assert.equal((await local()).leftHanded,true);
+    assert.equal(await evaluate(`document.querySelector('[data-ui-key="left-handed"]').getAttribute('aria-pressed')`),'true');
+    await click('left-handed');assert.equal((await local()).leftHanded,true);await click('resume');
     await capture(`-hint-${width}x${height}-left`);
     assert.equal(await evaluate(`(()=>{const q=document.querySelector('[data-ui-key="rotate-left"]').getBoundingClientRect(),e=document.querySelector('[data-ui-key="rotate-right"]').getBoundingClientRect();return q.left<e.left&&Math.abs(q.top-e.top)<1})()`),true);
-    await click('pause');await click('handedness');await click('resume');
+    await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');
   }
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
   const resources=await evaluate('globalThis.retainedScene=snailApp.runtime.view().scene;snailApp.renderer.resources');
   assert.ok(resources.instancedDraws>0&&resources.instances>resources.meshes,'product occurrences share GPU model buffers');
   await command('drift',[1,0]);const cameraResources=await evaluate('snailApp.renderer.resources');
-  assert.equal(cameraResources.uploads,resources.uploads);assert.equal(cameraResources.meshUploads,resources.meshUploads);
+  assert.ok(cameraResources.uploads-resources.uploads<=2,'camera changes upload at most the two billboard batches');
+  assert.equal(cameraResources.meshUploads,resources.meshUploads);
   assert.equal(await evaluate('[0,3,10].every(key=>snailApp.runtime.view().scene.batches.find(b=>b.key===key)===retainedScene.batches.find(b=>b.key===key))'),true);
   const repeated=structuredClone(freshHint);repeated.started=true;repeated.surveys.unshift({...repeated.surveys[0]});
   for(const x of [10,11,12]) {
@@ -297,18 +306,19 @@ try {
   await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="resume"]').click()`);
   await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed Resume save');assert.equal((await local()).dialogPending,2);assert.equal((await world()).paused,1);
   await until(()=>evaluate(`document.querySelector('[data-ui-key="resume"]').textContent.includes('Resuming')`),'pending Resume label did not render');
-  await evaluate(`void snailApp.local('restart');void snailApp.local('resume')`);await evaluate('releaseMenuSave()');await settled();
+  assert.equal(await evaluate(`['right-handed','left-handed'].every(k=>document.querySelector('[data-ui-key="'+k+'"]').disabled)`),true);
+  await evaluate(`void snailApp.local('handedness',[1]);void snailApp.local('restart');void snailApp.local('resume')`);await evaluate('releaseMenuSave()');await settled();
   assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).paused,0);assert.equal((await local()).dialog,0);assert.deepEqual(await selection(),selected);
   await click('pause');await failNextSave();await click('resume');assert.equal((await world()).paused,1);assert.equal((await local()).dialog,1);assert.deepEqual(await selection(),selected);
-  await resize(568,320);await capture('-failed-resume-568x320');await click('handedness');await capture('-failed-resume-568x320-left');
-  await click('handedness');await resize(1100,760);
+  await resize(568,320);await capture('-failed-resume-568x320');await click((await local()).leftHanded?'right-handed':'left-handed');await capture('-failed-resume-568x320-left');
+  await click((await local()).leftHanded?'right-handed':'left-handed');await resize(1100,760);
   await click('resume');await click('pause');
   await click('restart-menu');await capture('-restart-selection');await command('restart-seed',[42]);await command('resume');
   assert.ok(await has('restart-dialog'));const beforeFailedReset=await evaluate('snailApp.runtime.snapshot(1)');
   await failNextSave();await click('accept-restart');assert.ok(await has('restart-dialog'));assert.equal((await local()).dialogPending,0);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeFailedReset);assert.deepEqual(await selection(),selected);
-  await resize(568,320);await capture('-failed-restart-568x320');await click('dismiss-restart');await click('handedness');await click('restart-menu');
-  await capture('-failed-restart-568x320-left');await click('dismiss-restart');await click('handedness');await click('restart-menu');await resize(1100,760);
+  await resize(568,320);await capture('-failed-restart-568x320');await click('dismiss-restart');await click((await local()).leftHanded?'right-handed':'left-handed');await click('restart-menu');
+  await capture('-failed-restart-568x320-left');await click('dismiss-restart');await click((await local()).leftHanded?'right-handed':'left-handed');await click('restart-menu');await resize(1100,760);
   await key('Escape','Escape');assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
   await press({x:20,y:20});assert.equal((await world()).paused,0);assert.deepEqual(await selection(),selected);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),unbuilt);await evaluate('snailApp.session.stopClock()');
@@ -334,10 +344,10 @@ try {
   await pointCell(15,22,true);assert.equal((await world()).spent,free,'a different tile retargets without charging');
   await failNextSave();await click('artillery');assert.equal((await world()).spent,free);assert.equal((await local()).choiceKind,2);assert.equal((await local()).lastKind,3);
   for(const left of [false,true]) {
-    await resize(568,320);if(left){await click('pause');await click('handedness');await click('resume');}
+    await resize(568,320);if(left){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
     await frameCell(15,22);await pointCell(15,22,true);await capture(`-failed-construction-568x320${left?'-left':''}`);await tileIsTappable(15,22);
   }
-  await click('pause');await click('handedness');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
+  await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
   // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
   await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
   await key('Escape','Escape');
@@ -359,7 +369,7 @@ try {
   unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4});setWorker(unreachable,0,{x:12,y:12});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(unreachable))})`);await settled();await command('center');
   for(const [width,height,left]of[[1100,760,false],[320,568,false],[568,320,false],[568,320,true]]) {
-    await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click('handedness');await click('resume');}
+    await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
     await frameCell(12,11);await pointCell(12,11,true);await click('tower');assert.equal((await local()).failure,32);assert.equal((await world()).ore,160);
     assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/No worker route through surveyed ground/);
     await capture(`-route-rejection-${width}x${height}-${left?'left':'right'}`);await key('Escape','Escape');
@@ -405,17 +415,17 @@ try {
     assert.equal((await local()).heading,heading);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),turnWorld);
     await checkResolution(width,height,dpr);
     await touchControl('pause');await capture(`-${width}x${height}-pause`);
-    await touchControl('handedness');assert.equal((await local()).leftHanded,true);await touchControl('resume');await capture(`-${width}x${height}-left`);
-    await touchControl('pause');await touchControl('handedness');await touchControl('resume');await key('Escape','Escape');
+    await touchControl((await local()).leftHanded?'right-handed':'left-handed');assert.equal((await local()).leftHanded,true);await touchControl('resume');await capture(`-${width}x${height}-left`);
+    await touchControl('pause');await touchControl((await local()).leftHanded?'right-handed':'left-handed');await touchControl('resume');await key('Escape','Escape');
     await frameCell(15,21);const bank=(await world()).ore;await touchAt(await pointCell(15,21));
     assert.equal((await local()).chooser,true);assert.equal((await world()).ore,bank);await capture(`-${width}x${height}-construction`);await tileIsTappable(15,21);
-    await touchControl('pause');await touchControl('handedness');await touchControl('resume');
+    await touchControl('pause');await touchControl((await local()).leftHanded?'right-handed':'left-handed');await touchControl('resume');
     await frameCell(15,21);await touchAt(await pointCell(15,21));await capture(`-${width}x${height}-construction-left`);await tileIsTappable(15,21);
-    await touchControl('pause');await touchControl('handedness');await touchControl('resume');await key('Escape','Escape');
+    await touchControl('pause');await touchControl((await local()).leftHanded?'right-handed':'left-handed');await touchControl('resume');await key('Escape','Escape');
   }
   const edgeWorld=await world();await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords({...edgeWorld,alerts:[]}))})`);await settled();
   for(const [width,height]of[[320,568],[568,320]])for(const left of [false,true]) {
-    await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click('handedness');await click('resume');}
+    await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
     for(const [px,py]of[[left?40:width-40,height<400?height-20:height-110],[width/2,height-168]]) {
       await frameCell(12,22);const before=await pointCell(12,22);await command('drag',[Math.round(px-before.x),Math.round(py-before.y)]);
       await pointCell(12,22,true);await capture(`-edge-${width}x${height}-${left?'left':'right'}-${px}`);const selectedPoint=await tileIsTappable(12,22);
@@ -425,7 +435,7 @@ try {
     }
     await key('Escape','Escape');
   }
-  if((await local()).leftHanded){await click('pause');await click('handedness');await click('resume');}
+  if((await local()).leftHanded){await click('pause');await click((await local()).leftHanded?'right-handed':'left-handed');await click('resume');}
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(edgeWorld))})`);await settled();
   const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*128)*8+firstAlert.kind;
   const beforeDismiss=await evaluate('snailApp.runtime.snapshot(1)');await touchControl(`attack-dismiss-${alertKey}`);
