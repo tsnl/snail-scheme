@@ -16,12 +16,14 @@ export class BrowserApplication {
     if (root) {
       this.ui = new DomUi(root, action => this.uiCommand(action));
       this.uiResize = new ResizeObserver(([entry]) => {
-        this.runtime.uiBridge.resize(entry.contentRect.width, entry.contentRect.height); this.dirty = true;
+        this.runtime.uiBridge.resize(entry.contentRect.width, entry.contentRect.height);
+        this.recording?.playback?.runtime.uiBridge.resize(entry.contentRect.width, entry.contentRect.height); this.dirty = true;
       });
       this.uiResize.observe(root);
     }
   }
   get revision() { return this.session?.revision ?? -1; }
+  get presentationRuntime() { return this.recording?.playback?.runtime ?? this.runtime; }
   note(text, state = 'quiet') {
     if (this.connection.textContent !== text) this.connection.textContent = text;
     this.connection.dataset.state = state;
@@ -41,6 +43,7 @@ export class BrowserApplication {
     await this.reload();
   }
   async reload() {
+    if (this.recording?.replaying || this.recording?.opening) return;
     const ticket = ++this.reloadTicket;
     const next = await (await fetch(new URL('manifest.json', this.base), {cache: 'no-store'})).json();
     if (next.target !== this.target) throw new Error(`Expected a ${this.target} package`);
@@ -66,7 +69,7 @@ export class BrowserApplication {
     } catch (error) { this.runtime.discard(candidate); throw error; }
   }
   async install(candidate, pipeline, settings, ticket) {
-    if (ticket !== this.reloadTicket) { this.runtime.discard(candidate); return; }
+    if (ticket !== this.reloadTicket || this.recording?.replaying || this.recording?.opening) { this.runtime.discard(candidate); return; }
     await this.runtime.replace(candidate); this.renderer?.replace(pipeline);
     this.manifest = this.runtime.manifest; this.generation = this.manifest.generation;
     this.applySettings(settings);
@@ -88,12 +91,14 @@ export class BrowserApplication {
     globalThis.snailApp = this; // Executable browser diagnostics.
   }
   local(binding, args = []) {
+    if (this.recording?.opening) return Promise.resolve();
     // The returned promise includes outgoing durable World orders. Reverse
     // Client effects enter the FIFO after publication and run in later turns.
-    const command = this.runtime.command('client', binding, args.slice()); this.localWork++;
+    const command = this.presentationRuntime.command('client', binding, args.slice()); this.localWork++;
     return this.update(() => this.localTransition(command)).catch(error => this.report(error)).finally(() => this.localWork--);
   }
   uiCommand({owner, command}) {
+    if (this.recording?.replaying || this.recording?.opening) return Promise.resolve(false);
     this.localWork++;
     return this.update(() => owner === 2 ? this.localTransition(command) : this.session.submit(command))
       .then(() => { this.dirty = true; return true; })
@@ -116,6 +121,9 @@ export class BrowserApplication {
     void this.local(this.manifest.settings.viewportHandler, [width, height]);
   }
   async localTransition(command) {
+    if (this.recording?.replaying) {
+      await this.recording.playback?.camera(command); this.dirty = true; return;
+    }
     const result = await this.runtime.dispatch(2, command);
     this.dirty = true; // The committed Client can show progress while World saves.
     await this.routeEffects(result.effects);
@@ -173,10 +181,11 @@ export class BrowserApplication {
     requestAnimationFrame(next => this.frame(next));
   }
   draw() {
-    const presentation = this.runtime.view();
+    const presentation = this.presentationRuntime.view();
     this.animateClient = !!presentation.scene?.requestFrame;
     this.renderer?.draw(presentation.scene ?? presentation.quads, this.inputSettings.width, this.inputSettings.height);
     this.ui?.render(presentation.ui);
+    this.recording?.render();
     this.status.textContent = presentation.label; this.dirty = false;
   }
   async close() {
@@ -187,6 +196,7 @@ export class BrowserApplication {
     // A clock save can publish replies independently of a browser operation.
     await this.runtime.message(() => {});
     await this.drainUpdates();
+    await this.recording?.close();
     await this.runtime.close();
     await this.renderer?.close();
   }

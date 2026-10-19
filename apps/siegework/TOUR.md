@@ -14,6 +14,8 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
+| [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
+| [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, combat totals, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
@@ -21,6 +23,9 @@ Scheme owns the game rules and presentation executed in the browser.
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
+The [recording guide](recording.md) follows the optional publication recorder in
+`src/application/recording.mjs`, isolated snapshot player in
+`src/application/playback.mjs`, and Pause controls in `src/browser/recording.mjs`.
 The `solo/` package runs from static hosting and stores one game record in
 IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
 A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit

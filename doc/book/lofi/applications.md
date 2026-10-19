@@ -676,6 +676,26 @@ hardware-WebGPU browser use. The host APIs used here
 are the [WebGPU specification](https://www.w3.org/TR/webgpu/) and Node's
 [`node:sqlite` API](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).
 
+## Bounded recording and snapshot playback
+
+The optional browser recorder observes World publication after persistence and
+normal revision/effect publication. It retains exact packed snapshots using
+keyframes and word changes, alongside handled commands and emitted effects.
+Failed saves produce no commit entry. Recording failures cannot reject a live
+transition. Camera and animation messages do not enter the World journal.
+
+History stays in bounded page memory, with explicit truncation and checkpoint,
+restore, run and code-generation boundaries. Binary dumps can be imported for
+read-only playback in a separate runtime. Playback uses compatible current
+presentation code, discards effects and never restores into the saved colony.
+Reload begins at the saved checkpoint; earlier in-memory history requires an
+export. This is exact snapshot playback, not historical command re-execution.
+
+Siegework's pure Scheme projection supplies economy, construction, combat totals
+and frontier observations for an offline Node analyzer. These derived values
+are separate from the command/effect event stream. See the
+[recording API and executable examples](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/recording.md).
+
 ## TODO: model checking and protocol analysis
 
 The generated manifest is inspectable input for future analysis, not a current
@@ -694,7 +714,7 @@ and effect budgets without forcing users to hand-write a protocol enum.
 
 No current checker proves arbitrary Scheme termination, fairness, cross-node
 ordering or crash recovery. Useful next work is a pure transition runner with
-optional invariant hooks, bounded finite-state exploration and recorded traces,
+optional invariant hooks and bounded finite-state exploration using recorded traces,
 followed by explicit models of network loss, retries, authority fencing and
 effect completion. Full Scheme conformance, richer payload codecs and a broader
 shader language are separate milestones.
