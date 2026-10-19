@@ -5,6 +5,9 @@ its escalating waves overwhelm your colony. The game runs entirely in the
 browser. Scheme defines its rules, 3D scene and touch-friendly HUD; reusable
 application, UI, input and WebGPU libraries live under `src/`.
 
+The [local environment guide](headless.md) runs the same compiled game in Node
+for deterministic headless tests, JSONL policy experiments, and MCP stdio tools.
+
 For smaller steps first, follow the [five application tutorials](../../doc/book/lofi/tutorials/index.md).
 Each isolates a piece of this app and points back to its implementation here.
 

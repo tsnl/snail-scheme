@@ -15,6 +15,9 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
+| [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
+| [`headless.mjs`](headless.mjs) | Node owner of the same compiled reducer, explicit simulation ticks, FIFO operations, episode horizons/reward, opaque checkpoints and optional privileged diagnostics. |
+| [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
 | [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
@@ -31,6 +34,14 @@ IndexedDB under a stable application ID. A Web Lock gives one tab ownership.
 A build with `SAVE_SERVICE_URL` also emits static `synced/` files with explicit
 online save/load. The optional service stores opaque checkpoints; all simulation
 runs in the browser. See the [save guide](../../doc/static-saves.md).
+
+Headless execution instantiates that same static package in Node. Operation 12
+reads one validated World and emits the player projection without invoking the
+view. Its rows share the runtime's read-only scalar transaction and bounded
+publication output. Privileged operation 11 remains the recording projection;
+its global nest/enemy/reserve totals are not player observations. The host queues
+whole policy operations, advances only explicit ticks, and owns the external
+episode horizon. Neither transport owns another simulation or changes World12.
 
 ## Follow one accepted command
 

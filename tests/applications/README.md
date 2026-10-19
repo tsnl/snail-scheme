@@ -37,13 +37,19 @@ node tests/applications/save-service.mjs
 node tests/applications/async-runtime.mjs build/application-tests
 node tests/applications/snapshot-cache.mjs build/application-tests
 node tests/applications/recording.mjs build/application-tests/siegework/solo
+node tests/applications/headless.mjs build/application-tests/siegework/solo
 node tests/applications/world-profile.mjs build/application-tests/siegework/solo
 node tests/applications/runtime.mjs build/application-tests/siegework/solo build/application-tests build/application-tests/siegework
 node tests/applications/colony-pacing.mjs build/application-tests/siegework/solo build/application-tests/pacing-probe.wasm build/application-tests/pacing-report.json
 ```
 
-There is no game server, command outbox or snapshot-replication test path.
-All game logic runs in the browser. The save service does not run game logic.
+The headless runner executes the same compiled browser package through the
+[local environment](../../apps/siegework/headless.md), checking deterministic
+World parity, player visibility, action validation, episode limits, checkpoint
+accounting and actual JSONL/MCP subprocesses. It runs in the applications CI
+partition. Its local timing/size sample is diagnostic, not a clean benchmark.
+There is no network game server, command outbox or snapshot-replication path.
+The save service does not run game logic.
 
 ## Browser hosting and persistence
 

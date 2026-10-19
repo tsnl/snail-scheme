@@ -1,3 +1,63 @@
+## Shared headless environment checkpoint
+
+The same World12 game now exposes a Scheme-authored player observation alongside
+its privileged recording projection. The tested static package is
+`/tmp/snail-siegework-headless-artifact-20261018/solo`, generation
+`e3e239f3cb295587459eb6eb`. The host runs that package through the browser's
+`ReducerRuntime`; game rules, World12 serialization and presentation are unchanged.
+The integrated implementation is `fd4225b0`; subsequent validation edits are
+documentation only. Its simulation is 619,469 bytes, SHA-256
+`8096de8b0247c3cc78b5361379f22737c5e024ae521ccd6ec5a1971433610329`.
+All packaged browser host modules match the integrated source byte-for-byte.
+The earlier reviewed gameplay baseline at
+`/tmp/snail-siegework-world12-reviewed-artifact-20261018/solo` predates observation
+ABI version 1 and deliberately fails the new environment's package check.
+
+Executed checks for this checkpoint:
+
+- 17 focused headless checks, including exact World parity across seeds 1, 42
+  and 65535; first-extractor gate; whole-request validation including JSON null;
+  FIFO order; paused/unstarted time; horizon and reward checkpoint restoration;
+  hidden enemies/nest health; actual Wasm victory/loss; partial-fault recovery;
+  and real JSONL/MCP subprocess lifecycle, framing, paging and error responses.
+- Review regressions inject observation, decoding and initial inspection failures
+  to prove error sanitization, recovery requirements, and unchanged healthy state
+  after failed reset/restore preparation. Real subprocesses verify that private
+  Node error causes never enter protocol responses. These are fault-injection
+  consistency checks, not evidence of a naturally trapping valid World.
+  Malformed MCP capabilities and non-object parameters are also exercised;
+  invalid notifications remain silent and cannot complete initialization.
+- All 239 existing actual-Wasm application integration checks, 12 recording
+  checks and 22 presentation groups against the exact new package.
+- All 20 headed Chromium hosting groups, including real IndexedDB, static
+  reload/restart, input, GPU presentation and recording playback. The private
+  fixture uses software Vulkan; this is not a hardware or phone FPS measurement.
+- Independent integration smoke checks: 24 parity/recovery assertions across
+  seeds 1, 2 and 65535, plus a real MCP client completing an extractor order,
+  advancing 60 ticks, restoring a checkpoint, and rejecting malformed requests.
+- `make check`, JavaScript syntax, whitespace checks and the mdBook build.
+
+A newcomer check used only public documentation and MCP metadata. It initially
+bought a tower while intending artillery because the numeric kinds lacked names.
+The metadata now names each kind, coordinate units and tick limits; the guide
+documents state codes. A targeted retry on seed 42 correctly bought an extractor
+and artillery. This tests opening usability, not strategy quality or survival.
+
+The informed Astra xhigh review independently passed all 17 focused regressions
+after its query-fault and malformed-protocol findings were fixed. It found no
+remaining blocker in those fixes. The preceding focused simplify pass used an
+independent behavioral explanation and debate; no broader refactoring was needed.
+
+The focused runner's development diagnostic observed 600 ticks in 154–204 ms,
+with 23171-byte initial and 34441-byte tick-600 player observations. These are
+local instrumented samples, not clean benchmarks. No Python Gymnasium wrapper,
+training result or multiplayer service is claimed. The headless runner is included in the
+applications CI partition; the full backend suite was not rerun for this change.
+
+The [environment guide](headless.md) documents the API and protocol. A 10–20
+minute game remains a pacing goal, not a guarantee; the paid seed-one result
+below is still a 7:34 loss. Host horizon truncation is distinct from game outcome.
+
 ## Combined World12 playtest release
 
 The integrated source checkpoint is `39ece757`, based on main `812ffaad` and
