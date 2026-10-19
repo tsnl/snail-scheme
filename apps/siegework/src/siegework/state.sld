@@ -18,13 +18,17 @@
 
     (define (bounded? value low high) (and (>= value low) (<= value high)))
     (define (require! valid) (unless valid (unreachable)))
+    ;; A previously legal structure may occupy a newly introduced bonus site.
+    ;; Coexistence preserves its orders; the occupied cell blocks mining until
+    ;; it moves or is destroyed. New orders still reserve deposits for mines.
     (define (check-building! value world)
       (require! (and (> (building-id value) 0) (bounded? (building-kind value) 1 3)
                      (world-ground? world (building-x value) (building-y value))
                      (bounded? (building-level value) 1 3)
                      (bounded? (building-hp value) 1 (building-health (building-kind value)))
-                     (if (= (building-kind value) 1) (> (deposit-rate (world-seed world) (building-x value) (building-y value)) 0)
-                         (= (deposit-rate (world-seed world) (building-x value) (building-y value)) 0))
+                     (if (= (building-kind value) 1) (> (world-deposit-rate world (building-x value) (building-y value)) 0)
+                         (or (= (world-deposit-rate world (building-x value) (building-y value)) 0)
+                             (bonus-deposit? (world-seed world) (building-x value) (building-y value))))
                      (bounded? (building-aim-x value) 0 (- (* map-width cell-size) 1)) (bounded? (building-aim-y value) 0 (- (* map-height cell-size) 1))
                      (>= (building-stock value) 0)
                      (if (ready? value)
@@ -63,7 +67,7 @@
       (require! (and (world-ground? world (survey-x value) (survey-y value))
                      (bounded? (survey-radius value) 4 10))))
     (define (check-world-fields! world)
-      (require! (and (= (world-payload-version world) 1)
+      (require! (and (= (world-payload-version world) 2)
                      (bounded? (world-tick world) 0 run-end-tick) (bounded? (world-outcome world) 0 3)
                      (or (world-started world)
                          (and (= (world-tick world) 0) (= (world-spent world) 0)
@@ -166,7 +170,7 @@
         (let ((x (building-move-x building)) (y (building-move-y building)))
           (require! (and (surveyed? (world-surveys world) x y)
                          (not (and (= x (world-hub-x world)) (= y (world-hub-y world))))
-                         (= (deposit-rate (world-seed world) x y) 0)
+                         (or (= (world-deposit-rate world x y) 0) (bonus-deposit? (world-seed world) x y))
                          (unique-move? later x y) (null? (building-at (world-buildings world) x y)))))))
     (define (check-buildings! world buildings)
       (unless (null? buildings)
@@ -531,9 +535,10 @@
 
     ;; ---- Explicit compatible payload revision within the World12 envelope ----
 
-    ;; The host's schema and save identity stay 12. Revision 1 adds exactly one
-    ;; World field, one Bot field and one Enemy field. Only the complete original
-    ;; shape migrates: mixed records and unknown revisions reach no live state.
+    ;; The host's schema and save identity stay 12. Revision 1 added exactly one
+    ;; World field, one Bot field and one Enemy field. Revision 2 adds only seeded
+    ;; reserves, preserving every old amount. Only the original and revision-1
+    ;; layouts migrate; mixed records and unknown revisions reach no live state.
     ;; Derived decoding still proves every tag, field name, order and scalar type.
     (define (wire-fields value count)
       (let ((fields (sexp-list-values value)))
@@ -581,6 +586,17 @@
               ((= count 37) value)
               (else (require! #f) value))))
 
+    (define (append-new-reserves saved expected)
+      (if (null? saved) expected
+          (cons (car saved) (append-new-reserves (cdr saved) (cdr expected)))))
+    (define (upgrade-reserves world)
+      (if (not (= (world-payload-version world) 1)) world
+          (let ((seed (world-seed world)) (saved (world-deposits world)))
+            (require! (bounded? seed 1 65535))
+            (check-deposits! saved (initial-deposits-v1 seed))
+            (world-payload-version-set
+             (world-deposits-set world (append-new-reserves saved (initial-deposits seed))) 2))))
+
     ;; ---- A visible restart marker surrounds the derived world payload ----
 
     ;; Schema 12 owns an explicit hub capacity tier and has no house buildings.
@@ -611,4 +627,4 @@
     (define (decode-world words)
       (let ((world (ann (deserialize (canonical-world-payload (snapshot->sexp (world-payload words)))) World)))
         (require! (= (vector-ref words (ann 1 I64)) (world-run-marker world)))
-        (validate-world world)))))
+        (validate-world (upgrade-reserves world))))))

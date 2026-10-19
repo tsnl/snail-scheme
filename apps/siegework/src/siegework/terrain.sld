@@ -6,6 +6,7 @@
           Survey make-survey survey-x survey-y survey-radius surveyed?
           next-map-seed spawn-x spawn-y nest-x nest-y front-x front-y nest-site? deposit-capacity
           northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
+          front-deposit-x front-deposit-y front-deposit? bonus-deposit? nest-deposit-rate
           walking-path tunneling-path avoiding-path escape-path clear-shot? observed-shot?
           open-ground? walking-open-path avoiding-open-path escape-open-path clear-open-shot? observed-open-shot?
           CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path
@@ -171,17 +172,44 @@
     (define (regional-deposit? seed x y)
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
+    ;; Four inner candidates use a 3/4 chance; four outer candidates use 1/4.
+    ;; Each has a seeded cardinal offset plus small sideways jitter. Ground and
+    ;; the protected opening decide which candidates become actual deposits.
+    ;; Eight candidates per front bound work without scanning all 16,384 cells.
+    (define (front-deposit-offset seed front slot horizontal)
+      (let* ((key (+ seed (+ (* front 997) (* slot 271))))
+             (major (+ (if (< slot 4) 6 13) (map-offset key 307 (if (< slot 4) 4 5)))))
+        (if (= (remainder slot 2) (if horizontal 0 1))
+            (if (< (remainder slot 4) 2) major (- 0 major))
+            (- (map-offset key 317 5) 2))))
+    (define (front-deposit-x seed front slot) (+ (front-x seed front) (front-deposit-offset seed front slot #t)))
+    (define (front-deposit-y seed front slot) (+ (front-y seed front) (front-deposit-offset seed front slot #f)))
+    (define (front-deposit? seed front slot)
+      (let ((x (front-deposit-x seed front slot)) (y (front-deposit-y seed front slot)))
+        (and (< (map-offset (+ seed (+ (* front 997) (* slot 271))) 313 4) (if (< slot 4) 3 1))
+             (ground? seed x y) (not (within? x y (spawn-x seed) (spawn-y seed) 20))
+             (not (and (= x (eastern-x seed)) (= y (eastern-y seed))))
+             (not (regional-deposit? seed x y)))))
+    (define (bonus-deposit? seed x y)
+      (let loop ((candidate 0))
+        (and (< candidate 24)
+             (let ((front (quotient candidate 8)) (slot (remainder candidate 8)))
+               (or (and (= x (front-deposit-x seed front slot)) (= y (front-deposit-y seed front slot))
+                        (front-deposit? seed front slot))
+                   (loop (+ candidate 1)))))))
+    (define nest-deposit-rate 8)
     (define (deposit-rate seed x y)
       (cond ((or (not (inside? x y)) (nest-site? seed x y)) 0)
             ((and (= x (+ (spawn-x seed) 4)) (= y (- (spawn-y seed) 2))) 2)
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)
+            ((bonus-deposit? seed x y) 2)
             ((home-cell? (home-x seed x) (home-y seed y)) 0)
             ((regional-deposit? seed x y) (+ 2 (region-value seed x y 211 5)))
             (else 0)))
     (define (deposit-capacity seed x y)
-      (let ((rate (deposit-rate seed x y)))
-        (if (= rate 0) 0 (* 300 rate))))
+      (let ((rate (if (nest-site? seed x y) nest-deposit-rate (deposit-rate seed x y))))
+        (* 300 rate)))
 
     ;; ---- Direct fire crosses every touched grid cell ----
 

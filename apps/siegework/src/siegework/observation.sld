@@ -38,7 +38,7 @@
     (define (observe-cell! world cell)
       (let* ((x (index-x cell)) (y (index-y cell)) (visible (visible? world x y)))
         (row! 10 cell (if visible 1 0) (terrain-kind world x y visible)
-              (deposit-rate (world-seed world) x y)
+              (world-deposit-rate world x y)
               (if visible (ore-remaining world x y) -1)
               (if visible (world-rock-remaining world x y) -1))
         ;; These are previews, as in the UI. The paid command additionally

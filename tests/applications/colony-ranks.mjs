@@ -62,18 +62,19 @@ export async function checkRanks(test,fresh) {
     const local=await LocalState.open(r,{saved,commit:(snapshot,revision)=>committed.push({snapshot,revision})});
     assert.equal(local.revision,7);assert.deepEqual(r.snapshot(1),saved.state);r.view();
     await local.submit(r.command('match','pause-colony',[1]));const after=state(r);
-    assert.equal(after.payloadVersion,1);assert.ok(after.bots.every(bot=>bot.flight.length===0));
+    assert.equal(after.payloadVersion,2);assert.ok(after.bots.every(bot=>bot.flight.length===0));
     assert.equal(after.enemies[0].maxHp,135);assert.equal(after.enemies[0].hp,30);
     const retained=structuredClone(after);delete retained.payloadVersion;
     for(const bot of retained.bots)delete bot.flight;for(const enemy of retained.enemies)delete enemy.maxHp;
-    assert.deepEqual(retained,before);assert.equal(committed[0].revision,7);assert.equal(local.revision,8);
+    assert.deepEqual(retained.deposits.slice(0,before.deposits.length),before.deposits);
+    retained.deposits=before.deposits;assert.deepEqual(retained,before);assert.equal(committed[0].revision,7);assert.equal(local.revision,8);
     const canonical=r.snapshot(1);await r.restore(1,canonical);assert.deepEqual(r.snapshot(1),canonical);
     after.tick=36000;await restoreColony(r,after);await call(r,'pause-colony',[1]);assert.equal(state(r).enemies[0].maxHp,135);
     await r.close();
   });
   await test('unknown payload revisions, mixed layouts and invalid maxima cannot replace a live colony',async()=>{
     const r=await fresh();await wave(r,5400);const saved=r.snapshot(1);
-    for(const edit of [world=>world.payloadVersion=2,world=>delete world.payloadVersion,
+    for(const edit of [world=>world.payloadVersion=3,world=>delete world.payloadVersion,
       world=>world.extra=0,world=>world.bots[0].extra=0,world=>world.enemies[0].maxHp=0,
       world=>world.enemies[0].maxHp=world.enemies[0].hp-1,world=>world.enemies[0].maxHp=2311]) {
       const world=colony(saved);edit(world);await assert.rejects(()=>restoreColony(r,world),WebAssembly.RuntimeError);

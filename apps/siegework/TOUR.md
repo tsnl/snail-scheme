@@ -8,11 +8,11 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement, a seeded resource-density gradient and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
-| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, compatible World12 reserve migration, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
+| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's nest-adjusted strength interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
 | [`observation.sld`](src/siegework/observation.sld) | Read-only player knowledge projection through bounded scalar rows; real visibility and purchase previews, with hidden hostile/reserve data withheld. |
@@ -193,8 +193,23 @@ rather than reallocating it. Raids select the nearest exposed operation closer
 to their own source than the hub. Spawn precedes combat, so a nest killed on a
 spawn tick emits its last share. Clearing all three wins even if enemies remain;
 that outcome retains the existing precedence over same-tick hub destruction.
-The fixed nest model is instanced three times, and dead sites retain their seeded
-terrain clearing. Depletion changes retained terrain only on its final unit.
+Each live nest covers one persistent 2,400-ore reserve. Clearing it removes the
+nest mesh and picking obstruction, exposes the reserve to ordinary mining, and
+subtracts two strength tiers for future spawns. Existing enemies retain their
+spawn maximum; real wave timing is unchanged. The strength cap is applied
+before the nest credit, so late clears reduce the terminal difficulty too.
+
+World12 payload revision 2 keeps the revision-1 fields. Original and revision-1
+saves prove their old seeded deposit prefix before the decoder appends new
+reserves once. A tower or gun already occupying an added bonus site may remain
+there through restore; its occupancy hides the crystal and blocks extraction.
+This explicit coexistence rule does not prove the building came from an old save.
+New construction still rejects non-mines on deposits.
+
+Defeat derives full-map knowledge from the outcome without adding surveys.
+Terrain cache dependencies include outcome and the identity of cleared nests; viewport
+culling still bounds the rendered ground. Depletion changes retained terrain
+only on its final unit.
 
 Accepted restarts increment a bounded run marker, including replaying the same
 seed; the maximum wraps to zero. Rejected seed input retains it. The saved world

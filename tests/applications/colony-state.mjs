@@ -1,4 +1,4 @@
-// Derived schema-12, payload-revision-1 records for bounded encounter fixtures. Only
+// Derived schema-12, payload-revision-2 records for bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 

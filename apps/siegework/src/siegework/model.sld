@@ -5,14 +5,15 @@
           ConstructionOutcome construction-world construction-reason place-cell-outcome
           fortify-world automatic-world upgrade-world fabricate-world focus-world move-world pause-world restart-world seeded-world
           cancel-world arm-world artillery-range artillery-damage final-siege-tick run-end-tick maximum-enemies next-attack-tick next-attack-number attack-countdown-span attack-kind attack-size threat-tier
-          DifficultyWindow difficulty-window difficulty-window-for difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
+          DifficultyWindow difficulty-window difficulty-window-for world-difficulty-window world-threat-tick difficulty-tier difficulty-start difficulty-end difficulty-step-ticks simulation-ticks-per-second
           world-tick world-outcome world-credits world-hull world-kills world-next-id world-started
           world-buildings world-bots world-enemies world-surveys world-focus
           world-plan world-local-spent world-delivered world-produced world-spent world-lost world-notice world-paused
           world-seed world-casualties world-lost-ore world-alerts world-run-marker world-rails world-tracks
           world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick world-payload-version
           Nest make-nest nest-id nest-site-x nest-site-y nest-hp nest-at living-nests initial-nests
-          Deposit make-deposit deposit-cell deposit-remaining world-deposits initial-deposits ore-remaining remaining-ore
+          Deposit make-deposit deposit-cell deposit-remaining world-deposits world-deposits-set initial-deposits initial-deposits-v1 ore-remaining remaining-ore
+          world-deposit-rate living-nest? cleared-nest? world-payload-version-set
           nest-health maximum-buildings maximum-surveys upgrade-cost
           world-breaches world-excavations world-ground? world-rock-remaining rock-health
           Dig make-dig dig-cell dig-remaining enemy-burrower dig-at
@@ -229,8 +230,9 @@
 
     ;; ---- One trusted seed layout proves persistent site identities ----
 
-    ;; Enumerate three home deposits and sixteen regional candidates, never the
-    ;; full map. Only one derived layout is retained per Wasm instance; restored
+    ;; Enumerate three home deposits, sixteen regional candidates, up to twenty-four
+    ;; small frontier deposits and three buried nest reserves, never the full map.
+    ;; Only one derived layout is retained per Wasm instance; restored
     ;; records can neither populate this cache nor change its capacities.
     (define-immutable-record SeedLayout make-seed-layout
       (seed I32 layout-seed layout-seed-set)
@@ -247,10 +249,21 @@
                  (hx (+ (- x (spawn-x seed)) hub-x)) (hy (+ (- y (spawn-y seed)) hub-y)))
             (if (or (= (deposit-rate seed x y) 0) (and (>= hx 0) (< hx 48) (>= hy 0) (< hy 36)))
                 rest (cons (deposit-site seed x y) rest)))))
-    (define (new-deposits seed)
+    (define (initial-deposits-v1 seed)
       (cons (deposit-site seed (+ (spawn-x seed) 4) (- (spawn-y seed) 2))
             (cons (deposit-site seed (northern-x seed) (northern-y seed))
                   (cons (deposit-site seed (eastern-x seed) (eastern-y seed)) (regional-deposits seed 0)))))
+    (define (front-deposits seed candidate)
+      (if (= candidate 24) (empty-list)
+          (let* ((front (quotient candidate 8)) (slot (remainder candidate 8))
+                 (rest (front-deposits seed (+ candidate 1))))
+            (if (front-deposit? seed front slot)
+                (cons (deposit-site seed (front-deposit-x seed front slot) (front-deposit-y seed front slot)) rest) rest))))
+    (define (nest-deposits seed front)
+      (if (= front 3) (empty-list)
+          (cons (deposit-site seed (front-x seed front) (front-y seed front)) (nest-deposits seed (+ front 1)))))
+    (define (new-deposits seed)
+      (append (initial-deposits-v1 seed) (append (front-deposits seed 0) (nest-deposits seed 0))))
     (define (new-nests seed front)
       (if (= front 3) (empty-list)
           (cons (make-nest front (front-x seed front) (front-y seed front) nest-health) (new-nests seed (+ front 1)))))
@@ -265,9 +278,21 @@
       (cond ((null? deposits) (empty-list))
             ((= (deposit-cell (car deposits)) cell) (list (car deposits)))
             (else (deposit-at (cdr deposits) cell))))
+    ;; A defeated nest exposes an existing reserve. No combat transition adds
+    ;; ore or resets a deposit; the ordinary mining withdrawal owns production.
+    (define (living-nest? world x y)
+      (let ((found (nest-at (world-nests world) x y)))
+        (and (not (null? found)) (> (nest-hp (car found)) 0))))
+    (define (cleared-nest? world x y)
+      (let ((found (nest-at (world-nests world) x y)))
+        (and (not (null? found)) (= (nest-hp (car found)) 0))))
+    (define (world-deposit-rate world x y)
+      (if (nest-site? (world-seed world) x y)
+          (if (cleared-nest? world x y) nest-deposit-rate 0)
+          (deposit-rate (world-seed world) x y)))
     (define (ore-remaining world x y)
       (let ((found (deposit-at (world-deposits world) (cell-index x y))))
-        (if (null? found) 0 (deposit-remaining (car found)))))
+        (if (or (= (world-deposit-rate world x y) 0) (null? found)) 0 (deposit-remaining (car found)))))
     (define (remaining-ore deposits)
       (if (null? deposits) 0 (+ (deposit-remaining (car deposits)) (remaining-ore (cdr deposits)))))
     (define (withdraw-deposit deposits cell amount)
@@ -282,7 +307,7 @@
                   (list (idle-bot seed 1) (idle-bot seed 2) (idle-bot seed 3)) (empty-list)
                   (list (make-survey (spawn-x seed) (spawn-y seed) 9))
                   0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 (initial-nests seed) -100
-                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 1))
+                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 2))
     (define (initial-world) (new-world 1 0))
     (define (next-run-marker world)
       (if (= (world-run-marker world) 2147483647) 0 (+ (world-run-marker world) 1)))
@@ -349,8 +374,10 @@
                     (within? x y (building-x (car buildings)) (building-y (car buildings))
                              (building-radius (car buildings))))
                (buildings-see? (cdr buildings) x y))))
+    ;; Defeat exposes the frozen world for inspection. Knowledge is derived
+    ;; from the outcome, never a 16,384-cell survey or a new simulation step.
     (define (visible? world x y)
-      (and (inside? x y) (or (within? x y (world-hub-x world) (world-hub-y world) 9)
+      (and (inside? x y) (or (= (world-outcome world) 1) (within? x y (world-hub-x world) (world-hub-y world) 9)
                              (buildings-see? (world-buildings world) x y)
                              (workers-see? (world-bots world) x y))))
     ;; A passing worker reveals nearby terrain immediately, without claiming
@@ -360,7 +387,8 @@
            (or (within? (cell-x x) (cell-y y) (bot-x (car bots)) (bot-y (car bots)) (* 2 cell-size))
                (workers-see? (cdr bots) x y))))
     (define (known? world x y)
-      (and (inside? x y) (or (surveyed? (world-surveys world) x y)
+      (and (inside? x y) (or (= (world-outcome world) 1) (cleared-nest? world x y)
+                             (surveyed? (world-surveys world) x y)
                              (workers-see? (world-bots world) x y))))
     (define (construction-hidden? world building)
       (and (not (= (building-stage building) 2)) (not (visible? world (building-x building) (building-y building)))))
@@ -385,12 +413,12 @@
             ((not (surveyed? (world-surveys world) x y)) 6)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (nest-site? (world-seed world) x y)
+                 (living-nest? world x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((and (= kind 1) (= (deposit-rate (world-seed world) x y) 0)) 4)
+            ((and (= kind 1) (= (world-deposit-rate world x y) 0)) 4)
             ((and (= kind 1) (= (ore-remaining world x y) 0)) 39)
-            ((and (not (= kind 1)) (> (deposit-rate (world-seed world) x y) 0)) 5)
+            ((and (not (= kind 1)) (> (world-deposit-rate world x y) 0)) 5)
             ((not (affordable-kit? world (building-cost kind))) 7)
             ((or (>= (list-size (world-buildings world)) maximum-buildings)
                  (>= (list-size (world-surveys world)) maximum-surveys)) 8)
@@ -1099,10 +1127,10 @@
             ((not (visible? world x y)) 1)
             ((not (world-ground? world x y)) 2)
             ((or (hub-cell? world x y)
-                 (nest-site? (world-seed world) x y)
+                 (living-nest? world x y)
                  (not (null? (building-at (world-buildings world) x y)))
                  (reserved-move-cell? (world-buildings world) x y)) 3)
-            ((> (deposit-rate (world-seed world) x y) 0) 5)
+            ((> (world-deposit-rate world x y) 0) 5)
             ((< (world-credits world) 5) 7)
             ((>= (+ (list-size (world-surveys world)) (pending-move-count (world-buildings world))) maximum-surveys) 8)
             ((or (not (safe-site? world x y)) (null? (move-candidate world building x y))) 6)
@@ -1139,7 +1167,7 @@
       (if (not (and (ready? building) (= (building-kind building) 1))) 0
           (let* ((x (building-x building)) (y (building-y building))
                  (room (- (- 120 (reserved-stock (world-buildings world) (building-id building))) (building-stock building)))
-                 (yield (* (deposit-rate (world-seed world) x y) (workers-at (world-bots world) 8 (building-id building)))))
+                 (yield (* (world-deposit-rate world x y) (workers-at (world-bots world) 8 (building-id building)))))
             (minimum (ore-remaining world x y) (minimum (maximum 0 room) yield)))))
     ;; All occupied slots share one atomic withdrawal. Clipping the aggregate
     ;; prevents two miners from claiming the last units, even on an upgrade tick.
@@ -1162,8 +1190,8 @@
             (best-cache world (cdr buildings)
                         (if (and (ready? site) (= (building-kind site) 1)
                                  (> (ore-remaining world (building-x site) (building-y site)) 0)
-                                 (or (null? best) (> (deposit-rate (world-seed world) (building-x site) (building-y site))
-                                                     (deposit-rate (world-seed world) (building-x (car best)) (building-y (car best))))))
+                                 (or (null? best) (> (world-deposit-rate world (building-x site) (building-y site))
+                                                     (world-deposit-rate world (building-x (car best)) (building-y (car best))))))
                             (list site) best)))))
     (define (construction-cache world)
       (let ((mine (best-cache world (world-buildings world) (empty-list))))
@@ -1488,6 +1516,19 @@
       (let ((tier (minimum 40 (quotient tick interval))))
         (make-difficulty-window tier (* tier interval) (if (= tier 40) 0 (* (+ tier 1) interval)))))
     (define (difficulty-window tick) (difficulty-window-for tick difficulty-step-ticks))
+    ;; Every cleared front subtracts two 90-second strength tiers. The saved
+    ;; nest health is the receipt; loading or firing again cannot award it twice.
+    ;; Cap the uncredited clock first so even a clear at the final tier matters.
+    ;; Existing enemies keep their spawn rank/max health; wave cadence stays real.
+    (define (nest-threat-credit world)
+      (* (* 2 difficulty-step-ticks) (- 3 (living-nests (world-nests world)))))
+    (define (world-threat-tick world)
+      (maximum 0 (- (minimum (world-tick world) (* 40 difficulty-step-ticks)) (nest-threat-credit world))))
+    (define (world-difficulty-window world)
+      (let* ((credit (nest-threat-credit world)) (window (difficulty-window (world-threat-tick world)))
+             (start (if (= (difficulty-tier window) 0) 0 (+ credit (difficulty-start window))))
+             (end (if (>= (world-tick world) (* 40 difficulty-step-ticks)) 0 (+ credit (difficulty-end window)))))
+        (make-difficulty-window (difficulty-tier window) start end)))
     (define (threat-tier tick) (difficulty-tier (difficulty-window tick)))
     (define (maximum-enemy-rank tick) (minimum 6 (threat-tier tick)))
     (define maximum-enemy-health 2310)
@@ -1560,10 +1601,10 @@
              (target (if (= kind 1) (outpost-target world nest (world-buildings world) (empty-list)) (empty-list)))
              (x (+ (nest-site-x nest) (- (remainder lane 3) 1))) (y (+ (nest-site-y nest) 2))
              (enemy (make-enemy (world-next-id world) (cell-x x) (cell-y y)
-                                (enemy-spawn-health (world-tick world) kind rank) kind
+                                (enemy-spawn-health (world-threat-tick world) kind rank) kind
                                 (if (null? target) 0 (building-id (car target))) (empty-list)
                                 (burrower-id? world (world-next-id world)) rank
-                                (enemy-spawn-health (world-tick world) kind rank))))
+                                (enemy-spawn-health (world-threat-tick world) kind rank))))
         (world-next-id-set (world-enemies-set world (append (world-enemies world) (list (route-enemy world enemy))))
                            (+ (world-next-id world) 1))))
     ;; Introduce one strongest enemy, a familiar previous rank, then mixed
@@ -1586,7 +1627,7 @@
     (define (spawn-due world)
       (let* ((tick (world-tick world)) (count (attack-size tick)))
         (spawn-wave world (attack-kind tick) count count
-                    (if (heavy-wave? tick) 6 (minimum 5 (maximum-enemy-rank tick)))
+                    (minimum (if (heavy-wave? tick) 6 5) (maximum-enemy-rank (world-threat-tick world)))
                     (remainder (- (next-attack-number (- tick 1)) 1) 3))))
     ;; ---- Excavation and enemy routes ----
 

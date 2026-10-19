@@ -26,11 +26,11 @@
                      (if (< (remainder (quotient tick 10) 60) 10) "0" "")
                      (integer-text (remainder (quotient tick 10) 60))))
     (define (difficulty-text world)
-      (let ((readout (project-difficulty (difficulty-window (world-tick world)) (world-tick world))))
+      (let ((readout (project-difficulty (world-difficulty-window world) (world-tick world))))
         (string-append (difficulty-help readout) " · " (integer-text (living-nests (world-nests world)))
                        " / 3 nests left · destroy every nest to win")))
     (define (warning-text world)
-      (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · N begins a fresh colony")
+      (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · full map revealed · N begins a fresh colony")
             ((= (world-outcome world) 3) "RUN ENDED · ALL NESTS DESTROYED · the colony wins")
             (else (difficulty-text world))))
     (define (alert-name kind)
@@ -94,7 +94,7 @@
             ((= staff 0) " · no miners: no production")
             ((= (building-stock building) 120) " · buffer full: waiting for a hauler")
             (else (string-append " · staffed rate "
-                                 (integer-text (* staff (deposit-rate (world-seed world) (building-x building) (building-y building))))
+                                 (integer-text (* staff (world-deposit-rate world (building-x building) (building-y building))))
                                  " ore/sec"))))
     (define (mine-detail world building)
       (let ((staff (workers-at (world-bots world) 8 (building-id building))))
@@ -185,9 +185,9 @@
             (if (= tool 0) "Select a deposit for an extractor, or an empty tile for construction · tap the same tile again to build its preview · select an existing structure for actions · Q/E: rotate camera"
                 (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                                (integer-text x) "," (integer-text y) "] · "
-                               (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
+                               (if (and (known? world x y) (> (world-deposit-rate world x y) 0))
                                    (string-append "deposit: " (integer-text (ore-remaining world x y)) " ore left · "
-                                                  (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
+                                                  (integer-text (world-deposit-rate world x y)) " ore/sec per miner · ") "")
                                (if (= tool 2) "6-cell firing range · " "")
                                (reason-text (placement-reason world tool x y)))))))
     (define (economy-text world)

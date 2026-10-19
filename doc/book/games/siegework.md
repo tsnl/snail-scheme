@@ -92,7 +92,8 @@ The HUD has four readouts:
 ## Win the siege
 
 Three nests lie beyond your initial view, on different sides of the colony.
-Enemy approach directions help you find them. Select a red attack notification
+Enemy approach directions help you find them and new ore: deposits become
+significantly denser as you approach a nest. Select a red attack notification
 to move the camera to the trouble spot; its close button briefly mutes that area.
 
 The first wave starts **45 seconds after your first extractor order**. Ordinary
@@ -100,9 +101,17 @@ waves are 30 seconds apart and enemy strength increases every **90 seconds**.
 Stronger ranks and raids arrive as the run continues. There is no victory timer:
 you win by destroying every nest, and lose if the hub falls.
 
-Destroying a nest stops its future waves; enemies already on the map keep
-fighting. Artillery has limited range and does more damage up close. Defeated
+Destroying a nest stops its future waves, lowers difficulty by **two levels**
+(to a minimum of one), and reveals a rich **2,400-ore deposit** beneath it.
+Build an extractor to mine that reserve; destroying the nest gives no immediate
+ore. Its cleared site remains available, and loading a save never refills it.
+Enemies already on the map keep their existing health and strength. An early
+clear delays the next difficulty increase even at level one; wave timing
+continues normally. Artillery has limited range and does more damage up close. Defeated
 enemies drop no ore, so a working supply network matters throughout the siege.
+
+If the hub falls, the entire map is revealed. You can pan around and inspect
+the frozen colony before restarting; construction and purchases are stopped.
 
 ## Saving, help and recordings
 

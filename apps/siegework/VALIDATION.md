@@ -1,3 +1,39 @@
+## Nest reserves, resource gradient and defeat inspection
+
+The local artifact `/tmp/snail-siegework-nest-reward-final-20261019/solo` has
+generation `9ff3de95336ba5c725f049cd`, a 640,569-byte simulation, and SHA-256
+`62efb21c504c3d87a3918f496f14ef74ed6c40d6f2c1b72f1a4119b13f8d8442`.
+It keeps World12 and upgrades the internal payload to revision 2 without adding
+fields beyond revision 1.
+
+Executed against that artifact:
+
+- All 242 application integration checks, 17 headless checks, 10 colony scene
+  groups, four depletion groups, and `make check` pass.
+- Seven focused actual-Wasm suites cover real nest combat, no instant ore,
+  extractor construction, partial/final withdrawal, exhaustion after restore,
+  defeat visibility and frozen purchases, exact revision-1 host migration,
+  exhausted/occupied bonus sites, pending relocation migration, malformed
+  prefixes, early/capped difficulty credits, existing wounds/maxima, and terrain
+  cache invalidation when a different front is cleared.
+- A compiled geography probe plus actual new-run reducers check 32 deterministic
+  seeds, unique bounded reserves and unchanged opening quantities. Realized
+  deposits per 1,000 eligible ground cells are 10.94 within ten cells of a nest,
+  2.19 in the ten-to-twenty-cell approach band, and 1.12 farther away. These
+  samples exclude the hub's twenty-cell opening radius and nest centers.
+- Exact locally saved checkpoints from generations `25e9ba2f7f228c9aceadd7ce`
+  (original World12) and `1c702deae9870cf236e1d00f` (revision 1) both retain
+  their 17 old reserves and ledger values while gaining 13 new reserves once.
+  The original fixture and copied revision-1 fixture are committed regressions.
+
+The encounters establish transition invariants; they do not measure player
+survival, completion time, or difficulty balance. Defeat verification executes
+the actual scene/observation output and panning; no new headed GPU screenshot
+is claimed here. A focused local simplify review removed dead rendering branches
+and caught the cache-identity and relocation edges. This branch review was
+local; the combined integration is receiving a separate independent explanation
+and source review.
+
 ## Shared headless environment checkpoint
 
 The same World12 game now exposes a Scheme-authored player observation alongside

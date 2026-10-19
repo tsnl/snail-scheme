@@ -213,8 +213,8 @@ try {
   const matches=runtime.view().scene.batches.filter(batch=>[3,10].includes(batch.key)).flatMap(batch=>batch.draws.flatMap(draw=>
     Array.from({length:draw.count},(_,offset)=>({mesh:draw.mesh,index:draw.first+offset,batch})))).filter(({index,batch})=>
       fronts.nests.some(nest=>batch.transforms[index*12+3]===nest.x&&batch.transforms[index*12+7]===-nest.y));
-  assert.equal(matches.length,3);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'three nests reuse one fixed mesh');
-  assert.ok(matches.some(({index,batch})=>Math.abs(batch.transforms[index*12+10]-.18)<1e-5),'cleared nest has a low remnant');
+  assert.equal(matches.length,2);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'live nests reuse one fixed mesh');
+  assert.ok(matches.every(({index,batch})=>Math.abs(batch.transforms[index*12+10]-1)<1e-5),'cleared nest leaves its crystal unobstructed');
   console.log('ok - depleted deposits stop pulsing and reject purchase; all nest instances share geometry and expose the remaining objective');
   for(const [cleared,stars] of ['☆☆☆','★☆☆','★★☆','★★★'].entries()) {
     const progress=structuredClone(fronts);progress.nests.forEach((nest,index)=>nest.hp=index<cleared?0:900);progress.outcome=cleared===3?3:0;

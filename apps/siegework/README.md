@@ -245,14 +245,31 @@ preserves its reserve. Keep ore for the next extractor and protect its supply ro
 The 128×128 map places the hub within eight cells of its center and three nests
 32–41 cells away on separated bearings, roughly five or six observation hops each. The intended ordinary
 expedition lasts about ten minutes. Enemy
-approach directions help locate them. Waves introduce progressively stronger ranks
+approach directions help locate them and richer mining territory. Ordinary deposits
+become significantly denser near nests. Each front considers four inner sites
+6–9 cells away with a 75% acceptance chance and four outer sites 13–17 cells
+away with a 25% chance, then rejects blocked ground, existing mines and the
+20-cell opening radius. These are seeded candidate odds, not guarantees for
+each map or a probability of ore on every tile. At most 24 small deposits are
+added; each holds 600 ore. The three opening deposits keep their old quantities.
+Waves introduce progressively stronger ranks
 with distinct shapes, armor and colors, including elites and a much larger boss.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
 at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
 2:15. The opening wave has six enemies total, shared among the three fronts.
-Each nest has 900 health. Destroying one removes its share of future waves; its
-remaining enemies keep fighting. Raids prefer an exposed operation on their own
+Each nest has 900 health. Destroying one removes its share of future waves,
+reveals a mineable 2,400-ore reserve with base yield 8, and lowers difficulty by
+two levels, down to level one. There is no immediate ore payout. Its remaining
+enemies keep their existing health and strength. The reserve stays depleted
+after saving, loading or rebuilding an extractor.
+
+The strength clock subtracts 1,800 ticks per cleared nest from real time, after
+capping real time at 36,000 ticks, and floors the result at zero. The displayed
+next increase translates that clock back to real time: an early clear delays
+the next increase until tick 2,700, even when the displayed level was already
+one. Clearing at the cap permanently reduces the terminal level. Wave times
+and numbering keep using real time. Raids prefer an exposed operation on their own
 approach. Wave sizes grow more slowly than strength. Destroy every nest to win;
 time never grants a victory, and unfinished runs continue beyond ten minutes.
 Artillery has limited range and deals more damage at close range. The map outlines
@@ -261,6 +278,8 @@ attacker. Other buildings do not intercept that pursuit.
 Crowds spread into nearby walking lanes.
 Defeated enemies
 award no ore: extraction and defending your supply lines remain necessary.
+If the hub is destroyed, the frozen map is fully revealed for inspection.
+Panning and selection remain available; purchases and simulation stay stopped.
 
 Attacks produce smoke and compact red notifications. Select a notification
 to move to that attack. Newly surveyed ground unveils with a sharp, expanding
