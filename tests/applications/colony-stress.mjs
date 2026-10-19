@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,colonyWords,restoreColony,fixtureCall,origin,at} from './colony-state.mjs';
+import {colony,colonyBalance,colonyWords,restoreColony,fixtureCall,origin,at, withdrawReserves} from './colony-state.mjs';
 
 const directory=resolve(process.argv[2]),steps=Number(process.argv[3]??2400);
 const sustained=process.argv.includes('--sustained');
@@ -34,7 +34,7 @@ for(const seed of [1,7,43,65535]) {
     switch(next(9)) {
       case 0: await action('observe',[x,y]); break;
       case 1: await action('fortify',[x,y]); break;
-      case 2: await action('build-house',[x,y]); break;
+      case 2: await action('upgrade',[8,22]); break;
       case 3: if(site)await action('upgrade',[site.x-offset.x,site.y-offset.y]); break;
       case 4: if(site)await action('cancel-building',[site.x-offset.x,site.y-offset.y]); break;
       case 5: await action('fabricate-worker'); break;
@@ -58,7 +58,7 @@ for(const seed of [1,7,43,65535]) {
       // A bounded fixture repairs a defeated hub and funds another construction
       // cycle; actual combat and all subsequent material transitions stay real.
       world.hull=300; world.outcome=0; world.enemies=[];
-      world.produced+=500; world.delivered+=500; world.ore+=500;
+      withdrawReserves(world, 500); world.delivered+=500; world.ore+=500;
       await restoreColony(r,world); repairs++;
     }
     if(iteration%13===0)await order();

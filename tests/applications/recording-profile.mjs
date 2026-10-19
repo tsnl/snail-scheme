@@ -6,10 +6,10 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {RunRecording} from '../../src/application/recording.mjs';
-import {colony, colonyWords, at, pixelAt, routeCell, restoreColony} from './colony-state.mjs';
+import {colony, colonyWords, at, pixelAt, routeCell, restoreColony, withdrawReserves} from './colony-state.mjs';
 
 function grown(world) {
-  world.started = true; world.produced += 100000; world.delivered += 100000; world.ore += 100000;
+  world.started = true; withdrawReserves(world, 10000); world.delivered += 10000; world.ore += 10000;
   for (let y = 11; y <= 30 && world.buildings.length < 64; y++) for (let x = 1; x <= 20 && world.buildings.length < 64; x++) {
     if ((x >= 7 && x <= 9 && y >= 21 && y <= 23) || (x === 12 && y === 20)) continue;
     const point = at(world, x, y), aim = pixelAt(world, x, y);
@@ -17,7 +17,8 @@ function grown(world) {
       cooldown: 0, aimX: aim.x, aimY: aim.y, armed: 0, source: 0, moveX: -1, moveY: -1});
     world.surveys.push({...point, radius: 7}); world.spent += 25; world.ore -= 25;
   }
-  while (world.bots.length < 64) {
+  world.hubCapacityLevel = 6; world.spent += 6300; world.ore -= 6300;
+  while (world.bots.length < 24) {
     world.bots.push({...world.bots[0], id: world.nextId++, path: []}); world.spent += 25; world.ore -= 25;
   }
   return world;
@@ -46,7 +47,7 @@ for (let tick = 0; tick < ticks; tick++) {
   const now = runtime.inspect(0); advancedTicks += now - previousTick; previousTick = now;
 }
 samples.sort((a, b) => a - b);
-const result = {fixture: '64 depots, 64 workers, 128 enemies; real 60-tick windows separated by fixture restores',
+const result = {fixture: '64 depots, 24 workers, completed level-6 hub, finite reserves, 128 enemies; real 60-tick windows separated by fixture restores',
   generation: manifest.generation, advanceCommands: ticks, advancedTicks, noOpCommands: ticks - advancedTicks,
   retainedFirstTick: colony(recording.snapshot(recording.first)).tick, maximumWorldBytes, elapsedMilliseconds: performance.now() - start,
   captureMedianMs: samples[Math.floor(samples.length / 2)], captureP95Ms: samples[Math.floor(samples.length * .95)],

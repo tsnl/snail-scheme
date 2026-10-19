@@ -1,7 +1,7 @@
 // Actual Wasm transitions at ownership and combat boundaries; these fixtures do
 // not provide an alternate simulation or pathfinder.
 import assert from 'node:assert/strict';
-import {colony, colonyBalance, addEnemy, setWorker, restoreColony, at, pixelAt} from './colony-state.mjs';
+import {colony, colonyBalance, addEnemy, setWorker, restoreColony, at, pixelAt, withdrawReserves} from './colony-state.mjs';
 
 export async function checkEncounters(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -67,7 +67,7 @@ export async function checkEncounters(test, fresh, call) {
   });
   await test('worker death loses cargo once, records its location and assembles one replacement', async () => {
     const r = await fresh(); const world = state(r); world.bots.length = 1; world.started = true; world.tick = 9; world.lastRevealTick=-100;
-    world.produced = 16; setWorker(world, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); await restoreColony(r, world);
+    withdrawReserves(world, (16) - world.produced); setWorker(world, 0, {id:1,x:12,y:20,job:7,cargo:16,timer:2}); await restoreColony(r, world);
     await addEnemy(r, {x:12,y:20}); await addEnemy(r, {x:12,y:20}); await advance(r);
     const dead = state(r); assert.equal(dead.casualties, 1); assert.equal(dead.lostOre, 16);
     assert.equal(dead.ore, 160); assert.equal(dead.bots.length, 1); assert.equal(dead.bots[0].job, 6);

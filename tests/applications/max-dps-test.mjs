@@ -14,12 +14,13 @@ const queries = {initialOre:0, initialWorkers:1, buildingCost:2, upgradeCost:3,
   workerCost:4, assemblyTicks:5, workerLimit:6, buildingLimit:7, shotDamage:8,
   cooldownTicks:9, productionTicks:10, nextWave:11, waveHealth:12, waveSize:13,
   waveKind:14, depositRate:15, mapWidth:16, mapHeight:17, hubX:18, hubY:19,
-  bossPeriod:20, levelLimit:21, mineSlots:22};
+  bossPeriod:20, levelLimit:21, mineSlots:22, depositCapacity:23, hubUpgradeCost:24, hubCapacity:25,
+  hubUpgradeTicks:26, hubLevelLimit:27};
 
 // ---- Parse the experiment, then obtain its inputs from the game ----
 
 function configuration(args) {
-  const options = {discoveryMinutes:3, multiplier:0.5, minutes:360, seed:1, output:null};
+  const options = {discoveryMinutes:3, multiplier:0.5, minutes:10, seed:1, output:null};
   const names = {'--discovery-minutes':'discoveryMinutes', '--multiplier':'multiplier',
     '--minutes':'minutes', '--seed':'seed', '--output':'output'};
   for (let index = 0; index < args.length; index += 2) {
@@ -36,13 +37,17 @@ function configuration(args) {
 
 function modelFacts(query) {
   const facts = Object.fromEntries(['initialOre', 'initialWorkers', 'workerCost', 'assemblyTicks',
-    'workerLimit', 'buildingLimit', 'cooldownTicks', 'productionTicks', 'bossPeriod'].map(name => [name, query(name)]));
+    'workerLimit', 'buildingLimit', 'cooldownTicks', 'productionTicks', 'bossPeriod', 'hubUpgradeTicks'].map(name => [name, query(name)]));
   facts.tickSeconds = settings.tickMilliseconds / 1000;
   facts.mineLevels = query('levelLimit', 1); facts.gunLevels = query('levelLimit', 2);
   facts.mineCosts = [0, query('buildingCost', 1), ...Array.from({length:facts.mineLevels - 1}, (_, i) => query('upgradeCost', 11 + i))];
   facts.gunCosts = [0, query('buildingCost', 2), ...Array.from({length:facts.gunLevels - 1}, (_, i) => query('upgradeCost', 21 + i))];
   facts.shotDamage = [0, ...Array.from({length:facts.gunLevels}, (_, i) => query('shotDamage', i + 1))];
   facts.mineSlots = [0, ...Array.from({length:facts.mineLevels}, (_, i) => query('mineSlots', i + 1))];
+  facts.hubLevelLimit = query('hubLevelLimit');
+  facts.hubCosts = Array.from({length:facts.hubLevelLimit}, (_, i) => query('hubUpgradeCost', i));
+  facts.hubCapacities = Array.from({length:facts.hubLevelLimit + 1}, (_, i) => query('hubCapacity', i));
+  assert.equal(facts.hubCapacities.at(-1), facts.workerLimit);
   assert.ok(Object.values(facts).every(value => Array.isArray(value) || value > 0), 'invalid model observation');
   return facts;
 }
@@ -51,7 +56,7 @@ function resourceSites(query) {
   const width = query('mapWidth'), height = query('mapHeight'), x = query('hubX'), y = query('hubY'), sites = [];
   for (let cell = 0; cell < width * height; cell++) {
     const rate = query('depositRate', cell), a = cell % width, b = Math.floor(cell / width);
-    if (rate > 0) sites.push({cell, x:a, y:b, rate, distance:Math.abs(a - x) + Math.abs(b - y), level:0});
+    if (rate > 0) sites.push({cell, x:a, y:b, rate, reserve:query('depositCapacity', cell), remaining:query('depositCapacity', cell), distance:Math.abs(a - x) + Math.abs(b - y), level:0});
   }
   return sites.sort((a, b) => a.distance - b.distance || a.cell - b.cell);
 }
@@ -71,14 +76,17 @@ function wavesThrough(query, horizon) {
 // ---- Invest first in productive mine slots, then spend the rest on guns ----
 
 function miningSlots(state, facts) {
-  return state.sites.flatMap(site => Array(facts.mineSlots[site.level]).fill(site.rate)).sort((a, b) => b - a);
+  return state.sites.filter(site => site.remaining > 0).flatMap(site => Array(facts.mineSlots[site.level]).fill(site)).sort((a, b) => b.rate - a.rate);
 }
 
 function resourceOrder(state, facts) {
   const slots = miningSlots(state, facts), workers = state.workers + state.assembling.length;
-  if (slots.length > workers && workers < facts.workerLimit) return {kind:'worker', cost:facts.workerCost};
-  const leastUseful = slots.length < facts.workerLimit ? 0 : slots[facts.workerLimit - 1];
-  const site = state.sites.filter(site => site.level < facts.mineLevels && site.rate > leastUseful)
+  if (slots.length > workers && workers < facts.workerLimit) {
+    if (workers < facts.hubCapacities[state.hubLevel]) return {kind:'worker', cost:facts.workerCost};
+    return state.hubDue === null ? {kind:'hub', cost:facts.hubCosts[state.hubLevel]} : null;
+  }
+  const leastUseful = slots.length < facts.workerLimit ? 0 : slots[facts.workerLimit - 1].rate;
+  const site = state.sites.filter(site => site.remaining > 0 && site.level < facts.mineLevels && site.rate > leastUseful)
     .sort((a, b) => b.rate - a.rate || a.cell - b.cell)[0];
   if (!site || (site.level === 0 && buildingCount(state) >= facts.buildingLimit)) return null;
   return {kind:'mine', site, cost:facts.mineCosts[site.level + 1]};
@@ -97,9 +105,11 @@ function gunOrder(state, facts) {
 function buyAvailable(state, facts, tick) {
   for (;;) {
     const order = resourceOrder(state, facts) ?? gunOrder(state, facts);
-    if (!order || order.cost > state.ore) return;
+    const reserve = order && ['gun','upgrade'].includes(order.kind) && state.undiscovered > 0 ? facts.mineCosts[1] : 0;
+    if (!order || order.cost + reserve > state.ore) return;
     state.ore -= order.cost; state.spent += order.cost;
-    if (order.kind === 'worker') state.assembling.push(tick + facts.assemblyTicks);
+    if (order.kind === 'hub') {state.hubDue = tick + facts.hubUpgradeTicks; state.hubSpent += order.cost;}
+    else if (order.kind === 'worker') state.assembling.push(tick + facts.assemblyTicks);
     else if (order.kind === 'mine') order.site.level++;
     else if (order.kind === 'gun') state.guns.push(1);
     else state.guns[order.index]++;
@@ -107,15 +117,20 @@ function buyAvailable(state, facts, tick) {
 }
 
 function economyTick(state, facts, tick) {
+  if (state.hubDue !== null && tick >= state.hubDue) {state.hubLevel++; state.hubDue = null;}
   state.workers += state.assembling.filter(due => due <= tick).length;
   state.assembling = state.assembling.filter(due => due > tick);
   if (tick > 0 && tick % facts.productionTicks === 0) {
-    const income = miningSlots(state, facts).slice(0, state.workers).reduce((sum, rate) => sum + rate, 0);
+    const income = miningSlots(state, facts).slice(0, state.workers).reduce((sum, site) => {
+      const amount = Math.min(site.remaining, site.rate); site.remaining -= amount; return sum + amount;
+    }, 0);
     state.ore += income; state.produced += income;
   }
   buyAvailable(state, facts, tick);
   assert.equal(state.ore + state.spent, facts.initialOre + state.produced, 'ore must be conserved');
   assert.ok(state.ore >= 0, 'purchases cannot borrow future income');
+  assert.equal(state.produced, state.sites.reduce((sum, site) => sum + site.reserve - site.remaining, 0));
+  assert.ok(state.workers + state.assembling.length <= facts.hubCapacities[state.hubLevel], 'only completed capacity permits hiring');
 }
 
 function fleetDps(state, facts) {
@@ -126,7 +141,9 @@ function inventory(state, facts) {
   return {guns:state.guns.length, gunLevels:state.guns.reduce((counts, level) =>
     ({...counts, [level]:(counts[level] ?? 0) + 1}), {}), workers:state.workers,
     mines:state.sites.filter(site => site.level > 0).length, ore:state.ore,
-    produced:state.produced, spent:state.spent, theoreticalDps:fleetDps(state, facts)};
+    produced:state.produced, spent:state.spent, hubLevel:state.hubLevel, hubCapacity:facts.hubCapacities[state.hubLevel],
+    hubSpent:state.hubSpent, pendingHubUpgrade:state.hubDue !== null, depleted:state.sites.filter(site => site.remaining === 0).length,
+    remainingOre:state.sites.reduce((sum, site) => sum + site.remaining, 0), theoreticalDps:fleetDps(state, facts)};
 }
 
 // ---- Damage exists only after a wave arrives; each next wave is a deadline ----
@@ -147,12 +164,13 @@ function finishWave(wave, state, facts) {
 }
 
 export function capacityRun(facts, sites, waves, options) {
-  const state = {ore:facts.initialOre, workers:facts.initialWorkers, assembling:[], sites:[], guns:[], produced:0, spent:0};
+  const state = {ore:facts.initialOre, workers:facts.initialWorkers, assembling:[], sites:[], guns:[], produced:0, spent:0, hubLevel:0, hubDue:null, hubSpent:0, undiscovered:sites.length};
   const discoveryTicks = Math.max(1, Math.round(options.discoveryMinutes * 60 / facts.tickSeconds));
   const results = []; let active = null, next = 0, discovered = 0;
   for (let tick = 0; tick < waves.at(-1).deadline; tick++) {
     if (active && tick === active.deadline) {results.push(finishWave(active, state, facts)); active = null;}
     if (tick % discoveryTicks === 0 && discovered < sites.length) state.sites.push({...sites[discovered++], discoveredTick:tick});
+    state.undiscovered = sites.length - discovered;
     economyTick(state, facts, tick);
     if (waves[next]?.tick === tick) active = {...waves[next++], remaining:waves[next - 1].hp, capacity:0, clearTick:null, start:inventory(state, facts)};
     if (active) applyCapacity(active, fleetDps(state, facts) * options.multiplier, tick, facts.tickSeconds);
@@ -160,17 +178,20 @@ export function capacityRun(facts, sites, waves, options) {
   results.push(finishWave(active, state, facts));
   return {passed:results.every(wave => wave.passed), waves:results, inventory:inventory(state, facts),
     observedUntilMinutes:waves.at(-1).deadline * facts.tickSeconds / 60,
-    discoveredSites:state.sites.map(({x, y, rate, level, discoveredTick}) => ({x, y, rate, level, discoveredTick}))};
+    discoveredSites:state.sites.map(({x, y, rate, level, reserve, remaining, discoveredTick}) => ({x, y, rate, level, reserve, remaining, discoveredTick}))};
 }
 
 // ---- A concise report; the optional JSON retains every wave and assumption ----
 
 const assumptions = [
   'One initially known resource site; one further actual map deposit every discovery interval, nearest Manhattan distance first.',
-  'Discovery is free. Mining slots and hired workers are paid at actual prices; hiring retains its assembly delay without occupying an existing miner.',
+  'Discovery is free. Every site has its actual finite reserve; production clips the final unit and upgrades never replenish it.',
+  'Mining slots, workers and hub capacity are paid at actual prices. Only completed hub upgrades unlock hiring: 12 initially, two more per level, at most 24.',
+  'Hiring and hub upgrades retain their assembly delay without occupying an existing miner; return travel is omitted.',
   'Construction, mine upgrades, artillery kit deliveries, worker relocation and hauling are instantaneous; all workers may mine.',
-  'Prioritize productive mining slots and workers, saving for the next resource purchase; spend remaining ore on the best damage-per-ore artillery purchase.',
+  'Prioritize productive mining slots and workers. Save one extractor kit while undiscovered deposits remain, then buy the best damage-per-ore artillery purchase.',
   'Use the actual building and worker limits. Existing assets are never lost; no ore is spent on towers, shields, repairs or exploring.',
+  'All three living fronts retain their full wave shares. Aggregate DPS assumes access to every target; separated approaches require geographic coverage that this bound does not price.',
   'Shots use maximum point-blank damage with perfect target allocation, no overkill, unlimited target access and no range or obstruction loss.',
   'The multiplier reduces that theoretical continuous DPS. Unused damage is discarded; each wave must clear before the next spawn.',
   'Wave budgets are independent: a missed deadline fails the test, and surviving HP does not carry into later windows.',
@@ -194,12 +215,14 @@ function printReport(report) {
   const bosses = result.waves.filter(wave => wave.kind === 2);
   for (const wave of new Set([bosses[0], bosses.at(-1)].filter(Boolean))) console.log(`Boss wave: ${describeWave(wave, facts, options.multiplier)}`);
   console.log(`${result.waves.filter(wave => wave.passed).length}/${result.waves.length} waves clear before the next; ${result.inventory.guns} guns, ${result.inventory.mines} mines, ${result.inventory.workers} workers at the end.`);
+  console.log(`Finite economy: ${result.inventory.produced} ore extracted; ${result.inventory.depleted} known deposits exhausted; hub level ${result.inventory.hubLevel} / capacity ${result.inventory.hubCapacity} cost ${result.inventory.hubSpent}.`);
+  console.log('Three fronts need separate coverage: aggregate damage cannot establish that the placed artillery covers them.');
   console.log('Wave windows are independent: surviving HP from a failed window is not carried into later windows.');
   console.log('Optimistic bound: free discovery, construction, relocation and hauling; perfect range/target access; no losses. This is not a survival or victory proof.');
 }
 
 async function main(args) {
-  const usage = 'usage: scripts/max-dps-test [--discovery-minutes 3] [--multiplier 0.5] [--minutes 360] [--seed 1] [--output REPORT.json]';
+  const usage = 'usage: scripts/max-dps-test [--discovery-minutes 3] [--multiplier 0.5] [--minutes 10] [--seed 1] [--output REPORT.json]';
   if (args[0] === '--help' || args[0] === '-h') {console.log(usage); return;}
   assert.ok(args.length > 0, usage);
   const options = configuration(args.slice(1)), path = resolve(args[0]), bytes = readFileSync(path);
@@ -225,6 +248,17 @@ function checkCapacityContract(facts) {
   assert.equal(capacityRun(fixed, [], [wave], options).passed, true, 'one firing period supplies exactly one shot');
   assert.equal(capacityRun(fixed, [], [wave], {...options, multiplier:0.5}).passed, false, 'the utilization multiplier affects the deadline');
   assert.equal(capacityRun(fixed, [], [{...wave, hp:wave.hp * 2}], options).passed, false, 'idle time cannot bank damage');
+  const funded = {...facts, initialOre:1000000}, sites = Array.from({length:8}, (_, cell) => ({cell,rate:2,reserve:100000,remaining:100000,level:0}));
+  const long = {tick:1000,deadline:2000,hp:1,count:1,kind:0};
+  const growth = {ore:funded.initialOre,workers:facts.hubCapacities[0],assembling:[],sites:sites.map(site=>({...site,level:3})),
+    guns:[],produced:0,spent:0,hubLevel:0,hubDue:null,hubSpent:0};
+  economyTick(growth,funded,0); assert.equal(growth.workers,facts.hubCapacities[0]); assert.equal(growth.hubLevel,0);
+  for(let tick=1;tick<=1000;tick++)economyTick(growth,funded,tick);
+  const grown = inventory(growth,funded);
+  assert.equal(grown.workers, facts.workerLimit); assert.equal(grown.hubLevel, facts.hubLevelLimit);
+  assert.equal(grown.hubSpent, facts.hubCosts.reduce((sum, cost) => sum + cost, 0), '24 workers include every capacity payment');
+  const finite = capacityRun(funded, [{cell:0,rate:6,reserve:5,remaining:5,level:0}], [long], options).inventory;
+  assert.equal(finite.produced, 5); assert.equal(finite.depleted, 1); assert.equal(finite.remainingOre, 0);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main(process.argv.slice(2));
