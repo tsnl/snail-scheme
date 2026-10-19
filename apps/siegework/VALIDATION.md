@@ -1,4 +1,50 @@
-## Unpublished competing fronts and finite reserves (World12)
+## Combined World12 playtest release
+
+The integrated source checkpoint is `39ece757`, based on main `812ffaad` and
+recording PR #343 (`213e9662`). Its default-O1 solo package is generation
+`91ba9f0e3d057c99d5b14900`: 615,364 Wasm bytes, SHA-256
+`a537a89659962a2749e5254a75e5f6aa6552575be23c9a453371c5b215a643c9`.
+The checks below use that exact package, including the final labor reservation
+fix. Subsequent changes to this checkpoint are documentation only.
+
+This combines paid hub capacity upgrades, the extractor-first opening, shorter
+buildings and larger pulsing resources with three enemy fronts and finite ore.
+It is the first public World12 package, with save ID `siegework-colony-v12`:
+start a fresh colony. The previous World11 IndexedDB namespace remains intact.
+An already open World11 page retains its old code on incompatible hot reload;
+refresh to open the new version.
+
+Verification passed:
+
+- 239 actual-Wasm application integration checks, including opening purchase
+  guards, reserves, independent fronts, hub capacity and construction labor.
+- 12 recording checks and 22 presentation groups (nine colony, eight playtest,
+  five onboarding).
+- All 20 headed Chromium hosting groups, including real IndexedDB, static
+  reload/restart, application input, GPU rendering and recording playback.
+  Portrait and landscape screenshots were inspected. This uses software Vulkan
+  for browser correctness; it does not measure hardware or phone frame rates.
+- The finite-income `max-dps-test` at three-minute discovery and 0.5 times
+  theoretical DPS. This remains an optimistic aggregate capacity bound, not
+  proof of geographic coverage, survival or a ten-minute victory.
+- The paid seed-one expedition observation: loss at 7:34, 813 ore produced,
+  646 delivered, 860 spent, 21 banked, eleven structures lost and 87 kills.
+  Starter exhaustion was observed at 4:02; no nest was found or cleared.
+  These are automated-policy observations, not human playtest results.
+- Repository `make check`, JavaScript syntax checks and the mdBook build.
+
+The informed Astra xhigh review found one labor reservation omission: a worker
+expanding the hub was not counted among committed builders. Regression cases
+for assembly, cargo return and fleeing failed on the prior package and passed
+after the one-predicate fix. The final package independently passes all ten hub
+test groups, with no remaining review blockers. This preserves the economy's
+minimum available labor while construction waits, without duplicate charges.
+
+The following sections document individual branch checkpoints and earlier
+measurements. Their package hashes and test totals are historical; the combined
+release above is the package to playtest.
+
+## Individual competing fronts and finite reserves checkpoint (World12)
 
 This checkpoint extends the same unpublished World12 contract as hub capacity.
 Three seeded 900-health nests share a six-enemy opening wave; destroying a front
