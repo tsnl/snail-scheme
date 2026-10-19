@@ -146,4 +146,16 @@ body:has([data-ui-key="dialog-backdrop"]) .connection[data-state] { height: auto
 @keyframes upgrade-wait-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { [data-ui-key^="upgrade-wait-"] { animation: none; border-style: dotted; } }
 
+/* Ore badges follow world projection while the display clock owns the warning. */
+[data-ui-key^="deposit-ore-"] { pointer-events: none; padding: 2px 6px 3px; border: 1px solid #b99cc9; border-radius: 6px; color: #633087; background: #fff7eef2; box-shadow: 0 1px 3px #163f6655; }
+[data-ui-key^="deposit-ore-"] .snail-ui-meter-label { font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 16px; text-align: center; white-space: nowrap; }
+[data-ui-key^="deposit-ore-"] .snail-ui-meter { appearance: none; height: 5px; border: 0; border-radius: 2px; color: inherit; background: #b9a4c74d; }
+[data-ui-key^="deposit-ore-"] .snail-ui-meter::-webkit-meter-bar { height: 5px; border: 0; border-radius: 2px; background: #b9a4c74d; }
+[data-ui-key^="deposit-ore-"] .snail-ui-meter::-webkit-meter-optimum-value { background: currentColor; }
+[data-ui-key^="deposit-ore-"] .snail-ui-meter::-moz-meter-bar { background: currentColor; }
+.snail-ui-node[data-ui-key^="deposit-ore-"][data-tone="4"] { color: #fff9f0; background: #a52b21; border-color: #ffb7a4; animation: deposit-low-pulse 1250ms ease-in-out infinite; }
+.snail-ui-node[data-ui-key^="deposit-ore-"][data-tone="1"] { color: #526166; background: #e5e9e3ed; border-color: #93a5a3; }
+@keyframes deposit-low-pulse { 50% { border-color: #ff5b45; box-shadow: 0 0 0 3px #ff5b4577; } }
+@media (prefers-reduced-motion: reduce) { .snail-ui-node[data-ui-key^="deposit-ore-"][data-tone="4"] { animation: none; } }
+
 [data-ui-key="worker-capacity"] { text-align: center; font-size: 11px; line-height: 16px; font-variant-numeric: tabular-nums; color: #2d5878; }
