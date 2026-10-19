@@ -5,6 +5,9 @@ its escalating waves overwhelm your colony. The game runs entirely in the
 browser. Scheme defines its rules, 3D scene and touch-friendly HUD; reusable
 application, UI, input and WebGPU libraries live under `src/`.
 
+**[Play online](https://tsnl.github.io/snail-scheme/play/siegework/)** ·
+[Player guide](https://tsnl.github.io/snail-scheme/games/siegework.html)
+
 The [local environment guide](headless.md) runs the same compiled game in Node
 for deterministic headless tests, JSONL policy experiments, and MCP stdio tools.
 
@@ -40,6 +43,30 @@ changes to host JavaScript require a page reload.
 An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
 checkpoint controls. Gameplay still runs locally. See the
 [save service guide](../../doc/static-saves.md).
+
+## Publish with the book
+
+`node scripts/build-pages.mjs` builds the book and game together with Chibi,
+Binaryen, Node and mdBook. The generated `build/pages/` directory contains the
+book at its root and the solo game at `play/siegework/`. Compiler intermediates
+stay in `build/pages-game/`. The workflow uploads only `build/pages/` as a GitHub
+Pages artifact; generated files are not committed. Pull requests build and check
+the site, pushes to `main` publish it, and a manual run publishes only when its
+explicit `publish` input is selected and the Pages environment permits that ref.
+
+For packaging checks with an already compiled game, use
+`node scripts/build-pages.mjs --game-artifacts /path/to/compiled-game`.
+That directory must contain `simulation.wasm`, `shader.wasm` and
+`application.syntax.json`. This reuses Wasm inputs while packaging the current
+HTML, CSS and browser libraries; it does not check the current compiler build.
+Run `node tests/pages.mjs build/pages` for the artifact regression checks.
+With Chromium available, `node tests/pages-browser.mjs build/pages` serves the
+project prefix on a temporary loopback port and checks the guide, game startup
+and paused Help control in a private browser profile.
+
+The player's **Pause → Help** link opens the published guide in a new tab,
+including when this standalone package is served locally. Browser saves belong
+to their origin, so a colony from localhost does not automatically move online.
 
 ## One interface for mouse and touch
 

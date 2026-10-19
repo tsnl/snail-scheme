@@ -206,8 +206,9 @@ worker or picking up a kit. A carrier already traveling on a proved route can
 complete it. The HUD and world marker share the same hidden-construction rule.
 
 Each simulation tick rebuilds the rooted depot tree. Its current paths supply
-eight retained groups of glowing dots whose phases travel toward the hub on the
-display clock. Reserved track bitmasks never produce geometry. Both towers and
+eight retained groups of translucent chevrons pointing toward the hub, with their
+phases following the display clock. Shared directed segments draw each chevron
+once. Reserved track bitmasks never produce geometry. Both towers and
 artillery reuse one stone plinth mesh, with
 four corner pillars and an open arch on each face. Buildings can occupy
 transport paths and intersections without removing their connections.

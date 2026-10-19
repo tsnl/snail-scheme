@@ -115,6 +115,7 @@ progress to stderr, including during synchronous compiler-service calls.
 | [`src/lofi/host/`](src/lofi/host/README.md) | Chibi process, trace, JSON, Wasm serialization and Binaryen services. |
 | [`src/runtime/`](src/runtime/README.md) | Rust scalar services compiled to Wasm; managed values stay in the engine. |
 | [`scripts/`](scripts/) and [`tools/host/`](tools/host/) | Executable orchestration and host tool configuration. |
+| [`scripts/build-pages.mjs`](scripts/build-pages.mjs) and [`scripts/check-pages.mjs`](scripts/check-pages.mjs) | Build the book and solo Siegework package into one generated Pages artifact, then check its local URLs and file boundaries under `/snail-scheme/`. The [Games chapter](doc/book/games/index.md) is the player entry point. |
 | [`scripts/format-scheme`](scripts/format-scheme.el) | Scheme indentation with one import specification or record field per line; shared by the editor and `make format`/`make check`. |
 | [`tests/`](tests/README.md) | Integration fixtures, runners, shared assertions, and the complete backend inventory and CI partition checks. |
 | [`benchmarks/`](benchmarks/README.md) | All 57 workloads, controls and preserved measurement evidence. |
