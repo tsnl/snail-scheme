@@ -10,7 +10,7 @@
           world-buildings world-bots world-enemies world-surveys world-focus
           world-plan world-local-spent world-delivered world-produced world-spent world-lost world-notice world-paused
           world-seed world-casualties world-lost-ore world-alerts world-run-marker world-rails world-tracks
-          world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick
+          world-hub-x world-hub-y world-nests world-nest-hp world-last-reveal-tick world-payload-version
           Nest make-nest nest-id nest-site-x nest-site-y nest-hp nest-at living-nests initial-nests
           Deposit make-deposit deposit-cell deposit-remaining world-deposits initial-deposits ore-remaining remaining-ore
           nest-health maximum-buildings maximum-surveys upgrade-cost
@@ -20,11 +20,12 @@
           Building make-building building-id building-kind building-x building-y
           building-level building-hp building-stock building-stage building-cooldown
           building-aim-x building-aim-y building-armed building-source building-move-x building-move-y moving? tower? armed?
-          Bot make-bot bot-id bot-x bot-y bot-job bot-target bot-cargo bot-timer bot-path bot-hp bot-order bot-source
+          Bot make-bot bot-id bot-x bot-y bot-job bot-target bot-cargo bot-timer bot-path bot-hp bot-order bot-source bot-flight
+          Flight make-flight flight-origin flight-destination flight-progress flight-speed
           Rail make-rail rail-source rail-parent rail-progress rail-returning rail-cargo rail-path
           rail-x rail-y bot-riding? cart-station? rebuild-transport
           track-cell track-east? track-south? track-west? track-north? track-station?
-          Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-kind enemy-target
+          Enemy make-enemy enemy-id enemy-x enemy-y enemy-hp enemy-max-hp enemy-kind enemy-target enemy-spawn-health
           enemy-path enemy-rank enemy-rank-health enemy-rank-damage maximum-enemy-rank maximum-enemy-health
           building-at find-building list-size visible? known? workers-see? construction-hidden? ready? building-radius
           building-health building-cost placement-reason move-reason workers-at mine-backlog
@@ -95,6 +96,14 @@
     ;; Jobs 14/15 return for a paid hub capacity upgrade / assemble it. Fleeing
     ;; timer 14 retains that order. Target owns its price, separate from cargo;
     ;; capacity changes only on completion, and death refunds the unused price.
+    ;; A committed flight owns movement only. Cargo and paid work remain on Bot;
+    ;; its fixed ground endpoints remain meaningful after either tower is lost.
+    (define-immutable-record Flight make-flight
+      (origin I32 flight-origin flight-origin-set)
+      (destination I32 flight-destination flight-destination-set)
+      (progress I32 flight-progress flight-progress-set)
+      (speed I32 flight-speed flight-speed-set)
+      (deriving derive-serialize derive-deserialize))
     (define-immutable-record Bot make-bot
       (id I32 bot-id bot-id-set)
       (x I32 bot-x bot-x-set)
@@ -107,6 +116,7 @@
       (hp I32 bot-hp bot-hp-set)
       (order I32 bot-order bot-order-set)
       (source I32 bot-source bot-source-set)
+      (flight (List Flight) bot-flight bot-flight-set)
       (deriving derive-serialize derive-deserialize))
     ;; One source-owned shuttle follows its current tree edge toward the hub,
     ;; then returns empty. Tree construction proves ancestry, never ID order.
@@ -133,6 +143,7 @@
       (path (List I32) enemy-path enemy-path-set)
       (burrower Bool enemy-burrower enemy-burrower-set)
       (rank I32 enemy-rank enemy-rank-set)
+      (max-hp I32 enemy-max-hp enemy-max-hp-set)
       (deriving derive-serialize derive-deserialize))
     (define-immutable-record Alert make-alert
       (x I32 alert-x alert-x-set)
@@ -192,6 +203,7 @@
       (tracks (List I32) world-tracks world-tracks-set)
       (hub-capacity-level I32 world-hub-capacity-level world-hub-capacity-level-set)
       (deposits (List Deposit) world-deposits world-deposits-set)
+      (payload-version I32 world-payload-version world-payload-version-set)
       (deriving derive-serialize derive-deserialize))
     (define nest-health 900)
     (define maximum-buildings 256)
@@ -262,13 +274,13 @@
                     (deposit-remaining-set (car deposits) (- (deposit-remaining (car deposits)) amount)) (car deposits))
                 (withdraw-deposit (cdr deposits) cell amount))))
     (define (idle-bot seed id)
-      (make-bot id (cell-x (spawn-x seed)) (cell-y (spawn-y seed)) 0 0 0 0 (empty-list) 14 0 0))
+      (make-bot id (cell-x (spawn-x seed)) (cell-y (spawn-y seed)) 0 0 0 0 (empty-list) 14 0 0 (empty-list)))
     (define (new-world seed marker)
       (make-world 0 0 160 300 0 4 (empty-list)
                   (list (idle-bot seed 1) (idle-bot seed 2) (idle-bot seed 3)) (empty-list)
                   (list (make-survey (spawn-x seed) (spawn-y seed) 9))
                   0 0 0 0 0 0 0 0 seed 0 0 (empty-list) marker (empty-list) 0 (initial-nests seed) -100
-                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed)))
+                  (empty-list) (empty-list) #f (empty-list) 0 (initial-deposits seed) 1))
     (define (initial-world) (new-world 1 0))
     (define (next-run-marker world)
       (if (= (world-run-marker world) 2147483647) 0 (+ (world-run-marker world) 1)))
@@ -483,11 +495,11 @@
     (define (start-assembly world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 6 (bot-target bot) 0
-                         worker-assembly-ticks (empty-list) 14 0 0)))
+                         worker-assembly-ticks (empty-list) 14 0 0 (bot-flight bot))))
     (define (accept-fabrication world choice)
       (let* ((bot (builder-worker choice)) (id (world-next-id world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 4 id (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (world-next-id-set (spend world worker-cost) (+ id 1))))
         (world-notice-set (if (at-hub? world bot) (start-assembly paid returning) (put-bot paid returning)) 13)))
     (define (fabricate-world world)
@@ -524,11 +536,11 @@
     (define (start-repair world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 13 (bot-target bot) 0
-                         repair-ticks (empty-list) (bot-hp bot) 0 0)))
+                         repair-ticks (empty-list) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (accept-repair world choice)
       (let* ((bot (builder-worker choice)) (paid-ore (repair-cost world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 12 paid-ore (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (spend world paid-ore)))
         (world-notice-set (if (at-hub? world bot) (start-repair paid returning) (put-bot paid returning)) 31)))
     (define (repair-world world)
@@ -563,11 +575,11 @@
     (define (start-hub-upgrade world bot)
       (put-bot (credit-delivery world (bot-cargo bot))
                (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 15 (bot-target bot) 0
-                         hub-upgrade-ticks (empty-list) (bot-hp bot) 0 0)))
+                         hub-upgrade-ticks (empty-list) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (accept-hub-upgrade world choice)
       (let* ((bot (builder-worker choice)) (price (hub-upgrade-cost world))
              (returning (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 14 price (bot-cargo bot) 0
-                                  (builder-pickup choice) (bot-hp bot) 0 0))
+                                  (builder-pickup choice) (bot-hp bot) 0 0 (bot-flight bot)))
              (paid (spend world price)))
         (world-notice-set (if (at-hub? world bot) (start-hub-upgrade paid returning) (put-bot paid returning)) 37)))
     (define (upgrade-hub-world world)
@@ -768,7 +780,7 @@
                  (settling (and (= (bot-job bot) 2) (> (bot-cargo bot) 0)))
                  (next (if settling ordered
                            (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 11 (building-source building) 0 0
-                                     (builder-pickup choice) (bot-hp bot) (building-id building) 0))))
+                                     (builder-pickup choice) (bot-hp bot) (building-id building) 0 (bot-flight bot)))))
             (put-bot (put-building world (construction-stage-set building 3)) next))))
     (define (redirect-carrier world building choice)
       ;; Same-source reservations exchange one generic kit. The physical cargo
@@ -1312,7 +1324,7 @@
                              (choose-nearer (mine-choice world bot mine safe) best) best)))))
     (define (install-assignment world bot assignment)
       (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) (assignment-job assignment)
-                               (assignment-target assignment) 0 0 (assignment-path assignment) (bot-hp bot) 0 0)))
+                               (assignment-target assignment) 0 0 (assignment-path assignment) (bot-hp bot) 0 0 (bot-flight bot))))
     (define (pickup-order world bot)
       (let ((found (find-building (world-buildings world) (bot-order bot))))
         (cond ((null? found) (put-bot world (release-order bot)))
@@ -1323,7 +1335,7 @@
                           (put-bot world (bot-job-set (clear-job bot) 10))
                           (put-bot (put-building world (construction-stage-set building 1))
                                    (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 3 (building-id building)
-                                             (construction-kit-size building) 0 path (bot-hp bot) 0 (building-source building)))))))))
+                                             (construction-kit-size building) 0 path (bot-hp bot) 0 (building-source building) (bot-flight bot)))))))))
     ;; An unseen site retains its paid supplies, but releases an unladen worker
     ;; for useful work. A carrier already on the remembered route brings vision
     ;; with it and can finish once its own circle reaches the site.
@@ -1337,7 +1349,7 @@
                (put-bot world (bot-job-set (clear-job bot) 10)))
               (else (if (null? path) (pickup-order world bot)
                         (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 11 source 0 0 path
-                                                 (bot-hp bot) (bot-order bot) 0)))))))
+                                                 (bot-hp bot) (bot-order bot) 0 (bot-flight bot))))))))
     (define (assign-work world bot)
       (if (> (bot-order bot) 0) (reserved-work world bot)
           (let ((choice (choose-work world bot (world-buildings world) #t (empty-list))))
@@ -1382,7 +1394,7 @@
            (or (within? x y (enemy-x (car enemies)) (enemy-y (car enemies)) 130)
                (danger? (cdr enemies) x y))))
     (define (clear-job bot)
-      (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 0 0 0 0 (empty-list) (bot-hp bot) (bot-order bot) 0))
+      (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 0 0 0 0 (empty-list) (bot-hp bot) (bot-order bot) 0 (bot-flight bot)))
     (define (return-home world bot job)
       (let* ((path (route-from world bot (world-hub-x world) (world-hub-y world) #t))
              (returning (and (reachable? bot (world-hub-x world) (world-hub-y world) path) (not (= job 11)))))
@@ -1391,7 +1403,7 @@
         (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot)
                                  (if returning job 7)
                                  (if (= job 2) 0 (bot-target bot)) (bot-cargo bot)
-                                 (if returning 0 job) path (bot-hp bot) (bot-order bot) (bot-source bot)))))
+                                 (if returning 0 job) path (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
     (define (escape-bot world bot)
       (let* ((x (quotient (bot-x bot) cell-size)) (y (quotient (bot-y bot) cell-size))
              (path (cart-escape-path (world-seed world) (world-breaches world) (fast-rails world (world-rails world)) x y (world-surveys world)
@@ -1407,7 +1419,7 @@
                      (if (or (= (bot-job bot) 4) (= (bot-job bot) 12) (= (bot-job bot) 14)) (bot-job bot)
                          (if (= (bot-job bot) 11) 11 (if (= (bot-job bot) 7) (bot-timer bot) 2))))))
         (flee-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 7 (bot-target bot)
-                                  (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot)))))
+                                  (bot-cargo bot) job (empty-list) (bot-hp bot) (bot-order bot) (bot-source bot) (bot-flight bot)))))
     (define (drop-choice world bot id x y best)
       (let ((path (route-from world bot x y #t)))
         (if (and (reachable? bot x y path)
@@ -1424,7 +1436,7 @@
         (if (null? choice) (return-home world (bot-target-set bot 0) 2)
             (let ((destination (car choice)))
               (put-bot world (make-bot (bot-id bot) (bot-x bot) (bot-y bot) 2 (assignment-target destination)
-                                       (bot-cargo bot) 0 (assignment-path destination) (bot-hp bot) (bot-order bot) 0))))))
+                                       (bot-cargo bot) 0 (assignment-path destination) (bot-hp bot) (bot-order bot) 0 (bot-flight bot)))))))
     (define (collect-ore world bot)
       (let ((found (find-building (world-buildings world) (bot-target bot))))
         (if (null? found) (put-bot world (clear-job bot))
@@ -1613,8 +1625,8 @@
             (y (+ (nest-site-y nest) (- (remainder lane 5) 2))))
         (if (and (= kind 0) (not (ground? (world-seed world) x y))
                  (not (water? (world-seed world) x y))) 1 kind)))
-    (define (enemy-health world kind rank)
-      (let ((health (+ (enemy-rank-health rank) (* 15 (maximum 0 (- (threat-tier (world-tick world)) 6))))))
+    (define (enemy-spawn-health tick kind rank)
+      (let ((health (+ (enemy-rank-health rank) (* 15 (maximum 0 (- (threat-tier tick) 6))))))
         (if (= kind 1) (quotient (* 4 health) 5) health)))
     (define (burrower-id? world id)
       (= (remainder (+ (remainder (world-seed world) 10) (remainder id 10)) 10) 0))
@@ -1623,9 +1635,10 @@
              (target (if (= kind 1) (outpost-target world nest (world-buildings world) (empty-list)) (empty-list)))
              (x (+ (nest-site-x nest) (- (remainder lane 3) 1))) (y (+ (nest-site-y nest) 2))
              (enemy (make-enemy (world-next-id world) (cell-x x) (cell-y y)
-                                (enemy-health world kind rank) kind
+                                (enemy-spawn-health (world-tick world) kind rank) kind
                                 (if (null? target) 0 (building-id (car target))) (empty-list)
-                                (burrower-id? world (world-next-id world)) rank)))
+                                (burrower-id? world (world-next-id world)) rank
+                                (enemy-spawn-health (world-tick world) kind rank))))
         (world-next-id-set (world-enemies-set world (append (world-enemies world) (list (route-enemy world enemy))))
                            (+ (world-next-id world) 1))))
     ;; Introduce one strongest enemy, a familiar previous rank, then mixed

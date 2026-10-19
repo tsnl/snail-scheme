@@ -6,6 +6,8 @@
    (scheme base)
    (scheme immutable)
    (application serialization)
+   (lofi sexp)
+   (only (lofi serialization) serialize deserialize)
    (siegework model)
    (siegework terrain)
    (only (lofi core) ann -> I32 I64)
@@ -49,16 +51,20 @@
                      (bounded? (bot-y value) 0 (- (* map-height cell-size) 1)) (bounded? (bot-job value) 0 15)
                      (>= (bot-target value) 0) (bounded? (bot-cargo value) 0 50)
                      (bounded? (bot-timer value) 0 60) (bounded? (bot-hp value) 1 14)
-                     (>= (bot-order value) 0) (>= (bot-source value) 0))))
+                     (>= (bot-order value) 0) (>= (bot-source value) 0)
+                     (null? (bot-flight value)))))
     (define (check-enemy! value)
       (require! (and (> (enemy-id value) 0) (bounded? (enemy-x value) 0 (- (* map-width cell-size) 1))
-                     (bounded? (enemy-y value) 0 (- (* map-height cell-size) 1)) (bounded? (enemy-hp value) 1 maximum-enemy-health)
+                     (bounded? (enemy-y value) 0 (- (* map-height cell-size) 1))
+                     (bounded? (enemy-max-hp value) 1 maximum-enemy-health)
+                     (bounded? (enemy-hp value) 1 (enemy-max-hp value))
                      (bounded? (enemy-kind value) 0 2) (bounded? (enemy-rank value) 0 6) (>= (enemy-target value) 0))))
     (define (check-survey! value world)
       (require! (and (world-ground? world (survey-x value) (survey-y value))
                      (bounded? (survey-radius value) 4 10))))
     (define (check-world-fields! world)
-      (require! (and (bounded? (world-tick world) 0 run-end-tick) (bounded? (world-outcome world) 0 3)
+      (require! (and (= (world-payload-version world) 1)
+                     (bounded? (world-tick world) 0 run-end-tick) (bounded? (world-outcome world) 0 3)
                      (or (world-started world)
                          (and (= (world-tick world) 0) (= (world-spent world) 0)
                               (null? (world-buildings world)) (null? (world-enemies world))))
@@ -493,6 +499,58 @@
       (check-rails! world (world-rails world)))
 
 
+    ;; ---- Explicit compatible payload revision within the World12 envelope ----
+
+    ;; The host's schema and save identity stay 12. Revision 1 adds exactly one
+    ;; World field, one Bot field and one Enemy field. Only the complete original
+    ;; shape migrates: mixed records and unknown revisions reach no live state.
+    ;; Derived decoding still proves every tag, field name, order and scalar type.
+    (define (wire-fields value count)
+      (let ((fields (sexp-list-values value)))
+        (require! (= (list-size fields) count)) fields))
+    (define (wire-at fields index)
+      (if (= index 0) (car fields) (wire-at (cdr fields) (- index 1))))
+    (define (wire-content field) (car (cdr (wire-fields field 2))))
+    (define (wire-integer field) (ann (deserialize (wire-content field)) I32))
+    (define empty-flight-field
+      (sexp-list (list (sexp-symbol "flight")
+                       (sexp-list (list (sexp-symbol "(List (siegework model):Flight)")
+                                        (sexp-list (empty-list)))))))
+    (define (legacy-bot value)
+      (sexp-list (append (wire-fields value 14) (list empty-flight-field))))
+    ;; An old wound has lost its spawn tick. Freeze a conservative saved-tick
+    ;; estimate, at least current HP; new enemies always retain their exact max.
+    (define (legacy-enemy value tick)
+      (let* ((fields (wire-fields value 12))
+             (hp (wire-integer (wire-at fields 6)))
+             (kind (wire-integer (wire-at fields 7)))
+             (rank (wire-integer (wire-at fields 11)))
+             (estimate (enemy-spawn-health tick kind rank)))
+        (sexp-list (append fields (list (sexp-list (list (sexp-symbol "max-hp")
+                                                         (serialize (if (> hp estimate) hp estimate)))))))))
+    (define (legacy-actors values enemies? tick)
+      (if (null? values) values
+          (cons (if enemies? (legacy-enemy (car values) tick) (legacy-bot (car values)))
+                (legacy-actors (cdr values) enemies? tick))))
+    (define (legacy-actor-field field enemies? tick)
+      (let* ((pair (wire-fields field 2)) (typed (wire-fields (car (cdr pair)) 2))
+             (actors (legacy-actors (sexp-list-values (car (cdr typed))) enemies? tick))
+             (contents (sexp-list (list (car typed) (sexp-list actors)))))
+        (sexp-list (list (car pair) contents))))
+    (define (legacy-world-fields fields index tick)
+      (if (null? fields)
+          (list (sexp-list (list (sexp-symbol "payload-version") (serialize (ann 1 I32)))))
+          (cons (cond ((= index 10) (legacy-actor-field (car fields) #f tick))
+                      ((= index 11) (legacy-actor-field (car fields) #t tick))
+                      (else (car fields)))
+                (legacy-world-fields (cdr fields) (+ index 1) tick))))
+    (define (canonical-world-payload value)
+      (let* ((fields (sexp-list-values value)) (count (list-size fields)))
+        (cond ((= count 36)
+               (sexp-list (legacy-world-fields fields 0 (wire-integer (wire-at fields 3)))))
+              ((= count 37) value)
+              (else (require! #f) value))))
+
     ;; ---- A visible restart marker surrounds the derived world payload ----
 
     ;; Schema 12 owns an explicit hub capacity tier and has no house buildings.
@@ -521,6 +579,6 @@
           payload)))
     (define (validate-world world) (check-world! world) world)
     (define (decode-world words)
-      (let ((world (ann (decode-snapshot (world-payload words)) World)))
+      (let ((world (ann (deserialize (canonical-world-payload (snapshot->sexp (world-payload words)))) World)))
         (require! (= (vector-ref words (ann 1 I64)) (world-run-marker world)))
         (validate-world world)))))

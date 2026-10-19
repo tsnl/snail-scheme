@@ -112,9 +112,20 @@ The game declares world schema 12 and client schema 8 under application ID
 `siegework-colony-v12`, which starts a fresh save identity for explicit hub capacity
 removal of house buildings, finite deposits and three persistent nests. Earlier worlds are rejected rather than reinterpreted. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
-layouts or geography and are rejected; derivation does not migrate existing saves. The browser retains
+layouts or geography and are rejected. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
 the static mount path leaves its origin/application save identity unchanged.
+
+Within that envelope, payload revision 1 adds a final `payload-version = 1`
+World field, `Enemy.max-hp`, and `Bot.flight` (empty or one committed `Flight`).
+The app-local decoder recognizes only the original 33-field World with the
+original 11-field Bot and 9-field Enemy, or the complete revision-1 shape.
+It extends the original shape before ordinary typed decoding and validation;
+the first accepted transition serializes the canonical revision. Legacy flights
+start empty. Legacy maximum HP freezes `max(current HP, spawn health at saved
+tick)` because the original spawn tick is unavailable. New spawns store the exact
+maximum once, so wounds and later difficulty never change their denominator.
+This compatibility is forward only; old packages reject the extended records.
 
 Typed construction establishes field shape. The app then checks scalar/count
 bounds, distinct IDs, legal bounded routes, construction carriers and

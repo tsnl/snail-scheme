@@ -40,6 +40,14 @@ remain under their previous identity; importing them into this version is reject
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
+World12 payload revision 1 retains that save identity and explicitly upgrades the
+original World12 record layout. It adds stable enemy maximum health and an empty
+worker flight slot. Existing funds, jobs and resources survive; the next accepted
+command writes the new layout. An old wounded enemy's original maximum is unknown,
+so migration freezes the larger of its current HP and the spawn-health estimate at
+the saved difficulty. New enemies retain their exact spawn maximum. Older packages
+cannot read revision 1; unknown or mixed layouts are rejected without replacing the save.
+
 An optional `SAVE_SERVICE_URL` build also emits `synced/` with explicit online
 checkpoint controls. Gameplay still runs locally. See the
 [save service guide](../../doc/static-saves.md).

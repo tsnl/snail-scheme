@@ -1,4 +1,4 @@
-// Derived schema-12 records for assertions and bounded encounter fixtures. Only
+// Derived schema-12, payload-revision-1 records for bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -13,12 +13,13 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest', flight:'Flight'};
 function typedRecord(type, value) {
   if (type === 'Enemy') {
-    const {burrower = false, rank = value.kind === 2 ? 6 : 0, ...fields} = value;
-    value = {...fields, burrower, rank};
+    const {burrower = false, rank = value.kind === 2 ? 6 : 0, maxHp = value.hp, ...fields} = value;
+    value = {...fields, burrower, rank, maxHp};
   }
+  if (type === 'Bot') { const {flight = [], ...fields} = value; value = {...fields, flight}; }
   const library = type === 'Survey' ? 'terrain' : ['Client','DismissedAttack'].includes(type) ? 'game' : 'model';
   return [symbol('data'), symbol(`(siegework ${library}):${type}`), symbol(type==='DismissedAttack'?'make-dismissed-attack':`make-${type.toLowerCase()}`),
     ...Object.entries(value).map(([field, contents]) => [symbol(fieldName(field)), typedField(field, contents)])];
