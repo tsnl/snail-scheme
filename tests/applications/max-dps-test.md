@@ -8,6 +8,7 @@ game renderer or run a real-map survival strategy.
 
 ```sh
 scripts/max-dps-test
+scripts/max-dps-test --minutes 10 --output build/max-dps-test/ten-minute.json
 scripts/max-dps-test --discovery-minutes 5 --multiplier 0.5 --minutes 360
 scripts/max-dps-test --seed 7 --output build/max-dps-test/seed7.json
 ```
@@ -15,11 +16,12 @@ scripts/max-dps-test --seed 7 --output build/max-dps-test/seed7.json
 The default six-hour horizon includes the current model's fully escalated enemy
 health and maximum ordinary, raid and boss wave sizes. The game has no final
 wave. The report states its finite horizon and never treats surviving a timer as
-a nest victory. `--minutes 36` gives a shorter opening and two-boss diagnostic.
+a nest victory. `--minutes 10` checks the intended expedition window and its
+first nine-minute boss. It includes twenty spawn windows through minute 10.25.
 The requested horizon selects waves by spawn time. Evaluation continues until
 the next spawn after the final selected wave, and the console reports that actual
 endpoint. With the current schedule, `--minutes 36` includes the boss at minute
-36 and checks its damage budget through minute 36.5.
+36 and checks its damage budget through minute 36.25.
 
 For repeated experiments after one build, run
 `node tests/applications/max-dps-test.mjs build/max-dps-test/probe.wasm` with the

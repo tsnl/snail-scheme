@@ -13,7 +13,7 @@ export async function checkRanks(test,fresh) {
   }
   await test('each strength rank arrives singly with familiar escorts before the first boss',async()=>{
     const r=await fresh(),health=[65,90,125,180,300,500,1800];
-    for(const [tick,rank] of [[900,0],[2100,1],[3900,2],[5700,3],[7500,4],[9300,5],[10800,6]]) {
+    for(const [tick,rank] of [[450,0],[1050,1],[1950,2],[2850,3],[3750,4],[4650,5],[5400,6]]) {
       const enemies=await wave(r,tick); assert.equal(Math.max(...enemies.map(enemy=>enemy.rank)),rank);
       if(rank>0)assert.equal(enemies.filter(enemy=>enemy.rank===rank).length,1);
       assert.ok(enemies.some(enemy=>enemy.rank===0));
@@ -24,10 +24,10 @@ export async function checkRanks(test,fresh) {
     await r.close();
   });
   await test('bosses recur separately while new enemies continue gaining health after rank six',async()=>{
-    const r=await fresh(); assert.ok((await wave(r,11100)).every(enemy=>enemy.rank<6));
-    const later=await wave(r,21600); assert.equal(later[0].rank,6); assert.equal(later[0].hp,1890);
+    const r=await fresh(); assert.ok((await wave(r,5550)).every(enemy=>enemy.rank<6));
+    const later=await wave(r,10800); assert.equal(later[0].rank,6); assert.equal(later[0].hp,1890);
     assert.equal(later.filter(enemy=>enemy.rank===6).length,1);
-    assert.equal((await wave(r,75600))[0].hp,2310); assert.equal((await wave(r,86400))[0].hp,2310);
+    assert.equal((await wave(r,37800))[0].hp,2310); assert.equal((await wave(r,43200))[0].hp,2310);
     await r.close();
   });
   await test('wounded ranks retain their damage and survive pause and snapshot restore',async()=>{
@@ -43,20 +43,20 @@ export async function checkRanks(test,fresh) {
     await r.close();
   });
   await test('rank and continued-health bounds are checked before a snapshot replaces live state',async()=>{
-    const r=await fresh(); await wave(r,10800); const saved=r.snapshot(1);
+    const r=await fresh(); await wave(r,5400); const saved=r.snapshot(1);
     for(const edit of [enemy=>enemy.rank=-1,enemy=>enemy.rank=7,enemy=>enemy.hp=2311]) {
       const world=colony(saved); edit(world.enemies[0]);
       await assert.rejects(()=>restoreColony(r,world),WebAssembly.RuntimeError); assert.deepEqual(r.snapshot(1),saved);
     }
     await r.close();
   });
-  await test('exploration gets ninety seconds before waves begin and ordinary waves stay one minute apart',async()=>{
+  await test('exploration gets forty-five seconds before waves begin and ordinary waves stay thirty seconds apart',async()=>{
     const r=await fresh();
-    for(const tick of [1,300,600,899,901,1499,1501,1800,2099,2699])assert.equal((await wave(r,tick)).length,0,`tick ${tick}`);
-    for(const [tick,count] of [[900,4],[1500,4],[2100,4],[2700,5],[3300,4],[3900,5],[4500,6]]) {
+    for(const tick of [1,150,300,449,451,749,751,900,1049,1349])assert.equal((await wave(r,tick)).length,0,`tick ${tick}`);
+    for(const [tick,count] of [[450,4],[750,4],[1050,4],[1350,5],[1650,4],[1950,4],[2250,6],[3150,7],[3450,5]]) {
       const enemies=await wave(r,tick);assert.equal(enemies.length,count,`tick ${tick}`);
-      if(tick<1800)assert.ok(enemies.every(enemy=>enemy.rank===0));
-      if(tick===2700||tick===4500)assert.ok(enemies.every(enemy=>enemy.kind===1));
+      if(tick<900)assert.ok(enemies.every(enemy=>enemy.rank===0));
+      if(tick===1350||tick===2250||tick===3150)assert.ok(enemies.every(enemy=>enemy.kind===1));
     }
     await r.close();
   });
@@ -66,12 +66,12 @@ export async function checkRanks(test,fresh) {
       if(value.key===key)return value;
       for(const child of value.children){const found=node(child,key);if(found)return found;}
     }
-    for(const [tick,seconds,elapsed,tier] of [[0,180,0,1],[899,91,899,1],[900,90,900,1],
-      [1500,30,1500,1],[1799,1,1799,1],[1800,180,0,2],[2700,90,900,2],
-      [10500,30,1500,6],[10800,180,0,7],[11100,150,300,7],[72000,0,1,41],[2147480000,0,1,41]]) {
+    for(const [tick,seconds,elapsed,tier] of [[0,90,0,1],[449,46,449,1],[450,45,450,1],
+      [750,15,750,1],[899,1,899,1],[900,90,0,2],[1350,45,450,2],
+      [5250,15,750,6],[5400,90,0,7],[5550,75,150,7],[36000,0,1,41],[2147480000,0,1,41]]) {
       const world=state(r);world.started=true;world.tick=tick;world.enemies=[];world.lastRevealTick=-100;
       await restoreColony(r,world);const ui=r.view().ui,dial=node(ui,'difficulty');
-      assert.equal(dial.text,String(tier));assert.equal(dial.properties[3],elapsed);assert.equal(dial.properties[5],tier===41?1:1800);
+      assert.equal(dial.text,String(tier));assert.equal(dial.properties[3],elapsed);assert.equal(dial.properties[5],tier===41?1:900);
       assert.equal(dial.help,tier===41?'Maximum difficulty reached':`Difficulty ${tier}; increases in ${seconds} seconds`);
       assert.equal(node(ui,'wave-summary'),undefined);assert.equal(node(ui,'difficulty-summary'),undefined);
       assert.doesNotMatch(r.view().status??'',/NEXT SPAWN/);

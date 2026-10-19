@@ -24,7 +24,7 @@ async function select(r,x,y) {
   await r.dispatch(2,r.command('client','confirm'));
 }
 async function prepareOrder(r,kind) {
-  const world=r.snapshot(1),selected=client(r.snapshot(2)),cell=selected.targetX+selected.targetY*384;
+  const world=r.snapshot(1),selected=client(r.snapshot(2)),cell=selected.targetX+selected.targetY*128;
   const result=await r.dispatch(2,r.command('client','construct',[kind,cell]));assert.deepEqual(r.snapshot(1),world);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[kind,cell])},
     {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);

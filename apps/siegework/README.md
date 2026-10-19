@@ -26,8 +26,10 @@ time, artifact size and runtime performance can differ.
 
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
-The current application ID is `siegework-colony-v10`, with world schema 10 and
-client schema 8. Earlier incompatible colonies retain their separate save identity.
+The current application ID is `siegework-colony-v11`, with world schema 11 and
+client schema 8. The compact map deliberately starts a new colony: World10 seeds,
+coordinates and saved paths describe different geography. Old browser records
+remain under their previous identity; importing them into this version is rejected.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
 
@@ -163,8 +165,8 @@ network, with cyan identifying available worker cart service. Terrain maps and
 legal paths are cached by their inputs; tree selection itself runs afresh.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying
-the source loses its stock and undelivered freight. Old World10 saves remain
-readable, and obsolete saved track cells never render, even while paused.
+the source loses its stock and undelivered freight. Obsolete track cells never
+render, even while paused.
 
 Workers reveal a small nearby radius. New work and supply pickup at an unseen
 construction site stall until it is visible again; a yellow warning marks the
@@ -173,19 +175,20 @@ route, revealing their destination as they approach.
 
 Houses cost eight ore and add four worker places after a delivery finishes.
 They are ordinary attackable buildings with no upgrades or shield behavior.
-World 10 saves keep their existing IDs, construction jobs, materials and health:
-former kind-four walls become houses, preserving the eight-ore ledger. An
-unfinished former wall grants housing only when its existing work completes.
 Water blocks movement. About one in ten
 spawned enemies may begin excavating a mountain; others can join an existing
 excavation. They stop and chip away before a permanent opening appears.
 
-The 384×288 map places the hub near its center and the nest farther away. Enemy
+The 128×128 map places the hub within eight cells of its center and the nest
+32–41 cells away, roughly five or six observation hops. The intended ordinary
+expedition lasts about ten minutes. Enemy
 approach directions help locate it. Waves introduce progressively stronger ranks
 with distinct shapes, armor and colors, including elites and a much larger boss.
-The opening lasts 90 seconds before the first spawn. Ordinary waves are a minute
-apart, strength steps are three minutes apart, and the first boss spawns at
-18 minutes. The nest remains the objective; time never grants a victory.
+The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
+seconds apart, strength steps are ninety seconds apart, and the first boss spawns
+at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
+2:15. Wave sizes grow more slowly than strength. The nest remains the objective;
+time never grants a victory, and unfinished runs continue beyond ten minutes.
 Artillery has limited range and deals more damage at close range. The map outlines
 the combined range of operational guns. Enemies wounded by a gun pursue that
 attacker. Houses follow the same encounter rules as other ordinary buildings.

@@ -76,7 +76,7 @@ export async function checkCrowd(test,fresh,bytes) {
   });
   await test('lake banks reject sideways crowd lanes without interrupting forward movement',async()=>{
     const r=await fresh(),world=state(r),point={x:73*40+20,y:8*40+20};
-    const path=Array.from({length:20},(_,i)=>73+(9+i)*384);
+    const path=Array.from({length:20},(_,i)=>73+(9+i)*128);
     await restoreColony(r,crowd(world,16,point,path));let width=0;
     for(let i=0;i<80;i++) {
       await advance(r);const enemies=state(r).enemies;width=Math.max(width,span(enemies,'x'));

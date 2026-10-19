@@ -245,7 +245,7 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('recurring nest attacks select one schedule and strengthen later heavy beasts', async () => {
-    for(const [tick,count,kind,hp] of [[899,0,0],[900,4,0],[1500,4,0],[2700,5,1],[3300,4,0],[3900,5,0],[4500,6,1],[6300,7,1],[6900,6,0],[10800,7,2,1800],[15300,12,1],[21600,8,2,1890]]) {
+    for(const [tick,count,kind,hp] of [[449,0,0],[450,4,0],[750,4,0],[1350,5,1],[1650,4,0],[1950,4,0],[2250,6,1],[3150,7,1],[3450,5,0],[5400,7,2,1800],[7650,12,1],[10800,8,2,1890]]) {
       const r=await fresh(), world=state(r); world.started=true; world.tick=tick-1; await restoreColony(r,world);
       await advance(r); const enemies=state(r).enemies; assert.equal(enemies.length,count);
       if(kind===2){assert.equal(enemies.filter(e=>e.kind===2).length,1);assert.equal(enemies[0].hp,hp);}

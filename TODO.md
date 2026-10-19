@@ -173,6 +173,11 @@ source edits remain unchecked until compiled and exercised.
       elevation and smooth intermediate rotation, pan and zoom.
 - [x] Add the max-dps-test using actual model facts, three-minute discovery and
       0.5 utilization; report its optimistic assumptions and finite horizon.
+- [x] Compact the map to 128×128 and move the nest to five or six observation
+      hops; target a fast ten-minute expedition with 45-second opening,
+      thirty-second waves, ninety-second ranks and nine-minute boss pressure.
+      Preserve nest destruction as the only victory; use a distinct World11
+      storage identity so old seeds and paths are never silently remapped.
 - [x] Spread nearby enemies across open approaches without crossing terrain;
       verify crowd movement and saved-route invariants.
 - [x] Exercise new orders on surveyed but currently hidden tiles, stale menus,

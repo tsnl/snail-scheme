@@ -121,7 +121,7 @@ export async function checkCarts(test,fresh) {
     const r=await fresh(); await fund(r); await build(r,'build-wall',10,22); const tower=await build(r,'observe',12,22);
     const world=state(r),rail=world.rails.find(rail=>rail.source===tower.id),house=routeCell(world,10,22);
     assert.ok(!rail.path.includes(house)); const cell=rail.path[1],offset=origin(world);
-    const x=cell%384-offset.x,y=Math.floor(cell/384)-offset.y,bank=world.ore;
+    const x=cell%128-offset.x,y=Math.floor(cell/128)-offset.y,bank=world.ore;
     for(const action of ['observe','fortify','build-wall']) {
       await call(r,action,[x,y]); assert.equal(state(r).notice,10);
       assert.deepEqual(state(r).rails.find(link=>link.source===tower.id),rail);
@@ -173,7 +173,7 @@ export async function checkCarts(test,fresh) {
     const legacy=state(r),a=routeCell(legacy,8,22),b=a+1;
     legacy.tracks=[a*32+17,b*32+20]; await restoreColony(r,legacy); const saved=r.snapshot(1);
     for(const edit of [world=>world.tracks.push(world.tracks[0]), world=>{world.tracks[0]^=1;},
-      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=384*288*32+1;}]) {
+      world=>{world.tracks[0]=-1;}, world=>{world.tracks[0]=128*128*32+1;}]) {
       const invalid=colony(saved); edit(invalid); await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
       assert.deepEqual(r.snapshot(1),saved);
     }

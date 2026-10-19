@@ -1,4 +1,4 @@
-// Replace genuinely different compiled schema-10 game artifacts while a move
+// Replace genuinely different compiled schema-11 game artifacts while a move
 // owns freight. Neither package nor its on-disk save is modified by this check.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

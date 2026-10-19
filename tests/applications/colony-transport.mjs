@@ -81,9 +81,9 @@ export async function checkTransport(test,fresh) {
     await restoreColony(r,world);await step(r);const riding=state(r),route=riding.rails[0].path;
     const corner=route.findIndex((cell,i)=>i>0&&i+1<route.length&&Math.abs(cell-route[i-1])!==Math.abs(route[i+1]-cell));
     assert.ok(corner>0);const start=route[corner-1];riding.produced+=16;
-    Object.assign(riding.bots[0],{x:(start%384)*40+20,y:Math.floor(start/384)*40+20,job:2,target:0,cargo:16,path:route.slice(corner)});
+    Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,job:2,target:0,cargo:16,path:route.slice(corner)});
     await restoreColony(r,riding);await step(r);const next=state(r),point=route[corner+1];
-    assert.deepEqual([next.bots[0].x,next.bots[0].y],[(point%384)*40+20,Math.floor(point/384)*40+20]);
+    assert.deepEqual([next.bots[0].x,next.bots[0].y],[(point%128)*40+20,Math.floor(point/128)*40+20]);
     assert.equal(next.bots[0].cargo,16);assert.equal(next.delivered,riding.delivered);
     await step(r,20);assert.equal(state(r).delivered,riding.delivered+16);await r.close();
   });
@@ -101,7 +101,7 @@ export async function checkTransport(test,fresh) {
     const path=[[12,22],[12,23],[12,24],[11,24],[10,24],[9,24],[8,24],[8,23],[8,22]]
       .map(([x,y])=>routeCell(riding,x,y));
     riding.rails[0].path=path;riding.produced+=16;
-    const start=path[0];Object.assign(riding.bots[0],{x:(start%384)*40+20,y:Math.floor(start/384)*40+20,
+    const start=path[0];Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,
       job:2,target:0,cargo:16,path:path.slice(1)});
     await restoreColony(r,riding);await step(r);const arrived=state(r),hub=pixelAt(arrived,8,22);
     assert.deepEqual([arrived.bots[0].x,arrived.bots[0].y],[hub.x,hub.y]);

@@ -84,7 +84,7 @@ export async function checkDigging(test,fresh) {
   });
   await test('roughly one in ten spawned enemies has the deterministic burrowing capability',async()=>{
     const r=await fresh(); let total=0,burrowers=0;
-    for(let tick=900;tick<=12300;tick+=600) {
+    for(let tick=450;tick<=6150;tick+=300) {
       const world=state(r); world.started=true; world.tick=tick-1; world.enemies=[]; await restoreColony(r,world); await advance(r);
       for(const enemy of state(r).enemies) {
         assert.equal(enemy.burrower,(state(r).seed%10+enemy.id%10)%10===0);
@@ -98,12 +98,12 @@ export async function checkDigging(test,fresh) {
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
     await build(r,'build-house',12,2); await build(r,'fortify',12,1);
-    const world=state(r); world.tick=2699; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
+    const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
     assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);
-    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[80+16*384],
+    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[80+16*128],
       world=>world.breaches=[cell,cell],world=>world.excavations=[{cell,remaining:0}],
       world=>world.excavations=[{cell,remaining:80}],world=>world.excavations=[{cell,remaining:79},{cell,remaining:78}],
       world=>{world.breaches=[cell];world.excavations=[{cell,remaining:79}];},

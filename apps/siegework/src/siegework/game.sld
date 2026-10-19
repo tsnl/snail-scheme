@@ -24,7 +24,7 @@
 
     ;; ---- The match owns colony orders and one deterministic clock ----
 
-    (application match-app (state World 10) (initial-world)
+    (application match-app (state World 11) (initial-world)
                  (advance (state) (no-effects (advance-world state)))
                  (extract (state (x I32) (y I32)) (no-effects (extract-world state x y)))
                  (fortify (state (x I32) (y I32)) (no-effects (fortify-world state x y)))

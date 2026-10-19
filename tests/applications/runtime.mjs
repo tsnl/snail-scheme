@@ -42,7 +42,7 @@ async function test(name, run) { await run(); console.log(`ok ${++passed} - ${na
 await test('Scheme and Lofi share the shader compiler; composition rejects stage/width errors', () => {
   for (const name of ['shader', 'shader-lofi']) { const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 1); closeInstance(i); }
 });
-await test('seeded terrain keeps legacy geography and reachable reproducible alternatives', () => {
+await test('compact seeded terrain keeps bounded placements and reachable reproducible routes', () => {
   const i = instantiate(loadWasm(fixture('terrain'))); assert.equal(invokeEntry(i, []), 1); closeInstance(i);
 });
 await test('retained immutable Scheme records remain unchanged', () => {
@@ -71,7 +71,7 @@ await test('a selected deposit spends only on construction and unlocks after rep
   const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
   assert.deepEqual((await local('confirm')).effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
   assert.deepEqual(r.snapshot(1), before); assert.equal(colony(r.snapshot(1)).started,false);
-  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*384;
+  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*128;
   const result=await local('confirm');assert.deepEqual(r.snapshot(1),before);
   assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
     {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);

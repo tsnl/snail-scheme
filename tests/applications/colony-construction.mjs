@@ -24,7 +24,7 @@ export async function checkConstructionOrders(test,fresh) {
     for(const kind of [-2147483648,-1,0,5,2147483647]) {
       await place(r,kind,cell,0);assert.deepEqual(state(r),base);
     }
-    for(const invalid of [-2147483648,-1,384*288,2147483647]) {
+    for(const invalid of [-2147483648,-1,128*128,2147483647]) {
       await restoreColony(r,base);await place(r,4,invalid,0);
       assert.deepEqual(state(r),{...base,notice:15});
     }

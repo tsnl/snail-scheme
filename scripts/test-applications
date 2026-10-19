@@ -7,7 +7,7 @@ mkdir -p "$output"
 node "$root/tests/applications/save-service.mjs"
 chibi-scheme -I "$root/bootstrap" \
   "$root/apps/siegework/build.scm" "$root" "$output/siegework"
-for fixture in counter state testing counter-lofi immutable terrain invalid-output invalid-candidate invalid-initial invalid-state async-boundary async-view snapshot-cache browser-effects shader shader-lofi; do
+for fixture in counter state testing counter-lofi immutable terrain pacing-probe invalid-output invalid-candidate invalid-initial invalid-state async-boundary async-view snapshot-cache browser-effects shader shader-lofi; do
   case "$fixture" in
     counter|state|testing) source="$root/examples/applications/$fixture.sld" ;;
     *) source="$root/tests/applications/$fixture.sld" ;;
@@ -29,4 +29,5 @@ for fixture in reject-state reject-payload reject-owner; do
   printf 'ok - compile rejects %s\n' "$fixture"
 done
 node "$root/tests/applications/runtime.mjs" "$output/siegework/solo" "$output" "$output/siegework"
+node "$root/tests/applications/colony-pacing.mjs" "$output/siegework/solo" "$output/pacing-probe.wasm" "$output/pacing-report.json"
 "$root/scripts/max-dps-test" --output "$output/max-dps-report.json"

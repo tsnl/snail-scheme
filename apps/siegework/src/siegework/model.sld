@@ -47,8 +47,7 @@
     ;; ---- Colony values ----
 
     ;; Kind: 1 extractor, 2 artillery, 3 observation/depot tower, 4 house.
-    ;; World 10's former kind-four walls become houses without changing paid
-    ;; materials, health, jobs or IDs; their eight-ore construction stays valid.
+    ;; Houses retain kind four's eight-ore construction and ordinary health.
     ;; Artillery upgrades strengthen its gun; tower upgrades extend sight then
     ;; double cart speed at each level. Every completed tower supplies worker carts.
     ;; Each upgrade retains prior functions until its kit arrives.
@@ -677,7 +676,7 @@
     (define (safe-site? world x y)
       (let ((bot (idle-bot (world-seed world) 0))) (reachable? bot x y (route-from world bot x y #t))))
 
-    ;; ---- Legacy track cells remain readable in World10 saves ----
+    ;; ---- Reserved track geometry in the serialized world ----
 
     ;; The renderer uses current Rail paths. The old sorted cell bitmasks own
     ;; no resources and are cleared whenever the transport tree is rebuilt.
@@ -1387,19 +1386,20 @@
 
     ;; ---- The nest sends escalating attacks until destroyed ----
 
-    ;; The opening allows ninety seconds of exploration. Ordinary waves then
-    ;; arrive once a minute; new strength ranks take three minutes each.
-    (define first-wave-tick 900)
-    (define wave-interval 600)
-    (define first-raid-tick 2700)
-    (define raid-interval 1800)
-    (define final-siege-tick 10800)
+    ;; A ten-minute expedition gets forty-five seconds to build before waves
+    ;; every thirty seconds. Ranks rise every ninety seconds; the first boss
+    ;; pressures the approach at nine minutes. Only destroying the nest wins.
+    (define simulation-ticks-per-second 10)
+    (define wave-interval (* 30 simulation-ticks-per-second))
+    (define first-wave-tick (+ wave-interval (quotient wave-interval 2)))
+    (define difficulty-step-ticks (* 3 wave-interval))
+    (define first-raid-tick (+ first-wave-tick difficulty-step-ticks))
+    (define raid-interval difficulty-step-ticks)
+    (define final-siege-tick (* 6 difficulty-step-ticks))
     ;; This serialization bound is over six years of continuous simulation.
     ;; It never declares a timed victory; only destroying the nest wins.
     (define run-end-tick 2147480000)
     (define maximum-enemies 128)
-    (define simulation-ticks-per-second 10)
-    (define difficulty-step-ticks 1800)
     ;; This computed domain interval is the only source of difficulty timing.
     ;; Zero end means the final tier, with no further increase scheduled.
     (define-immutable-record DifficultyWindow make-difficulty-window
@@ -1432,12 +1432,13 @@
     (define (attack-size tick)
       (cond ((heavy-wave? tick) (+ 7 (minimum 17 (quotient (- tick final-siege-tick) final-siege-tick))))
             ((raid-wave? tick) (+ 5 (minimum 19 (quotient (- tick first-raid-tick) raid-interval))))
-            ((regular-wave? tick) (+ 4 (minimum 20 (quotient (- tick first-wave-tick) 2700)))) (else 0)))
+            ((regular-wave? tick) (+ 4 (minimum 20 (quotient (- tick first-wave-tick) (* 3 difficulty-step-ticks))))) (else 0)))
     (define (attack-at-or-after tick)
       (if (> (attack-size tick) 0) tick
-          (attack-at-or-after (+ tick 150))))
+          (attack-at-or-after (+ tick (quotient wave-interval 2)))))
     (define (next-attack-tick tick)
-      (attack-at-or-after (* 150 (+ 1 (quotient tick 150)))))
+      (let ((half-wave (quotient wave-interval 2)))
+        (attack-at-or-after (* half-wave (+ 1 (quotient tick half-wave))))))
     ;; Raids replace regular waves; bosses fall halfway between them. These
     ;; disjoint schedules give constant-time numbering and countdown spans,
     ;; even near the six-year save bound. Tick zero starts the opening span.

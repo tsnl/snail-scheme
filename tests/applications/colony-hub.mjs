@@ -31,20 +31,18 @@ async function loaded(r) {
 }
 
 export async function checkHub(test,fresh,bytes) {
-  await test('an original World10 stored record retains its revision, hub neighbor, gun and rail across added commands',async()=>{
-    const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url))),saved=fixture.world;
-    const record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:saved}};
-    const local=await LocalState.open(r,{saved:readRecord(record,r.manifest.settings.id,saveContract(r.manifest))});
-    await r.initialize(1);assert.equal(local.revision,17);assert.deepEqual(r.snapshot(1),saved);
-    const legacy=state(r); assert.equal(legacy.buildings[0].kind,4); assert.equal(legacy.buildings[1].armed,1);
-    await call(r,'pause-colony',[0]); await call(r,'upgrade',[12,22]);
-    await until(r,world=>world.buildings[1].level===3&&world.buildings[1].stage===2);
-    assert.equal(state(r).buildings[1].armed,1); assert.equal(state(r).rails[0].source,legacy.rails[0].source);
-    assert.equal(state(r).buildings[0].id,legacy.buildings[0].id); await roundTrip(r); await r.close();
+  await test('compact World11 rejects old geography and uses a distinct storage identity',async()=>{
+    const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url)));
+    const saved=r.snapshot(1),record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:fixture.world}};
+    assert.equal(r.manifest.settings.id,'siegework-colony-v11');assert.equal(saved[0],11);
+    assert.throws(()=>readRecord(record,r.manifest.settings.id,saveContract(r.manifest)),/incompatible/);
+    await assert.rejects(()=>r.restore(1,fixture.world),/invalid snapshot schema/);
+    assert.deepEqual(r.snapshot(1),saved);assert.equal(record.snapshot.state[0],10);
+    await roundTrip(r);await r.close();
   });
   await test('stored contracts allow added Match commands but retain every old endpoint and state/reset identity',async()=>{
-    const r=await fresh(),fixture=JSON.parse(readFileSync(new URL('./siegework-world10.json',import.meta.url)));
-    const record={format:1,application:fixture.application,contract:fixture.contract,snapshot:{revision:17,state:fixture.world}};
+    const r=await fresh(),contract=saveContract(r.manifest);
+    const record={format:1,application:r.manifest.settings.id,contract,snapshot:{revision:17,state:r.snapshot(1)}};
     const match=manifest=>manifest.applications.find(app=>app.owner==='match'),extended=structuredClone(r.manifest);
     match(extended).handlers.push({id:'future-build-cell',payload:['I32','I32'],result:match(extended).handlers[0].result});
     assert.equal(readRecord(record,record.application,saveContract(extended)),record.snapshot);
@@ -57,7 +55,7 @@ export async function checkHub(test,fresh,bytes) {
       assert.throws(()=>readRecord(record,record.application,saveContract(incompatible)),/incompatible/);
     }
     assert.throws(()=>readRecord({...record,contract:'not JSON'},record.application,saveContract(r.manifest)),/incompatible/);
-    assert.throws(()=>readRecord({...record,contract:saveContract(extended)},record.application,fixture.contract),/incompatible/);
+    assert.throws(()=>readRecord({...record,contract:saveContract(extended)},record.application,contract),/incompatible/);
     const live=structuredClone(r.manifest);match(live).handlers.pop();
     assert.throws(()=>r.prepare(bytes,live),/endpoint contract/);await r.close();
   });

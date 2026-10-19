@@ -209,14 +209,14 @@ function overlappingTowerFaces(mesh,site) {
     const initial=world(r),hub=at(initial,8,22),other=at(initial,14,22);
     initial.started=true;initial.tick=100;
     initial.alerts=[{...hub,kind:0,tick:100},{...other,kind:3,tick:100}];await restoreColony(r,initial);
-    const key=alert=>(alert.x+alert.y*384)*8+alert.kind;
+    const key=alert=>(alert.x+alert.y*128)*8+alert.kind;
     const first=key(initial.alerts[0]),second=key(initial.alerts[1]),before=r.snapshot(1);
     assert.ok(node(r,`attack-dismiss-${first}`)&&node(r,`attack-inspect-${second}`));
     await command(r,'dismiss-attack',[first]);assert.deepEqual(r.snapshot(1),before);
     assert.equal(node(r,`attack-toast-${first}`),undefined);assert.ok(node(r,`attack-toast-${second}`));
     assert.deepEqual(local(r).dismissed,[{key:first,until:180}]);
     const hidden=r.snapshot(2);
-    for(const invalid of [-1,first+6,first+7,384*288*8,2147483647]){await command(r,'dismiss-attack',[invalid]);assert.deepEqual(r.snapshot(2),hidden);}
+    for(const invalid of [-1,first+6,first+7,128*128*8,2147483647]){await command(r,'dismiss-attack',[invalid]);assert.deepEqual(r.snapshot(2),hidden);}
     const repeated=world(r);repeated.tick=101;repeated.alerts=repeated.alerts.map(alert=>({...alert,tick:101}));await restoreColony(r,repeated);
     assert.equal(node(r,`attack-toast-${first}`),undefined,'a repeat hit does not immediately undo dismissal');
     const nearby=world(r);nearby.alerts[0]={...nearby.alerts[0],x:hub.x+2,kind:4};await restoreColony(r,nearby);

@@ -1,4 +1,4 @@
-// Derived schema-10 records for assertions and bounded encounter fixtures. Only
+// Derived schema-11 records for assertions and bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -30,7 +30,7 @@ function typedField(field, value) {
   if (!type) throw new Error(`unknown fixture list ${field}`);
   return [symbol(`(List ${name})`), value.map(item => type === 'I32' ? [symbol(type), item] : typedRecord(type, item))];
 }
-export const colonyWords = world => snapshotWords(10, typedRecord('World', world), world.runMarker);
+export const colonyWords = world => snapshotWords(11, typedRecord('World', world), world.runMarker);
 export const clientWords = local => {
   const {originX,originY,menu,...fields}=local;
   return snapshotWords(8, typedRecord('Client', {...fields, heading:local.heading ?? 0,
@@ -49,7 +49,7 @@ export function origin(world) {
 export function at(world, x, y) { const offset = origin(world); return {x:offset.x + x, y:offset.y + y}; }
 export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:cell.x * 40 + 20, y:cell.y * 40 + 20}; }
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
-export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 384; }
+export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 128; }
 export function fixtureArguments(world, name, args = []) {
   if (['extract','fortify','observe','build-wall','build-house','upgrade','arm-tower','cancel-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];

@@ -345,7 +345,7 @@ try {
   }
   if((await local()).leftHanded){await click('pause');await click('handedness');await click('resume');}
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(edgeWorld))})`);await settled();
-  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*384)*8+firstAlert.kind;
+  const firstAlert=(await world()).alerts[0],alertKey=(firstAlert.x+firstAlert.y*128)*8+firstAlert.kind;
   const beforeDismiss=await evaluate('snailApp.runtime.snapshot(1)');await touchControl(`attack-dismiss-${alertKey}`);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeDismiss);assert.equal(await has(`attack-toast-${alertKey}`),false);
   const repeat=await world();repeat.tick++;repeat.alerts=repeat.alerts.map(alert=>({...alert,tick:repeat.tick}));

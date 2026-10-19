@@ -1,4 +1,4 @@
-;; Integer fields reproduce a large world directly from its saved seed. Route
+;; Integer fields reproduce a compact world directly from its saved seed. Route
 ;; searches own bounded scratch vectors, never the world's surveys or hazards.
 (define-library (siegework terrain)
   (export map-width map-height hub-x hub-y cell-size cell-x cell-y cell-index
@@ -18,8 +18,8 @@
 
     ;; ---- Map coordinates ----
 
-    (define map-width 384)
-    (define map-height 288)
+    (define map-width 128)
+    (define map-height 128)
     (define cell-size 40)
     (define hub-x 8)
     (define hub-y 22)
@@ -46,17 +46,19 @@
     ;; corners toward its center. Both coordinates accept the same candidate;
     ;; the bounded replay needs no random state or per-query pair allocation.
     (define (spawn-offset seed attempt horizontal)
-      (let ((x (- (map-offset seed 73 49) 24)) (y (- (map-offset seed 151 49) 24)))
-        (cond ((<= (+ (* x x) (* y y)) 576) (if horizontal x y))
+      (let ((x (- (map-offset seed 73 17) 8)) (y (- (map-offset seed 151 17) 8)))
+        (cond ((<= (+ (* x x) (* y y)) 64) (if horizontal x y))
               ((= attempt 23) 0)
               (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
                                   (+ attempt 1) horizontal)))))
-    (define (spawn-x seed) (+ 192 (spawn-offset seed 0 #t)))
-    (define (spawn-y seed) (+ 144 (spawn-offset seed 0 #f)))
+    (define (spawn-x seed) (+ 64 (spawn-offset seed 0 #t)))
+    (define (spawn-y seed) (+ 64 (spawn-offset seed 0 #f)))
+    ;; Five or six observation hops reach the nest. Even the farthest seed
+    ;; leaves fifteen cells to the edge for its clearing and spawn lanes.
     (define (nest-offset seed horizontal)
       (let ((direction (map-offset seed 67 4))
-            (major (+ 72 (map-offset seed 173 29)))
-            (minor (- (map-offset seed 227 49) 24)))
+            (major (+ 32 (map-offset seed 173 9)))
+            (minor (- (map-offset seed 227 17) 8)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major)) minor)))
     (define (nest-x seed) (+ (spawn-x seed) (nest-offset seed #t)))
@@ -69,7 +71,10 @@
     (define (northern-y seed)
       (+ (- (spawn-y seed) hub-y) (if (= seed 1) 5 (+ 3 (map-offset seed 151 4)))))
     (define (eastern-x seed)
-      (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9)))))
+      (let ((x (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9))))))
+        ;; The compact nest may share the eastern clearing. Keep its deposit
+        ;; buildable by moving a coincident crystal one clear cell west.
+        (if (and (= x (nest-x seed)) (= (eastern-y seed) (nest-y seed))) (- x 1) x)))
     (define (eastern-y seed)
       (+ (- (spawn-y seed) hub-y) (if (= seed 1) 12 (+ 7 (map-offset seed 239 10)))))
 
@@ -125,9 +130,9 @@
            (not (nest-clearing? seed x y)) (region-water? seed x y)))
     (define (ground? seed x y)
       (and (inside? x y)
-           (let ((hx (home-x seed x)) (hy (home-y seed y)))
-             (if (home-cell? hx hy) (home-ground? seed hx hy)
-                 (or (nest-clearing? seed x y)
+           (or (nest-clearing? seed x y)
+               (let ((hx (home-x seed x)) (hy (home-y seed y)))
+                 (if (home-cell? hx hy) (home-ground? seed hx hy)
                      (and (not (region-water? seed x y))
                           (not (region-mountain? seed x y))))))))
     ;; Permanent breaches are sparse map edits; water is never opened by a
@@ -148,7 +153,7 @@
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
     (define (deposit-rate seed x y)
-      (cond ((not (inside? x y)) 0)
+      (cond ((or (not (inside? x y)) (and (= x (nest-x seed)) (= y (nest-y seed)))) 0)
             ((and (= x (+ (spawn-x seed) 4)) (= y (- (spawn-y seed) 2))) 2)
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)

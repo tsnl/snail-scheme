@@ -349,7 +349,7 @@
       (unless (null? rails)
         (check-rail! world (car rails)) (check-rails! world (cdr rails))))
 
-    ;; Legacy World10 geometry is still checked on input, but no longer drawn.
+    ;; Reserved track geometry is checked on input, but never drawn.
     ;; A simulation tick clears this resource-free compatibility field.
     ;; Two ordered passes prove links without quadratic neighbor searches or a
     ;; full-map scratch allocation. No track entry participates in ore totals.
@@ -456,8 +456,9 @@
 
     ;; ---- A visible restart marker surrounds the derived world payload ----
 
-    ;; Schema 10 adds enemy ranks, the first-order clock and permanent track geometry. The host reads only this
-    ;; marker; decoding checks that it agrees with the typed World it accompanies.
+    ;; Schema 11 identifies compact geography. Old seeds cannot be reinterpreted:
+    ;; their coordinates, routes and excavations describe a different map.
+    ;; The host reads the restart marker; decoding checks it against the World.
     (define (copy-payload! destination source destination-start source-start count)
       (let loop ((index 0))
         (when (< index count)
@@ -465,18 +466,18 @@
                        (vector-ref source (i32->i64 (+ source-start index))))
           (loop (+ index 1)))))
     (define (encode-world world)
-      (let* ((payload (encode-snapshot 10 world))
+      (let* ((payload (encode-snapshot 11 world))
              (count (vector-length payload))
              (words (make-vector (+ count (ann 1 I64)) 0)))
-        (vector-set! words (ann 0 I64) 10)
+        (vector-set! words (ann 0 I64) 11)
         (vector-set! words (ann 1 I64) (world-run-marker world))
         (copy-payload! words payload 2 1 (- (i64->i32 count) 1))
         words))
     (define (world-payload words)
       (let ((count (vector-length words)))
-        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 10)))
+        (require! (and (>= count (ann 3 I64)) (= (vector-ref words (ann 0 I64)) 11)))
         (let ((payload (make-vector (- count (ann 1 I64)) 0)))
-          (vector-set! payload (ann 0 I64) 10)
+          (vector-set! payload (ann 0 I64) 11)
           (copy-payload! payload words 1 2 (- (i64->i32 count) 2))
           payload)))
     (define (validate-world world) (check-world! world) world)

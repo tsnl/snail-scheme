@@ -1,4 +1,4 @@
-// Real World 10 transitions own house completion, paid recruits and capacity.
+// Real World 11 transitions own house completion, paid recruits and capacity.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -9,7 +9,7 @@ function node(r,key,value=r.view().ui){if(value.key===key)return value;for(const
 function population(world,count){
   while(world.bots.length<count){
     world.bots.push({...world.bots[0],id:world.nextId++});setWorker(world,world.bots.length-1);
-    world.started=true;world.spent+=25;world.produced+=25;world.delivered+=25;
+    world.produced+=25;world.delivered+=25;world.spent+=25;world.started=true;
   }
   return world;
 }
@@ -26,11 +26,11 @@ export async function checkHousing(test,fresh){
     await fixtureCall(r,'fabricate-worker');assert.equal(state(r).notice,8);assert.equal(state(r).ore,52);
     await advance(r,30);assert.equal(state(r).bots.length,16);await r.restore(1,r.snapshot(1));await r.close();
   });
-  await test('destroying housing preserves queued recruits and over-capacity World 10 saves',async()=>{
+  await test('destroying housing preserves queued recruits and over-capacity World 11 saves',async()=>{
     const r=await fresh();await house(r);await restoreColony(r,population(state(r),12));for(let i=0;i<4;i++)await fixtureCall(r,'fabricate-worker');
     const world=state(r),site=world.buildings[0];site.hp=1;world.tick=9;world.lastRevealTick=-100;
     world.enemies.push({id:world.nextId++,...pixelAt(world,10,22),hp:500,kind:0,target:site.id,path:[],rank:0});await restoreColony(r,world);await advance(r);
-    assert.equal(state(r).buildings.length,0);assert.match(node(r,'worker-capacity').text,/16 \/ 12/);const saved=r.snapshot(1);assert.equal(saved[0],10);
+    assert.equal(state(r).buildings.length,0);assert.match(node(r,'worker-capacity').text,/16 \/ 12/);const saved=r.snapshot(1);assert.equal(saved[0],11);
     await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);await advance(r,30);assert.equal(state(r).bots.length,16);
     const ore=state(r).ore;await fixtureCall(r,'fabricate-worker');assert.equal(state(r).notice,8);assert.equal(state(r).ore,ore);await r.close();
   });
@@ -41,7 +41,7 @@ export async function checkHousing(test,fresh){
     const ore=state(r).ore;await fixtureCall(r,'fabricate-worker');assert.equal(state(r).notice,8);assert.equal(state(r).ore,ore);await advance(r,30);assert.equal(state(r).bots.length,64);
     const saved=r.snapshot(1);await r.restore(1,saved);const invalid=population(state(r),65);await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);assert.deepEqual(r.snapshot(1),saved);await r.close();
   });
-  await test('legacy kind-four construction keeps its ore ledger and becomes housing on World 10 restore',async()=>{
+  await test('kind-four construction keeps its ore ledger and becomes housing on World 11 restore',async()=>{
     const legacy=await fresh(),current=await fresh();await fixtureCall(legacy,'build-wall',[10,22]);await fixtureCall(current,'build-house',[10,22]);assert.deepEqual(legacy.snapshot(1),current.snapshot(1));
     for(let i=0;i<100&&state(legacy).buildings[0].stage!==2;i++)await advance(legacy);const saved=legacy.snapshot(1);await current.restore(1,saved);assert.deepEqual(current.snapshot(1),saved);
     assert.match(node(current,'worker-capacity').text,/3 \/ 16/);assert.equal(state(current).spent,8);assert.equal(state(current).buildings[0].hp,220);await legacy.close();await current.close();

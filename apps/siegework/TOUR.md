@@ -8,11 +8,11 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Seeded terrain, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/nest placement, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
 | [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight and world; shared kits, house capacity, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
 | [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, routes, ownership and material conservation. |
-| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's interval, shared by the HUD and accessible status. No independent game clock. |
+| [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
@@ -87,10 +87,12 @@ world inserts its run marker after the schema, before that binary count and
 payload. The host reads only this documented header. The Scheme decoder proves
 that the header marker equals the marker in the deserialized `World`.
 
-The game declares world schema 10 and client schema 8 under application ID
-`siegework-colony-v10`, which starts a fresh save identity. Record sizes grow and
+The game declares world schema 11 and client schema 8 under application ID
+`siegework-colony-v11`, which starts a fresh save identity for compact geography.
+World10 coordinates and paths are deliberately rejected rather than reinterpreted
+under the same seed. Record sizes grow and
 shrink within the runtime's 1,048,576-word limit. Earlier world schemas have different
-layouts and are rejected; derivation does not migrate existing saves. The browser retains
+layouts or geography and are rejected; derivation does not migrate existing saves. The browser retains
 an incompatible record and explains how to reopen a compatible package; changing
 the static mount path leaves its origin/application save identity unchanged.
 
@@ -119,8 +121,8 @@ level three. A worker can cross up to eight adjacent cells per tick, but its
 arrival job still runs on the next tick.
 
 Freight belongs to its source until unloading. Reroutes return it to the living
-source exactly once; source destruction accounts for it as lost. World10's old
-track field remains readable but is cleared on the next simulation tick. Views
+source exactly once; source destruction accounts for it as lost. The reserved
+track field is checked on input and cleared on the next simulation tick. Views
 ignore it: eight retained dot groups encode the current directed paths and
 phase offsets, so display-clock opacity animation needs no geometry rebuild.
 
@@ -163,8 +165,8 @@ complete it. The HUD and world marker share the same hidden-construction rule.
 
 Each simulation tick rebuilds the rooted depot tree. Its current paths supply
 eight retained groups of glowing dots whose phases travel toward the hub on the
-display clock. Old track bitmasks remain readable in World10 saves but never
-produce geometry. Both towers and artillery reuse one stone plinth mesh, with
+display clock. Reserved track bitmasks never produce geometry. Both towers and
+artillery reuse one stone plinth mesh, with
 four corner pillars and an open arch on each face. Houses use ordinary solid
 building geometry; they have no connecting shield panels. Buildings can occupy
 transport paths and intersections without removing their connections.
@@ -188,10 +190,10 @@ a failed durable save releases the slot without reporting success. Client 8
 stores that rejection and removes the former worker-menu state.
 
 Completed kind-four houses add four worker places to the hub's base 12, capped
-at 64. Hiring counts both living workers and paid queued recruits. World 10's
-decoder enforces the hard bound, allowing housing destruction to leave a valid
-over-capacity colony. Old kind-four records keep their eight-ore material ledger,
-health, IDs and unfinished jobs while acquiring house semantics.
+at 64. Hiring counts both living workers and paid queued recruits. The decoder
+enforces the hard bound, allowing housing destruction to leave a valid
+over-capacity colony. Houses use the ordinary eight-ore construction ledger,
+health and worker jobs.
 
 Attack alerts are ordinary location/dismiss controls and create no scene insets.
 Upgrade waiting labels project above their buildings through the shared camera;
