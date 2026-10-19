@@ -8,10 +8,10 @@ Scheme owns the game rules and presentation executed in the browser.
 
 | Module | Responsibility |
 | --- | --- |
-| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded pathfinding and exact grid-crossing direct fire. |
-| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, graded cart travel and the per-tick geometric minimum spanning transport tree. |
+| [`terrain.sld`](src/siegework/terrain.sld) | Compact seeded terrain with bounded hub/three-nest placement and immutable deposit capacities, permanent surveys, weighted bounded walking/flight pathfinding and exact grid-crossing direct fire. |
+| [`model.sld`](src/siegework/model.sld) | Immutable buildings, workers, enemies, freight, persistent deposits/nests and world; shared kits, paid hub capacity upgrades, worker assembly, separate upgrade trees, paid hub repairs, deliveries, excavation, enemy ranks, crowd separation, retaliation, captured worker flights, shared terrain/cable heights and the per-tick geometric minimum spanning transport tree. |
 | [`guidance.sld`](src/siegework/guidance.sld) | First-extractor guidance derived from authoritative orders and permanent survey history, choosing a known, safely reachable deposit. |
-| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, routes, ownership and exact underground/produced material conservation. |
+| [`state.sld`](src/siegework/state.sld) | Derived world transport, checked restart envelope, scalar bounds, canonical site identities, captured flights, queued routes, ownership and exact underground/produced material conservation. |
 | [`presentation.sld`](src/siegework/presentation.sld) | Pure difficulty readouts derived from the model's ninety-second interval, shared by the HUD and accessible status. No independent game clock. |
 | [`status.sld`](src/siegework/status.sld) | Accessible text diagnostics for resources, orders, workers and threats. |
 | [`recording.sld`](src/siegework/recording.sld) | Pure on-demand observations of a validated World for replay/dump analysis; no recording storage or game transitions. |
@@ -20,7 +20,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`environment-cli.mjs`](environment-cli.mjs) | Bounded JSONL and MCP stdio transports sharing the headless environment; MCP pages player observations. See the [environment contract](headless.md). |
 | [`analyze-recording.mjs`](analyze-recording.mjs) | Node dump reader that invokes the actual Scheme decoder/projection and collects observed economy, individual nest clears, exhaustion counts, orders and frontier progress. |
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
-| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
+| [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, straight aerial transport pulses, cyan reveal-radius guides, camera-facing health/reserve instances and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
 | [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
@@ -135,21 +135,17 @@ parent-chain checks prove that every freight route reaches the hub; newer tower
 IDs may be parents. These checks remain in Scheme for every host.
 
 Transport derives a fresh dense Prim tree every tick. Squared Euclidean cell
-distance ranks eligible edges, then endpoint IDs break ties. The graph admits
-only routes within the serialized 1024-step bound: a cached surveyed-ground
-flood rejects disconnected nodes, and exact bounded BFS tests candidate edges
-lazily. Rejected candidates are replaced by the cheapest remaining parent;
-later joined nodes may still connect a previously blocked candidate. Navigation
-scratch is keyed by seed, breaches, surveys and blocking building footprints.
-Saved legal paths take priority over canonical cached paths. The cache cannot
-supply topology or override a restored shuttle's valid route.
+distance ranks eligible straight links, then endpoint IDs break ties. Eligibility
+uses the larger endpoint reveal radius and a conservative terrain-column sight
+test; no map-sized transport flood or route cache is needed.
 
-`CartEdge` carries a physical adjacent edge and its traversal cost. Walking
-costs forty units; level-one, level-two and level-three links cost four, two and
-one. Both route search and the worker's bounded movement budget use those
-costs. The slower endpoint selects a link's service level, with the hub at
-level three. A worker can cross up to eight adjacent cells per tick, but its
-arrival job still runs on the next tick.
+`CartEdge` carries two exact endpoints and their service cost. The bounded route
+search visits walking neighbors and boarding connections. Walking costs 1600
+work units per cell; a flight costs 320 times its tick duration, including two
+lift ticks and two landing ticks. The slower endpoint chooses speed 80, 160 or
+320 world units per tick, with the hub at level three. Adjacent station cells
+remain walking steps because boarding cannot improve their travel time. Arrival
+jobs run on the following tick after movement finishes.
 
 Freight belongs to its source until unloading. Reroutes return it to the living
 source exactly once; source destruction accounts for it as lost. The reserved
@@ -237,25 +233,38 @@ current knowledge; construction checks current visibility before assigning a new
 worker or picking up a kit. A carrier already traveling on a proved route can
 complete it. The HUD and world marker share the same hidden-construction rule.
 
-Each simulation tick rebuilds the rooted depot tree. Its current paths supply
-two retained layers: a steady opaque dark backing and a narrower bright core
-that pulses uniformly on the display clock. Both reuse one packed description
-of the undirected edges and shared joints, with fast cyan taking priority over
-ordinary gold. Within each layer, shortened edge rectangles meet node squares
-without gaps or overlapping area; every piece instances a shared plane mesh.
-The wider backing lies just below the core and draws with opaque geometry, so
-terrain colors cannot wash out the pulse. The padded camera window bounds
-scratch storage and occurrences. Reserved track bitmasks
-never produce geometry. Both towers and
-artillery reuse one stone plinth mesh, with
-four corner pillars and an open arch on each face. Buildings can occupy
-transport paths and intersections without removing their connections.
+Each simulation tick rebuilds a deterministic hub-rooted minimum spanning tree.
+A candidate straight cable must have clear terrain sight and fit within the
+larger actual reveal radius of its two endpoints; the hub contributes radius
+nine. Remembered surveys do not extend link reach. Squared Euclidean distance
+and endpoint IDs determine the tree independently of list order or tower age.
+The shared terrain-height rule bounds today's rock peaks at 850 thousandths of
+a cell. The cable plane is 900, so current mountains never obstruct it; the
+conservative grid-column sight test also checks both cells at diagonal corners.
 
-Unchanged directed routes preserve freight progress. Changed routes return the
+The cable endpoints supply two retained layers: a steady opaque dark backing
+and a narrower bright core that pulses uniformly on the display clock. Each
+undirected pair instances one straight rectangle, sorted and packed with its
+fast-cyan or ordinary-gold tint. The padded camera window culls whole spans;
+reserved legacy track bitmasks never produce geometry. Towers and artillery
+use compact ground-level models. Cyan outlines show the union of the hub's
+and ready towers' actual reveal radii.
+
+Unchanged directed links preserve freight progress. Changed links return the
 load once to its surviving source; a destroyed source loses its own cargo.
-Every completed tower offers worker carts. The slower endpoint determines the
-link's speed; each tower level doubles it, and the hub counts as level three.
-Weighted route costs and assignment estimates use those same travel speeds.
+Freight shuttles lift, cross the cable and lower before unloading. Every ready
+tower offers worker flights; the slower endpoint determines speed, each level
+doubles it, and the hub counts as level three. Walking and flight costs include
+the same movement time used by assignment estimates and execution.
+
+A worker boards only at a current link endpoint. Its captured origin,
+destination, progress and speed then determine lift, cruise and landing without
+consulting the towers again. Destruction cannot interrupt that committed flight
+or duplicate its job, cargo or source reservation. The next queued leg is
+checked again before boarding and replanned if the tree changed. Saves validate
+captured coordinates and safe ground endpoints; no live tower is needed to
+resume an active flight. Legacy routed freight is accepted at the boundary and
+settled once when the next tick replaces its route with a current straight link.
 
 A rejected transition never becomes the saved colony. The runtime captures the
 command, committed snapshots and any staged candidate; the browser retains one

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker, withdrawReserves} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,at,pixelAt,routeCell,setWorker, addEnemy, withdrawReserves} from './colony-state.mjs';
 
 export async function checkTransport(test,fresh) {
   const state=r=>colony(r.snapshot(1));
@@ -76,16 +76,22 @@ export async function checkTransport(test,fresh) {
     assert.equal(next.rails[1].cargo,16);assert.equal(next.rails[1].progress,48);
     assert.deepEqual(next.rails.map(rail=>rail.path),loaded.rails.map(rail=>rail.path));await r.close();
   });
-  await test('cart budgets cross corners but defer delivery to the following job transition',async()=>{
+  await test('worker flights lift, cross a direct diagonal and land before delivering cargo',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,24);
     await restoreColony(r,world);await step(r);const riding=state(r),route=riding.rails[0].path;
-    const corner=route.findIndex((cell,i)=>i>0&&i+1<route.length&&Math.abs(cell-route[i-1])!==Math.abs(route[i+1]-cell));
-    assert.ok(corner>0);const start=route[corner-1];withdrawReserves(riding, 16);
-    Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,job:2,target:0,cargo:16,path:route.slice(corner)});
-    await restoreColony(r,riding);await step(r);const next=state(r),point=route[corner+1];
-    assert.deepEqual([next.bots[0].x,next.bots[0].y],[(point%128)*40+20,Math.floor(point/128)*40+20]);
-    assert.equal(next.bots[0].cargo,16);assert.equal(next.delivered,riding.delivered);
-    await step(r,20);assert.equal(state(r).delivered,riding.delivered+16);await r.close();
+    assert.equal(route.length,2);withdrawReserves(riding,16);
+    setWorker(riding,0,{x:12,y:24,job:2,cargo:16,path:[8+22*48]});
+    await restoreColony(r,riding);const start=[riding.bots[0].x,riding.bots[0].y];
+    await step(r);let bot=state(r).bots[0];assert.deepEqual([bot.x,bot.y],start);
+    assert.equal(bot.flight.length,1);assert.equal(bot.flight[0].progress,80);assert.equal(bot.flight[0].speed,80);
+    await step(r);assert.deepEqual([state(r).bots[0].x,state(r).bots[0].y],start);
+    await step(r);bot=state(r).bots[0];assert.ok(bot.x<start[0]&&bot.y<start[1]);
+    assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
+    const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
+    while(state(r).bots[0].flight.length)await step(r);
+    bot=state(r).bots[0];assert.deepEqual([bot.x,bot.y],Object.values(pixelAt(riding,8,22)));
+    assert.equal(bot.cargo,16);assert.equal(state(r).delivered,riding.delivered);
+    await step(r);assert.equal(state(r).delivered,riding.delivered+16);await r.close();
   });
   await test('freight speed doubles at each shared tower level and keeps its 32-ore load',async()=>{
     for(const level of [1,2,3]) {
@@ -95,28 +101,74 @@ export async function checkTransport(test,fresh) {
       assert.equal(state(r).rails[0].cargo,32);await r.restore(1,r.snapshot(1));await r.close();
     }
   });
-  await test('maximum-speed carts follow every segment of a U-shaped route before processing arrival',async()=>{
-    const r=await fresh(),world=state(r);fund(world);depot(world,12,22,3);
-    await restoreColony(r,world);await step(r);const riding=state(r);
-    const path=[[12,22],[12,23],[12,24],[11,24],[10,24],[9,24],[8,24],[8,23],[8,22]]
-      .map(([x,y])=>routeCell(riding,x,y));
-    riding.rails[0].path=path;withdrawReserves(riding, 16);
-    const start=path[0];Object.assign(riding.bots[0],{x:(start%128)*40+20,y:Math.floor(start/128)*40+20,
-      job:2,target:0,cargo:16,path:path.slice(1)});
-    await restoreColony(r,riding);await step(r);const arrived=state(r),hub=pixelAt(arrived,8,22);
-    assert.deepEqual([arrived.bots[0].x,arrived.bots[0].y],[hub.x,hub.y]);
-    assert.deepEqual(arrived.bots[0].path,[]);assert.equal(arrived.bots[0].cargo,16);
-    assert.equal(arrived.delivered,riding.delivered);await step(r);assert.equal(state(r).delivered,riding.delivered+16);
-    await r.close();
+  await test('a committed flight survives station destruction and stale queued flights replan on the ground',async()=>{
+    const r=await fresh(),world=state(r);fund(world);const tower=depot(world,12,22,3);
+    await restoreColony(r,world);await step(r);const riding=state(r);withdrawReserves(riding,32);
+    setWorker(riding,0,{x:12,y:22,job:2,cargo:16,path:[8+22*48]});
+    setWorker(riding,1,{x:12,y:22,job:2,cargo:16,path:[8+22*48]});
+    await restoreColony(r,riding);await step(r);const flying=state(r);
+    assert.equal(flying.bots[0].flight.length,1);setWorker(flying,1,{x:12,y:22,job:2,cargo:16,path:[8+22*48]});
+    flying.buildings[0].hp=7;flying.tick=9;flying.lastRevealTick=-100;
+    await restoreColony(r,flying);await addEnemy(r,{x:12,y:22,target:tower.id});await step(r);
+    const lost=state(r);assert.equal(lost.buildings.length,0);assert.equal(lost.rails.length,0);
+    assert.equal(lost.bots[0].flight.length,1);assert.equal(lost.bots[0].cargo,16);
+    const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
+    lost.enemies=[];setWorker(lost,1,{x:12,y:22,job:2,cargo:16,path:[8+22*48]});
+    await restoreColony(r,lost);const waiting=lost.bots[1].x;await step(r);
+    assert.equal(state(r).bots[1].flight.length,0);assert.equal(state(r).bots[1].x,waiting);
+    assert.equal(state(r).bots[1].path.length,4);await step(r,40);
+    assert.equal(state(r).delivered,riding.delivered+32);assert.equal(state(r).lostOre,0);await r.close();
   });
-  await test('restoring an alternate legal route retains its own cargo and progress despite a warm path cache',async()=>{
+  await test('legacy routed freight returns once to its source and starts a straight replacement',async()=>{
     const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
     await restoreColony(r,world);await step(r);const restored=state(r);
     const path=[[12,22],[12,23],[11,23],[10,23],[9,23],[8,23],[8,22]].map(([x,y])=>routeCell(restored,x,y));
-    withdrawReserves(restored, 16);Object.assign(restored.rails[0],{cargo:16,progress:16,path});
+    withdrawReserves(restored,16);Object.assign(restored.rails[0],{cargo:16,progress:16,path});
     await restoreColony(r,restored);await step(r);
-    assert.deepEqual(state(r).rails[0].path,path);assert.equal(state(r).rails[0].progress,48);
-    assert.equal(state(r).rails[0].cargo,16);assert.equal(state(r).lostOre,0);await r.close();
+    assert.deepEqual(state(r).rails[0].path,[path[0],path.at(-1)]);assert.equal(state(r).rails[0].progress,0);
+    assert.equal(state(r).rails[0].cargo,16);assert.equal(state(r).lostOre,0);
+    await step(r,30);assert.equal(state(r).delivered,restored.delivered+16);await r.close();
+  });
+  await test('links use the larger endpoint reveal radius and ignore globally remembered visibility',async()=>{
+    for(const [x,level,connected] of [[16,1,true],[18,1,false],[18,2,true],[19,3,false]]) {
+      const r=await fresh(),world=state(r);fund(world);depot(world,x,22,level);
+      world.surveys.push({...at(world,12,22),radius:10});await restoreColony(r,world);await step(r);
+      assert.equal(state(r).rails.length,connected?1:0);await r.close();
+    }
+    const r=await fresh(),world=state(r);fund(world);depot(world,12,22);const far=depot(world,22,22,2);
+    await restoreColony(r,world);await step(r);assert.ok(state(r).rails.some(rail=>rail.source===far.id));await r.close();
+  });
+  await test('construction flights retain paid kits and their local source through save and landing',async()=>{
+    const r=await fresh(),world=state(r);fund(world);const source=depot(world,12,22);depot(world,16,22);
+    await restoreColony(r,world);await step(r);const supplied=state(r);
+    withdrawReserves(supplied,50);supplied.buildings.find(site=>site.id===source.id).stock=50;
+    setWorker(supplied,0,{x:12,y:22});await restoreColony(r,supplied);await fixtureCall(r,'fortify',[16,24]);
+    let carrier;
+    for(let tick=0;tick<100&&!carrier;tick++) {
+      await step(r);carrier=state(r).bots.find(bot=>bot.job===3&&bot.flight.length&&bot.source===source.id);
+    }
+    assert.ok(carrier,'a local paid construction kit boards the endpoint flight');
+    const captured={cargo:carrier.cargo,source:carrier.source,target:carrier.target,order:carrier.order};
+    const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);
+    do {
+      const bot=state(r).bots.find(bot=>bot.id===carrier.id);
+      assert.deepEqual({cargo:bot.cargo,source:bot.source,target:bot.target,order:bot.order},captured);
+      await step(r);
+    } while(state(r).bots.find(bot=>bot.id===carrier.id).flight.length);
+    await step(r,100);assert.equal(state(r).buildings.find(site=>site.id===carrier.target).stage,2);
+    assert.equal(state(r).lostOre,0);await r.close();
+  });
+  await test('flight decoding rejects malformed coordinates, speed and progress without replacing the world',async()=>{
+    const r=await fresh(),world=state(r);fund(world);depot(world,12,22);
+    await restoreColony(r,world);await step(r);const riding=state(r);withdrawReserves(riding,16);
+    setWorker(riding,0,{x:12,y:22,job:2,cargo:16,path:[8+22*48]});await restoreColony(r,riding);await step(r);
+    const saved=r.snapshot(1);
+    for(const edit of [bot=>bot.x++,bot=>bot.flight[0].speed=81,bot=>bot.flight[0].progress=-1,
+      bot=>bot.flight[0].destination=bot.flight[0].origin,bot=>bot.flight.push({...bot.flight[0]})]) {
+      const invalid=colony(saved);edit(invalid.bots[0]);await assert.rejects(()=>restoreColony(r,invalid),WebAssembly.RuntimeError);
+      assert.deepEqual(r.snapshot(1),saved);
+    }
+    await r.close();
   });
   await test('isolated surveyed depots keep stock without an impossible connection or a stranded worker',async()=>{
     const r=await fresh(),world=state(r);fund(world);const site=depot(world,16,22);

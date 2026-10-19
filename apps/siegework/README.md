@@ -107,15 +107,11 @@ the Node analysis command.
 - Select an existing building for **Upgrade** (`U`) or **Cancel** (`C`) on its
   pending order. Repeated tile taps only inspect an existing building; they do
   not upgrade or cancel it. Dismissing selection does not cancel construction.
-  Completed towers and artillery always stand on the same stone plinth, with
-  corner supports and open arches on all four faces. Workers and carts pass underneath.
-  Their upper structures and the hub have lower profiles; the arches retain
-  their clearance. Wider violet crystals and pulsing extractor halos identify
-  resource sites using the existing fixed meshes and display clock.
-  An animated indicator above a tower or artillery shows that it is waiting
-  for upgrade materials; current services stay active.
-  Buildings may occupy transport paths and intersections; their foundations
-  leave clearance for the carts.
+  Completed towers and artillery use compact ground-level models. Wider violet
+  crystals and pulsing extractor halos identify resource sites. An animated
+  indicator above a tower or artillery shows that it is waiting for upgrade
+  materials; current services stay active. Straight aerial cables leave their
+  intermediate ground cells available for construction.
 - Select the hub, then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
   worker assembles each recruit. The hub occupies nine tiles. Worker capacity
@@ -201,23 +197,26 @@ Each upgrade needs another delivered 25-ore kit and keeps the current level
 working until delivery completes. Artillery starts with two kits; a tower starts
 with one. Existing tower-mounted guns remain functional when their towers are
 upgraded. Every completed tower provides carts. Links run at the slower tower's
-level; the hub supports level three. Workers travel 2, 4 or 8 cells per tick
+level; the hub supports level three. Workers cruise at 2, 4 or 8 cells per tick
 (10×, 20× or 40× walking speed); freight moves 32, 64 or 128 world units per
 tick and carries up to 32 ore. These are movement speeds, not extra deliveries
 or production within one tick.
 
-The transport network is a deterministic minimum spanning tree rebuilt from
-scratch each simulation tick over the hub and completed towers. Its edge cost
-is squared straight-line cell distance, restricted to links with a known,
-passable route of at most 1024 steps. It does not minimize terrain travel
-length. Extractors obstruct freight paths; tower and artillery
-plinths permit crossings. Unreachable depots keep their stock.
+The transport network is a deterministic minimum spanning tree rebuilt each
+simulation tick over the hub and completed towers. Its edge cost is squared
+straight-line cell distance. A link needs clear cable sight and must fit inside
+the larger actual reveal radius of its endpoints; the hub radius is nine cells.
+Remembered explored terrain does not extend this reach. Unconnected depots keep
+their stock. Current mountains are lower than the cable plane, so they do not
+block links. Cyan boundary lines show the combined hub and tower reveal range.
 
-A continuous, bidirectional energy rail pulses uniformly on the display clock.
-Its steady dark border separates the bright core from terrain throughout the
-pulse. It shows only the current network, with cyan identifying available worker
-cart service and warm yellow marking ordinary freight links. Terrain maps and
-legal paths are cached by their inputs; tree selection itself runs afresh.
+A straight aerial energy cable pulses uniformly on the display clock. Its
+steady dark border separates the bright core from terrain. Cyan identifies
+available worker service and warm yellow marks ordinary freight links. Workers
+lift for two ticks, fly at their captured speed, then land; jobs, cargo and source
+reservations stay with them. A flight already underway finishes safely even if
+a tower is destroyed. Queued flights recheck the current network before boarding.
+Freight shuttles also lift and lower around their straight trip.
 Unchanged routes retain shuttle progress and cargo. Rerouting returns a
 shuttle's cargo once to its surviving source and resets that shuttle; destroying
 the source loses its stock and undelivered freight. Obsolete track cells never

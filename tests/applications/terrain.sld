@@ -5,6 +5,7 @@
    (scheme base)
    (scheme immutable)
    (siegework terrain)
+   (only (siegework model) initial-world world-terrain-height clear-zipline? flight-height)
    (only (lofi core) ann -> I32))
   (begin
 
@@ -218,14 +219,26 @@
                            (list (make-survey 96 96 32) (make-survey 2 2 0)) #f)))
     (define (cart-detour?)
       (let* ((a (cell-index (home-x 8) (home-y 22))) (b (+ a 1)) (c (+ a 2))
-             (d (+ a map-width)) (e (+ d 1)) (f (+ d 2))
-             (fast (list (make-cart-edge (rail-edge a d) 1) (make-cart-edge (rail-edge d e) 1)
-                         (make-cart-edge (rail-edge e f) 1) (make-cart-edge (rail-edge f c) 1)))
+             (fast (list (make-cart-edge a c 1)))
              (path (cart-path 1 (empty-list) fast (index-x a) (index-y a) (index-x c) (index-y c) all-surveys (empty-list))))
-        (and (= (path-length path) 4) (= (car path) d)
-             (rail-step? fast a d) (rail-step? fast d a) (not (rail-step? fast a b))
+        (and (= (path-length path) 1) (= (car path) c)
+             (rail-step? fast a c) (rail-step? fast c a) (not (rail-step? fast a b))
              (= (path-length (cart-path 1 (empty-list) (empty-list) (index-x a) (index-y a)
                                         (index-x c) (index-y c) all-surveys (empty-list))) 2))))
+
+    ;; The production cable clears all current terrain. Lower probe heights
+    ;; exercise rejection, including conservative diagonal corner coverage.
+    (define (first-rock world cell)
+      (if (> (world-terrain-height world (index-x cell) (index-y cell)) 0) cell
+          (first-rock world (+ cell 1))))
+    (define (cable-sight?)
+      (let* ((world (initial-world)) (rock (first-rock world (+ map-width 1)))
+             (a (- rock map-width)) (b (+ rock 1)))
+        (and (= (world-terrain-height world (index-x rock) (index-y rock)) 850)
+             (clear-zipline? world a b flight-height)
+             (clear-zipline? world b a flight-height)
+             (not (clear-zipline? world a b 850))
+             (not (clear-zipline? world b a 850)))))
 
     ;; ---- Tests ----
 
@@ -250,5 +263,6 @@
                    ((not (permanent-breach?)) -17)
                    ((not (water-cannot-open?)) -18)
                    ((not (cart-detour?)) -19)
+                   ((not (cable-sight?)) -20)
                    (else 1)))
            (-> I32)))))
