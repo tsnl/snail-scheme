@@ -90,9 +90,9 @@ export function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
   return restoreColony(runtime, world);
 }
 export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 22,
-  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0, source = 0} = {}) {
+  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0, source = 0, flight = []} = {}) {
   world.bots[index] = {id, ...pixelAt(world, x, y), job, target, cargo, timer,
-    path:path.map(index => routeCell(world, index % 48, Math.floor(index / 48))), hp, order, source};
+    path:path.map(index => routeCell(world, index % 48, Math.floor(index / 48))), hp, order, source, flight};
 }
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
 export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);
