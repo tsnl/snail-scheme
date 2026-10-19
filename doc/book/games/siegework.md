@@ -49,10 +49,11 @@ pause menu resumes play. Restart asks for confirmation first.
 ## Keep the colony supplied
 
 Extractors mine **finite deposits**. Upgrades add mining slots and output but do
-not refill the ground. The badge above each known deposit shows its remaining ore;
-the bar shows the fraction of its original reserve. At 10% or below, the badge
-turns red and its border pulses. An exhausted deposit reads **0 ore · Empty**
-without pulsing. Workers haul its final stock, then seek other work.
+not refill the ground. **Purple bars** show the fraction of ore remaining in each
+known deposit; an extractor carries that bar below its **green health bar**. Empty
+reserves keep an empty purple frame. These bars have no text, red warning or
+pulse. Workers haul the final stock, then seek other work. Green bars above other
+units show their health.
 
 Completed towers connect to the hub and each other along known, passable routes.
 Carts move workers and ore through this network. A distant project can stall if

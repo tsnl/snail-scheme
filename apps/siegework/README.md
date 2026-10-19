@@ -234,10 +234,11 @@ excavation. They stop and chip away before a permanent opening appears.
 
 Deposits run out. The starter holds 600 ore, the northern deposit 900, the rich
 eastern deposit 1,800, and regional deposits hold 300 times their base yield.
-Each discovered deposit has an overhead ore count and a bar showing its share
-of the original reserve. At 10% or less, a red border pulses while the amount
-stays readable. Empty sites show a quiet "0 ore · Empty" badge. Selecting a
-deposit or extractor also shows what remains underground. Extraction
+Green bars above units show their current health. A purple bar beneath an
+extractor, or above a bare deposit, shows the fraction of its original underground
+reserve. Empty reserves keep an empty purple frame. These world bars contain no
+text, never turn red and never pulse. Selecting a deposit or extractor still
+shows what remains underground. Extraction
 upgrades add mining slots without replenishing the reserve. Exhausted sites stop
 pulsing; workers haul the last stock and find other work. Rebuilding an extractor
 preserves its reserve. Keep ore for the next extractor and protect its supply route.

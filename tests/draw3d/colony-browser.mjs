@@ -153,42 +153,36 @@ function depositFixture(original,remaining) {
   deposit.remaining=remaining;value.produced+=removed;value.lostOre+=removed;value.started=true;
   value.surveys.push({x:deposit.cell%128,y:Math.floor(deposit.cell/128),radius:4});return value;
 }
-async function checkDepositBadges() {
+async function checkUnitBars() {
   const original=await world(),camera=await local(),cell=original.deposits[0].cell;
   const centered={...camera,cameraX:(cell%128)*1000,cameraY:Math.floor(cell/128)*1000,homing:false};
   try {
-    await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(depositFixture(original,60)))})`);
-    await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(centered))})`);await command('viewport',[1100,760]);
-    const low=await evaluate(`(()=>{const n=document.querySelector('[data-ui-key="deposit-ore-${cell}"]'),label=n.querySelector('.snail-ui-meter-label'),bar=n.querySelector('meter'),r=n.getBoundingClientRect(),style=getComputedStyle(n);
-      globalThis.fixtureOreBadge=n;return{tone:n.dataset.tone,text:label.textContent,value:bar.value,max:bar.max,animation:style.animationName,
-        color:style.color,background:style.backgroundColor,opacity:getComputedStyle(label).opacity,pointer:style.pointerEvents,
-        tappable:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===snailApp.canvas,
-        fits:label.scrollWidth<=label.clientWidth&&label.scrollHeight<=label.clientHeight};})()`);
-    assert.deepEqual(low,{tone:'4',text:'60 ore',value:60,max:600,animation:'deposit-low-pulse',color:'rgb(255, 249, 240)',
-      background:'rgb(165, 43, 33)',opacity:'1',pointer:'none',tappable:true,fits:true});
-    await capture('-low-ore');await click('pause');
-    const frozen=await evaluate('snailApp.runtime.snapshot(1)'),before=await evaluate('fixtureOreBadge.getAnimations()[0].currentTime');
-    assert.equal((await world()).paused,1);await pause(160);await displayFrame();
-    const pulse=await evaluate(`({same:fixtureOreBadge===document.querySelector('[data-ui-key="deposit-ore-${cell}"]'),
-      time:fixtureOreBadge.getAnimations()[0].currentTime,opacity:getComputedStyle(fixtureOreBadge.querySelector('.snail-ui-meter-label')).opacity})`);
-    assert.equal(pulse.same,true);assert.ok(pulse.time>before);assert.equal(pulse.opacity,'1');
-    assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),frozen,'display-clock warning does not advance a paused colony');
-    await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await displayFrame();
-    assert.equal(await evaluate('getComputedStyle(fixtureOreBadge).animationName'),'none');
-    assert.equal(await evaluate('fixtureOreBadge.dataset.tone'),'4','reduced motion keeps the visible low-reserve warning');
-    await call('Emulation.setEmulatedMedia',{features:[]});await click('resume');
-    await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(depositFixture(original,0)))})`);await settled();
-    const empty=await evaluate(`(()=>{const n=document.querySelector('[data-ui-key="deposit-ore-${cell}"]');return{tone:n.dataset.tone,
-      text:n.querySelector('.snail-ui-meter-label').textContent,value:n.querySelector('meter').value,animation:getComputedStyle(n).animationName};})()`);
-    assert.deepEqual(empty,{tone:'1',text:'0 ore · Empty',value:0,animation:'none'});await capture('-empty-ore');
-    console.log('ok - ore badges stay readable and pass map input through; paused low reserves pulse on the display clock, reduced motion and empty deposits stay quiet');
+    for(const [width,height] of [[1100,760],[390,844]])for(const remaining of [600,60,0]) {
+      await resize(width,height);const value=depositFixture(original,remaining);value.hull=150;value.bots[0].hp=7;
+      await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(value))})`);
+      await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(centered))})`);await command('viewport',[width,height]);
+      const result=await evaluate(`(()=>{const scene=snailApp.runtime.view().scene,bars=scene.batches.filter(b=>b.key===30||b.key===31),body=scene.batches.find(b=>b.key===3);
+        return{labels:document.querySelectorAll('[data-ui-key^="deposit-ore-"]').length,opaque:bars.every(b=>b.opacity===1&&!b.pulse),
+          unlit:bars.every(b=>b.draws.every(d=>d.mesh.vertices.every((v,i)=>i%10!==9||v===1))),
+          instanced:bars.every(b=>b.unordered&&b.draws.length<=4),sharedClock:bars.every(b=>b.motionClock===body.motionClock),lost:snailApp.renderer.resources.lost};})()`);
+      assert.deepEqual(result,{labels:0,opaque:true,unlit:true,instanced:true,sharedClock:true,lost:false});
+      await capture(`-bars-${width}x${height}-${remaining}`);
+    }
+    await click('pause');const frozen=await evaluate('snailApp.runtime.snapshot(1)');
+    await evaluate('globalThis.fixtureBarBody=snailApp.runtime.view().scene.batches.find(b=>b.key===3)');
+    const pausedCamera=await local();await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords({...pausedCamera,heading:90000,turnFrom:90000,turnTo:90000,turnElapsed:300,scale:750}))})`);
+    await settled();await displayFrame();
+    assert.equal(await evaluate('snailApp.runtime.view().scene.batches.find(b=>b.key===3)===fixtureBarBody'),true);
+    assert.equal(await evaluate('snailApp.runtime.view().scene.batches.filter(b=>b.key===30||b.key===31).every(b=>b.motionClock===fixtureBarBody.motionClock)'),true);
+    await pause(150);await displayFrame();assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),frozen);
+    console.log('ok - desktop/portrait health and reserve bars stay opaque and quiet, use shared instancing and preserve paused motion through camera changes');
   } finally {
-    await call('Emulation.setEmulatedMedia',{features:[]});
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(original))})`);
     await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(camera))})`);await command('viewport',[1100,760]);
-    await evaluate('delete globalThis.fixtureOreBadge');
+    await evaluate('delete globalThis.fixtureBarBody');
   }
 }
+
 try {
   await call('Runtime.enable');await call('Network.enable');await call('Network.setCacheDisabled',{cacheDisabled:true});
   await call('Page.navigate',{url:origin});await call('Page.bringToFront');await until(()=>evaluate('!!globalThis.snailApp'),'3D startup');
@@ -215,7 +209,7 @@ try {
   assert.equal(await evaluate('snailApp.manifest.settings.rotationHandler??null'),null);
   assert.ok(await has('rotate-left')&&await has('rotate-right'),'rotation buttons are immediately available');
   await evaluate('snailApp.session.stopClock()');
-  await checkDepositBadges();
+  await checkUnitBars();
   const freshHint=await world(),hintHub=freshHint.surveys.find(s=>s.radius===9),hintAlerts=structuredClone(freshHint);
   hintAlerts.alerts=[0,1,4].map((kind,index)=>({x:hintHub.x+index*2,y:hintHub.y,kind,tick:hintAlerts.tick}));
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(hintAlerts))})`);await settled();
