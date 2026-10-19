@@ -62,7 +62,7 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 - [x] Increase transport-line contrast and replace the nest count with hollow
       stars that fill as nests are defeated; publish the checked preview on 4212.
-- [ ] Replace world-space numeric ore badges with compact green HP bars and
+- [x] Replace world-space numeric ore badges with compact green HP bars and
       optional purple reserve bars beneath them. No numbers, low-ore red or
       pulsing; moving bars must share their units' display-rate animation clock.
 - [ ] Replace ground transport with straight elevated ziplines. A connection
