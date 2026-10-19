@@ -22,7 +22,7 @@ Scheme owns the game rules and presentation executed in the browser.
 | [`build.scm`](build.scm) | Explicit library roots, one game/shader compilation and static browser packaging. |
 | [`view.sld`](src/siegework/view.sld) | Fixed colored models for buildings, workers, freight and enemies; per-occurrence poses and aimed gun instances; repeated terrain meshes; the overhead camera, screen-relative pan, animated Q/E rotation, scale-only zoom, fragment reveal, transport pulses and nearest-building/crystal/ground picking. |
 | [`game.sld`](src/siegework/game.sld) | Typed owner entry point; client selection, one pending placement, camera commands, actual construction replies, local attack mutes, restart/pause handling and HUD composition. |
-| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
+| [`hud.sld`](src/siegework/hud.sld) | Mirrored edge controls, circular readouts, projected deposit reserve badges and tile-anchored contextual cards through the reusable top-down Scheme UI library. |
 
 The [game guide](README.md) describes play and controls. Shared API contracts are
 in the [application chapter](../../doc/book/lofi/applications.md).
@@ -155,6 +155,11 @@ a local paid kit to the hub transfers its cost from local spending to delivered
 ore before refunding or retaining the project's hub-backed reservation.
 
 Every deposit retains its own remaining reserve after extractor loss or depletion.
+The HUD projects a fixed-size ore meter above each known onscreen deposit or
+extractor. Its denominator comes from the seed's original capacity. A positive
+reserve at or below 10% uses a red border animated by CSS display time; zero is
+quiet and explicitly empty. Labels stay readable, ignore pointer input and sit
+below controls. Discovery gates the whole badge, including accessible text.
 Canonical order identifies the three home sites followed by the regional candidates.
 The parser compares that list and all three nest identities/coordinates with one
 trusted seed-derived layout, retained only for the current seed in each Wasm
