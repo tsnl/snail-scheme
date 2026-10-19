@@ -314,15 +314,15 @@
                                               (observer-dependencies (world-buildings world))))))))
     (define hub-model
       (model (list (block steel 0.0 0.0 0.12 3.0 3.0 0.24)
-                           (block cream 0.0 0.0 0.77 2.6 2.6 1.3)
-                           (block brass 0.0 0.0 1.49 2.9 2.9 0.14)
-                           (block lamp 0.0 0.0 1.58 1.35 0.22 0.04)
-                           (block lamp 0.0 0.0 1.58 0.22 1.35 0.04)
-                           (block steel -1.12 0.95 1.78 0.08 0.08 0.8)
-                           (block blue -1.12 0.95 2.19 0.22 0.22 0.12)
-                           (block cyan 0.0 -1.31 0.88 1.5 0.04 0.48)
-                           (block steel -1.0 -1.32 0.65 0.32 0.05 0.9)
-                           (block steel 1.0 -1.32 0.65 0.32 0.05 0.9))))
+                   (block cream 0.0 0.0 0.77 2.6 2.6 1.3)
+                   (block brass 0.0 0.0 1.49 2.9 2.9 0.14)
+                   (block lamp 0.0 0.0 1.58 1.35 0.22 0.04)
+                   (block lamp 0.0 0.0 1.58 0.22 1.35 0.04)
+                   (block steel -1.12 0.95 1.78 0.08 0.08 0.8)
+                   (block blue -1.12 0.95 2.19 0.22 0.22 0.12)
+                   (block cyan 0.0 -1.31 0.88 1.5 0.04 0.48)
+                   (block steel -1.0 -1.32 0.65 0.32 0.05 0.9)
+                   (block steel 1.0 -1.32 0.65 0.32 0.05 0.9))))
     (define (hub-nodes world)
       (list (model-instance hub-model (translation (position (world-hub-x world) (world-hub-y world) 0.0)))))
 
@@ -389,10 +389,10 @@
     (define upgraded-mine-model (model (mine-parts 2)))
     (define cannon-model
       (model (list (block rust 0.0 -0.1 0.0 0.58 0.5 0.32)
-                           (block cream 0.0 0.35 0.09 0.22 0.72 0.22)
-                           (block steel 0.0 0.75 0.09 0.15 0.42 0.15)
-                           (block brass 0.0 0.97 0.09 0.27 0.12 0.27)
-                           (block steel 0.0 1.035 0.09 0.14 0.015 0.14))))
+                   (block cream 0.0 0.35 0.09 0.22 0.72 0.22)
+                   (block steel 0.0 0.75 0.09 0.15 0.42 0.15)
+                   (block brass 0.0 0.97 0.09 0.27 0.12 0.27)
+                   (block steel 0.0 1.035 0.09 0.14 0.015 0.14))))
     (define (cannon-nodes building height)
       (let* ((target (moving-position (building-aim-x building) (building-aim-y building) 0.0))
              (direction (v- target (position (building-x building) (building-y building) 0.0)))
@@ -407,12 +407,12 @@
                   (artillery-cannons building (- count 1)))))
     (define (artillery-parts level)
       (list (block steel 0.0 0.0 0.1 0.94 0.94 0.2)
-                    (block steel -0.36 0.0 0.26 0.18 0.86 0.32)
-                    (block steel 0.36 0.0 0.26 0.18 0.86 0.32)
-                    (block rust 0.0 0.0 0.3 0.56 0.66 0.3)
-                    (block cream 0.0 0.0 0.5 0.68 0.58 0.12)
-                    (block (if (>= level 2) brass steel) -0.4 -0.26 0.46 0.18 0.26 0.2)
-                    (block (if (>= level 3) brass steel) 0.4 -0.26 0.46 0.18 0.26 0.2)))
+            (block steel -0.36 0.0 0.26 0.18 0.86 0.32)
+            (block steel 0.36 0.0 0.26 0.18 0.86 0.32)
+            (block rust 0.0 0.0 0.3 0.56 0.66 0.3)
+            (block cream 0.0 0.0 0.5 0.68 0.58 0.12)
+            (block (if (>= level 2) brass steel) -0.4 -0.26 0.46 0.18 0.26 0.2)
+            (block (if (>= level 3) brass steel) 0.4 -0.26 0.46 0.18 0.26 0.2)))
     (define (raised-model parts)
       (model (list (mesh plinth-geometry plinth-stone identity-transform)
                    (group (translation (vec3 0.0 0.0 1.3)) parts))))
@@ -430,12 +430,12 @@
               (append (if (>= level 2)
                           (list (block cyan 0.0 0.0 1.06 0.88 0.35 0.08)) (empty-list))
                       (if (= level 3)
-                                  ;; Supports meet the base and roof; their outer
-                                  ;; faces never overlap the same plane as either.
-                                  (list (block cream -0.36 0.0 0.675 0.12 0.76 0.87)
-                                        (block cream 0.36 0.0 0.675 0.12 0.76 0.87)
-                                        (block brass 0.0 0.0 1.185 0.94 0.84 0.15)
-                                        (block blue 0.0 -0.44 1.16 0.35 0.04 0.2)) (empty-list)))))
+                          ;; Supports meet the base and roof; their outer
+                          ;; faces never overlap the same plane as either.
+                          (list (block cream -0.36 0.0 0.675 0.12 0.76 0.87)
+                                (block cream 0.36 0.0 0.675 0.12 0.76 0.87)
+                                (block brass 0.0 0.0 1.185 0.94 0.84 0.15)
+                                (block blue 0.0 -0.44 1.16 0.35 0.04 0.2)) (empty-list)))))
     (define tower-models
       (vector (raised-model (tower-parts 1)) (raised-model (tower-parts 2))
               (raised-model (tower-parts 3))))
@@ -845,25 +845,25 @@
         ;; translucent previews, water and mineral glows.
         (batched-scene camera
                        (append (list
-                        (retained-batch 0 0 (list (world-seed world)) (lambda () (append (world-base) (hub-nodes world))))
-                        (unordered-batch (retained-batch 1 0 terrain
-                                        (lambda () (append (terrain-nodes world window #f (window-left window) (window-top window))
-                                                           (mineral-nodes world window #f #f)))))
-                        (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f))))
-                        (retained-batch 4 0 (append (window-dependencies window) (observer-dependencies guns))
-                                        (lambda () (coverage-nodes guns guns (empty-list) window)))
-                        (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
-                                                              (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
-                                                                                 (mineral-nodes world window #f #t))))))
-                        (revealed-batch world (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))))
-                        (translucent-batch 5 1 (list x y preview-kind) 0.45 #t
-                                           (lambda () (append (preview-nodes world x y preview-kind)
-                                                              (construction-previews world (world-buildings world)))))
-                        (translucent-batch 6 0 terrain 0.25 #t
-                                           (lambda () (water-glints world window #f (window-left window) (window-top window))))
-                        (translucent-batch 7 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #f)))
-                        (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
-                                                                 (lambda () (water-glints world window #t (window-left window) (window-top window)))))
-                        (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
+                                (retained-batch 0 0 (list (world-seed world)) (lambda () (append (world-base) (hub-nodes world))))
+                                (unordered-batch (retained-batch 1 0 terrain
+                                                                 (lambda () (append (terrain-nodes world window #f (window-left window) (window-top window))
+                                                                                    (mineral-nodes world window #f #f)))))
+                                (motion-batch 3 1 (empty-list) 100 (lambda () (append (starter-nodes world) (entity-nodes world previous #f))))
+                                (retained-batch 4 0 (append (window-dependencies window) (observer-dependencies guns))
+                                                (lambda () (coverage-nodes guns guns (empty-list) window)))
+                                (revealed-batch world (unordered-batch (retained-batch 9 0 terrain
+                                                                                       (lambda () (append (terrain-nodes world window #t (window-left window) (window-top window))
+                                                                                                          (mineral-nodes world window #f #t))))))
+                                (revealed-batch world (motion-batch 10 1 (empty-list) 100 (lambda () (entity-nodes world previous #t))))
+                                (translucent-batch 5 1 (list x y preview-kind) 0.45 #t
+                                                   (lambda () (append (preview-nodes world x y preview-kind)
+                                                                      (construction-previews world (world-buildings world)))))
+                                (translucent-batch 6 0 terrain 0.25 #t
+                                                   (lambda () (water-glints world window #f (window-left window) (window-top window))))
+                                (translucent-batch 7 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #f)))
+                                (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
+                                                                         (lambda () (water-glints world window #t (window-left window) (window-top window)))))
+                                (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
                                (flow-batches world window 0))
                        (camera-light camera) (vec3 0.5 0.5 0.46) (rgb 28 151 223))))))

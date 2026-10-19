@@ -1,7 +1,7 @@
 // Chromium input, WebGPU readback and durable reopen for either 3D package.
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {colony, client, siteAt, colonyWords, clientWords, at, setWorker} from '../applications/colony-state.mjs';
+import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -188,13 +188,37 @@ try {
     assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforeReadout,'the painted hint consumes taps without a hidden order');
     await click('pause');await capture(`-pause-${width}x${height}`);await click('handedness');await click('resume');
     await capture(`-hint-${width}x${height}-left`);
-    assert.equal(await evaluate(`document.querySelector('[data-ui-key="rotate-left"]').getBoundingClientRect().left<document.querySelector('[data-ui-key="rotate-right"]').getBoundingClientRect().left`),true);
+    assert.equal(await evaluate(`(()=>{const q=document.querySelector('[data-ui-key="rotate-left"]').getBoundingClientRect(),e=document.querySelector('[data-ui-key="rotate-right"]').getBoundingClientRect();return q.left<e.left&&Math.abs(q.top-e.top)<1})()`),true);
     await click('pause');await click('handedness');await click('resume');
   }
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
-  const uploads=await evaluate('globalThis.retainedScene=snailApp.runtime.view().scene;snailApp.renderer.resources.uploads');
-  await command('drift',[1,0]);assert.equal(await evaluate('snailApp.renderer.resources.uploads'),uploads);
+  const resources=await evaluate('globalThis.retainedScene=snailApp.runtime.view().scene;snailApp.renderer.resources');
+  assert.ok(resources.instancedDraws>0&&resources.instances>resources.meshes,'product occurrences share GPU model buffers');
+  await command('drift',[1,0]);const cameraResources=await evaluate('snailApp.renderer.resources');
+  assert.equal(cameraResources.uploads,resources.uploads);assert.equal(cameraResources.meshUploads,resources.meshUploads);
   assert.equal(await evaluate('[0,3,10].every(key=>snailApp.runtime.view().scene.batches.find(b=>b.key===key)===retainedScene.batches.find(b=>b.key===key))'),true);
+  const repeated=structuredClone(freshHint);repeated.started=true;repeated.surveys.unshift({...repeated.surveys[0]});
+  for(const x of [10,11,12]) {
+    const point=at(repeated,x,22),aim=pixelAt(repeated,x,22);
+    repeated.buildings.push({id:repeated.nextId++,kind:4,...point,level:1,hp:220,stock:0,stage:2,
+      cooldown:0,aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1});
+    repeated.spent+=8;repeated.ore-=8;
+  }
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(repeated))})`);await settled();
+  const instanced=await evaluate(`(async()=>{const renderer=snailApp.renderer,device=renderer.device,calls=[],original=device.createCommandEncoder;
+    device.createCommandEncoder=function(...args){const encoder=original.apply(this,args),begin=encoder.beginRenderPass.bind(encoder);
+      encoder.beginRenderPass=(...args)=>{const pass=begin(...args),draw=pass.drawIndexed.bind(pass);
+        pass.drawIndexed=(...args)=>{calls.push(args.slice(0,2));return draw(...args);};return pass;};return encoder;};
+    try{await renderer.readPixels(snailApp.runtime.view().scene);return{calls,resources:renderer.resources};}
+    finally{device.createCommandEncoder=original;}})()`);
+  assert.ok(instanced.calls.some(([indices,count])=>indices===270&&count===3),'three houses share one indexed GPU draw');
+  assert.ok(instanced.calls.some(([indices,count])=>indices===108&&count===3),'three worker bodies share one indexed GPU draw');
+  assert.ok(instanced.calls.some(([indices,count])=>indices===6&&count>20),'terrain tiles use repeated fixed-mesh instances');
+  await complete(1);const tickResources=await evaluate('snailApp.renderer.resources');
+  assert.equal(tickResources.meshUploads,instanced.resources.meshUploads);assert.ok(tickResources.uploads>instanced.resources.uploads);
+  console.log('ok - product tile, house and worker draws share fixed GPU meshes; a new tick uploads only occurrences',
+    {draws:instanced.calls,meshes:instanced.resources.meshes,instances:instanced.resources.instances});
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
   await command('home');await until(async()=>!(await local()).homing,'smooth home');await key('Escape','Escape');
   const center=[(await local()).cameraX,(await local()).cameraY],scale=(await local()).scale;
   const wheel=await pointCell(9,23);await call('Input.dispatchMouseEvent',{type:'mouseWheel',...wheel,deltaX:0,deltaY:200});
@@ -289,17 +313,18 @@ try {
 
   await complete();assert.equal(siteAt(await world(),15,22)?.stage,2);await frameCell(15,22);await pointCell(15,22,true,2.28);await click('upgrade');
   const upgrading=siteAt(await world(),15,22),spinner=`upgrade-wait-${upgrading.id}`;assert.equal(await has(spinner),true);
-  const marker=()=>evaluate(`(()=>{const n=document.querySelector('[data-ui-key="${spinner}"]'),r=n.getBoundingClientRect(),s=getComputedStyle(n);return{x:r.x+r.width/2,y:r.y+r.height/2,width:r.width,height:r.height,pointer:s.pointerEvents,animation:s.animationName}})()`);
+  const marker=()=>evaluate(`(()=>{const n=document.querySelector('[data-ui-key="${spinner}"]'),r=n.getBoundingClientRect(),s=getComputedStyle(n);return{x:r.x+r.width/2,y:r.y+r.height/2,width:parseFloat(s.width),height:parseFloat(s.height),pointer:s.pointerEvents,animation:s.animationName}})()`);
   const firstMarker=await marker(),top=await pointCell(15,22,false,2.63);assert.ok(Math.abs(firstMarker.x-top.x)<=1&&Math.abs(firstMarker.y-top.y)<=1);
   assert.deepEqual([firstMarker.width,firstMarker.height,firstMarker.pointer,firstMarker.animation],[24,24,'none','upgrade-wait-spin']);
   const waiting=await evaluate('snailApp.runtime.snapshot(1)');await command('drag',[18,12]);const movedMarker=await marker();
   assert.ok(Math.abs(movedMarker.x-firstMarker.x-18)<=1&&Math.abs(movedMarker.y-firstMarker.y-12)<=1);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),waiting);
   await capture('-upgrade-spinner');await click('cancel-build');assert.equal(await has(spinner),false);
-  await click('upgrade');assert.equal(await has(spinner),true);await complete();assert.equal(siteAt(await world(),15,22).level,2);assert.equal(await has(spinner),false);await key('Escape','Escape');
+  await pointCell(15,22,true,2.28);await click('upgrade');assert.equal(await has(spinner),true);
+  await complete();assert.equal(siteAt(await world(),15,22).level,2);assert.equal(await has(spinner),false);await key('Escape','Escape');
   console.log('ok - CSS upgrade indicators track the building top, ignore pointer input and disappear on cancellation or completion');
 
   const pixels=await evaluate(`(async()=>{const frame=snailApp.runtime.view(),p=await snailApp.renderer.readPixels(frame.scene);return{
-    vertices:frame.scene.batches.reduce((n,b)=>n+b.vertices.length/10,0),bytes:p.bytes.length,colors:new Set(Array.from(p.bytes).filter((_,i)=>i%4!==3)).size};})()`);
+    vertices:frame.scene.batches.reduce((n,b)=>n+b.draws.reduce((n,d)=>n+d.count*d.mesh.vertices.length/10,0),0),bytes:p.bytes.length,colors:new Set(Array.from(p.bytes).filter((_,i)=>i%4!==3)).size};})()`);
   assert.ok(pixels.colors>30&&pixels.vertices>1000);console.log('ok - real WebGPU scene has varied pixels and geometry',pixels);
   await click('pause');await click('restart-menu');assert.equal(await has('restart-dialog'),true);assert.equal((await world()).paused,1);await capture('-restart');
   await press({x:20,y:20});assert.ok(await has('pause-dialog'));assert.equal((await world()).paused,1);
@@ -357,9 +382,13 @@ try {
   const inspect=await evaluate(`(()=>{const r=document.querySelector('[data-ui-key="attack-inspect-${alertKey}"]').getBoundingClientRect();return{x:r.x+24,y:r.y+48}})()`);
   await touchAt(inspect);await until(async()=>!(await local()).homing,'toast label inspects attack');
   assert.deepEqual([(await local()).cameraX,(await local()).cameraY],[firstAlert.x*1000,firstAlert.y*1000]);
-  await resize(390,844,3);await command('center');await frameCell(15,21);await touchAt(await pointCell(15,21));
-  const touchBank=(await world()).ore;assert.equal((await local()).choiceKind,3,'a new page starts with the default tower preview');
-  await touchAt(await tileIsTappable(15,21));assert.equal(siteAt(await world(),15,21)?.kind,3);assert.equal((await world()).ore,touchBank-25);
+  await resize(390,844,3);await command('center');await frameCell(15,21);
+  const beforeTouch=await world(),touchSnapshot=await evaluate('snailApp.runtime.snapshot(1)');assert.equal(siteAt(beforeTouch,15,21),undefined);
+  await touchAt(await pointCell(15,21));assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),touchSnapshot);
+  assert.equal((await local()).choiceKind,3,'a new page starts with the default tower preview');
+  await touchAt(await tileIsTappable(15,21));const orderedTouch=await world();assert.equal(siteAt(orderedTouch,15,21)?.kind,3);
+  assert.equal(orderedTouch.spent,beforeTouch.spent+25);
+  assert.equal(beforeTouch.ore-orderedTouch.ore+orderedTouch.localSpent-beforeTouch.localSpent,25,'bank and accessible local stock fund exactly one kit');
   await touchAt(await pointCell(15,21));assert.equal(await has('cancel-build'),true);await touchControl('cancel-build');assert.equal(siteAt(await world(),15,21),undefined);
   await key('Escape','Escape');const beforeDrag=await pointCell(12,20),dragWorld=await evaluate('snailApp.runtime.snapshot(1)');
   await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:100,y:610}]});await displayFrame();

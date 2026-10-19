@@ -57,7 +57,89 @@ The test policy remains one explicit ordered decision operation so its spending
 priorities can be read together; it is intentionally longer than the usual
 ten-line function target.
 
-## Live transport source checkpoint — combined validation pending
+## Fixed models, houses and live transport — combined World10 checkpoint
+
+The combined package uses immutable colored model vertices and indices shared by
+actual GPU instances. Tiles, composite buildings, workers, freight and enemies
+reuse fixed meshes; changed batches upload occurrence transforms and current
+normal matrices. Aimed guns remain separate instances. Native HiDPI rendering,
+single-sample coverage, the 2:1 dimetric camera and smooth Q/E rotation remain.
+Houses, contextual hub hiring, live tower transport, CSS upgrade indicators and
+compact attack alerts are included. Product alerts no longer create inset scenes;
+the library inset API is still exercised independently.
+
+The canonical default `-O1` package is generation
+`2ffe90d18d12b3cb9fb2dc6a`, with a 583,357-byte simulation and SHA-256
+`809d28a60d8ebecaf832d6966de3ac39e23ba0a92518773bca1ace40eb62f3db`.
+A second canonical build after Scheme formatting produced the same generation
+and simulation hash. World remains schema 10 and Client is schema 8. The new
+scene provider ABI needs the matching host package: an older host rejects the
+new module before replacement and retains its committed instance, state and
+presentation. Reloading the complete package preserves compatible World10 saves.
+
+The implementation checkpoints are `7b15f216` (scene/model ABI and GPU resources),
+`eebf4c9b` (stable physical Q/E order on narrow left-handed layouts), and
+`2c1f0b1b` (fixed product models). Validation of this exact module passed:
+
+- 218 actual-Wasm application integration checks, including shared tile, house
+  and worker prototypes, retained geometry and tick-only instance replacement.
+- 22 product presentation groups, including house roofs, shared plinths, all
+  stacked artillery levels and the corrected level-three brass placement with
+  no overlapping coplanar outward faces.
+- 12 generic actual-Wasm draw3d groups and 13 headed Chromium/WebGPU groups.
+  Pixel probes cover ordered A/B/A blending and opaque ties, nonuniform normals,
+  motion endpoints and clocks, phased opacity, reveals and native-DPR insets.
+  Every allocated buffer and texture is destroyed exactly once through resize,
+  replacement, omitted models, pending readback and shutdown.
+- All 19 static-hosting groups, including persistence and product browser input.
+  The product GPU capture draws three houses and three workers as shared
+  instances; one frame uses 11 mesh buffers for 271 occurrences. Its next tick
+  adds no mesh uploads. Native DPR 1, 2 and 3 remain covered.
+- 60 paired steps against the immutable expanded-renderer baseline, with exact
+  owner snapshots and complete UI output. Current/prior endpoints and normals
+  differ by at most 0.00001404; terrain retains its colored triangle multiset.
+
+The focused simplify pass used an independent behavioral explanation before the
+renderer rewrite. Default batches preserve node order; only explicit opaque
+unordered terrain may regroup instances. Prototype caches retain the completed
+frame's live references, not historical geometry. Generation ownership and failed
+preparation keep candidate resources separate from committed rendering. The
+final informed release review and publication are separate from this checkpoint.
+A subsequent bridge-boundary correction (`3c9cb696`) rejects matrices made
+singular by binary32 copying and nonzero subnormal normal coefficients. All
+12 actual-Wasm groups and 14 GPU groups passed, including failed-current/prior
+retention and a lit anisotropic triangle with a normal coefficient near 1e-36.
+These follow-up checks are separate from the recorded package validation above.
+Repository formatting and book-source checks also passed.
+
+The [paired measurement report](../../doc/measurements/fixed-model-instances-2026-10-18.md)
+records the exact baseline, candidate, raw results and limitations. On the shared
+host, grown-colony tick/view medians fell from 18.94–19.29 ms to 2.57–2.71 ms;
+96-enemy encounter medians fell from 21.37–21.99 ms to 7.19–7.65 ms. One warmed
+encounter tick transfers 132,504 bytes instead of 1,803,192 bytes, with zero mesh
+bytes; retained and camera-only views upload nothing. These are CPU and payload
+diagnostics. Chromium used SwiftShader for GPU correctness, not physical GPU FPS.
+The separate compact-map/World11 pacing change is outside this measurement.
+
+Reproduction commands (the browser runners require a private static server and
+Chromium CDP endpoint):
+
+```sh
+chibi-scheme -I bootstrap apps/siegework/build.scm "$PWD" "$PWD/build/siegework"
+node tests/applications/runtime.mjs build/siegework/solo /path/to/application-async-tests build/siegework
+node tests/draw3d/colony.mjs build/siegework/solo
+node tests/draw3d/playtest.mjs build/siegework/solo
+node tests/draw3d/onboarding.mjs build/siegework/solo /path/to/saved-fixtures
+scripts/test-draw3d
+node tests/draw3d/browser.mjs http://127.0.0.1:PORT/draw3d-tests/ http://127.0.0.1:CDP
+node tests/draw3d/colony-browser.mjs http://127.0.0.1:PORT/ http://127.0.0.1:CDP
+node tests/draw3d/instance-profile.mjs /path/to/baseline/solo build/siegework/solo /path/to/saved-fixtures /path/to/results.json
+```
+
+The checkpoints below are historical records. Their pending checks and rendering
+policies describe their own source and artifacts, not the combined result above.
+
+## Earlier live transport source checkpoint
 
 This checkpoint replaces persistent track geometry with a fresh deterministic
 rooted transport tree each tick, adds display-clock path phases and shared open
@@ -145,7 +227,7 @@ Those are not Siegework build timings. Full game compilation still takes much
 longer; per-build wall observations on this shared host are not controlled
 compiler benchmarks.
 
-## House and contextual feedback source checkpoint
+## Earlier house and contextual feedback source checkpoint
 
 The source now replaces walls with houses (12 base worker places, four per
 completed house, maximum 64), keeps repeated hiring in the selected hub, retains

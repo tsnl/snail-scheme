@@ -819,10 +819,10 @@
       (let ((cell (cell-index x y)))
         (if (not (and (inside? x y) (transport-cell? map cell)
                       (not (= (transport-read (transport-marks map) cell) serial)))) tail
-            (begin (transport-write! (transport-marks map) cell serial)
-                   (transport-write! (transport-parents map) cell parent)
-                   (transport-write! (transport-depths map) cell (+ (transport-read (transport-depths map) parent) 1))
-                   (transport-write! (transport-queue map) tail cell) (+ tail 1)))))
+                      (begin (transport-write! (transport-marks map) cell serial)
+                             (transport-write! (transport-parents map) cell parent)
+                             (transport-write! (transport-depths map) cell (+ (transport-read (transport-depths map) parent) 1))
+                             (transport-write! (transport-queue map) tail cell) (+ tail 1)))))
     (define (transport-neighbors! map cell tail serial)
       (let* ((x (index-x cell)) (y (index-y cell))
              (tail (visit-transport-route! map cell (+ x 1) y tail serial))
@@ -882,7 +882,7 @@
         (if (not (null? cached)) (transport-path (car cached))
             (let ((path (find-transport-route! map start end)))
               (vector-set! transport-routes (i32->i64 0) (cons (make-transport-route start end path)
-                                                             (if (< (list-size routes) 1024) routes (empty-list)))) path))))
+                                                               (if (< (list-size routes) 1024) routes (empty-list)))) path))))
 
     ;; Dense Prim uses squared Euclidean cell distance, not routed terrain cost.
     ;; Its strict (cost, lower endpoint ID, higher endpoint ID) ordering makes

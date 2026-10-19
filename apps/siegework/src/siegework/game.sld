@@ -177,7 +177,7 @@
         (if (not (and (selection-open? state) (build-kind-allowed? world x y kind))) (no-effects state)
             (let ((cell (cell-index x y)))
               (transition (client-failure-set (client-build-result-set (client-build-cell-set (client-build-kind-set
-                                                                           (client-choice-kind-set state kind) kind) cell) 0) 0)
+                                                                                               (client-choice-kind-set state kind) kind) cell) 0) 0)
                           (list (enqueue match-target (build-cell kind cell))
                                 (enqueue (destination client-owner client-app) (build-settled cell))))))))
     (define (activate-site state)
@@ -194,7 +194,7 @@
     (define (receive-build-result state cell reason)
       (if (or (not (build-pending? state)) (not (= cell (client-build-cell state))) (= (client-build-result state) 3)
               (< reason 0) (> reason 34)) state
-          (client-failure-set (client-build-result-set state (if (= reason 0) 1 2)) reason)))
+              (client-failure-set (client-build-result-set state (if (= reason 0) 1 2)) reason)))
     ;; A failed World save publishes no reply; the authored settlement still
     ;; releases its slot. An import's superseded result is sticky until then.
     (define (settle-build state cell)
@@ -456,7 +456,7 @@
                                                     "Inspect this attack" #t #f (inspect-attack (alert-x alert) (alert-y alert)))
                                          (ui-label (string-append "attack-label-" key) (px 112) (px hud-notification-height) (alert-name (alert-kind alert)) 4)
                                          (ui-at 112 0 (ui-button (string-append "attack-dismiss-" key) (px hud-control-diameter) (px hud-control-diameter) ""
-                                                                  "Dismiss this alert" #t #f (dismiss-attack (attack-key alert)))))))
+                                                                 "Dismiss this alert" #t #f (dismiss-attack (attack-key alert)))))))
                   (attack-toasts world client (cdr alerts) (+ index 1))))))
     ;; CSS animates these semantic labels without requesting simulation or scene
     ;; frames. Projection follows the same camera and top height as the building.
