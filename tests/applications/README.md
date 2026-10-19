@@ -29,6 +29,10 @@ The same compiled probe runs [`starter-economy-test`](starter-economy-test.md):
 lower bound, explicit defense allowances and ideal depletion windows. Both
 scout policies currently fail one sampled seed; CI checks the necessary geometric
 budget floor and real-model accounting, not reliable exploration or survival.
+An actual-tick seed-one sprint then replays one measured route through ordinary
+paid game commands, requiring the second mine to operate before starter
+exhaustion. It retains worker travel, construction and waves; its fixed route and
+zero deliberation do not establish typical player timing.
 The paid pacing fixture executes a seed-one expedition with north, southeast and
 southwest search bearings through visible-site orders, extraction, hauling,
 construction and combat. It requires genuine paid expansion beyond the finite

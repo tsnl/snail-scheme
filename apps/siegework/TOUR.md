@@ -206,6 +206,9 @@ The shared model-only probe also supports the
 Its instantaneous, validated fixtures price paid survey orders against the finite
 starter reserve; separate geometric and visible-only results distinguish budget
 opportunity from reliable scouting, defense and elapsed time.
+The [actual-tick starter sprint](../../tests/applications/starter-sprint.mjs)
+replays one measured seed-one route through ordinary game commands, requiring
+the second mine to operate before the starter runs dry.
 
 ## Follow visibility and rail ownership
 

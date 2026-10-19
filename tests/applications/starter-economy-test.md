@@ -184,3 +184,43 @@ All levels share the same 600 reserve. Upgrading spends part of the expansion
 budget and depletes it faster; it never creates more ore. A 10% depletion warning
 can therefore arrive with only 10–30 ideal mining seconds left. It is an urgent
 warning, not evidence that there is enough time to begin paid exploration then.
+
+## Actual-tick sprint to the second heap
+
+`starter-sprint.mjs` separately replays the seed-one area-policy purchase trace
+through the real compiled game. CI reuses the already built game and budget
+report; this adds no compilation:
+
+```sh
+node tests/applications/starter-sprint.mjs build/application-tests/siegework/solo \
+  build/application-tests/starter-economy-report.json \
+  build/application-tests/starter-sprint-report.json
+```
+
+The runner buys the starter extractor, waits for each paid building to become
+operational, then orders the next tower or second extractor as soon as bank cash
+permits. It advances every real simulation tick. It never edits a snapshot,
+grants ore, skips construction/worker travel, removes enemies, upgrades a mine,
+or chooses a different route. An affordable order is submitted once and must be
+accepted at its measured price. An accepted building is tracked by its actual
+identity until completion; a lost project fails the fixed replay.
+
+Bank, mined-material and underground-reserve conservation are checked on every
+post-command and post-tick snapshot. The regression requires the second extractor
+to be operational **while the starter still has positive ore**. Starter exhaustion
+on that same tick fails. World termination, project loss or a ten-minute
+simulation horizon also fail; success exactly at the horizon is allowed. Timing
+values are reported, not frozen in assertions.
+
+The current seed-one trace spends 130 ore on two mines and two towers. Its first
+mine becomes operational at tick 32; the towers complete at ticks 79 and 146;
+the second mine completes at tick 178, or **17.8 seconds**, with **572/600 ore**
+still in the starter. At that point, 28 ore has been mined, 16 delivered, and
+46 remains in the bank; no workers or buildings have been lost.
+
+This directly demonstrates one early sprint to the second heap with actual
+labor and cash flow. It replays a predetermined route with zero player
+deliberation, so it does not establish discoverability, normal player timing,
+all-seed timing, protected expansion or later survival. It stops at the second
+operational mine: the starter's eventual depletion time is unobserved. The
+64-seed price diagnostics above keep their separate limits and failures.
