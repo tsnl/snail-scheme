@@ -94,8 +94,11 @@ export class BrowserApplication {
     if (this.recording?.opening) return Promise.resolve();
     // The returned promise includes outgoing durable World orders. Reverse
     // Client effects enter the FIFO after publication and run in later turns.
-    const command = this.presentationRuntime.command('client', binding, args.slice()); this.localWork++;
-    return this.update(() => this.localTransition(command)).catch(error => this.report(error)).finally(() => this.localWork--);
+    const runtime = this.presentationRuntime, command = runtime.command('client', binding, args.slice()); this.localWork++;
+    return this.update(() => {
+      // A replay may close or be replaced before this admitted input runs.
+      if (runtime === this.presentationRuntime) return this.localTransition(command);
+    }).catch(error => this.report(error)).finally(() => this.localWork--);
   }
   uiCommand({owner, command}) {
     if (this.recording?.replaying || this.recording?.opening) return Promise.resolve(false);

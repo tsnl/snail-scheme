@@ -78,6 +78,21 @@ try {
     const a=snailApp,dump=await a.recording.recording.exportBlob().arrayBuffer();
     const recording=RunRecording.import(dump);await a.recording.replay(recording);return{length:recording.length,enabled:recording.enabled}})()`);
   assert.ok(imported.length >= 3); assert.equal(imported.enabled, false);
+  const exitRace = await evaluate(`(async()=>{
+    const a=snailApp,commit=a.session.store.commit;let release,entered,writes=0;
+    const gate=new Promise(resolve=>release=resolve),ready=new Promise(resolve=>entered=resolve);
+    const held=a.update(async()=>{entered();await gate});await ready;
+    a.session.store.commit=function(...args){writes++;return commit.apply(this,args)};
+    try{const exit=a.recording.exit(),input=a.local('accept');release();
+      await Promise.all([held,exit,input]);await a.drainUpdates();
+      return{writes,world:a.runtime.snapshot(1),client:a.runtime.snapshot(2),revision:a.revision,saved:await a.session.store.load()}}
+    finally{a.session.store.commit=commit}
+  })()`);
+  assert.equal(exitRace.writes, 0, 'input admitted during replay exit must never persist a live command');
+  const {writes, ...afterExit} = exitRace;
+  assert.deepEqual(afterExit, before, 'replay exit preserves live World, Client, revision and IndexedDB save');
+  await until('!snailApp.recording.replaying && !snailApp.dirty');
+  await click('replay'); await until('!!snailApp.recording.playback && !snailApp.dirty');
   await click('close'); await until('!snailApp.recording.replaying && !snailApp.dirty');
   assert.equal(await evaluate('snailApp.ui.root.inert'), false);
   assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'), before.world);
