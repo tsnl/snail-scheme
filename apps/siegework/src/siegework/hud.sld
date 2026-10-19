@@ -464,12 +464,15 @@
     (define (attached-panels world context actions layout alerts)
       (append (cond ((or (hud-chooser context) (not (alive? world))) (list (context-card world context actions layout)))
                     ((onboarding-visible? world context) (list (onboarding-panel context layout))) (else (empty-list))) alerts))
+    (define (nest-stars world)
+      (let ((remaining (living-nests (world-nests world))))
+        (cond ((= remaining 3) "☆☆☆") ((= remaining 2) "★☆☆")
+              ((= remaining 1) "★★☆") (else "★★★"))))
     (define (colony-hud world context actions layout indicators alerts)
       (ui-layer "hud" (grow 1) (grow 1)
                 (append indicators
                         (append (list (rail world context actions)
                                       (ui-at (if (hud-left-handed context) (- (hud-root-width context) 132) 0) 0
-                                             (ui-label "nest-objective" (px 132) (px 20)
-                                                       (string-append "Nests left " (integer-text (living-nests (world-nests world))) " / 3") 0)))
+                                             (ui-label "nest-objective" (px 132) (px 34) (nest-stars world) 0)))
                                 (if (> (hud-dialog context) 0) (dialog-overlay context actions)
                                     (attached-panels world context actions layout alerts))))))))

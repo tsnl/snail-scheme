@@ -209,11 +209,23 @@ try {
   await restoreClient(runtime,{...local(),chooser:true,cursorX:x,cursorY:y,targetX:x,targetY:y,dialog:0});
   assert.match(node('context-description').text,/Depleted/);assert.equal(node('extractor').properties[1],0);
   const fronts=world();for(const nest of fronts.nests)fronts.surveys.push({x:nest.x,y:nest.y,radius:4});
-  fronts.nests[2].hp=0;await restoreColony(runtime,fronts);assert.equal(node('nest-objective').text,'Nests left 2 / 3');
+  fronts.nests[2].hp=0;await restoreColony(runtime,fronts);assert.equal(node('nest-objective').text,'★☆☆');
   const matches=runtime.view().scene.batches.filter(batch=>[3,10].includes(batch.key)).flatMap(batch=>batch.draws.flatMap(draw=>
     Array.from({length:draw.count},(_,offset)=>({mesh:draw.mesh,index:draw.first+offset,batch})))).filter(({index,batch})=>
       fronts.nests.some(nest=>batch.transforms[index*12+3]===nest.x&&batch.transforms[index*12+7]===-nest.y));
   assert.equal(matches.length,3);assert.ok(matches.every(value=>value.mesh===matches[0].mesh),'three nests reuse one fixed mesh');
   assert.ok(matches.some(({index,batch})=>Math.abs(batch.transforms[index*12+10]-.18)<1e-5),'cleared nest has a low remnant');
   console.log('ok - depleted deposits stop pulsing and reject purchase; all nest instances share geometry and expose the remaining objective');
+  for(const [cleared,stars] of ['☆☆☆','★☆☆','★★☆','★★★'].entries()) {
+    const progress=structuredClone(fronts);progress.nests.forEach((nest,index)=>nest.hp=index<cleared?0:900);progress.outcome=cleared===3?3:0;
+    await restoreColony(runtime,progress);
+    assert.equal(node('nest-objective').text,stars);
+    assert.match(runtime.view().label,cleared===3?/ALL NESTS DESTROYED/:new RegExp(`${3-cleared} / 3 nests left`),'the screen-reader status preserves descriptive objective progress');
+    for(const [width,height] of [[1100,760],[390,844]])for(const leftHanded of [false,true]) {
+      await restoreClient(runtime,{...local(),leftHanded,chooser:false,dialog:0});await command('viewport',[width,height]);
+      controlsFit(width,height);const objective=placed('nest-objective');
+      assert.equal(objective.left,leftHanded?width-24-132:0,'stars remain opposite the mirrored control strip');
+    }
+  }
+  console.log('ok - all four nest-star states retain descriptive status and stay opposite the controls on desktop and portrait');
 } finally {await runtime.close();}
