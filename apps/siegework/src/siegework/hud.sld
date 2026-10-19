@@ -81,8 +81,9 @@
       (string-append (integer-text price) " ore · " description))
     (define (hud-root-width context) (larger 1 (- (hud-width context) 24)))
     (define (hud-root-height context) (larger 1 (- (hud-height context) 32)))
-    (define (rail-columns context) (if (< (hud-root-height context) 320) 3 2))
-    (define (hud-rail-width context) (- (* (rail-columns context) control-step) 4))
+    ;; Home/Pause and Q/E each own one row in every orientation. Mirroring
+    ;; the dock cannot split the rotation pair across rows.
+    (define (hud-rail-width context) rail-width)
     (define (hud-rail-x context) (if (hud-left-handed context) 0 (- (hud-root-width context) (hud-rail-width context))))
     (define (hud-attachment-x context)
       (if (hud-left-handed context) (+ (hud-rail-width context) 8) (- (hud-rail-x context) (+ hud-attachment-width 8))))
@@ -205,7 +206,7 @@
                (ui-layer "rail" (px width) (px (rail-height context))
                          (list (ui-at (quotient (- width rail-width) 2) 0 (readouts world))
                                (ui-at 0 rail-actions-y (ui-layer "rail-actions" (px width) (px (- (rail-height context) rail-actions-y))
-                                                                 (place-controls (append controls (view-controls context actions)) 0 (rail-columns context) (hud-left-handed context)))))))))
+                                                                 (place-controls (append controls (view-controls context actions)) 0 2 (hud-left-handed context)))))))))
     (define (view-controls context actions)
       (let ((left (circle "rotate-left" "Q" "Rotate the view left · Q" #t #f ((action-turn actions) -1)))
             (right (circle "rotate-right" "E" "Rotate the view right · E" #t #f ((action-turn actions) 1))))
