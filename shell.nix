@@ -10,15 +10,8 @@ let
     stripRoot = false;
   };
 in
-pkgs.mkShellNoCC {
+pkgs.mkShell {
   PERFETTO_UI = perfettoUi;
-  SNAIL_NATIVE_LIBC = "${pkgs.glibc}/lib";
-  SNAIL_NATIVE_GCC = "${pkgs.stdenv.cc.cc.lib}/lib";
-  shellHook = ''
-    if [ -z "''${RUSTC_WRAPPER:-}" ]; then
-      export RUSTC_WRAPPER="${toString ./src/native/scripts/rustc-native}"
-    fi
-  '';
   packages = with pkgs; [
     git
     chibi
@@ -30,7 +23,6 @@ pkgs.mkShellNoCC {
     ripgrep
     rustup
     binaryen
-    llvmPackages.llvm
     nodejs
     mdbook
   ];

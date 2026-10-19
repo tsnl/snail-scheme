@@ -18,7 +18,7 @@ Scheme owns incremental tokenization, syntax, recursive datums, explicit mutable
 pair fields and structural equality. The same Rust scalar exports provide UTF-8
 input, owned temporary numeric-token handles and stable strict symbol identities
 on both backends. No operation converts through `Top` or legacy Scheme roots.
-The [implemented contract](../../../doc/strict-reader.md) states numeric,
+The [implemented contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/doc/strict-reader.md) states numeric,
 identifier, lifetime and unsupported-syntax boundaries.
 
 The final suite is `build/strict-reader-1792001303769628063` in the archive. All

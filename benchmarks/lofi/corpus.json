@@ -4,6 +4,7 @@
   "upstream_revision": "85f6acdc4cc4e2b857f307ba56bd0ba931dcccd1",
   "source_status_meaning": "present means static source exists, not target validation",
   "historical_scheme_results": "Historical results do not establish SFIR validation or measurement.",
+  "evidence_status_meaning": "Per-case validation, native parity and measurement fields describe evidence_compiler_revision, not the current compiler. The Lofi/native route is retired; see benchmarks/history.md.",
   "cases": [
     {
       "name": "browse",

@@ -40,7 +40,7 @@ an extra optimizer pass. Both extra passes use the unchanged production flags:
 
 ## Hot loop and the deliberately narrow change
 
-The unchanged [Integer library](../../../src/snail/integer.sld#L225) has SHA-256
+The unchanged [Integer library](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/src/snail/integer.sld#L225) has SHA-256
 `6954e2b5414e3baf093f6bb11f9a2ebe42d60bff0c1fd2900a979f15395da8cc`.
 The original production `function85` is the `subtract-product!` inner loop
 in normalized long division. It traverses divisor limbs, multiplies by the

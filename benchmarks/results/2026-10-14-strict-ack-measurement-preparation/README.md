@@ -66,7 +66,7 @@ children, and reuse of the existing diagnostic directory preserved its records.
 Four actual ownership fixtures exercised unsuccessful exit, a timed-out
 descendant, SIGINT and SIGTERM. All diagnostic process groups and capture
 handles are terminal. The reproducible check is
-[tests/strict-ack-measurement/verify.py](../../../tests/strict-ack-measurement/verify.py).
+[tests/strict-ack-measurement/verify.py](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/tests/strict-ack-measurement/verify.py).
 
 Each attempt records its identity before launch. Pending, running and final JSON
 records use temporary-file replacement; this is an atomic replacement guarantee.

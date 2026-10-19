@@ -3,7 +3,7 @@
 This is correctness evidence for source commit `6c89789`, depending on the
 reusable numeric libraries in `6925f1c`. It adds no clean performance samples
 and does not establish complete compiler-workload coverage. The latter remains
-pending in the [compiler port contract](../../strict-suite/compiler-port.md).
+pending in the [compiler port contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/compiler-port.md).
 
 Parent integration keeps the reviewed bridge source bytes unchanged. Its
 independent archive audit checked all 648 file contents and all 288 terminal

@@ -1,4 +1,4 @@
-;; UTF-8 storage and scalar-indexed operations shared by both execution targets.
+;; UTF-8 storage and scalar-indexed operations in WasmGC.
 (define-library (lofi compiler wasm-strings)
   (export utf8-string-layout utf8-string-operation utf8-string-runtime
           utf8-string-literal utf8-string-initializers)
@@ -14,8 +14,8 @@
     ;; That prefix is valid UTF-8. A cursor always names a scalar boundary.
     ;; Mutable owners never share backing storage. Readonly owners still cache
     ;; positions, but every public mutation checks permission before any write.
-    ;; Backing references stay in Wasm locals across allocation. Native lowering
-    ;; publishes these roots; there are no interior pointers or Rust handles.
+    ;; The engine traces backing references in Wasm locals across allocation;
+    ;; there are no interior pointers or Rust handles.
     (define (utf8-string-layout name bytes)
       `(type ,name (struct (field i32) (field i32) (field (mut i32))
                            (field (mut (ref ,bytes))) (field (mut i32)) (field (mut i32)))))

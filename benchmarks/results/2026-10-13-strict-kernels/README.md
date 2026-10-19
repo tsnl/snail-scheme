@@ -123,7 +123,7 @@ passing kernel before clean measurement. The final compiler source files are
 unchanged from draft-stack commit `93f34a9`; snapshots and hashes are recorded.
 The archive includes all prepared sources, raw/optimized Wasm, disassembly,
 Chez artifacts, tool identities, both timing batches, flonum controls and
-failed preparation/stack diagnostics. See the [driver](../../strict-suite/README.md)
+failed preparation/stack diagnostics. See the [driver](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/README.md)
 for commands and precise source adaptations. The manifest covers every archived
 file. Restoration verifies hashes without running the workload:
 

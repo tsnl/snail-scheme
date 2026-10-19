@@ -3,7 +3,7 @@
 The strict Scheme worker reduces the original `wc` workload from **10.261s to
 2.021s**, a **5.08×** speedup over the matched old generated character loop.
 Same-window Chez takes **0.646s**, so strict Snail takes **3.13×** its workload
-time. [`count.scm`](../../strict-wc/count.scm) compiles through the strict
+time. [`count.scm`](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-wc/count.scm) compiles through the strict
 compiler's inference, monomorphization, native Wasm emission, and Binaryen. The
 original Scheme harness still opens and closes files, runs fifty repetitions,
 and checks `(31102 851820 4460056)`.
@@ -113,4 +113,4 @@ quiet CPU window to repeat the clean batch. Execution requires the recorded
 Node/Chez binaries; the timing driver also verifies recorded Chibi and Binaryen
 tool hashes. [replay-check.json](replay-check.json) records successful restoration
 of all 163 files and a fresh pass of every linked behavior check. For a source rebuild, follow the
-[experiment instructions](../../strict-wc/README.md).
+[experiment instructions](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-wc/README.md).

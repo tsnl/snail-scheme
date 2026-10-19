@@ -21,7 +21,7 @@ The later `7bd327f` ledger correction changes metadata only, as described below.
 
 ## Source and representations
 
-[`conform_port.py`](../../strict-suite/conform_port.py) applies counted, reversible
+[`conform_port.py`](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/conform_port.py) applies counted, reversible
 edits to the complete kernel. The original functional sets, alternating
 split/merge sort, classification, lattice expansion, graph reduction, and
 signature recursion remain. Lattice expansion copies the graph, captures that
@@ -76,7 +76,7 @@ missing final name; and an extra name. Input parsing closes its file once before
 the worker; no worker file activity or opacity barrier is introduced. Canonical
 behavior is promised for the supplied positive count and these tested fixtures.
 
-The separate [probe fixture](../../../tests/strict-conform/probe.scm) checks 38
+The separate [probe fixture](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/tests/strict-conform/probe.scm) checks 38
 identity, alias, ordering, and state assertions. It exercises copied-node fields
 and shared edge mutation, graph-membership isolation, shared tables and duplicate
 entry precedence, name conversion, equal-length sort/classification ordering,

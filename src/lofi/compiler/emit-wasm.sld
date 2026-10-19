@@ -1,4 +1,4 @@
-;; Concrete types determine native values, positional function signatures and
+;; Concrete types determine Wasm values, positional function signatures and
 ;; GC layouts. Top conversions are explicit generation operations, never a
 ;; representation fallback. References in locals, environments and cells are GC roots.
 (define-library (lofi compiler emit-wasm)
@@ -135,7 +135,7 @@
     ;; ---- Immutable products and closed sum payloads ----
 
     ;; Sum cases extend one tagged base; every payload field has its concrete
-    ;; native type. Accessors check the tag before reading: Wasm can canonicalize
+    ;; Wasm type. Accessors check the tag before reading: Wasm can canonicalize
     ;; two cases with equal field shapes, so a cast alone cannot distinguish them.
     ;; Match checks the same tag when selecting an arm, then reads its fields.
     ;; Fields are immutable: mutation and its separate allocation remain Ref's
@@ -180,7 +180,7 @@
       (let ((name (layout-name (data-case-layout type index) state)))
         `(struct.get ,name ,(+ field (if (data-tagged? type) 1 0))
                      ,(if (data-tagged? type) `(ref.cast (ref ,name) ,value) value))))
-    ;; ---- Native slots and initialization readiness ----
+    ;; ---- Wasm slots and initialization readiness ----
 
     ;; Captured local definitions use once-initialized cells, so a closure can
     ;; survive their initialization without copying an unready payload. Lambda
@@ -404,7 +404,7 @@
 
     (define (emit-array-copy name arguments)
       ;; Checked start and end >= start make subtraction nonnegative and exact.
-      ;; Native bounds then check start + span, which is the original I64 end.
+      ;; Wasm bounds then check start + span, which is the original I64 end.
       (let ((target (car arguments)) (at (cadr arguments)) (source (caddr arguments))
             (start (cadddr arguments)) (end (car (cddddr arguments))))
         `(block (result i32)
@@ -412,7 +412,7 @@
                 (array.copy ,name ,name ,target ,(array-index at) ,source
                             ,(array-index start) ,(array-index `(i64.sub ,end ,start)))
                 (i32.const 0))))
-    ;; A Vector T is one mutable GC array with native T elements. No per-element
+    ;; A Vector T is one mutable GC array with concrete T elements. No per-element
     ;; Scheme wrapper is introduced. array.copy checks both complete ranges
     ;; before writing and preserves overlapping-copy semantics.
     (define (emit-vector-primitive name signature arguments state)
@@ -455,7 +455,7 @@
           ((make-bytevector bytevector-length bytevector-u8-ref bytevector-u8-set! bytevector-copy!)
            (emit-bytevector-primitive name arguments state))
           (else `(,opcode ,@arguments)))))
-    (define (native-wrapper! name type state)
+    (define (primitive-wrapper! name type state)
       (let* ((key (list name type)) (prior (find-type key (state-workers state))))
         (if prior (cdr prior)
             (let ((id (identifier "primitive" (length (state-workers state)))))
@@ -463,7 +463,7 @@
               (layout! type state) id))))
     (define (emit-primitive-closure payload type context)
       (let* ((state (context-state context))
-             (worker (native-wrapper! payload type state)))
+             (worker (primitive-wrapper! payload type state)))
         `(struct.new ,(layout-name type state) (ref.func ,worker) (ref.null eq))))
     (define (emit-primitive-worker entry state)
       (let* ((name (caar entry)) (type (cadar entry))
@@ -479,7 +479,7 @@
                ,@parameters ,@(result-declaration (function-result type) state)
                ,@(context-locals context) ,body)))
 
-    ;; ---- Native scalar imports ----
+    ;; ---- Scalar imports ----
 
     (define (extern-import! declaration state)
       (let ((prior (assq declaration (state-imports state))))

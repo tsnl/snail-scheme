@@ -99,11 +99,11 @@
    (snail-tests
     (export test-compiler)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (lofi compiler frontend)
      (lofi compiler reader)
      (lofi compiler syntax-parser)
-     (native chromium-trace)
+     (lofi host chromium-trace)
      (only (lofi compiler checked) program-body)
      (only (chibi temp-file) call-with-temp-dir)
      (only (srfi 130) string-contains)

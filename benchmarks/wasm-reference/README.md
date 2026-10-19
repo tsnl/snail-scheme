@@ -16,7 +16,7 @@ The complete residual-program, assembly, instruction-graph, nucleic and generate
 audit tests run with:
 
 ```sh
-chibi-scheme -D snail-tests -I bootstrap -I tests -I src/native/tests -I benchmarks \
+chibi-scheme -D snail-tests -I bootstrap -I tests -I tests -I benchmarks \
   benchmarks/wasm-reference/tests/audits.scm
 ```
 

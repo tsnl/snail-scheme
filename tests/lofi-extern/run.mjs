@@ -13,7 +13,7 @@ const api = instance.exports;
 const trap = fn => assert.throws(fn, WebAssembly.RuntimeError);
 trap(() => api.worker(1));
 
-if (contract === 'native') {
+if (contract === 'scalar') {
   assert.equal(api.main(), 42);
   assert.equal(producer.trace.value, 91234);
   assert.equal(producer.marks.value, 4);
@@ -61,16 +61,16 @@ if (contract === 'native') {
     [1.25, 1], [-1.25, -1], [1.75, 2], [-1.75, -2],
     [2 ** 64, 2 ** 64], [-(2 ** 64), -(2 ** 64)],
     [Infinity, Infinity], [-Infinity, -Infinity], [NaN, NaN]];
-  for (const name of ['worker', 'native64', 'view64', 'round32', 'native32', 'view32']) {
+  for (const name of ['worker', 'nearest64', 'view64', 'round32', 'nearest32', 'view32']) {
     for (const [input, expected] of cases)
       assert(Object.is(api[name](input), expected), `${name}: ${input} -> ${expected}`);
   }
-  for (const name of ['worker', 'native64', 'view64']) {
+  for (const name of ['worker', 'nearest64', 'view64']) {
     assert(Object.is(api[name](-Number.MIN_VALUE), -0));
     assert(Object.is(api[name](Number.MIN_VALUE), 0));
     assert.equal(api[name](Number.MAX_VALUE), Number.MAX_VALUE);
   }
-  for (const name of ['round32', 'native32', 'view32']) {
+  for (const name of ['round32', 'nearest32', 'view32']) {
     assert(Object.is(api[name](-(2 ** -149)), -0));
     assert(Object.is(api[name](2 ** -149), 0));
     assert.equal(api[name](2 ** 24 + 1), 2 ** 24);
@@ -131,6 +131,6 @@ if (contract === 'native') {
   }
   assert.equal(api['gc-check'](), 43n, 'managed fill and vector survive collection');
 } else {
-  throw new Error(`unknown native boundary contract: ${contract}`);
+  throw new Error(`unknown Wasm boundary contract: ${contract}`);
 }
 console.log(`PASS ${contract}`);

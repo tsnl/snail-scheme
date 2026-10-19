@@ -161,7 +161,7 @@
    (snail-tests
     (export test-overloads)
     (import
-     (native test-utils)
+     (lofi host test-utils)
      (only (lofi compiler ir) make-value-definition))
     (begin
       ;; This is the original speculative trial, retained as a differential

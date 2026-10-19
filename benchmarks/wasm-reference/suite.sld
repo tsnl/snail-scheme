@@ -3,11 +3,24 @@
   (export reference-suite-main pinned-sources reference-tools chez-source compile-chez-source
           reference-directory copy-file! copy-tree! reference-execute generated-files
           json-items text-position replace-text first-count-one)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
-          (scheme process-context) (chibi filesystem) (chibi pathname)
-          (chibi crypto sha2) (chibi regexp) (only (chibi string) string-prefix? string-suffix? string-split string-trim) (srfi 1) (srfi 95)
-          (only (srfi 130) string-contains string-cursor->index)
-          (native process) (native native-build) (wasm-reference audit))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme write)
+   (scheme process-context)
+   (chibi filesystem)
+   (chibi pathname)
+   (chibi crypto sha2)
+   (chibi regexp)
+   (only (chibi string) string-prefix? string-suffix? string-split string-trim)
+   (srfi 1)
+   (srfi 95)
+   (only (srfi 130) string-contains string-cursor->index)
+   (lofi host process)
+   (lofi compiler tools host-tools)
+   (wasm-reference audit))
   (begin
 
     ;; ---- Pinned sources and retained process evidence ----
@@ -101,9 +114,10 @@
       (let ((script (string-append artifact ".compile.scm")))
         (call-with-output-file script
           (lambda (port)
-            (write '(import (chezscheme)) port) (newline port)
-            (write `(parameterize ((optimize-level 2)) (compile-program ,source ,artifact)) port)
-            (newline port)))
+            (write '(import
+                     (chezscheme)) port) (newline port)
+                     (write `(parameterize ((optimize-level 2)) (compile-program ,source ,artifact)) port)
+                     (newline port)))
         (let ((command (list (tool-name "CHEZ" "scheme") "--script" script))) (run-command! command) command)))
     (define (prepare-case root name output)
       (let* ((directory (path-join output "cases" name)) (artifact (path-join directory "program.wasm"))
@@ -235,7 +249,7 @@
         (let ((output (absolute-path output-option)) (files (pinned-sources source)))
           (create-directory* output)
           (let-values (((available implemented names) (reference-workloads root source (option-ref options 'benchmarks '("all")))))
-            (parameterize ((current-process-supervisor (ensure-native-supervisor (path-join root "src/native"))) (current-command-records '())
+            (parameterize ((current-process-supervisor (build-host-tool root "snail-process-supervisor")) (current-command-records '())
                            (current-command-log (path-join output "commands.json")))
               (when (option-ref options 'build #f)
                 (run-command! (list (tool-name "CARGO" "cargo") "build" "--offline" "--release" "--target" "wasm32-wasip1"
@@ -247,7 +261,8 @@
   (cond-expand
    (snail-tests
     (export test-reference-suite)
-    (import (native test-utils))
+    (import
+     (lofi host test-utils))
     (begin
       (define (test-generated-file-snapshots)
         (let* ((directory (make-build-directory "/tmp" "reference-files-test-"))

@@ -1,10 +1,21 @@
 ;; Compare complete compiler stages with the unchanged original Chez algorithm.
 (define-library (wasm-reference compiler)
   (export reference-compiler-main)
-  (import (scheme base) (scheme char) (scheme cxr) (scheme file) (scheme write)
-          (chibi filesystem) (chibi pathname) (only (chibi string) string-prefix? string-suffix? string-trim)
-          (srfi 1) (srfi 95) (native process) (native native-build)
-          (wasm-reference suite) (wasm-reference audit))
+  (import
+   (scheme base)
+   (scheme char)
+   (scheme cxr)
+   (scheme file)
+   (scheme write)
+   (chibi filesystem)
+   (chibi pathname)
+   (only (chibi string) string-prefix? string-suffix? string-trim)
+   (srfi 1)
+   (srfi 95)
+   (lofi host process)
+   (lofi compiler tools host-tools)
+   (wasm-reference suite)
+   (wasm-reference audit))
   (begin
 
     ;; ---- Original stage oracles ----
@@ -117,7 +128,7 @@
       (let* ((options (compiler-options root arguments)) (output (option-ref options 'output #f)))
         (unless output (error "--output is required"))
         (create-directory* output)
-        (parameterize ((current-process-supervisor (ensure-native-supervisor root)) (current-command-records '())
+        (parameterize ((current-process-supervisor (build-host-tool root "snail-process-supervisor")) (current-command-records '())
                        (current-command-log (path-join output "commands.json")))
           (let* ((canonical (prepare-oracles root (option-ref options 'source #f) output group))
                  (specifications (stage-specifications group)) (records '()))

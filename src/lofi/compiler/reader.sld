@@ -16,7 +16,7 @@
    reader-loc)
 
   (import
-   (native chromium-trace)
+   (lofi host chromium-trace)
    (scheme base)
    (only (lofi compiler common) file->string)
    (lofi compiler source))
@@ -85,7 +85,7 @@
    (snail-tests
     (export test-reader)
     (import
-     (native test-utils))
+     (lofi host test-utils))
     (begin
       ;; Compare location fields explicitly instead of relying on record equality.
       (define (test-value value)

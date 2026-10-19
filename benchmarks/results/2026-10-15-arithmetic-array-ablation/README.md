@@ -43,7 +43,7 @@ identities separate the native lowering and guest optimizer changes.
 Default arithmetic now wraps I32/I64 addition, subtraction and multiplication
 modulo the integer width, and uses IEEE F32/F64 arithmetic, including infinity
 and NaN. Division, conversion and bounds traps retain their documented
-contracts. The [language specification](../../../doc/book/sfir/types.md)
+contracts. The [language specification](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/doc/book/sfir/types.md)
 defines these semantics; this campaign changes no benchmark source to obtain
 them. Explicit checked arithmetic and the Scheme frontend remain future work.
 
@@ -287,6 +287,6 @@ chibi-scheme -I "$sfir_checkout/src" -I "$sfir_checkout/wasm-native/scheme" \
 Do not invoke the copied frozen driver directly: the public entry establishes
 its runtime environment. Preparation and measurement must use a fresh output
 directory; the schedule cannot resume or retry. See the
-[harness protocol](../../sfir/README.md#clean-timing-protocol) for prerequisites
+[harness protocol](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/sfir/README.md#clean-timing-protocol) for prerequisites
 and timer boundaries. The full 57-workload report remains the broad comparison;
 these six selected workloads cannot establish a new whole-suite ranking.

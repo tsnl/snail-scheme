@@ -8,9 +8,9 @@
    (lofi compiler types))
   (begin
 
-    ;; ---- Concrete native operations ----
+    ;; ---- Concrete Wasm operations ----
 
-    ;; Each row gives its complete domains, result and native lowering name.
+    ;; Each row gives its complete domains, result and Wasm opcode.
     ;; Unary conversions and binary arithmetic use the same signature rule.
     ;; Arithmetic uses Wasm's wrapping integer and IEEE floating-point opcodes.
     ;; Emission adds checks only for narrowing; division keeps Wasm's own traps.

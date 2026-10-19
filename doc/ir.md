@@ -151,7 +151,7 @@ operations still emit directly, and known closure workers use direct calls, but
 removing closures for exclusively invoked local functions and eliding proven global
 readiness checks are deferred optimizations. The emitter's private local/layout
 registries remain mutable; the demand graph and worklist are persistent values.
-No native lowering or runtime ownership protocol changes with this representation.
+This representation preserves the WasmGC and scalar-resource ownership boundary.
 
 The [tour](../TOUR.md) gives a reading order through `src/lofi/`, and the
 [compiler reference](compiler.md) describes each module's contract.

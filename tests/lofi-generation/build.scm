@@ -9,7 +9,7 @@
  (lofi compiler frontend)
  (lofi compiler library)
  (lofi compiler primitives)
- (native chromium-trace))
+ (lofi host chromium-trace))
 
 (define root (cadr (command-line)))
 (define output (car (cddr (command-line))))

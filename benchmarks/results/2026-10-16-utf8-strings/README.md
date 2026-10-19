@@ -44,7 +44,7 @@ non-ASCII indexing can scan from the nearest cached boundary or endpoint.
 Width-changing mutation may shift a suffix and grow capacity. Repeated such
 mutations can be quadratic. Mutable copies own independent storage, aliases
 retain the same owner identity, and overlapping copies preserve source contents.
-These tradeoffs are part of the [string contract](../../../doc/book/sfir/types.md).
+These tradeoffs are part of the [string contract](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/doc/book/sfir/types.md).
 
 This change does not optimize closure captures. The separately documented
 capture-by-copy semantics and hidden initialization cells do not establish a
@@ -95,7 +95,7 @@ setting. All 36 attempts failed before guest execution with `captured command
 requires a built native process supervisor`. That attempt is retained separately
 and contributes no timings. A fresh baseline preparation and complete new
 schedule produced the successful baseline above; neither successful schedule
-retries or discards samples. The [harness instructions](../../sfir/README.md)
+retries or discards samples. The [harness instructions](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/sfir/README.md)
 now show the required parent environment setting.
 
 ## Validation and evidence
@@ -120,7 +120,7 @@ timing summaries are authoritative for measurement status.
 
 `evidence-files.sha256` inside the archive checks its members; the adjacent
 [SHA256SUMS](SHA256SUMS) checks the archive and comparison file. Reproduce using
-the [timing protocol](../../sfir/README.md#clean-timing-protocol), selecting
+the [timing protocol](https://github.com/tsnl/snail-scheme/blob/16f4423c9f0f579d9cf154c171309755a3d7ae05/benchmarks/sfir/README.md#clean-timing-protocol), selecting
 `--benchmarks bv2string` at each recorded compiler revision. Declare actual host
 conditions when using `--quiet-window`; this experiment's field explicitly
 records the absence of coordinated machine-wide quiet.

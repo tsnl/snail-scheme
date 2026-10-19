@@ -120,7 +120,7 @@ workload has an in-process warmup.
 [schemes.json](schemes.json) records every sample, generated source, command,
 source/artifact hash and tool version. It was measured at `87a6c18`, whose tree
 matches review commit `2673c00`. The reusable runner is
-[compare-schemes.py](../../typing/compare-schemes.py).
+[compare-schemes.py](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/typing/compare-schemes.py).
 
 ## Heap size has a workload-dependent cost
 

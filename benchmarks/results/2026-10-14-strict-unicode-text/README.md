@@ -11,7 +11,7 @@ lowercase, Alphabetic and decimal-digit operations. Whitespace directly binds
 the strict reader's existing scalar provider. The Scheme string loop checks
 both ends and then the first unequal scalar; it never transfers a String to
 Rust or changes input contents. No compiler algorithm or backend representation
-changed. See [the contract](../../../doc/strict-text.md).
+changed. See [the contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/doc/strict-text.md).
 
 ## Actual target checks
 

@@ -6,9 +6,8 @@
 Lofi (Low-level Functional IR) is a typed functional language
 and compiler target with an explicit s-expression surface. Type inference and
 specialization determine concrete storage and calls before emitting WasmGC.
-Binaryen always optimizes that Wasm. Run it on V8, or pass it to the separate
-[Wasm-to-native package](src/native/README.md) for LLVM lowering and a native
-executable with the in-house collector.
+Binaryen optimizes that Wasm, and a WasmGC engine executes it. V8 is the
+primary runtime; the engine owns managed memory and machine code generation.
 
 Languages are libraries. The typed Lofi kernel, hygienic `syntax-rules` macros,
 and an initial `(scheme base)` share one library system and backend. All language
@@ -41,21 +40,16 @@ rustup target add wasm32-wasip1
 ./lofi run examples/fibonacci.sld
 ./lofi run examples/scheme-fibonacci.sld
 ./lofi compile -o fibonacci.wasm examples/fibonacci.sld
-scripts/build-native examples/fibonacci.sld build/fibonacci
-build/fibonacci
 ```
 
-Binaryen is required and checked before compilation. Native builds currently
-test x86-64 Linux and use LLVM, Cargo, Rust’s bundled linker and the same Rust extern implementations.
+Binaryen is required and checked before compilation. Rust scalar services are
+compiled to Wasm and linked with the program.
 See [commands](doc/options.md) and [build requirements](doc/backend.md).
 
 The [language design](doc/lofi.md) defines the surface and type model.
 The [compiler tour](TOUR.md) follows source locations and type evidence through
 the implementation. [The roadmap](doc/roadmap.md) separates current work from
-further Scheme support and self-hosting. [`build.scm`](build.scm) is a concrete Chibi
-recipe that imports the compiler and Wasm-to-native package separately, then
-links the generated object with a Rust entry point. Its first comment gives an
-example that works from outside the checkout and prints `42`.
+further Scheme support and self-hosting.
 
 The [benchmark corpus](benchmarks/README.md) retains all 57 workloads and compares
 Lofi, Chez and Rust. Source ports, target validation and clean measurements are

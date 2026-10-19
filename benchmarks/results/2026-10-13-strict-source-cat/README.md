@@ -3,7 +3,7 @@
 The strict Scheme compiler reduces the frozen cat workload from **20.784s to
 2.912s**, a **7.14×** speedup against the matched old generated copying code.
 The hand-written scalar loop takes **2.620s**. This is a source-compiler result:
-[`copy.scm`](../../strict-cat/copy.scm) is compiled through inference,
+[`copy.scm`](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-cat/copy.scm) is compiled through inference,
 monomorphization, native Wasm emission, and Binaryen. The surrounding original
 Scheme benchmark still owns its timer, files, fifty repetitions, and result
 checking.
@@ -80,4 +80,4 @@ python3 benchmarks/strict-cat/replay.py /tmp/strict-cat-replay
 To repeat the final clean batch in a quiet CPU window, append `--measure --cpu 5`.
 That rerun verifies the recorded Chibi and Binaryen binaries as well as Node,
 so their original paths must still exist even though the artifacts are compiled.
-To rebuild from Scheme, follow the [source experiment instructions](../../strict-cat/README.md).
+To rebuild from Scheme, follow the [source experiment instructions](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-cat/README.md).

@@ -144,7 +144,7 @@
    (snail-tests
     (export test-types)
     (import
-     (native test-utils))
+     (lofi host test-utils))
     (begin
       (define (test-generalization)
         (let* ((hole (fresh-hole)) (other (fresh-hole)) (rigid (fresh-rigid))

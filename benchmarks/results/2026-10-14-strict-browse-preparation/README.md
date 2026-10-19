@@ -21,7 +21,7 @@ are not substituted into these artifacts.
 
 ## Source and representations
 
-[`browse_port.py`](../../strict-suite/browse_port.py) makes counted reversible
+[`browse_port.py`](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/benchmarks/strict-suite/browse_port.py) makes counted reversible
 edits to the complete source kernel. The source lookup/put association lists,
 generated interned names, copied three-tree cyclic pattern ring, tree-copy
 sharing rules, destructive list shuffle, nested investigation loops and both
@@ -46,7 +46,7 @@ turn every truthy result into True. The matcher remains one source-shaped
 exhaustive dispatch so its exact terminal, named-variable and star cases can
 be read beside the original.
 
-The [datum contract](../../../doc/strict-reader.md) deliberately bounds proper
+The [datum contract](https://github.com/tsnl/snail-scheme/blob/2db2216b32254bbaf9b49ebed30e0bca495ec6c2/doc/strict-reader.md) deliberately bounds proper
 list operations to finite spines and structural equality to finite acyclic
 data. Pair identity means both field storages are identical. Two public raw
 `datum-pair` views over the same two Refs are aliases; sharing just one field is

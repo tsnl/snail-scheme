@@ -7,10 +7,10 @@
  (chibi filesystem)
  (chibi string)
  (srfi 1)
- (native process)
+ (lofi host process)
  (lofi compiler source-driver)
- (native chromium-trace)
- (native wasm-optimize))
+ (lofi host chromium-trace)
+ (lofi host wasm-optimize))
 
 ;; ---- Command request ----
 
