@@ -34,6 +34,7 @@ normal-player duration or a general scouting strategy across seeds.
 node tests/applications/save-service.mjs
 node tests/applications/async-runtime.mjs build/application-tests
 node tests/applications/snapshot-cache.mjs build/application-tests
+node tests/applications/recording.mjs build/application-tests/siegework/solo
 node tests/applications/runtime.mjs build/application-tests/siegework/solo build/application-tests build/application-tests/siegework
 node tests/applications/colony-pacing.mjs build/application-tests/siegework/solo build/application-tests/pacing-probe.wasm build/application-tests/pacing-report.json
 ```
@@ -74,9 +75,10 @@ package and an isolated Chromium DevTools instance:
 node tests/draw3d/colony-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 node tests/draw3d/persistence-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 node tests/draw3d/onboarding-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
+node tests/draw3d/recording-browser.mjs http://127.0.0.1:4191 http://127.0.0.1:9336
 ```
 
-The persistence and onboarding checks reset their test colony. Never point them
+The persistence, onboarding and recording checks reset their test colony. Never point them
 at a player's save. See the [static save guide](../../doc/static-saves.md).
 
 ## Input and rendering

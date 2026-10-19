@@ -311,7 +311,7 @@ try {
   await recovered.evaluate('snailApp.session.close()'); await recovered.close();
   await remote.evaluate('snailApp.session.close()'); await remote.close();
   if (original.settings.renderer === 'scene3d') {
-    for (const runner of ['persistence-browser.mjs', 'colony-browser.mjs']) {
+    for (const runner of ['persistence-browser.mjs', 'colony-browser.mjs', ...(original.settings.recording ? ['recording-browser.mjs'] : [])]) {
       const test = child(process.execPath, [join(root, 'tests/draw3d', runner), base, devtools, join(work, 'static-playtest.png')]);
       const [code] = await once(test, 'exit');
       if (code !== 0) throw new Error(`Mouse/GPU test failed: ${runner}; see node.log`);
@@ -319,7 +319,7 @@ try {
     }
   }
   console.log(JSON.stringify({work, browser: (await (await fetch(`${devtools}/json/version`)).json()).Browser,
-    checks: checks.length + 9 + (original.settings.renderer === 'scene3d' ? 2 : 0)}));
+    checks: checks.length + 9 + (original.settings.renderer === 'scene3d' ? 2 + (original.settings.recording ? 1 : 0) : 0)}));
 } catch (error) { console.error(`Private test artifacts: ${work}`); throw error; }
 finally {
   await stop(browser); await stop(saveProcess);

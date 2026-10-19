@@ -47,6 +47,7 @@ function checkSettings(settings, protocol) {
     throw new Error('reset presentation handler requires no payload');
   if (settings.randomSeed && select('match', settings.randomSeed.handler).payload.length !== 1)
     throw new Error('random seed handler requires one I32 seed');
+  if (settings.recording) checkRecordingSettings(settings.recording, select);
   for (const [binding, arity] of [[input.pointer.move, 2], [input.pointer.confirm, 0]]) {
     if (select('client', binding).payload.length !== arity) throw new Error('pointer handler payload does not match its input');
   }
@@ -54,6 +55,18 @@ function checkSettings(settings, protocol) {
     if (select('client', command[0]).payload.length !== command.length - 1)
       throw new Error('input mapping does not match a typed client handler');
   }
+}
+function checkRecordingSettings(recording, select) {
+  if (typeof recording.menuKey !== 'string' || !recording.menuKey || recording.menuKey.length > 64
+      || !Array.isArray(recording.cameraHandlers) || recording.cameraHandlers.length > 64)
+    throw new Error('recording requires a menu key and bounded camera handlers');
+  if (select('client', recording.prepareCamera).payload.length) throw new Error('recording camera preparation requires no payload');
+  for (const handler of recording.cameraHandlers) select('client', handler);
+  const projection = recording.inspection;
+  if (!projection || !Number.isInteger(projection.version) || projection.version < 1 || !Array.isArray(projection.fields)
+      || !projection.fields.length || projection.fields.length > 64 || new Set(projection.fields).size !== projection.fields.length
+      || projection.fields.some(field => typeof field !== 'string' || !/^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(field)))
+    throw new Error('recording inspection requires a version and distinct field names');
 }
 function shaderSource(path) {
   const instance = instantiate(loadWasm(readFileSync(path)));
@@ -69,6 +82,8 @@ async function checkInitialProgram(bytes, manifest) {
   try {
     await runtime.replace(runtime.prepare(bytes, manifest));
     await runtime.initialize(1); await runtime.initialize(2); runtime.view();
+    if (manifest.settings.recording && runtime.inspect(-1) !== manifest.settings.recording.inspection.version)
+      throw new Error('recording inspection version does not match the module');
     const marker = manifest.settings.runMarker;
     if (marker !== undefined && (!Number.isInteger(marker) || marker < 1 || marker >= runtime.snapshot(1).length))
       throw new Error('invalid run marker snapshot offset');
@@ -105,6 +120,7 @@ function copyLibraries(root, output, saveService) {
   for (const path of ['lofi/compiler/execute.mjs', 'application/runtime.mjs', 'application/local.mjs',
     'webgpu/quads.mjs', 'webgpu/scene.mjs', 'draw3d/bridge.mjs', 'browser/application.mjs', 'browser/input.mjs',
     'ui/bridge.mjs', 'ui/dom.mjs', 'ui/style.css', 'application/indexeddb.mjs', 'browser/solo.mjs',
+    'application/recording.mjs', 'application/playback.mjs', 'browser/recording.mjs', 'browser/recording.css',
     ...(saveService ? ['application/remote-saves.mjs'] : [])]) {
     const target = join(output, 'lib', path); mkdirSync(dirname(target), {recursive: true}); copyFileSync(join(root, 'src', path), target);
   }
