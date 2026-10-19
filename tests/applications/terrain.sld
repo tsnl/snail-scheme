@@ -233,7 +233,7 @@
     ;; worker time minimization must retain the shorter route without a cable.
     (define (distant-worker-route?)
       (= (path-length (cart-path 1 (empty-list) (empty-list) 5 5 120 120
-                                all-surveys (empty-list))) 230))
+                                 all-surveys (empty-list))) 230))
 
     ;; The production cable clears all current terrain. Lower probe heights
     ;; exercise rejection, including conservative diagonal corner coverage.
