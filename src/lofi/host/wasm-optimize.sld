@@ -2,7 +2,7 @@
 ;; Importing this library performs no tool checks or compilation.
 (define-library (lofi host wasm-optimize)
   (export wasm-features check-binaryen-tools assemble-wasm optimize-wasm
-          wasm-release-optimization?)
+          wasm-release-optimization? wasm-optimization-flags)
   (import
    (scheme base)
    (scheme file)
@@ -37,6 +37,11 @@
     ;; profile around compilation so generated dependencies inherit it too.
     (define wasm-release-optimization? (make-parameter #t))
 
+    (define (wasm-optimization-flags release?)
+      (if release?
+          '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge")
+          '("-O1" "--closed-world")))
+
     (define wasm-features
       '("--mvp-features" "--enable-gc" "--enable-reference-types" "--enable-tail-call"
         "--enable-mutable-globals" "--enable-sign-ext" "--enable-bulk-memory"
@@ -54,9 +59,7 @@
     (define (optimize-wasm input output)
       (run-command "build.optimize-wasm"
                    (append (list (tool-name "WASM_OPT" "wasm-opt") "-g") wasm-features
-                           (if (wasm-release-optimization?)
-                               '("-O3" "--closed-world" "--always-inline-max-function-size=40" "--converge")
-                               '("-O1" "--closed-world"))
+                           (wasm-optimization-flags (wasm-release-optimization?))
                            (list input "-o" output))))
 
     ))

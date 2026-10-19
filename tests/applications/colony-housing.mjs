@@ -9,7 +9,7 @@ function node(r,key,value=r.view().ui){if(value.key===key)return value;for(const
 function population(world,count){
   while(world.bots.length<count){
     world.bots.push({...world.bots[0],id:world.nextId++});setWorker(world,world.bots.length-1);
-    world.produced+=25;world.delivered+=25;world.spent+=25;world.started=true;
+    world.started=true;world.spent+=25;world.produced+=25;world.delivered+=25;
   }
   return world;
 }

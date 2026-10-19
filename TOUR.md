@@ -81,7 +81,7 @@ a public export, and returns optimized artifact bytes with a checked scalar
 entry signature.
 
 The public commands and Siegework recipe default to debug Wasm optimization;
-`--release` selects the full O3 pipeline. [`(native wasm-optimize)`](src/native/wasm-optimize.sld)
+`--release` selects the full O3 pipeline. [`(lofi host wasm-optimize)`](src/lofi/host/wasm-optimize.sld)
 owns the scoped profile, which also reaches generated dependencies and the final
 runtime link. Library APIs and lower-level build scripts retain release defaults.
 
