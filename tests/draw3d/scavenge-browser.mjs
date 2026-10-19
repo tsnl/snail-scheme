@@ -63,7 +63,8 @@ try {
   value.buildings=[{id:value.nextId++,kind:3,...site,level:1,hp:90,stock:0,stage:2,cooldown:0,aimX:point.x,aimY:point.y,armed:0,source:0,moveX:-1,moveY:-1}];
   value.surveys.push({...site,radius:7});setWorker(value,0,{x:12,y:22});await restore(value);
   for(const [width,height]of[[1100,760],[390,844],[320,568],[568,320]]){
-    await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<700});await select(site);
+    await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<700});
+    await pause(200);await settled();await command('viewport',[width,height]);await displayFrame();await select(site);
     assert.equal(await evaluate('document.querySelector("[data-ui-key=scavenge-caption]").textContent'),'+5 ore');
     assert.equal(await evaluate('document.querySelector("[data-ui-key=scavenge]").disabled'),false);await inspect(`${width}x${height}-quote`);
     await click('scavenge');assert.equal((await world()).ore,value.ore);assert.equal((await world()).bots[0].job,16);

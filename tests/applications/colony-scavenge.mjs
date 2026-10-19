@@ -74,6 +74,26 @@ export async function checkScavenge(test,fresh) {
     await step(r,40);assert.equal(state(r).delivered,loaded.delivered+64);assert.equal(state(r).ore,loaded.ore+64+5);
     await r.restore(1,r.snapshot(1));await r.close();
   });
+  await test('demolition preserves a loaded hauler and a fully collected local construction kit',async()=>{
+    for(const paidKit of [false,true]) {
+      const r=await fresh(),world=state(r),site=building(world);world.bots.length=2;setWorker(world,0,{x:12,y:22});
+      let project;
+      if(paidKit) {
+        project=building(world,3,1,18,22,25);project.stage=1;project.source=site.id;
+        setWorker(world,1,{x:14,y:22,job:3,target:project.id,cargo:25,source:site.id,path:[15,16,17,18].map(x=>x+22*48)});
+      } else {
+        withdrawReserves(world,16);
+        setWorker(world,1,{x:18,y:22,job:2,target:site.id,cargo:16,path:[17,16,15,14,13,12].map(x=>x+22*48)});
+      }
+      await restoreColony(r,world);await fixtureCall(r,'scavenge-building',[12,22]);assert.equal(state(r).notice,44);
+      await step(r);const working=state(r);working.bots[0].timer=1;await restoreColony(r,working);await step(r);
+      assert.equal(state(r).buildings.some(b=>b.id===site.id),false);assert.equal(state(r).bots[1].cargo,paidKit?25:16);
+      await r.restore(1,r.snapshot(1));
+      if(paidKit)await until(r,w=>w.buildings.find(b=>b.id===project.id)?.stage===2);
+      else await until(r,w=>w.delivered===world.delivered+16);
+      assert.equal(state(r).ore,world.ore+5+(paidKit?0:16));assert.equal(state(r).lostOre,0);await r.close();
+    }
+  });
   await test('pause, reload, duplicate orders and explicit cancellation cannot repeat or accelerate demolition',async()=>{
     const r=await fresh(),world=state(r);building(world);setWorker(world,0,{x:12,y:22});await restoreColony(r,world);
     await fixtureCall(r,'scavenge-building',[12,22]);await fixtureCall(r,'scavenge-building',[12,22]);assert.equal(state(r).notice,41);
