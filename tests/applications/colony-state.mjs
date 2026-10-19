@@ -1,4 +1,4 @@
-// Derived schema-12 records for assertions and bounded encounter fixtures. Only
+// Derived schema-12, payload-revision-2 records for bounded encounter fixtures. Only
 // actual compiled Scheme transitions implement jobs, routing or combat.
 import {snapshotValue, snapshotWords} from './snapshots.mjs';
 
@@ -13,12 +13,13 @@ function readable(value) {
 export const colony = words => readable(snapshotValue(words, {marked:true}));
 export const client = words => readable(snapshotValue(words));
 const symbol = text => ({symbol:text});
-const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest'};
+const itemTypes = {buildings:'Building', bots:'Bot', enemies:'Enemy', surveys:'Survey', alerts:'Alert', rails:'Rail', path:'I32', breaches:'I32', excavations:'Dig', tracks:'I32', dismissed:'DismissedAttack', deposits:'Deposit', nests:'Nest', flight:'Flight'};
 function typedRecord(type, value) {
   if (type === 'Enemy') {
-    const {burrower = false, rank = value.kind === 2 ? 6 : 0, ...fields} = value;
-    value = {...fields, burrower, rank};
+    const {burrower = false, rank = value.kind === 2 ? 6 : 0, maxHp = value.hp, ...fields} = value;
+    value = {...fields, burrower, rank, maxHp};
   }
+  if (type === 'Bot') { const {flight = [], ...fields} = value; value = {...fields, flight}; }
   const library = type === 'Survey' ? 'terrain' : ['Client','DismissedAttack'].includes(type) ? 'game' : 'model';
   return [symbol('data'), symbol(`(siegework ${library}):${type}`), symbol(type==='DismissedAttack'?'make-dismissed-attack':`make-${type.toLowerCase()}`),
     ...Object.entries(value).map(([field, contents]) => [symbol(fieldName(field)), typedField(field, contents)])];
@@ -72,7 +73,7 @@ export function pixelAt(world, x, y) { const cell = at(world, x, y); return {x:c
 export function siteAt(world, x, y) { const cell = at(world, x, y); return world.buildings.find(site => site.x === cell.x && site.y === cell.y); }
 export function routeCell(world, x, y) { const cell = at(world, x, y); return cell.x + cell.y * 128; }
 export function fixtureArguments(world, name, args = []) {
-  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building'].includes(name)) {
+  if (['extract','fortify','observe','upgrade','arm-tower','cancel-building','scavenge-building'].includes(name)) {
     const cell = at(world, ...args); return [cell.x,cell.y];
   }
   if (name === 'relocate-building') return args.map(index => routeCell(world, index % 48, Math.floor(index / 48)));
@@ -89,9 +90,9 @@ export function addEnemy(runtime, {x, y, target = 0, kind = 0, hp = 80}) {
   return restoreColony(runtime, world);
 }
 export function setWorker(world, index, {id = world.bots[index].id, x = 8, y = 22,
-  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0, source = 0} = {}) {
+  job = 0, target = 0, cargo = 0, timer = 0, path = [], hp = 14, order = 0, source = 0, flight = []} = {}) {
   world.bots[index] = {id, ...pixelAt(world, x, y), job, target, cargo, timer,
-    path:path.map(index => routeCell(world, index % 48, Math.floor(index / 48))), hp, order, source};
+    path:path.map(index => routeCell(world, index % 48, Math.floor(index / 48))), hp, order, source, flight};
 }
 export const setBuilding = (world, index, changes) => Object.assign(world.buildings[index], changes);
 export const setRail = (world, index, changes) => Object.assign(world.rails[index], changes);

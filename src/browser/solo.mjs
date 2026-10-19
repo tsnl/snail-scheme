@@ -1,7 +1,6 @@
 import {BrowserApplication} from './application.mjs';
 import {LocalState} from '../application/local.mjs';
 import {acquireWriter, openStore, saveContract} from '../application/indexeddb.mjs';
-import {BrowserRecording} from './recording.mjs';
 
 class SoloSession {
   stopping = false; faulted = false;
@@ -17,7 +16,10 @@ class SoloSession {
     this.local = await LocalState.open(runtime, {saved,
       commit: (snapshot, expected) => this.store.commit(snapshot, expected), publish: output => this.publish(output)});
     if (!saved && manifest.settings.randomSeed) await this.local.submit(this.seedCommand());
-    if (manifest.settings.recording) this.app.recording = new BrowserRecording(this.app, this);
+    if (manifest.settings.recording && manifest.settings.recording.enabled !== false) {
+      const {BrowserRecording} = await import('./recording.mjs');
+      this.app.recording = new BrowserRecording(this.app, this);
+    }
   }
   seedCommand() {
     const {handler, minimum, maximum} = this.app.manifest.settings.randomSeed;

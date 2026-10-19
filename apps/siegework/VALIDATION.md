@@ -1,3 +1,87 @@
+## Nest reserves, resource gradient and defeat inspection
+
+The local artifact `/tmp/snail-siegework-nest-reward-final-20261019/solo` has
+generation `9ff3de95336ba5c725f049cd`, a 640,569-byte simulation, and SHA-256
+`62efb21c504c3d87a3918f496f14ef74ed6c40d6f2c1b72f1a4119b13f8d8442`.
+It keeps World12 and upgrades the internal payload to revision 2 without adding
+fields beyond revision 1.
+
+Executed against that artifact:
+
+- All 242 application integration checks, 17 headless checks, 10 colony scene
+  groups, four depletion groups, and `make check` pass.
+- Seven focused actual-Wasm suites cover real nest combat, no instant ore,
+  extractor construction, partial/final withdrawal, exhaustion after restore,
+  defeat visibility and frozen purchases, exact revision-1 host migration,
+  exhausted/occupied bonus sites, pending relocation migration, malformed
+  prefixes, early/capped difficulty credits, existing wounds/maxima, and terrain
+  cache invalidation when a different front is cleared.
+- A compiled geography probe plus actual new-run reducers check 32 deterministic
+  seeds, unique bounded reserves and unchanged opening quantities. Realized
+  deposits per 1,000 eligible ground cells are 10.94 within ten cells of a nest,
+  2.19 in the ten-to-twenty-cell approach band, and 1.12 farther away. These
+  samples exclude the hub's twenty-cell opening radius and nest centers.
+- Exact locally saved checkpoints from generations `25e9ba2f7f228c9aceadd7ce`
+  (original World12) and `1c702deae9870cf236e1d00f` (revision 1) both retain
+  their 17 old reserves and ledger values while gaining 13 new reserves once.
+  The original fixture and copied revision-1 fixture are committed regressions.
+
+The encounters establish transition invariants; they do not measure player
+survival, completion time, or difficulty balance. Defeat verification executes
+the actual scene/observation output and panning; no new headed GPU screenshot
+is claimed here. A focused local simplify review removed dead rendering branches
+and caught the cache-identity and relocation edges. This branch review was
+local; the combined integration is receiving a separate independent explanation
+and source review.
+
+## Exploration, ziplines and scavenging checkpoint
+
+The complete static solo package is generation `7a08d29f7f6652196438bb94`,
+compiled from integration checkpoint `a13cbccb`. Later changes are tests,
+documentation and a cancellation comment only. Its Wasm is 651,891 bytes,
+SHA-256 `f9cc1f53770746751d16b4860c1e04201451446b6f2dfe177f59e3f75d925798`.
+All 22 files served at port 4212 and the existing mobile preview match this
+package byte-for-byte. The generated Pages build includes the same package.
+
+Executed checks against this exact final package:
+
+- 256 application integration checks, including 11 Scavenge groups. Tests cover
+  completed upgrade refunds, entirely local funding, returned paid kits, source
+  stock and freight, death, fleeing, duplicate claims and malformed restores.
+  Flight interruption cases restore after every simulated tick.
+- 18 headless/JSONL/MCP checks; seven nest-reward, threat and defeat groups;
+  five health/reserve presentation groups and the 11-group playtest runner.
+- A 32-seed geography check measures actual ground: 10.94, 2.19 and 1.12 deposits
+  per 1,000 eligible cells within ten tiles, ten to twenty tiles and farther
+  from nests. This is a seeded distribution check, not a survival guarantee.
+- 19 headed Chromium hosting checks, including 15 gameplay GPU groups, real
+  IndexedDB delays/failures, reopen, input, mobile menus and resource shutdown.
+  Eight additional flight GPU checks and Scavenge at four viewport sizes pass.
+- Actual hub destruction unveils all 16,384 tiles with one retained survey and
+  a 1,325-word snapshot; twenty further advances preserve the frozen colony.
+  An actual nest kill shows a filled star and a full purple reserve bar; the
+  selected deposit quotes 2,400 ore and a 40-ore extractor.
+- Original World12 and revision-one saves migrate without refilling depleted
+  deposits or changing existing funds/jobs. Unknown or mixed layouts reject
+  before replacing committed state. Existing enemies retain frozen maximum HP.
+- `make check`, the generated book/77-file Pages build and nine Pages checks.
+
+Fresh independent explanations and informed Astra xhigh reviews found no
+remaining blockers. Four additional adversarial Scavenge groups pass against
+the final package, including target/departure destruction during captured flight
+and a local kit returned after its source disappears. A separate destination
+destruction/reload/delivery probe passed on the preceding combined checkpoint.
+A newcomer read of the public guides found two ambiguities; the guides now
+distinguish aerial links from walking and historical save changes from buying
+hub upgrades. No broader compiler refactoring was needed.
+
+The private GPU checks use software Vulkan for correctness, not phone or
+hardware frame-rate measurements. Current 900-height cables clear all existing
+850-height mountains; a lower-height probe verifies blocked sightlines.
+Recording is disabled, while ordinary browser saves remain enabled. Existing
+tabs require a page refresh for the changed Client command contract; compatible
+World12 saves are preserved. Earlier checkpoint evidence below is historical.
+
 ## Shared headless environment checkpoint
 
 The same World12 game now exposes a Scheme-authored player observation alongside
