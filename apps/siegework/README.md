@@ -33,7 +33,8 @@ time, artifact size and runtime performance can differ.
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
 The current application ID is `siegework-colony-v12`, with world schema 12 and
-client schema 8. Hub capacity upgrades deliberately start a new colony: World12 stores a completed
+client schema 8. The release introducing hub capacity upgrades required a new
+colony. Buying an upgrade during play preserves the colony. World12 stores a completed
 capacity tier, finite deposit reserves and three persistent nests, and removes
 constructible houses. Old browser records
 remain under their previous identity; importing them into this version is rejected.

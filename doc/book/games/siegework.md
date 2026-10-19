@@ -55,10 +55,13 @@ reserves keep an empty purple frame. These bars have no text, red warning or
 pulse. Workers haul the final stock, then seek other work. Green bars above other
 units show their health.
 
-Completed towers connect to the hub and each other along known, passable routes.
-Carts move workers and ore through this network. A distant project can stall if
-its route or supplies are inaccessible, or its site is no longer visible. Expand
-your observation network and keep workers' routes protected. Water blocks travel.
+Completed towers connect to the hub through straight aerial ziplines. A link
+needs clear cable sight and must fit within either endpoint's reveal radius;
+cyan guides show tower reach. Carts carry workers and ore above water and the
+current mountains. Workers still need accessible ground routes to reach a
+station or a building site. A distant project can stall if its route or supplies
+are inaccessible, or its site is no longer visible. Expand your observation
+network and protect the ground routes; water blocks walking.
 
 Select a completed structure to see its upgrade price. Tower upgrades improve
 observation or transport; artillery upgrades add firepower. Their current services
