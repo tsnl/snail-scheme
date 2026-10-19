@@ -76,12 +76,12 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 - [x] Keep the hub stationary; win by finding and destroying the nest.
 - [x] Waves strengthen over time rather than ending at an eight-minute deadline.
-- [x] Map is 8–16 times larger **per dimension**; bound rendering and pathfinding
-      work instead of processing every tile each frame.
+- [x] Bound rendering and pathfinding work instead of processing every tile each
+      frame. The earlier larger map is superseded by the compact 128×128 expedition.
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.
-- [x] Add cheap walls, diverse enemy behavior, impassable water with a gentle
+- [x] Add houses, diverse enemy behavior, impassable water with a gentle
       shimmer, and less rectangular mountain ranges.
 - [x] Three extractor levels; expensive upgrades offer a fallback to exploration.
 - [x] Remove investment automation; workers retain automatic jobs and hauling.
@@ -98,6 +98,12 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Clearer outcomes, off-screen attack arrows, and prominent resource deposits.
 - [x] Dramatic fog reveal when construction completes.
 - [x] Retain geometry during panning and animation; use native HiDPI rendering.
+- [x] Share fixed colored model buffers across tile, building and unit instances;
+      upload occurrence transforms on changed ticks and use real GPU instanced draws.
+- [x] Reject instance bases collapsed by binary32 copying and subnormal normal
+      coefficients; preserve the accepted frame when candidate parsing fails.
+- [x] Restore thin tile borders using the shared terrain instances; native
+      desktop/mobile views, rotation, water and fog reveals are verified.
 - [x] Keep code and shaders hot-reloadable; preserve compatible saved colonies
       when client-only controls change. Protocol changes may require a page refresh.
 - [x] Rebase the game stack onto Perf PR #331's compiler improvements.
@@ -111,13 +117,13 @@ the supported game is the static client-side 3D bundle.
 ## Polish pass in progress
 
 - [x] Non-scrollable control cards with visible hotkeys beside every button.
-- [x] Translucent turquoise shield walls and vivid violet/indigo gemstones.
-- [x] Persistent difficulty indicator inside the next-wave ring.
+- [x] Replace shield walls with houses; keep vivid violet/indigo gemstones.
+- [x] Persistent difficulty indicator inside a circular progress readout.
 - [x] Gradually mixed strength ranks with distinctive enemy silhouettes.
-- [ ] Separate artillery and observation/logistics upgrade trees. Preserve all
+- [x] Separate artillery and observation/logistics upgrade trees. Preserve all
       existing offensive capabilities when upgrading either structure.
-- [x] Workers use cart stations and rails for fast personal/cargo travel.
-- [x] Wheel/pinch zoom and regular/orbital toggle preserving look-at center.
+- [x] Every completed tower supplies worker carts; each upgrade doubles link speed, limited by the slower endpoint.
+- [x] Wheel/pinch zoom preserving look-at center.
 - [x] Touch, mouse and pen drag the map; taps select and pinches never select.
 - [x] Repeated focused simplification followed by a final Astra xhigh code review.
 - [x] Confirm Siegework build CI and consolidate the stack into mega-PR #334.
@@ -129,40 +135,93 @@ source edits remain unchecked until compiled and exercised.
 
 ## Final integration checklist
 
-- [ ] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
-- [ ] Give artillery a distinct gun silhouette and improve the Orbit icon.
-- [ ] Make the wave/difficulty display easier to interpret.
-- [ ] Keep a touch-sized New worker control anchored above the hub.
-- [ ] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
-- [ ] Outline the combined range of active artillery on the map.
-- [ ] Enemies under fire pursue the attacker, with walls still blocking them.
-- [x] Spread nearby enemies across open approaches without crossing terrain or
-      bypassing walls; verify crowd movement and saved-route invariants.
+- [x] Give exploration a longer opening and slow wave, strength and group-size escalation.
+- [x] Use one circle size for HUD controls and icon-only construction actions;
+      group all controls and readouts in a vertical left/right edge strip, with
+      pill-shaped panels, visible hotkeys and a left-handed setting.
+- [x] Separate health from ore, enlarge the resource icon, and show counts in
+      matching high-contrast labels or badges.
+- [x] Quote hub repairs to the highest affordable percentage, spending only the
+      ore needed or available; complete the paid work with a worker.
+- [x] Recompute a deterministic transport minimum spanning tree each tick; display only current paths as directional pulsing dots.
+- [x] Give every tower and artillery a shared stone plinth with open arches on
+      all four sides, and replace connected shield geometry with solid houses.
+- [x] Allow buildings on current transport paths and intersections.
+- [x] Replace wall drawing with ordinary house placement: 12 base worker places,
+      four per completed house, up to 64; retain World 10 material ledgers.
+- [x] Use a hard, continuous reveal contour instead of a fuzzy or grid-aligned edge.
+- [x] Give artillery a distinct gun silhouette.
+- [x] Count down to the next difficulty increase, never to an unseen wave spawn;
+      keep hidden enemy spawns out of the HUD and accessible status.
+- [x] Keep repeated New worker and Repair actions in the selected hub popup;
+      retain Home on the edge strip and remove the separate worker menu.
+- [x] Reserve and display a full 3×3 hub; offer explicit paid worker repairs.
+- [x] Outline the combined range of active artillery on the map.
+- [x] Enemies under fire pursue the attacker; houses follow ordinary building
+      encounter rules and do not intercept that pursuit.
+- [x] Replace the brush planner with direct tile construction. Deposits offer
+      extractors; ordinary tiles offer tower/artillery/house with visible costs.
+      Repeat a tile tap to build the remembered successful type; retargeting is
+      free, and failed orders retain their intended choice for retry.
+- [x] Fix lighting relative to the camera, including intermediate Q/E rotations.
+- [x] Keep drag for panning and pinch for zoom; expose compact quarter-turn
+      buttons directly on screen. Do not add twist rotation.
+- [x] Keep mobile attack notifications separate from controls, with white-on-red
+      location labels and a dismiss action, without rendered thumbnails; inspect portrait and
+      landscape layouts, and permit later attacks to alert again.
+- [x] Profile representative mobile-sized simulation, view and GPU work;
+      record the earlier native-resolution baseline without claiming a thermal cause.
+- [x] Render the 3D world and HUD at native HiDPI resolution, without MSAA;
+      preserve logical input and smooth orthographic camera motion.
+- [x] Use 2:1 dimetric ground diamonds at quarter-turn camera snaps, with 30°
+      elevation and smooth intermediate rotation, pan and zoom.
+- [x] Add the max-dps-test using actual model facts, three-minute discovery and
+      0.5 utilization; report its optimistic assumptions and finite horizon.
+- [x] Compact the map to 128×128 and move the nest to five or six observation
+      hops; target a fast ten-minute expedition with 45-second opening,
+      thirty-second waves, ninety-second ranks and nine-minute boss pressure.
+      Preserve nest destruction as the only victory; use a distinct World11
+      storage identity so old seeds and paths are never silently remapped.
+- [x] Spread nearby enemies across open approaches without crossing terrain;
+      verify crowd movement and saved-route invariants.
 - [x] Exercise new orders on surveyed but currently hidden tiles, stale menus,
       observer destruction and fogged kit delivery in actual Wasm. Five checks
       pass; the reported rejected transition remains unreproduced.
 - [x] Weighted worker routes account for walking versus cart travel time.
-- [x] Enemies may attack a wall instead of always detouring around it.
+- [x] Houses can be destroyed; over-capacity colonies retain workers and paid
+      recruits, and only new hiring waits for capacity.
 - [x] Worker sight reveals a small radius without unbounded survey history.
 - [x] Hidden construction stalls new assignments/pickup and explains why;
       existing carriers can reveal their destination while following a known route.
-- [x] Physical rails remain after stations disappear; active freight ownership
-      and reserved ground remain separate and checked.
+- [x] Obsolete track geometry disappears; source-owned freight is conserved
+      across reroutes and counted once when its source is destroyed.
 - [x] First accepted order starts the clock; inspection and selection do not.
 - [x] Rejecting a transition keeps the exact committed colony; retain one
       separate command/snapshot reproduction for debugging.
-- [x] Same explicit select-then-action interface for touch and desktop, including
-      extractor confirmation, repeated hub hiring and click-away dismissal.
-- [x] Restart confirmation pauses, with cancellation restoring the prior pause.
-- [x] Smoke on damage and red/white attack notifications with clickable live views.
-- [x] Soft fragment-level fog reveal and continuous display-rate unit/freight motion.
+- [x] Restart confirmation pauses, with cancellation returning to the Pause menu.
+- [x] Smoke on damage and compact red/white attack notifications with location
+      and dismiss actions.
+- [x] Continuous display-rate unit/freight motion; hard reveal contour checked above.
 - [x] Verify the final exact artifact in Chromium, publish on 4212 and attach screenshots.
 - [x] Reconcile current main and include the Siegework build in CI.
       Merge only after the PR checks pass.
 
-World10 model checkpoint: 123 integration checks plus 31,494 stress commands,
-1,026 exact save round-trips and 156 close encounters passed. The original
-reported invalid-transition crash remains unreproduced; retained diagnostics
-are for obtaining a concrete reproduction if it recurs. The final exact product build, 123 integration checks and 19 real Chromium
-hosting/storage sections now pass; current evidence is in
+World10 model checkpoint: the compact edge-strip build passes 175 integration
+checks. Earlier stress runs covered 31,494 commands, 1,026 exact save round-trips
+and 156 close encounters. The original reported invalid-transition crash remains
+unreproduced; retained diagnostics can capture a recurrence. Current evidence,
+including the separately checked final mobile package, is recorded in
 [VALIDATION.md](apps/siegework/VALIDATION.md).
+
+## Focused menu simplification
+
+- [x] Remove the map-scale toggle; retain wheel/pinch zoom and Q/E buttons.
+- [x] Consolidate Pause, Resume, Restart and handedness into a labeled centered
+      menu. Restart cancellation returns to Pause; saved paused colonies expose
+      Resume. Keep unpaid selection intact and block covered gameplay controls.
+- [x] Keep first-extractor guidance visible and point toward the highlighted deposit.
+- [x] Keep menu operations pending until save settlement, retain retry controls
+      after failures and synchronize paused startup/imports without adding World
+      reads to camera input.
+- [x] Verify the new menu and callout in actual Wasm and Chromium at portrait
+      and short landscape sizes, on both control sides.

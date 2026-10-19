@@ -1,0 +1,2494 @@
+{
+  "kind": "shared-host CPU diagnostic; timings uninstrumented, scalar counts measured separately",
+  "node": "v24.19.0",
+  "fixtureSha256": "95538bde143246a505b095fa1e114ad59d35d4abfd6b6de3c1161649fa47661b",
+  "equivalenceSteps": 60,
+  "packages": [
+    {
+      "path": "/tmp/snail-siegework-dimetric-rebased-20261018/build/siegework-dimetric-rebased/solo",
+      "generation": "a12a8aa5b43babe899d043f3",
+      "wasmBytes": 542560,
+      "wasmSha256": "2a3b5ea33b3801da5d8c90c84a2efafd108276237ee4f87cea4fba56777cb82d",
+      "runtimeSha256": "14d6eaf174f976e8f32eb2aedc4d987ee2ceb82ddafd74c4693e31bae8088f6b"
+    },
+    {
+      "path": "/tmp/snail-siegework-map-scale-20261018/build/siegework-cache/solo",
+      "generation": "ae733e7b2bcc57d95974ba65",
+      "wasmBytes": 546626,
+      "wasmSha256": "64e4cbd2288679a9bf075f92c6857c26726c9948b6a9423807a2d735091bf9da",
+      "runtimeSha256": "c5158e55176aeddb673715301062fa74b1c683c3b7dc9ecee76540a4ab3feb1c"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.23203100000000632,
+          "p95": 0.26843700000017634
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.3637210000001687,
+          "p95": 0.3768129999998564
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.31611800000018775,
+          "p95": 0.33933699999988676
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 1.1796480000002703,
+          "p95": 1.4715769999997974
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 13.168135999999777,
+          "p95": 15.670042000000194
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 1.7559570000003077,
+          "p95": 2.2626860000000306
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 5.961158000000069,
+          "p95": 8.759090999999898
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 26.850155000000086,
+          "p95": 31.493483000000197
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.660335000000032,
+          "p95": 11.306046000000606
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 5.9823620000006485,
+          "p95": 8.369606000000203
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 14.54240899999968,
+          "p95": 18.454321999999593
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.61435900000015,
+          "p95": 11.739647999999761
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 6.352571000000353,
+          "p95": 8.466859999999542
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 56.90193099999942,
+          "p95": 64.27135799999996
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 10.009954999999536,
+          "p95": 11.964034999999967
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.1304070000005595,
+          "p95": 0.15172199999960867
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.20047499999964202,
+          "p95": 0.20804599999974016
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.15139900000031048,
+          "p95": 0.17357699999956822
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09195099999942613,
+          "p95": 0.09565099999963422
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 10.048709999999119,
+          "p95": 14.966339999999946
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12685199999941688,
+          "p95": 0.13600099999985105
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08730800000012096,
+          "p95": 0.09943400000065594
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 17.361565999999584,
+          "p95": 18.875811000001704
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12092699999993783,
+          "p95": 0.13486699999884877
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.0894800000005489,
+          "p95": 0.09697199999936856
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.866088999999192,
+          "p95": 7.477629999999408
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.1285280000010971,
+          "p95": 0.1397209999995539
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.22988699999950768,
+          "p95": 0.26569800000106625
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 46.36282299999948,
+          "p95": 58.59014500000012
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.27043400000002293,
+          "p95": 0.3980410000003758
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.09200599999894621,
+          "p95": 0.12037000000054832
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.17298500000106287,
+          "p95": 0.18023700000048848
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.12855500000114262,
+          "p95": 0.1706900000008318
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.07060100000126113,
+          "p95": 0.07853199999954086
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 8.64798300000075,
+          "p95": 15.354183999999805
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11239100000057078,
+          "p95": 0.12378700000044773
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.06944599999951606,
+          "p95": 0.07162599999901431
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 17.850674000001163,
+          "p95": 20.13629100000071
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.10859100000016042,
+          "p95": 0.12911800000074436
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.07984899999974004,
+          "p95": 0.10115100000075472
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 5.1026549999987765,
+          "p95": 7.395779999998922
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11443800000051851,
+          "p95": 0.13323900000068534
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.1783849999992526,
+          "p95": 0.19100599999910628
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 47.14960200000132,
+          "p95": 61.77553099999932
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.2181559999989986,
+          "p95": 0.22787400000015623
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.1944550000007439,
+          "p95": 0.2306459999999788
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.34065600000030827,
+          "p95": 0.3572669999994105
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.28840300000047137,
+          "p95": 0.295060000000376
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 1.1839059999983874,
+          "p95": 1.7023880000015197
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 13.188892000000124,
+          "p95": 15.69055599999956
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 1.7813729999998031,
+          "p95": 2.363681999999244
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 6.289972000000489,
+          "p95": 8.575462000000698
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 27.51648600000044,
+          "p95": 29.320423999999548
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.70561699999962,
+          "p95": 12.062971999999718
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 6.277113000000099,
+          "p95": 8.741308999999092
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 15.18790699999954,
+          "p95": 20.100330999999642
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.713094000000638,
+          "p95": 12.146852000001672
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 6.4771790000013425,
+          "p95": 9.388779999999315
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 57.59639000000243,
+          "p95": 94.85596299999816
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 10.240289000001212,
+          "p95": 12.51198999999906
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.18387200000142911,
+          "p95": 0.1966470000006666
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.31553899999926216,
+          "p95": 0.33116599999993923
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.2696749999995518,
+          "p95": 0.2792520000002696
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 1.1270880000010948,
+          "p95": 1.7747329999983776
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 13.632574999999633,
+          "p95": 15.314344999998866
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 1.769110000001092,
+          "p95": 2.534099000000424
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 6.090333000000101,
+          "p95": 8.521379000001616
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 27.378138000000035,
+          "p95": 29.741909000000305
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.63612600000124,
+          "p95": 10.956564000000071
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 6.040230999999039,
+          "p95": 8.787110000001121
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 14.441397999999026,
+          "p95": 19.905271999999968
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.420614999999088,
+          "p95": 11.73516699999891
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 6.516242999998212,
+          "p95": 9.001484999997047
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 56.962774000003265,
+          "p95": 61.17887200000041
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 10.105642999998963,
+          "p95": 11.912336000001233
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08353299999726005,
+          "p95": 0.08522400000219932
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.16089699999793083,
+          "p95": 0.1665419999990263
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11788199999864446,
+          "p95": 0.12245100000291131
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.06574999999793363,
+          "p95": 0.07452999999804888
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 14.397682999999233,
+          "p95": 15.353359000000637
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.10151400000177091,
+          "p95": 0.10730599999806145
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.06617600000026869,
+          "p95": 0.07928499999979977
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 17.494000999999116,
+          "p95": 18.846836999997322
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.10281799999938812,
+          "p95": 0.1120359999986249
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.0722589999968477,
+          "p95": 0.07575399999768706
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.707929000000149,
+          "p95": 7.809939999999187
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.10893399999986286,
+          "p95": 0.12915699999939534
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.16930800000045565,
+          "p95": 0.18416200000137906
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 46.47190699999919,
+          "p95": 59.912380000001576
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.20998799999870243,
+          "p95": 0.2660600000017439
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "variant": 1,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.08189900000070338,
+          "p95": 0.09822499999791034
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.1569710000003397,
+          "p95": 0.16793699999834644
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.11676900000020396,
+          "p95": 0.143341999999393
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 0.06431399999928544,
+          "p95": 0.07868099999905098
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 8.41252600000007,
+          "p95": 15.064188000000286
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.09866900000270107,
+          "p95": 0.10680900000079419
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 0.0643869999985327,
+          "p95": 0.06732999999803724
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 17.268538999996963,
+          "p95": 18.640870999999606
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.09823600000163424,
+          "p95": 0.10221500000261585
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 0.07102899999881629,
+          "p95": 0.07503899999937858
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 4.604486000000179,
+          "p95": 8.089357000000746
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.10743399999773828,
+          "p95": 0.11427899999762303
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 0.16547399999763002,
+          "p95": 0.1721579999975802
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 46.33379200000127,
+          "p95": 58.486886000002414
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.20235799999863957,
+          "p95": 0.2142759999987902
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "variant": 0,
+      "measurements": [
+        {
+          "fixture": "fresh",
+          "operation": "view",
+          "n": 25,
+          "median": 0.18018600000141305,
+          "p95": 0.2047290000009525
+        },
+        {
+          "fixture": "fresh",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 0.3072490000013204,
+          "p95": 0.3149279999997816
+        },
+        {
+          "fixture": "fresh",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 0.2679290000014589,
+          "p95": 0.27544900000066264
+        },
+        {
+          "fixture": "grown",
+          "operation": "view",
+          "n": 25,
+          "median": 1.1072060000005877,
+          "p95": 1.4210579999999027
+        },
+        {
+          "fixture": "grown",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 12.966605000001437,
+          "p95": 15.362800000002608
+        },
+        {
+          "fixture": "grown",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 1.6856989999978396,
+          "p95": 2.7181559999989986
+        },
+        {
+          "fixture": "crowd",
+          "operation": "view",
+          "n": 25,
+          "median": 5.897989000000962,
+          "p95": 8.30377000000226
+        },
+        {
+          "fixture": "crowd",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 26.432237000000896,
+          "p95": 29.46100800000204
+        },
+        {
+          "fixture": "crowd",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.646849000000657,
+          "p95": 11.82875200000126
+        },
+        {
+          "fixture": "paused",
+          "operation": "view",
+          "n": 25,
+          "median": 6.206618000000162,
+          "p95": 8.579391000002943
+        },
+        {
+          "fixture": "paused",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 14.941251000000193,
+          "p95": 20.22741799999858
+        },
+        {
+          "fixture": "paused",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.657437999998365,
+          "p95": 11.747163
+        },
+        {
+          "fixture": "alerts",
+          "operation": "view",
+          "n": 25,
+          "median": 6.4685520000020915,
+          "p95": 9.720073000000411
+        },
+        {
+          "fixture": "alerts",
+          "operation": "tickAndView",
+          "n": 25,
+          "median": 59.23943700000382,
+          "p95": 62.68334600000526
+        },
+        {
+          "fixture": "alerts",
+          "operation": "cameraAndView",
+          "n": 25,
+          "median": 9.972179999997024,
+          "p95": 12.315285999997286
+        }
+      ]
+    }
+  ],
+  "work": [
+    {
+      "variant": 0,
+      "fixture": "fresh",
+      "view": {
+        "reads": 583,
+        "previousReads": 411,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 761,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 1000,
+        "previousReads": 0,
+        "writes": 412
+      },
+      "changedView": {
+        "reads": 583,
+        "previousReads": 411,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 0,
+      "fixture": "grown",
+      "view": {
+        "reads": 4907,
+        "previousReads": 4735,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 5085,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 9646,
+        "previousReads": 0,
+        "writes": 4734
+      },
+      "changedView": {
+        "reads": 4905,
+        "previousReads": 4735,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 0,
+      "fixture": "crowd",
+      "view": {
+        "reads": 25261,
+        "previousReads": 25089,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 25439,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 50208,
+        "previousReads": 0,
+        "writes": 24942
+      },
+      "changedView": {
+        "reads": 25113,
+        "previousReads": 25089,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 0,
+      "fixture": "paused",
+      "view": {
+        "reads": 25261,
+        "previousReads": 25089,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 25439,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 50356,
+        "previousReads": 0,
+        "writes": 25090
+      },
+      "changedView": {
+        "reads": 25261,
+        "previousReads": 25089,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 0,
+      "fixture": "alerts",
+      "view": {
+        "reads": 25342,
+        "previousReads": 25170,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 25520,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 50370,
+        "previousReads": 0,
+        "writes": 25023
+      },
+      "changedView": {
+        "reads": 25194,
+        "previousReads": 25170,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 1,
+      "fixture": "fresh",
+      "view": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 178,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 417,
+        "previousReads": 0,
+        "writes": 412
+      },
+      "changedView": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 1,
+      "fixture": "grown",
+      "view": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 178,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 4739,
+        "previousReads": 0,
+        "writes": 4734
+      },
+      "changedView": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 1,
+      "fixture": "crowd",
+      "view": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 178,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 24947,
+        "previousReads": 0,
+        "writes": 24942
+      },
+      "changedView": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 1,
+      "fixture": "paused",
+      "view": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 178,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 25095,
+        "previousReads": 0,
+        "writes": 25090
+      },
+      "changedView": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      }
+    },
+    {
+      "variant": 1,
+      "fixture": "alerts",
+      "view": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      },
+      "camera": {
+        "reads": 178,
+        "previousReads": 0,
+        "writes": 173
+      },
+      "tick": {
+        "reads": 25028,
+        "previousReads": 0,
+        "writes": 25023
+      },
+      "changedView": {
+        "reads": 0,
+        "previousReads": 0,
+        "writes": 0
+      }
+    }
+  ],
+  "date": "2026-10-18",
+  "base": "224ab7b8",
+  "buildProfile": "default -O1",
+  "fixture": {
+    "workers": 12,
+    "towers": 16,
+    "mines": 2,
+    "guns": 4,
+    "rails": 16,
+    "surveys": 39,
+    "tracks": 80,
+    "enemies": 96,
+    "routeCellsPerEnemy": 64
+  },
+  "verification": {
+    "applicationChecks": 199,
+    "presentationGroups": 21,
+    "cacheChecks": 9,
+    "asyncChecks": 11,
+    "serialization": [
+      "raw linked Wasm",
+      "optimized linked Wasm"
+    ]
+  },
+  "sources": {
+    "src/application/bridge.sld": "d3fda37f7a40672884824374df1943c68add0e33ab8b7dd04a8fb42d8a1115d8",
+    "src/application/runtime.mjs": "c5158e55176aeddb673715301062fa74b1c683c3b7dc9ecee76540a4ab3feb1c",
+    "apps/siegework/src/siegework/game.sld": "3e41302566f664ce11a3b24a4a503efe22014cc5b24055f1f2f795c0e7eb8803"
+  },
+  "baselineInvestigation": {
+    "packagePath": "/tmp/snail-siegework-dimetric-rebased-20261018/build/siegework-dimetric-rebased/solo",
+    "generation": "a12a8aa5b43babe899d043f3",
+    "node": "v24.19.0",
+    "kind": "shared-host diagnostic",
+    "results": [
+      {
+        "fixture": "grown",
+        "snapshotWords": 4735,
+        "view": {
+          "n": 25,
+          "median": 1.578434999999999,
+          "p95": 2.2528489999999977,
+          "mean": 1.6785744
+        },
+        "tick": {
+          "n": 25,
+          "median": 1.7053949999999816,
+          "p95": 2.851996999999983,
+          "mean": 2.090798840000001
+        },
+        "tickAndView": {
+          "n": 25,
+          "median": 13.038319000000001,
+          "p95": 16.63670300000001,
+          "mean": 12.508967680000005
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 1.9342020000000275,
+          "p95": 2.750444000000016,
+          "mean": 2.0703959600000146
+        },
+        "viewCalls": {
+          "reads": 4907,
+          "previousReads": 4735,
+          "writes": 0,
+          "validationMs": 0.0012889999999288193
+        },
+        "tickCalls": {
+          "reads": 9646,
+          "previousReads": 0,
+          "writes": 4734,
+          "validationMs": 0.6847240000000738
+        },
+        "cameraCalls": {
+          "reads": 5083,
+          "previousReads": 0,
+          "writes": 173,
+          "validationMs": 0.6654300000000148
+        },
+        "insets": 0,
+        "vertices": [
+          25320
+        ]
+      },
+      {
+        "fixture": "crowd",
+        "snapshotWords": 25089,
+        "view": {
+          "n": 25,
+          "median": 6.5403949999999895,
+          "p95": 9.383599000000004,
+          "mean": 7.182563920000007
+        },
+        "tick": {
+          "n": 25,
+          "median": 9.418214000000035,
+          "p95": 12.607455999999956,
+          "mean": 9.844291360000016
+        },
+        "tickAndView": {
+          "n": 25,
+          "median": 28.49947199999997,
+          "p95": 33.86506099999997,
+          "mean": 28.374995839999976
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 10.154142999999749,
+          "p95": 13.148482999999942,
+          "mean": 10.60255299999999
+        },
+        "viewCalls": {
+          "reads": 25261,
+          "previousReads": 25089,
+          "writes": 0,
+          "validationMs": 0.0021579999997811683
+        },
+        "tickCalls": {
+          "reads": 50208,
+          "previousReads": 0,
+          "writes": 24942,
+          "validationMs": 3.136211000000003
+        },
+        "cameraCalls": {
+          "reads": 25291,
+          "previousReads": 0,
+          "writes": 173,
+          "validationMs": 3.1008130000000165
+        },
+        "insets": 0,
+        "vertices": [
+          29160
+        ]
+      },
+      {
+        "fixture": "paused",
+        "snapshotWords": 25089,
+        "view": {
+          "n": 25,
+          "median": 7.118441000000075,
+          "p95": 10.289606999999705,
+          "mean": 7.5065454799999864
+        },
+        "tick": {
+          "n": 25,
+          "median": 9.011661000000004,
+          "p95": 12.580923999999868,
+          "mean": 9.588533999999946
+        },
+        "tickAndView": {
+          "n": 25,
+          "median": 16.861827000000176,
+          "p95": 21.36345799999981,
+          "mean": 17.17848372000006
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 10.566329999999653,
+          "p95": 14.510275999999976,
+          "mean": 11.249456559999999
+        },
+        "viewCalls": {
+          "reads": 25261,
+          "previousReads": 25089,
+          "writes": 0,
+          "validationMs": 0.002480000000105065
+        },
+        "tickCalls": {
+          "reads": 50356,
+          "previousReads": 0,
+          "writes": 25090,
+          "validationMs": 3.2059220000001005
+        },
+        "cameraCalls": {
+          "reads": 25439,
+          "previousReads": 0,
+          "writes": 173,
+          "validationMs": 3.2220390000002226
+        },
+        "insets": 0,
+        "vertices": [
+          29160
+        ]
+      },
+      {
+        "fixture": "alerts",
+        "snapshotWords": 25170,
+        "view": {
+          "n": 25,
+          "median": 6.87681799999973,
+          "p95": 10.789703000000372,
+          "mean": 7.704045320000041
+        },
+        "tick": {
+          "n": 25,
+          "median": 10.335008000000016,
+          "p95": 14.48508099999981,
+          "mean": 10.31916767999981
+        },
+        "tickAndView": {
+          "n": 25,
+          "median": 62.41423399999985,
+          "p95": 76.28787499999999,
+          "mean": 63.484985680000065
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 10.702165000000605,
+          "p95": 14.751344999999674,
+          "mean": 11.432508560000024
+        },
+        "viewCalls": {
+          "reads": 25342,
+          "previousReads": 25170,
+          "writes": 0,
+          "validationMs": 0.0028720000000248547
+        },
+        "tickCalls": {
+          "reads": 50370,
+          "previousReads": 0,
+          "writes": 25023,
+          "validationMs": 3.207132999999885
+        },
+        "cameraCalls": {
+          "reads": 25372,
+          "previousReads": 0,
+          "writes": 173,
+          "validationMs": 3.0981500000007145
+        },
+        "insets": 3,
+        "vertices": [
+          29448,
+          25492,
+          26460,
+          26460
+        ]
+      }
+    ],
+    "scales": [
+      {
+        "scale": 500,
+        "view": {
+          "n": 25,
+          "median": 6.625912999999855,
+          "p95": 9.538580000000366,
+          "mean": 7.17080028000004
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 11.006554000000506,
+          "p95": 14.294168999999783,
+          "mean": 11.262056800000137
+        },
+        "vertices": 25588
+      },
+      {
+        "scale": 1000,
+        "view": {
+          "n": 25,
+          "median": 6.728868999999577,
+          "p95": 10.054901999999856,
+          "mean": 7.3825131199998575
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 10.621038000000226,
+          "p95": 13.724449999999706,
+          "mean": 11.31260803999994
+        },
+        "vertices": 29160
+      },
+      {
+        "scale": 4000,
+        "view": {
+          "n": 25,
+          "median": 6.992066000000705,
+          "p95": 11.04540900000029,
+          "mean": 7.903264799999961
+        },
+        "cameraAndView": {
+          "n": 25,
+          "median": 11.293164999999135,
+          "p95": 13.995050999999876,
+          "mean": 11.428318040000086
+        },
+        "vertices": 16792
+      }
+    ]
+  },
+  "geometryWork": {
+    "generation": "a12a8aa5b43babe899d043f3",
+    "kind": "retained-identity diagnostic",
+    "results": [
+      {
+        "fixture": "grown",
+        "operation": "tick",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 6352,
+            "rebuiltVertices": 63520
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 10160,
+            "rebuiltVertices": 101568
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 384,
+            "rebuiltVertices": 3840
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      },
+      {
+        "fixture": "grown",
+        "operation": "camera",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 6352,
+            "rebuiltVertices": 0
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 10160,
+            "rebuiltVertices": 0
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 384,
+            "rebuiltVertices": 0
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      },
+      {
+        "fixture": "crowd",
+        "operation": "tick",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 6352,
+            "rebuiltVertices": 63520
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 14024,
+            "rebuiltVertices": 140208
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 384,
+            "rebuiltVertices": 3840
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      },
+      {
+        "fixture": "crowd",
+        "operation": "camera",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 6352,
+            "rebuiltVertices": 0
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 14000,
+            "rebuiltVertices": 0
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 384,
+            "rebuiltVertices": 0
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      },
+      {
+        "fixture": "alerts",
+        "operation": "tick",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 6352,
+            "rebuiltVertices": 63520
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 14312,
+            "rebuiltVertices": 143088
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 384,
+            "rebuiltVertices": 3840
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "1/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 2816,
+            "rebuiltVertices": 28160
+          },
+          "1/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "1/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 14312,
+            "rebuiltVertices": 143088
+          },
+          "1/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 444,
+            "rebuiltVertices": 0
+          },
+          "1/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "2/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 3772,
+            "rebuiltVertices": 37720
+          },
+          "2/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "2/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 14312,
+            "rebuiltVertices": 143088
+          },
+          "2/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 456,
+            "rebuiltVertices": 0
+          },
+          "2/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "3/1": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 3772,
+            "rebuiltVertices": 37720
+          },
+          "3/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "3/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/3": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 14312,
+            "rebuiltVertices": 143088
+          },
+          "3/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 456,
+            "rebuiltVertices": 0
+          },
+          "3/9": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/10": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/5": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/6": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/7": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/11": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/12": {
+            "frames": 10,
+            "rebuilt": 10,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      },
+      {
+        "fixture": "alerts",
+        "operation": "camera",
+        "work": {
+          "0/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "0/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 6352,
+            "rebuiltVertices": 0
+          },
+          "0/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "0/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 14288,
+            "rebuiltVertices": 0
+          },
+          "0/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 480,
+            "rebuiltVertices": 0
+          },
+          "0/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 384,
+            "rebuiltVertices": 0
+          },
+          "0/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "0/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "1/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 2816,
+            "rebuiltVertices": 0
+          },
+          "1/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "1/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 14288,
+            "rebuiltVertices": 0
+          },
+          "1/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 444,
+            "rebuiltVertices": 0
+          },
+          "1/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "1/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "2/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 3772,
+            "rebuiltVertices": 0
+          },
+          "2/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "2/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 14288,
+            "rebuiltVertices": 0
+          },
+          "2/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 456,
+            "rebuiltVertices": 0
+          },
+          "2/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "2/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/0": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 360,
+            "rebuiltVertices": 0
+          },
+          "3/1": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 3772,
+            "rebuiltVertices": 0
+          },
+          "3/2": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 7584,
+            "rebuiltVertices": 0
+          },
+          "3/13": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/3": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 14288,
+            "rebuiltVertices": 0
+          },
+          "3/4": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 456,
+            "rebuiltVertices": 0
+          },
+          "3/9": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/10": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/5": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/6": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/7": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/8": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/11": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          },
+          "3/12": {
+            "frames": 10,
+            "rebuilt": 0,
+            "vertices": 0,
+            "rebuiltVertices": 0
+          }
+        }
+      }
+    ]
+  }
+}

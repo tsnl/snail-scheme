@@ -46,7 +46,12 @@ export class RemoteSaves {
     if (!snapshot) throw new Error('Invalid online checkpoint.');
     const accepted = await this.app.update(async () => {
       if (!confirm('Replace this browser’s colony with the online checkpoint?')) return false;
-      await this.session.local.restore(snapshot.state); return true;
+      await this.session.local.restore(snapshot.state);
+      // Already inside the browser lane: apply the configured import hook
+      // directly, after durability, without waiting on a nested app.local.
+      if (this.app.manifest.settings.resetPresentation)
+        await this.app.localTransition(this.app.runtime.command('client', this.app.manifest.settings.resetPresentation));
+      return true;
     });
     if (!accepted) return;
     this.etag = response.headers.get('etag'); this.status.textContent = 'Online checkpoint loaded and saved on this browser.';

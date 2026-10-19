@@ -1,4 +1,4 @@
-;; Integer fields reproduce a large world directly from its saved seed. Route
+;; Integer fields reproduce a compact world directly from its saved seed. Route
 ;; searches own bounded scratch vectors, never the world's surveys or hazards.
 (define-library (siegework terrain)
   (export map-width map-height hub-x hub-y cell-size cell-x cell-y cell-index
@@ -7,7 +7,7 @@
           next-map-seed spawn-x spawn-y nest-x nest-y northern-x northern-y eastern-x eastern-y regional-deposit-x regional-deposit-y
           walking-path tunneling-path avoiding-path escape-path clear-shot? observed-shot?
           open-ground? walking-open-path avoiding-open-path escape-open-path clear-open-shot? observed-open-shot?
-          rail-edge rail-step? cart-path cart-escape-path)
+          CartEdge make-cart-edge cart-step-cost rail-edge rail-step? cart-path cart-escape-path)
   (import
    (scheme base)
    (scheme immutable)
@@ -18,8 +18,8 @@
 
     ;; ---- Map coordinates ----
 
-    (define map-width 384)
-    (define map-height 288)
+    (define map-width 128)
+    (define map-height 128)
     (define cell-size 40)
     (define hub-x 8)
     (define hub-y 22)
@@ -46,17 +46,19 @@
     ;; corners toward its center. Both coordinates accept the same candidate;
     ;; the bounded replay needs no random state or per-query pair allocation.
     (define (spawn-offset seed attempt horizontal)
-      (let ((x (- (map-offset seed 73 49) 24)) (y (- (map-offset seed 151 49) 24)))
-        (cond ((<= (+ (* x x) (* y y)) 576) (if horizontal x y))
+      (let ((x (- (map-offset seed 73 17) 8)) (y (- (map-offset seed 151 17) 8)))
+        (cond ((<= (+ (* x x) (* y y)) 64) (if horizontal x y))
               ((= attempt 23) 0)
               (else (spawn-offset (remainder (+ (* seed 25173) 13849) 65521)
                                   (+ attempt 1) horizontal)))))
-    (define (spawn-x seed) (+ 192 (spawn-offset seed 0 #t)))
-    (define (spawn-y seed) (+ 144 (spawn-offset seed 0 #f)))
+    (define (spawn-x seed) (+ 64 (spawn-offset seed 0 #t)))
+    (define (spawn-y seed) (+ 64 (spawn-offset seed 0 #f)))
+    ;; Five or six observation hops reach the nest. Even the farthest seed
+    ;; leaves fifteen cells to the edge for its clearing and spawn lanes.
     (define (nest-offset seed horizontal)
       (let ((direction (map-offset seed 67 4))
-            (major (+ 72 (map-offset seed 173 29)))
-            (minor (- (map-offset seed 227 49) 24)))
+            (major (+ 32 (map-offset seed 173 9)))
+            (minor (- (map-offset seed 227 17) 8)))
         (if (= (remainder direction 2) (if horizontal 0 1))
             (if (< direction 2) major (- 0 major)) minor)))
     (define (nest-x seed) (+ (spawn-x seed) (nest-offset seed #t)))
@@ -69,7 +71,10 @@
     (define (northern-y seed)
       (+ (- (spawn-y seed) hub-y) (if (= seed 1) 5 (+ 3 (map-offset seed 151 4)))))
     (define (eastern-x seed)
-      (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9)))))
+      (let ((x (+ (- (spawn-x seed) hub-x) (if (= seed 1) 36 (+ 33 (map-offset seed 199 9))))))
+        ;; The compact nest may share the eastern clearing. Keep its deposit
+        ;; buildable by moving a coincident crystal one clear cell west.
+        (if (and (= x (nest-x seed)) (= (eastern-y seed) (nest-y seed))) (- x 1) x)))
     (define (eastern-y seed)
       (+ (- (spawn-y seed) hub-y) (if (= seed 1) 12 (+ 7 (map-offset seed 239 10)))))
 
@@ -125,9 +130,9 @@
            (not (nest-clearing? seed x y)) (region-water? seed x y)))
     (define (ground? seed x y)
       (and (inside? x y)
-           (let ((hx (home-x seed x)) (hy (home-y seed y)))
-             (if (home-cell? hx hy) (home-ground? seed hx hy)
-                 (or (nest-clearing? seed x y)
+           (or (nest-clearing? seed x y)
+               (let ((hx (home-x seed x)) (hy (home-y seed y)))
+                 (if (home-cell? hx hy) (home-ground? seed hx hy)
                      (and (not (region-water? seed x y))
                           (not (region-mountain? seed x y))))))))
     ;; Permanent breaches are sparse map edits; water is never opened by a
@@ -148,7 +153,7 @@
       (and (= (remainder x 32) (+ 2 (region-value seed x y 157 3)))
            (= (remainder y 32) (+ 2 (region-value seed x y 181 3)))))
     (define (deposit-rate seed x y)
-      (cond ((not (inside? x y)) 0)
+      (cond ((or (not (inside? x y)) (and (= x (nest-x seed)) (= y (nest-y seed)))) 0)
             ((and (= x (+ (spawn-x seed) 4)) (= y (- (spawn-y seed) 2))) 2)
             ((and (= x (northern-x seed)) (= y (northern-y seed))) 3)
             ((and (= x (eastern-x seed)) (= y (eastern-y seed))) 6)
@@ -213,7 +218,7 @@
     (define-immutable-record Search make-search
       (seed I32 search-seed search-seed-set)
       (opened (List I32) search-opened search-opened-set)
-      (fast (List I32) search-fast search-fast-set)
+      (fast (List CartEdge) search-fast search-fast-set)
       (walking-cost I32 search-walking-cost search-walking-cost-set)
       (target I32 search-target search-target-set)
       (weight I32 search-weight search-weight-set)
@@ -315,9 +320,21 @@
     ;; south. Cart search and physical motion consult the same edge identities.
     (define (rail-edge a b)
       (+ (* (if (< a b) a b) 2) (if (= (index-y a) (index-y b)) 0 1)))
-    (define (rail-step? fast a b)
-      (and (= (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
-           (opened-cell? fast (rail-edge a b))))
+    ;; Costs share a forty-unit walking scale. Tower levels supply costs
+    ;; 4, 2 and 1; overlapping links offer the fastest available service.
+    (define-immutable-record CartEdge make-cart-edge
+      (id I32 cart-edge-id cart-edge-id-set)
+      (cost I32 cart-edge-cost cart-edge-cost-set))
+    (define (cart-edge-price fast edge fallback)
+      (if (null? fast) fallback
+          (let ((service (car fast)))
+            (cart-edge-price (cdr fast) edge
+                             (if (and (= (cart-edge-id service) edge) (< (cart-edge-cost service) fallback))
+                                 (cart-edge-cost service) fallback)))))
+    (define (cart-step-cost fast a b)
+      (if (= (distance (index-x a) (index-y a) (index-x b) (index-y b)) 1)
+          (cart-edge-price fast (rail-edge a b) 40) 40))
+    (define (rail-step? fast a b) (< (cart-step-cost fast a b) 40))
     (define (traversable? seed opened x y tunneling)
       (and (inside? x y) (if tunneling (not (water? seed x y)) (open-ground? seed opened x y))))
     (define (search-enter? search x y)
@@ -344,7 +361,7 @@
         (let* ((cell (cell-index x y)) (slot (find-slot search cell))
                (previous (read-cell (search-cells search) parent))
                (steps (+ (read-cell (search-steps search) parent)
-                         (if (rail-step? (search-fast search) previous cell) 1 (search-walking-cost search)))))
+                         (cart-edge-price (search-fast search) (rail-edge previous cell) (search-walking-cost search)))))
           (if (= (read-cell (search-cells search) slot) -1)
               (discover-cell! search slot cell parent steps)
               (improve-cell! search slot parent steps)))))
@@ -400,7 +417,7 @@
     (define (avoiding-path seed x y a b surveys hazards)
       (avoiding-open-path seed (empty-list) x y a b surveys hazards))
     (define (cart-path seed opened fast x y a b surveys hazards)
-      (find-path seed opened fast (if (null? fast) 1 5) x y a b surveys hazards #f #f))
+      (find-path seed opened fast (if (null? fast) 1 40) x y a b surveys hazards #f #f))
 
     ;; ---- Emergency escape crosses warnings but not enemy positions ----
 
@@ -416,7 +433,7 @@
           (search-path seed opened (empty-list) 1 (cell-index x y) -1 surveys (occupied-hazards hazards) hazards #f #f 512)))
     (define (cart-escape-path seed opened fast x y surveys hazards)
       (if (not (open-ground? seed opened x y)) (empty-list)
-          (search-path seed opened fast (if (null? fast) 1 5) (cell-index x y) -1 surveys
+          (search-path seed opened fast (if (null? fast) 1 40) (cell-index x y) -1 surveys
                        (occupied-hazards hazards) hazards #f #f 512)))
     (define (escape-path seed x y surveys hazards)
       (escape-open-path seed (empty-list) x y surveys hazards))))

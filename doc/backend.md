@@ -57,3 +57,21 @@ measurements. New campaigns compare Lofi/Wasm with original/adapted Chez and
 Rust/Wasm and Rust/native controls. Historical six-route campaigns retain their
 original results, including the retired Lofi/native route; they are not new
 measurements of the current compiler.
+
+## Build profiles
+
+Public `lofi compile` / `lofi run` commands and the Siegework build recipe default
+to debug Wasm optimization. `--release` selects O3, inlining and convergence.
+Debug retains O1 cleanup so unreachable initializers and foreign imports can be
+removed. The selected profile applies to generated dependencies and the final
+runtime link. Low-level `scripts/build-lofi`, `scripts/link-lofi-runtime` and
+library APIs retain release defaults; both scripts accept `--debug` and
+`--release`. Diagnostic prune-only linking retains its separate behavior.
+
+The 57-workload runner and Siegework measurement driver explicitly request
+release builds. Their optimization level is independent of development defaults.
+
+A historical [Fibonacci CLI build-and-run pair](measurements/debug-profile-reuse-2026-10-18.json)
+took 5.68 seconds in debug and 155.94 seconds in release, both printing `832040`.
+The runtime was prebuilt; caches and host load were uncontrolled. This is not a
+full Siegework measurement or a runtime speed comparison.

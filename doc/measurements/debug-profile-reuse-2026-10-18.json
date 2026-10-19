@@ -1,0 +1,130 @@
+{
+  "kind": "One sequential CLI build-and-run pair plus separate instrumented profile correctness checks",
+  "base_commit": "266134feb7acdf1275debe54063ca0aa8e066c89",
+  "source_state": "The profile patch was uncommitted during the samples. These compiler/linker files were unchanged throughout the pair.",
+  "source_sha256": {
+    "scripts/lofi.scm": "621da11438411db895f68b743cdf0308e625ee6dc56ac28aec25b6bbed9f7e6b",
+    "scripts/build-lofi.scm": "bcc0b5d7241b97eec419138439a0269a8552b2723fbb10e9ffb516d0f5d144f2",
+    "scripts/link-lofi-runtime.scm": "bcca965568c867969e6291b30630d9cefdca9490fc6ec06b305cadb08c8f30f7",
+    "src/native/wasm-optimize.sld": "367719c9a9bfca24db0a1d53ea91fe1e10243cd3e224a4420ffeeca118507d67",
+    "src/native/runtime-wasm.sld": "d89b04e187bf991ee407cf3e84cc46b29018c2c44f5d40712c6691d786f8905f"
+  },
+  "reuse_provenance": {
+    "public_profile_commit": "e16f1e877aff7f4d244a8b1477219ea9147d363c",
+    "wasm_parameter_commit": "3bb80abf",
+    "excluded": "No self-hosting, logging or native ELF profile changes were reused."
+  },
+  "tools": {
+    "chibi-scheme": {
+      "path": "/nix/store/rymbc3gyix886hxf3ns6cr7smmc9swy2-chibi-scheme-0.12/bin/chibi-scheme",
+      "version": "chibi-scheme 0.12.0 \"magnesium\" (chibi chibi-0.12.0 r7rs ratios complex mini-float uvector threads full-unicode modules dynamic-loading linux x86_64 little-endian)"
+    },
+    "wasm-opt": {
+      "path": "/nix/store/nd1279k2zlbp23gfqcl0qp5xk40xlxr8-binaryen-132/bin/wasm-opt",
+      "version": "wasm-opt version 132"
+    },
+    "node": {
+      "path": "/nix/store/lfaydgacdyngci7p60s8wwvgdm74fjkx-nodejs-24.19.0/bin/node",
+      "version": "v24.19.0"
+    }
+  },
+  "resource_limits": {
+    "memory_max_bytes": 4294967296,
+    "swap_max_bytes": 0,
+    "cpu_quota_cores": 2,
+    "timeout_seconds": 600,
+    "reported_memory_peak": "317M",
+    "one_local_validation_service": true
+  },
+  "environment": {
+    "BINARYEN_CORES": "2",
+    "CARGO_BUILD_JOBS": "2",
+    "RAYON_NUM_THREADS": "2"
+  },
+  "timing_samples": [
+    {
+      "profile": "debug",
+      "command": [
+        "./lofi",
+        "run",
+        "examples/scheme-fibonacci.sld"
+      ],
+      "wall_seconds": 5.677240363002056,
+      "user_seconds": 5.658833000000001,
+      "status": 0,
+      "stdout": "832040\n"
+    },
+    {
+      "profile": "release",
+      "command": [
+        "./lofi",
+        "run",
+        "--release",
+        "examples/scheme-fibonacci.sld"
+      ],
+      "wall_seconds": 155.94063598199864,
+      "user_seconds": 157.294256,
+      "status": 0,
+      "stdout": "832040\n"
+    }
+  ],
+  "correctness_diagnostics": [
+    {
+      "label": "runtime-build",
+      "status": 0
+    },
+    {
+      "label": "generated-default",
+      "status": 42,
+      "optimizer_calls": 3
+    },
+    {
+      "label": "generated-debug",
+      "status": 0,
+      "optimizer_calls": 3
+    },
+    {
+      "label": "execute-debug",
+      "status": 42
+    },
+    {
+      "label": "generated-release",
+      "status": 0,
+      "optimizer_calls": 3
+    },
+    {
+      "label": "execute-release",
+      "status": 42
+    },
+    {
+      "label": "lower-guest-default",
+      "status": 0,
+      "optimizer_calls": 2
+    },
+    {
+      "label": "lower-link-release",
+      "status": 0,
+      "optimizer_calls": 1
+    },
+    {
+      "label": "lower-execute-release",
+      "status": 42
+    },
+    {
+      "label": "lower-link-diagnostic",
+      "status": 0,
+      "optimizer_calls": 1
+    },
+    {
+      "label": "lower-execute-diagnostic",
+      "status": 42
+    }
+  ],
+  "limits": [
+    "Single sequential sample per profile, with the runtime Cargo artifact built before both samples.",
+    "The CLI timing pair used no optimizer wrapper or compiler profiling; correctness diagnostics used an argv-recording wrapper.",
+    "Filesystem caches and shared-host load were uncontrolled; other sessions may have run jobs.",
+    "Includes compiler startup, compilation, runtime linking and program execution; not separate compile or runtime performance.",
+    "Not a full Siegework build, a Siegework runtime result, or a replacement for the complete 57-workload comparison."
+  ]
+}

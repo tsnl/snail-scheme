@@ -3,13 +3,14 @@
 <style>body{margin:0;background:#101a20}canvas{width:100vw;height:100vh;object-fit:contain}</style>
 <canvas width="960" height="640"></canvas><script type="module">
 import {createSceneRenderer} from './lib/webgpu/scene.mjs';
+import {adaptProbeRenderer,hydrateFrame} from './scene-tools.mjs';
 const errors=[];globalThis.sceneErrors=errors;
 let adapters=0,devices=0;const requestAdapter=navigator.gpu.requestAdapter.bind(navigator.gpu);
 navigator.gpu.requestAdapter=async(...args)=>{adapters++;const adapter=await requestAdapter(...args);
   if(adapter){const requestDevice=adapter.requestDevice.bind(adapter);adapter.requestDevice=(...args)=>{devices++;return requestDevice(...args)}}return adapter};
 globalThis.sceneRequests=()=>({adapters,devices});
-const renderer=await createSceneRenderer(document.querySelector('canvas'),error=>errors.push(error.message));
+const renderer=adaptProbeRenderer(await createSceneRenderer(document.querySelector('canvas'),error=>errors.push(error.message)));
 const source=await(await fetch('./shader.wgsl')).text();renderer.replace(await renderer.prepare(source));
-const frame=await(await fetch('./frame.json')).json();renderer.draw(frame);
-globalThis.sceneFixture={renderer,frame};
+const frame=hydrateFrame(await(await fetch('./frame.json')).json());renderer.draw(frame);
+globalThis.sceneFixture={renderer,frame,adaptProbeRenderer};
 </script></html>

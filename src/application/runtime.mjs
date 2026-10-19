@@ -12,7 +12,7 @@ const name = value => { const bytes = encoder.encode(value); return [...uleb(byt
 const section = (id, bytes) => [id, ...uleb(bytes.length), ...bytes];
 function scalarProvider(functions, signatures = [['length', 1, true], ['read', 2, true], ['write', 3, false],
     ['command', 4, false], ['note', 2, false], ['quad', 6, false], ['label', 2, false],
-    ['previous-length', 1, true], ['previous-read', 2, true]]) {
+    ['previous-length', 1, true], ['previous-read', 2, true], ['identity', 2, true]]) {
   const types = signatures.flatMap(([, count, result]) => [0x60, count, ...Array(count).fill(0x7f), ...(result ? [1, 0x7f] : [0])]);
   const imports = signatures.flatMap(([key], i) => [...name('host'), ...name(key), 0, i]);
   const exports = signatures.flatMap(([key], i) => [...name(key), 0, i]);
@@ -100,6 +100,7 @@ export function protocolContract(manifest) {
 export class ReducerRuntime {
   stores = new Map(); previousSnapshots = new Map(); active; instance; manifest; sizes; previous;
   #tail = Promise.resolve(); #closing; #activation = 0; #recoveries = new Set();
+  #snapshotIdentities = new WeakMap(); #nextSnapshotIdentity = 1;
   constructor() {
     this.provider = scalarProvider({length: id => this.bank(id).length,
       read: (id, index) => this.read(id, index), write: (id, index, value) => this.write(id, index, value),
@@ -108,7 +109,8 @@ export class ReducerRuntime {
       quad: (...words) => this.active.output.quads.push(words),
       label: (index, value) => this.stageText('label', index, value),
       'previous-length': id => this.previousBank(id).length,
-      'previous-read': (id, index) => this.previousBank(id, index)[index]});
+      'previous-read': (id, index) => this.previousBank(id, index)[index],
+      identity: (id, previous) => this.snapshotIdentity(id, previous)});
     this.diagnostics = diagnosticProvider();
     this.uiBridge = createUiBridge(scalarProvider, () => this.active);
     this.sceneBridge = createSceneBridge(scalarProvider, () => this.active);
@@ -120,6 +122,17 @@ export class ReducerRuntime {
     return bank;
   }
   read(id, index) { return this.bank(id, index)[index]; } // The staged input, never the replacement being written.
+  snapshotIdentity(id, previous) {
+    if (previous !== 0 && previous !== 1) throw new RangeError('invalid snapshot identity source');
+    const bank = previous ? this.previousBank(id) : this.bank(id);
+    let identity = this.#snapshotIdentities.get(bank);
+    if (identity === undefined) {
+      // Never recycle an identity: a retained Wasm cache may outlive its bank.
+      if (this.#nextSnapshotIdentity > 0x7fffffff) throw new RangeError('snapshot identity exhausted');
+      identity = this.#nextSnapshotIdentity++; this.#snapshotIdentities.set(bank, identity);
+    }
+    return identity;
+  }
   previousBank(id, index) {
     const current = this.bank(id);
     const bank = this.active.previousSnapshots?.get(id) ?? current;

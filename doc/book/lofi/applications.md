@@ -11,6 +11,9 @@ ordering and delivery. This is a library programming model, not a compiler proof
 of purity: use immutable records and lists, and do not mutate values reachable
 from an earlier state. Keep persistent application state in that explicit value;
 handlers, codecs and views must not retain hidden mutable state between calls.
+The bridge may retain validated interpretations of immutable snapshots. A handler
+must also leave vectors, references and other mutable storage reachable from an
+input state unchanged; this contract is not a compiler-enforced immutability proof.
 
 Start with the [documented Scheme subset](macros.md#initial-scheme-base), rather
 than assuming Chibi's complete standard library is compiled into the application.
@@ -216,12 +219,48 @@ for their state records, then import `(application serialization)` and compose:
 | `view` | `(-> World Client (List Quad))`, a two-argument procedure with no mutation or effects. |
 | `status` | Two arguments, `World` and `Client`, returning `String`. |
 
+Each `Program` retains at most three successfully decoded values for each owner.
+The host assigns an identity to each immutable snapshot bank; equal bytes in a
+new bank have a new identity. A decoder caches a value only after structural and
+application validation returns. Every newly written replacement still goes
+through the encoded snapshot and its decoder before persistence. Neither a
+handler's returned value nor a cache hit grants authority to commit.
+
+These caches belong to one Wasm instance. Preparing replacement code constructs
+independent caches; rollback uses the prior instance's interpretations. A valid
+candidate whose save fails may remain cached, but queries still read the host's
+committed banks. Eviction repeats pure decoding. The host's identity registry uses
+weak keys and never recycles its positive `I32` tokens; exhaustion fails the
+operation instead of allowing an old cached identity to match a new bank.
+Reuse assumes each decoder and validator depends only on its supplied snapshot,
+and that application code leaves the decoded value's reachable storage unchanged.
+
+The browser host routes `enqueue` effects between these two owners. World sends
+pass through durable storage; their reply effects enter the browser queue only
+after commit. Client self-messages enter that same queue, so a UI can distinguish
+an authoritative result from completion of an attempt. A failed save publishes
+no World effects. Already admitted independent sends and completion messages
+still drain, with errors reported afterwards. This permits partial success; it
+does not turn a group of effects into one atomic transaction.
+
+For example, Siegework pairs each planned placement with a Client completion
+message. Acceptance removes its preview; completion releases its pending slot.
+If saving fails, no acceptance is delivered and the preview remains retryable.
+The UI keeps new submissions locked until the admitted batch has settled.
+
 The adapter serializes through the shared S-expression representation and its
 compact binary encoding. Its envelope carries schema version, byte length and
 four bytes per `I32` word, with checked final zero padding. Snapshots may grow or
 shrink within the host's 1,048,576-word bound. Schema zero marks an absent owner only
 inside the host; restoring a committed snapshot requires its declared positive
 schema. Neither derive implements migration between incompatible schemas.
+
+On page refresh, adding game endpoints can reopen an existing save if the world
+state/schema, effects, run marker, reset identity and every previous endpoint
+contract remain identical. Removing or changing an old endpoint is rejected.
+Live code replacement still requires the complete endpoint contract to match:
+refresh when adding handlers or changing transient client schema. The browser
+retains incompatible saved records rather than silently resetting them.
 
 The browser host supplies scalar diagnostic services for malformed snapshots.
 `Symbol` fields also need the interning services supplied by the linked Rust
@@ -265,7 +304,25 @@ and `(application bridge)` for `run-program`.
 
 ### Previous snapshots for presentation
 
-`(application bridge)` exports `(read-snapshot owner)` and
+Keep three responsibilities separate. The game model owns rules and deadlines;
+for example, it computes when difficulty increases. A pure presentation projection
+turns that interval into a label and progress value. Display animation interpolates
+positions or advances visual effects between committed snapshots. It must not
+invent a second game timer or change the simulated outcome.
+
+Siegework's [`presentation.sld`](../../../apps/siegework/src/siegework/presentation.sld)
+contains that projection. Its HUD and accessible status consume the same result;
+changing a difficulty interval does not require changing either renderer. Camera
+and selection belong to client state, while transient GPU interpolation belongs
+to the display clock. Only the game world is the durable colony.
+
+`(application bridge)` exports `(read-program-world program)` and
+`(read-program-previous-world program)` for typed current and prior World values.
+`read-program-local` and `read-program-previous-local` provide the same access for
+Client. These readers share the Program's decoder caches, including from Client
+handlers that inspect World and views that interpolate between committed states.
+
+For explicit codec work, the bridge also exports `(read-snapshot owner)` and
 `(read-previous-snapshot owner)`, where owner is `1` for the game model or `2` for
 the presentation model. Each call copies an encoded snapshot into a Wasm-owned
 `(Vector I32)`. Decode that vector with the application's snapshot codec before
@@ -283,8 +340,13 @@ snapshot, so presentation starts at the loaded state. If no prior snapshot exist
 the previous read uses the current snapshot. History is transient runtime data
 and is not part of a saved checkpoint. Compatible code replacement preserves it.
 
-A presentation query can decode the prior world once and match entities by ID
+A presentation query can read the prior world and match entities by ID
 to supply `moving-group` transforms in a [`motion-batch`](../../../src/draw3d/README.md#motion-between-committed-states).
+Create fixed colored bodies once with `(model nodes)`, then place them with
+`(model-instance model transform)`. Presentation copies occurrence transforms;
+the GPU reuses each fixed model's vertex and index buffers. Ordered batches
+preserve submission order, while `unordered-batch` explicitly permits grouping
+opaque occurrences when the application accepts that order.
 Use current transforms for newly created entities or discontinuities such as a
 new run. The GPU advances the supplied transition on display frames; this does
 not increase the reducer tick rate or rerun Scheme layout for entity motion.
@@ -355,6 +417,14 @@ visibility, device and settings changes discard held input; continuous keys send
 no keydown command. A key cannot be both continuous and repeated.
 `pointer.coordinates: "pixels"` sends logical-canvas integer pixels instead of
 cells. Scheme owns speed, camera bounds, projection and gameplay.
+
+Responsive canvases with a `viewportHandler` render at native device-pixel
+resolution. Each backing dimension is the rounded product of the logical CSS
+dimension and device-pixel ratio, with a minimum of one pixel. CSS sizing, DOM
+text, logical viewport dimensions and pointer coordinates retain their own
+units. Device-pixel-ratio changes resize the backing buffer even at an unchanged
+CSS size, without dispatching another logical viewport command. Accepted code
+replacement and rollback preserve the current viewport dimensions.
 
 `zoomHandler` optionally names a client endpoint with one `I32` argument. Wheel
 and two-finger pinch input over the canvas supply a signed logarithmic scale
@@ -590,6 +660,12 @@ composes typed applications, a pure quad view and
 status text into a scalar entry. The browser adapter forwards input, performs
 local durable submission, copies quad data and calls WebGPU. Game rules live
 entirely in Scheme and execute in the browser.
+
+Siegework now targets a fast expedition of about ten minutes on a 128×128 map.
+The nest is a short chain of observation towers away; destruction of that nest
+is the only victory condition. Its compact geography uses World11 and a new
+application storage identity. World10 seeds and routes are rejected, because
+preserving record shape alone would silently reinterpret an older map.
 
 See the [Siegework build instructions](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/README.md) and
 [prototype contract](https://github.com/tsnl/snail-scheme/blob/main/apps/siegework/PROTOTYPE.md). The

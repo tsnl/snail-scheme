@@ -6,13 +6,14 @@
    (scheme immutable)
    (browser application)
    (siegework model)
+   (siegework presentation)
    (siegework terrain)
    (only (lofi base) string-append i32->i64))
   (begin
     (define (recent-alert? alert tick)
       (and (>= tick (alert-tick alert)) (< (- tick (alert-tick alert)) 80)))
 
-    ;; ---- Worker roles, actual damage and scheduled threats ----
+    ;; ---- Worker roles, actual damage and difficulty ----
 
     (define (stock-total buildings kind)
       (if (null? buildings) 0
@@ -24,16 +25,13 @@
       (string-append (integer-text (quotient tick 600)) ":"
                      (if (< (remainder (quotient tick 10) 60) 10) "0" "")
                      (integer-text (remainder (quotient tick 10) 60))))
-    (define (next-attack-text world)
-      (let* ((tick (next-attack-tick (world-tick world))) (kind (attack-kind tick)))
-        (string-append "NEXT SPAWN " (clock-text tick) " · " (integer-text (attack-size tick))
-                       (cond ((= kind 2) " siege troops") ((= kind 1) " outpost raiders") (else " nest attackers"))
-                       " · DANGER " (integer-text (+ 1 (threat-tier (world-tick world))))
-                       " · destroy the nest to win")))
+    (define (difficulty-text world)
+      (let ((readout (project-difficulty (difficulty-window (world-tick world)) (world-tick world))))
+        (string-append (difficulty-help readout) " · destroy the nest to win")))
     (define (warning-text world)
       (cond ((= (world-outcome world) 1) "RUN ENDED · HUB LOST · N begins a fresh colony")
             ((= (world-outcome world) 3) "RUN ENDED · NEST DESTROYED · the colony wins")
-            (else (next-attack-text world))))
+            (else (difficulty-text world))))
     (define (alert-name kind)
       (cond ((= kind 0) "HUB") ((= kind 1) "Extractor") ((= kind 2) "Artillery")
             ((= kind 3) "Tower") (else "Workers")))
@@ -52,7 +50,7 @@
     (define (reason-text reason)
       (cond ((= reason 1) "Outside active observation · extend a tower first")
             ((= reason 2) "Rock or water · choose traversable ground")
-            ((= reason 3) "Occupied · U: upgrade · C: cancel · T: arm tower")
+            ((= reason 3) "Occupied · U: upgrade · C: cancel")
             ((= reason 4) "Extractor needs a violet gemstone deposit")
             ((= reason 5) "Keep this deposit available for an extractor")
             ((= reason 6) "No surveyed walking route from the hub")
@@ -69,16 +67,21 @@
             ((= reason 17) "Build cancelled · refunded")
             ((= reason 18) "Build cancelled · materials returning to hub")
             ((= reason 19) "Select an unfinished build")
-            ((= reason 20) "Artillery upgrade queued · worker delivers one kit")
+            ((= reason 20) "Upgrade queued · existing functions stay active until the kit arrives")
             ((= reason 21) "Move queued · 5 ore · draining deliveries automatically")
             ((= reason 22) "Move complete · health, upgrades and identity preserved")
             ((= reason 23) "Move cancelled · 5 ore refunded")
             ((= reason 24) "Move needs a completed tower or artillery with no move pending")
             ((= reason 25) "Choose a destination one or two walking cells away")
             ((= reason 26) "Move cancelled · supply route changed · 5 ore refunded")
+            ((= reason 27) "No available worker has a safe route to the hub")
+            ((= reason 28) "Rail route reserved · choose another tile")
+            ((= reason 29) "Hub is already at full health")
+            ((= reason 30) "Hub repair already underway")
+            ((= reason 31) "Hub repair ordered · purchased health returns after three seconds of work")
             (else "Ready to place · workers build, mine and haul")))
     (define (building-name kind)
-      (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") ((= kind 4) "SHIELD WALL") (else "OBSERVATION TOWER")))
+      (cond ((= kind 1) "EXTRACTOR") ((= kind 2) "ARTILLERY") ((= kind 4) "HOUSE") (else "OBSERVATION TOWER")))
     (define (mine-production-text world building staff)
       (cond ((not (ready? building)) " · production starts after construction and staffing")
             ((= staff 0) " · no miners: no production")
@@ -99,11 +102,12 @@
                                " · upgrade after construction")))))
     (define (tower-sight-text building)
       (string-append " · sight " (integer-text (building-radius building)) " cells"
-                     (if (= (building-level building) 2) " · range upgrade installed"
-                         (if (ready? building) " · U: sight 10 / 35 ore" " · upgrade after construction"))))
+                     (cond ((= (building-level building) 3) " · cart speed ×4")
+                           ((= (building-level building) 2) " · cart speed ×2 · U: double cart speed / 25 ore")
+                           ((ready? building) " · worker carts · U: double cart speed + sight 10 / 25 ore")
+                           (else " · upgrade after construction"))))
     (define (tower-artillery-text building)
-      (if (= (building-armed building) 1) " · artillery installed · 6-cell range · visible threats"
-          (if (ready? building) " · T: worker installs artillery / 25 ore" " · artillery after construction")))
+      (if (= (building-armed building) 1) " · retained artillery · 6-cell range · visible threats" ""))
     (define (selected-rail rails id)
       (if (null? rails) (empty-list)
           (if (= (rail-source (car rails)) id) (list (car rails)) (selected-rail (cdr rails) id))))
@@ -170,17 +174,18 @@
     (define (selection-text world tool x y)
       (let ((found (building-at (world-buildings world) x y)))
         (if (not (null? found)) (building-detail world (car found))
-            (if (= tool 0) "INSPECT · hover a site for details · Q/E: rotate camera"
+            (if (= tool 0) "Select a deposit for an extractor, or an empty tile for construction · tap the same tile again to build its preview · select an existing structure for actions · Q/E: rotate camera"
                 (string-append (building-name tool) " · " (integer-text (building-cost tool)) " ore · ["
                                (integer-text x) "," (integer-text y) "] · "
                                (if (and (surveyed? (world-surveys world) x y) (> (deposit-rate (world-seed world) x y) 0))
                                    (string-append "deposit: " (integer-text (deposit-rate (world-seed world) x y)) " ore/sec per miner · ") "")
-                               (if (= tool 2) "8-cell firing range · " "")
+                               (if (= tool 2) "6-cell firing range · " "")
                                (reason-text (placement-reason world tool x y)))))))
     (define (economy-text world)
       (string-append (integer-text (world-credits world)) " SPENDABLE ORE · HUB " (integer-text (world-hull world)) "/300 · "
-                     "Workers " (integer-text (list-size (world-bots world))) " · "
-                     (clock-text (world-tick world)) "/8:00 · seed " (integer-text (world-seed world)) "\n"
+                     "Workers " (integer-text (list-size (world-bots world))) " / " (integer-text (worker-capacity world))
+                     " capacity · queued " (integer-text (pending-workers (world-bots world))) " · "
+                     (clock-text (world-tick world)) " elapsed · seed " (integer-text (world-seed world)) "\n"
                      "Mine stock " (integer-text (stock-total (world-buildings world) 1))
                      " · depot stock " (integer-text (stock-total (world-buildings world) 3))
                      " · rail cargo " (integer-text (rail-cargo-total (world-rails world))) " raw ore · delivered "

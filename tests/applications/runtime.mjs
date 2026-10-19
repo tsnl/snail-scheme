@@ -9,15 +9,26 @@ import {checkLogistics} from './colony-logistics.mjs';
 import {checkFocus} from './colony-focus.mjs';
 import {checkWorld} from './colony-world.mjs';
 import {checkVisibility} from './colony-visibility.mjs';
+import {checkHub} from './colony-hub.mjs';
+import {checkConstructionOrders} from './colony-construction.mjs';
+import {checkDirectBuild} from './colony-direct-build.mjs';
+import {checkHousing} from './colony-housing.mjs';
 import {checkCrowd} from './colony-crowd.mjs';
+import {checkRetaliation} from './colony-retaliation.mjs';
 import {checkDigging} from './colony-digging.mjs';
 import {checkRanks} from './colony-ranks.mjs';
 import {checkCarts} from './colony-carts.mjs';
+import {checkTransport} from './colony-transport.mjs';
+import {checkInstancing} from './colony-instancing.mjs';
 import {checkAsyncRuntime} from './async-runtime.mjs';
+import {checkSnapshotCache} from './snapshot-cache.mjs';
+import {checkBrowserEffects} from './browser-effects.mjs';
+import {checkColonyMenus} from './colony-menu.mjs';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
 import {LocalState} from '../../src/application/local.mjs';
 import {packageApplication} from '../../src/browser/build.mjs';
 import {loadWasm, instantiate, invokeEntry, closeInstance} from '../../src/lofi/compiler/execute.mjs';
+import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 const output = resolve(process.argv[2]), fixtures = resolve(process.argv[3]);
 const artifacts = resolve(process.argv[4] ?? output);
@@ -31,7 +42,7 @@ async function test(name, run) { await run(); console.log(`ok ${++passed} - ${na
 await test('Scheme and Lofi share the shader compiler; composition rejects stage/width errors', () => {
   for (const name of ['shader', 'shader-lofi']) { const i = instantiate(loadWasm(fixture(name))); assert.equal(invokeEntry(i, []), 1); closeInstance(i); }
 });
-await test('seeded terrain keeps legacy geography and reachable reproducible alternatives', () => {
+await test('compact seeded terrain keeps bounded placements and reachable reproducible routes', () => {
   const i = instantiate(loadWasm(fixture('terrain'))); assert.equal(invokeEntry(i, []), 1); closeInstance(i);
 });
 await test('retained immutable Scheme records remain unchanged', () => {
@@ -54,18 +65,22 @@ await test('immutable prior snapshots, automatic hauling, placement and pure vie
   await call(r, 'extract', [18, 10]); assert.equal(colony(r.snapshot(1)).ore, 120);
   for (let tick = 0; tick < 120; tick++) await call(r, 'advance');
   assert.ok(colony(r.snapshot(1)).ore > 120); const snapshot = r.snapshot(1), view = r.view();
-  assert.ok(view.scene.batches.some(batch => batch.vertices.length > 100)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
+  assert.ok(view.scene.batches.some(batch => expandedVertexCount(batch) > 10)); assert.match(view.label, /ORE/); assert.deepEqual(r.snapshot(1), snapshot); await r.close();
 });
-await test('effects are descriptions; local selection does not directly spend world resources', async () => {
-  const r = await fresh(), before = r.snapshot(1);
-  const selected = await r.dispatch(2, r.command('client', 'confirm'));
-  assert.deepEqual(selected.effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
-  assert.deepEqual(r.snapshot(1), before);
-  assert.equal(colony(r.snapshot(1)).started,false); assert.equal(colony(r.snapshot(1)).tick,0);
-  const result = await r.dispatch(2, r.command('client', 'choose', [1]));
-  assert.deepEqual(r.snapshot(1), before); assert.equal(result.effects.length, 1);
-  assert.equal(client(r.snapshot(2)).chooser, false);
-  await r.dispatch(1, r.effectCommand(result.effects[0])); assert.equal(colony(r.snapshot(1)).ore, 120); await r.close();
+await test('a selected deposit spends only on construction and unlocks after reply and settlement', async () => {
+  const r = await fresh(), before = r.snapshot(1), local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
+  assert.deepEqual((await local('confirm')).effects, []); assert.equal(client(r.snapshot(2)).chooser, true);
+  assert.deepEqual(r.snapshot(1), before); assert.equal(colony(r.snapshot(1)).started,false);
+  const selected=client(r.snapshot(2)),cell=selected.cursorX+selected.cursorY*128;
+  const result=await local('confirm');assert.deepEqual(r.snapshot(1),before);
+  assert.deepEqual(result.effects,[{kind:'send',owner:1,command:r.command('match','build-cell',[1,cell])},
+    {kind:'send',owner:2,command:r.command('client','build-settled',[cell])}]);
+  assert.equal(client(r.snapshot(2)).buildKind,1);
+  const committed=await r.dispatch(1,r.effectCommand(result.effects[0]));assert.equal(colony(r.snapshot(1)).ore,120);
+  assert.deepEqual(committed.effects,[{kind:'send',owner:2,command:r.command('client','build-result',[cell,0])}]);
+  await r.dispatch(2,r.effectCommand(committed.effects[0]));assert.equal(client(r.snapshot(2)).buildKind,1);
+  await r.dispatch(2,r.effectCommand(result.effects[1]));
+  assert.equal(client(r.snapshot(2)).buildKind,0);assert.equal(client(r.snapshot(2)).chooser,false);await r.close();
 });
 await test('worker hiring requires the selected hub and retains its dialog for another paid order',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
@@ -81,25 +96,32 @@ await test('worker hiring requires the selected hub and retains its dialog for a
 });
 await test('dismiss closes a selected project while explicit cancellation owns its refund',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  await local('nudge',[-2,2]); await local('confirm'); const selected=await local('choose',[1]);
-  await r.dispatch(1,r.effectCommand(selected.effects[0])); assert.equal(colony(r.snapshot(1)).ore,135);
+  await local('nudge',[-2,2]);await local('confirm');
+  const selected=await local('choose',[1]),committed=await r.dispatch(1,r.effectCommand(selected.effects[0]));
+  await r.dispatch(2,r.effectCommand(committed.effects[0]));await r.dispatch(2,r.effectCommand(selected.effects[1]));
+  assert.equal(colony(r.snapshot(1)).ore,135);
   await local('confirm'); assert.deepEqual((await local('dismiss')).effects,[]);
   assert.equal(client(r.snapshot(2)).chooser,false); assert.equal(colony(r.snapshot(1)).buildings.length,1);
   await local('confirm'); const cancelled=await local('cancel'); assert.equal(cancelled.effects.length,1);
   assert.equal(colony(r.snapshot(1)).ore,135); await r.dispatch(1,r.effectCommand(cancelled.effects[0]));
   assert.equal(colony(r.snapshot(1)).ore,160); assert.equal(colony(r.snapshot(1)).buildings.length,0); await r.close();
 });
-await test('restart confirmation pauses time and cancellation restores the previous pause state',async()=>{
+await test('pause menu stops time; restart cancellation stays paused and Resume unpauses',async()=>{
   const r=await fresh(),local=(name,args=[])=>r.dispatch(2,r.command('client',name,args));
-  const apply=async result=>{for(const effect of result.effects)await r.dispatch(1,r.effectCommand(effect));};
-  await call(r,'fabricate-worker'); await apply(await local('restart')); assert.equal(client(r.snapshot(2)).restartMode,1);
-  const paused=r.snapshot(1); for(let i=0;i<10;i++)await call(r,'advance'); assert.deepEqual(r.snapshot(1),paused);
-  await apply(await local('dismiss')); assert.equal(colony(r.snapshot(1)).paused,0);
-  await call(r,'pause-colony',[1]); await apply(await local('restart')); assert.equal(client(r.snapshot(2)).restartMode,2);
-  assert.deepEqual((await local('dismiss-restart')).effects,[]); assert.equal(colony(r.snapshot(1)).paused,1);
-  const marker=colony(r.snapshot(1)).runMarker; await apply(await local('restart')); await apply(await local('accept-restart'));
-  const restarted=colony(r.snapshot(1)); assert.equal(restarted.runMarker,marker+1); assert.equal(restarted.started,false);
-  assert.equal(restarted.tick,0); assert.equal(restarted.ore,160); assert.equal(client(r.snapshot(2)).restartMode,0); await r.close();
+  const apply=async result=>{for(const effect of result.effects){
+    await apply(await r.dispatch(effect.owner,r.effectCommand(effect)));
+    if(effect.owner===1&&effect.command.handler===r.command('match','new-run').handler)await local('reset-presentation');
+  }};
+  await call(r,'fabricate-worker');await apply(await local('pause-menu'));assert.equal(client(r.snapshot(2)).dialog,1);
+  const paused=r.snapshot(1);for(let i=0;i<10;i++)await call(r,'advance');assert.deepEqual(r.snapshot(1),paused);
+  await apply(await local('restart'));assert.equal(client(r.snapshot(2)).dialog,2);
+  assert.deepEqual((await local('dismiss-restart')).effects,[]);assert.equal(client(r.snapshot(2)).dialog,1);assert.equal(colony(r.snapshot(1)).paused,1);
+  await apply(await local('resume'));assert.equal(colony(r.snapshot(1)).paused,0);
+  await call(r,'pause-colony',[1]);await local('reset-presentation');assert.equal(client(r.snapshot(2)).dialog,1);
+  await apply(await local('resume'));assert.equal(colony(r.snapshot(1)).paused,0);
+  const marker=colony(r.snapshot(1)).runMarker;await apply(await local('pause-menu'));await apply(await local('restart'));await apply(await local('accept-restart'));
+  const restarted=colony(r.snapshot(1));assert.equal(restarted.runMarker,marker+1);assert.equal(restarted.started,false);
+  assert.equal(restarted.tick,0);assert.equal(restarted.ore,160);assert.equal(restarted.paused,0);assert.equal(client(r.snapshot(2)).dialog,0);await r.close();
 });
 await test('compatible 3D reload preserves both models without consuming a tick', async () => {
   const r = await fresh(); await call(r, 'extract', [12, 20]); for (let i = 0; i < 700; i++) await call(r, 'advance');
@@ -196,9 +218,19 @@ await checkLogistics(test, fresh, call);
 await checkFocus(test, fresh, call);
 await checkWorld(test, fresh);
 await checkVisibility(test, fresh);
+await checkHub(test, fresh, bytes);
+await checkConstructionOrders(test, fresh);
+await checkDirectBuild(test, fresh);
+await checkHousing(test, fresh);
 await checkCrowd(test, fresh, bytes);
+await checkRetaliation(test, fresh, bytes);
 await checkDigging(test, fresh);
 await checkRanks(test, fresh);
 await checkCarts(test, fresh);
+await checkTransport(test, fresh);
+await checkInstancing(test, fresh);
 await checkAsyncRuntime(test, fixture);
+await checkSnapshotCache(test, fixture);
+await checkBrowserEffects(test, fixture);
+await checkColonyMenus(test, fresh);
 console.log(`${passed} application integration checks passed`);

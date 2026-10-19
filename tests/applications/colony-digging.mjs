@@ -73,17 +73,18 @@ export async function checkDigging(test,fresh) {
   await test('completed excavation opens direct fire and workers can build on the cleared rock',async()=>{
     const r=await fresh(); await build(r,'observe',9,14); const gun=await build(r,'fortify',6,9);
     const world=state(r),enemy=digger(world,{target:gun.id}),cell=enemy.path[0]; world.enemies=[enemy];
+    enemy.path.push(routeCell(world,6,9)); // The remembered route still reaches its gun beyond the rock.
     world.tick=0; world.lastRevealTick=-100; world.buildings.find(site=>site.id===gun.id).cooldown=0;
     for(let i=0;i<world.bots.length;i++)setWorker(world,i);
     await restoreColony(r,world); await advance(r,79); assert.equal(state(r).enemies[0].hp,80);
     await advance(r); assert.ok(state(r).enemies[0].hp<80); assert.deepEqual(state(r).breaches,[cell]);
     const safe=state(r); safe.enemies=[]; await restoreColony(r,safe);
-    await build(r,'build-wall',6,10); assert.equal(siteAt(state(r),6,10).hp,220);
+    await build(r,'build-house',6,10); assert.equal(siteAt(state(r),6,10).hp,220);
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
   await test('roughly one in ten spawned enemies has the deterministic burrowing capability',async()=>{
     const r=await fresh(); let total=0,burrowers=0;
-    for(let tick=300;tick<=6000;tick+=300) {
+    for(let tick=450;tick<=6150;tick+=300) {
       const world=state(r); world.started=true; world.tick=tick-1; world.enemies=[]; await restoreColony(r,world); await advance(r);
       for(const enemy of state(r).enemies) {
         assert.equal(enemy.burrower,(state(r).seed%10+enemy.id%10)%10===0);
@@ -92,17 +93,17 @@ export async function checkDigging(test,fresh) {
     }
     assert.ok(total>100); assert.ok(burrowers/total>=0.08&&burrowers/total<=0.12); await r.close();
   });
-  await test('raid targeting follows frontier exposure in every direction and excludes walls and guns',async()=>{
+  await test('raid targeting follows frontier exposure in every direction and excludes houses and guns',async()=>{
     const r=await fresh(),funded=state(r); funded.produced+=200; funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
-    await build(r,'build-wall',12,2); await build(r,'fortify',12,1);
-    const world=state(r); world.tick=899; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
+    await build(r,'build-house',12,2); await build(r,'fortify',12,1);
+    const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
     assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);
-    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[80+16*384],
+    const edits=[world=>world.breaches=[routeCell(world,8,22)],world=>world.breaches=[80+16*128],
       world=>world.breaches=[cell,cell],world=>world.excavations=[{cell,remaining:0}],
       world=>world.excavations=[{cell,remaining:80}],world=>world.excavations=[{cell,remaining:79},{cell,remaining:78}],
       world=>{world.breaches=[cell];world.excavations=[{cell,remaining:79}];},

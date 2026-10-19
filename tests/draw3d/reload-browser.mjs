@@ -25,8 +25,8 @@ async function until(expression) {
 try {
   await call('Page.bringToFront');await until('!!globalThis.snailApp');
   assert.notEqual(await evaluate('snailApp.generation'),generation);
-  await evaluate('snailApp.local("suspend",[1])');
   await evaluate('snailApp.local("pan",[1,-1])');
+  await evaluate('snailApp.local("pause-menu")');
   await until('!snailApp.localWork&&!snailApp.dirty');
   const before=await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})');
   await evaluate('globalThis.retainedRenderer=snailApp.renderer');

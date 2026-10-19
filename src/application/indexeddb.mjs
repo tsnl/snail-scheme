@@ -18,13 +18,25 @@ function persistentContract(contract) {
   try {
     const [encoded, marker, reset] = JSON.parse(contract), protocol = JSON.parse(encoded);
     protocol.applications = protocol.applications.filter(app => app.owner === 'match');
-    return JSON.stringify([JSON.stringify(protocol), marker, reset]);
+    if (protocol.applications.length !== 1 || !Array.isArray(protocol.applications[0].handlers) ||
+        !protocol.applications[0].handlers.every(handler => Array.isArray(handler) && typeof handler[0] === 'string')) return;
+    return [protocol, marker, reset];
   } catch { return undefined; }
+}
+function acceptsSavedContract(saved, current) {
+  const before = persistentContract(saved), after = persistentContract(current);
+  if (!before || !after) return false;
+  // A page refresh has no old commands in flight. New Match endpoints can read
+  // the same save; every previous endpoint and the state/reset contract remain
+  // exact. Live code replacement still uses the strict complete protocol.
+  const retained = new Set(before[0].applications[0].handlers.map(handler => handler[0]));
+  after[0].applications[0].handlers = after[0].applications[0].handlers.filter(handler => retained.has(handler[0]));
+  return JSON.stringify(before) === JSON.stringify(after);
 }
 export function readRecord(record, application, contract) {
   if (record === undefined) return undefined;
   if (record?.format !== 1 || record.application !== application ||
-      (record.contract !== contract && persistentContract(record.contract) !== contract))
+      (record.contract !== contract && !acceptsSavedContract(record.contract, contract)))
     throw new Error('Saved game is incompatible with this package. Reopen the previous compatible package; the save has been retained.');
   if (!Number.isSafeInteger(record.snapshot?.revision) || record.snapshot.revision < 0)
     throw new Error('Invalid saved revision; the save has been retained.');

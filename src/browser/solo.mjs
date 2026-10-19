@@ -34,7 +34,7 @@ class SoloSession {
   }
   publish(output) {
     this.app.dirty = true;
-    for (const effect of output.effects) if (effect.kind === 'notice') this.app.note(effect.text);
+    this.app.queueEffects(output.effects);
   }
   async submit(command) {
     try {
@@ -51,7 +51,7 @@ class SoloSession {
       this.app.note(`SOLO · saved on this browser · revision ${this.revision}`); return result;
     } catch (error) {
       this.stopClock(); await this.recordFailure(error);
-      throw new Error(`${error.message}; clock stopped. Retry the action or reload.`, {cause: error});
+      throw error; // Presentation reads the clock state after the admitted tail drains.
     }
   }
   async recordFailure(error) {
@@ -71,7 +71,7 @@ class SoloSession {
       if (!this.stopping && !this.faulted && !document.hidden)
         await this.local.submit(this.app.runtime.command('match', this.app.manifest.settings.tick));
     } catch (error) {
-      this.stopClock(); await this.recordFailure(error); this.app.report(new Error(`${error.message}; clock stopped. Retry an action or reload.`, {cause: error}));
+      this.stopClock(); await this.recordFailure(error); this.app.report(error);
     }
     finally { this.ticking = false; this.startClock(); }
   }
@@ -94,7 +94,12 @@ async function start() {
   try {
     await app.open('solo'); await session.open();
     if (session.stopping) { await session.close(); return; }
-    app.start(session); session.startClock(); void session.reload();
+    app.start(session);
+    // Restore local presentation only after the saved World is installed.
+    if (app.manifest.settings.resetPresentation) {
+      await app.local(app.manifest.settings.resetPresentation); await app.drainUpdates();
+    }
+    session.startClock(); void session.reload();
     app.note(`SOLO · saved on this browser · ${app.manifest.settings.renderer === 'dom' ? 'DOM' : 'WebGPU'}`);
     if (app.manifest.saveService) {
       const {RemoteSaves} = await import('../application/remote-saves.mjs');

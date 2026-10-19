@@ -116,7 +116,7 @@ function buildCommand(overlay, directory, environment, threeD) {
     // Chibi searches the last -I directory first.
     ...(overlay ? ['-I', overlay] : []),
     join(repository, threeD ? 'apps/siegework/three/build.scm' : 'apps/siegework/build.scm'),
-    repository, join(directory, 'app')];
+    '--release', repository, join(directory, 'app')];
 }
 
 function execute(command, directory, environment) {

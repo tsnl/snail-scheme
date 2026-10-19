@@ -7,6 +7,7 @@ import {checkColony} from './colony.mjs';
 import {checkEncounters} from './colony-encounters.mjs';
 import {checkLogistics} from './colony-logistics.mjs';
 import {colony, colonyBalance, restoreColony, restoreClient, client, setWorker, addEnemy, at, pixelAt, siteAt, origin, fixtureCall} from './colony-state.mjs';
+import {expandedVertexCount} from '../draw3d/scene-tools.mjs';
 
 export async function checkFocus(test, fresh, call) {
   const state = r => colony(r.snapshot(1));
@@ -37,12 +38,13 @@ export async function checkFocus(test, fresh, call) {
   }
   const move = (r,x,y,a,b) => call(r,'relocate-building',[x+y*48,a+b*48]);
 
-  await test('manual is the default and idle colonies do not spend or repair', async () => {
+  await test('idle colonies spend nothing until a manual repair is requested', async () => {
     const r = await fresh(), world = state(r); world.hull = 250;
     await restoreColony(r, world); await advance(r, 100);
     assert.equal(state(r).focus, 0); assert.equal(state(r).ore, 160);
     assert.equal(state(r).hull, 250); assert.equal(state(r).buildings.length, 0);
-    assert.ok(!r.manifest?.applications?.some(a => a.handlers.some(h => h.binding === 'repair')));
+    await call(r,'repair-hub'); assert.equal(state(r).hull,250); assert.equal(state(r).ore,135);
+    assert.equal(state(r).bots.find(bot=>bot.job===13).target,25);
     await r.close();
   });
   await test('local extractor supply picks the nearby empty worker without charging the bank', async () => {
@@ -243,7 +245,7 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('recurring nest attacks select one schedule and strengthen later heavy beasts', async () => {
-    for(const [tick,count,kind,hp] of [[299,0,0],[300,4,0],[600,4,0],[900,5,1],[1200,5,0],[1800,6,1],[2700,7,1],[3000,7,0],[3600,7,2,1800],[6000,10,0],[7200,8,2,1890]]) {
+    for(const [tick,count,kind,hp] of [[449,0,0],[450,4,0],[750,4,0],[1350,5,1],[1650,4,0],[1950,4,0],[2250,6,1],[3150,7,1],[3450,5,0],[5400,7,2,1800],[7650,12,1],[10800,8,2,1890]]) {
       const r=await fresh(), world=state(r); world.started=true; world.tick=tick-1; await restoreColony(r,world);
       await advance(r); const enemies=state(r).enemies; assert.equal(enemies.length,count);
       if(kind===2){assert.equal(enemies.filter(e=>e.kind===2).length,1);assert.equal(enemies[0].hp,hp);}
@@ -253,11 +255,11 @@ export async function checkFocus(test, fresh, call) {
     }
   });
   await test('the bounded live enemy backlog survives pause, save/reload and presentation', async () => {
-    const r=await fresh(),baseVertices=r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0),world=state(r); world.started=true; world.tick=3000; world.lastRevealTick=-100; world.paused=1;
+    const r=await fresh(),baseVertices=r.view().scene.batches.reduce((n,b)=>n+expandedVertexCount(b)*10,0),world=state(r); world.started=true; world.tick=3000; world.lastRevealTick=-100; world.paused=1;
     for(let i=0;i<128;i++)world.enemies.push({id:world.nextId++,...pixelAt(world,12,20),hp:i===127?1800:170,
       kind:i===127?2:0,target:0,path:[]});
     await restoreColony(r,world); const saved=r.snapshot(1);
-    assert.ok(saved.length<1048576); assert.ok(r.view().scene.batches.reduce((n,b)=>n+b.vertices.length,0)>=baseVertices+512);
+    assert.ok(saved.length<1048576); assert.ok(r.view().scene.batches.reduce((n,b)=>n+expandedVertexCount(b)*10,0)>=baseVertices+512);
     await r.restore(1,saved); await advance(r,5); assert.deepEqual(r.snapshot(1),saved);
     const excess=state(r); excess.enemies.push({...excess.enemies[0],id:excess.nextId++});
     await assert.rejects(()=>restoreColony(r,excess),WebAssembly.RuntimeError);
