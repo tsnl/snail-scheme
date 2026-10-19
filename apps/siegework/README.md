@@ -1,6 +1,6 @@
 # Siegework
 
-Explore a seeded world, establish a supply network and destroy the nest before
+Explore a seeded world, establish a supply network and destroy all three nests before
 its escalating waves overwhelm your colony. The game runs entirely in the
 browser. Scheme defines its rules, 3D scene and touch-friendly HUD; reusable
 application, UI, input and WebGPU libraries live under `src/`.
@@ -26,9 +26,10 @@ time, artifact size and runtime performance can differ.
 
 Open `http://127.0.0.1:4191` in Chromium with WebGPU and WasmGC support.
 IndexedDB saves automatically. One tab owns each origin/application save.
-The current application ID is `siegework-colony-v11`, with world schema 11 and
-client schema 8. The compact map deliberately starts a new colony: World10 seeds,
-coordinates and saved paths describe different geography. Old browser records
+The current application ID is `siegework-colony-v12`, with world schema 12 and
+client schema 8. Hub capacity upgrades deliberately start a new colony: World12 stores a completed
+capacity tier, finite deposit reserves and three persistent nests, and removes
+constructible houses. Old browser records
 remain under their previous identity; importing them into this version is rejected.
 Compatible code and shader replacement preserves the running colony and camera;
 changes to host JavaScript require a page reload.
@@ -51,9 +52,11 @@ the Node analysis command.
 
 - Tap a resource deposit to open its **Extractor** action (`1`). Extractors
   are not part of the ordinary construction choices. Persistent first-extractor
-  guidance points toward the highlighted deposit.
+  guidance points toward the glowing deposit. The first accepted extractor order
+  spends 40 ore and starts the clock. Every other purchase stays locked until
+  then, preserving the initial 160 ore for this opening. Selection alone is free.
 - Tap an empty tile to open its construction popup: **Tower** (`1`),
-  **Artillery** (`2`) or **House** (`3`), with ore costs shown before ordering.
+  or **Artillery** (`2`), with ore costs shown before ordering.
   The hologram uses this session’s last successfully ordered ordinary building, starting
   with a tower. Tap that same tile again, or double-click it, to order that type.
   Tapping a different tile only moves the selection; it does not spend ore.
@@ -68,6 +71,9 @@ the Node analysis command.
   not upgrade or cancel it. Dismissing selection does not cancel construction.
   Completed towers and artillery always stand on the same stone plinth, with
   corner supports and open arches on all four faces. Workers and carts pass underneath.
+  Their upper structures and the hub have lower profiles; the arches retain
+  their clearance. Wider violet crystals and pulsing extractor halos identify
+  resource sites using the existing fixed meshes and display clock.
   An animated indicator above a tower or artillery shows that it is waiting
   for upgrade materials; current services stay active.
   Buildings may occupy transport paths and intersections; their foundations
@@ -75,10 +81,13 @@ the Node analysis command.
 - Select the hub, then choose **New worker** (`F`)
   to order paid recruits. The actions remain open for repeated orders. An existing
   worker assembles each recruit. The hub occupies nine tiles. Worker capacity
-  starts at 12; each completed house adds four places, up to 64. Queued recruits
-  count toward that limit. The readout shows working/total workers and a separate
-  capacity count. Losing housing preserves all existing workers and paid recruits,
-  but blocks further hiring until capacity is available.
+  starts at 12. **Upgrade** (`U`) at the hub adds two places after one worker returns
+  and assembles for three seconds. Six upgrades cost 100, 200, 400, 800, 1,600 and
+  3,200 ore, reaching a maximum of 24 workers. Only one expansion can be pending.
+  Its payment is reserved immediately and refunded if the worker dies before
+  completion. Hiring remains separate: 25 ore and three seconds of assembly.
+  Queued recruits count against completed capacity; unfinished upgrades grant no
+  places. The popup shows the next price, capacity, pending work and maximum.
 - **Repair** (`R`) quotes the hub's affordable target percentage and ore cost.
   It reserves only the needed or available ore, at two health per ore. A worker
   returns to the hub and works for three seconds; further damage can reduce
@@ -163,7 +172,7 @@ The transport network is a deterministic minimum spanning tree rebuilt from
 scratch each simulation tick over the hub and completed towers. Its edge cost
 is squared straight-line cell distance, restricted to links with a known,
 passable route of at most 1024 steps. It does not minimize terrain travel
-length. Walls and extractors obstruct freight paths; tower and artillery
+length. Extractors obstruct freight paths; tower and artillery
 plinths permit crossings. Unreachable depots keep their stock.
 
 Dotted lights pulse toward the hub at display rate. They show only the current
@@ -179,25 +188,33 @@ construction site stall until it is visible again; a yellow warning marks the
 site and its card explains the delay. Existing carriers can finish their known
 route, revealing their destination as they approach.
 
-Houses cost eight ore and add four worker places after a delivery finishes.
-They are ordinary attackable buildings with no upgrades or shield behavior.
 Water blocks movement. About one in ten
 spawned enemies may begin excavating a mountain; others can join an existing
 excavation. They stop and chip away before a permanent opening appears.
 
-The 128×128 map places the hub within eight cells of its center and the nest
-32–41 cells away, roughly five or six observation hops. The intended ordinary
+Deposits run out. The starter holds 600 ore, the northern deposit 900, the rich
+eastern deposit 1,800, and regional deposits hold 300 times their base yield.
+Selecting a deposit or extractor shows what remains underground. Extraction
+upgrades add mining slots without replenishing the reserve. Exhausted sites stop
+pulsing; workers haul the last stock and find other work. Rebuilding an extractor
+preserves its reserve. Keep ore for the next extractor and protect its supply route.
+
+The 128×128 map places the hub within eight cells of its center and three nests
+32–41 cells away on separated bearings, roughly five or six observation hops each. The intended ordinary
 expedition lasts about ten minutes. Enemy
-approach directions help locate it. Waves introduce progressively stronger ranks
+approach directions help locate them. Waves introduce progressively stronger ranks
 with distinct shapes, armor and colors, including elites and a much larger boss.
 The opening lasts 45 seconds before the first spawn. Ordinary waves are thirty
 seconds apart, strength steps are ninety seconds apart, and the first boss spawns
 at nine minutes. Raids replace an ordinary wave every ninety seconds starting at
-2:15. Wave sizes grow more slowly than strength. The nest remains the objective;
+2:15. The opening wave has six enemies total, shared among the three fronts.
+Each nest has 900 health. Destroying one removes its share of future waves; its
+remaining enemies keep fighting. Raids prefer an exposed operation on their own
+approach. Wave sizes grow more slowly than strength. Destroy every nest to win;
 time never grants a victory, and unfinished runs continue beyond ten minutes.
 Artillery has limited range and deals more damage at close range. The map outlines
 the combined range of operational guns. Enemies wounded by a gun pursue that
-attacker. Houses follow the same encounter rules as other ordinary buildings.
+attacker. Other buildings do not intercept that pursuit.
 Crowds spread into nearby walking lanes.
 Defeated enemies
 award no ore: extraction and defending your supply lines remain necessary.

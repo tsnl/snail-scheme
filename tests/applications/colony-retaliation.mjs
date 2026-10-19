@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {establishColony,colony,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker} from './colony-state.mjs';
 
 export async function checkRetaliation(test,fresh,bytes) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -66,11 +66,11 @@ export async function checkRetaliation(test,fresh,bytes) {
     next.buildings.find(site=>site.id===last.id).cooldown=8;await restoreColony(r,next);await advance(r);
     assert.equal(state(r).enemies[0].target,first.id);assert.equal(state(r).enemies[0].path.at(-1),first.x+first.y*128);await r.close();
   });
-  await test('houses do not intercept enemies pursuing their remembered artillery attacker',async()=>{
-    const r=await fresh(),house=await build(r,'build-house',12,22),gun=await build(r,'fortify',14,22);
+  await test('towers do not intercept enemies pursuing their remembered artillery attacker',async()=>{
+    const r=await fresh(),tower=await build(r,'observe',12,22),gun=await build(r,'fortify',14,22);
     const world=encounter(state(r),10,22);await restoreColony(r,world);await advance(r,22);const after=state(r);
-    assert.equal(after.enemies[0].target,gun.id);assert.ok(after.enemies[0].x>house.x*40+20-50);
-    assert.equal(after.buildings.find(site=>site.id===house.id).hp,house.hp);assert.equal(after.hull,300);
+    assert.equal(after.enemies[0].target,gun.id);assert.ok(after.enemies[0].x>tower.x*40+20-50);
+    assert.equal(after.buildings.find(site=>site.id===tower.id).hp,tower.hp);assert.equal(after.hull,300);
     await advance(r,10);assert.ok(state(r).buildings.find(site=>site.id===gun.id).hp<gun.hp);await r.close();
   });
   await test('destroying the attacker clears the commitment and resumes a valid hub route',async()=>{
@@ -113,7 +113,7 @@ export async function checkRetaliation(test,fresh,bytes) {
       const world=structuredClone(base),site=world.buildings.find(site=>site.id===gun.id),extraCost=25*(level-1);
       Object.assign(site,{kind:2,level,armed:0,x:59,y:41,cooldown:0});world.rails=[];world.tracks=[];
       world.spent+=extraCost;world.ore-=extraCost;world.surveys.unshift({x:59,y:41,radius:4});
-      await restoreColony(r,world);await advance(r);assert.equal(state(r).nestHp,1500-damage);
+      await restoreColony(r,world);await advance(r);assert.equal(state(r).nests[0].hp,900-damage);
     }
     await r.close();
   });
@@ -122,7 +122,7 @@ export async function checkRetaliation(test,fresh,bytes) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0;await checkRetaliation(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh,bytes);
   console.log(`${count} retaliation and artillery checks passed`);
 }

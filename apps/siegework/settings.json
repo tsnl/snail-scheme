@@ -1,5 +1,5 @@
 {
-  "id": "siegework-colony-v11",
+  "id": "siegework-colony-v12",
   "title": "Siegework",
   "width": 960,
   "height": 640,
@@ -100,10 +100,6 @@
     "e": [
       "turn",
       1
-    ],
-    "3": [
-      "choose",
-      3
     ]
   },
   "inputRepeatMilliseconds": 140,
@@ -136,8 +132,8 @@
     "prepareCamera": "recording-camera",
     "cameraHandlers": ["move", "viewport", "nudge", "zoom", "pan", "drift", "drag", "turn", "rotate", "animate", "home", "center", "inspect-attack", "dismiss-attack"],
     "inspection": {
-      "version": 1,
-      "fields": ["tick", "run", "seed", "outcome", "ore", "produced", "delivered", "spent", "lostOre", "hull", "nestHp", "kills", "casualties", "buildings", "extractors", "towers", "artillery", "houses", "pending", "workers", "busyWorkers", "enemies", "surveys", "frontierDistanceSquared", "lastRevealTick", "nestKnown", "nestVisible", "paused", "started"]
+      "version": 3,
+      "fields": ["tick", "run", "seed", "outcome", "ore", "produced", "delivered", "spent", "lostOre", "hull", "nestHp", "kills", "casualties", "buildings", "extractors", "towers", "artillery", "hubCapacityLevel", "pending", "workers", "busyWorkers", "enemies", "surveys", "frontierDistanceSquared", "lastRevealTick", "nestKnown", "nestVisible", "paused", "started", "nestsAlive", "depositsDepleted", "oreRemaining", "knownOreRemaining", "nest0Hp", "nest1Hp", "nest2Hp"]
     }
   }
 }

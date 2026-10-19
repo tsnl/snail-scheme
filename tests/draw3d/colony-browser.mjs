@@ -1,7 +1,7 @@
 // Chromium input, WebGPU readback and durable reopen for either 3D package.
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
-import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker} from '../applications/colony-state.mjs';
+import {colony, client, siteAt, colonyWords, clientWords, at, pixelAt, setWorker, withdrawReserves} from '../applications/colony-state.mjs';
 const origin = process.argv[2], devtools = process.argv[3] ?? 'http://127.0.0.1:9452';
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const target = await (await fetch(`${devtools}/json/new?about:blank`, {method: 'PUT'})).json();
@@ -200,23 +200,24 @@ try {
   const repeated=structuredClone(freshHint);repeated.started=true;repeated.surveys.unshift({...repeated.surveys[0]});
   for(const x of [10,11,12]) {
     const point=at(repeated,x,22),aim=pixelAt(repeated,x,22);
-    repeated.buildings.push({id:repeated.nextId++,kind:4,...point,level:1,hp:220,stock:0,stage:2,
+    repeated.buildings.push({id:repeated.nextId++,kind:3,...point,level:1,hp:90,stock:0,stage:2,
       cooldown:0,aimX:aim.x,aimY:aim.y,armed:0,source:0,moveX:-1,moveY:-1});
-    repeated.spent+=8;repeated.ore-=8;
+    repeated.surveys.push({...point,radius:7});repeated.spent+=25;repeated.ore-=25;
   }
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(repeated))})`);await settled();
+  await complete(1);
   const instanced=await evaluate(`(async()=>{const renderer=snailApp.renderer,device=renderer.device,calls=[],original=device.createCommandEncoder;
     device.createCommandEncoder=function(...args){const encoder=original.apply(this,args),begin=encoder.beginRenderPass.bind(encoder);
       encoder.beginRenderPass=(...args)=>{const pass=begin(...args),draw=pass.drawIndexed.bind(pass);
         pass.drawIndexed=(...args)=>{calls.push(args.slice(0,2));return draw(...args);};return pass;};return encoder;};
     try{await renderer.readPixels(snailApp.runtime.view().scene);return{calls,resources:renderer.resources};}
     finally{device.createCommandEncoder=original;}})()`);
-  assert.ok(instanced.calls.some(([indices,count])=>indices===270&&count===3),'three houses share one indexed GPU draw');
+  assert.ok(instanced.calls.some(([indices,count])=>indices>108&&count===3),'three towers share one indexed GPU draw');
   assert.ok(instanced.calls.some(([indices,count])=>indices===108&&count===3),'three worker bodies share one indexed GPU draw');
   assert.ok(instanced.calls.some(([indices,count])=>indices===6&&count>20),'terrain tiles use repeated fixed-mesh instances');
   await complete(1);const tickResources=await evaluate('snailApp.renderer.resources');
   assert.equal(tickResources.meshUploads,instanced.resources.meshUploads);assert.ok(tickResources.uploads>instanced.resources.uploads);
-  console.log('ok - product tile, house and worker draws share fixed GPU meshes; a new tick uploads only occurrences',
+  console.log('ok - product tile, tower and worker draws share fixed GPU meshes; a new tick uploads only occurrences',
     {draws:instanced.calls,meshes:instanced.resources.meshes,instances:instanced.resources.instances});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();
   await command('home');await until(async()=>!(await local()).homing,'smooth home');await key('Escape','Escape');
@@ -229,6 +230,24 @@ try {
   await click('rotate-left');await until(async()=>(await local()).turnElapsed===300,'visible counterclockwise rotation');assert.equal((await local()).heading,0);
   assert.deepEqual([(await local()).cameraX,(await local()).cameraY],center);
   console.log('ok - pan retains geometry; wheel zoom preserves look-at; visible rotation buttons make quarter turns');
+
+  await call('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+  for(const [width,height]of[[320,568],[568,320]]) {
+    await resize(width,height);await command('home');await until(async()=>!(await local()).homing,'opening hub');
+    for(const control of ['worker','upgrade','repair']) {
+      assert.equal(await evaluate(`document.querySelector('[data-ui-key="${control}"]').disabled`),true);
+      await touchControl(control);
+    }
+    for(const [pressed,code]of[['f','KeyF'],['u','KeyU'],['r','KeyR']])await key(pressed,code);
+    assert.equal((await world()).ore,160);assert.equal((await world()).started,false);assert.equal((await world()).tick,0);
+    await capture(`-opening-hub-${width}x${height}`);await key('Escape','Escape');await frameCell(12,22);await pointCell(12,22,true);
+    for(const control of ['tower','artillery'])assert.equal(await evaluate(`document.querySelector('[data-ui-key="${control}"]').disabled`),true);
+    await key('1','Digit1');assert.equal((await local()).failure,38);assert.equal((await world()).ore,160);
+    await capture(`-opening-build-${width}x${height}`);await key('Escape','Escape');
+  }
+  await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(freshHint))})`);await settled();await command('center');
+  console.log('ok - mobile opening disables non-extractor purchases and keyboard actions preserve all starting ore and frozen time');
 
   const unbuilt=await evaluate('snailApp.runtime.snapshot(1)');await pointCell(12,20,true);
   assert.ok(await has('extractor'));assert.equal(await has('tower'),false);assert.ok(await has('close-context'));await capture('-deposit');
@@ -260,37 +279,39 @@ try {
   await tileIsTappable(12,20);await pointCell(12,20,true);
   assert.equal(siteAt(await world(),12,20)?.kind,1);assert.equal((await local()).buildKind,0);assert.equal((await local()).chooser,false);
   await complete();assert.equal(siteAt(await world(),12,20)?.stage,2);
-  await pointCell(12,20,true,.94);assert.equal(await has('upgrade'),true);await click('upgrade');assert.equal(siteAt(await world(),12,20)?.level,2);
+  await pointCell(12,20,true,.7);assert.equal(await has('upgrade'),true);await click('upgrade');assert.equal(siteAt(await world(),12,20)?.level,2);
   const inspected=await evaluate('snailApp.runtime.snapshot(1)');await click('close-context');assert.equal(await has('context'),false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),inspected);
   console.log('ok - deposit selection exposes only its extractor; a second rendered tap builds once; explicit upgrades stay separate');
 
+  const buildingFunds=await world();buildingFunds.ore+=100;withdrawReserves(buildingFunds,100);buildingFunds.delivered+=100;
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(buildingFunds))})`);await settled();
   await frameCell(13,21);await pointCell(13,21,true);const beforeOrder=(await world()).spent;
-  assert.ok(await has('tower')&&await has('artillery')&&await has('house'));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
+  assert.ok(await has('tower')&&await has('artillery')&&!(await has('house')));assert.equal(await has('extractor'),false);assert.ok(await has('close-context'));await capture('-construction');
   await click('close-context');assert.equal(await has('context'),false);await pointCell(13,21,true);assert.equal((await world()).spent,beforeOrder);
-  await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="house"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
-  assert.equal((await local()).buildKind,4);assert.equal((await world()).spent,beforeOrder);
-  await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[3])`);await evaluate('releaseMenuSave()');await settled();
-  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+8);assert.equal((await local()).lastKind,4);
-  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,4);assert.equal((await world()).spent,beforeOrder+16);
-  await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+16);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
+  await holdNextSave();await evaluate(`document.querySelector('[data-ui-key="tower"]').click()`);await until(()=>evaluate('!!globalThis.releaseMenuSave'),'delayed construction save');
+  assert.equal((await local()).buildKind,3);assert.equal((await world()).spent,beforeOrder);
+  await evaluate(`void snailApp.local('confirm');void snailApp.local('choose',[1])`);await evaluate('releaseMenuSave()');await settled();
+  assert.equal(await evaluate('menuWriteCount'),1);assert.equal((await world()).spent,beforeOrder+25);assert.equal((await local()).lastKind,3);
+  const fastSite=await pointCell(14,21);await doubleClick(fastSite);assert.equal(siteAt(await world(),14,21)?.kind,3);assert.equal((await world()).spent,beforeOrder+50);
+  await doubleClick(fastSite);assert.equal((await world()).spent,beforeOrder+50);assert.ok(await has('cancel-build'),'doubleclick tail inspects the ordered site');
   await key('Escape','Escape');await pointCell(15,21,true);const free=(await world()).spent;
   await pointCell(15,22,true);assert.equal((await world()).spent,free,'a different tile retargets without charging');
-  await failNextSave();await click('artillery');assert.equal((await world()).spent,free);assert.equal((await local()).choiceKind,2);assert.equal((await local()).lastKind,4);
+  await failNextSave();await click('artillery');assert.equal((await world()).spent,free);assert.equal((await local()).choiceKind,2);assert.equal((await local()).lastKind,3);
   for(const left of [false,true]) {
     await resize(568,320);if(left){await click('pause');await click('handedness');await click('resume');}
     await frameCell(15,22);await pointCell(15,22,true);await capture(`-failed-construction-568x320${left?'-left':''}`);await tileIsTappable(15,22);
   }
   await click('pause');await click('handedness');await click('resume');await resize(1100,760);await frameCell(15,22);await pointCell(15,22,true);
-  // Re-selecting deliberately starts from the remembered house; explicit retry still names the failed gun.
+  // Re-selecting deliberately starts from the remembered tower; explicit retry still names the failed gun.
   await click('artillery');assert.equal(siteAt(await world(),15,22)?.kind,2);assert.equal((await local()).lastKind,2);
   await key('Escape','Escape');
-  const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;supplied.produced+=extra;
+  const supplied=await world(),extra=200-supplied.ore;supplied.ore+=extra;supplied.delivered+=extra;withdrawReserves(supplied,extra);
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(supplied))})`);await settled();const hireBank=(await world()).ore;
   assert.equal(await has('worker-menu'),false);assert.equal(await has('worker-panel'),false);await key('f','KeyF');assert.equal((await world()).ore,hireBank);
-  await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),false);await capture('-hub');
+  await key('h','KeyH');await until(async()=>!(await local()).homing,'home selects hub');assert.equal(await has('repair'),true);assert.equal(await has('worker'),true);assert.equal(await has('close-context'),true);assert.equal(await has('upgrade'),true);await capture('-hub');
   await click('worker');assert.equal((await world()).ore,hireBank-25);await key('f','KeyF');assert.equal((await world()).ore,hireBank-50);assert.equal((await local()).chooser,true);
   await key('Escape','Escape');await key('e','KeyE');await until(async()=>(await local()).turnElapsed===300,'keyboard rotation');
-  await frameCell(12,20);await pointCell(12,20,true,.94);assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/extractor/i);
+  await frameCell(12,20);await pointCell(12,20,true,.7);assert.match(await evaluate('document.querySelector("[data-ui-key=context-title]").textContent'),/extractor/i);
   await key('q','KeyQ');await until(async()=>(await local()).turnElapsed===300,'return rotation');await key('Escape','Escape');
   const ignored=await evaluate('({world:snailApp.runtime.snapshot(1),client:snailApp.runtime.snapshot(2)})');
   await evaluate(`(()=>{const pad={index:0,id:'ignored gamepad',connected:true,axes:[.8,-.8],buttons:Array.from({length:16},()=>({pressed:true}))};
@@ -299,7 +320,7 @@ try {
   console.log('ok - rapid doubleclick builds one remembered structure; retargeting is free; delayed and failed writes preserve intent; hires remain explicit');
 
   const beforeFeedback=await world(),beforeFeedbackClient=await local(),unreachable=structuredClone(freshHint);
-  unreachable.surveys.unshift({...at(unreachable,12,8),radius:4});setWorker(unreachable,0,{x:12,y:12});
+  unreachable.started=true;unreachable.surveys.unshift({...at(unreachable,12,8),radius:4});setWorker(unreachable,0,{x:12,y:12});
   await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(unreachable))})`);await settled();await command('center');
   for(const [width,height,left]of[[1100,760,false],[320,568,false],[568,320,false],[568,320,true]]) {
     await resize(width,height);if((await local()).leftHanded!==left){await click('pause');await click('handedness');await click('resume');}
@@ -311,15 +332,15 @@ try {
   await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(beforeFeedbackClient))})`);await resize(1100,760);await command('viewport',[1100,760]);await settled();
   console.log('ok - actual construction route failures remain visible, unclipped and actionable at desktop and small mobile sizes');
 
-  await complete();assert.equal(siteAt(await world(),15,22)?.stage,2);await frameCell(15,22);await pointCell(15,22,true,2.28);await click('upgrade');
+  await complete();assert.equal(siteAt(await world(),15,22)?.stage,2);await frameCell(15,22);await pointCell(15,22,true,1.8);await click('upgrade');
   const upgrading=siteAt(await world(),15,22),spinner=`upgrade-wait-${upgrading.id}`;assert.equal(await has(spinner),true);
   const marker=()=>evaluate(`(()=>{const n=document.querySelector('[data-ui-key="${spinner}"]'),r=n.getBoundingClientRect(),s=getComputedStyle(n);return{x:r.x+r.width/2,y:r.y+r.height/2,width:parseFloat(s.width),height:parseFloat(s.height),pointer:s.pointerEvents,animation:s.animationName}})()`);
-  const firstMarker=await marker(),top=await pointCell(15,22,false,2.63);assert.ok(Math.abs(firstMarker.x-top.x)<=1&&Math.abs(firstMarker.y-top.y)<=1);
+  const firstMarker=await marker(),top=await pointCell(15,22,false,2.189);assert.ok(Math.abs(firstMarker.x-top.x)<=1&&Math.abs(firstMarker.y-top.y)<=1);
   assert.deepEqual([firstMarker.width,firstMarker.height,firstMarker.pointer,firstMarker.animation],[24,24,'none','upgrade-wait-spin']);
   const waiting=await evaluate('snailApp.runtime.snapshot(1)');await command('drag',[18,12]);const movedMarker=await marker();
   assert.ok(Math.abs(movedMarker.x-firstMarker.x-18)<=1&&Math.abs(movedMarker.y-firstMarker.y-12)<=1);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),waiting);
   await capture('-upgrade-spinner');await click('cancel-build');assert.equal(await has(spinner),false);
-  await pointCell(15,22,true,2.28);await click('upgrade');assert.equal(await has(spinner),true);
+  await pointCell(15,22,true,1.8);await click('upgrade');assert.equal(await has(spinner),true);
   await complete();assert.equal(siteAt(await world(),15,22).level,2);assert.equal(await has(spinner),false);await key('Escape','Escape');
   console.log('ok - CSS upgrade indicators track the building top, ignore pointer input and disappear on cancellation or completion');
 
@@ -403,6 +424,24 @@ try {
   await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await displayFrame();await settled();
   assert.ok((await local()).scale<beforeScale);assert.equal((await local()).chooser,false);assert.deepEqual(await evaluate('snailApp.runtime.snapshot(1)'),beforePinch);
   assert.deepEqual([(await local()).cameraX,(await local()).cameraY],pinchCenter);
+  const beforeHubTouch=await world(),beforeHubTouchClient=await local(),hubTouch=structuredClone(freshHint);hubTouch.started=true;
+  for(const [width,height]of[[320,568],[568,320]]) {
+    await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(hubTouch))})`);await settled();
+    await resize(width,height);await command('home');await until(async()=>!(await local()).homing,'hub capacity touch');
+    assert.match(await evaluate('document.querySelector("[data-ui-key=context-description]").textContent'),/12 → 14/);
+    await touchControl('upgrade');assert.equal((await world()).ore,60);assert.equal((await world()).hubCapacityLevel,0);
+    assert.equal(await evaluate('document.querySelector("[data-ui-key=upgrade]").disabled'),true);
+    await touchControl('worker');await touchControl('worker');assert.equal((await world()).ore,10);assert.equal((await world()).bots.length,3);
+    assert.equal((await local()).chooser,true);await capture(`-hub-upgrade-pending-${width}x${height}`);
+    await complete(29);assert.equal((await world()).hubCapacityLevel,0);await complete(1);
+    assert.equal((await world()).hubCapacityLevel,1);assert.equal((await world()).bots.length,5);
+    assert.equal(await evaluate('document.querySelector("[data-ui-key=upgrade-caption]").textContent'),'200 ore');
+    assert.equal(await evaluate('document.querySelector("[data-ui-key=upgrade]").disabled'),true);
+    await capture(`-hub-upgrade-complete-${width}x${height}`);
+  }
+  await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(beforeHubTouch))})`);
+  await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords(beforeHubTouchClient))})`);await settled();
+  console.log('ok - portrait and landscape touch keep hub expansion and repeated hires separate, paid, delayed and clearly priced');
   await call('Emulation.setTouchEmulationEnabled',{enabled:false});await resize(1100,760);await command('center');await capture();
   console.log('ok - centered Pause preserves selection; paused reopen, HiDPI HUD, touch repeat construction and mirrored popups fit 320–1100px');
   await click('pause');await click('restart-menu');const oldMarker=(await world()).runMarker;await holdNextSave();
@@ -413,7 +452,7 @@ try {
   console.log('ok - real IndexedDB delays keep Resume/Restart locked; failures retain the selection and repeated confirmation creates one colony');
   const finalColony=await world(),finalClient=await local(),finalHub=finalColony.surveys.find(value=>value.radius===9);
   for(const outcome of [1,3])for(const [width,height]of[[320,568],[568,320]])for(const leftHanded of [false,true]) {
-    const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nestHp:outcome===3?0:1500,
+    const ended={...finalColony,outcome,started:true,hull:outcome===1?0:300,nests:finalColony.nests.map(nest=>({...nest,hp:outcome===3?0:900})),
       alerts:[0,1,4].map((kind,index)=>({x:finalHub.x+index*2,y:finalHub.y,kind,tick:finalColony.tick}))};
     await evaluate(`snailApp.session.local.restore(${JSON.stringify(colonyWords(ended))})`);
     await evaluate(`snailApp.runtime.restore(2,${JSON.stringify(clientWords({...finalClient,chooser:false,leftHanded}))})`);

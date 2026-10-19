@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {ReducerRuntime, protocolContract} from '../../src/application/runtime.mjs';
-import {colony, client, restoreColony, addEnemy, at, siteAt} from '../applications/colony-state.mjs';
+import {establishColony,colony, client, restoreColony, addEnemy, at, siteAt} from '../applications/colony-state.mjs';
 
 const output = process.argv[2], fixtures = process.argv[3], previous = process.argv[4];
 const manifest = JSON.parse(readFileSync(join(output, 'manifest.json')));
@@ -66,7 +66,7 @@ try {
     for(const left of [false,true]) {
       if(left){await command('pause-menu');await command('handedness');await command('resume');}
       const hint=placed('onboarding'),rail=placed('rail');
-      assert.match(node('onboarding-help').text,/Tap the highlighted deposit/);
+      assert.match(node('onboarding-help').text,/extractor on the glowing deposit/);
       assert.ok(hint.x+hint.width<=rail.x||hint.x>=rail.x+rail.width||hint.y+hint.height<=rail.y||hint.y>=rail.y+rail.height,'guidance leaves the control rail clear');
       assert.ok(hint.node.properties[9]>0,'the hint points toward its highlighted deposit');
       assert.ok(hint.x>=0&&hint.y>=0&&hint.x+hint.width<=width-24&&hint.y+hint.height<=height-32);
@@ -83,10 +83,10 @@ try {
   await command('dismiss');await command('center');cursor(12,20);
   await runtime.replace(runtime.prepare(bytes,manifest));assert.deepEqual(runtime.snapshot(1),fresh);
   // The tallest visible tip projects onto an adjacent ground cell.
-  await point(11.8,20,.63);cursor(12,20);assert.equal(node('context'),undefined);
+  await point(11.84,20.04,.55);cursor(12,20);assert.equal(node('context'),undefined);
   await command('confirm');assert.ok(node('extractor'));assert.equal(node('tower'),undefined);
   assert.deepEqual(runtime.snapshot(1),fresh);await point(12,20);await placeExtractor();assert.equal(world().buildings[0].kind,1);
-  await point(11.8,20,.63);cursor(12,20);await command('confirm');await command('cancel');
+  await point(11.84,20.04,.55);cursor(12,20);await command('confirm');await command('cancel');
   assert.equal(world().buildings.length,0);await command('center');cursor(12,20);
   await placeExtractor();await advance(140);assert.equal(world().buildings[0].stage,2);
   assert.ok(world().surveys.some(s=>s.x===at(world(),12,20).x&&s.y===at(world(),12,20).y));
@@ -118,7 +118,7 @@ try {
   await command('center');cursor(8,22);
   console.log('ok - actual enemy destruction retains completion history and does not restore first-extractor guidance');
 
-  await runtime.restore(1,fresh);
+  await runtime.restore(1,fresh);await establishColony(runtime);
   for(const y of [15,9]){
     const site=at(world(),10,y);await runtime.dispatch(1,runtime.command('match','observe',[site.x,site.y]));await advance(180);
   }

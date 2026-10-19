@@ -7,8 +7,11 @@ The [player guide](README.md) describes the implemented controls and costs.
 ## Playable loop
 
 - A hub, three pooled workers, one visible starter deposit and two hidden expansion
-  choices. North offers a modest nearby resource; east offers richer ore beyond a
+  choices. The starter holds 600 ore; north offers 900 and east offers 1,800 beyond a
   ridge crossing. Routes follow traversable surveyed ground.
+- The first paid order must be an extractor. Until that order is accepted, time
+  stays stopped and all other ore purchases are rejected. Selecting a deposit
+  does not start the run; cancellation after acceptance does not stop it again.
 - Completed observation towers extend active sight. Remembered geography survives
   lost coverage; current enemies require active sight. Placement requires visible,
   reachable ground, and a paid kit must physically arrive before a site operates.
@@ -16,7 +19,9 @@ The [player guide](README.md) describes the implemented controls and costs.
   rail links determined by placement. Arming a tower retains its observation and
   depot roles; rail cargo becomes spendable only on arrival at the hub.
 - Occupied mining slots produce into bounded buffers; upgrades add slots, not
-  free production. Workers mine, collect ore, deliver it to a connected depot or
+  free production or underground reserves. Deposits persist after extractor loss;
+  exhaustion stops output, releases miners and flushes the last partial stock.
+  Workers mine, collect ore, deliver it to a connected depot or
   the hub, build projects from hub or local reserved kits. No individual
   orders are needed. Additional workers, extraction upgrades and observation
   upgrades compete with artillery for delivered ore. One extractor can retain
@@ -29,15 +34,12 @@ The [player guide](README.md) describes the implemented controls and costs.
   Encountered workers and buildings can be damaged; actual hits produce bounded
   location alerts. Lost cargo is not refunded. A sole worker alternates mining
   and hauling; a surviving hub can assemble one emergency replacement.
-  Announced outpost raids at 3:30 and 5:30 can destroy outer structures. Eastern
-  groups start at 1:00 and grow through 45-second follow-ups; raid slots replace
-  nearby ordinary groups. The final beast and six escorts spawn at 7:00. The
-  forecast distinguishes spawning from travel to the colony. Lose the hub,
-  hold to 8:00, or exterminate all final threats.
-- Manual remains the default. Optional Auto Explore/Defend prioritizes observed
-  extraction, maintains a hub reserve and opens one project at a time. It shares
-  manual observation, prices and worker rules. This is a gameplay experiment,
-  not a globally optimal strategy. Completed towers/guns can queue a two-cell,
+  Three 900-health nests emit fixed shares of one wave budget. Clearing a nest
+  removes its share; raids target exposed operations nearer their own source
+  than the hub. The first six-enemy wave spawns at 0:45, ordinary waves are thirty
+  seconds apart, ranks increase every ninety seconds, and the first boss spawns
+  at 9:00. Lose the hub or destroy all three nests; time grants no victory.
+- Placement remains manual. Completed towers/guns can queue a two-cell,
   five-ore correction that drains supplies and preserves damage and identity.
 - Rocks block direct artillery fire. There is no automatic repair.
 - Explicit Pause/Resume freezes simulation while allowing inspection and
@@ -102,11 +104,11 @@ publication. A failed write preserves the previous state. Online checkpoint ETag
 version remote replacement separately and reject stale writes. External effects
 still need their own delivery contract.
 
-The colony uses world schema 11 and client schema 8 with variable-size derived snapshots.
+The colony uses world schema 12 and client schema 8 with variable-size derived snapshots.
 Its world envelope exposes a checked run marker before the generic binary payload.
-The application ID `siegework-colony-v11` starts a fresh save identity for compact
-geography. World10 seeds and saved routes cannot be silently remapped; old browser
-records remain untouched under their previous identity and old imports reject.
+The application ID `siegework-colony-v12` starts a fresh save identity for explicit hub capacity
+upgrades and removal of houses. Old browser records remain untouched under their
+previous identity and old imports reject.
 Schema versions cover field meaning as well as shape. Reject incompatible schemas
 until a deliberate migration exists. Portable snapshots contain values, not GPU
 handles or WasmGC references. Copying a bounded record into a fresh module heap is

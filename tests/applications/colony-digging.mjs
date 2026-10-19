@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {ReducerRuntime} from '../../src/application/runtime.mjs';
-import {colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker} from './colony-state.mjs';
+import {establishColony,colony,colonyBalance,restoreColony,fixtureCall,pixelAt,routeCell,siteAt,setWorker, withdrawReserves} from './colony-state.mjs';
 
 export async function checkDigging(test,fresh) {
   const state=r=>colony(r.snapshot(1)),call=fixtureCall;
@@ -79,7 +79,7 @@ export async function checkDigging(test,fresh) {
     await restoreColony(r,world); await advance(r,79); assert.equal(state(r).enemies[0].hp,80);
     await advance(r); assert.ok(state(r).enemies[0].hp<80); assert.deepEqual(state(r).breaches,[cell]);
     const safe=state(r); safe.enemies=[]; await restoreColony(r,safe);
-    await build(r,'build-house',6,10); assert.equal(siteAt(state(r),6,10).hp,220);
+    await build(r,'observe',6,10); assert.equal(siteAt(state(r),6,10).hp,90);
     const saved=r.snapshot(1); await r.restore(1,saved); assert.deepEqual(r.snapshot(1),saved); await r.close();
   });
   await test('roughly one in ten spawned enemies has the deterministic burrowing capability',async()=>{
@@ -93,13 +93,14 @@ export async function checkDigging(test,fresh) {
     }
     assert.ok(total>100); assert.ok(burrowers/total>=0.08&&burrowers/total<=0.12); await r.close();
   });
-  await test('raid targeting follows frontier exposure in every direction and excludes houses and guns',async()=>{
-    const r=await fresh(),funded=state(r); funded.produced+=200; funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
+  await test('raid targeting follows frontier exposure in every direction and excludes guns',async()=>{
+    const r=await fresh(),funded=state(r); withdrawReserves(funded, 200); funded.delivered+=200; funded.ore+=200; await restoreColony(r,funded);
     await build(r,'observe',12,14); const north=await build(r,'observe',12,8);
     await build(r,'observe',16,21); await build(r,'observe',22,20);
-    await build(r,'build-house',12,2); await build(r,'fortify',12,1);
+    await build(r,'fortify',12,1);
     const world=state(r); world.tick=1349; world.lastRevealTick=-100; world.enemies=[]; await restoreColony(r,world); await advance(r);
-    assert.equal(state(r).enemies.length,5); assert.ok(state(r).enemies.every(enemy=>enemy.target===north.id)); await r.close();
+    assert.equal(state(r).enemies.length,7); assert.ok(state(r).enemies.some(enemy=>enemy.target===north.id));
+    assert.ok(state(r).enemies.every(enemy=>enemy.target===0||state(r).buildings.some(site=>site.id===enemy.target&&site.kind===3))); await r.close();
   });
   await test('decoding rejects impossible excavation, water breaches and unqualified rock routes',async()=>{
     const r=await fresh(),saved=r.snapshot(1),base=state(r),cell=routeCell(base,6,10);
@@ -120,7 +121,7 @@ export async function checkDigging(test,fresh) {
 if(process.argv[1]===import.meta.filename) {
   const directory=resolve(process.argv[2]),manifest=JSON.parse(readFileSync(join(directory,'manifest.json')));
   const bytes=readFileSync(join(directory,manifest.module));
-  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return r;};
+  const fresh=async()=>{const r=new ReducerRuntime();await r.replace(r.prepare(bytes,manifest));await r.initialize(1);await r.initialize(2);return establishColony(r);};
   let count=0; await checkDigging(async(name,run)=>{await run();console.log(`ok ${++count} - ${name}`);},fresh);
   console.log(`${count} excavation checks passed`);
 }
