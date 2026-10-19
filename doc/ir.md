@@ -57,15 +57,10 @@ pass must guess which same-named overload a detached annotation describes.
 Inference owns a copy of the resolved binding graph, preserving immutable binding
 origins. Expressions contain only kind, location and source data. Frontend import
 resolution and graph copying have a construction-only data setter; checking and
-emission never use it. The completed program retains source, binding schemes,
-lexical scopes, lambda signatures, its result type, and class evidence. There is
-no expression-type map and no lowered or monomorphized expression tree.
-
-The Scheme record `pass` names callable operations for each source arm. Its shared
-visitor dispatches the arm; structural visitors arrange child dependencies and
-supply returned judgments to separate typing rules. The concrete visitor manually
-interleaves typing, child generation and emission operations. It is explicit code,
-not a higher-order pass-interleaving combinator.
+emission never use it. The completed program retains source, binding schemes, class evidence and an
+immutable [typed expression tree](../src/lofi/compiler/typed.sld). Each expression
+carries its type and the decisions needed by specialization. Checking does not
+retain a table of lexical scopes or function signatures for later replay.
 
 Every body is checked, including unused functions. Each block plans binding
 recursion groups before checking. A quantified recursive group first solves a
@@ -73,22 +68,22 @@ private monomorphic relation, then checks the source bodies with independent
 rigid interpretations. The optional identity mapping of `copy-ir-graph` preserves
 enclosing nominal, class and type-variable identities at that boundary.
 
-Expression judgments are temporary records containing the current arm's type,
-obligations and immediate result information. They contain no child judgments.
-Binding summaries retain only initializer type, obligations, nonexpansiveness and
-the lexical proof scope; they do not retain arm details. Those obligations are
-saturated after enclosing monotypes settle and discharged before generation.
-The private solver still mutates unification holes and owned binding schemes.
-Lambda scopes retain their checked function signature so requesting a closure
-does not recheck its body. Scopes created for the private recursive relation are
-discarded when that check finishes.
+Expression judgments construct provisional typed children while the solver owns
+mutable holes. After obligations settle, freezing replaces remaining holes with
+consistent immutable parameters. Unchanged immutable type structure is shared;
+nominal identities remain opaque. Solver convergence tracks unresolved hole roots
+for one round, rather than copying all resolved constraints before and after it.
+Binding summaries release their provisional
+judgments and scopes at this boundary.
 
-The concrete visitor returns three values: this arm's typing judgment, its target
-fragment, and the updated request context. It supplies completed immediate child
-judgments to the typing arm, then supplies generated children to the emission arm.
-There is no unconditional subtree typing step at expression entry. Concrete call
-signatures and inherited result types provide child demands directly. Literal
-width is still intrinsic except at a direct annotation or binding declaration.
+Specialization substitutes each requested implementation into the typed tree and
+constructs an immutable [concrete tree](../src/lofi/compiler/concrete.sld). It
+records selected binding IDs, function IDs, match arms, concrete call signatures,
+explicit representation conversions and tail positions. It does not rerun
+inference or probe source expressions. Concrete substitution resolves types and
+checks representation availability; references reuse the instance selected while
+checking their obligations. No expression-keyed fact map is needed.
+Literal width remains intrinsic except at a direct annotation or declaration.
 
 ## Concrete demand and storage
 
@@ -103,12 +98,11 @@ Requests reuse reserved IDs, including during recursion; there is no mutable
 pending/emitted status object. The visitor threads each returned context through
 subsequent siblings.
 
-Generation first drains source-based implementation requests to discover storage,
-reads and nested closures. Only binding/function summaries survive this stage.
-A capture fixed point propagates the values required to construct nested closures,
-excluding each function's own locals and globals. Each demanded body is then
-emitted from source after its storage and capture layouts are settled. Emission
-asserts that it introduces no unplanned implementation IDs.
+Generation drains typed implementation requests to discover storage, reads and
+nested closures, retaining each concrete body. A capture fixed point propagates
+the values required to construct nested closures, excluding each function's own
+locals and globals. Emission consumes concrete bodies after storage and captures
+settle; it cannot introduce implementation requests.
 
 A source site owns initialization; a concrete value owns its payload; a function
 owns code. Demanding code does not execute an initializer. All source bind events
@@ -136,15 +130,9 @@ and closure environment load disappear; closure allocation and capture stay inta
 
 ## Current tradeoffs
 
-Summary discovery and target emission are still separate concrete traversals:
-capture and storage layouts must settle before closures are emitted. Within each
-traversal, concrete demands use the fused visitor. Calls whose generic signature
-cannot yet select argument representations probe the unresolved arguments with
-shared constraints. Unknown branch or pattern result demands likewise use a
-type-only probe when checked root facts cannot determine their representation.
-These probes retain only the boundary's result; they do not cache descendant
-judgments. They can revisit source, so this is not a promise of one visit for every
-possible nesting or every concrete implementation.
+Concrete construction and emission remain separate traversals because capture
+and storage layouts must settle before closures are emitted. Their shared
+immutable tree carries the decisions directly; neither traversal repeats typing.
 
 Local functions currently use ordinary closures. Primitive, foreign and data
 operations still emit directly, and known closure workers use direct calls, but

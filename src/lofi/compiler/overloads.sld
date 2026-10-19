@@ -47,7 +47,7 @@
     ;; Only copies reach this solver. Failure discards any partial links, so
     ;; speculative mismatch needs neither an exception nor a continuation.
     (define (try-bind-trial! variable type)
-      (and (not (memq variable (type-variables type)))
+      (and (not (type-contains? type variable))
            (begin (set-hole-link! variable type) #t)))
     (define (try-unify-trial! left right)
       (let ((left (resolve left)) (right (resolve right)))
@@ -141,9 +141,9 @@
               (when view
                 (improve-goals! (overload-view-constraints view) assumptions classes instances loc (cons constraint seen))))))))
     (define (improve-goals! constraints assumptions classes instances loc seen)
-      (let ((before (type-datum constraints)))
+      (let ((before (type-holes constraints)))
         (for-each (lambda (constraint) (improve-constraint! constraint assumptions classes instances loc seen)) constraints)
-        (unless (equal? before (type-datum constraints))
+        (when (type-holes-linked? before)
           (improve-goals! constraints assumptions classes instances loc seen))))
     (define (improve-overloads! constraints assumptions classes instances loc)
       (for-each (lambda (constraint)

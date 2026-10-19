@@ -57,6 +57,15 @@ keeps matching counts, per-case ranges and representation differences visible.
 The later [packet-input measurements](evidence/20261015-input-packets.md) cover
 Cat/WC separately and do not replace this frozen baseline.
 
+The [18 October checked-type validation](evidence/20261018-checked-types-full57.md)
+attempts all 57 workloads on the current five routes. It retains Ack's two Wasm
+stack failures, Simplex's duplicate-binding failure and Compiler's bounded build
+failures. A separate Simplex correction passes all five routes. These are
+correctness checks with explicit resource limits, not new runtime measurements.
+Compiler also passes all five routes in a separately retained run with a 16 GiB
+process-group limit. Across the attempts, 56 distinct Lofi/Wasm workloads pass;
+Ack's stack failure and every earlier bounded failure remain visible.
+
 `lambda` has one body expression, `let` is a sequential statement, `if` has both
 branches, and sequencing uses lexical `begin`. Current collection packing macros
 expand as part of ordinary compilation. The one-off conversion expanded macros with the old
@@ -84,9 +93,10 @@ full57 freeze, not the current compiler; per-case
 `historical_evidence` preserves earlier links and measured routes. That
 surface-validation checkpoint was complete with Ack's Wasm failure retained,
 rather than inferred from historical Ack success. Older records remain verbatim.
-The later named-declaration syntax reserves `data`; the preserved FFT source
-currently fails to compile because it uses that name for a value binding. The
-full57 checkpoint does not establish correctness on this newer compiler. A
+An intermediate named-declaration compiler rejected FFT's `data` value binding;
+the [checked-type evidence validation](evidence/20261018-checked-types-full57.md)
+executes FFT successfully on the current compiler. The older full57 checkpoint
+does not establish correctness on this newer compiler. A
 historical native-package reorganization rechecked Ack: native, Chez and Rust native pass,
 while both Wasm routes retain their default-stack exhaustion. Benchmark sources,
 inputs and published evidence remain unchanged. The standard formatter covers

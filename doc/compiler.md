@@ -11,7 +11,7 @@ future work.
 ```text
 Compiler: source → located library values → resolved imports and macro expansion
           → resolved Lofi source
-          → binding/scope checking → concrete demand → source-based WasmGC → Binaryen
+          → checking → immutable typed/concrete trees → WasmGC → Binaryen
 Build:    optimized Wasm → runtime Wasm linkage → Binaryen → V8/WASI
 ```
 
@@ -98,16 +98,17 @@ the source surface uses `Any`.
 [`types.sld`](../src/lofi/compiler/types.sld) owns inference holes,
 rigid quantified variables, unification, substitution, schemes and subtyping.
 [`checked.sld`](../src/lofi/compiler/checked.sld) records immutable source,
-binding schemes, lexical scopes, lambda signatures, the program result type and
-class evidence.
-[`pass.sld`](../src/lofi/compiler/pass.sld) defines the small `pass` record
-and shared source-arm dispatch. Typing rules receive returned child judgments;
-the visitor owns scope and expected-type dependencies.
+binding schemes, the program result type and class evidence.
+[`typed.sld`](../src/lofi/compiler/typed.sld) carries checked expression types and
+instantiation decisions in an immutable tree. Typing rules consume child judgments;
+checking owns scope and expected-type dependencies.
 
 [`infer.sld`](../src/lofi/compiler/infer.sld) checks every body, including
 unused functions, on an owned binding graph without mutating source expressions.
-Transient judgments contain no child judgments; only binding and scope summaries
-survive checking. Each lexical block
+Judgments construct provisional typed children. Once obligations settle, freezing
+replaces remaining solver holes with immutable parameters and releases checking
+scopes. Existing scheme binders determine which parameters may be instantiated;
+freezing preserves their identities and does not add quantification. Each lexical block
 builds direct dependencies once and groups mutually recursive bindings. Group
 members retain source order. Every overload row supplies an explicit signature,
 so checking can use the complete family before checking implementation bodies.
@@ -152,20 +153,18 @@ Its supported operations are construction, lookup, functional set, folding,
 membership, size and comparator access; it does not replace the host's full library.
 Source identity, concrete quantifier substitutions and lexical instance identity
 select stable IDs before recursive requests. A site owns initialization, a value
-owns a concrete payload, and a function owns code. Summary discovery records
-reads and nested closures, then settles capture requirements without constructing
-a concrete expression tree. Source-order initialization and erased alias readiness
+owns a concrete payload, and a function owns code. Specialization constructs
+[`concrete.sld`](../src/lofi/compiler/concrete.sld) trees while recording reads
+and nested closures, then settles capture requirements. Source-order initialization and erased alias readiness
 checks remain separate from code demand. After discovery settles, one pass
 partitions values by activation owner in allocation order. Emission consumes
 these buckets instead of scanning the graph for every function.
 
-[`emit-wasm.sld`](../src/lofi/compiler/emit-wasm.sld) supplies emission operations
-to the explicit source visitor. Each visit returns a transient typing judgment,
-generated code and the next request context. Typing rules consume immediate child
-judgments; separate emission rules consume generated children. Target code is
-emitted after capture and storage summaries settle. Scalars, structs, arrays,
+[`emit-wasm.sld`](../src/lofi/compiler/emit-wasm.sld) emits target code from
+concrete expressions after capture and storage settle. Emission consumes the
+recorded types and decisions directly; it cannot introduce implementation requests. Scalars, structs, arrays,
 precise Any witnesses and tail calls retain their existing Wasm contracts.
-Emission checks that demand is already complete. A concrete-type index finds
+A concrete-type index finds
 layouts while the ordered registry controls IDs and output. Layout reservation
 precedes dependency traversal, preserving recursive types. Local declarations
 accumulate in reverse and are reversed once when a function is emitted. The shared
@@ -176,12 +175,11 @@ layout and its emitted Wasm operations. Each owner retains a scalar count, used
 byte length, packed backing array and cached scalar/byte boundary. Conversion
 validates once and copies bytes; slicing and equality operate on encoded spans.
 Width-changing mutation preserves owner identity and updates its backing storage.
-Large literals are filled by module start before source execution. The mechanical
-the Wasm engine traces their managed references.
+Large literals are filled by module start before source execution.
+The Wasm engine traces their managed references.
 
-Concrete signatures take the fused path without subtree typing. Unresolved call
-arguments and branch results may require an explicit type-only constraint probe
-before choosing their layouts. Source and nominal identities in request keys are
+Specialization consumes checked evidence without probing source expressions or
+replaying inference. Source and nominal identities in request keys are
 opaque; hashing a request never walks an expression body. Local procedures use
 ordinary closures; direct primitive/foreign/data operations and known worker
 calls remain. Closure elimination and proven-global
