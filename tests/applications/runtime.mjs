@@ -1,3 +1,4 @@
+import {configureCasualties} from './casualty.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, copyFileSync, mkdtempSync, rmSync} from 'node:fs';
 import {join, resolve} from 'node:path';
@@ -41,6 +42,7 @@ async function fresh() { const r = new ReducerRuntime(); await r.replace(r.prepa
 const established=async()=>establishColony(await fresh());
 const call = fixtureCall;
 function fixture(name) { return readFileSync(join(fixtures, `${name}.wasm`)); }
+configureCasualties(fixture('casualty'));
 let passed = 0;
 async function test(name, run) { await run(); console.log(`ok ${++passed} - ${name}`); }
 
