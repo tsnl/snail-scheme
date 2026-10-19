@@ -201,6 +201,11 @@ typed wire records to establish boundary scenarios; they contain no alternate
 game simulation. Browser checks exercise shared input, WebGPU presentation,
 online checkpoint transfers and compatible or rejected reloads. Current evidence
 is recorded in [`VALIDATION.md`](VALIDATION.md).
+The shared model-only probe also supports the
+[`starter economy experiment`](../../tests/applications/starter-economy-test.md).
+Its instantaneous, validated fixtures price paid survey orders against the finite
+starter reserve; separate geometric and visible-only results distinguish budget
+opportunity from reliable scouting, defense and elapsed time.
 
 ## Follow visibility and rail ownership
 
