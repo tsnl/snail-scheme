@@ -76,8 +76,8 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 - [x] Keep the hub stationary; win by finding and destroying the nest.
 - [x] Waves strengthen over time rather than ending at an eight-minute deadline.
-- [x] Map is 8–16 times larger **per dimension**; bound rendering and pathfinding
-      work instead of processing every tile each frame.
+- [x] Bound rendering and pathfinding work instead of processing every tile each
+      frame. The earlier larger map is superseded by the compact 128×128 expedition.
 - [x] Randomize player spawn inside a circle near the map center.
 - [x] Randomize nest position; approaching waves provide costly directional clues.
 - [x] Keep seeded maps reproducible; use fresh randomness for new runs.
@@ -100,6 +100,10 @@ source changes alone do not count as a playable result. Keep the preview at **42
 - [x] Retain geometry during panning and animation; use native HiDPI rendering.
 - [x] Share fixed colored model buffers across tile, building and unit instances;
       upload occurrence transforms on changed ticks and use real GPU instanced draws.
+- [x] Reject instance bases collapsed by binary32 copying and subnormal normal
+      coefficients; preserve the accepted frame when candidate parsing fails.
+- [x] Restore thin tile borders using the shared terrain instances; native
+      desktop/mobile views, rotation, water and fog reveals are verified.
 - [x] Keep code and shaders hot-reloadable; preserve compatible saved colonies
       when client-only controls change. Protocol changes may require a page refresh.
 - [x] Rebase the game stack onto Perf PR #331's compiler improvements.

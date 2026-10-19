@@ -1,6 +1,50 @@
 # Release validation — 2026-10-18
 
-## Compact expedition checkpoint — not yet published
+## Published combined World11 package
+
+The final default `-O1` build from source `aba9a809` combines fixed model
+instancing, decoded-snapshot reuse, live tower transport, houses, compact mobile
+controls, the 128×128 expedition and thin tile borders. Its generation is
+`bba303dd013b64224fea8ad5`, with a 583,751-byte simulation and SHA-256
+`0135a3505039dc2194fd02f67ea613daaf4b69c077044c760f079471579e3101`.
+All 18 files served on port 4212 were fetched and compared byte-for-byte with the
+tested package. The existing preview server was retained.
+
+World11 uses `siegework-colony-v11`, so refreshing starts a fresh colony under the
+new save identity. Old World10 records remain untouched. This deliberate reset
+belongs to the compact map, not the border or rendering changes. Client remains
+schema 8. An already running World10 page rejects the incompatible hot update and
+keeps its committed code and save until a full refresh.
+
+The exact published package passes 218 actual-Wasm application checks, 22 product
+presentation groups and all 19 hosting groups, including both persistence and
+product browser input suites. Its paid seed-one expedition repeats the isolated
+balance result: nest discovery at 3:12, victory at 4:40.3, 1,240 ore spent and 44
+remaining. This eager fixture establishes feasibility, not an ordinary player's
+completion time. The unchanged library pipeline passes 12 actual-Wasm groups
+and 14 headed GPU groups, including the copied-matrix boundary correction,
+retained instances, motion/reveal clocks, native insets and exact resource cleanup.
+Repository formatting and book-source checks also pass.
+
+Thin borders use a one-percent inset of the existing terrain occurrences. They
+add no mesh vertices, prototype buffers or draw pass. Native screenshots cover
+1100×760 at DPR 2, 390×844 at DPR 3 and 568×320 at DPR 2, each at 0°, 45° and 90°,
+plus water and a fresh fog reveal. A paid five-building colony retains 17 fixed
+GPU meshes for 390–403 occurrences across these views. The product browser suite
+also verifies three houses and three workers in shared indexed draws and no new
+mesh uploads on the next tick. No MSAA, resolution reduction or pixel snapping
+was introduced.
+
+The independent informed Astra review found no remaining source or artifact
+blocker after checking the numeric correction, combined source, exact package
+hash, browser logs and native screenshots. Exact-head GitHub CI and landing are
+tracked in [PR #338](https://github.com/tsnl/snail-scheme/pull/338).
+The paired CPU report below remains a comparison of its named World10 packages;
+it does not include the later numeric guard, compact map or border refinement.
+
+The remaining sections preserve the evidence for earlier individual checkpoints.
+
+## Earlier isolated compact expedition checkpoint
 
 The default O1 build in `build/compact-final/solo` produced generation
 `4f105c10d1e2aaa848b69bde`, a 563,731-byte simulation with SHA-256
