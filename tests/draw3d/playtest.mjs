@@ -222,6 +222,41 @@ function checkTransport(r) {
 {
   const r=await fresh();
   try {
+    for(const x of [12,13]){await fixtureCall(r,'observe',[x,22]);await complete(r);}
+    const next=world(r),source=siteAt(next,12,22),target=at(next,12,22);
+    for(const rail of next.rails)rail.path=(rail.source===source.id
+      ?[[12,22],[11,22],[10,22],[9,22],[8,22]]
+      :[[13,22],[12,22],[11,22],[11,21],[12,21],[12,22]]).map(([x,y])=>routeCell(next,x,y));
+    next.rails.reverse(); // The slower route comes first, so color cannot depend on list order.
+    await restoreColony(r,next);await fixtureCall(r,'relocate-building',[13+22*48,14+22*48]);
+    assert.ok(siteAt(world(r),13,22).moveX>=0,'the fixture uses an accepted pending depot move');
+    const shared=()=>transportMarks(r).filter(mark=>mark.y===-target.y&&mark.x>target.x-1&&mark.x<target.x);
+    const tint=mark=>mark.mesh.vertices.slice(6,9).map(value=>Math.round(value*255));
+    const mixed=r.snapshot(1),batches=transportBatches(r),cyan=shared();
+    assert.equal(cyan.length,2,'mixed-speed routes draw one chevron at each half of their shared directed edge');
+    assert.deepEqual(cyan.map(mark=>mark.key).sort(),[20,21],'the eligible fast route supplies the shared phase');
+    assert.ok(cyan.every(mark=>mark.dx===-1&&mark.dy===0));
+    cyan.forEach(mark=>assert.deepEqual(tint(mark),[35,242,195],'any eligible fast route makes the shared edge cyan'));
+    const marks=transportMarks(r),identities=marks.map(({x,y,dx,dy})=>[x,y,dx,dy].join(','));
+    assert.equal(new Set(identities).size,identities.length,'different route colors never duplicate a directed occurrence');
+    const ordinary=marks.find(mark=>mark.x>target.x&&mark.y===-target.y);
+    assert.ok(ordinary);assert.deepEqual(tint(ordinary),[255,244,142],'the moving depot keeps ordinary marks on its unshared edge');
+    await fixtureCall(r,'relocate-building',[12+22*48,11+22*48]);
+    assert.ok(siteAt(world(r),12,22).moveX>=0);
+    const slow=shared();assert.equal(slow.length,2);
+    assert.deepEqual(slow.map(mark=>mark.key).sort(),[22,23],'without a fast route the first ordinary route supplies phase');
+    slow.forEach(mark=>assert.deepEqual(tint(mark),[255,244,142]));
+    assert.ok(slow.every(mark=>mark.mesh===ordinary.mesh),'eligibility changes reuse the existing ordinary mesh');
+    assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'changing station eligibility invalidates affected retained batches');
+    await r.restore(1,mixed);
+    assert.equal(shared().length,2);assert.ok(shared().every(mark=>mark.mesh===cyan[0].mesh));
+    console.log('ok - mixed-speed shared segments emit one cyan chevron per position; moving the last fast endpoint updates phase and color without rebuilding meshes');
+  } finally {await r.close();}
+}
+
+{
+  const r=await fresh();
+  try {
     await fixtureCall(r,'observe',[12,22]);await complete(r);
     for(const level of [1,2,3]) {
       const next=world(r),site=siteAt(next,12,22);site.level=level;
