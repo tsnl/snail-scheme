@@ -55,6 +55,6 @@
           (specialized (snapshot "specialized"))
           (module (strict-core->wasm concrete))
           (emitted (snapshot "emitted")))
-     (call-with-output-file (string-append directory "/source.wat")
+     (call-with-port (open-binary-output-file (string-append directory "/source.wat"))
        (lambda (port) (write-wasm module port)))
      (snapshot "written"))))

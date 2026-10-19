@@ -274,7 +274,7 @@
                                (lambda () ((chromium-trace "lofi.emit-wasm" strict-core->wasm) concrete))))))
     (define (source-file->wat-file root path output . exports)
       (let ((module (apply source-file->wasm root path exports)))
-        (call-with-output-file output (lambda (port) (write-wasm module port))))))
+        (call-with-port (open-binary-output-file output) (lambda (port) (write-wasm module port))))))
 
   ;; ---- Tests ----
 

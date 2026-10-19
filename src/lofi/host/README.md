@@ -3,7 +3,8 @@
 These libraries support the Chibi compiler and build scripts through the
 `bootstrap/lofi` loader view. Their paths follow `(lofi host ...)` names.
 
-- `wasm.sld` serializes structured Wasm into WAT and compacts finished definitions.
+- `wasm.sld` serializes structured Wasm into WAT on a binary output port and
+  compacts finished definitions into immutable encoded chunks.
 - `wasm-optimize.sld` assembles and optimizes with Binaryen.
 - `runtime-wasm.sld` builds and links the Rust Wasm scalar services.
 - `build-host.sld` runs commands with inherited streams.

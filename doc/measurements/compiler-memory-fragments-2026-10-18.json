@@ -10,7 +10,7 @@
     },
     "src/lofi/host/wasm.sld": {
       "before_sha256": "0e7095aa10d5229da2e10542f58d3dbfa60d8faa5d7c2e0d68408d04e031573d",
-      "after_sha256": "8198305171fce137327dc0b7f05b27572478352c2766dda490267b2279f0882f"
+      "after_sha256": "2563a5c3f7f29e83a814e590717aae20d136b1504ce3444078ab56868b2a2034"
     }
   },
   "limits": {
@@ -21,7 +21,7 @@
     "runtime_seconds": 600,
     "chibi_heap_arguments": "-h16M/1G"
   },
-  "method": "Force Chibi GC after loading/checking/specialization/emission/writing. Both samples use the same diagnostic probe. Object counts include compiler host objects; emitted minus written estimates pairs retained by the output module. WAT strings occupy additional storage. These are diagnostic retained-object counts, not clean timings or total-memory speedups.",
+  "method": "Force Chibi GC after loading/checking/specialization/emission/writing. Both samples use the same phase-boundary diagnostic probe; the final writer now requires a binary output port. Object counts include compiler host objects; emitted minus written estimates pairs retained by the output module. Encoded WAT byte chunks occupy additional storage. These are diagnostic retained-object counts, not clean timings or total-memory speedups.",
   "before": [
     {
       "phase": "loaded",
@@ -57,33 +57,33 @@
   "after": [
     {
       "phase": "loaded",
-      "pairs": 151483,
+      "pairs": 151564,
       "wat_fragments": 0,
-      "resident_kib": 19752
+      "resident_kib": 19800
     },
     {
       "phase": "checked",
-      "pairs": 332376,
+      "pairs": 332453,
       "wat_fragments": 0,
-      "resident_kib": 532808
+      "resident_kib": 532792
     },
     {
       "phase": "specialized",
-      "pairs": 435174,
+      "pairs": 435256,
       "wat_fragments": 0,
-      "resident_kib": 532808
+      "resident_kib": 532792
     },
     {
       "phase": "emitted",
-      "pairs": 197968,
+      "pairs": 199084,
       "wat_fragments": 534,
-      "resident_kib": 534408
+      "resident_kib": 535400
     },
     {
       "phase": "written",
-      "pairs": 158299,
+      "pairs": 158378,
       "wat_fragments": 0,
-      "resident_kib": 534408
+      "resident_kib": 535400
     }
   ],
   "output": {

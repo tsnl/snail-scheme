@@ -99,16 +99,19 @@ earlier application under `apps/siegework/three`.
 ## Retained emission storage, 18 October 2026
 
 Completed function definitions, including the module initializer, now become
-opaque immutable WAT fragments immediately. The existing serializer handles
+opaque immutable WAT fragments immediately. Each fragment owns encoded byte
+chunks; there is no large string join or second UTF-8 encoding. The existing serializer handles
 escaping and exceptional numeric tokens once. Emission still discovers layouts,
 imports and constants in the same order before writing the module header; no
 analysis is repeated and no expression cache or temporary-file pipeline is added.
+The internal `write-wasm` API takes a binary output port, allowing byte chunks
+to cross UTF-8 character boundaries without decoding them.
 
 On the complete Sboyer input, a forced-GC diagnostic reduced pairs retained after
-emission from **722,357 to 197,968**. Subtracting each sample's post-write host
-baseline gives **564,892 versus 39,669 output-associated pairs**, plus 534 compact
+emission from **722,357 to 199,084**. Subtracting each sample's post-write host
+baseline gives **564,892 versus 40,706 output-associated pairs**, plus 534 compact
 WAT fragments. The complete 3,138,011-byte WAT files are byte-identical. These
-counts exclude the bytes in WAT strings; they are not a whole-process memory
+counts exclude the encoded WAT bytes; they are not a whole-process memory
 ratio. Resident memory had already reached its high-water mark during checking
 and did not meaningfully decrease. See the
 [recorded observations](measurements/compiler-memory-fragments-2026-10-18.json).
