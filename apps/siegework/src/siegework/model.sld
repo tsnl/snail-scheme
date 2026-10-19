@@ -689,7 +689,8 @@
     (define (committed-builders bots)
       (if (null? bots) 0
           (+ (if (or (> (bot-order (car bots)) 0) (kit-carrier? (car bots))
-                     (production-worker? (car bots)) (repair-worker? (car bots))) 1 0)
+                     (production-worker? (car bots)) (repair-worker? (car bots))
+                     (hub-upgrade-worker? (car bots))) 1 0)
              (committed-builders (cdr bots)))))
     (define (builder-eligible? world bot)
       (and (= (bot-order bot) 0)

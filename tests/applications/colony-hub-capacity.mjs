@@ -16,7 +16,32 @@ async function advance(r,count=1){for(let i=0;i<count;i++){await call(r,'advance
 async function roundTrip(r){const saved=r.snapshot(1);await r.restore(1,saved);assert.deepEqual(r.snapshot(1),saved);}
 async function upgrade(r){await call(r,'upgrade',[8,22]);}
 async function running(fresh){const r=await fresh(),world=state(r);world.started=true;await restoreColony(r,world);return r;}
+async function opened(fresh){const r=await fresh();await call(r,'extract',[12,20]);await call(r,'cancel-building',[12,20]);return r;}
+function waitingForEconomy(r){
+  const world=state(r);assert.equal(world.buildings[0].stage,0,'paid tower waits for a construction worker');
+  assert.equal(world.bots.filter(expanding).length,1);assert.ok(world.bots.every(bot=>bot.order===0));
+  assert.equal(world.ore,35);assert.equal(world.spent,125);
+}
 export async function checkHubCapacity(test,fresh,bytes){
+  await test('assembling a hub expansion reserves the labor budget until its worker finishes',async()=>{
+    const r=await opened(fresh);await upgrade(r);assert.equal(state(r).bots[0].job,15);
+    await call(r,'observe',[12,22]);waitingForEconomy(r);await roundTrip(r);
+    await advance(r,29);waitingForEconomy(r);assert.equal(state(r).hubCapacityLevel,0);
+    await advance(r,2);assert.equal(state(r).hubCapacityLevel,1);assert.ok(!state(r).bots.some(expanding));
+    assert.ok(state(r).buildings[0].stage>0,'the completed expansion releases its worker for the paid tower');
+    assert.equal(state(r).bots.filter(bot=>bot.order>0||[3,5,11].includes(bot.job)).length,1);
+    assert.equal(state(r).ore,35);assert.equal(state(r).spent,125);await roundTrip(r);await r.close();
+  });
+  for(const phase of ['returning','fleeing'])await test(`a ${phase} hub expansion still reserves the construction labor budget`,async()=>{
+    const r=await opened(fresh),away=state(r);away.bots.forEach((bot,index)=>setWorker(away,index,{x:12,y:20}));
+    await restoreColony(r,away);await upgrade(r);assert.equal(state(r).bots[0].job,14);
+    if(phase==='fleeing'){
+      const interrupted=state(r);Object.assign(interrupted.bots[0],{job:7,timer:14,path:[]});await restoreColony(r,interrupted);
+    }
+    await call(r,'observe',[12,22]);waitingForEconomy(r);await roundTrip(r);
+    await advance(r);waitingForEconomy(r);await upgrade(r);assert.equal(state(r).notice,35);
+    assert.equal(state(r).spent,125);await roundTrip(r);await r.close();
+  });
   await test('six paid hub expansions double prices and stop at24 without creating workers',async()=>{
     const r=await running(fresh);await restoreColony(r,fund(state(r),6400));const initial=state(r).ore;let spent=0;
     for(const [level,price]of[100,200,400,800,1600,3200].entries()){
