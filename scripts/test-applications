@@ -31,5 +31,8 @@ done
 node "$root/tests/applications/runtime.mjs" "$output/siegework/solo" "$output" "$output/siegework"
 node "$root/tests/applications/recording.mjs" "$output/siegework/solo"
 node "$root/tests/applications/headless.mjs" "$output/siegework/solo"
+node "$root/tests/draw3d/playtest.mjs" "$output/siegework/solo"
+node "$root/tests/draw3d/colony.mjs" "$output/siegework/solo"
+node "$root/tests/draw3d/onboarding.mjs" "$output/siegework/solo"
 node "$root/tests/applications/colony-pacing.mjs" "$output/siegework/solo" "$output/pacing-probe.wasm" "$output/pacing-report.json"
 "$root/scripts/max-dps-test" --output "$output/max-dps-report.json"

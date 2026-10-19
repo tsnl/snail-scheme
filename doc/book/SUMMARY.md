@@ -2,6 +2,8 @@
 
 [Snail-Scheme](index.md)
 
+- [Games](games/index.md)
+  - [Siegework](games/siegework.md)
 - [LoFI: Low-Level Functional IR](lofi/index.md)
   - [Terms](lofi/terms.md)
   - [Types](lofi/types.md)

@@ -532,41 +532,77 @@
           (let ((rest (shuttle-nodes world (cdr rails) previous)))
             (if (ready-rail? world (car rails))
                 (cons (shuttle-node (car rails) (prior-rail previous (rail-source (car rails)) (car rails))) rest) rest))))
-    ;; Eight immutable dot groups share one display clock. Phase increases
-    ;; from source to parent, so each crest travels upstream through bends.
+    ;; One open stripe points along local +X. Its arms meet without overlap,
+    ;; so translucency stays even at the tip; every occurrence shares this mesh.
+    (define flow-chevron-geometry
+      (let ((up (vec3 0.0 0.0 1.0)))
+        (indexed-geometry
+         (vector (vertex (vec3 0.16 0.0 0.0) up)
+                 (vertex (vec3 -0.12 0.2 0.0) up)
+                 (vertex (vec3 -0.18 0.12 0.0) up)
+                 (vertex (vec3 0.0 0.0 0.0) up)
+                 (vertex (vec3 -0.18 -0.12 0.0) up)
+                 (vertex (vec3 -0.12 -0.2 0.0) up))
+         (vector 0 1 2 0 2 3 0 3 4 0 4 5))))
+    ;; Eight immutable groups share one display clock. Phase increases from
+    ;; source to parent, so each crest travels toward the hub through bends.
     ;; Dependencies contain directed cells, never cargo or simulation time.
     (define (flow-cell-visible? cell window)
       (and (>= (index-x cell) (window-left window)) (< (index-x cell) (window-right window))
            (>= (index-y cell) (window-top window)) (< (index-y cell) (window-bottom window))))
-    (define (flow-path path window phase distance fast found)
-      (if (or (null? path) (null? (cdr path))) found
-          (let ((a (car path)) (b (car (cdr path))))
-            (flow-path (cdr path) window phase (+ distance 2) fast
-                       (if (and (flow-cell-visible? a window) (= (remainder distance 8) phase))
-                           (cons a (cons b (cons 0 (cons fast found))))
-                           (if (and (flow-cell-visible? a window) (= (remainder (+ distance 1) 8) phase))
-                               (cons a (cons b (cons 1 (cons fast found)))) found))))))
-    (define (flow-dependencies world rails window phase found)
-      (if (null? rails) found
-          (let* ((rail (car rails)) (site (find-building (world-buildings world) (rail-source rail))))
-            (flow-dependencies world (cdr rails) window phase
-                               (if (and (not (null? site)) (ready? (car site)))
-                                   (flow-path (rail-path rail) window phase 0
-                                              (if (and (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail))) 1 0) found) found)))))
-    (define (flow-dot a b half fast)
+    ;; Local scratch is bounded by the visible window. Fast routes claim their
+    ;; directed edges first, so shared segments stay cyan without stacking alpha.
+    ;; The first eligible route supplies the phase; reverse traffic stays distinct.
+    (define (flow-edge-index a b window)
+      (let ((cell (+ (- (index-x a) (window-left window))
+                     (* (- (index-y a) (window-top window)) (- (window-right window) (window-left window)))))
+            (direction (cond ((= b (+ a 1)) 0) ((= b (- a 1)) 1) ((> b a) 2) (else 3))))
+        (i32->i64 (+ (* cell 4) direction))))
+    (define (flow-mark! groups a b half fast distance)
+      (let* ((phase (i32->i64 (remainder (+ distance half) 8)))
+             (found (vector-ref groups phase)))
+        (vector-set! groups phase (cons a (cons b (cons half (cons fast found)))))))
+    (define (flow-edge! a b window distance fast seen groups)
+      (let ((index (flow-edge-index a b window)))
+        (unless (vector-ref seen index)
+          (vector-set! seen index #t)
+          (flow-mark! groups a b 0 fast distance)
+          (flow-mark! groups a b 1 fast distance))))
+    (define (flow-path! path window distance fast seen groups)
+      (unless (or (null? path) (null? (cdr path)))
+        (let ((a (car path)) (b (car (cdr path))))
+          (when (flow-cell-visible? a window) (flow-edge! a b window distance fast seen groups))
+          (flow-path! (cdr path) window (+ distance 2) fast seen groups))))
+    (define (flow-dependencies! world rails window fast seen groups)
+      (unless (null? rails)
+        (let ((rail (car rails)))
+          (when (and (ready-rail? world rail)
+                     (= fast (if (and (cart-station? world (rail-source rail)) (cart-station? world (rail-parent rail))) 1 0)))
+            (flow-path! (rail-path rail) window 0 fast seen groups))
+          (flow-dependencies! world (cdr rails) window fast seen groups))))
+    (define (flow-groups world window)
+      (let* ((width (max 0 (- (window-right window) (window-left window))))
+             (height (max 0 (- (window-bottom window) (window-top window))))
+             (seen (make-vector (i32->i64 (* 4 (* width height))) #f))
+             (groups (make-vector (i32->i64 8) (empty-list))))
+        (flow-dependencies! world (world-rails world) window 1 seen groups)
+        (flow-dependencies! world (world-rails world) window 0 seen groups) groups))
+    (define (flow-chevron a b half fast)
       (let* ((fraction (if (= half 0) 0.25 0.75))
-             (x (+ (scalar (index-x a)) (* fraction (scalar (- (index-x b) (index-x a))))))
-             (y (- 0.0 (+ (scalar (index-y a)) (* fraction (scalar (- (index-y b) (index-y a))))))))
-        (flat (if (= fast 1) cyan lamp) x y 0.065 0.15 0.15)))
-    (define (flow-nodes dots)
-      (if (null? dots) (empty-list)
-          (cons (flow-dot (car dots) (car (cdr dots)) (car (cdr (cdr dots))) (car (cdr (cdr (cdr dots)))))
-                (flow-nodes (cdr (cdr (cdr (cdr dots))))))))
-    (define (flow-batches world window phase)
+             (dx (scalar (- (index-x b) (index-x a)))) (dy (scalar (- (index-y a) (index-y b))))
+             (center (vec3 (+ (scalar (index-x a)) (* fraction dx))
+                           (+ (- 0.0 (scalar (index-y a))) (* fraction dy)) 0.065)))
+        (mesh flow-chevron-geometry (if (= fast 1) cyan lamp)
+              (transform (vec3 dx dy 0.0) (vec3 (- 0.0 dy) dx 0.0) (vec3 0.0 0.0 1.0) center))))
+    (define (flow-nodes marks)
+      (if (null? marks) (empty-list)
+          (cons (flow-chevron (car marks) (car (cdr marks)) (car (cdr (cdr marks))) (car (cdr (cdr (cdr marks)))))
+                (flow-nodes (cdr (cdr (cdr (cdr marks))))))))
+    (define (flow-batches groups phase)
       (if (= phase 8) (empty-list)
-          (let ((dots (flow-dependencies world (world-rails world) window phase (empty-list))))
-            (cons (phased-batch (+ 20 phase) 0 dots 0.92 (* phase 45000) (lambda () (flow-nodes dots)))
-                  (flow-batches world window (+ phase 1))))))
+          (let ((marks (vector-ref groups (i32->i64 phase))))
+            (cons (phased-batch (+ 20 phase) 0 marks 0.4 (* phase 45000) (lambda () (flow-nodes marks)))
+                  (flow-batches groups (+ phase 1))))))
 
     ;; ---- Fixed actor bodies; only their occurrence poses change each tick ----
 
@@ -887,5 +923,5 @@
                                 (revealed-batch world (translucent-batch 11 0 terrain 0.25 #t
                                                                          (lambda () (water-glints world window #t (window-left window) (window-top window)))))
                                 (revealed-batch world (translucent-batch 12 0 terrain 0.55 #t (lambda () (mineral-nodes world window #t #t)))))
-                               (flow-batches world window 0))
+                               (flow-batches (flow-groups world window) 0))
                        (camera-light camera) (vec3 0.5 0.5 0.46) (rgb 28 151 223))))))

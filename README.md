@@ -17,8 +17,13 @@ remains Scheme hosted by Chibi; self-hosting and full R7RS support are future wo
 
 The [Lofi chapters](doc/book/lofi/index.md) specify the typed language,
 library values and compiler-as-library model, with examples and formal rules.
-The [online book](https://tsnl.github.io/snail-scheme/) is published from `main`
-by the Book and Pages workflow. Build it locally with `scripts/book build`.
+The [online book](https://tsnl.github.io/snail-scheme/) and
+[Siegework](https://tsnl.github.io/snail-scheme/play/siegework/) are built from
+`main` by the Book and Pages workflow. GitHub Actions uploads the generated site
+as a Pages artifact; site output is not checked into the repository.
+Build just the book with `scripts/book build`, or the complete site with
+`node scripts/build-pages.mjs`. The complete site is written to `build/pages`
+and checked under the `/snail-scheme/` URL prefix before upload.
 
 ## Start reading
 

@@ -3,6 +3,7 @@
 Snail-Scheme is a language and application toolkit built around Lofi, a typed
 functional language and compiler target.
 
+- [Games](games/index.md): play Siegework and learn how to build your colony.
 - [LoFI: Low-Level Functional IR](lofi/index.md): the language, types, libraries
   and application model.
 - [Tutorials](lofi/tutorials/index.md): build a counter, an inventory and a shared
