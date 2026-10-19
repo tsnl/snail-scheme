@@ -60,6 +60,19 @@ source changes alone do not count as a playable result. Keep the preview at **42
 
 ## Current playtest requests
 
+- [x] Increase transport-line contrast and replace the nest count with hollow
+      stars that fill as nests are defeated; publish the checked preview on 4212.
+- [ ] Replace world-space numeric ore badges with compact green HP bars and
+      optional purple reserve bars beneath them. No numbers, low-ore red or
+      pulsing; moving bars must share their units' display-rate animation clock.
+- [ ] Replace ground transport with straight elevated ziplines. A connection
+      requires clear cable sight and distance within either endpoint's actual
+      reveal radius. Show matching tower guides and lower the building models.
+- [ ] Reveal one rich, mineable deposit when a nest is destroyed; award no
+      instant ore. Modestly favor deposits near nests while preserving the
+      guaranteed opening deposit and the existing early exploration budget.
+- [ ] Unveil the entire map on defeat, without resuming gameplay or recording
+      every map tile as persistent survey history.
 - [x] Q/E animates between 90-degree snaps, preserving orthographic projection;
       panning and picking follow its orientation. Camera, picking and Chromium input verified.
 - [x] Reduce tower height so deposits behind towers remain accessible.
