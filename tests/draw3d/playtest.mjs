@@ -193,7 +193,10 @@ function checkTransport(r) {
       'opposite traffic at the same location keeps both directions');
     for(const batch of batches) {
       assert.ok(batch.opacity>0&&batch.opacity<=.5,'transport marks remain translucent even at the pulse crest');
-      assert.equal(batch.pulse,true);assert.equal(batch.pulsePhase,(batch.key-20)*Math.PI/4);
+      assert.equal(batch.pulse,true);
+      const phase=(batch.key-20)*Math.PI/4;
+      // The bridge converts millidegrees; pi/4 has a different binary64 rounding path.
+      assert.ok(Math.abs(batch.pulsePhase-phase)<=4*Number.EPSILON*Math.max(1,phase),'transport pulse phases stay a quarter-pi apart');
     }
     const mesh=marks[0].mesh,triangles=[];
     for(let i=0;i<mesh.indices.length;i+=3)triangles.push(mesh.indices.slice(i,i+3).map(index=>mesh.vertices.slice(index*10,index*10+2)));
@@ -249,7 +252,11 @@ function checkTransport(r) {
     assert.ok(slow.every(mark=>mark.mesh===ordinary.mesh),'eligibility changes reuse the existing ordinary mesh');
     assert.ok(transportBatches(r).some((batch,i)=>batch!==batches[i]),'changing station eligibility invalidates affected retained batches');
     await r.restore(1,mixed);
-    assert.equal(shared().length,2);assert.ok(shared().every(mark=>mark.mesh===cyan[0].mesh));
+    const restored=shared();assert.equal(restored.length,2);
+    assert.deepEqual(restored.map(mark=>mark.key).sort(),[20,21]);
+    assert.ok(restored.every(mark=>mark.dx===-1&&mark.dy===0&&mark.mesh===restored[0].mesh));
+    // The live-frame cache can evict cyan while every route is slow; restoring it preserves geometry, not the old wrapper.
+    assert.deepEqual(restored[0].mesh,cyan[0].mesh);
     console.log('ok - mixed-speed shared segments emit one cyan chevron per position; moving the last fast endpoint updates phase and color without rebuilding meshes');
   } finally {await r.close();}
 }
