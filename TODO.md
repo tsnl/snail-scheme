@@ -19,6 +19,15 @@ of implemented behavior separate from proposed language changes.
   to fixed-arity calls. The current typed Scheme subset requires proper parameter
   lists; collection packing macros are implemented separately.
 
+## Compiler memory use
+
+- [ ] Measure and reduce host memory during emission of the complete Compiler
+  benchmark. The [checked-type validation](benchmarks/lofi/evidence/20261018-checked-types-full57.md#separate-follow-up)
+  completed checking and specialization but exceeded an 8 GiB process-group
+  limit during emission with Chibi `-h64M/4G`. Distinguish retained syntax,
+  checked/concrete trees and emitted Wasm before choosing a change; preserve
+  the complete workload and the recorded failures.
+
 ## Deferred: Ott formalization and proofs
 
 Formalization and proof tooling are deferred. They are not prerequisites for
